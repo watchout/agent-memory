@@ -2,11 +2,27 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { appendFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+
+const LOG_DIR = join(homedir(), ".agent-memory");
+const LOG_FILE = join(LOG_DIR, "calls.log");
+
+async function logCall(tool: string, params: string): Promise<void> {
+  try {
+    await mkdir(LOG_DIR, { recursive: true });
+    const line = `${new Date().toISOString()}  ${tool}  ${params}\n`;
+    await appendFile(LOG_FILE, line);
+  } catch {
+    // Logging failure should never break tool execution
+  }
+}
 
 async function main() {
   const store = await createStore();
@@ -36,6 +52,7 @@ async function main() {
         .describe("Project identifier (defaults to AGENT_MEMORY_PROJECT env var)"),
     },
     async ({ decision, context, tags, project }) => {
+      await logCall("log_decision", `decision="${decision}"`);
       try {
         const result = await store.logDecision({
           agent_id: AGENT_ID,
@@ -79,6 +96,7 @@ async function main() {
         .describe("Filter by status (default: active)"),
     },
     async ({ project, tags, limit, status }) => {
+      await logCall("get_decisions", `project="${project || PROJECT || ""}" status="${status || "active"}"`);
       try {
         const decisions = await store.getDecisions({
           agent_id: AGENT_ID,
@@ -133,6 +151,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ old_decision_id, new_decision, context, tags, project }) => {
+      await logCall("supersede_decision", `old_id="${old_decision_id}" new="${new_decision}"`);
       try {
         const result = await store.supersedeDecision({
           agent_id: AGENT_ID,
@@ -184,6 +203,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ task, status, progress, files_modified, next_steps, project }) => {
+      await logCall("save_task_state", `task="${task}" status="${status}"`);
       try {
         const result = await store.saveTaskState({
           agent_id: AGENT_ID,
@@ -235,6 +255,7 @@ async function main() {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ query, scope, limit, project }) => {
+      await logCall("search_memory", `query="${query}"`);
       try {
         const result = await store.searchMemory({
           agent_id: AGENT_ID,
@@ -308,6 +329,7 @@ async function main() {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ project }) => {
+      await logCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
         const taskStates = await store.getTaskStates({
           agent_id: AGENT_ID,
