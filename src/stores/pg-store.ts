@@ -9,6 +9,8 @@ import type {
   SupersedeDecisionInput,
   SaveTaskStateInput,
   GetTaskStatesInput,
+  SearchMemoryInput,
+  SearchMemoryResult,
 } from "./types.js";
 
 const { Pool } = pg;
@@ -43,6 +45,12 @@ const MIGRATIONS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_agent
     ON task_states(agent_id, created_at DESC)`,
+
+  // v0.2.0: GIN indexes for full-text search
+  `CREATE INDEX IF NOT EXISTS idx_decisions_search ON decisions
+    USING GIN (to_tsvector('simple', decision || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')))`,
+  `CREATE INDEX IF NOT EXISTS idx_task_states_search ON task_states
+    USING GIN (to_tsvector('simple', task || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
 ];
 
 export class PgStore implements Store {
@@ -212,6 +220,60 @@ export class PgStore implements Store {
 
     const result = await this.pool.query(sql, params);
     return result.rows.map(this.rowToTaskState);
+  }
+
+  async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    const scope = input.scope || "all";
+    const limit = input.limit || 5;
+    const tsQuery = input.query
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.replace(/[^\w\u3000-\u9fff\uf900-\ufaff]/g, ""))
+      .filter(Boolean)
+      .join(" | ");
+
+    let decisions: Decision[] = [];
+    let taskStates: TaskState[] = [];
+
+    if (scope === "decisions" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+      conditions.push(
+        `to_tsvector('simple', decision || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')) @@ to_tsquery('simple', $${pi++})`
+      );
+      params.push(tsQuery);
+
+      const sql = `SELECT * FROM decisions WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
+      const result = await this.pool.query(sql, params);
+      decisions = result.rows.map(this.rowToDecision);
+    }
+
+    if (scope === "tasks" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+      conditions.push(
+        `to_tsvector('simple', task || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')) @@ to_tsquery('simple', $${pi++})`
+      );
+      params.push(tsQuery);
+
+      const sql = `SELECT * FROM task_states WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
+      const result = await this.pool.query(sql, params);
+      taskStates = result.rows.map(this.rowToTaskState);
+    }
+
+    return { decisions, task_states: taskStates };
   }
 
   async close(): Promise<void> {

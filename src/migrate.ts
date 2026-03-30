@@ -35,6 +35,12 @@ const MIGRATIONS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_agent
     ON task_states(agent_id, created_at DESC)`,
+
+  // v0.2.0: GIN indexes for full-text search
+  `CREATE INDEX IF NOT EXISTS idx_decisions_search ON decisions
+    USING GIN (to_tsvector('simple', decision || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')))`,
+  `CREATE INDEX IF NOT EXISTS idx_task_states_search ON task_states
+    USING GIN (to_tsvector('simple', task || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
 ];
 
 async function migrate() {

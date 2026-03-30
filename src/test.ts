@@ -193,6 +193,142 @@ async function testRecoverContext() {
   await store.close();
 }
 
+async function testSearchMemory() {
+  console.log("\n── Search Memory Tests ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  // Setup: log some decisions and tasks
+  await store.logDecision({
+    agent_id: "test-agent",
+    decision: "Use JWT with 7-day refresh token",
+    context: "Considered session cookies vs JWT. JWT chosen for API-first design.",
+    tags: ["auth", "architecture"],
+    project: "hotel-app",
+  });
+  await store.logDecision({
+    agent_id: "test-agent",
+    decision: "PostgreSQL as primary database",
+    context: "SQLite considered but ruled out for multi-agent access.",
+    tags: ["database", "architecture"],
+    project: "hotel-app",
+  });
+  await store.saveTaskState({
+    agent_id: "test-agent",
+    task: "Implement JWT authentication middleware",
+    status: "completed",
+    progress: "JWT verification and RBAC fully implemented",
+    files_modified: ["src/middleware/auth.ts"],
+    project: "hotel-app",
+  });
+
+  // Search decisions by keyword
+  const authResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "JWT",
+  });
+  assert(authResults.decisions.length >= 1, "search finds JWT decision");
+  assert(authResults.task_states.length >= 1, "search finds JWT task");
+
+  // Search with scope filter
+  const decisionsOnly = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "database",
+    scope: "decisions",
+  });
+  assert(decisionsOnly.decisions.length >= 1, "scope=decisions finds database decision");
+  assert(decisionsOnly.task_states.length === 0, "scope=decisions returns no tasks");
+
+  const tasksOnly = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "authentication",
+    scope: "tasks",
+  });
+  assert(tasksOnly.task_states.length >= 1, "scope=tasks finds auth task");
+  assert(tasksOnly.decisions.length === 0, "scope=tasks returns no decisions");
+
+  // Search with project filter
+  const projectResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "JWT",
+    project: "nonexistent-project",
+  });
+  assert(
+    projectResults.decisions.length === 0 && projectResults.task_states.length === 0,
+    "project filter excludes non-matching results"
+  );
+
+  // Agent isolation in search
+  const otherAgentResults = await store.searchMemory({
+    agent_id: "other-agent",
+    query: "JWT",
+  });
+  assert(
+    otherAgentResults.decisions.length === 0 && otherAgentResults.task_states.length === 0,
+    "search respects agent isolation"
+  );
+
+  // No results for unrelated query
+  const noResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "kubernetes",
+  });
+  assert(
+    noResults.decisions.length === 0 && noResults.task_states.length === 0,
+    "no results for unrelated query"
+  );
+
+  // Limit parameter
+  const limitResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "architecture",
+    scope: "decisions",
+    limit: 1,
+  });
+  assert(limitResults.decisions.length <= 1, "limit parameter works");
+
+  await store.close();
+}
+
+async function testRecoverContextBoot() {
+  console.log("\n── Recover Context (Boot) Tests ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  // Save an in_progress task
+  await store.saveTaskState({
+    agent_id: "test-agent",
+    task: "Implement search feature",
+    status: "in_progress",
+    progress: "DB query done, API pending",
+    next_steps: "Add REST endpoint",
+    files_modified: ["src/search.ts"],
+    project: "hotel-app",
+  });
+
+  // Save a completed task (should NOT appear in boot)
+  await store.saveTaskState({
+    agent_id: "test-agent",
+    task: "Setup project",
+    status: "completed",
+    progress: "All done",
+    project: "hotel-app",
+  });
+
+  // Simulate boot: only in_progress, limit 1
+  const tasks = await store.getTaskStates({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    limit: 1,
+    status: "in_progress",
+  });
+  assert(tasks.length === 1, "boot returns exactly 1 task");
+  assert(tasks[0].status === "in_progress", "boot returns in_progress task only");
+  assert(tasks[0].task === "Implement search feature", "boot returns correct task");
+
+  await store.close();
+}
+
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
   const store = new JsonStore();
@@ -237,6 +373,8 @@ async function run() {
   await testDecisions();
   await testTaskStates();
   await testRecoverContext();
+  await testSearchMemory();
+  await testRecoverContextBoot();
   await testErrorHandling();
 
   await cleanup();

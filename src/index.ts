@@ -13,7 +13,7 @@ async function main() {
 
   const server = new McpServer({
     name: "agent-memory",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   // ─── log_decision ───────────────────────────────────────────────
@@ -221,75 +221,121 @@ async function main() {
     }
   );
 
-  // ─── recover_context ───────────────────────────────────────────
+  // ─── search_memory ──────────────────────────────────────────────
   server.tool(
-    "recover_context",
-    "Recover working context after compaction or at session start. Returns active decisions and recent task states. Call this as the FIRST action after compaction.",
+    "search_memory",
+    "Search past decisions and task context by keyword. IMPORTANT: Before making any architectural or design decision, search first to check if a related decision already exists. Contradicting a past decision without checking is a common failure mode after compaction or context loss. Also useful when you encounter unfamiliar project context, file structures, or naming conventions that may have been established in prior sessions.",
     {
+      query: z.string().describe("Search keywords"),
+      scope: z
+        .enum(["decisions", "tasks", "all"])
+        .optional()
+        .describe("Search scope (default: all)"),
+      limit: z.number().optional().describe("Max results (default: 5)"),
       project: z.string().optional().describe("Filter by project"),
     },
-    async ({ project }) => {
+    async ({ query, scope, limit, project }) => {
       try {
-        const [decisions, taskStates] = await Promise.all([
-          store.getDecisions({
-            agent_id: AGENT_ID,
-            project: project || PROJECT,
-            limit: 10,
-            status: "active",
-          }),
-          store.getTaskStates({
-            agent_id: AGENT_ID,
-            project: project || PROJECT,
-            limit: 5,
-            status: "all",
-          }),
-        ]);
+        const result = await store.searchMemory({
+          agent_id: AGENT_ID,
+          query,
+          scope,
+          limit,
+          project: project || PROJECT,
+        });
 
-        const parts: string[] = [];
-
-        parts.push("🔄 CONTEXT RECOVERED — agent-memory\n");
-        parts.push(`Agent: ${AGENT_ID}`);
-        if (project || PROJECT) parts.push(`Project: ${project || PROJECT}`);
-        parts.push("");
-
-        // Decisions section
-        if (decisions.length > 0) {
-          parts.push("═══ ACTIVE DECISIONS ═══");
-          for (const d of decisions) {
-            parts.push(`• ${d.decision}`);
-            if (d.context) parts.push(`  ↳ ${d.context}`);
-            if (d.tags.length) parts.push(`  Tags: ${d.tags.join(", ")}`);
-          }
-          parts.push("");
-        } else {
-          parts.push("═══ DECISIONS: none recorded ═══\n");
+        const total = result.decisions.length + result.task_states.length;
+        if (total === 0) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `🔍 search_memory: "${query}" — no results`,
+              },
+            ],
+          };
         }
 
-        // Task states section
-        if (taskStates.length > 0) {
-          parts.push("═══ RECENT TASK STATES ═══");
-          for (const t of taskStates) {
+        const parts: string[] = [];
+        parts.push(`🔍 search_memory: "${query}" — ${total} results\n`);
+
+        if (result.decisions.length > 0) {
+          parts.push("── DECISIONS ──");
+          for (const d of result.decisions) {
+            parts.push(`• [${d.status}] ${d.decision}`);
+            if (d.context) parts.push(`  ↳ ${d.context}`);
+            if (d.tags.length) parts.push(`  Tags: ${d.tags.join(", ")} | ${d.created_at.slice(0, 10)}`);
+          }
+          parts.push("");
+        }
+
+        if (result.task_states.length > 0) {
+          parts.push("── TASK STATES ──");
+          for (const t of result.task_states) {
             const emoji =
               t.status === "completed"
                 ? "✅"
                 : t.status === "blocked"
                   ? "🚫"
                   : "🔧";
-            parts.push(`${emoji} [${t.status}] ${t.task}`);
+            parts.push(`• ${emoji} [${t.status}] ${t.task}`);
             if (t.progress) parts.push(`  Progress: ${t.progress}`);
-            if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
             if (t.files_modified.length)
               parts.push(`  Files: ${t.files_modified.join(", ")}`);
+            parts.push(`  ${t.created_at.slice(0, 10)}`);
           }
-          parts.push("");
-        } else {
-          parts.push("═══ TASK STATES: none recorded ═══\n");
         }
 
-        parts.push("═══ END CONTEXT RECOVERY ═══");
-        parts.push(
-          "Review the above and continue working. Do not re-make decisions that are already recorded."
-        );
+        return {
+          content: [{ type: "text" as const, text: parts.join("\n") }],
+        };
+      } catch (err) {
+        return {
+          content: [
+            { type: "text" as const, text: `❌ Failed to search memory: ${err}` },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── recover_context ───────────────────────────────────────────
+  server.tool(
+    "recover_context",
+    "Restore current task at session start. Returns only the most recent in-progress task (~100 tokens). Called automatically by SessionStart hook. Use search_memory to look up past decisions as needed during work.",
+    {
+      project: z.string().optional().describe("Filter by project"),
+    },
+    async ({ project }) => {
+      try {
+        const taskStates = await store.getTaskStates({
+          agent_id: AGENT_ID,
+          project: project || PROJECT,
+          limit: 1,
+          status: "in_progress",
+        });
+
+        const parts: string[] = [];
+
+        parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
+        if (project || PROJECT) parts.push(`Project: ${project || PROJECT}`);
+        parts.push("");
+
+        if (taskStates.length > 0) {
+          parts.push("── CURRENT WORK ──");
+          const t = taskStates[0];
+          parts.push(`🔧 [${t.status}] ${t.task}`);
+          if (t.progress) parts.push(`  Progress: ${t.progress}`);
+          if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
+          if (t.files_modified.length)
+            parts.push(`  Files: ${t.files_modified.join(", ")}`);
+        } else {
+          parts.push("No in-progress tasks.");
+        }
+
+        parts.push("");
+        parts.push("Use search_memory to find past decisions when needed.");
 
         return {
           content: [{ type: "text" as const, text: parts.join("\n") }],

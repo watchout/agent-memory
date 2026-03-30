@@ -12,6 +12,8 @@ import type {
   SupersedeDecisionInput,
   SaveTaskStateInput,
   GetTaskStatesInput,
+  SearchMemoryInput,
+  SearchMemoryResult,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
@@ -157,6 +159,55 @@ export class JsonStore implements Store {
     });
 
     return results.slice(0, input.limit || 5);
+  }
+
+  async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    const scope = input.scope || "all";
+    const limit = input.limit || 5;
+    const queryLower = input.query.toLowerCase();
+    const keywords = queryLower.split(/\s+/).filter(Boolean);
+
+    const matchesAny = (text: string): boolean => {
+      const lower = text.toLowerCase();
+      return keywords.some((kw) => lower.includes(kw));
+    };
+
+    let decisions: Decision[] = [];
+    let taskStates: TaskState[] = [];
+
+    if (scope === "decisions" || scope === "all") {
+      decisions = this.decisions
+        .filter((d) => {
+          if (d.agent_id !== input.agent_id) return false;
+          if (input.project && d.project !== input.project) return false;
+          const searchText = [d.decision, d.context || "", ...d.tags].join(" ");
+          return matchesAny(searchText);
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, limit);
+    }
+
+    if (scope === "tasks" || scope === "all") {
+      taskStates = this.taskStates
+        .filter((t) => {
+          if (t.agent_id !== input.agent_id) return false;
+          if (input.project && t.project !== input.project) return false;
+          const searchText = [t.task, t.progress || "", t.next_steps || ""].join(
+            " "
+          );
+          return matchesAny(searchText);
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, limit);
+    }
+
+    return { decisions, task_states: taskStates };
   }
 
   async close(): Promise<void> {
