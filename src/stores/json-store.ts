@@ -149,10 +149,12 @@ export class JsonStore implements Store {
       results = results.filter((t) => t.status === input.status);
     }
 
-    results.sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    results.sort((a, b) => {
+      const timeDiff =
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return this.taskStates.indexOf(b) - this.taskStates.indexOf(a);
+    });
 
     return results.slice(0, input.limit || 5);
   }
