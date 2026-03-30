@@ -165,7 +165,14 @@ export class JsonStore implements Store {
     const scope = input.scope || "all";
     const limit = input.limit || 5;
     const queryLower = input.query.toLowerCase();
-    const keywords = queryLower.split(/\s+/).filter(Boolean);
+    // Split on whitespace, then further split mixed CJK/ASCII tokens
+    const rawTokens = queryLower.split(/\s+/).filter(Boolean);
+    const keywords: string[] = [];
+    for (const token of rawTokens) {
+      // Split at CJK/ASCII boundaries to handle "JWT認証" → ["jwt", "認証"]
+      const parts = token.split(/(?<=[\u3000-\u9fff\uf900-\ufaff])(?=[a-z0-9])|(?<=[a-z0-9])(?=[\u3000-\u9fff\uf900-\ufaff])/i).filter(Boolean);
+      keywords.push(...parts);
+    }
 
     const matchesAny = (text: string): boolean => {
       const lower = text.toLowerCase();

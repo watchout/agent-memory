@@ -329,6 +329,95 @@ async function testRecoverContextBoot() {
   await store.close();
 }
 
+async function testJapaneseSearchJson() {
+  console.log("\n── Japanese Search Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  // Log Japanese decision
+  await store.logDecision({
+    agent_id: "test-agent",
+    decision: "認証方式をJWTに決定",
+    context: "セッションCookieも検討したが、API設計の一貫性を優先",
+    tags: ["認証", "アーキテクチャ"],
+    project: "hotel-app",
+  });
+
+  // Save Japanese task
+  await store.saveTaskState({
+    agent_id: "test-agent",
+    task: "認証ミドルウェアの実装",
+    status: "in_progress",
+    progress: "JWT検証完了、RBAC未実装",
+    next_steps: "ロールベースアクセス制御を追加",
+    project: "hotel-app",
+  });
+
+  // Search with Japanese keyword
+  const authResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "認証",
+  });
+  assert(authResults.decisions.length >= 1, "Japanese search finds 認証 decision");
+  assert(authResults.task_states.length >= 1, "Japanese search finds 認証 task");
+
+  // Mixed Japanese/English
+  const mixedResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "JWT認証",
+  });
+  assert(mixedResults.decisions.length >= 1, "mixed JP/EN search works");
+
+  // Japanese tag in search text
+  const tagResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "アーキテクチャ",
+    scope: "decisions",
+  });
+  assert(tagResults.decisions.length >= 1, "Japanese tag search works");
+
+  // Partial Japanese keyword
+  const partialResults = await store.searchMemory({
+    agent_id: "test-agent",
+    query: "ミドルウェア",
+    scope: "tasks",
+  });
+  assert(partialResults.task_states.length >= 1, "partial Japanese keyword works");
+
+  await store.close();
+}
+
+async function testEmptyDbBoot() {
+  console.log("\n── Empty DB Boot Test ──");
+  // Simulate boot.ts with no data
+  const store = new JsonStore();
+  await store.initialize();
+
+  const tasks = await store.getTaskStates({
+    agent_id: "fresh-agent-never-used",
+    limit: 1,
+    status: "in_progress",
+  });
+  assert(tasks.length === 0, "empty DB returns 0 tasks without error");
+
+  // Simulate the boot output format
+  const parts: string[] = [];
+  parts.push(`⚡ SESSION BOOT — agent-memory (fresh-agent)`);
+  parts.push("");
+  if (tasks.length > 0) {
+    parts.push("── CURRENT WORK ──");
+  } else {
+    parts.push("No in-progress tasks.");
+  }
+  parts.push("");
+  parts.push("Use search_memory to find past decisions when needed.");
+  const output = parts.join("\n");
+  assert(output.includes("No in-progress tasks."), "boot output shows no tasks message");
+  assert(!output.includes("CURRENT WORK"), "boot output omits CURRENT WORK section");
+
+  await store.close();
+}
+
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
   const store = new JsonStore();
@@ -374,7 +463,9 @@ async function run() {
   await testTaskStates();
   await testRecoverContext();
   await testSearchMemory();
+  await testJapaneseSearchJson();
   await testRecoverContextBoot();
+  await testEmptyDbBoot();
   await testErrorHandling();
 
   await cleanup();
