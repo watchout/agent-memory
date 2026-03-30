@@ -1,0 +1,41 @@
+{
+  "// INSTRUCTIONS": "Add agent-memory to your mcpServers in ~/.claude/settings.json",
+
+  "// OPTION A: JSON file mode (no database needed)": "",
+  "mcpServers_json_mode": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["~/Developer/agent-memory/dist/index.js"],
+      "env": {
+        "AGENT_MEMORY_AGENT_ID": "my-agent",
+        "AGENT_MEMORY_PROJECT": "my-project"
+      }
+    }
+  },
+
+  "// OPTION B: PostgreSQL mode": "",
+  "mcpServers_pg_mode": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["~/Developer/agent-memory/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "postgres://user:pass@localhost:5432/agents",
+        "AGENT_MEMORY_AGENT_ID": "cto-bot",
+        "AGENT_MEMORY_PROJECT": "hotel-app"
+      }
+    }
+  },
+
+  "// IYASAKA multi-bot setup example": "",
+  "mcpServers_iyasaka_example": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["~/Developer/agent-memory/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "postgres://user:pass@localhost:5432/agents",
+        "AGENT_MEMORY_AGENT_ID": "cto-bot",
+        "AGENT_MEMORY_PROJECT": "tech-lead"
+      }
+    }
+  }
+}

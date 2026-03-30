@@ -1,0 +1,19 @@
+# agent-memory CLAUDE.md Integration Template
+#
+# Add the following sections to your project's CLAUDE.md.
+# Place "Compact Instructions" near the TOP of the file
+# (it survives compaction with stronger influence when positioned early).
+
+## Compact Instructions
+
+After compaction, as your FIRST action:
+1. Call the `recover_context` MCP tool to restore decisions and task state
+2. Review the recovered context before continuing work
+3. Do NOT re-make decisions that are already recorded
+
+## Memory Rules
+
+- After making important architectural or design decisions, call `log_decision` to record them
+- At natural task breakpoints (feature complete, milestone, switching tasks), call `save_task_state`
+- When changing a previous decision, use `supersede_decision` instead of just making a new one
+- Before ending a session, call `save_task_state` with current progress and next steps
