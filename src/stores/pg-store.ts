@@ -46,11 +46,11 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_task_states_agent
     ON task_states(agent_id, created_at DESC)`,
 
-  // v0.2.0: GIN indexes for full-text search
+  // v0.2.0: GIN indexes for full-text search (columns only, no function calls on arrays)
   `CREATE INDEX IF NOT EXISTS idx_decisions_search ON decisions
-    USING GIN (to_tsvector('simple', decision || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')))`,
+    USING GIN (to_tsvector('simple', coalesce(decision,'') || ' ' || coalesce(context,'')))`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_search ON task_states
-    USING GIN (to_tsvector('simple', task || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
+    USING GIN (to_tsvector('simple', coalesce(task,'') || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
 ];
 
 export class PgStore implements Store {
@@ -225,12 +225,22 @@ export class PgStore implements Store {
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
     const scope = input.scope || "all";
     const limit = input.limit || 5;
-    const tsQuery = input.query
-      .split(/\s+/)
-      .filter(Boolean)
+    // Split on whitespace, then further split mixed CJK/ASCII tokens
+    const rawTokens = input.query.split(/\s+/).filter(Boolean);
+    const keywords: string[] = [];
+    for (const token of rawTokens) {
+      const parts = token.split(/(?<=[\u3000-\u9fff\uf900-\ufaff])(?=[a-z0-9])|(?<=[a-z0-9])(?=[\u3000-\u9fff\uf900-\ufaff])/i).filter(Boolean);
+      keywords.push(...parts);
+    }
+
+    // Build tsquery for full-text search (works well for ASCII/Latin)
+    const tsQuery = keywords
       .map((w) => w.replace(/[^\w\u3000-\u9fff\uf900-\ufaff]/g, ""))
       .filter(Boolean)
       .join(" | ");
+
+    // Build ILIKE patterns for CJK/mixed text fallback
+    const likePatterns = keywords.map((w) => `%${w}%`);
 
     let decisions: Decision[] = [];
     let taskStates: TaskState[] = [];
@@ -244,10 +254,23 @@ export class PgStore implements Store {
         conditions.push(`project = $${pi++}`);
         params.push(input.project);
       }
-      conditions.push(
-        `to_tsvector('simple', decision || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')) @@ to_tsquery('simple', $${pi++})`
-      );
-      params.push(tsQuery);
+
+      // Combine tsvector (for indexed ASCII search) OR ILIKE (for CJK fallback)
+      const searchClauses: string[] = [];
+      if (tsQuery) {
+        searchClauses.push(
+          `to_tsvector('simple', coalesce(decision,'') || ' ' || coalesce(context,'')) @@ to_tsquery('simple', $${pi++})`
+        );
+        params.push(tsQuery);
+      }
+      const likeClause = likePatterns.map((_, i) =>
+        `(coalesce(decision,'') || ' ' || coalesce(context,'') || ' ' || array_to_string(tags,' ')) ILIKE $${pi + i}`
+      ).join(" OR ");
+      searchClauses.push(`(${likeClause})`);
+      for (const pat of likePatterns) params.push(pat);
+      pi += likePatterns.length;
+
+      conditions.push(`(${searchClauses.join(" OR ")})`);
 
       const sql = `SELECT * FROM decisions WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
       const result = await this.pool.query(sql, params);
@@ -263,10 +286,22 @@ export class PgStore implements Store {
         conditions.push(`project = $${pi++}`);
         params.push(input.project);
       }
-      conditions.push(
-        `to_tsvector('simple', task || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')) @@ to_tsquery('simple', $${pi++})`
-      );
-      params.push(tsQuery);
+
+      const searchClauses: string[] = [];
+      if (tsQuery) {
+        searchClauses.push(
+          `to_tsvector('simple', coalesce(task,'') || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')) @@ to_tsquery('simple', $${pi++})`
+        );
+        params.push(tsQuery);
+      }
+      const likeClause = likePatterns.map((_, i) =>
+        `(coalesce(task,'') || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')) ILIKE $${pi + i}`
+      ).join(" OR ");
+      searchClauses.push(`(${likeClause})`);
+      for (const pat of likePatterns) params.push(pat);
+      pi += likePatterns.length;
+
+      conditions.push(`(${searchClauses.join(" OR ")})`);
 
       const sql = `SELECT * FROM task_states WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
       const result = await this.pool.query(sql, params);

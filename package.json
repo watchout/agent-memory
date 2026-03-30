@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "tsx src/test.ts",
+    "test:pg": "tsx src/test-pg.ts",
     "migrate": "tsx src/migrate.ts",
     "boot": "tsx src/boot.ts"
   },
