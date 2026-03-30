@@ -69,6 +69,19 @@ export interface GetTaskStatesInput {
   status?: "in_progress" | "completed" | "blocked" | "all";
 }
 
+export interface SearchMemoryInput {
+  agent_id: string;
+  query: string;
+  scope?: "decisions" | "tasks" | "all";
+  limit?: number;
+  project?: string;
+}
+
+export interface SearchMemoryResult {
+  decisions: Decision[];
+  task_states: TaskState[];
+}
+
 export interface Store {
   /** Initialize the store (create tables/files if needed) */
   initialize(): Promise<void>;
@@ -87,6 +100,9 @@ export interface Store {
 
   /** Get task states with optional filters */
   getTaskStates(input: GetTaskStatesInput): Promise<TaskState[]>;
+
+  /** Search decisions and task_states by keyword (v0.2.0) */
+  searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult>;
 
   /** Close connections */
   close(): Promise<void>;
