@@ -102,10 +102,21 @@ export interface GetKnowledgeInput {
   tags?: string[];
 }
 
+export interface AgentMessage {
+  id: string;
+  author_id: string;
+  content: string;
+  source: string;
+  channel_id?: string;
+  role: string;
+  project?: string;
+  created_at: string;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
-  scope?: "decisions" | "tasks" | "knowledge" | "all";
+  scope?: "decisions" | "tasks" | "knowledge" | "messages" | "all";
   limit?: number;
   project?: string;
 }
@@ -114,6 +125,7 @@ export interface SearchMemoryResult {
   decisions: Decision[];
   task_states: TaskState[];
   knowledge: Knowledge[];
+  messages: AgentMessage[];
 }
 
 export interface Store {

@@ -423,9 +423,11 @@ async function testKnowledgeCRUD() {
   const store = new JsonStore();
   await store.initialize();
 
+  const KA = "knowledge-crud-agent";
+
   // Save knowledge
   const k1 = await store.saveKnowledge({
-    agent_id: "test-agent",
+    agent_id: KA,
     title: "hotel-kanri DB設計方針",
     content: "PostgreSQLを採用。理由はagent-comと共有可能なため。",
     source_type: "decisions",
@@ -440,7 +442,7 @@ async function testKnowledgeCRUD() {
 
   // Save another
   await store.saveKnowledge({
-    agent_id: "test-agent",
+    agent_id: KA,
     title: "認証方式の決定経緯",
     content: "JWTを採用。セッションCookieも検討したがAPI設計の一貫性を優先。",
     source_type: "decisions",
@@ -450,7 +452,7 @@ async function testKnowledgeCRUD() {
 
   // Get knowledge
   const all = await store.getKnowledge({
-    agent_id: "test-agent",
+    agent_id: KA,
     project: "hotel-app",
   });
   assert(all.length === 2, "getKnowledge returns 2 entries");
@@ -458,7 +460,7 @@ async function testKnowledgeCRUD() {
 
   // Filter by tags
   const dbKnowledge = await store.getKnowledge({
-    agent_id: "test-agent",
+    agent_id: KA,
     tags: ["database"],
   });
   assert(dbKnowledge.length === 1, "tag filter works");
@@ -476,9 +478,11 @@ async function testKnowledgeSearch() {
   const store = new JsonStore();
   await store.initialize();
 
+  const KA = "knowledge-crud-agent";
+
   // Search knowledge by keyword
   const dbResults = await store.searchMemory({
-    agent_id: "test-agent",
+    agent_id: KA,
     query: "PostgreSQL",
     scope: "knowledge",
   });
@@ -487,14 +491,14 @@ async function testKnowledgeSearch() {
 
   // Search all scopes
   const allResults = await store.searchMemory({
-    agent_id: "test-agent",
+    agent_id: KA,
     query: "認証",
   });
   assert(allResults.knowledge.length >= 1, "all-scope search finds knowledge");
 
   // Japanese knowledge search
   const jpResults = await store.searchMemory({
-    agent_id: "test-agent",
+    agent_id: KA,
     query: "DB設計",
     scope: "knowledge",
   });

@@ -248,7 +248,7 @@ async function main() {
     {
       query: z.string().describe("Search keywords or natural language query"),
       scope: z
-        .enum(["decisions", "tasks", "knowledge", "all"])
+        .enum(["decisions", "tasks", "knowledge", "messages", "all"])
         .optional()
         .describe("Search scope (default: all)"),
       limit: z.number().optional().describe("Max results (default: 5)"),
@@ -265,7 +265,7 @@ async function main() {
           project: project || PROJECT,
         });
 
-        const total = result.knowledge.length + result.decisions.length + result.task_states.length;
+        const total = result.knowledge.length + result.decisions.length + result.task_states.length + result.messages.length;
         if (total === 0) {
           return {
             content: [
@@ -314,6 +314,15 @@ async function main() {
             if (t.files_modified.length)
               parts.push(`  Files: ${t.files_modified.join(", ")}`);
             parts.push(`  ${t.created_at.slice(0, 10)}`);
+          }
+          parts.push("");
+        }
+
+        if (result.messages.length > 0) {
+          parts.push("── MESSAGES ──");
+          for (const m of result.messages) {
+            parts.push(`• [${m.source}] ${m.author_id}: ${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`);
+            parts.push(`  ${m.created_at.slice(0, 10)}`);
           }
         }
 

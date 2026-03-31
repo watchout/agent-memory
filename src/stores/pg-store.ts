@@ -5,6 +5,7 @@ import type {
   Decision,
   TaskState,
   Knowledge,
+  AgentMessage,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -371,7 +372,44 @@ export class PgStore implements Store {
       }
     }
 
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems };
+    let messages: AgentMessage[] = [];
+
+    if (scope === "messages" || scope === "all") {
+      try {
+        const conditions: string[] = ["author_id = $1"];
+        const params: unknown[] = [input.agent_id];
+        let pi = 2;
+
+        if (input.project) {
+          conditions.push(`project = $${pi++}`);
+          params.push(input.project);
+        }
+
+        const likeClause = likePatterns.map((_, i) =>
+          `content ILIKE $${pi + i}`
+        ).join(" OR ");
+        conditions.push(`(${likeClause})`);
+        for (const pat of likePatterns) params.push(pat);
+        pi += likePatterns.length;
+
+        const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, project, created_at FROM agent_messages WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
+        const result = await this.pool.query(sql, params);
+        messages = result.rows.map((row: Record<string, unknown>) => ({
+          id: row.id as string,
+          author_id: row.author_id as string,
+          content: row.content as string,
+          source: row.source as string,
+          channel_id: row.channel_id as string | undefined,
+          role: row.role as string,
+          project: row.project as string | undefined,
+          created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string,
+        }));
+      } catch {
+        // agent_messages table may not exist (agent-memory standalone without agent-comms)
+      }
+    }
+
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages };
   }
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {

@@ -238,7 +238,8 @@ export class JsonStore implements Store {
         .slice(0, limit);
     }
 
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems };
+    // messages search not available in JSON mode (requires agent-comms DB)
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [] };
   }
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
