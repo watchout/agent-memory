@@ -7,6 +7,7 @@ import type {
   Store,
   Decision,
   TaskState,
+  Knowledge,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -14,15 +15,19 @@ import type {
   GetTaskStatesInput,
   SearchMemoryInput,
   SearchMemoryResult,
+  SaveKnowledgeInput,
+  GetKnowledgeInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
 const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
+const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 
 export class JsonStore implements Store {
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
+  private knowledgeItems: Knowledge[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -30,6 +35,7 @@ export class JsonStore implements Store {
     }
     this.decisions = await this.loadFile<Decision>(DECISIONS_FILE);
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
+    this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
   }
 
   private async loadFile<T>(path: string): Promise<T[]> {
@@ -214,7 +220,74 @@ export class JsonStore implements Store {
         .slice(0, limit);
     }
 
-    return { decisions, task_states: taskStates };
+    let knowledgeItems: Knowledge[] = [];
+
+    if (scope === "knowledge" || scope === "all") {
+      knowledgeItems = this.knowledgeItems
+        .filter((k) => {
+          if (k.agent_id !== input.agent_id) return false;
+          if (input.project && k.project !== input.project) return false;
+          if (k.status !== "active") return false;
+          const searchText = [k.title, k.content, ...k.tags].join(" ");
+          return matchesAny(searchText);
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )
+        .slice(0, limit);
+    }
+
+    // messages search not available in JSON mode (requires agent-comms DB)
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [] };
+  }
+
+  async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    const knowledge: Knowledge = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      project: input.project,
+      title: input.title,
+      content: input.content,
+      source_type: input.source_type,
+      source_ids: input.source_ids || [],
+      tags: input.tags || [],
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.knowledgeItems.push(knowledge);
+    await this.saveKnowledgeFile();
+    return knowledge;
+  }
+
+  async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
+    let results = this.knowledgeItems.filter((k) => k.agent_id === input.agent_id);
+
+    if (input.project) {
+      results = results.filter((k) => k.project === input.project);
+    }
+    if (input.status && input.status !== "all") {
+      results = results.filter((k) => k.status === input.status);
+    } else if (!input.status) {
+      results = results.filter((k) => k.status === "active");
+    }
+    if (input.tags && input.tags.length > 0) {
+      results = results.filter((k) =>
+        input.tags!.some((tag) => k.tags.includes(tag))
+      );
+    }
+
+    results.sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    return results.slice(0, input.limit || 10);
+  }
+
+  private async saveKnowledgeFile(): Promise<void> {
+    await writeFile(KNOWLEDGE_FILE, JSON.stringify(this.knowledgeItems, null, 2));
   }
 
   async close(): Promise<void> {

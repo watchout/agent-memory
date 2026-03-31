@@ -69,10 +69,54 @@ export interface GetTaskStatesInput {
   status?: "in_progress" | "completed" | "blocked" | "all";
 }
 
+export interface Knowledge {
+  id: string;
+  agent_id: string;
+  project?: string;
+  title: string;
+  content: string;
+  source_type: "decisions" | "messages" | "manual";
+  source_ids: string[];
+  tags: string[];
+  status: "active" | "merged" | "archived";
+  merged_into?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveKnowledgeInput {
+  agent_id: string;
+  project?: string;
+  title: string;
+  content: string;
+  source_type: "decisions" | "messages" | "manual";
+  source_ids?: string[];
+  tags?: string[];
+}
+
+export interface GetKnowledgeInput {
+  agent_id: string;
+  project?: string;
+  limit?: number;
+  status?: "active" | "merged" | "archived" | "all";
+  tags?: string[];
+}
+
+export interface AgentMessage {
+  id: string;
+  author_id: string;
+  content: string;
+  source: string;
+  channel_id?: string;
+  role: string;
+  project?: string;
+  created_at: string;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
-  scope?: "decisions" | "tasks" | "all";
+  scope?: "decisions" | "tasks" | "knowledge" | "messages" | "all";
   limit?: number;
   project?: string;
 }
@@ -80,6 +124,8 @@ export interface SearchMemoryInput {
 export interface SearchMemoryResult {
   decisions: Decision[];
   task_states: TaskState[];
+  knowledge: Knowledge[];
+  messages: AgentMessage[];
 }
 
 export interface Store {
@@ -101,8 +147,14 @@ export interface Store {
   /** Get task states with optional filters */
   getTaskStates(input: GetTaskStatesInput): Promise<TaskState[]>;
 
-  /** Search decisions and task_states by keyword (v0.2.0) */
+  /** Search decisions, task_states, and knowledge by keyword */
   searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult>;
+
+  /** Save a knowledge entry (v0.3.0) */
+  saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;
+
+  /** Get knowledge entries with optional filters (v0.3.0) */
+  getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]>;
 
   /** Close connections */
   close(): Promise<void>;

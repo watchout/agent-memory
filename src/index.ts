@@ -29,7 +29,7 @@ async function main() {
 
   const server = new McpServer({
     name: "agent-memory",
-    version: "0.2.0",
+    version: "0.3.0",
   });
 
   // ─── log_decision ───────────────────────────────────────────────
@@ -244,11 +244,11 @@ async function main() {
   // ─── search_memory ──────────────────────────────────────────────
   server.tool(
     "search_memory",
-    "Search past decisions and task context by keyword. IMPORTANT: Before making any architectural or design decision, search first to check if a related decision already exists. Contradicting a past decision without checking is a common failure mode after compaction or context loss. Also useful when you encounter unfamiliar project context, file structures, or naming conventions that may have been established in prior sessions.",
+    "Search agent's knowledge base using semantic similarity. Call this tool when you need context about past decisions, project architecture, or any information that may have been discussed in previous sessions. IMPORTANT: Call this proactively when starting a new task or when you are uncertain about project-specific details. Do not wait for the user to ask.",
     {
-      query: z.string().describe("Search keywords"),
+      query: z.string().describe("Search keywords or natural language query"),
       scope: z
-        .enum(["decisions", "tasks", "all"])
+        .enum(["decisions", "tasks", "knowledge", "messages", "all"])
         .optional()
         .describe("Search scope (default: all)"),
       limit: z.number().optional().describe("Max results (default: 5)"),
@@ -265,7 +265,7 @@ async function main() {
           project: project || PROJECT,
         });
 
-        const total = result.decisions.length + result.task_states.length;
+        const total = result.knowledge.length + result.decisions.length + result.task_states.length + result.messages.length;
         if (total === 0) {
           return {
             content: [
@@ -279,6 +279,16 @@ async function main() {
 
         const parts: string[] = [];
         parts.push(`🔍 search_memory: "${query}" — ${total} results\n`);
+
+        if (result.knowledge.length > 0) {
+          parts.push("── KNOWLEDGE ──");
+          for (const k of result.knowledge) {
+            parts.push(`• ${k.title}`);
+            parts.push(`  ${k.content}`);
+            if (k.tags.length) parts.push(`  Tags: ${k.tags.join(", ")} | ${k.updated_at.slice(0, 10)}`);
+          }
+          parts.push("");
+        }
 
         if (result.decisions.length > 0) {
           parts.push("── DECISIONS ──");
@@ -304,6 +314,15 @@ async function main() {
             if (t.files_modified.length)
               parts.push(`  Files: ${t.files_modified.join(", ")}`);
             parts.push(`  ${t.created_at.slice(0, 10)}`);
+          }
+          parts.push("");
+        }
+
+        if (result.messages.length > 0) {
+          parts.push("── MESSAGES ──");
+          for (const m of result.messages) {
+            parts.push(`• [${m.source}] ${m.author_id}: ${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`);
+            parts.push(`  ${m.created_at.slice(0, 10)}`);
           }
         }
 
@@ -331,12 +350,20 @@ async function main() {
     async ({ project }) => {
       await logCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
-        const taskStates = await store.getTaskStates({
-          agent_id: AGENT_ID,
-          project: project || PROJECT,
-          limit: 1,
-          status: "in_progress",
-        });
+        const [taskStates, knowledgeItems] = await Promise.all([
+          store.getTaskStates({
+            agent_id: AGENT_ID,
+            project: project || PROJECT,
+            limit: 1,
+            status: "in_progress",
+          }),
+          store.getKnowledge({
+            agent_id: AGENT_ID,
+            project: project || PROJECT,
+            limit: 5,
+            status: "active",
+          }),
+        ]);
 
         const parts: string[] = [];
 
@@ -352,8 +379,18 @@ async function main() {
           if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
           if (t.files_modified.length)
             parts.push(`  Files: ${t.files_modified.join(", ")}`);
+          parts.push("");
         } else {
           parts.push("No in-progress tasks.");
+          parts.push("");
+        }
+
+        // Knowledge context (Layer 2) or fallback to decisions (Layer 1)
+        if (knowledgeItems.length > 0) {
+          parts.push("── KEY KNOWLEDGE ──");
+          for (const k of knowledgeItems.slice(0, 3)) {
+            parts.push(`• ${k.title}`);
+          }
         }
 
         parts.push("");
