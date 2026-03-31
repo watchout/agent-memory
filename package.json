@@ -1,6 +1,6 @@
 {
   "name": "agent-memory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Persistent memory for AI coding agents. Survives compaction. Works across sessions.",
   "type": "module",
   "main": "dist/index.js",

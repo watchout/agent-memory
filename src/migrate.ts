@@ -41,6 +41,27 @@ const MIGRATIONS = [
     USING GIN (to_tsvector('simple', coalesce(decision,'') || ' ' || coalesce(context,'')))`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_search ON task_states
     USING GIN (to_tsvector('simple', coalesce(task,'') || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
+
+  // v0.3.0: knowledge table
+  `CREATE TABLE IF NOT EXISTS knowledge (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_ids UUID[] DEFAULT '{}',
+    tags TEXT[] DEFAULT '{}',
+    status TEXT DEFAULT 'active',
+    merged_into UUID REFERENCES knowledge(id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_project ON knowledge(project, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_search ON knowledge
+    USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')))`,
+  `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS consolidated_at TIMESTAMPTZ`,
 ];
 
 async function migrate() {

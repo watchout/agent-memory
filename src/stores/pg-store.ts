@@ -4,6 +4,7 @@ import type {
   Store,
   Decision,
   TaskState,
+  Knowledge,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -11,6 +12,8 @@ import type {
   GetTaskStatesInput,
   SearchMemoryInput,
   SearchMemoryResult,
+  SaveKnowledgeInput,
+  GetKnowledgeInput,
 } from "./types.js";
 
 const { Pool } = pg;
@@ -51,6 +54,29 @@ const MIGRATIONS = [
     USING GIN (to_tsvector('simple', coalesce(decision,'') || ' ' || coalesce(context,'')))`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_search ON task_states
     USING GIN (to_tsvector('simple', coalesce(task,'') || ' ' || coalesce(progress,'') || ' ' || coalesce(next_steps,'')))`,
+
+  // v0.3.0: knowledge table
+  `CREATE TABLE IF NOT EXISTS knowledge (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_ids UUID[] DEFAULT '{}',
+    tags TEXT[] DEFAULT '{}',
+    status TEXT DEFAULT 'active',
+    merged_into UUID REFERENCES knowledge(id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_project ON knowledge(project, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_search ON knowledge
+    USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')))`,
+
+  // v0.3.0: consolidated_at column on decisions
+  `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS consolidated_at TIMESTAMPTZ`,
 ];
 
 export class PgStore implements Store {
@@ -308,7 +334,90 @@ export class PgStore implements Store {
       taskStates = result.rows.map(this.rowToTaskState);
     }
 
-    return { decisions, task_states: taskStates };
+    let knowledgeItems: Knowledge[] = [];
+
+    if (scope === "knowledge" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1", "status = 'active'"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+
+      const searchClauses: string[] = [];
+      if (tsQuery) {
+        searchClauses.push(
+          `to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')) @@ to_tsquery('simple', $${pi++})`
+        );
+        params.push(tsQuery);
+      }
+      const likeClause = likePatterns.map((_, i) =>
+        `(coalesce(title,'') || ' ' || coalesce(content,'') || ' ' || array_to_string(tags,' ')) ILIKE $${pi + i}`
+      ).join(" OR ");
+      searchClauses.push(`(${likeClause})`);
+      for (const pat of likePatterns) params.push(pat);
+      pi += likePatterns.length;
+
+      conditions.push(`(${searchClauses.join(" OR ")})`);
+
+      const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`;
+      try {
+        const result = await this.pool.query(sql, params);
+        knowledgeItems = result.rows.map(this.rowToKnowledge);
+      } catch {
+        // knowledge table may not exist yet
+      }
+    }
+
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems };
+  }
+
+  async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    const id = uuidv4();
+    const result = await this.pool.query(
+      `INSERT INTO knowledge (id, agent_id, project, title, content, source_type, source_ids, tags)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        id,
+        input.agent_id,
+        input.project || null,
+        input.title,
+        input.content,
+        input.source_type,
+        input.source_ids || [],
+        input.tags || [],
+      ]
+    );
+    return this.rowToKnowledge(result.rows[0]);
+  }
+
+  async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
+    const conditions: string[] = ["agent_id = $1"];
+    const params: unknown[] = [input.agent_id];
+    let paramIndex = 2;
+
+    if (input.project) {
+      conditions.push(`project = $${paramIndex++}`);
+      params.push(input.project);
+    }
+    if (input.status && input.status !== "all") {
+      conditions.push(`status = $${paramIndex++}`);
+      params.push(input.status);
+    } else if (!input.status) {
+      conditions.push(`status = 'active'`);
+    }
+    if (input.tags && input.tags.length > 0) {
+      conditions.push(`tags && $${paramIndex++}`);
+      params.push(input.tags);
+    }
+
+    const limit = input.limit || 10;
+    const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`;
+    const result = await this.pool.query(sql, params);
+    return result.rows.map(this.rowToKnowledge);
   }
 
   async close(): Promise<void> {
@@ -346,6 +455,29 @@ export class PgStore implements Store {
         row.created_at instanceof Date
           ? row.created_at.toISOString()
           : (row.created_at as string),
+    };
+  }
+
+  private rowToKnowledge(row: Record<string, unknown>): Knowledge {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: row.project as string | undefined,
+      title: row.title as string,
+      content: row.content as string,
+      source_type: row.source_type as Knowledge["source_type"],
+      source_ids: (row.source_ids as string[]) || [],
+      tags: (row.tags as string[]) || [],
+      status: row.status as Knowledge["status"],
+      merged_into: row.merged_into as string | undefined,
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : (row.created_at as string),
+      updated_at:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : (row.updated_at as string),
     };
   }
 }
