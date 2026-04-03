@@ -9,6 +9,7 @@ import type {
   TaskState,
   Knowledge,
   AgentMessage,
+  RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -294,6 +295,11 @@ export class JsonStore implements Store {
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
+  }
+
+  async getRecoveryConfig(): Promise<RecoveryConfig | null> {
+    // JSON store has no recovery_config — use defaults
+    return null;
   }
 
   async close(): Promise<void> {

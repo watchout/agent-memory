@@ -7,7 +7,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
-import { RECOVERY_LIMITS } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, truncateByPriority } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -344,7 +344,7 @@ async function main() {
   // ─── recover_context ───────────────────────────────────────────
   server.tool(
     "recover_context",
-    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Called automatically by SessionStart hook.",
+    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Limits are per-agent via recovery_config table. Called automatically by SessionStart hook.",
     {
       project: z.string().optional().describe("Filter by project"),
     },
@@ -352,6 +352,10 @@ async function main() {
       await logCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
         const proj = project || PROJECT;
+
+        // Load per-agent config from DB, fall back to defaults
+        const dbConfig = await store.getRecoveryConfig(AGENT_ID);
+        const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
 
         const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
           store.getTaskStates({
@@ -363,85 +367,99 @@ async function main() {
           store.getTaskStates({
             agent_id: AGENT_ID,
             project: proj,
-            limit: 2,
+            limit: Math.max(cfg.task_states_limit - 1, 0),
             status: "completed",
           }),
           store.getDecisions({
             agent_id: AGENT_ID,
             project: proj,
-            limit: RECOVERY_LIMITS.decisions,
+            limit: cfg.decisions_limit,
             status: "active",
           }),
           store.getKnowledge({
             agent_id: AGENT_ID,
             project: proj,
-            limit: RECOVERY_LIMITS.knowledge,
+            limit: cfg.knowledge_limit,
             status: "active",
           }),
           store.getRecentMessages({
             agent_id: AGENT_ID,
             project: proj,
-            limit: RECOVERY_LIMITS.messages,
+            limit: cfg.messages_limit,
           }),
         ]);
 
-        const parts: string[] = [];
+        // Build sections for priority-based truncation
+        const header: string[] = [];
+        header.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
+        if (proj) header.push(`Project: ${proj}`);
+        header.push("");
 
-        parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
-        if (proj) parts.push(`Project: ${proj}`);
-        parts.push("");
-
-        // Task states: in_progress + recent completed
+        // Task section (highest priority)
+        const taskLines: string[] = [];
         if (inProgressTasks.length > 0 || completedTasks.length > 0) {
-          parts.push("── CURRENT WORK ──");
+          taskLines.push("── CURRENT WORK ──");
           for (const t of inProgressTasks) {
-            parts.push(`🔧 [${t.status}] ${t.task}`);
-            if (t.progress) parts.push(`  Progress: ${t.progress}`);
-            if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
+            taskLines.push(`🔧 [${t.status}] ${t.task}`);
+            if (t.progress) taskLines.push(`  Progress: ${t.progress}`);
+            if (t.next_steps) taskLines.push(`  Next: ${t.next_steps}`);
             if (t.files_modified.length)
-              parts.push(`  Files: ${t.files_modified.join(", ")}`);
+              taskLines.push(`  Files: ${t.files_modified.join(", ")}`);
           }
           for (const t of completedTasks) {
-            parts.push(`✅ [completed] ${t.task}`);
+            taskLines.push(`✅ [completed] ${t.task}`);
           }
-          parts.push("");
         } else {
-          parts.push("No in-progress tasks.");
-          parts.push("");
+          taskLines.push("No in-progress tasks.");
         }
 
-        // Decisions (Layer 1)
+        // Decisions section
+        const decisionLines: string[] = [];
         if (decisions.length > 0) {
-          parts.push("── ACTIVE DECISIONS ──");
+          decisionLines.push("── ACTIVE DECISIONS ──");
           for (const d of decisions) {
-            parts.push(`• ${d.decision}`);
+            decisionLines.push(`• ${d.decision}`);
           }
-          parts.push("");
         }
 
-        // Knowledge (Layer 2)
-        if (knowledgeItems.length > 0) {
-          parts.push("── KEY KNOWLEDGE ──");
-          for (const k of knowledgeItems) {
-            parts.push(`• ${k.title}`);
-          }
-          parts.push("");
-        }
-
-        // Messages (com integration)
+        // Messages section
+        const messageLines: string[] = [];
         if (messages.length > 0) {
-          parts.push("── RECENT MESSAGES ──");
+          messageLines.push("── RECENT MESSAGES ──");
           for (const m of messages) {
             const ts = m.created_at.replace(/T/, " ").replace(/\.\d+Z$/, "");
-            parts.push(`[${ts}] ${m.author_id}: ${m.content.slice(0, 200)}`);
+            messageLines.push(`[${ts}] ${m.author_id}: ${m.content.slice(0, 200)}`);
           }
-          parts.push("");
         }
 
-        parts.push("Use search_memory to find past decisions when needed.");
+        // Knowledge section (lowest priority for truncation)
+        const knowledgeLines: string[] = [];
+        if (knowledgeItems.length > 0) {
+          knowledgeLines.push("── KEY KNOWLEDGE ──");
+          for (const k of knowledgeItems) {
+            knowledgeLines.push(`• ${k.title}`);
+          }
+        }
+
+        const footer = "Use search_memory to find past decisions when needed.";
+
+        // Truncate by priority: task > decisions > messages > knowledge
+        const sections = [
+          { key: "task", content: taskLines.join("\n") },
+          { key: "decisions", content: decisionLines.join("\n") },
+          { key: "messages", content: messageLines.join("\n") },
+          { key: "knowledge", content: knowledgeLines.join("\n") },
+        ].filter(s => s.content.length > 0);
+
+        const headerText = header.join("\n");
+        const footerText = footer;
+        const bodyBudget = cfg.max_tokens - Math.ceil(headerText.length / 4) - Math.ceil(footerText.length / 4);
+        const bodyParts = truncateByPriority(sections, Math.max(bodyBudget, 100));
+
+        const output = [headerText, ...bodyParts, "", footerText].join("\n");
 
         return {
-          content: [{ type: "text" as const, text: parts.join("\n") }],
+          content: [{ type: "text" as const, text: output }],
         };
       } catch (err) {
         return {
