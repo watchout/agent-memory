@@ -8,6 +8,8 @@ import type {
   Decision,
   TaskState,
   Knowledge,
+  AgentMessage,
+  RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -288,6 +290,25 @@ export class JsonStore implements Store {
 
   private async saveKnowledgeFile(): Promise<void> {
     await writeFile(KNOWLEDGE_FILE, JSON.stringify(this.knowledgeItems, null, 2));
+  }
+
+  async getRecentMessages(): Promise<AgentMessage[]> {
+    // JSON store has no access to agent_messages — always return empty
+    return [];
+  }
+
+  async getRecoveryConfig(): Promise<RecoveryConfig | null> {
+    // JSON store has no recovery_config — use defaults
+    return null;
+  }
+
+  async logRecoveryQuality(): Promise<string> {
+    // JSON store has no recovery_quality_log — no-op
+    return "";
+  }
+
+  async updateSearchMemoryCount(): Promise<void> {
+    // JSON store has no recovery_quality_log — no-op
   }
 
   async close(): Promise<void> {

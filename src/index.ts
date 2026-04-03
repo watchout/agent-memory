@@ -7,11 +7,18 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+const SESSION_ID = process.env.CLAUDE_SESSION_ID || `session-${Date.now()}`;
 
 const LOG_DIR = join(homedir(), ".agent-memory");
+
+// Recovery quality tracking (FEAT-024)
+let recoveryLogId = "";
+let searchMemoryCountSinceRecovery = 0;
+let searchMemoryTimer: ReturnType<typeof setTimeout> | null = null;
 const LOG_FILE = join(LOG_DIR, "calls.log");
 
 async function logCall(tool: string, params: string): Promise<void> {
@@ -256,6 +263,7 @@ async function main() {
     },
     async ({ query, scope, limit, project }) => {
       await logCall("search_memory", `query="${query}"`);
+      searchMemoryCountSinceRecovery++;
       try {
         const result = await store.searchMemory({
           agent_id: AGENT_ID,
@@ -343,61 +351,56 @@ async function main() {
   // ─── recover_context ───────────────────────────────────────────
   server.tool(
     "recover_context",
-    "Restore current task at session start. Returns only the most recent in-progress task (~100 tokens). Called automatically by SessionStart hook. Use search_memory to look up past decisions as needed during work.",
+    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Limits are per-agent via recovery_config table. Called automatically by SessionStart hook.",
     {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ project }) => {
       await logCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
-        const [taskStates, knowledgeItems] = await Promise.all([
-          store.getTaskStates({
-            agent_id: AGENT_ID,
-            project: project || PROJECT,
-            limit: 1,
-            status: "in_progress",
-          }),
-          store.getKnowledge({
-            agent_id: AGENT_ID,
-            project: project || PROJECT,
-            limit: 5,
-            status: "active",
-          }),
+        const proj = project || PROJECT;
+
+        // Load per-agent config from DB, fall back to defaults
+        const dbConfig = await store.getRecoveryConfig(AGENT_ID);
+        const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+
+        const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
+          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: 1, status: "in_progress" }),
+          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
+          store.getDecisions({ agent_id: AGENT_ID, project: proj, limit: cfg.decisions_limit, status: "active" }),
+          store.getKnowledge({ agent_id: AGENT_ID, project: proj, limit: cfg.knowledge_limit, status: "active" }),
+          store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
         ]);
 
-        const parts: string[] = [];
+        const output = buildRecoveryOutput({
+          agentId: AGENT_ID, project: proj, config: cfg,
+          inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+        });
 
-        parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
-        if (project || PROJECT) parts.push(`Project: ${project || PROJECT}`);
-        parts.push("");
+        // Log recovery quality (FEAT-024)
+        const recoveredTokens = estimateTokens(output);
+        searchMemoryCountSinceRecovery = 0;
+        if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
 
-        if (taskStates.length > 0) {
-          parts.push("── CURRENT WORK ──");
-          const t = taskStates[0];
-          parts.push(`🔧 [${t.status}] ${t.task}`);
-          if (t.progress) parts.push(`  Progress: ${t.progress}`);
-          if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
-          if (t.files_modified.length)
-            parts.push(`  Files: ${t.files_modified.join(", ")}`);
-          parts.push("");
-        } else {
-          parts.push("No in-progress tasks.");
-          parts.push("");
+        recoveryLogId = await store.logRecoveryQuality({
+          agent_id: AGENT_ID,
+          session_id: SESSION_ID,
+          recovered_tokens: recoveredTokens,
+        });
+
+        // Schedule 10-minute update of search_memory count
+        if (recoveryLogId) {
+          searchMemoryTimer = setTimeout(async () => {
+            try {
+              await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery);
+            } catch {
+              // Non-fatal
+            }
+          }, 10 * 60 * 1000);
         }
-
-        // Knowledge context (Layer 2) or fallback to decisions (Layer 1)
-        if (knowledgeItems.length > 0) {
-          parts.push("── KEY KNOWLEDGE ──");
-          for (const k of knowledgeItems.slice(0, 3)) {
-            parts.push(`• ${k.title}`);
-          }
-        }
-
-        parts.push("");
-        parts.push("Use search_memory to find past decisions when needed.");
 
         return {
-          content: [{ type: "text" as const, text: parts.join("\n") }],
+          content: [{ type: "text" as const, text: output }],
         };
       } catch (err) {
         return {
@@ -416,14 +419,17 @@ async function main() {
   console.error("[agent-memory] MCP server running on stdio");
 
   // Graceful shutdown
-  process.on("SIGINT", async () => {
+  const shutdown = async () => {
+    // Flush search_memory count before exit
+    if (recoveryLogId && searchMemoryCountSinceRecovery > 0) {
+      await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery).catch(() => {});
+    }
+    if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
     await store.close();
     process.exit(0);
-  });
-  process.on("SIGTERM", async () => {
-    await store.close();
-    process.exit(0);
-  });
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

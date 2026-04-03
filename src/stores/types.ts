@@ -113,6 +113,18 @@ export interface AgentMessage {
   created_at: string;
 }
 
+export interface RecoveryConfig {
+  agent_id: string;
+  max_tokens: number;
+  task_states_limit: number;
+  decisions_limit: number;
+  knowledge_limit: number;
+  messages_limit: number;
+  discord_history_limit: number;
+  discord_channels: string[];
+  restart_message_threshold: number;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
@@ -150,11 +162,23 @@ export interface Store {
   /** Search decisions, task_states, and knowledge by keyword */
   searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult>;
 
+  /** Get recent messages from agent_messages table (com integration, optional) */
+  getRecentMessages(input: { agent_id: string; project?: string; limit?: number }): Promise<AgentMessage[]>;
+
   /** Save a knowledge entry (v0.3.0) */
   saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;
 
   /** Get knowledge entries with optional filters (v0.3.0) */
   getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]>;
+
+  /** Get recovery config for an agent (v0.4.0, FEAT-015) */
+  getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;
+
+  /** Log recovery quality metrics (v0.4.0, FEAT-024) */
+  logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string>;
+
+  /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
+  updateSearchMemoryCount(log_id: string, count: number): Promise<void>;
 
   /** Close connections */
   close(): Promise<void>;

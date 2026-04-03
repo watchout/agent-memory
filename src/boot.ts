@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
  * SessionStart hook script for agent-memory.
- * Outputs the most recent in-progress task to stdout.
+ * Outputs integrated recovery context to stdout.
  * Runs standalone (not as MCP server) — exits after output.
  */
 import { createStore } from "./stores/index.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -13,35 +14,25 @@ async function boot() {
   const store = await createStore();
 
   try {
-    const taskStates = await store.getTaskStates({
-      agent_id: AGENT_ID,
-      project: PROJECT,
-      limit: 1,
-      status: "in_progress",
+    // Load per-agent config from DB, fall back to defaults
+    const dbConfig = await store.getRecoveryConfig(AGENT_ID);
+    const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+
+    const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
+      store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: 1, status: "in_progress" }),
+      store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
+      store.getDecisions({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.decisions_limit, status: "active" }),
+      store.getKnowledge({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.knowledge_limit, status: "active" }),
+      store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
+    ]);
+
+    const output = buildRecoveryOutput({
+      agentId: AGENT_ID, project: PROJECT, config: cfg,
+      inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
     });
 
-    const parts: string[] = [];
-    parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
-    if (PROJECT) parts.push(`Project: ${PROJECT}`);
-    parts.push("");
-
-    if (taskStates.length > 0) {
-      parts.push("── CURRENT WORK ──");
-      const t = taskStates[0];
-      parts.push(`🔧 [${t.status}] ${t.task}`);
-      if (t.progress) parts.push(`  Progress: ${t.progress}`);
-      if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
-      if (t.files_modified.length)
-        parts.push(`  Files: ${t.files_modified.join(", ")}`);
-    } else {
-      parts.push("No in-progress tasks.");
-    }
-
-    parts.push("");
-    parts.push("Use search_memory to find past decisions when needed.");
-
     // Output to stdout — hook output is injected into session context
-    console.log(parts.join("\n"));
+    console.log(output);
   } finally {
     await store.close();
   }
