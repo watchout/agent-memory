@@ -5,17 +5,10 @@
  * Runs standalone (not as MCP server) — exits after output.
  */
 import { createStore } from "./stores/index.js";
+import { RECOVERY_LIMITS } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
-
-// Default limits (FEAT-015 will make these configurable via recovery_config table)
-const RECOVERY_LIMITS = {
-  task_states: 3,   // in_progress 1 + completed 2
-  decisions: 5,
-  knowledge: 5,
-  messages: 10,
-};
 
 async function boot() {
   const store = await createStore();

@@ -7,6 +7,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
+import { RECOVERY_LIMITS } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -341,14 +342,6 @@ async function main() {
   );
 
   // ─── recover_context ───────────────────────────────────────────
-  // Default limits (FEAT-015 will make these configurable via recovery_config table)
-  const RECOVERY_LIMITS = {
-    task_states: 3,   // in_progress 1 + completed 2
-    decisions: 5,
-    knowledge: 5,
-    messages: 10,
-  };
-
   server.tool(
     "recover_context",
     "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Called automatically by SessionStart hook.",
