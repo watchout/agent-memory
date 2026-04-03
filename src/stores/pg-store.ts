@@ -118,6 +118,20 @@ const MIGRATIONS = [
     ('hotel-dev', 1000, 1, 0, 5, 3, 5, '{1486097810989383773}', 80),
     ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80)
   ON CONFLICT (agent_id) DO NOTHING`,
+
+  // v0.4.0: recovery_quality_log table (FEAT-024)
+  `CREATE TABLE IF NOT EXISTS recovery_quality_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    session_id TEXT,
+    recovered_tokens INT,
+    task_continued BOOLEAN,
+    search_memory_count_10min INT DEFAULT 0,
+    quality_score FLOAT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_recovery_quality_agent ON recovery_quality_log(agent_id, created_at DESC)`,
 ];
 
 export class PgStore implements Store {
@@ -637,6 +651,32 @@ export class PgStore implements Store {
     } catch {
       // Table may not exist yet
       return null;
+    }
+  }
+
+  async logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string> {
+    try {
+      const result = await this.pool.query(
+        `INSERT INTO recovery_quality_log (agent_id, session_id, recovered_tokens)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [input.agent_id, input.session_id ?? null, input.recovered_tokens]
+      );
+      return result.rows[0].id;
+    } catch {
+      // Table may not exist yet — non-fatal
+      return "";
+    }
+  }
+
+  async updateSearchMemoryCount(log_id: string, count: number): Promise<void> {
+    if (!log_id) return;
+    try {
+      await this.pool.query(
+        `UPDATE recovery_quality_log SET search_memory_count_10min = $1 WHERE id = $2`,
+        [count, log_id]
+      );
+    } catch {
+      // Non-fatal
     }
   }
 

@@ -302,6 +302,15 @@ export class JsonStore implements Store {
     return null;
   }
 
+  async logRecoveryQuality(): Promise<string> {
+    // JSON store has no recovery_quality_log — no-op
+    return "";
+  }
+
+  async updateSearchMemoryCount(): Promise<void> {
+    // JSON store has no recovery_quality_log — no-op
+  }
+
   async close(): Promise<void> {
     // No-op for JSON store
   }
