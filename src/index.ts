@@ -7,12 +7,18 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
-import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+const SESSION_ID = process.env.CLAUDE_SESSION_ID || `session-${Date.now()}`;
 
 const LOG_DIR = join(homedir(), ".agent-memory");
+
+// Recovery quality tracking (FEAT-024)
+let recoveryLogId = "";
+let searchMemoryCountSinceRecovery = 0;
+let searchMemoryTimer: ReturnType<typeof setTimeout> | null = null;
 const LOG_FILE = join(LOG_DIR, "calls.log");
 
 async function logCall(tool: string, params: string): Promise<void> {
@@ -257,6 +263,7 @@ async function main() {
     },
     async ({ query, scope, limit, project }) => {
       await logCall("search_memory", `query="${query}"`);
+      searchMemoryCountSinceRecovery++;
       try {
         const result = await store.searchMemory({
           agent_id: AGENT_ID,
@@ -370,6 +377,28 @@ async function main() {
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
         });
 
+        // Log recovery quality (FEAT-024)
+        const recoveredTokens = estimateTokens(output);
+        searchMemoryCountSinceRecovery = 0;
+        if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
+
+        recoveryLogId = await store.logRecoveryQuality({
+          agent_id: AGENT_ID,
+          session_id: SESSION_ID,
+          recovered_tokens: recoveredTokens,
+        });
+
+        // Schedule 10-minute update of search_memory count
+        if (recoveryLogId) {
+          searchMemoryTimer = setTimeout(async () => {
+            try {
+              await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery);
+            } catch {
+              // Non-fatal
+            }
+          }, 10 * 60 * 1000);
+        }
+
         return {
           content: [{ type: "text" as const, text: output }],
         };
@@ -390,14 +419,17 @@ async function main() {
   console.error("[agent-memory] MCP server running on stdio");
 
   // Graceful shutdown
-  process.on("SIGINT", async () => {
+  const shutdown = async () => {
+    // Flush search_memory count before exit
+    if (recoveryLogId && searchMemoryCountSinceRecovery > 0) {
+      await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery).catch(() => {});
+    }
+    if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
     await store.close();
     process.exit(0);
-  });
-  process.on("SIGTERM", async () => {
-    await store.close();
-    process.exit(0);
-  });
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

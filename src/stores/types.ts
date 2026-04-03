@@ -174,6 +174,12 @@ export interface Store {
   /** Get recovery config for an agent (v0.4.0, FEAT-015) */
   getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;
 
+  /** Log recovery quality metrics (v0.4.0, FEAT-024) */
+  logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string>;
+
+  /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
+  updateSearchMemoryCount(log_id: string, count: number): Promise<void>;
+
   /** Close connections */
   close(): Promise<void>;
 }
