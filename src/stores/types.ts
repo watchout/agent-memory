@@ -113,6 +113,18 @@ export interface AgentMessage {
   created_at: string;
 }
 
+export interface RecoveryConfig {
+  agent_id: string;
+  max_tokens: number;
+  task_states_limit: number;
+  decisions_limit: number;
+  knowledge_limit: number;
+  messages_limit: number;
+  discord_history_limit: number;
+  discord_channels: string[];
+  restart_message_threshold: number;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
@@ -158,6 +170,9 @@ export interface Store {
 
   /** Get knowledge entries with optional filters (v0.3.0) */
   getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]>;
+
+  /** Get recovery config for an agent (v0.4.0, FEAT-015) */
+  getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;
 
   /** Close connections */
   close(): Promise<void>;

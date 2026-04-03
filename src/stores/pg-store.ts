@@ -6,6 +6,7 @@ import type {
   TaskState,
   Knowledge,
   AgentMessage,
+  RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -93,6 +94,30 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_decisions_embedding ON decisions USING hnsw (embedding vector_cosine_ops)`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_embedding ON task_states USING hnsw (embedding vector_cosine_ops)`,
   `CREATE INDEX IF NOT EXISTS idx_knowledge_embedding ON knowledge USING hnsw (embedding vector_cosine_ops)`,
+
+  // v0.4.0: recovery_config table (FEAT-015)
+  `CREATE TABLE IF NOT EXISTS recovery_config (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL UNIQUE,
+    max_tokens INT DEFAULT 1000,
+    task_states_limit INT DEFAULT 1,
+    decisions_limit INT DEFAULT 0,
+    knowledge_limit INT DEFAULT 3,
+    messages_limit INT DEFAULT 5,
+    discord_history_limit INT DEFAULT 5,
+    discord_channels TEXT[] DEFAULT '{}',
+    restart_message_threshold INT DEFAULT 100,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
+
+  // Initial data for Phase 0 deploy
+  `INSERT INTO recovery_config (agent_id, max_tokens, task_states_limit, decisions_limit, messages_limit, knowledge_limit, discord_history_limit, discord_channels, restart_message_threshold) VALUES
+    ('cto', 3000, 3, 5, 10, 5, 20, '{1485598480553611357,1486097810989383773}', 100),
+    ('iyasaka-arc', 2000, 3, 3, 10, 3, 10, '{1485598480553611357}', 150),
+    ('hotel-dev', 1000, 1, 0, 5, 3, 5, '{1486097810989383773}', 80),
+    ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80)
+  ON CONFLICT (agent_id) DO NOTHING`,
 ];
 
 export class PgStore implements Store {
@@ -585,6 +610,33 @@ export class PgStore implements Store {
     } catch {
       // agent_messages table may not exist or query fails — graceful skip
       return [];
+    }
+  }
+
+  async getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null> {
+    try {
+      const result = await this.pool.query(
+        `SELECT agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit,
+                messages_limit, discord_history_limit, discord_channels, restart_message_threshold
+         FROM recovery_config WHERE agent_id = $1`,
+        [agent_id]
+      );
+      if (result.rows.length === 0) return null;
+      const row = result.rows[0];
+      return {
+        agent_id: row.agent_id,
+        max_tokens: row.max_tokens,
+        task_states_limit: row.task_states_limit,
+        decisions_limit: row.decisions_limit,
+        knowledge_limit: row.knowledge_limit,
+        messages_limit: row.messages_limit,
+        discord_history_limit: row.discord_history_limit,
+        discord_channels: row.discord_channels || [],
+        restart_message_threshold: row.restart_message_threshold,
+      };
+    } catch {
+      // Table may not exist yet
+      return null;
     }
   }
 

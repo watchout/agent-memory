@@ -7,7 +7,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
-import { RECOVERY_LIMITS } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -344,7 +344,7 @@ async function main() {
   // ─── recover_context ───────────────────────────────────────────
   server.tool(
     "recover_context",
-    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Called automatically by SessionStart hook.",
+    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Limits are per-agent via recovery_config table. Called automatically by SessionStart hook.",
     {
       project: z.string().optional().describe("Filter by project"),
     },
@@ -353,95 +353,25 @@ async function main() {
       try {
         const proj = project || PROJECT;
 
+        // Load per-agent config from DB, fall back to defaults
+        const dbConfig = await store.getRecoveryConfig(AGENT_ID);
+        const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+
         const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
-          store.getTaskStates({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: 1,
-            status: "in_progress",
-          }),
-          store.getTaskStates({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: 2,
-            status: "completed",
-          }),
-          store.getDecisions({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: RECOVERY_LIMITS.decisions,
-            status: "active",
-          }),
-          store.getKnowledge({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: RECOVERY_LIMITS.knowledge,
-            status: "active",
-          }),
-          store.getRecentMessages({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: RECOVERY_LIMITS.messages,
-          }),
+          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: 1, status: "in_progress" }),
+          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
+          store.getDecisions({ agent_id: AGENT_ID, project: proj, limit: cfg.decisions_limit, status: "active" }),
+          store.getKnowledge({ agent_id: AGENT_ID, project: proj, limit: cfg.knowledge_limit, status: "active" }),
+          store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
         ]);
 
-        const parts: string[] = [];
-
-        parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
-        if (proj) parts.push(`Project: ${proj}`);
-        parts.push("");
-
-        // Task states: in_progress + recent completed
-        if (inProgressTasks.length > 0 || completedTasks.length > 0) {
-          parts.push("── CURRENT WORK ──");
-          for (const t of inProgressTasks) {
-            parts.push(`🔧 [${t.status}] ${t.task}`);
-            if (t.progress) parts.push(`  Progress: ${t.progress}`);
-            if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
-            if (t.files_modified.length)
-              parts.push(`  Files: ${t.files_modified.join(", ")}`);
-          }
-          for (const t of completedTasks) {
-            parts.push(`✅ [completed] ${t.task}`);
-          }
-          parts.push("");
-        } else {
-          parts.push("No in-progress tasks.");
-          parts.push("");
-        }
-
-        // Decisions (Layer 1)
-        if (decisions.length > 0) {
-          parts.push("── ACTIVE DECISIONS ──");
-          for (const d of decisions) {
-            parts.push(`• ${d.decision}`);
-          }
-          parts.push("");
-        }
-
-        // Knowledge (Layer 2)
-        if (knowledgeItems.length > 0) {
-          parts.push("── KEY KNOWLEDGE ──");
-          for (const k of knowledgeItems) {
-            parts.push(`• ${k.title}`);
-          }
-          parts.push("");
-        }
-
-        // Messages (com integration)
-        if (messages.length > 0) {
-          parts.push("── RECENT MESSAGES ──");
-          for (const m of messages) {
-            const ts = m.created_at.replace(/T/, " ").replace(/\.\d+Z$/, "");
-            parts.push(`[${ts}] ${m.author_id}: ${m.content.slice(0, 200)}`);
-          }
-          parts.push("");
-        }
-
-        parts.push("Use search_memory to find past decisions when needed.");
+        const output = buildRecoveryOutput({
+          agentId: AGENT_ID, project: proj, config: cfg,
+          inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+        });
 
         return {
-          content: [{ type: "text" as const, text: parts.join("\n") }],
+          content: [{ type: "text" as const, text: output }],
         };
       } catch (err) {
         return {
