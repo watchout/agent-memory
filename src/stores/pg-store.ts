@@ -16,6 +16,12 @@ import type {
   SaveKnowledgeInput,
   GetKnowledgeInput,
 } from "./types.js";
+import {
+  isVoyageAvailable,
+  generateEmbedding,
+  toPgVector,
+  EMBEDDING_DIM,
+} from "./voyage.js";
 
 const { Pool } = pg;
 
@@ -78,6 +84,15 @@ const MIGRATIONS = [
 
   // v0.3.0: consolidated_at column on decisions
   `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS consolidated_at TIMESTAMPTZ`,
+
+  // v0.3.1: pgvector extension + embedding columns for semantic search
+  `CREATE EXTENSION IF NOT EXISTS vector`,
+  `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS embedding vector(512)`,
+  `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS embedding vector(512)`,
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS embedding vector(512)`,
+  `CREATE INDEX IF NOT EXISTS idx_decisions_embedding ON decisions USING hnsw (embedding vector_cosine_ops)`,
+  `CREATE INDEX IF NOT EXISTS idx_task_states_embedding ON task_states USING hnsw (embedding vector_cosine_ops)`,
+  `CREATE INDEX IF NOT EXISTS idx_knowledge_embedding ON knowledge USING hnsw (embedding vector_cosine_ops)`,
 ];
 
 export class PgStore implements Store {
@@ -100,9 +115,12 @@ export class PgStore implements Store {
 
   async logDecision(input: LogDecisionInput): Promise<Decision> {
     const id = uuidv4();
+    const embeddingText = `${input.decision} ${input.context || ""}`.trim();
+    const embedding = await generateEmbedding(embeddingText);
+
     const result = await this.pool.query(
-      `INSERT INTO decisions (id, agent_id, project, decision, context, tags)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO decisions (id, agent_id, project, decision, context, tags, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         id,
@@ -111,6 +129,7 @@ export class PgStore implements Store {
         input.decision,
         input.context || null,
         input.tags || [],
+        embedding ? toPgVector(embedding) : null,
       ]
     );
     return this.rowToDecision(result.rows[0]);
@@ -206,9 +225,12 @@ export class PgStore implements Store {
 
   async saveTaskState(input: SaveTaskStateInput): Promise<TaskState> {
     const id = uuidv4();
+    const embeddingText = `${input.task} ${input.progress || ""} ${input.next_steps || ""}`.trim();
+    const embedding = await generateEmbedding(embeddingText);
+
     const result = await this.pool.query(
-      `INSERT INTO task_states (id, agent_id, project, task, status, progress, files_modified, next_steps)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO task_states (id, agent_id, project, task, status, progress, files_modified, next_steps, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         id,
@@ -219,6 +241,7 @@ export class PgStore implements Store {
         input.progress || null,
         input.files_modified || [],
         input.next_steps || null,
+        embedding ? toPgVector(embedding) : null,
       ]
     );
     return this.rowToTaskState(result.rows[0]);
@@ -250,6 +273,97 @@ export class PgStore implements Store {
   }
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    // Use vector search if Voyage AI is available, otherwise fall back to text search
+    if (isVoyageAvailable()) {
+      return this.searchMemoryVector(input);
+    }
+    return this.searchMemoryText(input);
+  }
+
+  /**
+   * Semantic vector search using Voyage AI embeddings + pgvector cosine similarity.
+   */
+  private async searchMemoryVector(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    const scope = input.scope || "all";
+    const limit = input.limit || 5;
+
+    // Generate query embedding
+    const queryEmbedding = await generateEmbedding(input.query, "query");
+    if (!queryEmbedding) {
+      // Fallback to text search if embedding generation fails
+      return this.searchMemoryText(input);
+    }
+    const queryVec = toPgVector(queryEmbedding);
+
+    let decisions: Decision[] = [];
+    let taskStates: TaskState[] = [];
+    let knowledgeItems: Knowledge[] = [];
+    let messages: AgentMessage[] = [];
+
+    if (scope === "decisions" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1", "embedding IS NOT NULL"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+      const sql = `SELECT *, embedding <=> $${pi}::vector AS distance
+                   FROM decisions WHERE ${conditions.join(" AND ")}
+                   ORDER BY distance ASC LIMIT ${limit}`;
+      params.push(queryVec);
+      const result = await this.pool.query(sql, params);
+      decisions = result.rows.map(this.rowToDecision);
+    }
+
+    if (scope === "tasks" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1", "embedding IS NOT NULL"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+      const sql = `SELECT *, embedding <=> $${pi}::vector AS distance
+                   FROM task_states WHERE ${conditions.join(" AND ")}
+                   ORDER BY distance ASC LIMIT ${limit}`;
+      params.push(queryVec);
+      const result = await this.pool.query(sql, params);
+      taskStates = result.rows.map(this.rowToTaskState);
+    }
+
+    if (scope === "knowledge" || scope === "all") {
+      const conditions: string[] = ["agent_id = $1", "status = 'active'", "embedding IS NOT NULL"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+      if (input.project) {
+        conditions.push(`project = $${pi++}`);
+        params.push(input.project);
+      }
+      const sql = `SELECT *, embedding <=> $${pi}::vector AS distance
+                   FROM knowledge WHERE ${conditions.join(" AND ")}
+                   ORDER BY distance ASC LIMIT ${limit}`;
+      params.push(queryVec);
+      try {
+        const result = await this.pool.query(sql, params);
+        knowledgeItems = result.rows.map(this.rowToKnowledge);
+      } catch {
+        // knowledge table may not exist yet
+      }
+    }
+
+    // Messages don't have embeddings — use text search fallback
+    if (scope === "messages" || scope === "all") {
+      messages = await this.searchMessagesText(input);
+    }
+
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages };
+  }
+
+  /**
+   * Text-based search using tsvector + ILIKE (original implementation).
+   */
+  private async searchMemoryText(input: SearchMemoryInput): Promise<SearchMemoryResult> {
     const scope = input.scope || "all";
     const limit = input.limit || 5;
     // Split on whitespace, then further split mixed CJK/ASCII tokens
@@ -373,50 +487,115 @@ export class PgStore implements Store {
     }
 
     let messages: AgentMessage[] = [];
-
     if (scope === "messages" || scope === "all") {
-      try {
-        const conditions: string[] = ["author_id = $1"];
-        const params: unknown[] = [input.agent_id];
-        let pi = 2;
-
-        if (input.project) {
-          conditions.push(`project = $${pi++}`);
-          params.push(input.project);
-        }
-
-        const likeClause = likePatterns.map((_, i) =>
-          `content ILIKE $${pi + i}`
-        ).join(" OR ");
-        conditions.push(`(${likeClause})`);
-        for (const pat of likePatterns) params.push(pat);
-        pi += likePatterns.length;
-
-        const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, project, created_at FROM agent_messages WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
-        const result = await this.pool.query(sql, params);
-        messages = result.rows.map((row: Record<string, unknown>) => ({
-          id: row.id as string,
-          author_id: row.author_id as string,
-          content: row.content as string,
-          source: row.source as string,
-          channel_id: row.channel_id as string | undefined,
-          role: row.role as string,
-          project: row.project as string | undefined,
-          created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string,
-        }));
-      } catch {
-        // agent_messages table may not exist (agent-memory standalone without agent-comms)
-      }
+      messages = await this.searchMessagesText(input);
     }
 
     return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages };
   }
 
+  /**
+   * Text search for agent_messages (shared by both vector and text search paths).
+   */
+  private async searchMessagesText(input: SearchMemoryInput): Promise<AgentMessage[]> {
+    const limit = input.limit || 5;
+    const rawTokens = input.query.split(/\s+/).filter(Boolean);
+    const keywords: string[] = [];
+    for (const token of rawTokens) {
+      const parts = token.split(/(?<=[\u3000-\u9fff\uf900-\ufaff])(?=[a-z0-9])|(?<=[a-z0-9])(?=[\u3000-\u9fff\uf900-\ufaff])/i).filter(Boolean);
+      keywords.push(...parts);
+    }
+    const likePatterns = keywords.map((w) => `%${w}%`);
+
+    try {
+      const conditions: string[] = ["author_id = $1"];
+      const params: unknown[] = [input.agent_id];
+      let pi = 2;
+
+      if (input.project) {
+        conditions.push(`(project = $${pi++} OR project IS NULL)`);
+        params.push(input.project);
+      }
+
+      const likeClause = likePatterns.map((_, i) =>
+        `content ILIKE $${pi + i}`
+      ).join(" OR ");
+      conditions.push(`(${likeClause})`);
+      for (const pat of likePatterns) params.push(pat);
+      pi += likePatterns.length;
+
+      const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, project, created_at FROM agent_messages WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ${limit}`;
+      const result = await this.pool.query(sql, params);
+      return result.rows.map((row: Record<string, unknown>) => ({
+        id: row.id as string,
+        author_id: row.author_id as string,
+        content: row.content as string,
+        source: row.source as string,
+        channel_id: row.channel_id as string | undefined,
+        role: row.role as string,
+        project: row.project as string | undefined,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string,
+      }));
+    } catch {
+      // agent_messages table may not exist
+      return [];
+    }
+  }
+
+  async getRecentMessages(input: { agent_id: string; project?: string; limit?: number }): Promise<AgentMessage[]> {
+    const limit = input.limit || 10;
+    try {
+      // Check if agent_messages table exists
+      const tableCheck = await this.pool.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_messages' LIMIT 1`
+      );
+      if (tableCheck.rows.length === 0) return [];
+
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+      let pi = 1;
+
+      // Get messages TO this agent (metadata->>'to') or FROM this agent (author_id)
+      conditions.push(`(metadata->>'to' = $${pi} OR author_id = $${pi})`);
+      params.push(input.agent_id);
+      pi++;
+
+      if (input.project) {
+        conditions.push(`(metadata->>'project' = $${pi} OR channel_id = $${pi})`);
+        params.push(input.project);
+        pi++;
+      }
+
+      const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, metadata->>'project' as project, created_at
+        FROM agent_messages
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC LIMIT ${limit}`;
+
+      const result = await this.pool.query(sql, params);
+      return result.rows.map((row: Record<string, unknown>) => ({
+        id: row.id as string,
+        author_id: row.author_id as string,
+        content: row.content as string,
+        source: row.source as string,
+        channel_id: row.channel_id as string | undefined,
+        role: row.role as string,
+        project: row.project as string | undefined,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string,
+      }));
+    } catch {
+      // agent_messages table may not exist or query fails — graceful skip
+      return [];
+    }
+  }
+
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
     const id = uuidv4();
+    const embeddingText = `${input.title} ${input.content}`.trim();
+    const embedding = await generateEmbedding(embeddingText);
+
     const result = await this.pool.query(
-      `INSERT INTO knowledge (id, agent_id, project, title, content, source_type, source_ids, tags)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO knowledge (id, agent_id, project, title, content, source_type, source_ids, tags, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         id,
@@ -427,6 +606,7 @@ export class PgStore implements Store {
         input.source_type,
         input.source_ids || [],
         input.tags || [],
+        embedding ? toPgVector(embedding) : null,
       ]
     );
     return this.rowToKnowledge(result.rows[0]);

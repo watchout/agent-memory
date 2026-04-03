@@ -8,6 +8,7 @@ import type {
   Decision,
   TaskState,
   Knowledge,
+  AgentMessage,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -288,6 +289,11 @@ export class JsonStore implements Store {
 
   private async saveKnowledgeFile(): Promise<void> {
     await writeFile(KNOWLEDGE_FILE, JSON.stringify(this.knowledgeItems, null, 2));
+  }
+
+  async getRecentMessages(): Promise<AgentMessage[]> {
+    // JSON store has no access to agent_messages — always return empty
+    return [];
   }
 
   async close(): Promise<void> {
