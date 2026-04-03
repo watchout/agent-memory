@@ -150,6 +150,9 @@ export interface Store {
   /** Search decisions, task_states, and knowledge by keyword */
   searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult>;
 
+  /** Get recent messages from agent_messages table (com integration, optional) */
+  getRecentMessages(input: { agent_id: string; project?: string; limit?: number }): Promise<AgentMessage[]>;
+
   /** Save a knowledge entry (v0.3.0) */
   saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;
 

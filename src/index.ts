@@ -7,6 +7,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
+import { RECOVERY_LIMITS } from "./constants.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -343,57 +344,100 @@ async function main() {
   // ─── recover_context ───────────────────────────────────────────
   server.tool(
     "recover_context",
-    "Restore current task at session start. Returns only the most recent in-progress task (~100 tokens). Called automatically by SessionStart hook. Use search_memory to look up past decisions as needed during work.",
+    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Called automatically by SessionStart hook.",
     {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ project }) => {
       await logCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
-        const [taskStates, knowledgeItems] = await Promise.all([
+        const proj = project || PROJECT;
+
+        const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
           store.getTaskStates({
             agent_id: AGENT_ID,
-            project: project || PROJECT,
+            project: proj,
             limit: 1,
             status: "in_progress",
           }),
+          store.getTaskStates({
+            agent_id: AGENT_ID,
+            project: proj,
+            limit: 2,
+            status: "completed",
+          }),
+          store.getDecisions({
+            agent_id: AGENT_ID,
+            project: proj,
+            limit: RECOVERY_LIMITS.decisions,
+            status: "active",
+          }),
           store.getKnowledge({
             agent_id: AGENT_ID,
-            project: project || PROJECT,
-            limit: 5,
+            project: proj,
+            limit: RECOVERY_LIMITS.knowledge,
             status: "active",
+          }),
+          store.getRecentMessages({
+            agent_id: AGENT_ID,
+            project: proj,
+            limit: RECOVERY_LIMITS.messages,
           }),
         ]);
 
         const parts: string[] = [];
 
         parts.push(`⚡ SESSION BOOT — agent-memory (${AGENT_ID})`);
-        if (project || PROJECT) parts.push(`Project: ${project || PROJECT}`);
+        if (proj) parts.push(`Project: ${proj}`);
         parts.push("");
 
-        if (taskStates.length > 0) {
+        // Task states: in_progress + recent completed
+        if (inProgressTasks.length > 0 || completedTasks.length > 0) {
           parts.push("── CURRENT WORK ──");
-          const t = taskStates[0];
-          parts.push(`🔧 [${t.status}] ${t.task}`);
-          if (t.progress) parts.push(`  Progress: ${t.progress}`);
-          if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
-          if (t.files_modified.length)
-            parts.push(`  Files: ${t.files_modified.join(", ")}`);
+          for (const t of inProgressTasks) {
+            parts.push(`🔧 [${t.status}] ${t.task}`);
+            if (t.progress) parts.push(`  Progress: ${t.progress}`);
+            if (t.next_steps) parts.push(`  Next: ${t.next_steps}`);
+            if (t.files_modified.length)
+              parts.push(`  Files: ${t.files_modified.join(", ")}`);
+          }
+          for (const t of completedTasks) {
+            parts.push(`✅ [completed] ${t.task}`);
+          }
           parts.push("");
         } else {
           parts.push("No in-progress tasks.");
           parts.push("");
         }
 
-        // Knowledge context (Layer 2) or fallback to decisions (Layer 1)
-        if (knowledgeItems.length > 0) {
-          parts.push("── KEY KNOWLEDGE ──");
-          for (const k of knowledgeItems.slice(0, 3)) {
-            parts.push(`• ${k.title}`);
+        // Decisions (Layer 1)
+        if (decisions.length > 0) {
+          parts.push("── ACTIVE DECISIONS ──");
+          for (const d of decisions) {
+            parts.push(`• ${d.decision}`);
           }
+          parts.push("");
         }
 
-        parts.push("");
+        // Knowledge (Layer 2)
+        if (knowledgeItems.length > 0) {
+          parts.push("── KEY KNOWLEDGE ──");
+          for (const k of knowledgeItems) {
+            parts.push(`• ${k.title}`);
+          }
+          parts.push("");
+        }
+
+        // Messages (com integration)
+        if (messages.length > 0) {
+          parts.push("── RECENT MESSAGES ──");
+          for (const m of messages) {
+            const ts = m.created_at.replace(/T/, " ").replace(/\.\d+Z$/, "");
+            parts.push(`[${ts}] ${m.author_id}: ${m.content.slice(0, 200)}`);
+          }
+          parts.push("");
+        }
+
         parts.push("Use search_memory to find past decisions when needed.");
 
         return {
