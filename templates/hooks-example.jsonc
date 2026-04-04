@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /Users/yuji/Developer/agent-memory/dist/post-tool-hook.js",
+            "command": "node <agent-memory-path>/dist/post-tool-hook.js",
             "timeout": 10000
           }
         ]
