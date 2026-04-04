@@ -6,11 +6,15 @@
  */
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
+import { ensureMemoryTags } from "./ensure-tags.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
 
 async function boot() {
+  // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
+  await ensureMemoryTags();
+
   const store = await createStore();
 
   try {
