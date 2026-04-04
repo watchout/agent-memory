@@ -1,6 +1,12 @@
 {
   "// INSTRUCTIONS": "Add this PostToolUse hook to your project's .claude/settings.json",
   "// NOTE": "The hook fires after agent-comms reply/send and auto-detects memory tags",
+  "//": "--- Environment Variables ---",
+  "// DATABASE_URL": "PostgreSQL connection string for agent-memory DB (REQUIRED)",
+  "// AGENT_MEMORY_AGENT_ID": "Bot identifier used as agent_id in DB records (e.g. 'cto', 'arc')",
+  "// AGENT_MEMORY_PROJECT": "Project name for scoping task/decision/knowledge records",
+  "//  ": "Because PostToolUse hooks run as child processes of the Claude SDK,",
+  "//   ": "they do NOT inherit .mcp.json env vars. You must inline them in the command.",
 
   "hooks": {
     "PostToolUse": [
@@ -9,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node <agent-memory-path>/dist/post-tool-hook.js",
+            "command": "DATABASE_URL='<REPLACE:PostgreSQL接続文字列>' AGENT_MEMORY_AGENT_ID='<REPLACE:Bot識別子>' AGENT_MEMORY_PROJECT='<REPLACE:プロジェクト名>' node <REPLACE:agent-memoryパス>/dist/post-tool-hook.js",
             "timeout": 10000
           }
         ]

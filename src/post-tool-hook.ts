@@ -11,8 +11,21 @@
  */
 import { createStore } from "./stores/index.js";
 
+// --- Environment variable validation ---
+// PostToolUse hooks run as child processes of the Claude SDK and do NOT inherit
+// .mcp.json env vars. These must be inlined in the hook command (see templates/hooks-example.jsonc).
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("[agent-memory hook] DATABASE_URL is not set, skipping");
+  process.exit(0);
+}
+
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+
+if (!process.env.AGENT_MEMORY_AGENT_ID) {
+  console.error("[agent-memory hook] AGENT_MEMORY_AGENT_ID is not set, using default: 'default'");
+}
 
 // Tag patterns
 const TAG_PATTERN = /\[(TASK:(start|done|block)|DECISION|KNOWLEDGE)\]/i;
