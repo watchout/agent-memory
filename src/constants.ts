@@ -30,7 +30,7 @@ export function truncateByPriority(
   sections: { key: string; content: string }[],
   maxTokens: number
 ): string[] {
-  const priorityOrder = ["task", "decisions", "messages", "knowledge"];
+  const priorityOrder = ["task", "decisions", "messages", "discord", "knowledge"];
   const sorted = [...sections].sort(
     (a, b) => priorityOrder.indexOf(a.key) - priorityOrder.indexOf(b.key)
   );
@@ -69,8 +69,9 @@ export function buildRecoveryOutput(params: {
   decisions: Decision[];
   knowledgeItems: Knowledge[];
   messages: AgentMessage[];
+  discordHistory?: string[];
 }): string {
-  const { agentId, project, config, inProgressTasks, completedTasks, decisions, knowledgeItems, messages } = params;
+  const { agentId, project, config, inProgressTasks, completedTasks, decisions, knowledgeItems, messages, discordHistory } = params;
 
   const header: string[] = [];
   header.push(`⚡ SESSION BOOT — agent-memory (${agentId})`);
@@ -114,6 +115,13 @@ export function buildRecoveryOutput(params: {
     }
   }
 
+  // Discord history section (FEAT-026)
+  const discordLines: string[] = [];
+  if (discordHistory && discordHistory.length > 0) {
+    discordLines.push("── DISCORD HISTORY ──");
+    discordLines.push(...discordHistory);
+  }
+
   // Knowledge section (lowest priority for truncation)
   const knowledgeLines: string[] = [];
   if (knowledgeItems.length > 0) {
@@ -129,6 +137,7 @@ export function buildRecoveryOutput(params: {
     { key: "task", content: taskLines.join("\n") },
     { key: "decisions", content: decisionLines.join("\n") },
     { key: "messages", content: messageLines.join("\n") },
+    { key: "discord", content: discordLines.join("\n") },
     { key: "knowledge", content: knowledgeLines.join("\n") },
   ].filter(s => s.content.length > 0);
 

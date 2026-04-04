@@ -6,11 +6,16 @@
  */
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
+import { ensureMemoryTags } from "./ensure-tags.js";
+import { fetchDiscordHistory } from "./discord-history.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
 
 async function boot() {
+  // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
+  await ensureMemoryTags();
+
   const store = await createStore();
 
   try {
@@ -26,9 +31,16 @@ async function boot() {
       store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
     ]);
 
+    // FEAT-026: Fetch Discord history if agent-comms is available
+    let discordHistory: string[] = [];
+    if (cfg.discord_history_limit > 0 && cfg.discord_channels.length > 0) {
+      discordHistory = await fetchDiscordHistory(cfg.discord_channels, cfg.discord_history_limit);
+    }
+
     const output = buildRecoveryOutput({
       agentId: AGENT_ID, project: PROJECT, config: cfg,
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+      discordHistory,
     });
 
     // Output to stdout — hook output is injected into session context

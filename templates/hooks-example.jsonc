@@ -1,0 +1,19 @@
+{
+  "// INSTRUCTIONS": "Add this PostToolUse hook to your project's .claude/settings.json",
+  "// NOTE": "The hook fires after agent-comms reply/send and auto-detects memory tags",
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__agent-comms__reply|mcp__agent-comms__send_message",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node <agent-memory-path>/dist/post-tool-hook.js",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

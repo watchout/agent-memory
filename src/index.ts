@@ -8,6 +8,7 @@ import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
+import { fetchDiscordHistory } from "./discord-history.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -372,9 +373,16 @@ async function main() {
           store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
         ]);
 
+        // FEAT-026: Fetch Discord history if agent-comms is available
+        let discordHistory: string[] = [];
+        if (cfg.discord_history_limit > 0 && cfg.discord_channels.length > 0) {
+          discordHistory = await fetchDiscordHistory(cfg.discord_channels, cfg.discord_history_limit);
+        }
+
         const output = buildRecoveryOutput({
           agentId: AGENT_ID, project: proj, config: cfg,
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+          discordHistory,
         });
 
         // Log recovery quality (FEAT-024)
