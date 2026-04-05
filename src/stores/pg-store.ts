@@ -116,7 +116,13 @@ const MIGRATIONS = [
     ('cto', 3000, 3, 5, 10, 5, 20, '{1485598480553611357,1486097810989383773}', 100),
     ('iyasaka-arc', 2000, 3, 3, 10, 3, 10, '{1485598480553611357}', 150),
     ('hotel-dev', 1000, 1, 0, 5, 3, 5, '{1486097810989383773}', 80),
-    ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80)
+    ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80),
+    ('haishin-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('wbs-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('nyusatsu-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('xmarketing-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('upwork-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('agent-com-dev', 1500, 2, 3, 5, 3, 5, '{}', 100)
   ON CONFLICT (agent_id) DO NOTHING`,
 
   // v0.4.0: recovery_quality_log table (FEAT-024)
@@ -665,6 +671,48 @@ export class PgStore implements Store {
       [input.agent_id, input.max_age_days]
     );
     return result.rowCount ?? 0;
+  }
+
+  async upsertRecoveryConfig(input: {
+    agent_id: string;
+    max_tokens?: number;
+    task_states_limit?: number;
+    decisions_limit?: number;
+    knowledge_limit?: number;
+    messages_limit?: number;
+  }): Promise<RecoveryConfig> {
+    const result = await this.pool.query(
+      `INSERT INTO recovery_config (agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (agent_id) DO UPDATE SET
+         max_tokens = COALESCE($2, recovery_config.max_tokens),
+         task_states_limit = COALESCE($3, recovery_config.task_states_limit),
+         decisions_limit = COALESCE($4, recovery_config.decisions_limit),
+         knowledge_limit = COALESCE($5, recovery_config.knowledge_limit),
+         messages_limit = COALESCE($6, recovery_config.messages_limit),
+         updated_at = now()
+       RETURNING agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit, discord_history_limit, discord_channels, restart_message_threshold`,
+      [
+        input.agent_id,
+        input.max_tokens ?? null,
+        input.task_states_limit ?? null,
+        input.decisions_limit ?? null,
+        input.knowledge_limit ?? null,
+        input.messages_limit ?? null,
+      ]
+    );
+    const row = result.rows[0];
+    return {
+      agent_id: row.agent_id,
+      max_tokens: row.max_tokens,
+      task_states_limit: row.task_states_limit,
+      decisions_limit: row.decisions_limit,
+      knowledge_limit: row.knowledge_limit,
+      messages_limit: row.messages_limit,
+      discord_history_limit: row.discord_history_limit,
+      discord_channels: row.discord_channels || [],
+      restart_message_threshold: row.restart_message_threshold,
+    };
   }
 
   async logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string> {

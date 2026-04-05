@@ -177,6 +177,16 @@ export interface Store {
   /** Expire stale in_progress tasks older than max_age_days (v0.5.0, FEAT-037) */
   expireStaleTaskStates(input: { agent_id: string; max_age_days: number }): Promise<number>;
 
+  /** Upsert recovery config for an agent (v0.5.0, FEAT-014+015) */
+  upsertRecoveryConfig(input: {
+    agent_id: string;
+    max_tokens?: number;
+    task_states_limit?: number;
+    decisions_limit?: number;
+    knowledge_limit?: number;
+    messages_limit?: number;
+  }): Promise<RecoveryConfig>;
+
   /** Log recovery quality metrics (v0.4.0, FEAT-024) */
   logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string>;
 

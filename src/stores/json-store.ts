@@ -307,6 +307,29 @@ export class JsonStore implements Store {
     return 0;
   }
 
+  async upsertRecoveryConfig(input: {
+    agent_id: string;
+    max_tokens?: number;
+    task_states_limit?: number;
+    decisions_limit?: number;
+    knowledge_limit?: number;
+    messages_limit?: number;
+  }): Promise<RecoveryConfig> {
+    // JSON store: return defaults merged with input
+    const { DEFAULT_RECOVERY_CONFIG } = await import("../constants.js");
+    return {
+      agent_id: input.agent_id,
+      max_tokens: input.max_tokens ?? DEFAULT_RECOVERY_CONFIG.max_tokens,
+      task_states_limit: input.task_states_limit ?? DEFAULT_RECOVERY_CONFIG.task_states_limit,
+      decisions_limit: input.decisions_limit ?? DEFAULT_RECOVERY_CONFIG.decisions_limit,
+      knowledge_limit: input.knowledge_limit ?? DEFAULT_RECOVERY_CONFIG.knowledge_limit,
+      messages_limit: input.messages_limit ?? DEFAULT_RECOVERY_CONFIG.messages_limit,
+      discord_history_limit: DEFAULT_RECOVERY_CONFIG.discord_history_limit,
+      discord_channels: DEFAULT_RECOVERY_CONFIG.discord_channels,
+      restart_message_threshold: DEFAULT_RECOVERY_CONFIG.restart_message_threshold,
+    };
+  }
+
   async logRecoveryQuality(): Promise<string> {
     // JSON store has no recovery_quality_log — no-op
     return "";
