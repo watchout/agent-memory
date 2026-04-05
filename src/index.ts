@@ -469,6 +469,144 @@ async function main() {
     }
   );
 
+  // ─── save_knowledge ─────────────────────────────────────────────
+  server.tool(
+    "save_knowledge",
+    "Save a knowledge entry for future reference. Use for facts, patterns, or lessons learned that should persist across sessions.",
+    {
+      title: z.string().describe("Short title for the knowledge"),
+      content: z.string().describe("Detailed content"),
+      source_type: z.enum(["manual", "decisions", "messages"]).default("manual").describe("Source type"),
+      tags: z.array(z.string()).optional().describe("Tags for categorization"),
+      project: z.string().optional().describe("Project identifier"),
+    },
+    async ({ title, content, source_type, tags, project }) => {
+      await logCall("save_knowledge", `title="${title}"`);
+      try {
+        const result = await store.saveKnowledge({
+          agent_id: AGENT_ID,
+          title,
+          content,
+          source_type,
+          tags,
+          project: project || PROJECT,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `✅ Knowledge saved (id: ${result.id})\n\n` +
+                `Title: ${result.title}\n` +
+                `Content: ${result.content.slice(0, 200)}${result.content.length > 200 ? "..." : ""}\n` +
+                (result.tags.length ? `Tags: ${result.tags.join(", ")}\n` : "") +
+                (result.project ? `Project: ${result.project}\n` : ""),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `❌ Failed to save knowledge: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── get_knowledge ─────────────────────────────────────────────
+  server.tool(
+    "get_knowledge",
+    "Retrieve knowledge entries. Filter by status, tags, or project.",
+    {
+      status: z.enum(["active", "merged", "archived", "all"]).optional().describe("Filter by status (default: active)"),
+      tags: z.array(z.string()).optional().describe("Filter by tags (any match)"),
+      project: z.string().optional().describe("Filter by project"),
+      limit: z.number().optional().describe("Max results (default: 10)"),
+    },
+    async ({ status, tags, project, limit }) => {
+      await logCall("get_knowledge", `status="${status || "active"}" limit=${limit || 10}`);
+      try {
+        const items = await store.getKnowledge({
+          agent_id: AGENT_ID,
+          status: status as "active" | "merged" | "archived" | "all" | undefined,
+          tags,
+          project: project || PROJECT,
+          limit,
+        });
+
+        if (items.length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "No knowledge entries found." }],
+          };
+        }
+
+        const text = items
+          .map(
+            (k, i) =>
+              `${i + 1}. [${k.status}] ${k.title}\n` +
+              `   ${k.content.slice(0, 150)}${k.content.length > 150 ? "..." : ""}\n` +
+              (k.tags.length ? `   Tags: ${k.tags.join(", ")}\n` : "") +
+              `   ID: ${k.id} | ${k.updated_at.slice(0, 10)}`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `📚 ${items.length} knowledge entry(ies):\n\n${text}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `❌ Failed to get knowledge: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── update_knowledge_status ───────────────────────────────────
+  server.tool(
+    "update_knowledge_status",
+    "Update status of a knowledge entry (e.g. archive old knowledge or mark as merged).",
+    {
+      id: z.string().describe("Knowledge entry ID"),
+      status: z.enum(["active", "merged", "archived"]).describe("New status"),
+      merged_into: z.string().optional().describe("ID of the knowledge entry this was merged into"),
+    },
+    async ({ id, status, merged_into }) => {
+      await logCall("update_knowledge_status", `id="${id}" status="${status}"`);
+      try {
+        const result = await store.updateKnowledgeStatus({
+          id,
+          agent_id: AGENT_ID,
+          status,
+          merged_into,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `✅ Knowledge status updated\n\n` +
+                `Title: ${result.title}\n` +
+                `Status: ${result.status}\n` +
+                (result.merged_into ? `Merged into: ${result.merged_into}\n` : "") +
+                `ID: ${result.id}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `❌ Failed to update knowledge status: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── Start server ──────────────────────────────────────────────
   const transport = new StdioServerTransport();
   await server.connect(transport);

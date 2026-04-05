@@ -339,6 +339,10 @@ export class JsonStore implements Store {
     // JSON store has no recovery_quality_log — no-op
   }
 
+  async updateKnowledgeStatus(): Promise<Knowledge> {
+    throw new Error("updateKnowledgeStatus not supported in JSON store");
+  }
+
   async close(): Promise<void> {
     // No-op for JSON store
   }

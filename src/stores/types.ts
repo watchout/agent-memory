@@ -171,6 +171,9 @@ export interface Store {
   /** Get knowledge entries with optional filters (v0.3.0) */
   getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]>;
 
+  /** Update knowledge entry status (v0.5.0) */
+  updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived"; merged_into?: string }): Promise<Knowledge>;
+
   /** Get recovery config for an agent (v0.4.0, FEAT-015) */
   getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;
 
