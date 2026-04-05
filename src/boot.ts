@@ -5,7 +5,7 @@
  * Runs standalone (not as MCP server) — exits after output.
  */
 import { createStore } from "./stores/index.js";
-import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 
@@ -19,6 +19,16 @@ async function boot() {
   const store = await createStore();
 
   try {
+    // FEAT-037: Expire stale in_progress tasks (7+ days old)
+    try {
+      const expired = await store.expireStaleTaskStates({ agent_id: AGENT_ID, max_age_days: 7 });
+      if (expired > 0) {
+        process.stderr.write(`[boot] Expired ${expired} stale tasks\n`);
+      }
+    } catch {
+      // Non-fatal — table or column may not exist yet
+    }
+
     // Load per-agent config from DB, fall back to defaults
     const dbConfig = await store.getRecoveryConfig(AGENT_ID);
     const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
@@ -42,6 +52,18 @@ async function boot() {
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
       discordHistory,
     });
+
+    // FEAT-036: Log recovery quality metrics
+    const recoveredTokens = estimateTokens(output);
+    try {
+      await store.logRecoveryQuality({
+        agent_id: AGENT_ID,
+        session_id: process.env.CLAUDE_SESSION_ID ?? undefined,
+        recovered_tokens: recoveredTokens,
+      });
+    } catch {
+      // Non-fatal — table may not exist yet
+    }
 
     // Output to stdout — hook output is injected into session context
     console.log(output);

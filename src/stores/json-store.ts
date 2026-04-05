@@ -302,6 +302,11 @@ export class JsonStore implements Store {
     return null;
   }
 
+  async expireStaleTaskStates(): Promise<number> {
+    // JSON store has no auto-expire — no-op
+    return 0;
+  }
+
   async logRecoveryQuality(): Promise<string> {
     // JSON store has no recovery_quality_log — no-op
     return "";

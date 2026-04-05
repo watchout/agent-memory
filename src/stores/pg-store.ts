@@ -654,6 +654,19 @@ export class PgStore implements Store {
     }
   }
 
+  async expireStaleTaskStates(input: { agent_id: string; max_age_days: number }): Promise<number> {
+    const result = await this.pool.query(
+      `UPDATE task_states
+       SET status = 'expired'
+       WHERE agent_id = $1
+         AND status = 'in_progress'
+         AND created_at < NOW() - INTERVAL '1 day' * $2
+       RETURNING id`,
+      [input.agent_id, input.max_age_days]
+    );
+    return result.rowCount ?? 0;
+  }
+
   async logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string> {
     try {
       const result = await this.pool.query(

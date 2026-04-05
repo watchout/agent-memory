@@ -20,7 +20,7 @@ export interface TaskState {
   agent_id: string;
   project?: string;
   task: string;
-  status: "in_progress" | "completed" | "blocked";
+  status: "in_progress" | "completed" | "blocked" | "expired";
   progress?: string;
   files_modified: string[];
   next_steps?: string;
@@ -173,6 +173,9 @@ export interface Store {
 
   /** Get recovery config for an agent (v0.4.0, FEAT-015) */
   getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;
+
+  /** Expire stale in_progress tasks older than max_age_days (v0.5.0, FEAT-037) */
+  expireStaleTaskStates(input: { agent_id: string; max_age_days: number }): Promise<number>;
 
   /** Log recovery quality metrics (v0.4.0, FEAT-024) */
   logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string>;
