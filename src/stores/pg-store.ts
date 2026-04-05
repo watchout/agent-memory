@@ -117,11 +117,11 @@ const MIGRATIONS = [
     ('iyasaka-arc', 2000, 3, 3, 10, 3, 10, '{1485598480553611357}', 150),
     ('hotel-dev', 1000, 1, 0, 5, 3, 5, '{1486097810989383773}', 80),
     ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80),
-    ('haishin-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
-    ('wbs-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
-    ('nyusatsu-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
-    ('xmarketing-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
-    ('upwork-dev', 1000, 1, 3, 5, 3, 5, '{}', 100),
+    ('haishin-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
+    ('wbs-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
+    ('nyusatsu-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
+    ('xmarketing-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
+    ('upwork-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
     ('agent-com-dev', 1500, 2, 3, 5, 3, 5, '{}', 100)
   ON CONFLICT (agent_id) DO NOTHING`,
 
@@ -600,18 +600,18 @@ export class PgStore implements Store {
       const params: unknown[] = [];
       let pi = 1;
 
-      // Get messages TO this agent (metadata->>'to') or FROM this agent (author_id)
-      conditions.push(`(metadata->>'to' = $${pi} OR author_id = $${pi})`);
+      // Get messages TO or FROM this agent
+      conditions.push(`author_id = $${pi}`);
       params.push(input.agent_id);
       pi++;
 
       if (input.project) {
-        conditions.push(`(metadata->>'project' = $${pi} OR channel_id = $${pi})`);
+        conditions.push(`(project = $${pi} OR project IS NULL)`);
         params.push(input.project);
         pi++;
       }
 
-      const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, metadata->>'project' as project, created_at
+      const sql = `SELECT id, author_id, content, coalesce(source,'agent-comms') as source, channel_id, coalesce(role,'agent') as role, project, created_at
         FROM agent_messages
         WHERE ${conditions.join(" AND ")}
         ORDER BY created_at DESC LIMIT ${limit}`;
