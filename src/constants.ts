@@ -5,12 +5,12 @@ import type { RecoveryConfig, Decision, TaskState, Knowledge, AgentMessage } fro
  * Matches SSOT-4 defaults: Dev Bot equivalent (lightweight recovery).
  */
 export const DEFAULT_RECOVERY_CONFIG: Omit<RecoveryConfig, "agent_id"> = {
-  max_tokens: 1000,
-  task_states_limit: 1,
-  decisions_limit: 0,
+  max_tokens: 1500,
+  task_states_limit: 2,
+  decisions_limit: 3,
   knowledge_limit: 3,
   messages_limit: 5,
-  discord_history_limit: 5,
+  discord_history_limit: 0,
   discord_channels: [],
   restart_message_threshold: 100,
 };

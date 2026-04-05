@@ -421,6 +421,54 @@ async function main() {
     }
   );
 
+  // ─── set_recovery_config ─────────────────────────────────────────
+  server.tool(
+    "set_recovery_config",
+    "Update recovery configuration for an agent. Only specified fields are updated; unspecified fields retain their current values. Use this to tune how much context is restored on session restart.",
+    {
+      agent_id: z.string().describe("Agent ID to configure"),
+      max_tokens: z.number().optional().describe("Max tokens for recovery output"),
+      task_states_limit: z.number().optional().describe("Number of task states to restore"),
+      decisions_limit: z.number().optional().describe("Number of decisions to restore"),
+      knowledge_limit: z.number().optional().describe("Number of knowledge items to restore"),
+      messages_limit: z.number().optional().describe("Number of recent messages to restore"),
+    },
+    async ({ agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit }) => {
+      await logCall("set_recovery_config", `agent_id="${agent_id}"`);
+      try {
+        const config = await store.upsertRecoveryConfig({
+          agent_id,
+          max_tokens,
+          task_states_limit,
+          decisions_limit,
+          knowledge_limit,
+          messages_limit,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `✅ Recovery config updated for ${agent_id}\n\n` +
+                `max_tokens: ${config.max_tokens}\n` +
+                `task_states_limit: ${config.task_states_limit}\n` +
+                `decisions_limit: ${config.decisions_limit}\n` +
+                `knowledge_limit: ${config.knowledge_limit}\n` +
+                `messages_limit: ${config.messages_limit}\n` +
+                `discord_history_limit: ${config.discord_history_limit}\n` +
+                `discord_channels: ${JSON.stringify(config.discord_channels)}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `❌ Failed to set recovery config: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── Start server ──────────────────────────────────────────────
   const transport = new StdioServerTransport();
   await server.connect(transport);
