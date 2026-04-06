@@ -339,6 +339,30 @@ export class JsonStore implements Store {
     // JSON store has no recovery_quality_log — no-op
   }
 
+  async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived"; merged_into?: string }): Promise<Knowledge> {
+    const item = this.knowledgeItems.find((k) => k.id === input.id && k.agent_id === input.agent_id);
+    if (!item) {
+      throw new Error(`Knowledge entry not found: ${input.id}`);
+    }
+    if (input.merged_into) {
+      if (input.id === input.merged_into) {
+        throw new Error("Cannot merge a knowledge entry into itself");
+      }
+      const target = this.knowledgeItems.find((k) => k.id === input.merged_into && k.agent_id === input.agent_id);
+      if (!target) {
+        throw new Error(`Merge target not found: ${input.merged_into}`);
+      }
+      item.status = "merged";
+      item.merged_into = input.merged_into;
+    } else {
+      item.status = input.status;
+      item.merged_into = undefined;
+    }
+    item.updated_at = new Date().toISOString();
+    await this.saveKnowledgeFile();
+    return item;
+  }
+
   async close(): Promise<void> {
     // No-op for JSON store
   }

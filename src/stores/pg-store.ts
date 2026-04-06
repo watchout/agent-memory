@@ -791,6 +791,34 @@ export class PgStore implements Store {
     return result.rows.map(this.rowToKnowledge);
   }
 
+  async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived"; merged_into?: string }): Promise<Knowledge> {
+    if (input.merged_into) {
+      if (input.id === input.merged_into) {
+        throw new Error("Cannot merge a knowledge entry into itself");
+      }
+      const targetCheck = await this.pool.query(
+        `SELECT 1 FROM knowledge WHERE id = $1 AND agent_id = $2`,
+        [input.merged_into, input.agent_id]
+      );
+      if (targetCheck.rows.length === 0) {
+        throw new Error(`Merge target not found: ${input.merged_into}`);
+      }
+    }
+
+    const effectiveStatus = input.merged_into ? "merged" : input.status;
+
+    const result = await this.pool.query(
+      `UPDATE knowledge SET status = $1, merged_into = $2, updated_at = now()
+       WHERE id = $3 AND agent_id = $4
+       RETURNING *`,
+      [effectiveStatus, input.merged_into || null, input.id, input.agent_id]
+    );
+    if (result.rows.length === 0) {
+      throw new Error(`Knowledge entry not found: ${input.id}`);
+    }
+    return this.rowToKnowledge(result.rows[0]);
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
