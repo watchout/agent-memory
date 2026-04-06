@@ -9,21 +9,37 @@
  * Tags: [TASK:start], [TASK:done], [TASK:block], [DECISION], [KNOWLEDGE]
  * No tag → exit 0 (no-op)
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { createStore } from "./stores/index.js";
 
-// --- Environment variable validation ---
-// PostToolUse hooks run as child processes of the Claude SDK and do NOT inherit
-// .mcp.json env vars. These must be inlined in the hook command (see templates/hooks-example.jsonc).
+// --- Config file support ---
+// Load ~/.agent-memory/config.json to avoid inlining env vars in settings.json.
+// Falls back to environment variables for backward compatibility.
+function loadConfig(): Record<string, string> {
+  const configPath = join(homedir(), ".agent-memory", "config.json");
+  try {
+    return JSON.parse(readFileSync(configPath, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+const config = loadConfig();
+
+if (!process.env.DATABASE_URL && config.database_url) {
+  process.env.DATABASE_URL = config.database_url;
+}
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-  console.error("[agent-memory hook] DATABASE_URL is not set, skipping");
+  console.error("[agent-memory hook] DATABASE_URL is not set (env nor config.json), skipping");
   process.exit(0);
 }
 
-const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
-const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || config.agent_id || "default";
+const PROJECT = process.env.AGENT_MEMORY_PROJECT || config.default_project || undefined;
 
-if (!process.env.AGENT_MEMORY_AGENT_ID) {
+if (!process.env.AGENT_MEMORY_AGENT_ID && !config.agent_id) {
   console.error("[agent-memory hook] AGENT_MEMORY_AGENT_ID is not set, using default: 'default'");
 }
 
