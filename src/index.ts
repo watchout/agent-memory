@@ -474,8 +474,8 @@ async function main() {
     "save_knowledge",
     "Save a knowledge entry for future reference. Use for facts, patterns, or lessons learned that should persist across sessions.",
     {
-      title: z.string().describe("Short title for the knowledge"),
-      content: z.string().describe("Detailed content"),
+      title: z.string().min(1).describe("Short title for the knowledge"),
+      content: z.string().min(1).describe("Detailed content"),
       source_type: z.enum(["manual", "decisions", "messages"]).default("manual").describe("Source type"),
       tags: z.array(z.string()).optional().describe("Tags for categorization"),
       project: z.string().optional().describe("Project identifier"),
@@ -521,7 +521,7 @@ async function main() {
       status: z.enum(["active", "merged", "archived", "all"]).optional().describe("Filter by status (default: active)"),
       tags: z.array(z.string()).optional().describe("Filter by tags (any match)"),
       project: z.string().optional().describe("Filter by project"),
-      limit: z.number().optional().describe("Max results (default: 10)"),
+      limit: z.number().min(1).max(100).optional().describe("Max results (default: 10)"),
     },
     async ({ status, tags, project, limit }) => {
       await logCall("get_knowledge", `status="${status || "active"}" limit=${limit || 10}`);
@@ -572,9 +572,9 @@ async function main() {
     "update_knowledge_status",
     "Update status of a knowledge entry (e.g. archive old knowledge or mark as merged).",
     {
-      id: z.string().describe("Knowledge entry ID"),
+      id: z.string().uuid().describe("Knowledge entry ID"),
       status: z.enum(["active", "merged", "archived"]).describe("New status"),
-      merged_into: z.string().optional().describe("ID of the knowledge entry this was merged into"),
+      merged_into: z.string().uuid().optional().describe("ID of the knowledge entry this was merged into"),
     },
     async ({ id, status, merged_into }) => {
       await logCall("update_knowledge_status", `id="${id}" status="${status}"`);
