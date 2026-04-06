@@ -23,7 +23,7 @@ function assert(condition: boolean, msg: string) {
 }
 
 async function cleanup() {
-  const files = ["decisions.json", "task-states.json"];
+  const files = ["decisions.json", "task-states.json", "knowledge.json"];
   for (const f of files) {
     const path = join(TEST_DIR, f);
     if (existsSync(path)) rmSync(path);
