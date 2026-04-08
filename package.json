@@ -28,11 +28,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "pg": "^8.13.0",
+    "sql.js": "^1.14.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
+    "@types/sql.js": "^1.4.11",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
