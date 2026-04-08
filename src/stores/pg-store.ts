@@ -112,19 +112,13 @@ const MIGRATIONS = [
     updated_at TIMESTAMPTZ DEFAULT now()
   )`,
 
-  // Initial data for Phase 0 deploy
-  `INSERT INTO recovery_config (agent_id, max_tokens, task_states_limit, decisions_limit, messages_limit, knowledge_limit, discord_history_limit, discord_channels, restart_message_threshold) VALUES
-    ('cto', 3000, 3, 5, 10, 5, 20, '{1485598480553611357,1486097810989383773}', 100),
-    ('iyasaka-arc', 2000, 3, 3, 10, 3, 10, '{1485598480553611357}', 150),
-    ('hotel-dev', 1000, 1, 0, 5, 3, 5, '{1486097810989383773}', 80),
-    ('adf-dev', 1000, 1, 0, 5, 3, 5, '{1486161338832126083}', 80),
-    ('haishin-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
-    ('wbs-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
-    ('nyusatsu-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
-    ('xmarketing-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
-    ('upwork-dev', 1000, 1, 0, 5, 3, 5, '{}', 100),
-    ('agent-com-dev', 1500, 2, 3, 5, 3, 5, '{}', 100)
-  ON CONFLICT (agent_id) DO NOTHING`,
+  // NOTE: organization-specific recovery_config seed data is intentionally
+  // excluded from MIGRATIONS for OSS distribution (AM-015 / #45). The
+  // historical seeds (cto / iyasaka-arc / hotel-dev / etc. with internal
+  // Discord channel IDs) live in scripts/seed-watchout.sql and are applied
+  // manually to internal deployments. New users get an empty
+  // recovery_config and rely on the boot-time auto-init fallback (see
+  // src/boot.ts) to populate a default row on first run.
 
   // v0.4.0: recovery_quality_log table (FEAT-024)
   `CREATE TABLE IF NOT EXISTS recovery_quality_log (
@@ -734,8 +728,14 @@ export class PgStore implements Store {
         ]
       );
       return result.rows[0].id;
-    } catch {
-      // Table may not exist yet — non-fatal
+    } catch (err) {
+      // AM-015: warn instead of swallowing silently. The original silent
+      // catch is what produced the all-NULL recovery_quality_log row that
+      // motivated AM-002. Surfacing the error here means we notice the
+      // schema-missing or permission-denied case immediately.
+      process.stderr.write(
+        `[agent-memory] logRecoveryQuality failed (non-fatal): ${err}\n`
+      );
       return "";
     }
   }
