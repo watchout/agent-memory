@@ -5,12 +5,13 @@
  * Runs standalone (not as MCP server) — exits after output.
  */
 import { createStore } from "./stores/index.js";
-import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
+const SESSION_ID = process.env.CLAUDE_SESSION_ID || `boot-${Date.now()}`;
 
 async function boot() {
   // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
@@ -52,6 +53,31 @@ async function boot() {
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
       discordHistory,
     });
+
+    // AM-002 Stage 1: log recovery quality with summary in notes JSON.
+    // task_continued is initially false; AM-018 may revise it once we
+    // know whether the bot actually picked up the in-progress task.
+    try {
+      const notes = JSON.stringify({
+        source: "boot",
+        decisions: decisions.length,
+        tasks_in_progress: inProgressTasks.length,
+        tasks_completed: completedTasks.length,
+        knowledge: knowledgeItems.length,
+        messages: messages.length,
+        discord_history: discordHistory.length,
+      });
+      await store.logRecoveryQuality({
+        agent_id: AGENT_ID,
+        session_id: SESSION_ID,
+        recovered_tokens: estimateTokens(output),
+        task_continued: false,
+        notes,
+      });
+    } catch (err) {
+      // Non-fatal — recovery_quality_log is best-effort
+      process.stderr.write(`[boot] logRecoveryQuality failed (non-fatal): ${err}\n`);
+    }
 
     // Output to stdout — hook output is injected into session context
     console.log(output);
