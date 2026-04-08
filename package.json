@@ -1,11 +1,29 @@
 {
-  "name": "agent-memory",
+  "name": "wasurezu",
   "version": "0.3.0",
-  "description": "Persistent memory for AI coding agents. Survives compaction. Works across sessions.",
+  "description": "Persistent memory for AI coding agents. Survives compaction. Works across sessions. (wasurezu = Japanese for 'won't forget')",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "wasurezu": "dist/index.js",
     "agent-memory": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/watchout/agent-memory.git"
+  },
+  "homepage": "https://github.com/watchout/agent-memory",
+  "bugs": {
+    "url": "https://github.com/watchout/agent-memory/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "scripts": {
     "build": "tsc",
@@ -22,7 +40,10 @@
     "ai-memory",
     "agent",
     "compaction",
-    "context-recovery"
+    "context-recovery",
+    "wasurezu",
+    "persistent-memory",
+    "llm-memory"
   ],
   "license": "MIT",
   "dependencies": {
