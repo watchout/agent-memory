@@ -376,12 +376,81 @@ async function testBootSimulation() {
   assert(tasks[0].status === "in_progress", "boot returns in_progress only");
 }
 
+async function testRecoveryQualityLog() {
+  console.log("\n── PgStore Recovery Quality Log (AM-002) ──");
+
+  // Stage 0 (existing): minimal call still works (backward compat)
+  const minimalId = await store.logRecoveryQuality({
+    agent_id: AGENT,
+    session_id: "test-session-minimal",
+    recovered_tokens: 1234,
+  });
+  assert(minimalId.length > 0, "logRecoveryQuality (minimal) returns id");
+
+  // AM-002: full call with all optional fields
+  const notes = JSON.stringify({ source: "test", decisions: 3, tasks_in_progress: 1 });
+  const fullId = await store.logRecoveryQuality({
+    agent_id: AGENT,
+    session_id: "test-session-full",
+    recovered_tokens: 2048,
+    task_continued: true,
+    quality_score: 0.85,
+    notes,
+    search_memory_count_10min: 7,
+  });
+  assert(fullId.length > 0, "logRecoveryQuality (full) returns id");
+
+  // Verify the row by querying directly
+  const pg = await import("pg");
+  const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  try {
+    const r = await pool.query(
+      `SELECT recovered_tokens, task_continued, quality_score, notes, search_memory_count_10min
+         FROM recovery_quality_log WHERE id = $1`,
+      [fullId]
+    );
+    assert(r.rows.length === 1, "row written");
+    assert(r.rows[0].recovered_tokens === 2048, "recovered_tokens persisted");
+    assert(r.rows[0].task_continued === true, "task_continued persisted");
+    assert(Math.abs(r.rows[0].quality_score - 0.85) < 1e-9, "quality_score persisted");
+    assert(r.rows[0].notes === notes, "notes JSON persisted verbatim");
+    assert(r.rows[0].search_memory_count_10min === 7, "search_memory_count_10min persisted");
+
+    // task_continued explicit false should be stored as false (not NULL)
+    const falseId = await store.logRecoveryQuality({
+      agent_id: AGENT,
+      session_id: "test-session-tc-false",
+      recovered_tokens: 100,
+      task_continued: false,
+    });
+    const r2 = await pool.query(
+      `SELECT task_continued FROM recovery_quality_log WHERE id = $1`,
+      [falseId]
+    );
+    assert(r2.rows[0].task_continued === false, "task_continued=false stored as false");
+
+    await store.updateSearchMemoryCount(fullId, 12);
+    const r3 = await pool.query(
+      `SELECT search_memory_count_10min FROM recovery_quality_log WHERE id = $1`,
+      [fullId]
+    );
+    assert(r3.rows[0].search_memory_count_10min === 12, "updateSearchMemoryCount overwrites");
+
+    // Empty log_id is a no-op (matches PgStore behavior)
+    await store.updateSearchMemoryCount("", 99);
+    assert(true, "updateSearchMemoryCount with empty id is no-op");
+  } finally {
+    await pool.end();
+  }
+}
+
 async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
   const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
   await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM recovery_quality_log WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.end();
 }
 
@@ -399,6 +468,7 @@ async function run() {
     await testJapaneseSearch();
     await testAgentIsolation();
     await testBootSimulation();
+    await testRecoveryQualityLog();
   } finally {
     await cleanup();
     await store.close();

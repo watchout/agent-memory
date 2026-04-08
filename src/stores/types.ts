@@ -125,6 +125,23 @@ export interface RecoveryConfig {
   restart_message_threshold: number;
 }
 
+/**
+ * Input for logRecoveryQuality (AM-002, Stage 1).
+ *
+ * Stage 1 fields: agent_id, session_id, recovered_tokens (existing).
+ * AM-002 additions are all optional so existing callers keep working
+ * unchanged. The actual `quality_score` algorithm is deferred to AM-018.
+ */
+export interface LogRecoveryQualityInput {
+  agent_id: string;
+  session_id?: string;
+  recovered_tokens: number;
+  task_continued?: boolean;
+  quality_score?: number;
+  notes?: string;
+  search_memory_count_10min?: number;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
@@ -190,8 +207,8 @@ export interface Store {
     messages_limit?: number;
   }): Promise<RecoveryConfig>;
 
-  /** Log recovery quality metrics (v0.4.0, FEAT-024) */
-  logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string>;
+  /** Log recovery quality metrics (v0.4.0, FEAT-024 / AM-002 Stage 1) */
+  logRecoveryQuality(input: LogRecoveryQualityInput): Promise<string>;
 
   /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
   updateSearchMemoryCount(log_id: string, count: number): Promise<void>;

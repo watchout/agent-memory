@@ -417,17 +417,72 @@ async function testRecoveryConfig() {
 async function testRecoveryQualityLog() {
   console.log("\n── SqliteStore Recovery Quality Log ──");
 
-  const logId = await store.logRecoveryQuality({
+  // Stage 0 (existing): minimal call still works (backward compat)
+  const minimalId = await store.logRecoveryQuality({
     agent_id: AGENT,
-    session_id: "test-session-1",
+    session_id: "test-session-minimal",
     recovered_tokens: 1234,
   });
-  assert(logId.length > 0, "logRecoveryQuality returns id");
+  assert(minimalId.length > 0, "logRecoveryQuality (minimal) returns id");
 
-  await store.updateSearchMemoryCount(logId, 5);
-  assert(true, "updateSearchMemoryCount does not throw");
+  // AM-002: full call with all optional fields
+  const notes = JSON.stringify({ source: "test", decisions: 3, tasks_in_progress: 1 });
+  const fullId = await store.logRecoveryQuality({
+    agent_id: AGENT,
+    session_id: "test-session-full",
+    recovered_tokens: 2048,
+    task_continued: true,
+    quality_score: 0.85,
+    notes,
+    search_memory_count_10min: 7,
+  });
+  assert(fullId.length > 0, "logRecoveryQuality (full) returns id");
 
-  // Empty log_id is a no-op (matches PgStore)
+  // Verify the row was written with the new fields by inspecting the DB directly
+  const sqlitePrivate = store as unknown as {
+    db: { prepare: (sql: string) => { bind: (p: unknown[]) => void; step: () => boolean; getAsObject: () => Record<string, unknown>; free: () => void } };
+  };
+  const stmt = sqlitePrivate.db.prepare(
+    "SELECT agent_id, session_id, recovered_tokens, task_continued, quality_score, notes, search_memory_count_10min FROM recovery_quality_log WHERE id = ?"
+  );
+  stmt.bind([fullId]);
+  let row: Record<string, unknown> | null = null;
+  if (stmt.step()) row = stmt.getAsObject();
+  stmt.free();
+  assert(row !== null, "logRecoveryQuality row retrievable");
+  assert(row?.recovered_tokens === 2048, "recovered_tokens persisted");
+  assert(row?.task_continued === 1, "task_continued persisted as 1");
+  assert(Math.abs((row?.quality_score as number) - 0.85) < 1e-9, "quality_score persisted");
+  assert(row?.notes === notes, "notes JSON persisted verbatim");
+  assert(row?.search_memory_count_10min === 7, "search_memory_count_10min persisted");
+
+  // task_continued explicit false should be stored as 0, not NULL
+  const falseId = await store.logRecoveryQuality({
+    agent_id: AGENT,
+    session_id: "test-session-tc-false",
+    recovered_tokens: 100,
+    task_continued: false,
+  });
+  const stmt2 = sqlitePrivate.db.prepare(
+    "SELECT task_continued FROM recovery_quality_log WHERE id = ?"
+  );
+  stmt2.bind([falseId]);
+  let row2: Record<string, unknown> | null = null;
+  if (stmt2.step()) row2 = stmt2.getAsObject();
+  stmt2.free();
+  assert(row2?.task_continued === 0, "task_continued=false stored as 0 (not NULL)");
+
+  await store.updateSearchMemoryCount(fullId, 12);
+  const stmt3 = sqlitePrivate.db.prepare(
+    "SELECT search_memory_count_10min FROM recovery_quality_log WHERE id = ?"
+  );
+  stmt3.bind([fullId]);
+  let row3: Record<string, unknown> | null = null;
+  if (stmt3.step()) row3 = stmt3.getAsObject();
+  stmt3.free();
+  assert(row3?.search_memory_count_10min === 12, "updateSearchMemoryCount overwrites");
+
+  // Empty log_id is a no-op (matches PgStore behavior)
   await store.updateSearchMemoryCount("", 99);
   assert(true, "updateSearchMemoryCount with empty id is no-op");
 }

@@ -385,15 +385,30 @@ async function main() {
           discordHistory,
         });
 
-        // Log recovery quality (FEAT-024)
+        // Log recovery quality (FEAT-024 / AM-002 Stage 1).
+        // Notes carries a JSON summary of what was actually restored,
+        // so we can reconstruct recovery quality offline without needing
+        // the original output text.
         const recoveredTokens = estimateTokens(output);
         searchMemoryCountSinceRecovery = 0;
         if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
+
+        const notes = JSON.stringify({
+          source: "recover_context",
+          decisions: decisions.length,
+          tasks_in_progress: inProgressTasks.length,
+          tasks_completed: completedTasks.length,
+          knowledge: knowledgeItems.length,
+          messages: messages.length,
+          discord_history: discordHistory.length,
+        });
 
         recoveryLogId = await store.logRecoveryQuality({
           agent_id: AGENT_ID,
           session_id: SESSION_ID,
           recovered_tokens: recoveredTokens,
+          task_continued: false,
+          notes,
         });
 
         // Schedule 10-minute update of search_memory count
