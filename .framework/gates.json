@@ -1,0 +1,73 @@
+{
+  "gateA": {
+    "status": "failed",
+    "checks": [
+      {
+        "name": "package.json exists",
+        "passed": true,
+        "message": "package.json exists: found"
+      },
+      {
+        "name": "Dependencies installed (node_modules/)",
+        "passed": true,
+        "message": "Dependencies installed (node_modules/): found"
+      },
+      {
+        "name": "Environment config (.env or .env.example)",
+        "passed": false,
+        "message": ".env or .env.example not found. Create environment config."
+      },
+      {
+        "name": "Docker Compose config",
+        "passed": false,
+        "message": "docker-compose.yml not found. DB/Redis may not be available."
+      },
+      {
+        "name": "CI configuration (.github/workflows/)",
+        "passed": false,
+        "message": ".github/workflows/ not found. Run 'framework ci' to set up CI."
+      },
+      {
+        "name": "Framework management (.framework/)",
+        "passed": true,
+        "message": "Framework management (.framework/): found"
+      }
+    ],
+    "checkedAt": "2026-04-08T06:27:54.240Z"
+  },
+  "gateB": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "Implementation plan (.framework/plan.json)",
+        "passed": true,
+        "message": "Plan found: 1 waves, status=generated"
+      },
+      {
+        "name": "Plan contains features",
+        "passed": true,
+        "message": "21 features across 1 waves"
+      },
+      {
+        "name": "Project profile configured (.framework/project.json)",
+        "passed": true,
+        "message": "Project profile found"
+      }
+    ],
+    "checkedAt": "2026-04-08T06:27:54.242Z"
+  },
+  "gateC": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "Gate C (new-format SSOT-0~5)",
+        "passed": true,
+        "message": "New-format SSOT detected (6 files: docs/requirements/SSOT-0_PRD.md, docs/requirements/SSOT-1_FEATURE_CATALOG.md, docs/design/core/SSOT-2_UI_STATE.md, docs/design/core/SSOT-3_API_CONTRACT.md, docs/design/core/SSOT-4_DATA_MODEL.md, docs/design/core/SSOT-5_CROSS_CUTTING.md). Gate C auto-passed.",
+        "filePath": "",
+        "missingSections": []
+      }
+    ],
+    "checkedAt": "2026-04-08T06:27:54.245Z"
+  },
+  "updatedAt": "2026-04-08T06:27:54.245Z"
+}

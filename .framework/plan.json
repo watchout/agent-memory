@@ -1,0 +1,2369 @@
+{
+  "status": "generated",
+  "generatedAt": "2026-04-03T07:39:09.113Z",
+  "updatedAt": "2026-04-03T07:39:09.114Z",
+  "waves": [
+    {
+      "number": 1,
+      "phase": "individual",
+      "title": "Wave 1: Independent Features",
+      "features": [
+        {
+          "id": "FEAT-001",
+          "name": "log_decision",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: 判断記録の保存"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-002",
+          "name": "get_decisions",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: 判断記録の取得（フィルタ付き）"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-003",
+          "name": "supersede_decision",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: 判断の上書き"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-004",
+          "name": "save_task_state",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: タスク状態の保存"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-005",
+          "name": "search_memory",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: 全スコープ横断検索（keyword match）"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-006",
+          "name": "recover_context",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "MCP tool: task_state 1件 + knowledge 3件のみ。decisions/messages未復元"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-007",
+          "name": "SessionStart hook (boot.ts)",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "task_state 1件のみ復元。recover_contextよりさらに少ない"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-008",
+          "name": "PostgreSQL store",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "pg-store.ts: 全テーブル対応"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-014",
+          "name": "統合復元（decisions + messages + discord_history）",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "ADR-019設計のみ。recover_contextに未統合"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-015",
+          "name": "Bot別recovery_depth設定",
+          "priority": "P0",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "adaptive recovery。設計構想のみ"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-009",
+          "name": "JSON file store (fallback)",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "json-store.ts: DB不要のフォールバック"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-010",
+          "name": "Knowledge Layer",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "save_knowledge/getKnowledge実装済み。MCP toolとして未公開"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-011",
+          "name": "agent_messages検索",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "search_memory scope=messagesで検索可能"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-016",
+          "name": "L1→L2→L3 昇格ロジック",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "ADR-019設計のみ。コード実装ゼロ"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-017",
+          "name": "Catch-up機能（DB→Discord復元）",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "agent-comms連携。未着手"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-024",
+          "name": "復元品質モニタリング",
+          "priority": "P1",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "再起動後の品質自動評価"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-012",
+          "name": "Tool call logging",
+          "priority": "P2",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "~/.agent-memory/calls.log に記録"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-013",
+          "name": "Voyage AI embeddings",
+          "priority": "P2",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "voyage.ts存在するが統合未完了（uncommitted）"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-018",
+          "name": "未応答メッセージ検知",
+          "priority": "P2",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "Catch-up拡張。設計のみ"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-019",
+          "name": "マルチテナント設計",
+          "priority": "P2",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "プロダクト化Phase 2"
+          ],
+          "dependencyCount": 0
+        },
+        {
+          "id": "FEAT-020",
+          "name": "アダプタパターン抽象化",
+          "priority": "P2",
+          "size": "M",
+          "type": "proprietary",
+          "dependencies": [
+            "Discord以外の対応。設計のみ"
+          ],
+          "dependencyCount": 0
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FEAT-001-DB",
+      "featureId": "FEAT-001",
+      "kind": "db",
+      "name": "log_decision - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-001-API"
+      ],
+      "size": "S",
+      "seq": "1000100010"
+    },
+    {
+      "id": "FEAT-001-API",
+      "featureId": "FEAT-001",
+      "kind": "api",
+      "name": "log_decision - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-001-DB"
+      ],
+      "blocks": [
+        "FEAT-001-UI"
+      ],
+      "size": "M",
+      "seq": "1000100020"
+    },
+    {
+      "id": "FEAT-001-UI",
+      "featureId": "FEAT-001",
+      "kind": "ui",
+      "name": "log_decision - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-001-API"
+      ],
+      "blocks": [
+        "FEAT-001-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000100030"
+    },
+    {
+      "id": "FEAT-001-INTEGRATION",
+      "featureId": "FEAT-001",
+      "kind": "integration",
+      "name": "log_decision - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-001-UI"
+      ],
+      "blocks": [
+        "FEAT-001-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000100040"
+    },
+    {
+      "id": "FEAT-001-REVIEW",
+      "featureId": "FEAT-001",
+      "kind": "review",
+      "name": "log_decision - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-001-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-001-TEST"
+      ],
+      "size": "S",
+      "seq": "1000100050"
+    },
+    {
+      "id": "FEAT-001-TEST",
+      "featureId": "FEAT-001",
+      "kind": "test",
+      "name": "log_decision - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-001-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000100060"
+    },
+    {
+      "id": "FEAT-002-DB",
+      "featureId": "FEAT-002",
+      "kind": "db",
+      "name": "get_decisions - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-002-API"
+      ],
+      "size": "S",
+      "seq": "1000110010"
+    },
+    {
+      "id": "FEAT-002-API",
+      "featureId": "FEAT-002",
+      "kind": "api",
+      "name": "get_decisions - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-002-DB"
+      ],
+      "blocks": [
+        "FEAT-002-UI"
+      ],
+      "size": "M",
+      "seq": "1000110020"
+    },
+    {
+      "id": "FEAT-002-UI",
+      "featureId": "FEAT-002",
+      "kind": "ui",
+      "name": "get_decisions - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-002-API"
+      ],
+      "blocks": [
+        "FEAT-002-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000110030"
+    },
+    {
+      "id": "FEAT-002-INTEGRATION",
+      "featureId": "FEAT-002",
+      "kind": "integration",
+      "name": "get_decisions - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-002-UI"
+      ],
+      "blocks": [
+        "FEAT-002-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000110040"
+    },
+    {
+      "id": "FEAT-002-REVIEW",
+      "featureId": "FEAT-002",
+      "kind": "review",
+      "name": "get_decisions - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-002-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-002-TEST"
+      ],
+      "size": "S",
+      "seq": "1000110050"
+    },
+    {
+      "id": "FEAT-002-TEST",
+      "featureId": "FEAT-002",
+      "kind": "test",
+      "name": "get_decisions - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-002-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000110060"
+    },
+    {
+      "id": "FEAT-003-DB",
+      "featureId": "FEAT-003",
+      "kind": "db",
+      "name": "supersede_decision - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-003-API"
+      ],
+      "size": "S",
+      "seq": "1000120010"
+    },
+    {
+      "id": "FEAT-003-API",
+      "featureId": "FEAT-003",
+      "kind": "api",
+      "name": "supersede_decision - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-003-DB"
+      ],
+      "blocks": [
+        "FEAT-003-UI"
+      ],
+      "size": "M",
+      "seq": "1000120020"
+    },
+    {
+      "id": "FEAT-003-UI",
+      "featureId": "FEAT-003",
+      "kind": "ui",
+      "name": "supersede_decision - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-003-API"
+      ],
+      "blocks": [
+        "FEAT-003-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000120030"
+    },
+    {
+      "id": "FEAT-003-INTEGRATION",
+      "featureId": "FEAT-003",
+      "kind": "integration",
+      "name": "supersede_decision - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-003-UI"
+      ],
+      "blocks": [
+        "FEAT-003-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000120040"
+    },
+    {
+      "id": "FEAT-003-REVIEW",
+      "featureId": "FEAT-003",
+      "kind": "review",
+      "name": "supersede_decision - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-003-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-003-TEST"
+      ],
+      "size": "S",
+      "seq": "1000120050"
+    },
+    {
+      "id": "FEAT-003-TEST",
+      "featureId": "FEAT-003",
+      "kind": "test",
+      "name": "supersede_decision - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-003-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000120060"
+    },
+    {
+      "id": "FEAT-004-DB",
+      "featureId": "FEAT-004",
+      "kind": "db",
+      "name": "save_task_state - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-004-API"
+      ],
+      "size": "S",
+      "seq": "1000130010"
+    },
+    {
+      "id": "FEAT-004-API",
+      "featureId": "FEAT-004",
+      "kind": "api",
+      "name": "save_task_state - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-004-DB"
+      ],
+      "blocks": [
+        "FEAT-004-UI"
+      ],
+      "size": "M",
+      "seq": "1000130020"
+    },
+    {
+      "id": "FEAT-004-UI",
+      "featureId": "FEAT-004",
+      "kind": "ui",
+      "name": "save_task_state - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-004-API"
+      ],
+      "blocks": [
+        "FEAT-004-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000130030"
+    },
+    {
+      "id": "FEAT-004-INTEGRATION",
+      "featureId": "FEAT-004",
+      "kind": "integration",
+      "name": "save_task_state - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-004-UI"
+      ],
+      "blocks": [
+        "FEAT-004-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000130040"
+    },
+    {
+      "id": "FEAT-004-REVIEW",
+      "featureId": "FEAT-004",
+      "kind": "review",
+      "name": "save_task_state - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-004-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-004-TEST"
+      ],
+      "size": "S",
+      "seq": "1000130050"
+    },
+    {
+      "id": "FEAT-004-TEST",
+      "featureId": "FEAT-004",
+      "kind": "test",
+      "name": "save_task_state - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-004-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000130060"
+    },
+    {
+      "id": "FEAT-005-DB",
+      "featureId": "FEAT-005",
+      "kind": "db",
+      "name": "search_memory - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-005-API"
+      ],
+      "size": "S",
+      "seq": "1000140010"
+    },
+    {
+      "id": "FEAT-005-API",
+      "featureId": "FEAT-005",
+      "kind": "api",
+      "name": "search_memory - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-005-DB"
+      ],
+      "blocks": [
+        "FEAT-005-UI"
+      ],
+      "size": "M",
+      "seq": "1000140020"
+    },
+    {
+      "id": "FEAT-005-UI",
+      "featureId": "FEAT-005",
+      "kind": "ui",
+      "name": "search_memory - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-005-API"
+      ],
+      "blocks": [
+        "FEAT-005-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000140030"
+    },
+    {
+      "id": "FEAT-005-INTEGRATION",
+      "featureId": "FEAT-005",
+      "kind": "integration",
+      "name": "search_memory - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-005-UI"
+      ],
+      "blocks": [
+        "FEAT-005-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000140040"
+    },
+    {
+      "id": "FEAT-005-REVIEW",
+      "featureId": "FEAT-005",
+      "kind": "review",
+      "name": "search_memory - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-005-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-005-TEST"
+      ],
+      "size": "S",
+      "seq": "1000140050"
+    },
+    {
+      "id": "FEAT-005-TEST",
+      "featureId": "FEAT-005",
+      "kind": "test",
+      "name": "search_memory - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-005-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000140060"
+    },
+    {
+      "id": "FEAT-006-DB",
+      "featureId": "FEAT-006",
+      "kind": "db",
+      "name": "recover_context - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-006-API"
+      ],
+      "size": "S",
+      "seq": "1000150010"
+    },
+    {
+      "id": "FEAT-006-API",
+      "featureId": "FEAT-006",
+      "kind": "api",
+      "name": "recover_context - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-006-DB"
+      ],
+      "blocks": [
+        "FEAT-006-UI"
+      ],
+      "size": "M",
+      "seq": "1000150020"
+    },
+    {
+      "id": "FEAT-006-UI",
+      "featureId": "FEAT-006",
+      "kind": "ui",
+      "name": "recover_context - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-006-API"
+      ],
+      "blocks": [
+        "FEAT-006-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000150030"
+    },
+    {
+      "id": "FEAT-006-INTEGRATION",
+      "featureId": "FEAT-006",
+      "kind": "integration",
+      "name": "recover_context - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-006-UI"
+      ],
+      "blocks": [
+        "FEAT-006-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000150040"
+    },
+    {
+      "id": "FEAT-006-REVIEW",
+      "featureId": "FEAT-006",
+      "kind": "review",
+      "name": "recover_context - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-006-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-006-TEST"
+      ],
+      "size": "S",
+      "seq": "1000150050"
+    },
+    {
+      "id": "FEAT-006-TEST",
+      "featureId": "FEAT-006",
+      "kind": "test",
+      "name": "recover_context - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-006-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000150060"
+    },
+    {
+      "id": "FEAT-007-DB",
+      "featureId": "FEAT-007",
+      "kind": "db",
+      "name": "SessionStart hook (boot.ts) - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-007-API"
+      ],
+      "size": "S",
+      "seq": "1000160010"
+    },
+    {
+      "id": "FEAT-007-API",
+      "featureId": "FEAT-007",
+      "kind": "api",
+      "name": "SessionStart hook (boot.ts) - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-007-DB"
+      ],
+      "blocks": [
+        "FEAT-007-UI"
+      ],
+      "size": "M",
+      "seq": "1000160020"
+    },
+    {
+      "id": "FEAT-007-UI",
+      "featureId": "FEAT-007",
+      "kind": "ui",
+      "name": "SessionStart hook (boot.ts) - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-007-API"
+      ],
+      "blocks": [
+        "FEAT-007-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000160030"
+    },
+    {
+      "id": "FEAT-007-INTEGRATION",
+      "featureId": "FEAT-007",
+      "kind": "integration",
+      "name": "SessionStart hook (boot.ts) - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-007-UI"
+      ],
+      "blocks": [
+        "FEAT-007-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000160040"
+    },
+    {
+      "id": "FEAT-007-REVIEW",
+      "featureId": "FEAT-007",
+      "kind": "review",
+      "name": "SessionStart hook (boot.ts) - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-007-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-007-TEST"
+      ],
+      "size": "S",
+      "seq": "1000160050"
+    },
+    {
+      "id": "FEAT-007-TEST",
+      "featureId": "FEAT-007",
+      "kind": "test",
+      "name": "SessionStart hook (boot.ts) - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-007-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000160060"
+    },
+    {
+      "id": "FEAT-008-DB",
+      "featureId": "FEAT-008",
+      "kind": "db",
+      "name": "PostgreSQL store - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-008-API"
+      ],
+      "size": "S",
+      "seq": "1000170010"
+    },
+    {
+      "id": "FEAT-008-API",
+      "featureId": "FEAT-008",
+      "kind": "api",
+      "name": "PostgreSQL store - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-008-DB"
+      ],
+      "blocks": [
+        "FEAT-008-UI"
+      ],
+      "size": "M",
+      "seq": "1000170020"
+    },
+    {
+      "id": "FEAT-008-UI",
+      "featureId": "FEAT-008",
+      "kind": "ui",
+      "name": "PostgreSQL store - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-008-API"
+      ],
+      "blocks": [
+        "FEAT-008-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000170030"
+    },
+    {
+      "id": "FEAT-008-INTEGRATION",
+      "featureId": "FEAT-008",
+      "kind": "integration",
+      "name": "PostgreSQL store - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-008-UI"
+      ],
+      "blocks": [
+        "FEAT-008-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000170040"
+    },
+    {
+      "id": "FEAT-008-REVIEW",
+      "featureId": "FEAT-008",
+      "kind": "review",
+      "name": "PostgreSQL store - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-008-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-008-TEST"
+      ],
+      "size": "S",
+      "seq": "1000170050"
+    },
+    {
+      "id": "FEAT-008-TEST",
+      "featureId": "FEAT-008",
+      "kind": "test",
+      "name": "PostgreSQL store - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-008-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000170060"
+    },
+    {
+      "id": "FEAT-014-DB",
+      "featureId": "FEAT-014",
+      "kind": "db",
+      "name": "統合復元（decisions + messages + discord_history） - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-014-API"
+      ],
+      "size": "S",
+      "seq": "1000180010"
+    },
+    {
+      "id": "FEAT-014-API",
+      "featureId": "FEAT-014",
+      "kind": "api",
+      "name": "統合復元（decisions + messages + discord_history） - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-014-DB"
+      ],
+      "blocks": [
+        "FEAT-014-UI"
+      ],
+      "size": "M",
+      "seq": "1000180020"
+    },
+    {
+      "id": "FEAT-014-UI",
+      "featureId": "FEAT-014",
+      "kind": "ui",
+      "name": "統合復元（decisions + messages + discord_history） - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-014-API"
+      ],
+      "blocks": [
+        "FEAT-014-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000180030"
+    },
+    {
+      "id": "FEAT-014-INTEGRATION",
+      "featureId": "FEAT-014",
+      "kind": "integration",
+      "name": "統合復元（decisions + messages + discord_history） - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-014-UI"
+      ],
+      "blocks": [
+        "FEAT-014-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000180040"
+    },
+    {
+      "id": "FEAT-014-REVIEW",
+      "featureId": "FEAT-014",
+      "kind": "review",
+      "name": "統合復元（decisions + messages + discord_history） - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-014-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-014-TEST"
+      ],
+      "size": "S",
+      "seq": "1000180050"
+    },
+    {
+      "id": "FEAT-014-TEST",
+      "featureId": "FEAT-014",
+      "kind": "test",
+      "name": "統合復元（decisions + messages + discord_history） - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-014-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000180060"
+    },
+    {
+      "id": "FEAT-015-DB",
+      "featureId": "FEAT-015",
+      "kind": "db",
+      "name": "Bot別recovery_depth設定 - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-015-API"
+      ],
+      "size": "S",
+      "seq": "1000190010"
+    },
+    {
+      "id": "FEAT-015-API",
+      "featureId": "FEAT-015",
+      "kind": "api",
+      "name": "Bot別recovery_depth設定 - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-015-DB"
+      ],
+      "blocks": [
+        "FEAT-015-UI"
+      ],
+      "size": "M",
+      "seq": "1000190020"
+    },
+    {
+      "id": "FEAT-015-UI",
+      "featureId": "FEAT-015",
+      "kind": "ui",
+      "name": "Bot別recovery_depth設定 - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-015-API"
+      ],
+      "blocks": [
+        "FEAT-015-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000190030"
+    },
+    {
+      "id": "FEAT-015-INTEGRATION",
+      "featureId": "FEAT-015",
+      "kind": "integration",
+      "name": "Bot別recovery_depth設定 - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-015-UI"
+      ],
+      "blocks": [
+        "FEAT-015-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000190040"
+    },
+    {
+      "id": "FEAT-015-REVIEW",
+      "featureId": "FEAT-015",
+      "kind": "review",
+      "name": "Bot別recovery_depth設定 - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-015-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-015-TEST"
+      ],
+      "size": "S",
+      "seq": "1000190050"
+    },
+    {
+      "id": "FEAT-015-TEST",
+      "featureId": "FEAT-015",
+      "kind": "test",
+      "name": "Bot別recovery_depth設定 - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-015-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000190060"
+    },
+    {
+      "id": "FEAT-009-DB",
+      "featureId": "FEAT-009",
+      "kind": "db",
+      "name": "JSON file store (fallback) - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-009-API"
+      ],
+      "size": "S",
+      "seq": "1000200010"
+    },
+    {
+      "id": "FEAT-009-API",
+      "featureId": "FEAT-009",
+      "kind": "api",
+      "name": "JSON file store (fallback) - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-009-DB"
+      ],
+      "blocks": [
+        "FEAT-009-UI"
+      ],
+      "size": "M",
+      "seq": "1000200020"
+    },
+    {
+      "id": "FEAT-009-UI",
+      "featureId": "FEAT-009",
+      "kind": "ui",
+      "name": "JSON file store (fallback) - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-009-API"
+      ],
+      "blocks": [
+        "FEAT-009-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000200030"
+    },
+    {
+      "id": "FEAT-009-INTEGRATION",
+      "featureId": "FEAT-009",
+      "kind": "integration",
+      "name": "JSON file store (fallback) - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-009-UI"
+      ],
+      "blocks": [
+        "FEAT-009-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000200040"
+    },
+    {
+      "id": "FEAT-009-REVIEW",
+      "featureId": "FEAT-009",
+      "kind": "review",
+      "name": "JSON file store (fallback) - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-009-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-009-TEST"
+      ],
+      "size": "S",
+      "seq": "1000200050"
+    },
+    {
+      "id": "FEAT-009-TEST",
+      "featureId": "FEAT-009",
+      "kind": "test",
+      "name": "JSON file store (fallback) - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-009-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000200060"
+    },
+    {
+      "id": "FEAT-010-DB",
+      "featureId": "FEAT-010",
+      "kind": "db",
+      "name": "Knowledge Layer - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-010-API"
+      ],
+      "size": "S",
+      "seq": "1000210010"
+    },
+    {
+      "id": "FEAT-010-API",
+      "featureId": "FEAT-010",
+      "kind": "api",
+      "name": "Knowledge Layer - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-010-DB"
+      ],
+      "blocks": [
+        "FEAT-010-UI"
+      ],
+      "size": "M",
+      "seq": "1000210020"
+    },
+    {
+      "id": "FEAT-010-UI",
+      "featureId": "FEAT-010",
+      "kind": "ui",
+      "name": "Knowledge Layer - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-010-API"
+      ],
+      "blocks": [
+        "FEAT-010-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000210030"
+    },
+    {
+      "id": "FEAT-010-INTEGRATION",
+      "featureId": "FEAT-010",
+      "kind": "integration",
+      "name": "Knowledge Layer - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-010-UI"
+      ],
+      "blocks": [
+        "FEAT-010-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000210040"
+    },
+    {
+      "id": "FEAT-010-REVIEW",
+      "featureId": "FEAT-010",
+      "kind": "review",
+      "name": "Knowledge Layer - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-010-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-010-TEST"
+      ],
+      "size": "S",
+      "seq": "1000210050"
+    },
+    {
+      "id": "FEAT-010-TEST",
+      "featureId": "FEAT-010",
+      "kind": "test",
+      "name": "Knowledge Layer - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-010-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000210060"
+    },
+    {
+      "id": "FEAT-011-DB",
+      "featureId": "FEAT-011",
+      "kind": "db",
+      "name": "agent_messages検索 - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-011-API"
+      ],
+      "size": "S",
+      "seq": "1000220010"
+    },
+    {
+      "id": "FEAT-011-API",
+      "featureId": "FEAT-011",
+      "kind": "api",
+      "name": "agent_messages検索 - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-011-DB"
+      ],
+      "blocks": [
+        "FEAT-011-UI"
+      ],
+      "size": "M",
+      "seq": "1000220020"
+    },
+    {
+      "id": "FEAT-011-UI",
+      "featureId": "FEAT-011",
+      "kind": "ui",
+      "name": "agent_messages検索 - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-011-API"
+      ],
+      "blocks": [
+        "FEAT-011-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000220030"
+    },
+    {
+      "id": "FEAT-011-INTEGRATION",
+      "featureId": "FEAT-011",
+      "kind": "integration",
+      "name": "agent_messages検索 - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-011-UI"
+      ],
+      "blocks": [
+        "FEAT-011-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000220040"
+    },
+    {
+      "id": "FEAT-011-REVIEW",
+      "featureId": "FEAT-011",
+      "kind": "review",
+      "name": "agent_messages検索 - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-011-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-011-TEST"
+      ],
+      "size": "S",
+      "seq": "1000220050"
+    },
+    {
+      "id": "FEAT-011-TEST",
+      "featureId": "FEAT-011",
+      "kind": "test",
+      "name": "agent_messages検索 - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-011-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000220060"
+    },
+    {
+      "id": "FEAT-016-DB",
+      "featureId": "FEAT-016",
+      "kind": "db",
+      "name": "L1→L2→L3 昇格ロジック - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-016-API"
+      ],
+      "size": "S",
+      "seq": "1000230010"
+    },
+    {
+      "id": "FEAT-016-API",
+      "featureId": "FEAT-016",
+      "kind": "api",
+      "name": "L1→L2→L3 昇格ロジック - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-016-DB"
+      ],
+      "blocks": [
+        "FEAT-016-UI"
+      ],
+      "size": "M",
+      "seq": "1000230020"
+    },
+    {
+      "id": "FEAT-016-UI",
+      "featureId": "FEAT-016",
+      "kind": "ui",
+      "name": "L1→L2→L3 昇格ロジック - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-016-API"
+      ],
+      "blocks": [
+        "FEAT-016-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000230030"
+    },
+    {
+      "id": "FEAT-016-INTEGRATION",
+      "featureId": "FEAT-016",
+      "kind": "integration",
+      "name": "L1→L2→L3 昇格ロジック - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-016-UI"
+      ],
+      "blocks": [
+        "FEAT-016-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000230040"
+    },
+    {
+      "id": "FEAT-016-REVIEW",
+      "featureId": "FEAT-016",
+      "kind": "review",
+      "name": "L1→L2→L3 昇格ロジック - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-016-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-016-TEST"
+      ],
+      "size": "S",
+      "seq": "1000230050"
+    },
+    {
+      "id": "FEAT-016-TEST",
+      "featureId": "FEAT-016",
+      "kind": "test",
+      "name": "L1→L2→L3 昇格ロジック - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-016-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000230060"
+    },
+    {
+      "id": "FEAT-017-DB",
+      "featureId": "FEAT-017",
+      "kind": "db",
+      "name": "Catch-up機能（DB→Discord復元） - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-017-API"
+      ],
+      "size": "S",
+      "seq": "1000240010"
+    },
+    {
+      "id": "FEAT-017-API",
+      "featureId": "FEAT-017",
+      "kind": "api",
+      "name": "Catch-up機能（DB→Discord復元） - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-017-DB"
+      ],
+      "blocks": [
+        "FEAT-017-UI"
+      ],
+      "size": "M",
+      "seq": "1000240020"
+    },
+    {
+      "id": "FEAT-017-UI",
+      "featureId": "FEAT-017",
+      "kind": "ui",
+      "name": "Catch-up機能（DB→Discord復元） - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-017-API"
+      ],
+      "blocks": [
+        "FEAT-017-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000240030"
+    },
+    {
+      "id": "FEAT-017-INTEGRATION",
+      "featureId": "FEAT-017",
+      "kind": "integration",
+      "name": "Catch-up機能（DB→Discord復元） - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-017-UI"
+      ],
+      "blocks": [
+        "FEAT-017-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000240040"
+    },
+    {
+      "id": "FEAT-017-REVIEW",
+      "featureId": "FEAT-017",
+      "kind": "review",
+      "name": "Catch-up機能（DB→Discord復元） - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-017-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-017-TEST"
+      ],
+      "size": "S",
+      "seq": "1000240050"
+    },
+    {
+      "id": "FEAT-017-TEST",
+      "featureId": "FEAT-017",
+      "kind": "test",
+      "name": "Catch-up機能（DB→Discord復元） - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-017-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000240060"
+    },
+    {
+      "id": "FEAT-024-DB",
+      "featureId": "FEAT-024",
+      "kind": "db",
+      "name": "復元品質モニタリング - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-024-API"
+      ],
+      "size": "S",
+      "seq": "1000250010"
+    },
+    {
+      "id": "FEAT-024-API",
+      "featureId": "FEAT-024",
+      "kind": "api",
+      "name": "復元品質モニタリング - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-024-DB"
+      ],
+      "blocks": [
+        "FEAT-024-UI"
+      ],
+      "size": "M",
+      "seq": "1000250020"
+    },
+    {
+      "id": "FEAT-024-UI",
+      "featureId": "FEAT-024",
+      "kind": "ui",
+      "name": "復元品質モニタリング - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-024-API"
+      ],
+      "blocks": [
+        "FEAT-024-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000250030"
+    },
+    {
+      "id": "FEAT-024-INTEGRATION",
+      "featureId": "FEAT-024",
+      "kind": "integration",
+      "name": "復元品質モニタリング - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-024-UI"
+      ],
+      "blocks": [
+        "FEAT-024-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000250040"
+    },
+    {
+      "id": "FEAT-024-REVIEW",
+      "featureId": "FEAT-024",
+      "kind": "review",
+      "name": "復元品質モニタリング - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-024-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-024-TEST"
+      ],
+      "size": "S",
+      "seq": "1000250050"
+    },
+    {
+      "id": "FEAT-024-TEST",
+      "featureId": "FEAT-024",
+      "kind": "test",
+      "name": "復元品質モニタリング - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-024-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000250060"
+    },
+    {
+      "id": "FEAT-012-DB",
+      "featureId": "FEAT-012",
+      "kind": "db",
+      "name": "Tool call logging - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-012-API"
+      ],
+      "size": "S",
+      "seq": "1000260010"
+    },
+    {
+      "id": "FEAT-012-API",
+      "featureId": "FEAT-012",
+      "kind": "api",
+      "name": "Tool call logging - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-012-DB"
+      ],
+      "blocks": [
+        "FEAT-012-UI"
+      ],
+      "size": "M",
+      "seq": "1000260020"
+    },
+    {
+      "id": "FEAT-012-UI",
+      "featureId": "FEAT-012",
+      "kind": "ui",
+      "name": "Tool call logging - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-012-API"
+      ],
+      "blocks": [
+        "FEAT-012-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000260030"
+    },
+    {
+      "id": "FEAT-012-INTEGRATION",
+      "featureId": "FEAT-012",
+      "kind": "integration",
+      "name": "Tool call logging - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-012-UI"
+      ],
+      "blocks": [
+        "FEAT-012-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000260040"
+    },
+    {
+      "id": "FEAT-012-REVIEW",
+      "featureId": "FEAT-012",
+      "kind": "review",
+      "name": "Tool call logging - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-012-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-012-TEST"
+      ],
+      "size": "S",
+      "seq": "1000260050"
+    },
+    {
+      "id": "FEAT-012-TEST",
+      "featureId": "FEAT-012",
+      "kind": "test",
+      "name": "Tool call logging - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-012-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000260060"
+    },
+    {
+      "id": "FEAT-013-DB",
+      "featureId": "FEAT-013",
+      "kind": "db",
+      "name": "Voyage AI embeddings - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-013-API"
+      ],
+      "size": "S",
+      "seq": "1000270010"
+    },
+    {
+      "id": "FEAT-013-API",
+      "featureId": "FEAT-013",
+      "kind": "api",
+      "name": "Voyage AI embeddings - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-013-DB"
+      ],
+      "blocks": [
+        "FEAT-013-UI"
+      ],
+      "size": "M",
+      "seq": "1000270020"
+    },
+    {
+      "id": "FEAT-013-UI",
+      "featureId": "FEAT-013",
+      "kind": "ui",
+      "name": "Voyage AI embeddings - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-013-API"
+      ],
+      "blocks": [
+        "FEAT-013-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000270030"
+    },
+    {
+      "id": "FEAT-013-INTEGRATION",
+      "featureId": "FEAT-013",
+      "kind": "integration",
+      "name": "Voyage AI embeddings - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-013-UI"
+      ],
+      "blocks": [
+        "FEAT-013-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000270040"
+    },
+    {
+      "id": "FEAT-013-REVIEW",
+      "featureId": "FEAT-013",
+      "kind": "review",
+      "name": "Voyage AI embeddings - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-013-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-013-TEST"
+      ],
+      "size": "S",
+      "seq": "1000270050"
+    },
+    {
+      "id": "FEAT-013-TEST",
+      "featureId": "FEAT-013",
+      "kind": "test",
+      "name": "Voyage AI embeddings - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-013-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000270060"
+    },
+    {
+      "id": "FEAT-018-DB",
+      "featureId": "FEAT-018",
+      "kind": "db",
+      "name": "未応答メッセージ検知 - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-018-API"
+      ],
+      "size": "S",
+      "seq": "1000280010"
+    },
+    {
+      "id": "FEAT-018-API",
+      "featureId": "FEAT-018",
+      "kind": "api",
+      "name": "未応答メッセージ検知 - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-018-DB"
+      ],
+      "blocks": [
+        "FEAT-018-UI"
+      ],
+      "size": "M",
+      "seq": "1000280020"
+    },
+    {
+      "id": "FEAT-018-UI",
+      "featureId": "FEAT-018",
+      "kind": "ui",
+      "name": "未応答メッセージ検知 - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-018-API"
+      ],
+      "blocks": [
+        "FEAT-018-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000280030"
+    },
+    {
+      "id": "FEAT-018-INTEGRATION",
+      "featureId": "FEAT-018",
+      "kind": "integration",
+      "name": "未応答メッセージ検知 - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-018-UI"
+      ],
+      "blocks": [
+        "FEAT-018-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000280040"
+    },
+    {
+      "id": "FEAT-018-REVIEW",
+      "featureId": "FEAT-018",
+      "kind": "review",
+      "name": "未応答メッセージ検知 - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-018-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-018-TEST"
+      ],
+      "size": "S",
+      "seq": "1000280050"
+    },
+    {
+      "id": "FEAT-018-TEST",
+      "featureId": "FEAT-018",
+      "kind": "test",
+      "name": "未応答メッセージ検知 - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-018-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000280060"
+    },
+    {
+      "id": "FEAT-019-DB",
+      "featureId": "FEAT-019",
+      "kind": "db",
+      "name": "マルチテナント設計 - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-019-API"
+      ],
+      "size": "S",
+      "seq": "1000290010"
+    },
+    {
+      "id": "FEAT-019-API",
+      "featureId": "FEAT-019",
+      "kind": "api",
+      "name": "マルチテナント設計 - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-019-DB"
+      ],
+      "blocks": [
+        "FEAT-019-UI"
+      ],
+      "size": "M",
+      "seq": "1000290020"
+    },
+    {
+      "id": "FEAT-019-UI",
+      "featureId": "FEAT-019",
+      "kind": "ui",
+      "name": "マルチテナント設計 - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-019-API"
+      ],
+      "blocks": [
+        "FEAT-019-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000290030"
+    },
+    {
+      "id": "FEAT-019-INTEGRATION",
+      "featureId": "FEAT-019",
+      "kind": "integration",
+      "name": "マルチテナント設計 - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-019-UI"
+      ],
+      "blocks": [
+        "FEAT-019-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000290040"
+    },
+    {
+      "id": "FEAT-019-REVIEW",
+      "featureId": "FEAT-019",
+      "kind": "review",
+      "name": "マルチテナント設計 - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-019-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-019-TEST"
+      ],
+      "size": "S",
+      "seq": "1000290050"
+    },
+    {
+      "id": "FEAT-019-TEST",
+      "featureId": "FEAT-019",
+      "kind": "test",
+      "name": "マルチテナント設計 - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-019-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000290060"
+    },
+    {
+      "id": "FEAT-020-DB",
+      "featureId": "FEAT-020",
+      "kind": "db",
+      "name": "アダプタパターン抽象化 - Database",
+      "references": [
+        "§4"
+      ],
+      "blockedBy": [],
+      "blocks": [
+        "FEAT-020-API"
+      ],
+      "size": "S",
+      "seq": "1000300010"
+    },
+    {
+      "id": "FEAT-020-API",
+      "featureId": "FEAT-020",
+      "kind": "api",
+      "name": "アダプタパターン抽象化 - API",
+      "references": [
+        "§5",
+        "§7",
+        "§9"
+      ],
+      "blockedBy": [
+        "FEAT-020-DB"
+      ],
+      "blocks": [
+        "FEAT-020-UI"
+      ],
+      "size": "M",
+      "seq": "1000300020"
+    },
+    {
+      "id": "FEAT-020-UI",
+      "featureId": "FEAT-020",
+      "kind": "ui",
+      "name": "アダプタパターン抽象化 - UI",
+      "references": [
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-020-API"
+      ],
+      "blocks": [
+        "FEAT-020-INTEGRATION"
+      ],
+      "size": "M",
+      "seq": "1000300030"
+    },
+    {
+      "id": "FEAT-020-INTEGRATION",
+      "featureId": "FEAT-020",
+      "kind": "integration",
+      "name": "アダプタパターン抽象化 - Integration",
+      "references": [
+        "§5",
+        "§6"
+      ],
+      "blockedBy": [
+        "FEAT-020-UI"
+      ],
+      "blocks": [
+        "FEAT-020-REVIEW"
+      ],
+      "size": "M",
+      "seq": "1000300040"
+    },
+    {
+      "id": "FEAT-020-REVIEW",
+      "featureId": "FEAT-020",
+      "kind": "review",
+      "name": "アダプタパターン抽象化 - Code Audit",
+      "references": [
+        "All"
+      ],
+      "blockedBy": [
+        "FEAT-020-INTEGRATION"
+      ],
+      "blocks": [
+        "FEAT-020-TEST"
+      ],
+      "size": "S",
+      "seq": "1000300050"
+    },
+    {
+      "id": "FEAT-020-TEST",
+      "featureId": "FEAT-020",
+      "kind": "test",
+      "name": "アダプタパターン抽象化 - Testing",
+      "references": [
+        "§10"
+      ],
+      "blockedBy": [
+        "FEAT-020-REVIEW"
+      ],
+      "blocks": [],
+      "size": "M",
+      "seq": "1000300060"
+    }
+  ],
+  "circularDependencies": []
+}
