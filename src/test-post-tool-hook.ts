@@ -15,7 +15,10 @@ import { spawn } from "child_process";
 import { existsSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { extractDiscordContentFromBash } from "./post-tool-hook.js";
+import {
+  extractDiscordContentFromBash,
+  splitTaskFromContent,
+} from "./post-tool-hook.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 
 let passed = 0;
@@ -103,6 +106,47 @@ EOF`;
   }
 }
 
+// ─── AM-023: splitTaskFromContent unit tests ────────────────────
+
+function testSplitTaskFromContent() {
+  console.log("\n── splitTaskFromContent (AM-023 unit) ──");
+
+  // Ticket id at the start: stripped from description
+  {
+    const r = splitTaskFromContent("AM-023 task_id UPSERT 着手", "AM-023");
+    assert(r.taskId === "AM-023", "taskId echoes the ticket id");
+    assert(r.taskDescription === "task_id UPSERT 着手", "ticket id stripped from description");
+  }
+
+  // No ticket id: taskId undefined, full content as description
+  {
+    const r = splitTaskFromContent("Build the API", null);
+    assert(r.taskId === undefined, "taskId undefined when no ticket id");
+    assert(r.taskDescription === "Build the API", "description preserved verbatim");
+  }
+
+  // Ticket id appearing mid-string is stripped (only first occurrence)
+  {
+    const r = splitTaskFromContent("Working on AM-006 hook installer", "AM-006");
+    assert(r.taskId === "AM-006", "taskId echoes the mid-string ticket id");
+    assert(r.taskDescription === "Working on hook installer", "mid-string ticket id stripped");
+  }
+
+  // Bare ticket id with no description falls back to the ticket id itself
+  {
+    const r = splitTaskFromContent("AM-023", "AM-023");
+    assert(r.taskId === "AM-023", "taskId set");
+    assert(r.taskDescription === "AM-023", "bare ticket id used as description fallback");
+  }
+
+  // Long content gets capped at 200 chars
+  {
+    const long = "AM-001 " + "x".repeat(500);
+    const r = splitTaskFromContent(long, "AM-001");
+    assert(r.taskDescription.length === 200, "description capped at 200 chars");
+  }
+}
+
 // ─── Layer 2: E2E spawn test ─────────────────────────────────────
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-hook-e2e-${Date.now()}.db`);
@@ -161,10 +205,52 @@ EOF`;
       tasks[0].progress?.includes("AM-016 E2E spawn test") ?? false,
       "task progress contains the original message text"
     );
+    // AM-023: ticket id now lives in task_id; description (with the
+    // ticket id stripped) lives in task.
     assert(
-      tasks[0].task === "AM-016",
-      "task name extracted from ticket id (AM-016)"
+      tasks[0].task_id === "AM-016",
+      "task_id extracted from ticket id (AM-016)"
     );
+    assert(
+      tasks[0].task === "E2E spawn test",
+      "task description has ticket id stripped"
+    );
+  } finally {
+    await store.close();
+  }
+}
+
+async function testE2EBashUpsertSameTicket() {
+  console.log("\n── post-tool-hook E2E (UPSERT same ticket) ──");
+
+  // Re-post the *same* ticket id with new progress text. With AM-023,
+  // this must NOT create a second row — the UPSERT keyed on
+  // (agent_id, task_id) should update the existing row in place.
+  const heredocCommand = `curl -s -X POST "https://discord.com/api/v10/channels/1490958446885863524/messages" --data @- <<'EOF'
+{"content": "[TASK:done] AM-016 E2E spawn test (now finished)"}
+EOF`;
+
+  const result = await runHook({
+    tool_name: "Bash",
+    tool_input: { command: heredocCommand, description: "test" },
+    tool_result: {},
+  });
+  assert(result.code === 0, "hook exits cleanly on second Bash post");
+
+  const store = new SqliteStore(TEST_DB_PATH);
+  await store.initialize();
+  try {
+    const tasks = await store.getTaskStates({
+      agent_id: AGENT_ID,
+      status: "all",
+    });
+    assert(tasks.length === 1, "still exactly one row after re-posting same ticket");
+    assert(tasks[0].status === "completed", "status updated to completed");
+    assert(
+      tasks[0].progress?.includes("now finished") ?? false,
+      "progress reflects the latest post"
+    );
+    assert(tasks[0].task_id === "AM-016", "task_id stays AM-016 across UPSERT");
   } finally {
     await store.close();
   }
@@ -231,7 +317,9 @@ async function run() {
 
   try {
     testExtractor();
+    testSplitTaskFromContent();
     await testE2EBashPath();
+    await testE2EBashUpsertSameTicket();
     await testE2ENonDiscordBashIgnored();
     await testE2EUnrelatedToolIgnored();
   } finally {

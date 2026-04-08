@@ -62,6 +62,19 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_knowledge_search ON knowledge
     USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')))`,
   `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS consolidated_at TIMESTAMPTZ`,
+
+  // ─── AM-023: task_id UPSERT (#56) ─────────────────────────────
+  `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS task_id TEXT`,
+  `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+  `UPDATE task_states SET task_id = task WHERE task_id IS NULL`,
+  `UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`,
+  `DELETE FROM task_states WHERE id NOT IN (
+     SELECT DISTINCT ON (agent_id, task_id) id
+       FROM task_states
+      ORDER BY agent_id, task_id, created_at DESC, id DESC
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
+     ON task_states (agent_id, task_id)`,
 ];
 
 async function migrate() {
