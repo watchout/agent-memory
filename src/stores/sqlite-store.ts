@@ -19,6 +19,7 @@ import type {
   SearchMemoryResult,
   SaveKnowledgeInput,
   GetKnowledgeInput,
+  LogRecoveryQualityInput,
 } from "./types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
@@ -690,17 +691,25 @@ export class SqliteStore implements Store {
 
   // ─── Recovery Quality Log ────────────────────────────────────
 
-  async logRecoveryQuality(input: {
-    agent_id: string;
-    session_id?: string;
-    recovered_tokens: number;
-  }): Promise<string> {
+  async logRecoveryQuality(input: LogRecoveryQualityInput): Promise<string> {
     const id = uuidv4();
     this.db.run(
       `INSERT INTO recovery_quality_log
-        (id, agent_id, session_id, recovered_tokens, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, input.agent_id, input.session_id ?? null, input.recovered_tokens, nowIso()]
+        (id, agent_id, session_id, recovered_tokens,
+         task_continued, quality_score, notes, search_memory_count_10min,
+         created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.agent_id,
+        input.session_id ?? null,
+        input.recovered_tokens,
+        input.task_continued === undefined ? null : input.task_continued ? 1 : 0,
+        input.quality_score ?? null,
+        input.notes ?? null,
+        input.search_memory_count_10min ?? 0,
+        nowIso(),
+      ]
     );
     this.persist();
     return id;

@@ -330,7 +330,8 @@ export class JsonStore implements Store {
     };
   }
 
-  async logRecoveryQuality(): Promise<string> {
+  async logRecoveryQuality(_input: import("./types.js").LogRecoveryQualityInput): Promise<string> {
+    void _input;
     // JSON store has no recovery_quality_log — no-op
     return "";
   }

@@ -16,6 +16,7 @@ import type {
   SearchMemoryResult,
   SaveKnowledgeInput,
   GetKnowledgeInput,
+  LogRecoveryQualityInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -715,12 +716,22 @@ export class PgStore implements Store {
     };
   }
 
-  async logRecoveryQuality(input: { agent_id: string; session_id?: string; recovered_tokens: number }): Promise<string> {
+  async logRecoveryQuality(input: LogRecoveryQualityInput): Promise<string> {
     try {
       const result = await this.pool.query(
-        `INSERT INTO recovery_quality_log (agent_id, session_id, recovered_tokens)
-         VALUES ($1, $2, $3) RETURNING id`,
-        [input.agent_id, input.session_id ?? null, input.recovered_tokens]
+        `INSERT INTO recovery_quality_log
+          (agent_id, session_id, recovered_tokens,
+           task_continued, quality_score, notes, search_memory_count_10min)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          input.agent_id,
+          input.session_id ?? null,
+          input.recovered_tokens,
+          input.task_continued ?? null,
+          input.quality_score ?? null,
+          input.notes ?? null,
+          input.search_memory_count_10min ?? 0,
+        ]
       );
       return result.rows[0].id;
     } catch {
