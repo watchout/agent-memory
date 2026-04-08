@@ -1,0 +1,35 @@
+# wasurezu PostgreSQL backend (OPTIONAL)
+#
+# SQLite is the default storage backend — most users do not need this file.
+# Use this only if you want to try the PostgreSQL backend with pgvector
+# (semantic search via Voyage AI embeddings).
+#
+# Quick start:
+#   docker compose up -d
+#   export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost:5432/agent_memory
+#   npx tsx src/test-pg.ts
+#
+# Stop and remove the data volume:
+#   docker compose down -v
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: wasurezu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agent_memory
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: agent_memory
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_memory -d agent_memory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
