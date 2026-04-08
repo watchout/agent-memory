@@ -44,26 +44,30 @@ set -euo pipefail
 # `declare -A`. The bots/IDs that need updating live in one place.
 get_bot_dir() {
   case "$1" in
+    adf-dev)          echo "ai-dev-framework" ;;
+    agent-com-dev)    echo "agent-comms-mcp" ;;
     agent-mem-dev)    echo "agent-memory" ;;
     arc)              echo "iyasaka" ;;
-    cto)              echo "tech-lead" ;;
-    agent-com-dev)    echo "agent-comms-mcp" ;;
     auditor)          echo "dev-auditor" ;;
-    hotel-dev)        echo "hotel-kanri" ;;
-    wbs-dev)          echo "wbs" ;;
+    cto)              echo "tech-lead" ;;
     haishin-dev)      echo "haishin-puls-hub" ;;
+    hotel-dev)        echo "hotel-kanri" ;;
     nyusatsu-dev)     echo "nyusatsu" ;;
-    xmarketing-dev)   echo "x-marketing-engine" ;;
-    upwork-dev)       echo "upwork-automation" ;;
-    research-lead)    echo "research-lead" ;;
+    org-build-dev)    echo "org-build" ;;
     secretary)        echo "secretary" ;;
+    upwork-dev)       echo "upwork-automation" ;;
+    vice)             echo "iyasaka-org" ;;
+    wbs-dev)          echo "wbs" ;;
     webb-dev)         echo "webb-dev" ;;
+    xmarketing-dev)   echo "x-marketing-engine" ;;
+    # research-lead intentionally excluded — Discord not used (ADR-040 D5)
     *)                return 1 ;;
   esac
 }
 
 list_bots() {
   cat <<'BOTS'
+  adf-dev          -> ai-dev-framework
   agent-com-dev    -> agent-comms-mcp
   agent-mem-dev    -> agent-memory
   arc              -> iyasaka
@@ -72,9 +76,10 @@ list_bots() {
   haishin-dev      -> haishin-puls-hub
   hotel-dev        -> hotel-kanri
   nyusatsu-dev     -> nyusatsu
-  research-lead    -> research-lead
+  org-build-dev    -> org-build
   secretary        -> secretary
   upwork-dev       -> upwork-automation
+  vice             -> iyasaka-org
   wbs-dev          -> wbs
   webb-dev         -> webb-dev
   xmarketing-dev   -> x-marketing-engine
