@@ -1,68 +1,60 @@
-# agent-memory
+# wasurezu
 
-Persistent memory for AI coding agents. Survives compaction. Works across sessions.
+> **Persistent memory for AI coding agents.**
+> Your context window forgets. Your database doesn't.
 
-> **Your AI forgot everything after compaction. This fixes it.**
+`wasurezu` (Japanese for "won't forget") is an [MCP](https://modelcontextprotocol.io) server that gives AI coding agents like Claude Code a persistent, structured memory layer. Decisions, task state, and learnings survive context-window compaction and session crashes.
+
+> ⚠️ **Early Stage (v0.1.0-alpha)** — API may change. Feedback welcome via GitHub Issues.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blue)](https://modelcontextprotocol.io)
 
 ## The Problem
 
-Claude Code (and similar AI coding tools) suffers from two memory problems:
+AI coding sessions lose context constantly:
 
-1. **Intra-session compaction** — When context fills up (~83%), auto-compaction wipes conversation history. Decisions, reasoning, and context vanish. The AI continues working *confidently* with degraded quality.
+- 🪦 **Compaction wipes history** — When the context window fills up, auto-compaction removes old messages. Decisions, reasoning, and design discussions vanish.
+- 💥 **Sessions crash** — Network blip, OOM, accidental close — and the entire session is gone.
+- 🔁 **Cross-session amnesia** — Every new session starts from zero. You re-explain what was already decided yesterday.
 
-2. **Cross-session amnesia** — Every new session starts from scratch. Yesterday's decisions, half-finished tasks, and failed approaches are all gone.
-
-`CLAUDE.md` helps with static instructions, but can't preserve *dynamic* context — the decisions made during conversations.
+Static instructions (`CLAUDE.md`) only solve part of the problem. They preserve *static* rules, not *dynamic* context.
 
 ## The Solution
 
-agent-memory is an MCP server that gives your AI agent persistent, structured memory:
+wasurezu runs as a local MCP server on your machine. Your AI agent calls memory tools, and the data goes into a database that survives any session restart.
 
-- **Decision Log** — Save important decisions with context and reasoning. They survive compaction.
-- **Task State** — Track work progress. Know what was done and what's next.
-- **Context Recovery** — After compaction, automatically restore decisions and task state.
-- **Session Boot** — Start new sessions with full context from previous work.
+- 📋 **Decision Log** — Save important decisions with context and reasoning. They survive compaction.
+- ✅ **Task State** — Track work progress. Know what's done and what's next.
+- 📚 **Cross-Session Memory** — What one session learns, the next session knows.
+- 🔄 **Compaction Recovery** — Restore lost context from your database via `recover_context`.
+- 🚀 **Session Boot** — New sessions automatically restore prior context.
+- 🎣 **Auto-tagging** — Write `[TASK:start]` `[DECISION]` `[KNOWLEDGE]` in your messages and they're auto-recorded.
 
-### Key Design Principle
-
-**Does not depend on LLM judgment.** Uses CLAUDE.md Compact Instructions to trigger recovery automatically. The AI doesn't need to *remember* to remember.
-
-## Quick Start
+## Quick Start (3 steps, 2 minutes)
 
 ### 1. Install
 
 ```bash
-# Clone
-git clone https://github.com/iyasaka/agent-memory.git
-cd agent-memory
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
+npm install -g wasurezu
 ```
 
 ### 2. Configure Claude Code
 
-Add to your Claude Code MCP settings (`~/.claude/settings.json`):
+Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
 
 ```json
 {
   "mcpServers": {
-    "agent-memory": {
-      "command": "node",
-      "args": ["/path/to/agent-memory/dist/index.js"],
-      "env": {
-        "AGENT_MEMORY_AGENT_ID": "my-agent",
-        "AGENT_MEMORY_PROJECT": "my-project"
-      }
+    "wasurezu": {
+      "command": "wasurezu"
     }
   }
 }
 ```
 
-### 3. Add to CLAUDE.md
+### 3. Add Compact Instructions
 
 Add this to your project's `CLAUDE.md`:
 
@@ -70,97 +62,163 @@ Add this to your project's `CLAUDE.md`:
 ## Compact Instructions
 After compaction, as your FIRST action:
 1. Call `recover_context` to restore decisions and task state
-2. Review the recovered context before continuing work
+2. Review the recovered context before continuing
 
 ## Memory Rules
-- After making important decisions, call `log_decision` to record them
+- After important decisions, call `log_decision` to record them
 - At task breakpoints, call `save_task_state` to save progress
 - When changing a previous decision, use `supersede_decision`
 ```
 
-### 4. (Optional) PostgreSQL
+**Done.** Restart Claude Code. wasurezu now persists your context to a local SQLite database at `~/.agent-memory/memory.db`. No PostgreSQL needed. No native build required. Works on macOS, Linux, and Windows.
 
-For multi-agent setups or better performance, set `DATABASE_URL`:
+## Demo
 
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "node",
-      "args": ["/path/to/agent-memory/dist/index.js"],
-      "env": {
-        "DATABASE_URL": "postgres://user:pass@localhost:5432/agents",
-        "AGENT_MEMORY_AGENT_ID": "cto-bot",
-        "AGENT_MEMORY_PROJECT": "hotel-app"
-      }
-    }
-  }
-}
+```text
+=== Session Boot ===
+Project: hotel-app
+Agent: default
+
+Active Decisions (3):
+- [architecture] JWT for auth: chose JWT over session cookies for API-first design
+- [database] PostgreSQL: ruled out SQLite for multi-agent access
+- [convention] Use Conventional Commits
+
+Pending Tasks (2):
+- [in_progress] Implement RBAC middleware
+  Progress: JWT verification done, role-based access control pending
+- [in_progress] Migrate user table to UUID primary keys
+
+Recent Knowledge (5):
+- ConoHa VPS: PM2 requires env vars passed at start (not from .env)
+- Voyage embeddings: 512-dim vectors, $0.05/M tokens
+...
+
+Total items restored: 10
+==========================================
 ```
 
-Run migrations:
-```bash
-DATABASE_URL=postgres://... npm run migrate
-```
-
-Without `DATABASE_URL`, agent-memory uses JSON files in `~/.agent-memory/` automatically.
-
-## MCP Tools
-
-| Tool | Purpose |
-|------|---------|
-| `log_decision` | Save an important decision with context and reasoning |
-| `get_decisions` | Retrieve active decisions (filterable by project, tags) |
-| `supersede_decision` | Replace an old decision with a new one |
-| `save_task_state` | Save current work progress |
-| `recover_context` | Restore all context after compaction or session start |
+(Demo GIF coming soon — see [#35](https://github.com/watchout/agent-memory/issues/35))
 
 ## How It Works
 
 ```
 Session Start
-  → recover_context auto-called (via CLAUDE.md)
-  → Active decisions + task states injected into session
+  → SessionStart hook auto-calls recover_context
+  → Active decisions + task states + recent knowledge injected
   → AI continues where it left off
 
 During Session
-  → Important decisions saved via log_decision
-  → Task progress saved via save_task_state
+  → log_decision / save_task_state / save_knowledge save context
+  → Or write tags ([TASK:start]/[DECISION]/[KNOWLEDGE]) in Discord/Slack
+    → PostToolUse hook auto-detects and records (no manual call needed)
   → Conflicting decisions handled via supersede_decision
 
-Compaction Happens (~83% context)
+Compaction (~83% context)
   → Compact Instructions trigger recover_context
-  → Decisions and task state restored
+  → Restored: decisions + tasks + knowledge + conversation summary
   → AI continues with full context
 ```
 
+## MCP Tools
+
+| Tool | Purpose |
+|------|---------|
+| `log_decision` | Record an important design / technology / convention decision |
+| `get_decisions` | Retrieve active decisions (filterable by project / tags / status) |
+| `supersede_decision` | Replace an old decision with a new one (preserves history) |
+| `save_task_state` | Save current work snapshot (status, progress, files modified) |
+| `get_task_states` | Retrieve task snapshots (filterable by project / status) |
+| `save_knowledge` | Store a knowledge / insight / pattern |
+| `get_knowledge` | Retrieve knowledge entries |
+| `update_knowledge_status` | Archive / merge knowledge entries |
+| `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
+| `recover_context` | Restore all context (called after compaction) |
+| `set_recovery_config` | Tune recovery output limits per agent |
+
 ## Storage
 
-| Mode | Storage | When |
-|------|---------|------|
-| PostgreSQL | `decisions` + `task_states` tables | `DATABASE_URL` is set |
-| JSON (default) | `~/.agent-memory/*.json` | No `DATABASE_URL` |
+wasurezu supports two storage backends:
 
-Both modes support the same features. PostgreSQL is recommended for multi-agent setups.
+| Backend | Setup | Best for |
+|---------|-------|----------|
+| **SQLite** (default) | Zero config — file at `~/.agent-memory/memory.db` | Single user, OSS users, simple setups |
+| **PostgreSQL + pgvector** | Set `AGENT_MEMORY_DATABASE_URL=postgresql://...` | Multi-agent teams, semantic vector search, large-scale |
+
+Both modes support the same MCP tools. PostgreSQL adds vector similarity search via [pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings.
+
+To use PostgreSQL:
+
+```bash
+docker compose up -d  # see docker-compose.yml in repo root
+export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_memory
+```
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | No | PostgreSQL connection string |
-| `AGENT_MEMORY_AGENT_ID` | No | Agent identifier (default: "default") |
-| `AGENT_MEMORY_PROJECT` | No | Default project name |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AGENT_MEMORY_DB_TYPE` | No | `sqlite` | `sqlite` / `postgres` / `json` |
+| `AGENT_MEMORY_DB_PATH` | No | `~/.agent-memory/memory.db` | SQLite file path |
+| `AGENT_MEMORY_DATABASE_URL` | No | — | PostgreSQL connection string |
+| `DATABASE_URL` | No | — | Legacy alias for `AGENT_MEMORY_DATABASE_URL` |
+| `AGENT_MEMORY_AGENT_ID` | No | `default` | Agent identifier (multi-agent namespace) |
+| `AGENT_MEMORY_PROJECT` | No | — | Default project name |
+| `VOYAGE_API_KEY` | No | — | Voyage AI key for embedding generation (PG mode only) |
 
 ## Compatibility
 
-- **Claude Code** — Full support (MCP + Compact Instructions)
-- **Cursor** — MCP tools work; no hook integration
-- **Other MCP-compatible tools** — MCP tools work
+| Tool | Status |
+|------|--------|
+| **Claude Code** | ✅ Full support (MCP + SessionStart hook + Compact Instructions) |
+| **Cursor / Codex / Gemini CLI** | ⏳ MCP tools work; SessionStart integration in v0.2.0 |
+| **Other MCP-compatible tools** | ✅ MCP tools work |
 
-## Related
+## Pricing & Sustainability
 
-- [agent-com](https://github.com/iyasaka/agent-com) — Push-based multi-agent communication for Claude Code. Can share the same PostgreSQL database for cross-agent memory.
+wasurezu core is **free and open source (MIT)** forever. Self-hosted will always be free.
+
+We plan to offer a hosted **Cloud version** with team features (shared memory across team members, web dashboards, recovery quality alerts, managed databases, priority support) as a paid service. This is how we sustain the project.
+
+| | OSS (Free) | Cloud (Coming) |
+|---|:---:|:---:|
+| Decision Log | ✅ | ✅ |
+| Task State | ✅ | ✅ |
+| Cross-Session Memory | ✅ | ✅ |
+| Compaction Recovery | ✅ | ✅ |
+| Local SQLite + PostgreSQL | ✅ | ✅ |
+| Auto-tag detection (PostToolUse hook) | ✅ | ✅ |
+| Bug fixes & security updates | ✅ | ✅ |
+| Team shared memory | — | ✅ |
+| Web dashboard | — | ✅ |
+| Recovery quality alerts | — | ✅ |
+| Managed DB & backups | — | ✅ |
+| Priority support | — | ✅ |
+
+## Requirements
+
+- Node.js 18+
+- Optional: PostgreSQL 14+ with [pgvector](https://github.com/pgvector/pgvector) (for PG mode)
+- Optional: [Voyage AI](https://www.voyageai.com/) API key (for semantic search)
+
+## Contributing
+
+We welcome contributions. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, PR process, and code style guidelines.
+
+All contributions to core are MIT licensed and will remain free forever.
+
+## Related Projects
+
+- [**agent-com**](https://github.com/watchout/agent-comms-mcp) — Push-based multi-agent communication for Claude Code. Can share the same PostgreSQL database with wasurezu for cross-agent memory linkage.
 
 ## License
 
-MIT
+[MIT](./LICENSE) — see LICENSE file for details.
+
+## Why "wasurezu"?
+
+「忘れず」(*wasurezu*) is Japanese for "won't forget" — a reminder of what this tool exists to do. Your AI shouldn't have to forget.
+
+---
+
+**Built by [IYASAKA](https://github.com/watchout)** — a small team that uses wasurezu to keep our 16-bot internal AI development swarm coherent across daily compactions and crashes. If it works for us, it'll work for you.
