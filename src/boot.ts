@@ -30,9 +30,35 @@ async function boot() {
       // Non-fatal — table or column may not exist yet
     }
 
-    // Load per-agent config from DB, fall back to defaults
-    const dbConfig = await store.getRecoveryConfig(AGENT_ID);
-    const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+    // Load per-agent config from DB. AM-015: if no row exists yet, persist
+    // a default row so future admin operations (set_recovery_config etc.)
+    // see a real record instead of NULL. The DEFAULT_RECOVERY_CONFIG values
+    // are the OSS baseline; watchout-internal seeds live in
+    // scripts/seed-watchout.sql.
+    let cfg = await store.getRecoveryConfig(AGENT_ID);
+    if (!cfg) {
+      try {
+        cfg = await store.upsertRecoveryConfig({
+          agent_id: AGENT_ID,
+          max_tokens: DEFAULT_RECOVERY_CONFIG.max_tokens,
+          task_states_limit: DEFAULT_RECOVERY_CONFIG.task_states_limit,
+          decisions_limit: DEFAULT_RECOVERY_CONFIG.decisions_limit,
+          knowledge_limit: DEFAULT_RECOVERY_CONFIG.knowledge_limit,
+          messages_limit: DEFAULT_RECOVERY_CONFIG.messages_limit,
+        });
+        process.stderr.write(
+          `[boot] Initialized default recovery_config for ${AGENT_ID}\n`
+        );
+      } catch (err) {
+        // Non-fatal — fall back to in-memory default. Stores that don't
+        // persist recovery_config (json-store) will hit this path on every
+        // boot, which is fine.
+        process.stderr.write(
+          `[boot] recovery_config auto-init failed (non-fatal): ${err}\n`
+        );
+        cfg = { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+      }
+    }
 
     const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
       store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: 1, status: "in_progress" }),

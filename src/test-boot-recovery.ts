@@ -104,6 +104,20 @@ async function verify() {
   assert(rows.length >= 1, "boot inserted at least one recovery_quality_log row");
   const row = rows[0];
 
+  // AM-015: boot should also auto-init a default recovery_config row.
+  const cfgStmt = sqlitePrivate.db.prepare(
+    `SELECT agent_id, max_tokens, task_states_limit, decisions_limit,
+            knowledge_limit, messages_limit
+       FROM recovery_config
+      WHERE agent_id = ?`
+  );
+  cfgStmt.bind([AGENT_ID]);
+  let cfgRow: Record<string, unknown> | null = null;
+  if (cfgStmt.step()) cfgRow = cfgStmt.getAsObject();
+  cfgStmt.free();
+  assert(cfgRow !== null, "boot auto-initialized recovery_config (AM-015)");
+  assert(typeof cfgRow?.max_tokens === "number" && (cfgRow?.max_tokens as number) > 0, "auto-init max_tokens > 0");
+
   assert(row.session_id === SESSION_ID, "session_id matches the env var");
   assert(typeof row.recovered_tokens === "number" && (row.recovered_tokens as number) > 0, "recovered_tokens is positive");
   assert(row.task_continued === 0, "task_continued is 0 (Stage 1 always false)");
