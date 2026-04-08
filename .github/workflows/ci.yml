@@ -1,0 +1,51 @@
+# wasurezu CI — minimum proof-of-life build for AM-009 / Gate A.
+#
+# Runs against the SQLite + JSON-store paths only. The PostgreSQL test
+# suite (src/test-pg.ts) is intentionally skipped here because spinning
+# up pgvector in CI is slow and the SQLite path is the OSS default.
+# Developers who want to run the PG suite locally can use
+# `docker compose up` (see docker-compose.yml at the repo root).
+#
+# After the AM-001/002/015/016/006 PR stack lands on main, the
+# `Run test suites` step should be expanded to also invoke
+# `tsx src/test-sqlite.ts`, `tsx src/test-post-tool-hook.ts`, and
+# `tsx src/test-boot-recovery.ts`. Tracked under a follow-up issue.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18', '20', '22']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Run test suites
+        run: |
+          npx tsx src/test.ts
