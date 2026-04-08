@@ -1,18 +1,26 @@
 #!/usr/bin/env node
 /**
- * FEAT-025: PostToolUse hook — Tag auto-detection for agent-comms reply/send
+ * FEAT-025 / AM-016: PostToolUse hook — Tag auto-detection.
  *
- * Fires after agent-comms reply or send_message completes.
- * Detects memory tags in the message text and inserts into DB.
+ * Fires after a tool call. Detects memory tags in the outgoing
+ * Discord message text and inserts into the agent-memory DB.
  *
- * stdin: JSON { tool_name, tool_input: { text, chat_id }, tool_result: ... }
- * Tags: [TASK:start], [TASK:done], [TASK:block], [DECISION], [KNOWLEDGE]
- * No tag → exit 0 (no-op)
+ * Supported tool paths:
+ *   1. mcp__agent-comms__reply / send_message — original MCP path
+ *   2. Bash + curl POST to discord.com/api/v\d+/channels/.../messages
+ *      (added by AM-016 because several bots had to fall back to
+ *       direct Discord REST while the agent-comms reply tool's
+ *       mentions bug was being fixed)
+ *
+ * stdin: JSON { tool_name, tool_input: {...}, tool_result: ... }
+ * Tags : [TASK:start], [TASK:done], [TASK:block], [DECISION], [KNOWLEDGE]
+ * No tag → exit 0 (no-op).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createStore } from "./stores/index.js";
+import type { Store } from "./stores/types.js";
 
 // --- Config file support ---
 // Load ~/.agent-memory/config.json to avoid inlining env vars in settings.json.
@@ -43,15 +51,30 @@ if (!process.env.AGENT_MEMORY_AGENT_ID && !config.agent_id) {
   console.error("[agent-memory hook] AGENT_MEMORY_AGENT_ID is not set, using default: 'default'");
 }
 
-// Tag patterns
+// ─── Tag patterns ────────────────────────────────────────────────
 const TAG_PATTERN = /\[(TASK:(start|done|block)|DECISION|KNOWLEDGE)\]/i;
-const TICKET_PATTERN = /(?:FEAT-\d+|PR[#＃]\d+|ISSUE[#＃]\d+|#\d+)/i;
+const TICKET_PATTERN = /(?:FEAT-\d+|AM-\d+|PR[#＃]\d+|ISSUE[#＃]\d+|#\d+)/i;
+
+// ─── Bash + curl detection (AM-016) ──────────────────────────────
+//
+// We only consider POSTs to the Discord channels endpoint to avoid
+// false positives from other curl commands (GitHub API, internal
+// services, telemetry, etc.).
+const BASH_DISCORD_URL_RE =
+  /https?:\/\/(?:[^/\s'"]*\.)?discord\.com\/api\/v\d+\/channels\/(\d+)\/messages/i;
+//
+// JSON-aware "content": "..." extractor. Works for both inline
+// (-d '{"content":"..."}') and heredoc (--data @- <<'EOF' ... EOF)
+// curl forms because the regex scans the entire command string and
+// allows JSON escape sequences inside the value.
+const BASH_CONTENT_RE = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"/;
 
 interface HookInput {
   tool_name: string;
   tool_input: {
     text?: string;
     chat_id?: string;
+    command?: string;
     [key: string]: unknown;
   };
   tool_result?: unknown;
@@ -78,6 +101,104 @@ function extractContent(text: string): string {
   return text.replace(TAG_PATTERN, "").trim();
 }
 
+/**
+ * AM-016: extract Discord message content from a Bash command string.
+ *
+ * Returns null when the command is not a Discord channels POST or when
+ * the content field cannot be located. Both inline and heredoc curl
+ * forms are supported because the regex scans the whole command.
+ */
+export function extractDiscordContentFromBash(
+  command: string
+): { content: string; channel_id: string } | null {
+  const channelMatch = command.match(BASH_DISCORD_URL_RE);
+  if (!channelMatch) return null;
+  const channel_id = channelMatch[1];
+
+  const contentMatch = command.match(BASH_CONTENT_RE);
+  if (!contentMatch) return null;
+
+  // Unescape JSON string by re-parsing as a JSON literal.
+  let content: string;
+  try {
+    content = JSON.parse('"' + contentMatch[1] + '"');
+  } catch {
+    return null;
+  }
+  if (!content) return null;
+
+  return { content, channel_id };
+}
+
+/**
+ * Shared content processor — refactored out of main() so the new Bash
+ * branch can reuse the existing tag detection + DB write path.
+ *
+ * `source` is recorded for future debugging (which path produced the
+ * row). It is not currently persisted anywhere, but the parameter
+ * keeps the seam for AM-018 / future metadata work.
+ */
+async function processContent(
+  store: Store,
+  text: string,
+  source: { channel: "mcp" | "bash"; chat_id?: string }
+): Promise<void> {
+  const tag = parseTag(text);
+  if (!tag) return;
+
+  const content = extractContent(text);
+  const ticketId = extractTicketId(text);
+
+  if (tag.type === "TASK") {
+    const statusMap: Record<string, "in_progress" | "completed" | "blocked"> = {
+      start: "in_progress",
+      done: "completed",
+      block: "blocked",
+    };
+    const status = statusMap[tag.subtype!];
+    const taskName = ticketId || content.slice(0, 100);
+
+    await store.saveTaskState({
+      agent_id: AGENT_ID,
+      project: PROJECT,
+      task: taskName,
+      status,
+      progress: content,
+      next_steps: status === "blocked" ? content : undefined,
+    });
+    console.error(`[agent-memory hook] TASK:${tag.subtype} (${source.channel}) → ${taskName}`);
+    return;
+  }
+
+  if (tag.type === "DECISION") {
+    await store.logDecision({
+      agent_id: AGENT_ID,
+      project: PROJECT,
+      decision: content,
+      context: `Auto-detected from Discord message via ${source.channel} (chat_id: ${source.chat_id ?? "unknown"})`,
+      tags: ticketId ? [ticketId] : [],
+    });
+    console.error(`[agent-memory hook] DECISION (${source.channel}) → ${content.slice(0, 80)}`);
+    return;
+  }
+
+  if (tag.type === "KNOWLEDGE") {
+    const title = ticketId
+      ? `${ticketId}: ${content.slice(0, 80)}`
+      : content.slice(0, 80);
+    await store.saveKnowledge({
+      agent_id: AGENT_ID,
+      project: PROJECT,
+      title,
+      content,
+      source_type: "messages",
+      tags: ticketId ? [ticketId] : [],
+    });
+    console.error(`[agent-memory hook] KNOWLEDGE (${source.channel}) → ${title}`);
+    return;
+  }
+}
+
 async function main() {
   // Read hook input from stdin
   let raw = "";
@@ -93,71 +214,59 @@ async function main() {
     process.exit(0);
   }
 
-  // Only process agent-comms reply/send tools
   const toolName = input.tool_name || "";
-  if (!toolName.match(/^mcp__agent-comms__(reply|send_message)$/)) {
-    process.exit(0);
-  }
 
-  const text = input.tool_input?.text || "";
-  if (!text) process.exit(0);
+  // ─── Path 1: existing MCP agent-comms reply / send_message ─────
+  if (toolName.match(/^mcp__agent-comms__(reply|send_message)$/)) {
+    const text = input.tool_input?.text || "";
+    if (!text) process.exit(0);
+    if (!parseTag(text)) process.exit(0);
 
-  // Detect tag
-  const tag = parseTag(text);
-  if (!tag) process.exit(0);
-
-  const content = extractContent(text);
-  const ticketId = extractTicketId(text);
-
-  const store = await createStore();
-  try {
-    if (tag.type === "TASK") {
-      const statusMap: Record<string, "in_progress" | "completed" | "blocked"> = {
-        start: "in_progress",
-        done: "completed",
-        block: "blocked",
-      };
-      const status = statusMap[tag.subtype!];
-      const taskName = ticketId || content.slice(0, 100);
-
-      await store.saveTaskState({
-        agent_id: AGENT_ID,
-        project: PROJECT,
-        task: taskName,
-        status,
-        progress: content,
-        next_steps: status === "blocked" ? content : undefined,
+    const store = await createStore();
+    try {
+      await processContent(store, text, {
+        channel: "mcp",
+        chat_id: input.tool_input?.chat_id,
       });
-      console.error(`[agent-memory hook] TASK:${tag.subtype} → ${taskName}`);
-    } else if (tag.type === "DECISION") {
-      await store.logDecision({
-        agent_id: AGENT_ID,
-        project: PROJECT,
-        decision: content,
-        context: `Auto-detected from Discord message (chat_id: ${input.tool_input?.chat_id || "unknown"})`,
-        tags: ticketId ? [ticketId] : [],
-      });
-      console.error(`[agent-memory hook] DECISION → ${content.slice(0, 80)}`);
-    } else if (tag.type === "KNOWLEDGE") {
-      const title = ticketId
-        ? `${ticketId}: ${content.slice(0, 80)}`
-        : content.slice(0, 80);
-      await store.saveKnowledge({
-        agent_id: AGENT_ID,
-        project: PROJECT,
-        title,
-        content,
-        source_type: "messages",
-        tags: ticketId ? [ticketId] : [],
-      });
-      console.error(`[agent-memory hook] KNOWLEDGE → ${title}`);
+    } finally {
+      await store.close();
     }
-  } finally {
-    await store.close();
+    return;
   }
+
+  // ─── Path 2 (AM-016): Bash + curl direct Discord REST ──────────
+  if (toolName === "Bash") {
+    const command = input.tool_input?.command || "";
+    if (!command) process.exit(0);
+
+    const extracted = extractDiscordContentFromBash(command);
+    if (!extracted) process.exit(0);
+    if (!parseTag(extracted.content)) process.exit(0);
+
+    const store = await createStore();
+    try {
+      await processContent(store, extracted.content, {
+        channel: "bash",
+        chat_id: extracted.channel_id,
+      });
+    } finally {
+      await store.close();
+    }
+    return;
+  }
+
+  // Unrelated tool — no-op
+  process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("[agent-memory hook] Error:", err.message);
-  process.exit(0); // Non-fatal: don't block the tool
-});
+// Only run main() when invoked as a script, not when imported by tests.
+// (ESM equivalent of `if __name__ == '__main__'`.)
+const isCli =
+  typeof process.argv[1] === "string" &&
+  import.meta.url === `file://${process.argv[1]}`;
+if (isCli) {
+  main().catch((err) => {
+    console.error("[agent-memory hook] Error:", err.message);
+    process.exit(0); // Non-fatal: don't block the tool
+  });
+}
