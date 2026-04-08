@@ -1,0 +1,37 @@
+{
+  "name": "agent-memory",
+  "version": "0.1.0",
+  "profileType": "app",
+  "createdAt": "2026-04-03T07:36:19.376Z",
+  "updatedAt": "2026-04-03T07:36:26.974Z",
+  "phase": -1,
+  "status": "initialized",
+  "techStack": {
+    "framework": "next.js",
+    "language": "typescript",
+    "ui": "react",
+    "testing": "vitest",
+    "hosting": "vercel"
+  },
+  "config": {
+    "aiProvider": "anthropic",
+    "aiModel": "claude-sonnet-4-20250514",
+    "autoCommit": false,
+    "escalationMode": "strict"
+  },
+  "testing": {
+    "l1": {
+      "tool": "vitest",
+      "autoDetected": true
+    },
+    "l2": {
+      "tool": "vitest",
+      "database": "docker-postgres",
+      "autoDetected": true
+    },
+    "l3": {
+      "tool": "browser-use",
+      "autoDetected": true
+    }
+  }
+}

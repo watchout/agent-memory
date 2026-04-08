@@ -2,3 +2,20 @@ node_modules/
 dist/
 *.js.map
 .env
+.env.local
+
+# MCP configuration with bot tokens — must NEVER be committed
+.mcp.json
+
+# Local Claude Code settings — contains absolute paths, per-developer config
+# Hook scripts in .claude/hooks/ are tracked, but settings.json is local
+.claude/settings.json
+
+# Local agent-memory state (SQLite DB, keys file)
+~/.agent-memory/
+~/.agent-com-api-keys
+
+# Editor / OS
+.DS_Store
+*.swp
+.vscode/settings.json
