@@ -37,8 +37,12 @@ wasurezu runs as a local MCP server on your machine. Your AI agent calls memory 
 ### 1. Install
 
 ```bash
-npm install -g wasurezu
+git clone https://github.com/watchout/agent-memory.git
+cd agent-memory
+npm install && npm run build
 ```
+
+> Note: npm publish is in progress (AM-014). Once published, this will switch back to `npm install -g wasurezu`.
 
 ### 2. Configure Claude Code
 
