@@ -20,6 +20,7 @@ import type {
   SearchMemoryResult,
   SaveKnowledgeInput,
   GetKnowledgeInput,
+  SupersedeKnowledgeInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
@@ -395,7 +396,7 @@ export class JsonStore implements Store {
     // JSON store has no recovery_quality_log — no-op
   }
 
-  async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived"; merged_into?: string }): Promise<Knowledge> {
+  async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge> {
     const item = this.knowledgeItems.find((k) => k.id === input.id && k.agent_id === input.agent_id);
     if (!item) {
       throw new Error(`Knowledge entry not found: ${input.id}`);
@@ -417,6 +418,41 @@ export class JsonStore implements Store {
     item.updated_at = new Date().toISOString();
     await this.saveKnowledgeFile();
     return item;
+  }
+
+  async supersedeKnowledge(
+    input: SupersedeKnowledgeInput
+  ): Promise<{ old: Knowledge; new: Knowledge }> {
+    const oldItem = this.knowledgeItems.find(
+      (k) => k.id === input.old_id && k.agent_id === input.agent_id
+    );
+    if (!oldItem) {
+      throw new Error(`Knowledge not found: ${input.old_id}`);
+    }
+
+    const now = new Date().toISOString();
+    const newItem: Knowledge = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      project: input.project ?? oldItem.project,
+      title: input.new_title,
+      content: input.new_content,
+      source_type: "manual",
+      source_ids: [],
+      tags: input.tags ?? oldItem.tags,
+      status: "active",
+      supersedes: input.old_id,
+      supersede_reason: input.reason,
+      created_at: now,
+      updated_at: now,
+    };
+
+    oldItem.status = "superseded";
+    oldItem.updated_at = now;
+
+    this.knowledgeItems.push(newItem);
+    await this.saveKnowledgeFile();
+    return { old: oldItem, new: newItem };
   }
 
   async close(): Promise<void> {

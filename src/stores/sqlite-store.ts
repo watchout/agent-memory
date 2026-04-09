@@ -20,6 +20,7 @@ import type {
   SearchMemoryResult,
   SaveKnowledgeInput,
   GetKnowledgeInput,
+  SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
 } from "./types.js";
 
@@ -104,6 +105,7 @@ const MIGRATIONS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_recovery_quality_agent
     ON recovery_quality_log(agent_id, created_at DESC)`,
+
 ];
 
 let SQL_PROMISE: Promise<SqlJsStatic> | null = null;
@@ -176,6 +178,9 @@ export class SqliteStore implements Store {
     // case and the only expected failure mode.
     this.alterAddColumnIfMissing("task_states", "task_id", "TEXT");
     this.alterAddColumnIfMissing("task_states", "updated_at", "TEXT");
+    // AM-024: knowledge supersede columns
+    this.alterAddColumnIfMissing("knowledge", "supersedes", "TEXT");
+    this.alterAddColumnIfMissing("knowledge", "supersede_reason", "TEXT");
     // Back-fill: existing rows have task='AM-006' (the ticket id, per
     // pre-AM-023 hook behavior). Copy that into task_id verbatim so
     // the UNIQUE index has something to key on.
@@ -599,6 +604,69 @@ export class SqliteStore implements Store {
     return this.rowToKnowledge(rows[0]);
   }
 
+  async supersedeKnowledge(
+    input: SupersedeKnowledgeInput
+  ): Promise<{ old: Knowledge; new: Knowledge }> {
+    const oldRows = this.allRows(
+      `SELECT * FROM knowledge WHERE id = ? AND agent_id = ?`,
+      [input.old_id, input.agent_id]
+    );
+    if (oldRows.length === 0) {
+      throw new Error(`Knowledge not found: ${input.old_id}`);
+    }
+    const oldItem = this.rowToKnowledge(oldRows[0]);
+
+    const newId = uuidv4();
+    const now = nowIso();
+    const newTags = input.tags ?? oldItem.tags;
+    const newProject = input.project ?? oldItem.project ?? null;
+
+    this.db.run("BEGIN");
+    try {
+      this.db.run(
+        `INSERT INTO knowledge
+           (id, agent_id, project, title, content, source_type, source_ids, tags,
+            status, supersedes, supersede_reason, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'manual', '[]', ?, 'active', ?, ?, ?, ?)`,
+        [
+          newId,
+          input.agent_id,
+          newProject,
+          input.new_title,
+          input.new_content,
+          JSON.stringify(newTags),
+          input.old_id,
+          input.reason,
+          now,
+          now,
+        ]
+      );
+      this.db.run(
+        `UPDATE knowledge SET status = 'superseded', updated_at = ? WHERE id = ?`,
+        [now, input.old_id]
+      );
+      this.db.run("COMMIT");
+    } catch (err) {
+      this.db.run("ROLLBACK");
+      throw err;
+    }
+
+    this.persist();
+
+    const updatedOldRows = this.allRows(
+      `SELECT * FROM knowledge WHERE id = ?`,
+      [input.old_id]
+    );
+    const newRows = this.allRows(
+      `SELECT * FROM knowledge WHERE id = ?`,
+      [newId]
+    );
+    return {
+      old: this.rowToKnowledge(updatedOldRows[0]),
+      new: this.rowToKnowledge(newRows[0]),
+    };
+  }
+
   // ─── Search ──────────────────────────────────────────────────
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
@@ -878,6 +946,8 @@ export class SqliteStore implements Store {
       tags: parseJsonArray(row.tags),
       status: row.status as Knowledge["status"],
       merged_into: (row.merged_into as string | null) ?? undefined,
+      supersedes: (row.supersedes as string | null) ?? undefined,
+      supersede_reason: (row.supersede_reason as string | null) ?? undefined,
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
     };
