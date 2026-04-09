@@ -51,8 +51,13 @@ Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
 ```json
 {
   "mcpServers": {
-    "wasurezu": {
-      "command": "wasurezu"
+    "agent-memory": {
+      "command": "node",
+      "args": ["<path-to-agent-memory>/dist/index.js"],
+      "env": {
+        "AGENT_MEMORY_AGENT_ID": "my-agent",
+        "AGENT_MEMORY_PROJECT": "my-project"
+      }
     }
   }
 }
