@@ -3,6 +3,7 @@ import { dirname, join } from "path";
 import { homedir } from "os";
 import { v4 as uuidv4 } from "uuid";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+import { deriveTaskIdFromTask } from "./task-id.js";
 import type {
   Store,
   Decision,
@@ -45,12 +46,14 @@ const MIGRATIONS = [
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
     project TEXT,
+    task_id TEXT,
     task TEXT NOT NULL,
     status TEXT NOT NULL,
     progress TEXT,
     files_modified TEXT NOT NULL DEFAULT '[]',
     next_steps TEXT,
     created_at TEXT NOT NULL,
+    updated_at TEXT,
     embedding TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_task_states_agent
@@ -165,6 +168,33 @@ export class SqliteStore implements Store {
       this.db.run(sql);
     }
 
+    // ─── AM-023: idempotent post-CREATE migration for existing DBs ──
+    // The CREATE TABLE above already has task_id/updated_at for fresh
+    // installs. For DBs created before AM-023, we ALTER TABLE here.
+    // SQLite < 3.35 has no `ADD COLUMN IF NOT EXISTS`, so we wrap each
+    // ALTER in try/catch — duplicate column errors are the success
+    // case and the only expected failure mode.
+    this.alterAddColumnIfMissing("task_states", "task_id", "TEXT");
+    this.alterAddColumnIfMissing("task_states", "updated_at", "TEXT");
+    // Back-fill: existing rows have task='AM-006' (the ticket id, per
+    // pre-AM-023 hook behavior). Copy that into task_id verbatim so
+    // the UNIQUE index has something to key on.
+    this.db.run(`UPDATE task_states SET task_id = task WHERE task_id IS NULL`);
+    this.db.run(`UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`);
+    // Dedup: keep only the most recently inserted row per
+    // (agent_id, task_id). SQLite has no DISTINCT ON, so we use rowid
+    // (monotonic with insert order) which is a good proxy here because
+    // the legacy rows were append-only and never updated.
+    this.db.run(
+      `DELETE FROM task_states WHERE rowid NOT IN (
+         SELECT MAX(rowid) FROM task_states GROUP BY agent_id, task_id
+       )`
+    );
+    this.db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
+         ON task_states (agent_id, task_id)`
+    );
+
     // FTS5 detection — sql.js default build does not include FTS5,
     // but we probe so we are forward-compatible with custom builds.
     try {
@@ -182,6 +212,24 @@ export class SqliteStore implements Store {
   private persist(): void {
     const data = this.db.export();
     writeFileSync(this.dbPath, Buffer.from(data));
+  }
+
+  /**
+   * AM-023 helper: ALTER TABLE ADD COLUMN with idempotency via
+   * try/catch. SQLite ≥ 3.35 supports `IF NOT EXISTS` but the sql.js
+   * default build pins an older version, so we have to detect the
+   * "duplicate column" error path. Other ALTER errors are re-thrown.
+   */
+  private alterAddColumnIfMissing(table: string, column: string, type: string): void {
+    try {
+      this.db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    } catch (err) {
+      const msg = String((err as Error)?.message ?? err);
+      if (!/duplicate column name/i.test(msg)) {
+        throw err;
+      }
+      // Already present — expected idempotent path.
+    }
   }
 
   private allRows(sql: string, params: unknown[] = []): Record<string, unknown>[] {
@@ -318,22 +366,73 @@ export class SqliteStore implements Store {
   // ─── Task States ─────────────────────────────────────────────
 
   async saveTaskState(input: SaveTaskStateInput): Promise<TaskState> {
+    // AM-023: derive a stable task_id when the caller doesn't supply
+    // one. See pg-store.ts for the same pattern + rationale.
+    const taskId = input.task_id ?? deriveTaskIdFromTask(input.task);
+    const now = nowIso();
+
+    // sql.js does not support ON CONFLICT...DO UPDATE on every build,
+    // so we explicitly check for an existing row by (agent_id, task_id)
+    // and dispatch to UPDATE or INSERT. This keeps the same UPSERT
+    // semantics as pg-store while avoiding sqlite version assumptions.
+    const existing = this.allRows(
+      `SELECT id, created_at FROM task_states WHERE agent_id = ? AND task_id = ?`,
+      [input.agent_id, taskId]
+    );
+
+    if (existing.length > 0) {
+      const existingId = existing[0].id as string;
+      const existingCreatedAt = existing[0].created_at as string;
+      this.db.run(
+        `UPDATE task_states
+            SET project = ?, task = ?, status = ?, progress = ?,
+                files_modified = ?, next_steps = ?, updated_at = ?
+          WHERE id = ?`,
+        [
+          input.project ?? null,
+          input.task,
+          input.status,
+          input.progress ?? null,
+          JSON.stringify(input.files_modified || []),
+          input.next_steps ?? null,
+          now,
+          existingId,
+        ]
+      );
+      this.persist();
+      return {
+        id: existingId,
+        agent_id: input.agent_id,
+        project: input.project,
+        task_id: taskId,
+        task: input.task,
+        status: input.status,
+        progress: input.progress,
+        files_modified: input.files_modified || [],
+        next_steps: input.next_steps,
+        created_at: existingCreatedAt,
+        updated_at: now,
+      };
+    }
+
     const id = uuidv4();
-    const created_at = nowIso();
     this.db.run(
       `INSERT INTO task_states
-        (id, agent_id, project, task, status, progress, files_modified, next_steps, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, agent_id, project, task_id, task, status, progress,
+         files_modified, next_steps, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.agent_id,
         input.project ?? null,
+        taskId,
         input.task,
         input.status,
         input.progress ?? null,
         JSON.stringify(input.files_modified || []),
         input.next_steps ?? null,
-        created_at,
+        now,
+        now,
       ]
     );
     this.persist();
@@ -341,12 +440,14 @@ export class SqliteStore implements Store {
       id,
       agent_id: input.agent_id,
       project: input.project,
+      task_id: taskId,
       task: input.task,
       status: input.status,
       progress: input.progress,
       files_modified: input.files_modified || [],
       next_steps: input.next_steps,
-      created_at,
+      created_at: now,
+      updated_at: now,
     };
   }
 
@@ -754,12 +855,14 @@ export class SqliteStore implements Store {
       id: row.id as string,
       agent_id: row.agent_id as string,
       project: (row.project as string | null) ?? undefined,
+      task_id: (row.task_id as string | null) ?? undefined,
       task: row.task as string,
       status: row.status as TaskState["status"],
       progress: (row.progress as string | null) ?? undefined,
       files_modified: parseJsonArray(row.files_modified),
       next_steps: (row.next_steps as string | null) ?? undefined,
       created_at: row.created_at as string,
+      updated_at: (row.updated_at as string | null) ?? undefined,
     };
   }
 

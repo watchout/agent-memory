@@ -1,5 +1,6 @@
 import pg from "pg";
 import { v4 as uuidv4 } from "uuid";
+import { deriveTaskIdFromTask } from "./task-id.js";
 import type {
   Store,
   Decision,
@@ -133,6 +134,29 @@ const MIGRATIONS = [
     created_at TIMESTAMPTZ DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS idx_recovery_quality_agent ON recovery_quality_log(agent_id, created_at DESC)`,
+
+  // ─── AM-023: task_id UPSERT (#56) ─────────────────────────────
+  // Add stable per-task identifier so successive [TASK:start]/done
+  // posts with the same ticket id collapse to a single row instead
+  // of accumulating duplicates. The migration is split into ALTER →
+  // backfill → dedup → UNIQUE so it is safe to re-run.
+  `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS task_id TEXT`,
+  `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+  // Back-fill: existing rows have task='AM-006' (ticket id) because
+  // the pre-AM-023 hook stored the ticket in `task`. Copy that into
+  // task_id verbatim so the UNIQUE index has something to key on.
+  `UPDATE task_states SET task_id = task WHERE task_id IS NULL`,
+  `UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`,
+  // Dedup: keep only the latest row per (agent_id, task_id). Uses
+  // DISTINCT ON which is PG-specific but produces a deterministic
+  // pick (the row with the largest created_at, ties broken by id).
+  `DELETE FROM task_states WHERE id NOT IN (
+     SELECT DISTINCT ON (agent_id, task_id) id
+       FROM task_states
+      ORDER BY agent_id, task_id, created_at DESC, id DESC
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
+     ON task_states (agent_id, task_id)`,
 ];
 
 export class PgStore implements Store {
@@ -267,15 +291,33 @@ export class PgStore implements Store {
     const id = uuidv4();
     const embeddingText = `${input.task} ${input.progress || ""} ${input.next_steps || ""}`.trim();
     const embedding = await generateEmbedding(embeddingText);
+    // AM-023: derive a stable task_id when the caller doesn't supply one,
+    // so the UNIQUE constraint always has a value to key on. The hash
+    // input is intentionally just `task` (not progress/next_steps) so
+    // that callers updating the same task with different progress text
+    // still hit the same key.
+    const taskId = input.task_id ?? deriveTaskIdFromTask(input.task);
 
     const result = await this.pool.query(
-      `INSERT INTO task_states (id, agent_id, project, task, status, progress, files_modified, next_steps, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO task_states
+        (id, agent_id, project, task_id, task, status, progress,
+         files_modified, next_steps, embedding, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+       ON CONFLICT (agent_id, task_id) DO UPDATE SET
+         project = EXCLUDED.project,
+         task = EXCLUDED.task,
+         status = EXCLUDED.status,
+         progress = EXCLUDED.progress,
+         files_modified = EXCLUDED.files_modified,
+         next_steps = EXCLUDED.next_steps,
+         embedding = COALESCE(EXCLUDED.embedding, task_states.embedding),
+         updated_at = now()
        RETURNING *`,
       [
         id,
         input.agent_id,
         input.project || null,
+        taskId,
         input.task,
         input.status,
         input.progress || null,
@@ -856,6 +898,7 @@ export class PgStore implements Store {
       id: row.id as string,
       agent_id: row.agent_id as string,
       project: row.project as string | undefined,
+      task_id: (row.task_id as string | null) ?? undefined,
       task: row.task as string,
       status: row.status as TaskState["status"],
       progress: row.progress as string | undefined,
@@ -865,6 +908,10 @@ export class PgStore implements Store {
         row.created_at instanceof Date
           ? row.created_at.toISOString()
           : (row.created_at as string),
+      updated_at:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : ((row.updated_at as string | null) ?? undefined),
     };
   }
 

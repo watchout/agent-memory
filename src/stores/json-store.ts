@@ -3,6 +3,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { v4 as uuidv4 } from "uuid";
+import { deriveTaskIdFromTask } from "./task-id.js";
 import type {
   Store,
   Decision,
@@ -38,6 +39,37 @@ export class JsonStore implements Store {
     this.decisions = await this.loadFile<Decision>(DECISIONS_FILE);
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
     this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
+    // AM-023: back-fill + dedup legacy task_states from before the
+    // task_id schema change. Mirrors the SQL migration in pg-store /
+    // sqlite-store: copy `task` into `task_id` for any row that's
+    // missing one, then collapse to one row per (agent_id, task_id),
+    // keeping the entry with the latest created_at.
+    let mutated = false;
+    for (const ts of this.taskStates) {
+      if (!ts.task_id) {
+        ts.task_id = ts.task;
+        mutated = true;
+      }
+      if (!ts.updated_at) {
+        ts.updated_at = ts.created_at;
+        mutated = true;
+      }
+    }
+    const latestPerKey = new Map<string, TaskState>();
+    for (const ts of this.taskStates) {
+      const key = `${ts.agent_id}::${ts.task_id}`;
+      const prev = latestPerKey.get(key);
+      if (!prev || new Date(ts.created_at).getTime() > new Date(prev.created_at).getTime()) {
+        latestPerKey.set(key, ts);
+      }
+    }
+    if (latestPerKey.size !== this.taskStates.length) {
+      this.taskStates = Array.from(latestPerKey.values());
+      mutated = true;
+    }
+    if (mutated) {
+      await this.saveTaskStates();
+    }
   }
 
   private async loadFile<T>(path: string): Promise<T[]> {
@@ -133,16 +165,39 @@ export class JsonStore implements Store {
   }
 
   async saveTaskState(input: SaveTaskStateInput): Promise<TaskState> {
+    // AM-023: UPSERT semantics keyed on (agent_id, task_id), matching
+    // pg-store and sqlite-store. The in-memory map enforces uniqueness
+    // without needing a separate index.
+    const taskId = input.task_id ?? deriveTaskIdFromTask(input.task);
+    const now = new Date().toISOString();
+    const existing = this.taskStates.find(
+      (t) => t.agent_id === input.agent_id && t.task_id === taskId
+    );
+
+    if (existing) {
+      existing.project = input.project;
+      existing.task = input.task;
+      existing.status = input.status;
+      existing.progress = input.progress;
+      existing.files_modified = input.files_modified || [];
+      existing.next_steps = input.next_steps;
+      existing.updated_at = now;
+      await this.saveTaskStates();
+      return existing;
+    }
+
     const state: TaskState = {
       id: uuidv4(),
       agent_id: input.agent_id,
       project: input.project,
+      task_id: taskId,
       task: input.task,
       status: input.status,
       progress: input.progress,
       files_modified: input.files_modified || [],
       next_steps: input.next_steps,
-      created_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     };
     this.taskStates.push(state);
     await this.saveTaskStates();

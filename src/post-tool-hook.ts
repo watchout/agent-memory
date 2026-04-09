@@ -102,6 +102,37 @@ function extractContent(text: string): string {
 }
 
 /**
+ * AM-023: split the (post-tag-strip) content into a stable task_id and
+ * a human-readable description.
+ *
+ *   "AM-023 task_id UPSERT 着手"  → { taskId: "AM-023", taskDescription: "task_id UPSERT 着手" }
+ *   "Build the API"               → { taskId: undefined, taskDescription: "Build the API" }
+ *
+ * When `taskId` is undefined the store layer falls back to a SHA-256
+ * prefix of `taskDescription`. We deliberately do not pre-hash here so
+ * that callers passing a real ticket id keep the readable text intact.
+ */
+export function splitTaskFromContent(
+  content: string,
+  ticketId: string | null
+): { taskId: string | undefined; taskDescription: string } {
+  if (!ticketId) {
+    return { taskId: undefined, taskDescription: content };
+  }
+  // Strip the *first* occurrence of the ticket id from the content so
+  // the description doesn't double-print it. Anchor on word boundaries
+  // and tolerate optional surrounding whitespace.
+  const escaped = ticketId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripped = content
+    .replace(new RegExp(`\\s*${escaped}\\s*`, "i"), " ")
+    .trim();
+  // Cap to 200 chars so the `task` column stays readable on a single
+  // log line. Full text is still preserved in `progress`.
+  const taskDescription = stripped.slice(0, 200) || ticketId;
+  return { taskId: ticketId, taskDescription };
+}
+
+/**
  * AM-016: extract Discord message content from a Bash command string.
  *
  * Returns null when the command is not a Discord channels POST or when
@@ -156,17 +187,24 @@ async function processContent(
       block: "blocked",
     };
     const status = statusMap[tag.subtype!];
-    const taskName = ticketId || content.slice(0, 100);
+    // AM-023: split the message into a stable task_id (used for the
+    // UPSERT key) and a human-readable task description. With a ticket
+    // id like "AM-023" the description is the rest of the line; without
+    // one, the store derives a hash-based fallback id internally.
+    const { taskId, taskDescription } = splitTaskFromContent(content, ticketId);
 
     await store.saveTaskState({
       agent_id: AGENT_ID,
       project: PROJECT,
-      task: taskName,
+      task_id: taskId,
+      task: taskDescription,
       status,
       progress: content,
       next_steps: status === "blocked" ? content : undefined,
     });
-    console.error(`[agent-memory hook] TASK:${tag.subtype} (${source.channel}) → ${taskName}`);
+    console.error(
+      `[agent-memory hook] TASK:${tag.subtype} (${source.channel}) → ${taskId ?? "(hash)"} :: ${taskDescription.slice(0, 60)}`
+    );
     return;
   }
 

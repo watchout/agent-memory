@@ -154,6 +154,9 @@ async function testSupersede() {
 async function testTaskStates() {
   console.log("\n── SqliteStore Task States ──");
 
+  // AM-023: same task text now collapses to a single row via hash-keyed
+  // UPSERT, so use distinct task texts to retain the legacy two-row
+  // expectation. The dedicated UPSERT test below covers the collapse.
   const t1 = await store.saveTaskState({
     agent_id: AGENT,
     task: "Implement auth middleware",
@@ -166,13 +169,15 @@ async function testTaskStates() {
   assert(t1.id.length > 0, "saveTaskState returns valid UUID");
   assert(t1.status === "in_progress", "status preserved");
   assert(t1.files_modified.length === 2, "files_modified preserved");
+  assert(t1.task_id !== undefined, "task_id auto-derived");
+  assert(t1.updated_at !== undefined, "updated_at populated");
 
   await store.saveTaskState({
     agent_id: AGENT,
-    task: "Implement auth middleware",
+    task: "Run smoke tests",
     status: "completed",
-    progress: "JWT + RBAC fully implemented",
-    files_modified: ["src/middleware/auth.ts", "src/middleware/rbac.ts"],
+    progress: "All passing",
+    files_modified: [],
     project: PROJECT,
   });
 
@@ -188,6 +193,96 @@ async function testTaskStates() {
   });
   assert(inProgress.length === 1, "status filter works");
   assert(inProgress[0].status === "in_progress", "correct status returned");
+}
+
+async function testTaskIdUpsert() {
+  console.log("\n── SqliteStore task_id UPSERT (AM-023) ──");
+
+  const upsertAgent = `${AGENT}-upsert`;
+
+  // Explicit task_id UPSERT
+  const a = await store.saveTaskState({
+    agent_id: upsertAgent,
+    task_id: "AM-999",
+    task: "Hypothetical refactor",
+    status: "in_progress",
+    progress: "started",
+    project: PROJECT,
+  });
+  assert(a.task_id === "AM-999", "task_id stored verbatim");
+  const firstId = a.id;
+  const firstCreated = a.created_at;
+
+  const b = await store.saveTaskState({
+    agent_id: upsertAgent,
+    task_id: "AM-999",
+    task: "Hypothetical refactor (renamed)",
+    status: "completed",
+    progress: "finished",
+    project: PROJECT,
+  });
+  assert(b.id === firstId, "UPSERT preserves row id");
+  assert(b.status === "completed", "status overwritten");
+  assert(b.task === "Hypothetical refactor (renamed)", "task description overwritten");
+  assert(b.progress === "finished", "progress overwritten");
+  assert(b.created_at === firstCreated, "created_at preserved across UPSERT");
+  assert(
+    b.updated_at !== undefined && b.updated_at >= firstCreated,
+    "updated_at advanced on UPSERT"
+  );
+
+  const all = await store.getTaskStates({
+    agent_id: upsertAgent,
+    status: "all",
+  });
+  assert(all.length === 1, "UPSERT keeps row count at 1");
+
+  // Different task_id under same agent → distinct row
+  await store.saveTaskState({
+    agent_id: upsertAgent,
+    task_id: "AM-1000",
+    task: "Another task",
+    status: "in_progress",
+    project: PROJECT,
+  });
+  const all2 = await store.getTaskStates({
+    agent_id: upsertAgent,
+    status: "all",
+  });
+  assert(all2.length === 2, "different task_id creates a separate row");
+
+  // Same task_id under a different agent → distinct row (agent isolation)
+  const otherAgent = `${upsertAgent}-other`;
+  const c = await store.saveTaskState({
+    agent_id: otherAgent,
+    task_id: "AM-999",
+    task: "Different agent, same ticket",
+    status: "in_progress",
+    project: PROJECT,
+  });
+  assert(c.id !== firstId, "different agent gets its own row");
+
+  // Hash-derived task_id: same task text collapses to one row
+  const hashAgent = `${upsertAgent}-hash`;
+  const h1 = await store.saveTaskState({
+    agent_id: hashAgent,
+    task: "Refactor logging layer",
+    status: "in_progress",
+    project: PROJECT,
+  });
+  const h2 = await store.saveTaskState({
+    agent_id: hashAgent,
+    task: "Refactor logging layer",
+    status: "completed",
+    project: PROJECT,
+  });
+  assert(h1.task_id === h2.task_id, "hash-derived task_id is stable for same text");
+  assert(h1.id === h2.id, "hash-keyed UPSERT preserves row id");
+  const hashAll = await store.getTaskStates({
+    agent_id: hashAgent,
+    status: "all",
+  });
+  assert(hashAll.length === 1, "hash-keyed UPSERT keeps row count at 1");
 }
 
 async function testKnowledge() {
@@ -571,6 +666,7 @@ async function run() {
     await testDecisionCRUD();
     await testSupersede();
     await testTaskStates();
+    await testTaskIdUpsert();
     await testKnowledge();
     await testSearchMemory();
     await testJapaneseSearch();

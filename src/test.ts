@@ -116,7 +116,10 @@ async function testTaskStates() {
   const store = new JsonStore();
   await store.initialize();
 
-  // Save task state
+  // Save task state. AM-023: a second save with the same task text now
+  // collapses onto this row via hash-keyed UPSERT, so the basic CRUD
+  // case below uses *distinct* task texts. The UPSERT-specific
+  // behaviour gets its own test (testTaskStatesUpsert).
   const t1 = await store.saveTaskState({
     agent_id: "test-agent",
     task: "Implement auth middleware",
@@ -130,17 +133,13 @@ async function testTaskStates() {
   assert(t1.status === "in_progress", "status preserved");
   assert(t1.files_modified.length === 2, "files_modified preserved");
 
-  // Save completed state
+  // Save a *different* task so we end up with two distinct rows.
   await store.saveTaskState({
     agent_id: "test-agent",
-    task: "Implement auth middleware",
+    task: "Run smoke tests",
     status: "completed",
-    progress: "JWT + RBAC fully implemented and tested",
-    files_modified: [
-      "src/middleware/auth.ts",
-      "src/types.ts",
-      "src/middleware/rbac.ts",
-    ],
+    progress: "All passing",
+    files_modified: [],
     project: "hotel-app",
   });
 
@@ -158,6 +157,75 @@ async function testTaskStates() {
     status: "in_progress",
   });
   assert(inProgress.length === 1, "status filter works");
+
+  await store.close();
+}
+
+async function testTaskStatesUpsert() {
+  console.log("\n── Task State UPSERT Tests (AM-023) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const upsertAgent = "test-agent-upsert";
+
+  // Explicit task_id UPSERT
+  const a = await store.saveTaskState({
+    agent_id: upsertAgent,
+    task_id: "AM-999",
+    task: "Hypothetical refactor",
+    status: "in_progress",
+    progress: "started",
+    project: "hotel-app",
+  });
+  assert(a.task_id === "AM-999", "task_id stored verbatim");
+  const firstId = a.id;
+  const firstCreated = a.created_at;
+
+  const b = await store.saveTaskState({
+    agent_id: upsertAgent,
+    task_id: "AM-999",
+    task: "Hypothetical refactor (renamed)",
+    status: "completed",
+    progress: "finished",
+    project: "hotel-app",
+  });
+  assert(b.id === firstId, "UPSERT preserves row id");
+  assert(b.status === "completed", "status overwritten");
+  assert(b.task === "Hypothetical refactor (renamed)", "task description overwritten");
+  assert(b.progress === "finished", "progress overwritten");
+  assert(b.created_at === firstCreated, "created_at preserved across UPSERT");
+  assert(
+    b.updated_at !== undefined && b.updated_at >= firstCreated,
+    "updated_at advanced on UPSERT"
+  );
+
+  const all = await store.getTaskStates({
+    agent_id: upsertAgent,
+    status: "all",
+  });
+  assert(all.length === 1, "UPSERT keeps row count at 1");
+
+  // Hash-derived collapse: same task text, no explicit task_id
+  const hashAgent = "test-agent-hash";
+  const h1 = await store.saveTaskState({
+    agent_id: hashAgent,
+    task: "Refactor logging layer",
+    status: "in_progress",
+    project: "hotel-app",
+  });
+  const h2 = await store.saveTaskState({
+    agent_id: hashAgent,
+    task: "Refactor logging layer",
+    status: "completed",
+    project: "hotel-app",
+  });
+  assert(h1.task_id === h2.task_id, "hash-derived task_id is stable for same text");
+  assert(h1.id === h2.id, "hash-keyed UPSERT preserves row id");
+  const hashAll = await store.getTaskStates({
+    agent_id: hashAgent,
+    status: "all",
+  });
+  assert(hashAll.length === 1, "hash-keyed UPSERT keeps row count at 1");
 
   await store.close();
 }
@@ -558,6 +626,7 @@ async function run() {
 
   await testDecisions();
   await testTaskStates();
+  await testTaskStatesUpsert();
   await testRecoverContext();
   await testSearchMemory();
   await testJapaneseSearchJson();

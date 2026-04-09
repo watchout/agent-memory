@@ -19,12 +19,22 @@ export interface TaskState {
   id: string;
   agent_id: string;
   project?: string;
+  /**
+   * AM-023: stable identifier for a task lifecycle.
+   * Holds a ticket id (e.g. "AM-023") when one is detected, otherwise
+   * a 16-hex prefix of SHA-256(task description). UNIQUE per agent_id.
+   * Optional in the type for backward compat with rows migrated from
+   * the pre-AM-023 schema (where it is back-filled to equal `task`).
+   */
+  task_id?: string;
   task: string;
   status: "in_progress" | "completed" | "blocked" | "expired";
   progress?: string;
   files_modified: string[];
   next_steps?: string;
   created_at: string;
+  /** AM-023: timestamp of the last UPSERT. Falls back to created_at on legacy rows. */
+  updated_at?: string;
 }
 
 export interface LogDecisionInput {
@@ -54,6 +64,14 @@ export interface SupersedeDecisionInput {
 
 export interface SaveTaskStateInput {
   agent_id: string;
+  /**
+   * AM-023: stable identifier for the task lifecycle. When supplied
+   * (typically by post-tool-hook from a ticket id like "AM-023"),
+   * subsequent saves with the same (agent_id, task_id) UPSERT the
+   * same row instead of creating duplicates. When omitted, stores
+   * derive a fallback id from a SHA-256 prefix of `task`.
+   */
+  task_id?: string;
   task: string;
   status: "in_progress" | "completed" | "blocked";
   progress?: string;
