@@ -22,7 +22,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|mcp__agent-comms__reply|mcp__agent-comms__send_message",
+        "matcher": "Bash|mcp__agent-comms__send",
         "hooks": [
           {
             "type": "command",
