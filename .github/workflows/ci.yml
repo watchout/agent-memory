@@ -49,3 +49,4 @@ jobs:
       - name: Run test suites
         run: |
           npx tsx src/test.ts
+          npx tsx tests/spec-enforcement/anti-regression-am027.ts
