@@ -583,6 +583,74 @@ async function testKnowledgeSearch() {
   await store.close();
 }
 
+async function testKnowledgeSupersede() {
+  console.log("\n── Knowledge Supersede Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const KA = "knowledge-supersede-agent";
+
+  // 1. Normal supersede
+  const old = await store.saveKnowledge({
+    agent_id: KA,
+    title: "PG より SQLite が軽い",
+    content: "SQLite は軽量で手軽に使える。",
+    source_type: "manual",
+    tags: ["database"],
+    project: "test-project",
+  });
+  const result = await store.supersedeKnowledge({
+    agent_id: KA,
+    old_id: old.id,
+    new_title: "PG の方がスケールする",
+    new_content: "長期的には PostgreSQL が適切。スケール・機能ともに優位。",
+    reason: "実運用で SQLite の限界が明らかになった",
+    project: "test-project",
+  });
+  assert(result.old.status === "superseded", "old knowledge marked superseded");
+  assert(result.new.supersedes === old.id, "new knowledge points to old id");
+  assert(result.new.supersede_reason === "実運用で SQLite の限界が明らかになった", "supersede_reason preserved");
+  assert(result.new.status === "active", "new knowledge is active");
+
+  // 2. Session Boot excludes superseded
+  const active = await store.getKnowledge({ agent_id: KA, status: "active" });
+  assert(!active.find((k) => k.id === old.id), "superseded knowledge excluded from active list");
+  assert(active.find((k) => k.id === result.new.id) !== undefined, "new knowledge in active list");
+
+  // 3. Not found error
+  let notFoundErr: Error | null = null;
+  try {
+    await store.supersedeKnowledge({
+      agent_id: KA,
+      old_id: "00000000-0000-0000-0000-000000000000",
+      new_title: "x",
+      new_content: "x",
+      reason: "x",
+    });
+  } catch (err) {
+    notFoundErr = err as Error;
+  }
+  assert(notFoundErr !== null, "throws on non-existent old_id");
+  assert(notFoundErr!.message.includes("Knowledge not found"), "error message correct");
+
+  // 4. Agent isolation
+  let isoErr: Error | null = null;
+  try {
+    await store.supersedeKnowledge({
+      agent_id: "other-agent",
+      old_id: old.id,
+      new_title: "x",
+      new_content: "x",
+      reason: "x",
+    });
+  } catch (err) {
+    isoErr = err as Error;
+  }
+  assert(isoErr !== null, "agent isolation: cannot supersede another agent's knowledge");
+
+  await store.close();
+}
+
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
   const store = new JsonStore();
@@ -634,6 +702,7 @@ async function run() {
   await testEmptyDbBoot();
   await testKnowledgeCRUD();
   await testKnowledgeSearch();
+  await testKnowledgeSupersede();
   await testErrorHandling();
 
   await cleanup();

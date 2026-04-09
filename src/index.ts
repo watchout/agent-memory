@@ -582,6 +582,52 @@ async function main() {
     }
   );
 
+  // ─── supersede_knowledge ───────────────────────────────────────
+  server.tool(
+    "supersede_knowledge",
+    "Replace an outdated or incorrect knowledge entry with a corrected one. The old entry is marked as superseded. Use when a previously saved fact turns out to be wrong or needs updating.",
+    {
+      old_id: z.string().uuid().describe("ID of the knowledge entry being superseded"),
+      new_title: z.string().describe("Title for the new knowledge entry"),
+      new_content: z.string().describe("Content of the new knowledge entry"),
+      reason: z.string().describe("Why the old knowledge entry is being superseded"),
+      tags: z.array(z.string()).optional().describe("Tags for the new entry (defaults to old entry's tags)"),
+      project: z.string().optional().describe("Project identifier"),
+    },
+    async ({ old_id, new_title, new_content, reason, tags, project }) => {
+      await logCall("supersede_knowledge", `old_id="${old_id}" new_title="${new_title}"`);
+      try {
+        const result = await store.supersedeKnowledge({
+          agent_id: AGENT_ID,
+          old_id,
+          new_title,
+          new_content,
+          reason,
+          tags,
+          project: project || PROJECT,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Knowledge superseded\n\n` +
+                `Old: ${result.old.title} (now superseded)\n` +
+                `New: ${result.new.title}\n` +
+                `Reason: ${reason}\n` +
+                `New ID: ${result.new.id}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Failed to supersede knowledge: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── update_knowledge_status ───────────────────────────────────
   server.tool(
     "update_knowledge_status",

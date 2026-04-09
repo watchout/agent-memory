@@ -63,6 +63,10 @@ const MIGRATIONS = [
     USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')))`,
   `ALTER TABLE decisions ADD COLUMN IF NOT EXISTS consolidated_at TIMESTAMPTZ`,
 
+  // ─── AM-024: knowledge supersede columns (#57) ────────────────
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
+
   // ─── AM-023: task_id UPSERT (#56) ─────────────────────────────
   `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS task_id TEXT`,
   `ALTER TABLE task_states ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,

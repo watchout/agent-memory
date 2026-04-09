@@ -554,6 +554,72 @@ async function testRecoveryQualityLog() {
   }
 }
 
+async function testKnowledgeSupersede() {
+  console.log("\n── PgStore Knowledge Supersede ──");
+
+  const old = await store.saveKnowledge({
+    agent_id: AGENT,
+    project: PROJECT,
+    title: "PG より SQLite が軽い",
+    content: "SQLite は軽量で手軽に使える。",
+    source_type: "manual",
+    tags: ["database"],
+  });
+
+  // 1. Normal supersede
+  const result = await store.supersedeKnowledge({
+    agent_id: AGENT,
+    old_id: old.id,
+    new_title: "PG の方がスケールする",
+    new_content: "長期的には PostgreSQL が適切。",
+    reason: "実運用で SQLite の限界が明らかになった",
+    project: PROJECT,
+  });
+  assert(result.old.status === "superseded", "old knowledge marked superseded");
+  assert(result.new.supersedes === old.id, "new knowledge points to old id");
+  assert(result.new.supersede_reason === "実運用で SQLite の限界が明らかになった", "supersede_reason preserved");
+  assert(result.new.status === "active", "new knowledge is active");
+
+  // 2. Boot excludes superseded
+  const active = await store.getKnowledge({ agent_id: AGENT, status: "active" });
+  assert(!active.find((k) => k.id === old.id), "superseded excluded from active list");
+  assert(active.find((k) => k.id === result.new.id) !== undefined, "new knowledge in active list");
+
+  // 3. Not found error
+  try {
+    await store.supersedeKnowledge({
+      agent_id: AGENT,
+      old_id: "00000000-0000-0000-0000-000000000000",
+      new_title: "x",
+      new_content: "x",
+      reason: "x",
+    });
+    assert(false, "should throw for non-existent knowledge");
+  } catch (err) {
+    assert((err as Error).message.includes("Knowledge not found"), "throws on non-existent old_id");
+  }
+
+  // 4. Agent isolation
+  const otherK = await store.saveKnowledge({
+    agent_id: `${AGENT}-other`,
+    title: "other agent knowledge",
+    content: "test",
+    source_type: "manual",
+  });
+  try {
+    await store.supersedeKnowledge({
+      agent_id: AGENT,
+      old_id: otherK.id,
+      new_title: "hijack",
+      new_content: "x",
+      reason: "x",
+    });
+    assert(false, "should throw for wrong agent's knowledge");
+  } catch {
+    assert(true, "agent isolation in knowledge supersede works");
+  }
+}
+
 async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
@@ -580,6 +646,7 @@ async function run() {
     await testAgentIsolation();
     await testBootSimulation();
     await testRecoveryQualityLog();
+    await testKnowledgeSupersede();
   } finally {
     await cleanup();
     await store.close();

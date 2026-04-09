@@ -96,10 +96,26 @@ export interface Knowledge {
   source_type: "decisions" | "messages" | "manual";
   source_ids: string[];
   tags: string[];
-  status: "active" | "merged" | "archived";
+  status: "active" | "merged" | "archived" | "superseded";
   merged_into?: string;
+  /** AM-024: ID of the older knowledge entry this one supersedes (new → old reference). */
+  supersedes?: string;
+  /** AM-024: Reason for superseding the old entry. */
+  supersede_reason?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface SupersedeKnowledgeInput {
+  agent_id: string;
+  /** ID of the knowledge entry being superseded. */
+  old_id: string;
+  new_title: string;
+  new_content: string;
+  /** Why the old knowledge entry is being superseded. */
+  reason: string;
+  tags?: string[];
+  project?: string;
 }
 
 export interface SaveKnowledgeInput {
@@ -116,7 +132,7 @@ export interface GetKnowledgeInput {
   agent_id: string;
   project?: string;
   limit?: number;
-  status?: "active" | "merged" | "archived" | "all";
+  status?: "active" | "merged" | "archived" | "superseded" | "all";
   tags?: string[];
 }
 
@@ -207,7 +223,10 @@ export interface Store {
   getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]>;
 
   /** Update knowledge entry status (v0.5.0) */
-  updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived"; merged_into?: string }): Promise<Knowledge>;
+  updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge>;
+
+  /** Supersede an old knowledge entry with a new one (AM-024) */
+  supersedeKnowledge(input: SupersedeKnowledgeInput): Promise<{ old: Knowledge; new: Knowledge }>;
 
   /** Get recovery config for an agent (v0.4.0, FEAT-015) */
   getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null>;

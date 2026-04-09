@@ -98,19 +98,21 @@ CREATE INDEX idx_task_states_search ON task_states USING gin (
 
 ```sql
 CREATE TABLE knowledge (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id      TEXT NOT NULL,
-  project       TEXT,
-  title         TEXT NOT NULL,
-  content       TEXT NOT NULL,
-  source_type   TEXT NOT NULL,            -- manual | messages | decisions | tasks
-  source_ids    UUID[] DEFAULT '{}',      -- 元データへの参照 (decisions.id 等)
-  tags          TEXT[] DEFAULT '{}',
-  status        TEXT DEFAULT 'active',    -- active | merged | archived
-  merged_into   UUID REFERENCES knowledge(id),
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  embedding     vector(512)
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id         TEXT NOT NULL,
+  project          TEXT,
+  title            TEXT NOT NULL,
+  content          TEXT NOT NULL,
+  source_type      TEXT NOT NULL,            -- manual | messages | decisions | tasks
+  source_ids       UUID[] DEFAULT '{}',      -- 元データへの参照 (decisions.id 等)
+  tags             TEXT[] DEFAULT '{}',
+  status           TEXT DEFAULT 'active',    -- active | merged | archived | superseded
+  merged_into      UUID REFERENCES knowledge(id),
+  supersedes       UUID REFERENCES knowledge(id),  -- AM-024: 新が旧を指す (new → old)
+  supersede_reason TEXT,                           -- AM-024: supersede の理由
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  embedding        vector(512)
 );
 
 CREATE INDEX idx_knowledge_agent ON knowledge(agent_id, status);
@@ -125,7 +127,12 @@ CREATE INDEX idx_knowledge_search ON knowledge USING gin (
 - `title` + `content` の 2 階層 (要約 + 詳細)
 - `source_type` で出所追跡 (Discord メッセージ自動抽出 / decisions 圧縮 / 手動入力)
 - `merged_into` で重複ナレッジの統合履歴
+- `supersedes` で矛盾解消 (古い情報を新しい情報で上書き、AM-024)
 - 将来 L1→L2 圧縮で `consolidated_at` を導入予定
+
+> **参照方向の注意**: `decisions` の supersede は `superseded_by` (旧→新を指す) だが、
+> `knowledge` の supersede は `supersedes` (新→旧を指す)。方向が逆なので注意。
+> 両テーブルとも「古いレコードの status が `superseded` になる」点は同じ。
 
 ### 2.4 recovery_config
 

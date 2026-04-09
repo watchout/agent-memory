@@ -17,6 +17,7 @@ import type {
   SearchMemoryResult,
   SaveKnowledgeInput,
   GetKnowledgeInput,
+  SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
 } from "./types.js";
 import {
@@ -872,6 +873,59 @@ export class PgStore implements Store {
     return this.rowToKnowledge(result.rows[0]);
   }
 
+  async supersedeKnowledge(
+    input: SupersedeKnowledgeInput
+  ): Promise<{ old: Knowledge; new: Knowledge }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const oldResult = await client.query(
+        "SELECT * FROM knowledge WHERE id = $1 AND agent_id = $2",
+        [input.old_id, input.agent_id]
+      );
+      if (oldResult.rows.length === 0) {
+        throw new Error(`Knowledge not found: ${input.old_id}`);
+      }
+      const oldRow = oldResult.rows[0];
+
+      const newId = uuidv4();
+      const newResult = await client.query(
+        `INSERT INTO knowledge
+           (id, agent_id, project, title, content, source_type, tags, supersedes, supersede_reason)
+         VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7, $8)
+         RETURNING *`,
+        [
+          newId,
+          input.agent_id,
+          input.project ?? oldRow.project,
+          input.new_title,
+          input.new_content,
+          input.tags ?? oldRow.tags,
+          input.old_id,
+          input.reason,
+        ]
+      );
+
+      const updatedOld = await client.query(
+        `UPDATE knowledge SET status = 'superseded', updated_at = now()
+         WHERE id = $1 RETURNING *`,
+        [input.old_id]
+      );
+
+      await client.query("COMMIT");
+      return {
+        old: this.rowToKnowledge(updatedOld.rows[0]),
+        new: this.rowToKnowledge(newResult.rows[0]),
+      };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
@@ -927,6 +981,8 @@ export class PgStore implements Store {
       tags: (row.tags as string[]) || [],
       status: row.status as Knowledge["status"],
       merged_into: row.merged_into as string | undefined,
+      supersedes: row.supersedes as string | undefined,
+      supersede_reason: row.supersede_reason as string | undefined,
       created_at:
         row.created_at instanceof Date
           ? row.created_at.toISOString()
