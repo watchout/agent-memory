@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash <project-root>/.claude/hooks/channel-routing.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DATABASE_URL=<your-db-url> AGENT_MEMORY_AGENT_ID=<agent-id> AGENT_MEMORY_PROJECT=<project> npm --prefix <project-root> run boot 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|mcp__agent-comms__reply|mcp__agent-comms__send_message",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DATABASE_URL=<your-db-url> AGENT_MEMORY_AGENT_ID=<agent-id> AGENT_MEMORY_PROJECT=<project> bash <project-root>/scripts/post-tool-hook.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
