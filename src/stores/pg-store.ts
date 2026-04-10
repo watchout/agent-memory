@@ -907,10 +907,16 @@ export class PgStore implements Store {
         ]
       );
 
+      // AM-024 follow-up (#66 item 2): the SELECT above already
+      // checks `agent_id`, and we're inside a transaction, so the
+      // existing `WHERE id = $1` is safe in practice. We add the
+      // `agent_id` filter anyway so the UPDATE matches the SELECT
+      // and the query is robustly isolated even if the surrounding
+      // transaction structure changes in the future.
       const updatedOld = await client.query(
         `UPDATE knowledge SET status = 'superseded', updated_at = now()
-         WHERE id = $1 RETURNING *`,
-        [input.old_id]
+         WHERE id = $1 AND agent_id = $2 RETURNING *`,
+        [input.old_id, input.agent_id]
       );
 
       await client.query("COMMIT");

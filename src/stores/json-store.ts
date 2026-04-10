@@ -447,11 +447,31 @@ export class JsonStore implements Store {
       updated_at: now,
     };
 
+    // AM-024 follow-up (#66 item 1): the in-memory mutation below is
+    // not atomic with the on-disk write. If `saveKnowledgeFile()`
+    // throws (disk full / permission / fs glitch), the in-memory
+    // store will already show the old item as `superseded` and the
+    // new one inserted, while the on-disk file still reflects the
+    // pre-supersede state. Subsequent calls in the same process will
+    // see the in-memory state and *re-throw* on retry instead of
+    // re-applying. We try/catch the persist call and roll the
+    // in-memory mutation back so the next attempt is idempotent.
+    const previousStatus = oldItem.status;
+    const previousUpdatedAt = oldItem.updated_at;
     oldItem.status = "superseded";
     oldItem.updated_at = now;
-
     this.knowledgeItems.push(newItem);
-    await this.saveKnowledgeFile();
+    try {
+      await this.saveKnowledgeFile();
+    } catch (err) {
+      // Roll back the in-memory mutation so the caller's retry path
+      // sees the original state. PG/SQLite stores get this for free
+      // via transactions; the JSON store has to do it by hand.
+      oldItem.status = previousStatus;
+      oldItem.updated_at = previousUpdatedAt;
+      this.knowledgeItems.pop();
+      throw err;
+    }
     return { old: oldItem, new: newItem };
   }
 
