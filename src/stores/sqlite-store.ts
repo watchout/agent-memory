@@ -975,6 +975,10 @@ export class SqliteStore implements Store {
   }): Promise<boolean> {
     // ±60s window per design draft 3/3. ISO8601 strings compare
     // lexically in chronological order so plain BETWEEN works.
+    //
+    // BLOCK fix #6: only `status='inserted'` rows count as dedup
+    // hits. `skipped` rows are forensic trail and `failed` rows
+    // must not block retries — see types.ts for the rationale.
     const eventAt = new Date(input.event_at);
     const lower = new Date(eventAt.getTime() - 60_000).toISOString();
     const upper = new Date(eventAt.getTime() + 60_000).toISOString();
@@ -982,6 +986,7 @@ export class SqliteStore implements Store {
       `SELECT 1 FROM catch_up_log
         WHERE agent_id = ?
           AND content_hash = ?
+          AND status = 'inserted'
           AND event_at BETWEEN ? AND ?
         LIMIT 1`,
       [input.agent_id, input.content_hash, lower, upper]

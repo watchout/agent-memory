@@ -161,11 +161,23 @@ export interface CatchUpLog {
   /** ID of the inserted target row. NULL when status is 'dry_run' or 'skipped'. */
   target_id?: string;
   /**
-   * 'inserted'  — the event was new and a target row was created
-   * 'skipped'   — dedup matched a prior ledger row within ±60s
-   * 'dry_run'   — extracted but not inserted because dry_run=true
+   * 'inserted'  — event was new AND a target row was created
+   * 'skipped'   — dedup matched a prior 'inserted' ledger row within ±60s
+   * 'failed'    — dispatched insert into the target table threw
+   *
+   * NOTE: only `inserted` rows count as dedup hits in
+   * `isCatchUpDuplicate`. `skipped` rows exist purely as forensic
+   * trail; if we let them dedup, every retry would skip everything.
+   * `failed` rows must NOT dedup either, otherwise a transient
+   * failure (disk / network) would permanently block the retry.
+   *
+   * `dry_run` is intentionally absent from this enum: per the
+   * AM-026 BLOCK fix, `catchUp` does NOT write any ledger rows
+   * when `dry_run=true`. The reasoning is that a dry_run row at
+   * the same content_hash + ±60s would otherwise poison the
+   * subsequent real run.
    */
-  status: "inserted" | "skipped" | "dry_run";
+  status: "inserted" | "skipped" | "failed";
   /** First ~200 chars of content, for forensic introspection. */
   content_preview?: string;
   /** Source-of-truth timestamp from the jsonl line. */
@@ -198,7 +210,7 @@ export interface SaveCatchUpLogInput {
   content_hash: string;
   target_table: "decisions" | "task_states" | "knowledge";
   target_id?: string;
-  status: "inserted" | "skipped" | "dry_run";
+  status: "inserted" | "skipped" | "failed";
   content_preview?: string;
   event_at: string;
 }

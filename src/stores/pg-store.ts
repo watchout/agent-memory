@@ -1009,6 +1009,10 @@ export class PgStore implements Store {
     event_at: string;
   }): Promise<boolean> {
     // ±60s window per design draft 3/3.
+    //
+    // BLOCK fix #6: only `status='inserted'` rows count as dedup
+    // hits. `skipped` rows are forensic trail and `failed` rows
+    // must not block retries — see types.ts for the rationale.
     const eventAt = new Date(input.event_at);
     const lower = new Date(eventAt.getTime() - 60_000).toISOString();
     const upper = new Date(eventAt.getTime() + 60_000).toISOString();
@@ -1016,6 +1020,7 @@ export class PgStore implements Store {
       `SELECT 1 FROM catch_up_log
         WHERE agent_id = $1
           AND content_hash = $2
+          AND status = 'inserted'
           AND event_at BETWEEN $3 AND $4
         LIMIT 1`,
       [input.agent_id, input.content_hash, lower, upper]

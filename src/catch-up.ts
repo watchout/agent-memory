@@ -277,9 +277,24 @@ export function contentHash(content: string): string {
 }
 
 /**
- * Entry point. Walks Source A (jsonl) only — Source B (Discord) will
- * be added in a follow-up. Returns a `CatchUpResult` and writes one
- * `catch_up_log` ledger row per event (insert / skip / dry_run).
+ * Entry point. Walks Source A (jsonl) only — Source B (Discord) is
+ * reserved as a future PR. Returns a `CatchUpResult` summarizing
+ * the sweep.
+ *
+ * Ledger semantics (BLOCK fixes #1 / #2 / #3):
+ *   - On a successful insert into the target table: write a
+ *     ledger row with `status='inserted'`. This is the only
+ *     row type that subsequently dedups via `isCatchUpDuplicate`.
+ *   - On a duplicate (dedup hit): write a ledger row with
+ *     `status='skipped'` for forensic trail. These rows do NOT
+ *     dedup later runs (status filter on the lookup).
+ *   - On a target-table insert failure: write a ledger row with
+ *     `status='failed'`. These rows do NOT dedup later runs, so
+ *     a transient fs/network error doesn't permanently block
+ *     the retry.
+ *   - On `dry_run=true`: write **no** ledger rows. Writing a
+ *     `status='dry_run'` row would otherwise poison the next
+ *     real run via the dedup window.
  */
 export async function catchUp(
   store: Store,
@@ -328,27 +343,70 @@ export async function catchUp(
         content_hash: hash,
         event_at: event.event_at,
       });
+
+      // ── Duplicate path (BLOCK fix #3) ──
+      // Record `status='skipped'` for forensic trail. The dedup
+      // lookup ignores skipped rows, so this doesn't poison
+      // future runs. Only write the ledger row in real runs;
+      // dry_run never touches the ledger (BLOCK fix #1).
       if (dup) {
         skipped++;
+        if (!dryRun) {
+          await store.saveCatchUpLog({
+            agent_id: agentId,
+            source: "conversation",
+            content_hash: hash,
+            target_table: event.target_table,
+            status: "skipped",
+            content_preview: event.content.slice(0, PREVIEW_LEN),
+            event_at: event.event_at,
+          });
+        }
         continue;
       }
 
-      let target_id: string | undefined;
-      if (!dryRun) {
-        target_id = await insertEvent(store, agentId, event);
-        if (target_id) caught[event.target_table]++;
+      // ── dry_run path (BLOCK fix #1) ──
+      // Skip both the target-table insert AND the ledger write.
+      // Writing a `status='dry_run'` ledger row would otherwise
+      // poison the next real run via `isCatchUpDuplicate` (the
+      // original AM-026 bug auditor flagged). The caught counter
+      // intentionally stays 0 in dry_run so callers can tell a
+      // real run from a preview without inspecting the result
+      // shape (matches the original AM-026 contract / existing
+      // testCatchUpSourceA assertions).
+      if (dryRun) {
+        continue;
       }
 
-      await store.saveCatchUpLog({
-        agent_id: agentId,
-        source: "conversation",
-        content_hash: hash,
-        target_table: event.target_table,
-        target_id,
-        status: dryRun ? "dry_run" : "inserted",
-        content_preview: event.content.slice(0, PREVIEW_LEN),
-        event_at: event.event_at,
-      });
+      // ── Real insert path (BLOCK fix #2) ──
+      // Try the target-table insert first. Only write a ledger
+      // row reflecting the *actual* outcome (`inserted` on
+      // success, `failed` on exception). A `failed` row does
+      // not dedup, so the retry path is unblocked.
+      const target_id = await insertEvent(store, agentId, event);
+      if (target_id) {
+        caught[event.target_table]++;
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          target_id,
+          status: "inserted",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+      } else {
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          status: "failed",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+      }
     }
   }
 

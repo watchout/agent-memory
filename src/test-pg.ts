@@ -701,6 +701,165 @@ async function testCatchUpSourceA() {
     const r4 = await catchUp(store, PG_AGENT, { source: "conversation", since: futureSince });
     const total4 = r4.caught.decisions + r4.caught.task_states + r4.caught.knowledge;
     assert(total4 === 0 && r4.skipped === 0, "PG: future since yields 0 caught + 0 skipped");
+
+    // ── Test 6 (BLOCK fix #6): only `status='inserted'` rows dedup ──
+    // Direct ledger writes — no sweep — so we can pin the semantics
+    // even if catchUp() never produces a `failed` row in fixtures.
+    const LEDGER_AGENT = `${PG_AGENT}-ledger`;
+    const ledgerHashSkipped = contentHash("pg-ledger-skipped-marker");
+    const ledgerHashFailed = contentHash("pg-ledger-failed-marker");
+    const ledgerHashInserted = contentHash("pg-ledger-inserted-marker");
+    const ledgerTs = new Date().toISOString();
+
+    await store.saveCatchUpLog({
+      agent_id: LEDGER_AGENT,
+      source: "conversation",
+      content_hash: ledgerHashSkipped,
+      target_table: "knowledge",
+      status: "skipped",
+      event_at: ledgerTs,
+    });
+    const dupSkipped = await store.isCatchUpDuplicate({
+      agent_id: LEDGER_AGENT,
+      content_hash: ledgerHashSkipped,
+      event_at: ledgerTs,
+    });
+    assert(
+      dupSkipped === false,
+      "PG BLOCK #6: status='skipped' ledger row does NOT dedup (forensic only)"
+    );
+
+    await store.saveCatchUpLog({
+      agent_id: LEDGER_AGENT,
+      source: "conversation",
+      content_hash: ledgerHashFailed,
+      target_table: "knowledge",
+      status: "failed",
+      event_at: ledgerTs,
+    });
+    const dupFailed = await store.isCatchUpDuplicate({
+      agent_id: LEDGER_AGENT,
+      content_hash: ledgerHashFailed,
+      event_at: ledgerTs,
+    });
+    assert(
+      dupFailed === false,
+      "PG BLOCK #6: status='failed' ledger row does NOT dedup (retry must succeed)"
+    );
+
+    await store.saveCatchUpLog({
+      agent_id: LEDGER_AGENT,
+      source: "conversation",
+      content_hash: ledgerHashInserted,
+      target_table: "knowledge",
+      target_id: "fake-id",
+      status: "inserted",
+      event_at: ledgerTs,
+    });
+    const dupInserted = await store.isCatchUpDuplicate({
+      agent_id: LEDGER_AGENT,
+      content_hash: ledgerHashInserted,
+      event_at: ledgerTs,
+    });
+    assert(
+      dupInserted === true,
+      "PG BLOCK #6: status='inserted' ledger row DOES dedup"
+    );
+
+    // ── Test 7 (BLOCK fix #1): dry_run writes no ledger row ──
+    // Fresh agent + fresh single-event fixture. dry_run sweep must
+    // leave the ledger empty so a subsequent real sweep still
+    // inserts (i.e. dry_run does not poison future runs).
+    const DRY_AGENT = `${PG_AGENT}-dry`;
+    const tsDry = new Date(Date.now() - 15_000).toISOString();
+    writeFileSync(
+      join(projectDir, "session-pg-dry.jsonl"),
+      JSON.stringify({
+        type: "assistant",
+        timestamp: tsDry,
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "text",
+              text: "[KNOWLEDGE] PG dry_run ledger semantics smoke " + Date.now(),
+            },
+          ],
+        },
+      }) + "\n"
+    );
+    const rDry = await catchUp(store, DRY_AGENT, {
+      source: "conversation",
+      since: tsDry,
+      dry_run: true,
+    });
+    assert(rDry.caught.knowledge === 0, "PG BLOCK #1: dry_run reports caught=0");
+    const dryLedger = await store.getLastCatchUpLog(DRY_AGENT, "conversation");
+    assert(
+      dryLedger === null,
+      "PG BLOCK #1: dry_run wrote no ledger row (getLastCatchUpLog returns null)"
+    );
+    const rReal = await catchUp(store, DRY_AGENT, {
+      source: "conversation",
+      since: tsDry,
+    });
+    assert(
+      rReal.caught.knowledge >= 1,
+      `PG BLOCK #1: real sweep after dry_run still inserts (got knowledge=${rReal.caught.knowledge})`
+    );
+
+    // ── Test 8 (BLOCK fix #3): duplicate writes status='skipped' ──
+    // Sweep twice on a fresh fixture, then query catch_up_log
+    // directly (via the underlying pool) for the row distribution.
+    const SKIP_AGENT = `${PG_AGENT}-skip`;
+    const tsSkip = new Date(Date.now() - 8_000).toISOString();
+    writeFileSync(
+      join(projectDir, "session-pg-skip.jsonl"),
+      JSON.stringify({
+        type: "assistant",
+        timestamp: tsSkip,
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "text",
+              text: "[KNOWLEDGE] PG skipped ledger semantics smoke " + Date.now(),
+            },
+          ],
+        },
+      }) + "\n"
+    );
+    const rSkip1 = await catchUp(store, SKIP_AGENT, {
+      source: "conversation",
+      since: tsSkip,
+    });
+    assert(
+      rSkip1.caught.knowledge >= 1,
+      "PG BLOCK #3 setup: first sweep inserts the new event"
+    );
+    const rSkip2 = await catchUp(store, SKIP_AGENT, {
+      source: "conversation",
+      since: tsSkip,
+    });
+    assert(
+      rSkip2.caught.knowledge === 0 && rSkip2.skipped >= 1,
+      "PG BLOCK #3: second sweep dedups the same event"
+    );
+    // Reach into the private pool to inspect ledger row distribution.
+    const pool = (store as unknown as { pool: import("pg").Pool }).pool;
+    const skipQuery = await pool.query(
+      `SELECT status FROM catch_up_log WHERE agent_id = $1`,
+      [SKIP_AGENT]
+    );
+    const skipStatuses = skipQuery.rows.map((r: { status: string }) => r.status);
+    assert(
+      skipStatuses.includes("inserted"),
+      "PG BLOCK #3: ledger contains an 'inserted' row from the first sweep"
+    );
+    assert(
+      skipStatuses.includes("skipped"),
+      `PG BLOCK #3: ledger contains a 'skipped' row from the dedup branch (got [${skipStatuses.join(",")}])`
+    );
   } finally {
     if (prevDir === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
     else process.env.CLAUDE_PROJECTS_DIR = prevDir;

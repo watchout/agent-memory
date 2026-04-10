@@ -519,8 +519,12 @@ export class JsonStore implements Store {
     content_hash: string;
     event_at: string;
   }): Promise<boolean> {
+    // BLOCK fix #6: only `status='inserted'` rows count as dedup
+    // hits. `skipped` rows are forensic trail and `failed` rows
+    // must not block retries — see types.ts for the rationale.
     const eventAt = new Date(input.event_at).getTime();
     for (const row of this.catchUpLog) {
+      if (row.status !== "inserted") continue;
       if (row.agent_id !== input.agent_id) continue;
       if (row.content_hash !== input.content_hash) continue;
       const delta = Math.abs(new Date(row.event_at).getTime() - eventAt);
