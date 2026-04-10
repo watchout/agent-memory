@@ -620,13 +620,103 @@ async function testKnowledgeSupersede() {
   }
 }
 
+// ─── AM-026: catch-up Source A (PG smoke) ────────────────────────
+
+async function testCatchUpSourceA() {
+  console.log("\n── PgStore catch-up Source A (AM-026) ──");
+
+  const { mkdirSync, rmSync, writeFileSync } = await import("fs");
+  const { tmpdir } = await import("os");
+  const { join } = await import("path");
+  const { catchUp, contentHash } = await import("./catch-up.js");
+
+  const fixtureRoot = join(tmpdir(), `catch-up-pg-fixture-${Date.now()}`);
+  const projectDir = join(fixtureRoot, "test-pg-slug");
+  mkdirSync(projectDir, { recursive: true });
+
+  const ts1 = new Date(Date.now() - 90_000).toISOString();
+  const ts2 = new Date(Date.now() - 60_000).toISOString();
+  const lines = [
+    JSON.stringify({
+      type: "assistant",
+      timestamp: ts1,
+      message: { role: "assistant", content: [{ type: "tool_use", name: "Edit", input: { file_path: "/repo/pg-test.ts" } }] },
+    }),
+    JSON.stringify({
+      type: "assistant",
+      timestamp: ts2,
+      message: { role: "assistant", content: [{ type: "text", text: "[KNOWLEDGE] PG catch-up smoke" }] },
+    }),
+  ];
+  writeFileSync(join(projectDir, "session-pg.jsonl"), lines.join("\n") + "\n");
+
+  const prevDir = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+  const PG_AGENT = `${AGENT}-catchup`;
+
+  try {
+    // ── Test 1 (NORMAL): first sweep inserts both events ──
+    const r1 = await catchUp(store, PG_AGENT, { source: "conversation" });
+    const total1 = r1.caught.decisions + r1.caught.task_states + r1.caught.knowledge;
+    assert(total1 === 2, "PG: first sweep caught 2 events");
+    assert(r1.skipped === 0, "PG: first sweep skipped 0");
+
+    const last = await store.getLastCatchUpLog(PG_AGENT, "conversation");
+    assert(last !== null, "PG: getLastCatchUpLog returns a row after sweep");
+    assert(last?.target_table !== undefined, "PG: ledger row has target_table");
+
+    // ── Test 2 (NORMAL): isCatchUpDuplicate true within ±60s window ──
+    const dupHit = await store.isCatchUpDuplicate({
+      agent_id: PG_AGENT,
+      content_hash: contentHash("Edit /repo/pg-test.ts"),
+      event_at: ts1,
+    });
+    assert(dupHit === true, "PG: dedup hits within ±60s of inserted ledger");
+
+    // ── Test 3 (ABNORMAL): re-running same sweep dedups everything ──
+    const r2 = await catchUp(store, PG_AGENT, { source: "conversation", since: ts1 });
+    const total2 = r2.caught.decisions + r2.caught.task_states + r2.caught.knowledge;
+    assert(total2 === 0, "PG: second sweep caught 0 (dedup)");
+    assert(r2.skipped >= 2, `PG: second sweep skipped >= 2 (got ${r2.skipped})`);
+
+    // ── Test 4 (ABNORMAL): dry_run with new fixture writes nothing ──
+    const ts3 = new Date(Date.now() - 5_000).toISOString();
+    writeFileSync(
+      join(projectDir, "session-pg-2.jsonl"),
+      JSON.stringify({
+        type: "assistant",
+        timestamp: ts3,
+        message: { role: "assistant", content: [{ type: "text", text: "[KNOWLEDGE] PG dry_run smoke " + Date.now() }] },
+      }) + "\n"
+    );
+    const knowledgeBefore = (await store.getKnowledge({ agent_id: PG_AGENT, status: "active" })).length;
+    const r3 = await catchUp(store, PG_AGENT, { source: "conversation", since: ts3, dry_run: true });
+    const total3 = r3.caught.decisions + r3.caught.task_states + r3.caught.knowledge;
+    assert(total3 === 0, "PG: dry_run reports caught=0");
+    const knowledgeAfter = (await store.getKnowledge({ agent_id: PG_AGENT, status: "active" })).length;
+    assert(knowledgeAfter === knowledgeBefore, "PG: dry_run did not insert knowledge");
+
+    // ── Test 5 (ABNORMAL): future since produces empty result ──
+    const futureSince = new Date(Date.now() + 60 * 60_000).toISOString();
+    const r4 = await catchUp(store, PG_AGENT, { source: "conversation", since: futureSince });
+    const total4 = r4.caught.decisions + r4.caught.task_states + r4.caught.knowledge;
+    assert(total4 === 0 && r4.skipped === 0, "PG: future since yields 0 caught + 0 skipped");
+  } finally {
+    if (prevDir === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prevDir;
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
   const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
   await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM knowledge WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM recovery_quality_log WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM catch_up_log WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.end();
 }
 
@@ -647,6 +737,7 @@ async function run() {
     await testBootSimulation();
     await testRecoveryQualityLog();
     await testKnowledgeSupersede();
+    await testCatchUpSourceA();
   } finally {
     await cleanup();
     await store.close();

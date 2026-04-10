@@ -6,10 +6,18 @@
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
 import { SqliteStore } from "./stores/sqlite-store.js";
-import { rmSync, existsSync } from "fs";
+import { mkdirSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { stripOrphanSurrogates } from "./sanitize.js";
+import {
+  catchUp,
+  contentHash,
+  findJsonlFiles,
+  parseJsonl,
+  extractFromRecord,
+  MAX_PROJECTS_GLOB_DEPTH,
+} from "./catch-up.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
@@ -765,6 +773,189 @@ async function testStripOrphanSurrogates() {
   assert(hasSurrogate(fixed) === false, "sanitized output contains no orphans");
 }
 
+// ─── AM-026: catch-up Source A ────────────────────────────────────
+
+/**
+ * Build a Claude Code-style assistant jsonl line. Mirrors the shape
+ * documented in the issue + verified against
+ * `~/.claude/projects/.../*.jsonl` real files.
+ */
+function buildJsonlAssistantToolUse(timestamp: string, name: string, input: Record<string, unknown>): string {
+  return JSON.stringify({
+    type: "assistant",
+    timestamp,
+    message: {
+      role: "assistant",
+      content: [{ type: "tool_use", id: `tu-${Math.random()}`, name, input }],
+    },
+  });
+}
+
+function buildJsonlAssistantText(timestamp: string, text: string): string {
+  return JSON.stringify({
+    type: "assistant",
+    timestamp,
+    message: {
+      role: "assistant",
+      content: [{ type: "text", text }],
+    },
+  });
+}
+
+async function testCatchUpSourceA() {
+  console.log("\n── SqliteStore catch-up Source A (AM-026) ──");
+
+  const fixtureRoot = join(tmpdir(), `catch-up-fixture-${Date.now()}`);
+  const projectDir = join(fixtureRoot, "test-project-slug");
+  const deepDir = join(projectDir, "deep1", "deep2", "deep3"); // depth 4 from fixtureRoot
+  mkdirSync(deepDir, { recursive: true });
+
+  const CATCH_AGENT = `catchup-test-${Date.now()}`;
+
+  // Pure-function smoke (parser primitives)
+  assert(MAX_PROJECTS_GLOB_DEPTH === 3, "MAX_PROJECTS_GLOB_DEPTH is 3 (ARC #4)");
+  assert(contentHash("hello") === contentHash("hello"), "contentHash is deterministic");
+  assert(contentHash("a") !== contentHash("b"), "contentHash discriminates inputs");
+
+  // Fixture A: jsonl in the project root with three event types
+  const ts1 = new Date(Date.now() - 3 * 60_000).toISOString();
+  const ts2 = new Date(Date.now() - 2 * 60_000).toISOString();
+  const ts3 = new Date(Date.now() - 1 * 60_000).toISOString();
+  const ts4 = new Date(Date.now() - 30_000).toISOString();
+
+  const lines = [
+    buildJsonlAssistantToolUse(ts1, "Edit", { file_path: "/repo/src/foo.ts" }),
+    buildJsonlAssistantToolUse(ts2, "Bash", { command: "git commit -m \"feat(AM-026): wire catch-up\"" }),
+    buildJsonlAssistantText(ts3, "[TASK:start] AM-026 catch-up Source A 検証中"),
+    buildJsonlAssistantText(ts4, "[KNOWLEDGE] catch-up jsonl parser handles tool_use, text, dedup"),
+  ];
+  writeFileSync(join(projectDir, "session-1.jsonl"), lines.join("\n") + "\n");
+
+  // Fixture B: an extra jsonl 4 levels deep — should be IGNORED by maxDepth=3
+  const tooDeep = join(deepDir, "session-too-deep.jsonl");
+  writeFileSync(
+    tooDeep,
+    buildJsonlAssistantToolUse(ts4, "Edit", { file_path: "/repo/should-be-ignored.ts" }) + "\n"
+  );
+
+  // Override projects dir to the fixture root so the live ~/.claude/projects
+  // tree doesn't leak into this test.
+  const prevDir = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+
+  try {
+    // ── Test 1 (NORMAL): findJsonlFiles respects maxDepth=3 ──
+    const lookback = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const files = findJsonlFiles(lookback, fixtureRoot);
+    assert(
+      files.some((f) => f.endsWith("session-1.jsonl")),
+      "findJsonlFiles surfaces session-1.jsonl (depth 2)"
+    );
+    assert(
+      !files.some((f) => f.endsWith("session-too-deep.jsonl")),
+      "findJsonlFiles excludes file at depth 4 (maxDepth=3 ARC #4)"
+    );
+
+    // ── Test 2 (NORMAL): parseJsonl + extractFromRecord rule coverage ──
+    const events = parseJsonl(join(projectDir, "session-1.jsonl"), lookback);
+    assert(events.length === 4, "parseJsonl yields all 4 in-window events");
+    const tables = events.map((e) => e.target_table).sort();
+    assert(
+      tables.includes("task_states") && tables.includes("knowledge"),
+      "parser produces both task_states and knowledge target tables"
+    );
+    const editEvent = events.find((e) => e.files_modified?.length);
+    assert(
+      editEvent?.files_modified?.[0] === "/repo/src/foo.ts",
+      "Edit tool_use → files_modified populated"
+    );
+
+    // pure-fn: extractFromRecord on a non-assistant record returns []
+    const userRecord = { type: "user", timestamp: ts1, message: { role: "user", content: "hi" } };
+    assert(extractFromRecord(userRecord).length === 0, "user records skipped");
+
+    // ── Test 3 (NORMAL): catchUp inserts new rows + writes ledger ──
+    const r1 = await catchUp(store, CATCH_AGENT, { source: "conversation" });
+    const totalCaught =
+      r1.caught.decisions + r1.caught.task_states + r1.caught.knowledge;
+    assert(totalCaught === 4, "first sweep caught all 4 fixture events");
+    assert(r1.skipped === 0, "first sweep skipped 0 events");
+    assert(typeof r1.last_checked === "string", "last_checked is set");
+
+    // verify rows were written
+    const tasksAfter = await store.getTaskStates({ agent_id: CATCH_AGENT, status: "all" });
+    assert(tasksAfter.length >= 1, "task_states row(s) inserted");
+    const knowledgeAfter = await store.getKnowledge({ agent_id: CATCH_AGENT, status: "active" });
+    assert(knowledgeAfter.length >= 1, "knowledge row(s) inserted");
+
+    // ── Test 4 (ABNORMAL): re-running same sweep dedups everything ──
+    const r2 = await catchUp(store, CATCH_AGENT, { source: "conversation", since: ts1 });
+    const r2Caught =
+      r2.caught.decisions + r2.caught.task_states + r2.caught.knowledge;
+    assert(r2Caught === 0, "second sweep caught 0 (all dedup-skipped)");
+    assert(r2.skipped >= 4, `second sweep skipped >= 4 (got ${r2.skipped})`);
+
+    // ── Test 5 (NORMAL): same content but >60s away → INSERTed ──
+    const farFutureTs = new Date(Date.now() + 5 * 60 * 60_000).toISOString();
+    const dupAway = await store.isCatchUpDuplicate({
+      agent_id: CATCH_AGENT,
+      content_hash: contentHash("Edit /repo/src/foo.ts"),
+      event_at: farFutureTs,
+    });
+    assert(dupAway === false, "dedup window (±60s) does NOT match a >60s-away event");
+
+    // ── Test 6 (ABNORMAL): dry_run reports counts but writes nothing new ──
+    const tasksBeforeDry = (await store.getTaskStates({ agent_id: CATCH_AGENT, status: "all" })).length;
+    const knowledgeBeforeDry = (await store.getKnowledge({ agent_id: CATCH_AGENT, status: "active" })).length;
+
+    // make a brand-new fixture with a unique event so dedup doesn't kill it
+    const ts5 = new Date(Date.now() - 10_000).toISOString();
+    writeFileSync(
+      join(projectDir, "session-2.jsonl"),
+      buildJsonlAssistantText(ts5, "[KNOWLEDGE] dry_run smoke from AM-026 test " + Date.now()) + "\n"
+    );
+
+    const r3 = await catchUp(store, CATCH_AGENT, { source: "conversation", since: ts5, dry_run: true });
+    const r3Caught =
+      r3.caught.decisions + r3.caught.task_states + r3.caught.knowledge;
+    assert(r3Caught === 0, "dry_run reports caught=0 in counters (no inserts)");
+
+    const tasksAfterDry = (await store.getTaskStates({ agent_id: CATCH_AGENT, status: "all" })).length;
+    const knowledgeAfterDry = (await store.getKnowledge({ agent_id: CATCH_AGENT, status: "active" })).length;
+    assert(tasksAfterDry === tasksBeforeDry, "dry_run did not insert into task_states");
+    assert(
+      knowledgeAfterDry === knowledgeBeforeDry,
+      "dry_run did not insert into knowledge"
+    );
+
+    // ── Test 7 (ABNORMAL): unset CLAUDE_PROJECTS_DIR falls back to default ──
+    delete process.env.CLAUDE_PROJECTS_DIR;
+    // We don't actually run a sweep without the override here (the live
+    // ~/.claude/projects tree would create noise). We just check that
+    // findJsonlFiles is callable without the env var without throwing.
+    const filesDefault = findJsonlFiles(new Date(0), undefined, 0);
+    assert(Array.isArray(filesDefault), "findJsonlFiles tolerates default root + maxDepth=0");
+
+    // ── Test 8 (ABNORMAL): explicit since in the future skips everything ──
+    process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+    const futureSince = new Date(Date.now() + 60 * 60_000).toISOString();
+    const r4 = await catchUp(store, CATCH_AGENT, { source: "conversation", since: futureSince });
+    const r4Caught =
+      r4.caught.decisions + r4.caught.task_states + r4.caught.knowledge;
+    assert(r4Caught === 0, "future since yields 0 caught");
+    assert(r4.skipped === 0, "future since yields 0 skipped");
+
+    // ── Test 9 (NORMAL): getLastCatchUpLog returns most recent event ──
+    const last = await store.getLastCatchUpLog(CATCH_AGENT, "conversation");
+    assert(last !== null, "getLastCatchUpLog returns a row after a sweep");
+    assert(last?.source === "conversation", "ledger row has source=conversation");
+  } finally {
+    if (prevDir === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prevDir;
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 async function testPersistence() {
   console.log("\n── SqliteStore Persistence ──");
 
@@ -812,6 +1003,7 @@ async function run() {
     await testExpireStaleTaskStates();
     await testGetRecentMessages();
     await testStripOrphanSurrogates();
+    await testCatchUpSourceA();
     await testPersistence();
   } finally {
     await cleanup();

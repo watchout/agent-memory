@@ -82,6 +82,27 @@ const MIGRATIONS = [
   // ─── AM-024: knowledge supersede columns (#57) ────────────────
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
+
+  // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
+  // Stores one row per event extracted from a catch-up sweep over
+  // Claude Code conversation jsonl. content_hash + (agent_id, event_at)
+  // is the dedup key — see Store.isCatchUpDuplicate / catch-up.ts.
+  `CREATE TABLE IF NOT EXISTS catch_up_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    target_table TEXT NOT NULL,
+    target_id TEXT,
+    status TEXT NOT NULL,
+    content_preview TEXT,
+    event_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_dedup
+    ON catch_up_log (agent_id, content_hash, event_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_recent
+    ON catch_up_log (agent_id, source, event_at DESC)`,
 ];
 
 async function migrate() {

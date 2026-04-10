@@ -136,6 +136,73 @@ export interface GetKnowledgeInput {
   tags?: string[];
 }
 
+/**
+ * AM-026: per-event ledger row from a catch-up sweep over Claude Code
+ * conversation logs (`~/.claude/projects/.../*.jsonl`).
+ *
+ * Catch-up extracts events from jsonl, hashes their content, and writes
+ * one ledger row per inserted (or dry-run / dedup-skipped) event into
+ * `catch_up_log`. The next sweep:
+ *   1. Reads the most recent ledger row (`getLastCatchUpLog`) to learn
+ *      its lower-bound `since`.
+ *   2. Calls `isCatchUpDuplicate({agent_id, content_hash, event_at})`
+ *      before inserting each new event so duplicates within ±60s of
+ *      an existing ledger row are skipped instead of double-recorded.
+ */
+export interface CatchUpLog {
+  id: string;
+  agent_id: string;
+  /** 'conversation' for jsonl source A; 'discord' reserved for source B. */
+  source: "conversation" | "discord";
+  /** SHA-256 hex of the extracted event's content. Required by ARC condition #5. */
+  content_hash: string;
+  /** Which target table the event was (or would have been) written to. */
+  target_table: "decisions" | "task_states" | "knowledge";
+  /** ID of the inserted target row. NULL when status is 'dry_run' or 'skipped'. */
+  target_id?: string;
+  /**
+   * 'inserted'  — the event was new and a target row was created
+   * 'skipped'   — dedup matched a prior ledger row within ±60s
+   * 'dry_run'   — extracted but not inserted because dry_run=true
+   */
+  status: "inserted" | "skipped" | "dry_run";
+  /** First ~200 chars of content, for forensic introspection. */
+  content_preview?: string;
+  /** Source-of-truth timestamp from the jsonl line. */
+  event_at: string;
+  /** When this ledger row was written (= when `catchUp` ran). */
+  created_at: string;
+}
+
+export interface CatchUpInput {
+  /** ISO8601. Defaults to last sweep's most recent `event_at`, or 24h ago. */
+  since?: string;
+  /** Default 'all'. Source A is the only implemented one in AM-026. */
+  source?: "conversation" | "discord" | "all";
+  /** True = report counts but do not INSERT into target tables. Default false. */
+  dry_run?: boolean;
+}
+
+export interface CatchUpResult {
+  /** Number of new rows inserted into each target table this sweep. */
+  caught: { decisions: number; task_states: number; knowledge: number };
+  /** Number of extracted events that were skipped by dedup. */
+  skipped: number;
+  /** ISO8601 of sweep completion (used as next run's `since`). */
+  last_checked: string;
+}
+
+export interface SaveCatchUpLogInput {
+  agent_id: string;
+  source: "conversation" | "discord";
+  content_hash: string;
+  target_table: "decisions" | "task_states" | "knowledge";
+  target_id?: string;
+  status: "inserted" | "skipped" | "dry_run";
+  content_preview?: string;
+  event_at: string;
+}
+
 export interface AgentMessage {
   id: string;
   author_id: string;
@@ -249,6 +316,30 @@ export interface Store {
 
   /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
   updateSearchMemoryCount(log_id: string, count: number): Promise<void>;
+
+  /**
+   * AM-026: fetch the most recent catch_up_log ledger row (by event_at)
+   * for this agent + source, or null if no sweep has run yet. The
+   * returned row's `event_at` becomes the next sweep's `since` lower
+   * bound so we never re-scan past events.
+   */
+  getLastCatchUpLog(agent_id: string, source: "conversation" | "discord"): Promise<CatchUpLog | null>;
+
+  /** AM-026: persist a per-event catch_up_log ledger row. */
+  saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog>;
+
+  /**
+   * AM-026: dedup probe used by `catchUp` before inserting a new
+   * extracted event. Returns true when a ledger row with the same
+   * `content_hash` already exists for `agent_id` within ±60s of
+   * `event_at`. PG/SQLite use the `(agent_id, content_hash, event_at)`
+   * index to keep this query O(log n).
+   */
+  isCatchUpDuplicate(input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean>;
 
   /** Close connections */
   close(): Promise<void>;

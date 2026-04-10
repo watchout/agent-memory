@@ -22,6 +22,8 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  CatchUpLog,
+  SaveCatchUpLogInput,
 } from "./types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
@@ -106,6 +108,26 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_recovery_quality_agent
     ON recovery_quality_log(agent_id, created_at DESC)`,
 
+  // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
+  // Mirror of the PG schema in pg-store.ts MIGRATIONS / migrate.ts.
+  // ISO8601 strings for event_at + created_at (sql.js has no native
+  // TIMESTAMPTZ type — TEXT compares lexically thanks to ISO8601).
+  `CREATE TABLE IF NOT EXISTS catch_up_log (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    target_table TEXT NOT NULL,
+    target_id TEXT,
+    status TEXT NOT NULL,
+    content_preview TEXT,
+    event_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_dedup
+    ON catch_up_log(agent_id, content_hash, event_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_recent
+    ON catch_up_log(agent_id, source, event_at DESC)`,
 ];
 
 let SQL_PROMISE: Promise<SqlJsStatic> | null = null;
@@ -893,6 +915,80 @@ export class SqliteStore implements Store {
     this.persist();
   }
 
+  // ─── Catch-up Log (AM-026) ───────────────────────────────────
+
+  async getLastCatchUpLog(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog | null> {
+    const rows = this.allRows(
+      `SELECT * FROM catch_up_log
+        WHERE agent_id = ? AND source = ?
+        ORDER BY event_at DESC
+        LIMIT 1`,
+      [agent_id, source]
+    );
+    if (rows.length === 0) return null;
+    return this.rowToCatchUpLog(rows[0]);
+  }
+
+  async saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    const id = uuidv4();
+    const created_at = nowIso();
+    this.db.run(
+      `INSERT INTO catch_up_log
+        (id, agent_id, source, content_hash, target_table, target_id,
+         status, content_preview, event_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.agent_id,
+        input.source,
+        input.content_hash,
+        input.target_table,
+        input.target_id ?? null,
+        input.status,
+        input.content_preview ?? null,
+        input.event_at,
+        created_at,
+      ]
+    );
+    this.persist();
+    return {
+      id,
+      agent_id: input.agent_id,
+      source: input.source,
+      content_hash: input.content_hash,
+      target_table: input.target_table,
+      target_id: input.target_id,
+      status: input.status,
+      content_preview: input.content_preview,
+      event_at: input.event_at,
+      created_at,
+    };
+  }
+
+  async isCatchUpDuplicate(input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean> {
+    // ±60s window per design draft 3/3. ISO8601 strings compare
+    // lexically in chronological order so plain BETWEEN works.
+    const eventAt = new Date(input.event_at);
+    const lower = new Date(eventAt.getTime() - 60_000).toISOString();
+    const upper = new Date(eventAt.getTime() + 60_000).toISOString();
+    const rows = this.allRows(
+      `SELECT 1 FROM catch_up_log
+        WHERE agent_id = ?
+          AND content_hash = ?
+          AND event_at BETWEEN ? AND ?
+        LIMIT 1`,
+      [input.agent_id, input.content_hash, lower, upper]
+    );
+    return rows.length > 0;
+  }
+
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async close(): Promise<void> {
@@ -931,6 +1027,21 @@ export class SqliteStore implements Store {
       next_steps: (row.next_steps as string | null) ?? undefined,
       created_at: row.created_at as string,
       updated_at: (row.updated_at as string | null) ?? undefined,
+    };
+  }
+
+  private rowToCatchUpLog(row: Record<string, unknown>): CatchUpLog {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      source: row.source as CatchUpLog["source"],
+      content_hash: row.content_hash as string,
+      target_table: row.target_table as CatchUpLog["target_table"],
+      target_id: (row.target_id as string | null) ?? undefined,
+      status: row.status as CatchUpLog["status"],
+      content_preview: (row.content_preview as string | null) ?? undefined,
+      event_at: row.event_at as string,
+      created_at: row.created_at as string,
     };
   }
 

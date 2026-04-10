@@ -29,6 +29,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `knowledge` | 知識・洞察・パターン | embedding (vector 512), L1→L2 merge | embedding TEXT NULL |
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
+| `catch_up_log` | catch-up 抽出イベントの per-event ledger (AM-026) | - | (差分なし、TIMESTAMPTZ → TEXT) |
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
 agent_messages は agent-comms スキーマ。**agent-memory が読み取り専用で連携**する形 (PG モード時のみ)。
@@ -185,6 +186,41 @@ CREATE INDEX idx_recovery_quality_agent ON recovery_quality_log(agent_id, create
 - `search_memory_count_10min`: boot 後 10 分以内の search_memory 呼出回数 (低いほど良い、復元品質が高い証拠)
 - `quality_score`: 0.0-1.0 の総合スコア (Stage 2 = AM-018 で算出ロジック実装)
 - `notes`: recovery summary を JSON で記録 (例: `{decisions: 3, tasks: 2, knowledge: 5, messages: 0}`)
+
+### 2.6 catch_up_log (AM-026)
+
+```sql
+CREATE TABLE catch_up_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        TEXT NOT NULL,
+  source          TEXT NOT NULL,            -- conversation | discord
+  content_hash    TEXT NOT NULL,            -- SHA-256 hex of extracted event content
+  target_table    TEXT NOT NULL,            -- decisions | task_states | knowledge
+  target_id       TEXT,                     -- inserted row's id; NULL when status='dry_run'/'skipped'
+  status          TEXT NOT NULL,            -- inserted | skipped | dry_run
+  content_preview TEXT,                     -- first ~200 chars of content for forensic view
+  event_at        TIMESTAMPTZ NOT NULL,     -- source jsonl line's timestamp (truth-of-event)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- when this ledger row was written
+);
+
+CREATE INDEX idx_catch_up_log_dedup
+  ON catch_up_log (agent_id, content_hash, event_at);
+CREATE INDEX idx_catch_up_log_recent
+  ON catch_up_log (agent_id, source, event_at DESC);
+```
+
+**設計**:
+- **per-event ledger** (1 row per extracted event, NOT 1 row per sweep)
+- 次回 sweep の `since` 下限 = `getLastCatchUpLog(agent_id, source).event_at`
+- dedup window = `event_at ± 60s` AND `agent_id` AND `content_hash` 一致 → ARC 条件 #5 の `content_hash TEXT` 列がここで使われる
+- `status='dry_run'` 行は `target_id` が NULL のままで残り、後で実 INSERT に切替えるための痕跡として残る
+- `status='skipped'` 行も全件記録 (どの event が dedup で無視されたか forensic 可能)
+
+**運用**:
+- catch-up sweep は `~/.claude/projects/.../*.jsonl` を Source A として walk (`CLAUDE_PROJECTS_DIR` env で override 可能)
+- 再帰深度は **maxDepth=3** にハードキャップ (ARC 条件 #4)。`~/.claude/projects/{slug}/{file}.jsonl` (depth=2) + 1 階層の余裕
+- boot.ts が起動末尾に non-fatal で 1 回呼び出す。MCP tool `catch_up` で手動 trigger も可能
+- 失敗は **stderr のみ** に出力、stdout (recovery context) を汚染しない
 
 ---
 
@@ -372,3 +408,4 @@ PostgreSQL (オプション):
 | 2026-04-03 | framework retrofit 初版 | framework |
 | 2026-04-06 | recovery_config defaults + seed data 追記 | quality audit Phase A |
 | 2026-04-08 | AM-010 充足: テーブル全定義 (PG/SQLite両モード)、agent-comms 互換性、機能制約、SQLite getRecentMessages 制約明記 | Arc |
+| 2026-04-10 | AM-026: catch_up_log table 追加 (per-event ledger, content_hash dedup, maxDepth=3) | agent-mem-dev |

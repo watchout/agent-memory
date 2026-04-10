@@ -21,17 +21,21 @@ import type {
   SaveKnowledgeInput,
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
+  CatchUpLog,
+  SaveCatchUpLogInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
 const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
 const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
+const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
 
 export class JsonStore implements Store {
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
+  private catchUpLog: CatchUpLog[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -40,6 +44,7 @@ export class JsonStore implements Store {
     this.decisions = await this.loadFile<Decision>(DECISIONS_FILE);
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
     this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
+    this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -473,6 +478,55 @@ export class JsonStore implements Store {
       throw err;
     }
     return { old: oldItem, new: newItem };
+  }
+
+  // ─── Catch-up Log (AM-026) ───────────────────────────────────
+
+  private async saveCatchUpLogFile(): Promise<void> {
+    await writeFile(CATCH_UP_LOG_FILE, JSON.stringify(this.catchUpLog, null, 2));
+  }
+
+  async getLastCatchUpLog(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog | null> {
+    const matching = this.catchUpLog
+      .filter((row) => row.agent_id === agent_id && row.source === source)
+      .sort((a, b) => (a.event_at < b.event_at ? 1 : -1));
+    return matching[0] ?? null;
+  }
+
+  async saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    const row: CatchUpLog = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      source: input.source,
+      content_hash: input.content_hash,
+      target_table: input.target_table,
+      target_id: input.target_id,
+      status: input.status,
+      content_preview: input.content_preview,
+      event_at: input.event_at,
+      created_at: new Date().toISOString(),
+    };
+    this.catchUpLog.push(row);
+    await this.saveCatchUpLogFile();
+    return row;
+  }
+
+  async isCatchUpDuplicate(input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean> {
+    const eventAt = new Date(input.event_at).getTime();
+    for (const row of this.catchUpLog) {
+      if (row.agent_id !== input.agent_id) continue;
+      if (row.content_hash !== input.content_hash) continue;
+      const delta = Math.abs(new Date(row.event_at).getTime() - eventAt);
+      if (delta <= 60_000) return true;
+    }
+    return false;
   }
 
   async close(): Promise<void> {

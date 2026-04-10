@@ -8,6 +8,7 @@ import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
+import { catchUp } from "./catch-up.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -107,6 +108,25 @@ async function boot() {
 
     // Output to stdout — hook output is injected into session context
     console.log(output);
+
+    // AM-026: catch-up Source A. Non-fatal — failures must not corrupt
+    // the recovery output above. We sweep AFTER printing so any stderr
+    // we emit lands at the end of the boot log instead of stomping on
+    // the stdout payload that the SessionStart hook injects.
+    try {
+      const result = await catchUp(store, AGENT_ID, { source: "conversation" });
+      const total =
+        result.caught.decisions + result.caught.task_states + result.caught.knowledge;
+      if (total > 0 || result.skipped > 0) {
+        process.stderr.write(
+          `[boot] catch-up: caught ${total} (decisions=${result.caught.decisions}, ` +
+            `task_states=${result.caught.task_states}, knowledge=${result.caught.knowledge}), ` +
+            `skipped ${result.skipped}\n`
+        );
+      }
+    } catch (err) {
+      process.stderr.write(`[boot] catch-up failed (non-fatal): ${err}\n`);
+    }
   } finally {
     await store.close();
   }

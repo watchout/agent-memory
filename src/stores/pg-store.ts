@@ -19,6 +19,8 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  CatchUpLog,
+  SaveCatchUpLogInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -166,6 +168,27 @@ const MIGRATIONS = [
   // re-running PgStore.initialize() is a no-op once applied.
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
+
+  // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
+  // See migrate.ts for the canonical version + design notes. Kept in
+  // PgStore.MIGRATIONS as well so test-pg.ts (which constructs PgStore
+  // directly without going through migrate.ts) sees the same schema.
+  `CREATE TABLE IF NOT EXISTS catch_up_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    target_table TEXT NOT NULL,
+    target_id TEXT,
+    status TEXT NOT NULL,
+    content_preview TEXT,
+    event_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_dedup
+    ON catch_up_log (agent_id, content_hash, event_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_catch_up_log_recent
+    ON catch_up_log (agent_id, source, event_at DESC)`,
 ];
 
 export class PgStore implements Store {
@@ -940,8 +963,85 @@ export class PgStore implements Store {
     }
   }
 
+  // ─── Catch-up Log (AM-026) ───────────────────────────────────
+
+  async getLastCatchUpLog(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM catch_up_log
+        WHERE agent_id = $1 AND source = $2
+        ORDER BY event_at DESC
+        LIMIT 1`,
+      [agent_id, source]
+    );
+    if (result.rows.length === 0) return null;
+    return this.rowToCatchUpLog(result.rows[0]);
+  }
+
+  async saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    const id = uuidv4();
+    const result = await this.pool.query(
+      `INSERT INTO catch_up_log
+        (id, agent_id, source, content_hash, target_table, target_id,
+         status, content_preview, event_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        id,
+        input.agent_id,
+        input.source,
+        input.content_hash,
+        input.target_table,
+        input.target_id ?? null,
+        input.status,
+        input.content_preview ?? null,
+        input.event_at,
+      ]
+    );
+    return this.rowToCatchUpLog(result.rows[0]);
+  }
+
+  async isCatchUpDuplicate(input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean> {
+    // ±60s window per design draft 3/3.
+    const eventAt = new Date(input.event_at);
+    const lower = new Date(eventAt.getTime() - 60_000).toISOString();
+    const upper = new Date(eventAt.getTime() + 60_000).toISOString();
+    const result = await this.pool.query(
+      `SELECT 1 FROM catch_up_log
+        WHERE agent_id = $1
+          AND content_hash = $2
+          AND event_at BETWEEN $3 AND $4
+        LIMIT 1`,
+      [input.agent_id, input.content_hash, lower, upper]
+    );
+    return result.rows.length > 0;
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  private rowToCatchUpLog(row: Record<string, unknown>): CatchUpLog {
+    const toIso = (v: unknown): string =>
+      v instanceof Date ? v.toISOString() : (v as string);
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      source: row.source as CatchUpLog["source"],
+      content_hash: row.content_hash as string,
+      target_table: row.target_table as CatchUpLog["target_table"],
+      target_id: (row.target_id as string | null) ?? undefined,
+      status: row.status as CatchUpLog["status"],
+      content_preview: (row.content_preview as string | null) ?? undefined,
+      event_at: toIso(row.event_at),
+      created_at: toIso(row.created_at),
+    };
   }
 
   private rowToDecision(row: Record<string, unknown>): Decision {
