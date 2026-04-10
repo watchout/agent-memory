@@ -72,7 +72,10 @@ const BASH_CONTENT_RE = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"/;
 interface HookInput {
   tool_name: string;
   tool_input: {
+    /** Legacy MCP reply / send_message field. Kept for old payloads. */
     text?: string;
+    /** New MCP `send` content field (AM-030, agent-comms PR#117). */
+    content?: string;
     chat_id?: string;
     command?: string;
     [key: string]: unknown;
@@ -254,9 +257,16 @@ async function main() {
 
   const toolName = input.tool_name || "";
 
-  // ─── Path 1: existing MCP agent-comms reply / send_message ─────
-  if (toolName.match(/^mcp__agent-comms__(reply|send_message)$/)) {
-    const text = input.tool_input?.text || "";
+  // ─── Path 1: MCP agent-comms send (AM-030) ─────────────────────
+  // The tool used to be `mcp__agent-comms__reply` /
+  // `mcp__agent-comms__send_message`, both removed in agent-comms
+  // PR#117 when the reply / send tools were unified into `send`.
+  // The new tool also renamed `text` → `content`. Live impact of
+  // the stale dispatcher was zero (every dev bot uses the Bash +
+  // curl workaround, see Path 2 below), but PR#64 wired the new
+  // tool name into the matcher, so the dispatcher needs to follow.
+  if (toolName === "mcp__agent-comms__send") {
+    const text = input.tool_input?.content || "";
     if (!text) process.exit(0);
     if (!parseTag(text)) process.exit(0);
 
