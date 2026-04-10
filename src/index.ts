@@ -32,6 +32,70 @@ async function logCall(tool: string, params: string): Promise<void> {
   }
 }
 
+/**
+ * Strip orphaned UTF-16 surrogate code units from a string so the
+ * MCP transport can serialize it through a strict JSON parser
+ * (e.g. the Anthropic API) without `no low surrogate` errors.
+ *
+ * Background:
+ *   - JS strings are UTF-16 internally. Code points above U+FFFF
+ *     (most emoji, some CJK extensions) are encoded as surrogate
+ *     pairs: a high surrogate (D800–DBFF) followed by a low
+ *     surrogate (DC00–DFFF).
+ *   - `String.prototype.slice` operates on UTF-16 code units, so
+ *     `"😀hi".slice(0, 1)` returns just the high surrogate, leaving
+ *     it orphaned.
+ *   - `JSON.stringify` will happily emit `\uD83D` for that orphan,
+ *     and lenient parsers (V8) accept it. But strict RFC 8259
+ *     parsers (e.g. the Anthropic API request validator) reject it
+ *     with `no low surrogate in string`.
+ *
+ * Strategy: walk the string code-unit by code-unit and drop any
+ * surrogate that doesn't have its mate in the right position.
+ * Well-formed pairs pass through untouched.
+ *
+ * This is a defense-in-depth boundary fix. Upstream call sites
+ * should also avoid `slice()`-ing non-BMP text mid-pair, but as
+ * long as a sanitizer runs at the MCP output boundary, slice
+ * accidents stop reaching the API.
+ */
+function stripOrphanSurrogates(input: string): string {
+  if (typeof input !== "string") return input;
+  let out = "";
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
+    // High surrogate: must be followed by a low surrogate
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = i + 1 < input.length ? input.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        out += input[i] + input[i + 1];
+        i++;
+        continue;
+      }
+      // Orphan high surrogate — drop it
+      continue;
+    }
+    // Lone low surrogate (no preceding high) — drop it
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      continue;
+    }
+    out += input[i];
+  }
+  return out;
+}
+
+/**
+ * Wrap an MCP tool's text payload to guarantee JSON-clean output.
+ * Use at every `text` field returned from a tool handler so a
+ * surrogate orphan can never slip through to the transport.
+ */
+function safeText(text: string): { type: "text"; text: string } {
+  return { type: "text" as const, text: stripOrphanSurrogates(text) };
+}
+
+// Exported for unit tests.
+export { stripOrphanSurrogates };
+
 async function main() {
   const store = await createStore();
 
@@ -277,12 +341,7 @@ async function main() {
         const total = result.knowledge.length + result.decisions.length + result.task_states.length + result.messages.length;
         if (total === 0) {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: `🔍 search_memory: "${query}" — no results`,
-              },
-            ],
+            content: [safeText(`🔍 search_memory: "${query}" — no results`)],
           };
         }
 
@@ -336,13 +395,11 @@ async function main() {
         }
 
         return {
-          content: [{ type: "text" as const, text: parts.join("\n") }],
+          content: [safeText(parts.join("\n"))],
         };
       } catch (err) {
         return {
-          content: [
-            { type: "text" as const, text: `❌ Failed to search memory: ${err}` },
-          ],
+          content: [safeText(`❌ Failed to search memory: ${err}`)],
           isError: true,
         };
       }
