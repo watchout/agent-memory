@@ -651,6 +651,115 @@ async function testKnowledgeSupersede() {
   await store.close();
 }
 
+/**
+ * AM-024 follow-up (#66 item 1): the JsonStore has no transactions,
+ * so `supersedeKnowledge` mutates the in-memory arrays before
+ * persisting them. If `saveKnowledgeFile` throws (disk full /
+ * permission glitch / fs error), we have to roll the in-memory
+ * mutation back so the next call observes a consistent snapshot.
+ *
+ * This test injects a synthetic persist failure by monkey-patching
+ * the (private) `saveKnowledgeFile` method, drives `supersedeKnowledge`
+ * through the failure path, and asserts:
+ *
+ *   1. the call rejects with the injected error
+ *   2. the old item's status is still `active` (rollback)
+ *   3. the new item is NOT in the in-memory active list (popped)
+ *   4. a fresh `supersedeKnowledge` after restoring the persist
+ *      method completes successfully — i.e. the rollback left
+ *      the store in a re-runnable state, not a poisoned one.
+ */
+async function testKnowledgeSupersedeRollback() {
+  console.log("\n── Knowledge Supersede Rollback (#66 item 1) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const KA = "knowledge-supersede-rollback-agent";
+
+  const original = await store.saveKnowledge({
+    agent_id: KA,
+    title: "rollback fixture",
+    content: "this row will be the supersede target",
+    source_type: "manual",
+  });
+  assert(original.status === "active", "fixture knowledge starts active");
+
+  const beforeCount = (
+    await store.getKnowledge({ agent_id: KA, status: "all" })
+  ).length;
+
+  // Inject a synthetic persist failure on the next saveKnowledgeFile
+  // call. We restore the original implementation immediately after
+  // the supersede call so subsequent assertions can use the store
+  // normally.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const injected = new Error("INJECTED: simulated disk write failure");
+  const storeAny = store as any;
+  const realPersist = storeAny.saveKnowledgeFile.bind(store);
+  let persistCalls = 0;
+  storeAny.saveKnowledgeFile = async () => {
+    persistCalls++;
+    throw injected;
+  };
+
+  let caught: Error | null = null;
+  try {
+    await store.supersedeKnowledge({
+      agent_id: KA,
+      old_id: original.id,
+      new_title: "would supersede",
+      new_content: "this insert must be rolled back when persist fails",
+      reason: "rollback path test",
+    });
+  } catch (err) {
+    caught = err as Error;
+  } finally {
+    storeAny.saveKnowledgeFile = realPersist;
+  }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  assert(caught !== null, "supersedeKnowledge rejects when persist fails");
+  assert(
+    caught?.message === injected.message,
+    "the rejection propagates the underlying persist error"
+  );
+  assert(persistCalls === 1, "saveKnowledgeFile was attempted exactly once");
+
+  // The old item must still be active — rollback restored its status.
+  const allAfterFailure = await store.getKnowledge({ agent_id: KA, status: "all" });
+  const oldAfter = allAfterFailure.find((k) => k.id === original.id);
+  assert(oldAfter !== undefined, "old item still present");
+  assert(
+    oldAfter?.status === "active",
+    "old item.status reverted from 'superseded' back to 'active'"
+  );
+
+  // The new item must not be in the in-memory list — `pop()` removed it.
+  assert(
+    allAfterFailure.length === beforeCount,
+    "knowledge count unchanged after rollback (new item was popped)"
+  );
+  const anySupersedeRef = allAfterFailure.find((k) => k.supersedes === original.id);
+  assert(
+    anySupersedeRef === undefined,
+    "no knowledge entry references the rolled-back supersede"
+  );
+
+  // After restoring the persist method, supersede must work again —
+  // proves the rollback left the store re-runnable, not poisoned.
+  const retry = await store.supersedeKnowledge({
+    agent_id: KA,
+    old_id: original.id,
+    new_title: "now succeeds after restore",
+    new_content: "second attempt with the real persist",
+    reason: "verify state is not poisoned after rollback",
+  });
+  assert(retry.old.status === "superseded", "retry marks old as superseded");
+  assert(retry.new.supersedes === original.id, "retry's new entry points at the original");
+
+  await store.close();
+}
+
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
   const store = new JsonStore();
@@ -703,6 +812,7 @@ async function run() {
   await testKnowledgeCRUD();
   await testKnowledgeSearch();
   await testKnowledgeSupersede();
+  await testKnowledgeSupersedeRollback();
   await testErrorHandling();
 
   await cleanup();
