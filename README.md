@@ -5,7 +5,7 @@
 
 `wasurezu` (Japanese for "won't forget") is an [MCP](https://modelcontextprotocol.io) server that gives AI coding agents like Claude Code a persistent, structured memory layer. Decisions, task state, and learnings survive context-window compaction and session crashes.
 
-> ⚠️ **Early Stage (v0.1.0-alpha)** — API may change. Feedback welcome via GitHub Issues.
+> ⚠️ **Early Stage (v0.3.0, internal-use snapshot)** — currently used internally by the IYASAKA bot swarm. The public OSS release is in preparation (see AM-013 / AM-014). API may still change before the first public alpha. Feedback welcome via GitHub Issues.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
@@ -137,9 +137,9 @@ Compaction (~83% context)
 | `get_decisions` | Retrieve active decisions (filterable by project / tags / status) |
 | `supersede_decision` | Replace an old decision with a new one (preserves history) |
 | `save_task_state` | Save current work snapshot (status, progress, files modified) |
-| `get_task_states` | Retrieve task snapshots (filterable by project / status) |
 | `save_knowledge` | Store a knowledge / insight / pattern |
 | `get_knowledge` | Retrieve knowledge entries |
+| `supersede_knowledge` | Replace an outdated knowledge entry with a corrected one (AM-024) |
 | `update_knowledge_status` | Archive / merge knowledge entries |
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
 | `recover_context` | Restore all context (called after compaction) |
@@ -209,4 +209,4 @@ All contributions to core are MIT licensed and will remain free forever.
 
 ---
 
-**Built by [IYASAKA](https://github.com/watchout)** — a small team that uses wasurezu to keep our 16-bot internal AI development swarm coherent across daily compactions and crashes. If it works for us, it'll work for you.
+**Built by [IYASAKA](https://github.com/watchout)** — a small team that runs wasurezu daily inside its 16-bot internal AI development swarm to keep agents coherent across compactions and crashes. We are using v0.3.0 internally; the public OSS release is in preparation and the API may still shift before the first public alpha.
