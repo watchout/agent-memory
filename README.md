@@ -79,7 +79,7 @@ After compaction, as your FIRST action:
 - When changing a previous decision, use `supersede_decision`
 ```
 
-**Done.** Restart Claude Code. wasurezu now persists your context to a local SQLite database at `~/.agent-memory/memory.db`. No PostgreSQL needed. No native build required. Works on macOS, Linux, and Windows.
+**Done.** Restart Claude Code. wasurezu now persists your context to a local SQLite database at `~/.agent-memory/memory.db`. No PostgreSQL needed. No native build required. Works on macOS and Linux. Windows support is planned (post-MVP).
 
 ## Demo
 
