@@ -9,6 +9,7 @@ import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { fetchDiscordHistory } from "./discord-history.js";
+import { safeText } from "./sanitize.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -31,70 +32,6 @@ async function logCall(tool: string, params: string): Promise<void> {
     // Logging failure should never break tool execution
   }
 }
-
-/**
- * Strip orphaned UTF-16 surrogate code units from a string so the
- * MCP transport can serialize it through a strict JSON parser
- * (e.g. the Anthropic API) without `no low surrogate` errors.
- *
- * Background:
- *   - JS strings are UTF-16 internally. Code points above U+FFFF
- *     (most emoji, some CJK extensions) are encoded as surrogate
- *     pairs: a high surrogate (D800–DBFF) followed by a low
- *     surrogate (DC00–DFFF).
- *   - `String.prototype.slice` operates on UTF-16 code units, so
- *     `"😀hi".slice(0, 1)` returns just the high surrogate, leaving
- *     it orphaned.
- *   - `JSON.stringify` will happily emit `\uD83D` for that orphan,
- *     and lenient parsers (V8) accept it. But strict RFC 8259
- *     parsers (e.g. the Anthropic API request validator) reject it
- *     with `no low surrogate in string`.
- *
- * Strategy: walk the string code-unit by code-unit and drop any
- * surrogate that doesn't have its mate in the right position.
- * Well-formed pairs pass through untouched.
- *
- * This is a defense-in-depth boundary fix. Upstream call sites
- * should also avoid `slice()`-ing non-BMP text mid-pair, but as
- * long as a sanitizer runs at the MCP output boundary, slice
- * accidents stop reaching the API.
- */
-function stripOrphanSurrogates(input: string): string {
-  if (typeof input !== "string") return input;
-  let out = "";
-  for (let i = 0; i < input.length; i++) {
-    const code = input.charCodeAt(i);
-    // High surrogate: must be followed by a low surrogate
-    if (code >= 0xd800 && code <= 0xdbff) {
-      const next = i + 1 < input.length ? input.charCodeAt(i + 1) : 0;
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        out += input[i] + input[i + 1];
-        i++;
-        continue;
-      }
-      // Orphan high surrogate — drop it
-      continue;
-    }
-    // Lone low surrogate (no preceding high) — drop it
-    if (code >= 0xdc00 && code <= 0xdfff) {
-      continue;
-    }
-    out += input[i];
-  }
-  return out;
-}
-
-/**
- * Wrap an MCP tool's text payload to guarantee JSON-clean output.
- * Use at every `text` field returned from a tool handler so a
- * surrogate orphan can never slip through to the transport.
- */
-function safeText(text: string): { type: "text"; text: string } {
-  return { type: "text" as const, text: stripOrphanSurrogates(text) };
-}
-
-// Exported for unit tests.
-export { stripOrphanSurrogates };
 
 async function main() {
   const store = await createStore();
@@ -135,19 +72,18 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text: `✅ Decision logged (id: ${result.id})\n\n` +
+            safeText(
+              `✅ Decision logged (id: ${result.id})\n\n` +
                 `Decision: ${result.decision}\n` +
                 (result.context ? `Context: ${result.context}\n` : "") +
                 (result.tags.length ? `Tags: ${result.tags.join(", ")}\n` : "") +
-                (result.project ? `Project: ${result.project}\n` : ""),
-            },
+                (result.project ? `Project: ${result.project}\n` : "")
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to log decision: ${err}` }],
+          content: [safeText(`❌ Failed to log decision: ${err}`)],
           isError: true,
         };
       }
@@ -180,7 +116,7 @@ async function main() {
 
         if (decisions.length === 0) {
           return {
-            content: [{ type: "text" as const, text: "No decisions found." }],
+            content: [safeText("No decisions found.")],
           };
         }
 
@@ -195,16 +131,11 @@ async function main() {
           .join("\n\n");
 
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: `📋 ${decisions.length} decision(s):\n\n${text}`,
-            },
-          ],
+          content: [safeText(`📋 ${decisions.length} decision(s):\n\n${text}`)],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to get decisions: ${err}` }],
+          content: [safeText(`❌ Failed to get decisions: ${err}`)],
           isError: true,
         };
       }
@@ -235,22 +166,18 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `🔄 Decision superseded\n\n` +
+            safeText(
+              `🔄 Decision superseded\n\n` +
                 `Old: ${result.old.decision} (now superseded)\n` +
                 `New: ${result.new.decision}\n` +
                 (context ? `Reason: ${context}\n` : "") +
-                `New ID: ${result.new.id}`,
-            },
+                `New ID: ${result.new.id}`
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [
-            { type: "text" as const, text: `❌ Failed to supersede decision: ${err}` },
-          ],
+          content: [safeText(`❌ Failed to supersede decision: ${err}`)],
           isError: true,
         };
       }
@@ -288,25 +215,21 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `💾 Task state saved (id: ${result.id})\n\n` +
+            safeText(
+              `💾 Task state saved (id: ${result.id})\n\n` +
                 `Task: ${result.task}\n` +
                 `Status: ${result.status}\n` +
                 (result.progress ? `Progress: ${result.progress}\n` : "") +
                 (result.files_modified.length
                   ? `Files: ${result.files_modified.join(", ")}\n`
                   : "") +
-                (result.next_steps ? `Next: ${result.next_steps}\n` : ""),
-            },
+                (result.next_steps ? `Next: ${result.next_steps}\n` : "")
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [
-            { type: "text" as const, text: `❌ Failed to save task state: ${err}` },
-          ],
+          content: [safeText(`❌ Failed to save task state: ${err}`)],
           isError: true,
         };
       }
@@ -480,13 +403,11 @@ async function main() {
         }
 
         return {
-          content: [{ type: "text" as const, text: output }],
+          content: [safeText(output)],
         };
       } catch (err) {
         return {
-          content: [
-            { type: "text" as const, text: `❌ Failed to recover context: ${err}` },
-          ],
+          content: [safeText(`❌ Failed to recover context: ${err}`)],
           isError: true,
         };
       }
@@ -518,23 +439,21 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `✅ Recovery config updated for ${agent_id}\n\n` +
+            safeText(
+              `✅ Recovery config updated for ${agent_id}\n\n` +
                 `max_tokens: ${config.max_tokens}\n` +
                 `task_states_limit: ${config.task_states_limit}\n` +
                 `decisions_limit: ${config.decisions_limit}\n` +
                 `knowledge_limit: ${config.knowledge_limit}\n` +
                 `messages_limit: ${config.messages_limit}\n` +
                 `discord_history_limit: ${config.discord_history_limit}\n` +
-                `discord_channels: ${JSON.stringify(config.discord_channels)}`,
-            },
+                `discord_channels: ${JSON.stringify(config.discord_channels)}`
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to set recovery config: ${err}` }],
+          content: [safeText(`❌ Failed to set recovery config: ${err}`)],
           isError: true,
         };
       }
@@ -565,20 +484,18 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `✅ Knowledge saved (id: ${result.id})\n\n` +
+            safeText(
+              `✅ Knowledge saved (id: ${result.id})\n\n` +
                 `Title: ${result.title}\n` +
                 `Content: ${result.content.slice(0, 200)}${result.content.length > 200 ? "..." : ""}\n` +
                 (result.tags.length ? `Tags: ${result.tags.join(", ")}\n` : "") +
-                (result.project ? `Project: ${result.project}\n` : ""),
-            },
+                (result.project ? `Project: ${result.project}\n` : "")
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to save knowledge: ${err}` }],
+          content: [safeText(`❌ Failed to save knowledge: ${err}`)],
           isError: true,
         };
       }
@@ -608,7 +525,7 @@ async function main() {
 
         if (items.length === 0) {
           return {
-            content: [{ type: "text" as const, text: "No knowledge entries found." }],
+            content: [safeText("No knowledge entries found.")],
           };
         }
 
@@ -623,16 +540,11 @@ async function main() {
           .join("\n\n");
 
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: `📚 ${items.length} knowledge entry(ies):\n\n${text}`,
-            },
-          ],
+          content: [safeText(`📚 ${items.length} knowledge entry(ies):\n\n${text}`)],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to get knowledge: ${err}` }],
+          content: [safeText(`❌ Failed to get knowledge: ${err}`)],
           isError: true,
         };
       }
@@ -665,20 +577,18 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `Knowledge superseded\n\n` +
+            safeText(
+              `Knowledge superseded\n\n` +
                 `Old: ${result.old.title} (now superseded)\n` +
                 `New: ${result.new.title}\n` +
                 `Reason: ${reason}\n` +
-                `New ID: ${result.new.id}`,
-            },
+                `New ID: ${result.new.id}`
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `Failed to supersede knowledge: ${err}` }],
+          content: [safeText(`Failed to supersede knowledge: ${err}`)],
           isError: true,
         };
       }
@@ -705,20 +615,18 @@ async function main() {
         });
         return {
           content: [
-            {
-              type: "text" as const,
-              text:
-                `✅ Knowledge status updated\n\n` +
+            safeText(
+              `✅ Knowledge status updated\n\n` +
                 `Title: ${result.title}\n` +
                 `Status: ${result.status}\n` +
                 (result.merged_into ? `Merged into: ${result.merged_into}\n` : "") +
-                `ID: ${result.id}`,
-            },
+                `ID: ${result.id}`
+            ),
           ],
         };
       } catch (err) {
         return {
-          content: [{ type: "text" as const, text: `❌ Failed to update knowledge status: ${err}` }],
+          content: [safeText(`❌ Failed to update knowledge status: ${err}`)],
           isError: true,
         };
       }
