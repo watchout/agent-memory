@@ -158,6 +158,14 @@ const MIGRATIONS = [
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
      ON task_states (agent_id, task_id)`,
+
+  // ─── AM-024: knowledge supersede columns (#57) ────────────────
+  // Mirrors `migrate.ts` so test-pg.ts (which constructs PgStore
+  // directly without going through the migration runner) sees the
+  // same schema. Idempotent ALTER ... ADD COLUMN IF NOT EXISTS so
+  // re-running PgStore.initialize() is a no-op once applied.
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
 ];
 
 export class PgStore implements Store {
