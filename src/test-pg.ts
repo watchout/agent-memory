@@ -691,8 +691,12 @@ async function testCatchUpSourceA() {
     );
     const knowledgeBefore = (await store.getKnowledge({ agent_id: PG_AGENT, status: "active" })).length;
     const r3 = await catchUp(store, PG_AGENT, { source: "conversation", since: ts3, dry_run: true });
-    const total3 = r3.caught.decisions + r3.caught.task_states + r3.caught.knowledge;
-    assert(total3 === 0, "PG: dry_run reports caught=0");
+    // BLOCK #4 (round 2): dry_run reports the count of events that
+    // would have been inserted, but writes nothing.
+    assert(
+      r3.caught.knowledge === 1,
+      `PG BLOCK #4: dry_run reports caught.knowledge=1 (got ${r3.caught.knowledge})`
+    );
     const knowledgeAfter = (await store.getKnowledge({ agent_id: PG_AGENT, status: "active" })).length;
     assert(knowledgeAfter === knowledgeBefore, "PG: dry_run did not insert knowledge");
 
@@ -766,14 +770,19 @@ async function testCatchUpSourceA() {
       "PG BLOCK #6: status='inserted' ledger row DOES dedup"
     );
 
-    // ── Test 7 (BLOCK fix #1): dry_run writes no ledger row ──
-    // Fresh agent + fresh single-event fixture. dry_run sweep must
-    // leave the ledger empty so a subsequent real sweep still
-    // inserts (i.e. dry_run does not poison future runs).
+    // ── Test 7 (BLOCK fix #1 + BLOCK #4): dry_run semantics ──
+    // Uses an isolated fixture root so the dry_run sweep only sees
+    // its own single event — surrounding tests write multiple
+    // knowledge fixtures into projectDir.
+    const dryRoot = join(tmpdir(), `pg-am026-dry-${Date.now()}`);
+    const dryProject = join(dryRoot, "dry-project");
+    mkdirSync(dryProject, { recursive: true });
+    process.env.CLAUDE_PROJECTS_DIR = dryRoot;
+
     const DRY_AGENT = `${PG_AGENT}-dry`;
     const tsDry = new Date(Date.now() - 15_000).toISOString();
     writeFileSync(
-      join(projectDir, "session-pg-dry.jsonl"),
+      join(dryProject, "session-pg-dry.jsonl"),
       JSON.stringify({
         type: "assistant",
         timestamp: tsDry,
@@ -788,25 +797,33 @@ async function testCatchUpSourceA() {
         },
       }) + "\n"
     );
-    const rDry = await catchUp(store, DRY_AGENT, {
-      source: "conversation",
-      since: tsDry,
-      dry_run: true,
-    });
-    assert(rDry.caught.knowledge === 0, "PG BLOCK #1: dry_run reports caught=0");
-    const dryLedger = await store.getLastCatchUpLog(DRY_AGENT, "conversation");
-    assert(
-      dryLedger === null,
-      "PG BLOCK #1: dry_run wrote no ledger row (getLastCatchUpLog returns null)"
-    );
-    const rReal = await catchUp(store, DRY_AGENT, {
-      source: "conversation",
-      since: tsDry,
-    });
-    assert(
-      rReal.caught.knowledge >= 1,
-      `PG BLOCK #1: real sweep after dry_run still inserts (got knowledge=${rReal.caught.knowledge})`
-    );
+    try {
+      const rDry = await catchUp(store, DRY_AGENT, {
+        source: "conversation",
+        since: tsDry,
+        dry_run: true,
+      });
+      assert(
+        rDry.caught.knowledge === 1,
+        `PG BLOCK #4: dry_run reports caught.knowledge=1 (got ${rDry.caught.knowledge})`
+      );
+      const dryLedger = await store.getLastCatchUpLog(DRY_AGENT, "conversation");
+      assert(
+        dryLedger === null,
+        "PG BLOCK #1: dry_run wrote no ledger row (getLastCatchUpLog returns null)"
+      );
+      const rReal = await catchUp(store, DRY_AGENT, {
+        source: "conversation",
+        since: tsDry,
+      });
+      assert(
+        rReal.caught.knowledge === 1,
+        `PG BLOCK #1: real sweep after dry_run inserts the 1 event (got knowledge=${rReal.caught.knowledge})`
+      );
+    } finally {
+      process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+      rmSync(dryRoot, { recursive: true, force: true });
+    }
 
     // ── Test 8 (BLOCK fix #3): duplicate writes status='skipped' ──
     // Sweep twice on a fresh fixture, then query catch_up_log
@@ -860,6 +877,111 @@ async function testCatchUpSourceA() {
       skipStatuses.includes("skipped"),
       `PG BLOCK #3: ledger contains a 'skipped' row from the dedup branch (got [${skipStatuses.join(",")}])`
     );
+
+    // ── Test 9 (BLOCK #1 round 2): failed retry path ──
+    // Pre-seed a `failed` row at tsOld + an `inserted` cursor row at
+    // tsNew so the normal sweep loop never re-touches the failed
+    // event. The new retry path must walk the ledger, locate the
+    // matching event in jsonl by content_hash, and re-insert it.
+    const retryRoot = join(tmpdir(), `pg-am026-retry-${Date.now()}`);
+    const retryProject = join(retryRoot, "retry-project");
+    mkdirSync(retryProject, { recursive: true });
+    process.env.CLAUDE_PROJECTS_DIR = retryRoot;
+
+    const RETRY_AGENT = `${PG_AGENT}-retry`;
+    const stamp = Date.now();
+    const retryStripped = `pg retry-target marker ${stamp}`;
+    const retryFull = `[KNOWLEDGE] ${retryStripped}`;
+    const retryHash = contentHash(retryStripped);
+    const cursorStripped = `pg cursor anchor ${stamp + 1}`;
+    const cursorFull = `[KNOWLEDGE] ${cursorStripped}`;
+    const cursorHash = contentHash(cursorStripped);
+    const tsOld = new Date(Date.now() - 30 * 60_000).toISOString();
+    const tsNew = new Date(Date.now() - 5 * 60_000).toISOString();
+
+    writeFileSync(
+      join(retryProject, "session-pg-retry.jsonl"),
+      [
+        JSON.stringify({
+          type: "assistant",
+          timestamp: tsOld,
+          message: { role: "assistant", content: [{ type: "text", text: retryFull }] },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          timestamp: tsNew,
+          message: { role: "assistant", content: [{ type: "text", text: cursorFull }] },
+        }),
+      ].join("\n") + "\n"
+    );
+
+    try {
+      await store.saveCatchUpLog({
+        agent_id: RETRY_AGENT,
+        source: "conversation",
+        content_hash: retryHash,
+        target_table: "knowledge",
+        status: "failed",
+        content_preview: retryStripped.slice(0, 200),
+        event_at: tsOld,
+      });
+      await store.saveCatchUpLog({
+        agent_id: RETRY_AGENT,
+        source: "conversation",
+        content_hash: cursorHash,
+        target_table: "knowledge",
+        target_id: "fake-cursor-id",
+        status: "inserted",
+        content_preview: cursorStripped.slice(0, 200),
+        event_at: tsNew,
+      });
+
+      const seededFails = await store.getFailedCatchUpLogs(
+        RETRY_AGENT,
+        "conversation"
+      );
+      assert(
+        seededFails.length === 1,
+        `PG BLOCK #1: getFailedCatchUpLogs returns the seeded failed row (got ${seededFails.length})`
+      );
+
+      const knowledgeBeforeRetry = (
+        await store.getKnowledge({ agent_id: RETRY_AGENT, status: "active" })
+      ).length;
+
+      const rRetry = await catchUp(store, RETRY_AGENT, { source: "conversation" });
+      assert(
+        rRetry.caught.knowledge === 1,
+        `PG BLOCK #1: retry sweep recovers exactly the failed event (caught.knowledge=${rRetry.caught.knowledge})`
+      );
+
+      const knowledgeAfterRetry = (
+        await store.getKnowledge({ agent_id: RETRY_AGENT, status: "active" })
+      ).length;
+      assert(
+        knowledgeAfterRetry === knowledgeBeforeRetry + 1,
+        `PG BLOCK #1: retry sweep actually inserted a knowledge row (delta=${knowledgeAfterRetry - knowledgeBeforeRetry})`
+      );
+
+      const dupAfterRetry = await store.isCatchUpDuplicate({
+        agent_id: RETRY_AGENT,
+        content_hash: retryHash,
+        event_at: tsOld,
+      });
+      assert(
+        dupAfterRetry === true,
+        "PG BLOCK #1: after retry, the failed event is dedup-resolved"
+      );
+
+      const rRetry2 = await catchUp(store, RETRY_AGENT, { source: "conversation" });
+      assert(
+        rRetry2.caught.knowledge === 0,
+        `PG BLOCK #1: second sweep is a no-op (caught.knowledge=${rRetry2.caught.knowledge})`
+      );
+    } finally {
+      process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+      rmSync(retryRoot, { recursive: true, force: true });
+    }
   } finally {
     if (prevDir === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
     else process.env.CLAUDE_PROJECTS_DIR = prevDir;

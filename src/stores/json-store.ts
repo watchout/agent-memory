@@ -533,6 +533,20 @@ export class JsonStore implements Store {
     return false;
   }
 
+  async getFailedCatchUpLogs(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]> {
+    return this.catchUpLog
+      .filter(
+        (row) =>
+          row.agent_id === agent_id &&
+          row.source === source &&
+          row.status === "failed"
+      )
+      .sort((a, b) => (a.event_at < b.event_at ? -1 : 1));
+  }
+
   async close(): Promise<void> {
     // No-op for JSON store
   }

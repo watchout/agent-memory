@@ -109,58 +109,61 @@ async function boot() {
     // Output to stdout — hook output is injected into session context
     console.log(output);
 
-    // AM-026 BLOCK fix #4: catch-up Source A is fire-and-forget.
+    // AM-026 BLOCK #2 (round 2): catch-up runs on its OWN store
+    // instance so the boot store can close immediately in the
+    // outer `finally` without racing the catch-up promise chain.
     //
-    // The previous version `await`-ed catchUp here, which delayed
-    // boot()'s finally (and therefore the pg pool drain + script
-    // exit) by however long the sweep ran. The SessionStart hook
-    // only needs the recovery payload (already on stdout above) —
-    // the catch-up can run in the background.
+    // The previous round-1 fix used a single shared store and a
+    // file-scoped flag to hand `store.close()` ownership to the
+    // catch-up promise. Auditor flagged that the boot process
+    // lifetime was still tied to catch-up because the outer
+    // `finally` couldn't drain the pg pool until catch-up resolved.
     //
-    // We don't await the promise on the boot main path, but we
-    // chain `.finally` to close the store after catch-up drains
-    // so the pg pool isn't torn down out from under it. The outer
-    // try/finally hands ownership of `store.close()` to this
-    // promise chain so it only fires once.
-    catchUpClaimedStoreClose = true;
-    catchUp(store, AGENT_ID, { source: "conversation" })
-      .then((result) => {
-        const total =
-          result.caught.decisions + result.caught.task_states + result.caught.knowledge;
-        if (total > 0 || result.skipped > 0) {
-          process.stderr.write(
-            `[boot] catch-up: caught ${total} (decisions=${result.caught.decisions}, ` +
-              `task_states=${result.caught.task_states}, knowledge=${result.caught.knowledge}), ` +
-              `skipped ${result.skipped}\n`
-          );
+    // Now: createStore() returns a fresh instance for catch-up,
+    // independent from the main boot store. boot() returns as
+    // soon as the recovery payload is on stdout, the main store
+    // is closed, and the catch-up promise has been spawned. The
+    // catch-up promise drains its own store on completion.
+    createStore()
+      .then(async (catchUpStore) => {
+        try {
+          const result = await catchUp(catchUpStore, AGENT_ID, {
+            source: "conversation",
+          });
+          const total =
+            result.caught.decisions + result.caught.task_states + result.caught.knowledge;
+          if (total > 0 || result.skipped > 0) {
+            process.stderr.write(
+              `[boot] catch-up: caught ${total} (decisions=${result.caught.decisions}, ` +
+                `task_states=${result.caught.task_states}, knowledge=${result.caught.knowledge}), ` +
+                `skipped ${result.skipped}\n`
+            );
+          }
+        } catch (err) {
+          process.stderr.write(`[boot] catch-up failed (non-fatal): ${err}\n`);
+        } finally {
+          // Drain the catch-up-only store so the process can exit
+          // cleanly. Errors here are non-fatal — node tears down
+          // the pool on process exit anyway.
+          await catchUpStore.close().catch(() => {
+            /* swallow — process exit will clean up */
+          });
         }
       })
       .catch((err) => {
-        process.stderr.write(`[boot] catch-up failed (non-fatal): ${err}\n`);
-      })
-      .finally(() => {
-        // Close the boot store now that nothing else is using it.
-        // Errors here are non-fatal — Node will tear down the pool
-        // on process exit anyway.
-        store.close().catch(() => {
-          /* swallow — process exit will clean up */
-        });
+        // createStore() itself failed. catch-up is best-effort,
+        // so we log and let boot continue / exit normally.
+        process.stderr.write(
+          `[boot] catch-up store init failed (non-fatal): ${err}\n`
+        );
       });
   } finally {
-    // The catch-up path (above) claims `store.close()` via its
-    // promise chain. Any path that errors out before reaching the
-    // claim still needs an explicit close to avoid a pg pool leak.
-    if (!catchUpClaimedStoreClose) {
-      await store.close();
-    }
+    // BLOCK #2 (round 2): the boot store always closes here. The
+    // catch-up promise owns its own store and is no longer
+    // entangled with this lifetime.
+    await store.close();
   }
 }
-
-// File-scoped flag so the outer try/finally can tell whether the
-// catch-up promise chain has accepted responsibility for
-// `store.close()`. boot.ts is a one-shot script (one boot() per
-// process), so a module-level flag is safe.
-let catchUpClaimedStoreClose = false;
 
 boot().catch((err) => {
   console.error("[agent-memory boot] Error:", err);

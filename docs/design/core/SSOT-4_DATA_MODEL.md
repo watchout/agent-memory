@@ -196,8 +196,8 @@ CREATE TABLE catch_up_log (
   source          TEXT NOT NULL,            -- conversation | discord
   content_hash    TEXT NOT NULL,            -- SHA-256 hex of extracted event content
   target_table    TEXT NOT NULL,            -- decisions | task_states | knowledge
-  target_id       TEXT,                     -- inserted row's id; NULL when status='dry_run'/'skipped'
-  status          TEXT NOT NULL,            -- inserted | skipped | dry_run
+  target_id       TEXT,                     -- inserted row's id; NULL when status='skipped'/'failed'
+  status          TEXT NOT NULL,            -- inserted | skipped | failed
   content_preview TEXT,                     -- first ~200 chars of content for forensic view
   event_at        TIMESTAMPTZ NOT NULL,     -- source jsonl line's timestamp (truth-of-event)
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- when this ledger row was written
@@ -212,9 +212,10 @@ CREATE INDEX idx_catch_up_log_recent
 **設計**:
 - **per-event ledger** (1 row per extracted event, NOT 1 row per sweep)
 - 次回 sweep の `since` 下限 = `getLastCatchUpLog(agent_id, source).event_at`
-- dedup window = `event_at ± 60s` AND `agent_id` AND `content_hash` 一致 → ARC 条件 #5 の `content_hash TEXT` 列がここで使われる
-- `status='dry_run'` 行は `target_id` が NULL のままで残り、後で実 INSERT に切替えるための痕跡として残る
-- `status='skipped'` 行も全件記録 (どの event が dedup で無視されたか forensic 可能)
+- dedup window = `event_at ± 60s` AND `agent_id` AND `content_hash` 一致 AND `status = 'inserted'` → ARC 条件 #5 の `content_hash TEXT` 列がここで使われる
+- **`dry_run=true` 時は ledger に何も書かない**: dry_run 行を残すと次回の実 sweep で dedup 窓に巻き込まれて poisoning するため。dry_run は "preview" のみで forensic 痕跡を残さない
+- `status='skipped'` 行は forensic trail (どの event が dedup hit したか)。`isCatchUpDuplicate()` の dedup 探索からは除外される (skipped 行が次回をブロックしないようにするため)
+- `status='failed'` 行は target table への insert が throw した時に記録。同じく `isCatchUpDuplicate()` の dedup 探索から除外され、catch-up 側の **failed retry path** が次 sweep で同じ event を再処理する
 
 **運用**:
 - catch-up sweep は `~/.claude/projects/.../*.jsonl` を Source A として walk (`CLAUDE_PROJECTS_DIR` env で override 可能)

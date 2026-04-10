@@ -1028,6 +1028,19 @@ export class PgStore implements Store {
     return result.rows.length > 0;
   }
 
+  async getFailedCatchUpLogs(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM catch_up_log
+        WHERE agent_id = $1 AND source = $2 AND status = 'failed'
+        ORDER BY event_at ASC`,
+      [agent_id, source]
+    );
+    return result.rows.map((row) => this.rowToCatchUpLog(row));
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }

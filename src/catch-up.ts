@@ -24,7 +24,12 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, readdirSync, existsSync, type Dirent } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { Store, CatchUpInput, CatchUpResult } from "./stores/types.js";
+import type {
+  Store,
+  CatchUpInput,
+  CatchUpResult,
+  CatchUpLog,
+} from "./stores/types.js";
 
 /** Hard cap on glob recursion depth — ARC condition #4 (`maxDepth=3`). */
 export const MAX_PROJECTS_GLOB_DEPTH = 3;
@@ -365,16 +370,19 @@ export async function catchUp(
         continue;
       }
 
-      // ── dry_run path (BLOCK fix #1) ──
+      // ── dry_run path (BLOCK #1 + BLOCK #4) ──
       // Skip both the target-table insert AND the ledger write.
       // Writing a `status='dry_run'` ledger row would otherwise
       // poison the next real run via `isCatchUpDuplicate` (the
-      // original AM-026 bug auditor flagged). The caught counter
-      // intentionally stays 0 in dry_run so callers can tell a
-      // real run from a preview without inspecting the result
-      // shape (matches the original AM-026 contract / existing
-      // testCatchUpSourceA assertions).
+      // original AM-026 BLOCK #1 the auditor flagged).
+      //
+      // BLOCK #4 (round 2): the tool description promises "report
+      // counts but do not insert" — so increment the `caught`
+      // counter even in dry_run, mirroring what a real sweep
+      // would have inserted. Only the side effects (target row
+      // INSERT + ledger row) are suppressed.
       if (dryRun) {
+        caught[event.target_table]++;
         continue;
       }
 
@@ -410,11 +418,101 @@ export async function catchUp(
     }
   }
 
+  // ── Failed retry path (BLOCK #1 round 2) ──
+  // The normal sweep above advances `since` past any past event_at,
+  // so a `status='failed'` row left over from an earlier sweep would
+  // never be re-attempted by the cursor-driven path. CTO option (ii):
+  // walk the ledger for `failed` rows, re-parse jsonl files in a window
+  // around their event_at, and re-attempt the underlying insert.
+  //
+  // dry_run never touches state, so the retry loop is skipped during
+  // a preview run.
+  if (!dryRun) {
+    await retryFailed(store, agentId, caught);
+  }
+
   return {
     caught,
     skipped,
     last_checked: new Date().toISOString(),
   };
+}
+
+/**
+ * BLOCK #1 (round 2) — failed retry sweep.
+ *
+ * Reads `status='failed'` ledger rows for the agent, filters out any
+ * that have since been resolved (an `inserted` row exists at the same
+ * `content_hash` within ±60s of the failed `event_at`), and walks the
+ * jsonl files starting from `(earliest pending failure - 60s)` to
+ * locate the underlying event by `content_hash`. Re-attempts the
+ * insert and writes a fresh `inserted` ledger row on success. The
+ * original `failed` row is preserved as forensic trail; subsequent
+ * retry sweeps will skip it because `isCatchUpDuplicate` now reports
+ * the row as deduped.
+ *
+ * The `caught` accumulator is mutated in-place so successful retries
+ * surface in the final `CatchUpResult`.
+ */
+async function retryFailed(
+  store: Store,
+  agentId: string,
+  caught: { decisions: number; task_states: number; knowledge: number }
+): Promise<void> {
+  const failedRows = await store.getFailedCatchUpLogs(agentId, "conversation");
+  if (failedRows.length === 0) return;
+
+  // Filter out failures already resolved by a later successful insert.
+  // This keeps the retry loop O(1) per stale failure on subsequent
+  // sweeps, instead of re-walking jsonl files for nothing.
+  const pending: CatchUpLog[] = [];
+  for (const row of failedRows) {
+    const alreadyResolved = await store.isCatchUpDuplicate({
+      agent_id: agentId,
+      content_hash: row.content_hash,
+      event_at: row.event_at,
+    });
+    if (!alreadyResolved) pending.push(row);
+  }
+  if (pending.length === 0) return;
+
+  // Earliest pending failure sets the lower bound for the retry walk.
+  const earliest = new Date(pending[0].event_at);
+  const retrySince = new Date(earliest.getTime() - 60_000);
+
+  // Map content_hash → failed row for O(1) lookup during the walk.
+  const pendingByHash = new Map<string, CatchUpLog>();
+  for (const row of pending) pendingByHash.set(row.content_hash, row);
+
+  const retryFiles = findJsonlFiles(retrySince);
+  for (const file of retryFiles) {
+    if (pendingByHash.size === 0) break;
+    const events = parseJsonl(file, retrySince);
+    for (const event of events) {
+      if (pendingByHash.size === 0) break;
+      const hash = contentHash(event.content);
+      if (!pendingByHash.has(hash)) continue;
+
+      const target_id = await insertEvent(store, agentId, event);
+      if (target_id) {
+        caught[event.target_table]++;
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          target_id,
+          status: "inserted",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+        pendingByHash.delete(hash);
+      }
+      // On retry-failure: leave the original `failed` row alone, do
+      // not write another `failed` row (would just duplicate the
+      // forensic trail). The next sweep will try again.
+    }
+  }
 }
 
 /**

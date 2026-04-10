@@ -994,6 +994,19 @@ export class SqliteStore implements Store {
     return rows.length > 0;
   }
 
+  async getFailedCatchUpLogs(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]> {
+    const rows = this.allRows(
+      `SELECT * FROM catch_up_log
+        WHERE agent_id = ? AND source = ? AND status = 'failed'
+        ORDER BY event_at ASC`,
+      [agent_id, source]
+    );
+    return rows.map((row) => this.rowToCatchUpLog(row));
+  }
+
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async close(): Promise<void> {

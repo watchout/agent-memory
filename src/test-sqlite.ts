@@ -916,9 +916,12 @@ async function testCatchUpSourceA() {
     );
 
     const r3 = await catchUp(store, CATCH_AGENT, { source: "conversation", since: ts5, dry_run: true });
-    const r3Caught =
-      r3.caught.decisions + r3.caught.task_states + r3.caught.knowledge;
-    assert(r3Caught === 0, "dry_run reports caught=0 in counters (no inserts)");
+    // BLOCK #4 (round 2): dry_run now reports the count of events
+    // it WOULD insert. The fixture above writes one knowledge event.
+    assert(
+      r3.caught.knowledge === 1,
+      `BLOCK #4: dry_run reports caught.knowledge=1 (got ${r3.caught.knowledge})`
+    );
 
     const tasksAfterDry = (await store.getTaskStates({ agent_id: CATCH_AGENT, status: "all" })).length;
     const knowledgeAfterDry = (await store.getKnowledge({ agent_id: CATCH_AGENT, status: "active" })).length;
@@ -1014,43 +1017,56 @@ async function testCatchUpSourceA() {
       "BLOCK #6: status='inserted' ledger row DOES dedup"
     );
 
-    // ── Test 11 (BLOCK fix #1): dry_run writes no ledger row ──
-    // Fresh agent + fresh single-event fixture. dry_run sweep must
-    // leave the ledger empty so a subsequent real sweep still
-    // inserts (i.e. dry_run does not poison future runs).
+    // ── Test 11 (BLOCK fix #1 + BLOCK #4): dry_run semantics ──
+    // Uses an *isolated* fixture root so the dry_run sweep only sees
+    // its own single event — the surrounding tests (1..10) write
+    // multiple knowledge fixtures into projectDir which would
+    // otherwise inflate the caught counter.
+    const dryRoot = join(tmpdir(), `am026-dry-${Date.now()}`);
+    const dryProject = join(dryRoot, "dry-project");
+    mkdirSync(dryProject, { recursive: true });
+    process.env.CLAUDE_PROJECTS_DIR = dryRoot;
+
     const DRY_AGENT = `${CATCH_AGENT}-dry`;
     const tsDry = new Date(Date.now() - 15_000).toISOString();
     writeFileSync(
-      join(projectDir, "session-dry-ledger.jsonl"),
+      join(dryProject, "session-dry-ledger.jsonl"),
       buildJsonlAssistantText(
         tsDry,
         "[KNOWLEDGE] dry_run ledger semantics smoke " + Date.now()
       ) + "\n"
     );
-    const rDry = await catchUp(store, DRY_AGENT, {
-      source: "conversation",
-      since: tsDry,
-      dry_run: true,
-    });
-    assert(
-      rDry.caught.knowledge === 0,
-      "BLOCK #1: dry_run reports caught=0"
-    );
-    const dryLedger = await store.getLastCatchUpLog(DRY_AGENT, "conversation");
-    assert(
-      dryLedger === null,
-      "BLOCK #1: dry_run wrote no ledger row (getLastCatchUpLog returns null)"
-    );
-    // Real sweep on the same fixture must still insert — dry_run did
-    // not poison the dedup window.
-    const rReal = await catchUp(store, DRY_AGENT, {
-      source: "conversation",
-      since: tsDry,
-    });
-    assert(
-      rReal.caught.knowledge >= 1,
-      `BLOCK #1: real sweep after dry_run still inserts (got knowledge=${rReal.caught.knowledge})`
-    );
+    try {
+      const rDry = await catchUp(store, DRY_AGENT, {
+        source: "conversation",
+        since: tsDry,
+        dry_run: true,
+      });
+      // BLOCK #4 (round 2): dry_run reports the count of events that
+      // *would* be inserted, but writes nothing to target tables or ledger.
+      assert(
+        rDry.caught.knowledge === 1,
+        `BLOCK #4: dry_run reports caught.knowledge=1 (got ${rDry.caught.knowledge})`
+      );
+      const dryLedger = await store.getLastCatchUpLog(DRY_AGENT, "conversation");
+      assert(
+        dryLedger === null,
+        "BLOCK #1: dry_run wrote no ledger row (getLastCatchUpLog returns null)"
+      );
+      // Real sweep on the same fixture must still insert — dry_run did
+      // not poison the dedup window.
+      const rReal = await catchUp(store, DRY_AGENT, {
+        source: "conversation",
+        since: tsDry,
+      });
+      assert(
+        rReal.caught.knowledge === 1,
+        `BLOCK #1: real sweep after dry_run inserts the 1 event (got knowledge=${rReal.caught.knowledge})`
+      );
+    } finally {
+      process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+      rmSync(dryRoot, { recursive: true, force: true });
+    }
 
     // ── Test 12 (BLOCK fix #3): duplicate writes status='skipped' ──
     // Use a brand new agent + fixture, sweep twice, then assert that
@@ -1102,6 +1118,126 @@ async function testCatchUpSourceA() {
       skipStatuses.includes("skipped"),
       `BLOCK #3: ledger contains a 'skipped' row from the dedup branch (got [${skipStatuses.join(",")}])`
     );
+
+    // ── Test 13 (BLOCK #1 round 2): failed retry path ──
+    // Pre-seed the ledger so that the normal sweep cursor (latest
+    // ledger event_at) sits *after* an existing `failed` row. The
+    // normal loop will never re-touch the failed event (its event_at
+    // is below the cursor `since`). The new retry path must:
+    //   1. fetch the `failed` row via getFailedCatchUpLogs
+    //   2. re-walk the jsonl files to find the matching event by
+    //      content_hash
+    //   3. re-attempt the insert and write a fresh `inserted` row.
+    //
+    // Uses an isolated fixture root so the retry walk only sees the
+    // 2-event session-retry.jsonl, not the dozen knowledge events
+    // sprinkled across the surrounding tests' fixtures.
+    const retryRoot = join(tmpdir(), `am026-retry-${Date.now()}`);
+    const retryProject = join(retryRoot, "retry-project");
+    mkdirSync(retryProject, { recursive: true });
+    process.env.CLAUDE_PROJECTS_DIR = retryRoot;
+
+    const RETRY_AGENT = `${CATCH_AGENT}-retry`;
+    const stamp = Date.now();
+    // What the parser will hash: KNOWLEDGE_TAG_RE strips the
+    // `[KNOWLEDGE]` prefix and trims, so the hashed content is the
+    // tail-only string.
+    const retryStripped = `retry-target marker ${stamp}`;
+    const retryFull = `[KNOWLEDGE] ${retryStripped}`;
+    const retryHash = contentHash(retryStripped);
+    const cursorStripped = `cursor anchor ${stamp + 1}`;
+    const cursorFull = `[KNOWLEDGE] ${cursorStripped}`;
+    const cursorHash = contentHash(cursorStripped);
+    const tsOld = new Date(Date.now() - 30 * 60_000).toISOString(); // 30 min ago
+    const tsNew = new Date(Date.now() - 5 * 60_000).toISOString();  // 5 min ago
+
+    writeFileSync(
+      join(retryProject, "session-retry.jsonl"),
+      [
+        buildJsonlAssistantText(tsOld, retryFull),
+        buildJsonlAssistantText(tsNew, cursorFull),
+      ].join("\n") + "\n"
+    );
+
+    try {
+      // Pre-seed ledger:
+      //   - failed row at tsOld → the gap the retry path must close
+      //   - inserted row at tsNew with the cursor-anchor hash → the
+      //     cursor. Hash matches the parser-stripped content of the
+      //     cursor-anchor event so the normal sweep dedups it cleanly.
+      await store.saveCatchUpLog({
+        agent_id: RETRY_AGENT,
+        source: "conversation",
+        content_hash: retryHash,
+        target_table: "knowledge",
+        status: "failed",
+        content_preview: retryStripped.slice(0, 200),
+        event_at: tsOld,
+      });
+      await store.saveCatchUpLog({
+        agent_id: RETRY_AGENT,
+        source: "conversation",
+        content_hash: cursorHash,
+        target_table: "knowledge",
+        target_id: "fake-cursor-id",
+        status: "inserted",
+        content_preview: cursorStripped.slice(0, 200),
+        event_at: tsNew,
+      });
+
+      // Confirm getFailedCatchUpLogs surfaces the seeded failure.
+      const seededFails = await store.getFailedCatchUpLogs(
+        RETRY_AGENT,
+        "conversation"
+      );
+      assert(
+        seededFails.length === 1,
+        `BLOCK #1: getFailedCatchUpLogs returns the seeded failed row (got ${seededFails.length})`
+      );
+
+      // Knowledge table is empty for RETRY_AGENT before the retry sweep.
+      const knowledgeBeforeRetry = (
+        await store.getKnowledge({ agent_id: RETRY_AGENT, status: "active" })
+      ).length;
+
+      // Run sweep. Cursor is at tsNew (from the seeded inserted row), so
+      // the *normal* loop never sees tsOld. The retry path must recover.
+      const rRetry = await catchUp(store, RETRY_AGENT, { source: "conversation" });
+      assert(
+        rRetry.caught.knowledge === 1,
+        `BLOCK #1: retry sweep recovers exactly the failed event (caught.knowledge=${rRetry.caught.knowledge})`
+      );
+
+      const knowledgeAfterRetry = (
+        await store.getKnowledge({ agent_id: RETRY_AGENT, status: "active" })
+      ).length;
+      assert(
+        knowledgeAfterRetry === knowledgeBeforeRetry + 1,
+        `BLOCK #1: retry sweep actually inserted a knowledge row (delta=${knowledgeAfterRetry - knowledgeBeforeRetry})`
+      );
+
+      // After the retry, isCatchUpDuplicate should now report the failed
+      // event as resolved (an `inserted` row exists at the same hash +
+      // event_at). A subsequent retry sweep must therefore be a no-op.
+      const dupAfterRetry = await store.isCatchUpDuplicate({
+        agent_id: RETRY_AGENT,
+        content_hash: retryHash,
+        event_at: tsOld,
+      });
+      assert(
+        dupAfterRetry === true,
+        "BLOCK #1: after retry, the failed event is dedup-resolved"
+      );
+
+      const rRetry2 = await catchUp(store, RETRY_AGENT, { source: "conversation" });
+      assert(
+        rRetry2.caught.knowledge === 0,
+        `BLOCK #1: second sweep is a no-op (caught.knowledge=${rRetry2.caught.knowledge})`
+      );
+    } finally {
+      process.env.CLAUDE_PROJECTS_DIR = fixtureRoot;
+      rmSync(retryRoot, { recursive: true, force: true });
+    }
   } finally {
     if (prevDir === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
     else process.env.CLAUDE_PROJECTS_DIR = prevDir;

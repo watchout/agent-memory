@@ -353,6 +353,21 @@ export interface Store {
     event_at: string;
   }): Promise<boolean>;
 
+  /**
+   * AM-026 BLOCK #1 (round 2): fetch all `status='failed'` ledger
+   * rows for this agent + source. Used by `catchUp` to retry events
+   * whose target-table insert previously threw — without this, the
+   * sweep cursor advances past the failed event_at and the row is
+   * lost forever (no schema-level retry queue).
+   *
+   * Returned rows are sorted by `event_at ASC` so the caller can
+   * walk a contiguous time window from the earliest failure forward.
+   */
+  getFailedCatchUpLogs(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]>;
+
   /** Close connections */
   close(): Promise<void>;
 }
