@@ -9,7 +9,7 @@ import { SqliteStore } from "./stores/sqlite-store.js";
 import { rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { stripOrphanSurrogates } from "./index.js";
+import { stripOrphanSurrogates } from "./sanitize.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
