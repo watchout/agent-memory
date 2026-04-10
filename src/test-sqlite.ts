@@ -9,6 +9,7 @@ import { SqliteStore } from "./stores/sqlite-store.js";
 import { rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { stripOrphanSurrogates } from "./index.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
@@ -695,6 +696,75 @@ async function testGetRecentMessages() {
   assert(Array.isArray(msgs) && msgs.length === 0, "getRecentMessages returns empty array");
 }
 
+async function testStripOrphanSurrogates() {
+  console.log("\n── stripOrphanSurrogates (search_memory bug fix) ──");
+
+  // ── pure ASCII passes through ──
+  assert(stripOrphanSurrogates("hello world") === "hello world", "ASCII unchanged");
+  assert(stripOrphanSurrogates("") === "", "empty string unchanged");
+
+  // ── well-formed surrogate pairs pass through (😀 = U+1F600) ──
+  const grin = "😀";
+  assert(grin.length === 2, "smiley occupies 2 UTF-16 code units (surrogate pair)");
+  assert(
+    stripOrphanSurrogates(`hi ${grin} there`) === `hi ${grin} there`,
+    "well-formed surrogate pair preserved"
+  );
+
+  // ── orphan high surrogate is dropped (the actual bug) ──
+  const slicedAtPair = grin.slice(0, 1); // U+D83D alone
+  assert(slicedAtPair.length === 1, "smiley.slice(0,1) leaves a 1-codeunit orphan");
+  const sanitized = stripOrphanSurrogates(`text${slicedAtPair}rest`);
+  assert(sanitized === "textrest", "orphan high surrogate stripped between text");
+
+  // ── lone low surrogate is dropped ──
+  const loneLow = String.fromCharCode(0xdc00);
+  assert(stripOrphanSurrogates(`a${loneLow}b`) === "ab", "lone low surrogate stripped");
+
+  // ── adjacent orphans don't merge into a fake pair ──
+  const loneHigh = String.fromCharCode(0xd83d);
+  const fakePair = `${loneHigh}x${loneLow}`;
+  assert(stripOrphanSurrogates(fakePair) === "x", "two orphans separated by text both stripped");
+
+  // ── the integration scenario: slicing a string at a surrogate boundary ──
+  // Simulates `m.content.slice(0, 100)` landing in the middle of an emoji.
+  const content = "x".repeat(99) + grin; // total length 101 (99 + 2)
+  const sliced = content.slice(0, 100); // length 100, last unit is the orphan high surrogate
+  assert(sliced.length === 100 && sliced.charCodeAt(99) >= 0xd800 && sliced.charCodeAt(99) <= 0xdbff,
+    "slice(0,100) leaves an orphan high surrogate at the end");
+  const fixed = stripOrphanSurrogates(sliced);
+  assert(fixed.length === 99, "sanitized output has the orphan removed");
+  // and most importantly: JSON.stringify followed by JSON.parse round-trips cleanly
+  let roundtripOk = true;
+  try {
+    JSON.parse(JSON.stringify({ text: fixed }));
+  } catch {
+    roundtripOk = false;
+  }
+  assert(roundtripOk, "sanitized text round-trips through JSON.stringify + JSON.parse");
+
+  // ── unsanitized input would NOT round-trip via a strict parser ──
+  // (V8 JSON.parse is lenient and tolerates lone surrogates, so we
+  // can't directly demonstrate the API rejection here. We instead
+  // assert the byte-level invariant that no surrogate code unit
+  // remains in the sanitized output.)
+  const hasSurrogate = (s: string): boolean => {
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff) {
+        const next = i + 1 < s.length ? s.charCodeAt(i + 1) : 0;
+        if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+        i++;
+      } else if (c >= 0xdc00 && c <= 0xdfff) {
+        return true;
+      }
+    }
+    return false;
+  };
+  assert(hasSurrogate(sliced) === true, "sliced input contains an orphan (sanity check)");
+  assert(hasSurrogate(fixed) === false, "sanitized output contains no orphans");
+}
+
 async function testPersistence() {
   console.log("\n── SqliteStore Persistence ──");
 
@@ -741,6 +811,7 @@ async function run() {
     await testRecoveryQualityLog();
     await testExpireStaleTaskStates();
     await testGetRecentMessages();
+    await testStripOrphanSurrogates();
     await testPersistence();
   } finally {
     await cleanup();
