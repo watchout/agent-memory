@@ -183,27 +183,6 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 | **Cursor / Codex / Gemini CLI** | ⏳ MCP tools work; SessionStart integration in v0.2.0 |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
 
-## Pricing & Sustainability
-
-wasurezu core is **free and open source (MIT)** forever. Self-hosted will always be free.
-
-We plan to offer a hosted **Cloud version** with team features (shared memory across team members, web dashboards, recovery quality alerts, managed databases, priority support) as a paid service. This is how we sustain the project.
-
-| | OSS (Free) | Cloud (Coming) |
-|---|:---:|:---:|
-| Decision Log | ✅ | ✅ |
-| Task State | ✅ | ✅ |
-| Cross-Session Memory | ✅ | ✅ |
-| Compaction Recovery | ✅ | ✅ |
-| Local SQLite + PostgreSQL | ✅ | ✅ |
-| Auto-tag detection (PostToolUse hook) | ✅ | ✅ |
-| Bug fixes & security updates | ✅ | ✅ |
-| Team shared memory | — | ✅ |
-| Web dashboard | — | ✅ |
-| Recovery quality alerts | — | ✅ |
-| Managed DB & backups | — | ✅ |
-| Priority support | — | ✅ |
-
 ## Requirements
 
 - Node.js 18+
