@@ -307,6 +307,101 @@ async function testE2EUnrelatedToolIgnored() {
   }
 }
 
+// ─── AM-030: dispatcher routes mcp__agent-comms__send ────────────
+
+async function testE2EMcpSendPath() {
+  console.log("\n── post-tool-hook E2E (MCP send path, AM-030) ──");
+
+  // Spec-as-test for AM-030: a `mcp__agent-comms__send` PostToolUse
+  // payload with a `[TASK:start]` tag in `tool_input.content` must
+  // fire the dispatcher and write a task_states row. Before AM-030
+  // the regex only matched `reply` / `send_message` and the field
+  // was `text`, so the new tool fell through to the unrelated-tool
+  // no-op silently.
+  //
+  // We use a fresh ticket id so dedup against the existing AM-016
+  // row (still in the temp DB from earlier tests) doesn't mask the
+  // assertion.
+  const result = await runHook({
+    tool_name: "mcp__agent-comms__send",
+    tool_input: {
+      content: "[TASK:start] AM-030 mcp send dispatch test",
+      mentions: ["lead-tuk"],
+      reply_to: "00000000-0000-0000-0000-000000000000",
+    },
+    tool_result: {},
+  });
+  assert(result.code === 0, "hook exits cleanly on mcp__agent-comms__send path");
+
+  const store = new SqliteStore(TEST_DB_PATH);
+  await store.initialize();
+  try {
+    const tasks = await store.getTaskStates({
+      agent_id: AGENT_ID,
+      status: "all",
+    });
+    const am030 = tasks.find((t) => t.task_id === "AM-030");
+    assert(am030 !== undefined, "task_states row was inserted by mcp send path");
+    assert(am030?.status === "in_progress", "status mapped to in_progress");
+    assert(
+      am030?.progress?.includes("AM-030 mcp send dispatch test") ?? false,
+      "progress contains the original send content"
+    );
+    assert(
+      am030?.task === "mcp send dispatch test",
+      "task description has ticket id stripped"
+    );
+  } finally {
+    await store.close();
+  }
+}
+
+async function testE2EMcpSendDeprecatedToolsIgnored() {
+  console.log("\n── post-tool-hook E2E (deprecated mcp tool no-op) ──");
+
+  // Spec-as-test: the deprecated tool names (`reply` / `send_message`)
+  // no longer have a dispatch path. They must hit the unrelated-tool
+  // fall-through and exit cleanly without inserting anything. This
+  // pins the AM-030 decision: only `send` is alive in the dispatcher.
+  const countBefore = await (async () => {
+    const store = new SqliteStore(TEST_DB_PATH);
+    await store.initialize();
+    try {
+      return (await store.getTaskStates({ agent_id: AGENT_ID, status: "all" })).length;
+    } finally {
+      await store.close();
+    }
+  })();
+
+  for (const toolName of ["mcp__agent-comms__reply", "mcp__agent-comms__send_message"]) {
+    const result = await runHook({
+      tool_name: toolName,
+      tool_input: {
+        // Both legacy and new field names — neither should hit a
+        // dispatcher path now.
+        text: "[TASK:done] AM-030 should be ignored (deprecated tool)",
+        content: "[TASK:done] AM-030 should be ignored (deprecated tool)",
+      },
+      tool_result: {},
+    });
+    assert(result.code === 0, `${toolName} exits cleanly (no dispatcher)`);
+  }
+
+  const countAfter = await (async () => {
+    const store = new SqliteStore(TEST_DB_PATH);
+    await store.initialize();
+    try {
+      return (await store.getTaskStates({ agent_id: AGENT_ID, status: "all" })).length;
+    } finally {
+      await store.close();
+    }
+  })();
+  assert(
+    countAfter === countBefore,
+    "deprecated tool names inserted no new rows"
+  );
+}
+
 async function cleanup() {
   if (existsSync(TEST_DB_PATH)) rmSync(TEST_DB_PATH);
 }
@@ -322,6 +417,8 @@ async function run() {
     await testE2EBashUpsertSameTicket();
     await testE2ENonDiscordBashIgnored();
     await testE2EUnrelatedToolIgnored();
+    await testE2EMcpSendPath();
+    await testE2EMcpSendDeprecatedToolsIgnored();
   } finally {
     await cleanup();
   }
