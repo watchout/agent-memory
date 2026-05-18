@@ -2,15 +2,18 @@
 # AM-006: PostToolUse hook installer for internal multi-agent deployment.
 #
 # Idempotently merges an agent-memory PostToolUse hook block into a bot's
-# .claude/settings.json. Dry-run by default; pass --apply to write.
+# .claude/settings.json. It can also merge an agent-memory MCP server block
+# into the bot's .mcp.json when --mcp is passed. Dry-run by default; pass
+# --apply to write.
 #
 # Usage:
-#   scripts/install-hook.sh <bot_name> [--apply] [--dir <override>]
+#   scripts/install-hook.sh <bot_name> [--apply] [--dir <override>] [--mode postgres|sqlite] [--mcp]
 #
 # Examples:
 #   scripts/install-hook.sh cto                  # dry-run for cto
 #   scripts/install-hook.sh cto --apply          # actually write
 #   scripts/install-hook.sh new --dir /path --apply  # explicit working dir
+#   scripts/install-hook.sh secretary --mode sqlite --mcp --apply
 #
 # Behavior:
 #   - Looks up the bot's working dir from the internal mapping table
@@ -20,7 +23,9 @@
 #     scripts/post-tool-hook.sh with per-bot env vars inlined. The
 #     entry is keyed on the matcher string, so re-running this script
 #     against an already-installed bot is a no-op (idempotent).
-#   - Prints a unified diff against the original.
+#   - With --mcp, adds (or updates) .mcp.json mcpServers.agent-memory
+#     using the same per-bot mode/env selection.
+#   - Prints unified diffs against the originals.
 #   - On --apply: writes the new file with a .bak backup of the
 #     original alongside it.
 #
@@ -89,16 +94,26 @@ BOTS
 DEV_ROOT="/Users/yuji/Developer"
 HOOK_WRAPPER="${DEV_ROOT}/agent-memory/scripts/post-tool-hook.sh"
 DEFAULT_DATABASE_URL="postgresql://localhost/agent_comms"
+DEFAULT_SQLITE_DIR="/Users/yuji/.agent-memory"
+AGENT_MEMORY_ENTRY="${DEV_ROOT}/agent-memory/dist/index.js"
 HOOK_MATCHER="Bash|mcp__agent-comms__reply|mcp__agent-comms__send_message"
 
 # ─── Argument parsing ─────────────────────────────────────────────
 APPLY=0
+INSTALL_MCP=0
+MODE="postgres"
 BOT_NAME=""
 DIR_OVERRIDE=""
 
 usage() {
   cat <<USAGE
-Usage: $0 <bot_name> [--apply] [--dir <override>]
+Usage: $0 <bot_name> [--apply] [--dir <override>] [--mode postgres|sqlite] [--mcp]
+
+Options:
+  --apply                 Write files. Without this flag, only print diffs.
+  --dir <path>            Override the bot working directory.
+  --mode postgres|sqlite  Select agent-memory backend env vars (default: postgres).
+  --mcp                   Also merge mcpServers.agent-memory into <bot_dir>/.mcp.json.
 
 Available bots:
 $(list_bots)
@@ -110,6 +125,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=1; shift ;;
     --dir) DIR_OVERRIDE="$2"; shift 2 ;;
+    --mode) MODE="$2"; shift 2 ;;
+    --mcp) INSTALL_MCP=1; shift ;;
     -h|--help) usage ;;
     -*) echo "Unknown flag: $1" >&2; usage ;;
     *)
@@ -125,6 +142,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$BOT_NAME" ]]; then
+  usage
+fi
+
+if [[ "$MODE" != "postgres" && "$MODE" != "sqlite" ]]; then
+  echo "Error: --mode must be 'postgres' or 'sqlite' (got '$MODE')" >&2
   usage
 fi
 
@@ -149,6 +171,16 @@ fi
 
 SETTINGS_DIR="${BOT_DIR}/.claude"
 SETTINGS_PATH="${SETTINGS_DIR}/settings.json"
+MCP_PATH="${BOT_DIR}/.mcp.json"
+
+build_hook_command() {
+  if [[ "$MODE" == "sqlite" ]]; then
+    local db_path="${DEFAULT_SQLITE_DIR}/${BOT_NAME}.db"
+    echo "AGENT_MEMORY_DB_TYPE=sqlite AGENT_MEMORY_DB_PATH=${db_path} AGENT_MEMORY_AGENT_ID=${BOT_NAME} AGENT_MEMORY_PROJECT=${PROJECT_LABEL} bash ${HOOK_WRAPPER} 2>/dev/null || true"
+  else
+    echo "DATABASE_URL=${DEFAULT_DATABASE_URL} AGENT_MEMORY_AGENT_ID=${BOT_NAME} AGENT_MEMORY_PROJECT=${PROJECT_LABEL} bash ${HOOK_WRAPPER} 2>/dev/null || true"
+  fi
+}
 
 # ─── Build merged settings.json via node ──────────────────────────
 #
@@ -166,7 +198,7 @@ SETTINGS_PATH="${SETTINGS_DIR}/settings.json"
 #
 # This is idempotent: re-running with no changes leaves the file
 # byte-identical (modulo whitespace).
-HOOK_COMMAND="DATABASE_URL=${DEFAULT_DATABASE_URL} AGENT_MEMORY_AGENT_ID=${BOT_NAME} AGENT_MEMORY_PROJECT=${PROJECT_LABEL} bash ${HOOK_WRAPPER} 2>/dev/null || true"
+HOOK_COMMAND="$(build_hook_command)"
 
 NEW_JSON="$(SETTINGS_PATH="$SETTINGS_PATH" HOOK_MATCHER="$HOOK_MATCHER" HOOK_COMMAND="$HOOK_COMMAND" node -e '
 const fs = require("fs");
@@ -202,6 +234,59 @@ if (idx >= 0) {
 process.stdout.write(JSON.stringify(settings, null, 2) + "\n");
 ')"
 
+if [[ "$INSTALL_MCP" -eq 1 ]]; then
+  if [[ "$MODE" == "sqlite" ]]; then
+    MCP_ENV_JSON="$(BOT_NAME="$BOT_NAME" PROJECT_LABEL="$PROJECT_LABEL" DEFAULT_SQLITE_DIR="$DEFAULT_SQLITE_DIR" node -e '
+const botName = process.env.BOT_NAME;
+const project = process.env.PROJECT_LABEL;
+const sqliteDir = process.env.DEFAULT_SQLITE_DIR;
+process.stdout.write(JSON.stringify({
+  AGENT_MEMORY_DB_TYPE: "sqlite",
+  AGENT_MEMORY_DB_PATH: `${sqliteDir}/${botName}.db`,
+  AGENT_MEMORY_AGENT_ID: botName,
+  AGENT_MEMORY_PROJECT: project,
+}));
+')"
+  else
+    MCP_ENV_JSON="$(BOT_NAME="$BOT_NAME" PROJECT_LABEL="$PROJECT_LABEL" DEFAULT_DATABASE_URL="$DEFAULT_DATABASE_URL" node -e '
+const botName = process.env.BOT_NAME;
+const project = process.env.PROJECT_LABEL;
+const databaseUrl = process.env.DEFAULT_DATABASE_URL;
+process.stdout.write(JSON.stringify({
+  DATABASE_URL: databaseUrl,
+  AGENT_MEMORY_AGENT_ID: botName,
+  AGENT_MEMORY_PROJECT: project,
+}));
+')"
+  fi
+
+  NEW_MCP_JSON="$(MCP_PATH="$MCP_PATH" AGENT_MEMORY_ENTRY="$AGENT_MEMORY_ENTRY" MCP_ENV_JSON="$MCP_ENV_JSON" node -e '
+const fs = require("fs");
+const path = process.env.MCP_PATH;
+const entry = process.env.AGENT_MEMORY_ENTRY;
+const env = JSON.parse(process.env.MCP_ENV_JSON);
+
+let mcp = {};
+if (fs.existsSync(path)) {
+  try {
+    mcp = JSON.parse(fs.readFileSync(path, "utf8"));
+  } catch (err) {
+    console.error("[install-hook] existing .mcp.json is invalid JSON: " + err.message);
+    process.exit(4);
+  }
+}
+
+if (!mcp.mcpServers || typeof mcp.mcpServers !== "object") mcp.mcpServers = {};
+mcp.mcpServers["agent-memory"] = {
+  command: "node",
+  args: [entry],
+  env,
+};
+
+process.stdout.write(JSON.stringify(mcp, null, 2) + "\n");
+')"
+fi
+
 # ─── Diff and apply ───────────────────────────────────────────────
 mkdir -p "$SETTINGS_DIR"
 
@@ -211,22 +296,60 @@ else
   ORIGINAL="(no existing settings.json)"
 fi
 
+SETTINGS_CHANGED=0
 if [[ "$ORIGINAL" == "$NEW_JSON" ]]; then
+  echo "[install-hook] $BOT_NAME ($SETTINGS_PATH) — settings.json already up-to-date, no changes."
+else
+  SETTINGS_CHANGED=1
+  echo "── Diff for $BOT_NAME ($SETTINGS_PATH) ──"
+  diff -u <(printf '%s' "$ORIGINAL") <(printf '%s' "$NEW_JSON") || true
+  echo ""
+fi
+
+if [[ "$INSTALL_MCP" -eq 1 ]]; then
+  if [[ -f "$MCP_PATH" ]]; then
+    MCP_ORIGINAL="$(cat "$MCP_PATH")"
+  else
+    MCP_ORIGINAL="(no existing .mcp.json)"
+  fi
+
+  MCP_CHANGED=0
+  if [[ "$MCP_ORIGINAL" == "$NEW_MCP_JSON" ]]; then
+    echo "[install-hook] $BOT_NAME ($MCP_PATH) — .mcp.json already up-to-date, no changes."
+  else
+    MCP_CHANGED=1
+    echo "── Diff for $BOT_NAME ($MCP_PATH) ──"
+    diff -u <(printf '%s' "$MCP_ORIGINAL") <(printf '%s' "$NEW_MCP_JSON") || true
+    echo ""
+  fi
+else
+  MCP_CHANGED=0
+fi
+
+if [[ "$SETTINGS_CHANGED" -eq 0 && "$MCP_CHANGED" -eq 0 ]]; then
   echo "[install-hook] $BOT_NAME ($BOT_DIR) — already up-to-date, no changes."
   exit 0
 fi
 
-echo "── Diff for $BOT_NAME ($SETTINGS_PATH) ──"
-diff -u <(printf '%s' "$ORIGINAL") <(printf '%s' "$NEW_JSON") || true
-echo ""
-
 if [[ "$APPLY" -eq 1 ]]; then
-  if [[ -f "$SETTINGS_PATH" ]]; then
-    cp "$SETTINGS_PATH" "${SETTINGS_PATH}.bak"
-    echo "[install-hook] backed up original to ${SETTINGS_PATH}.bak"
+  if [[ "$SETTINGS_CHANGED" -eq 1 ]]; then
+    if [[ -f "$SETTINGS_PATH" ]]; then
+      cp "$SETTINGS_PATH" "${SETTINGS_PATH}.bak"
+      echo "[install-hook] backed up original to ${SETTINGS_PATH}.bak"
+    fi
+    printf '%s' "$NEW_JSON" > "$SETTINGS_PATH"
+    echo "[install-hook] wrote $SETTINGS_PATH"
   fi
-  printf '%s' "$NEW_JSON" > "$SETTINGS_PATH"
-  echo "[install-hook] wrote $SETTINGS_PATH"
+
+  if [[ "$MCP_CHANGED" -eq 1 ]]; then
+    if [[ -f "$MCP_PATH" ]]; then
+      cp "$MCP_PATH" "${MCP_PATH}.bak"
+      echo "[install-hook] backed up original to ${MCP_PATH}.bak"
+    fi
+    printf '%s' "$NEW_MCP_JSON" > "$MCP_PATH"
+    echo "[install-hook] wrote $MCP_PATH"
+  fi
+
   echo "[install-hook] NOTE: bot tmux session must be restarted to pick up the new hook."
 else
   echo "[install-hook] dry-run only — pass --apply to write."
