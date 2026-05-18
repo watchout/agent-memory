@@ -2,7 +2,7 @@
 # AM-006: PostToolUse hook installer for internal multi-agent deployment.
 #
 # Idempotently merges an agent-memory PostToolUse hook block into a bot's
-# .claude/settings.json. It can also merge an agent-memory MCP server block
+# .claude/settings.json. It can also merge a wasurezu MCP server block
 # into the bot's .mcp.json when --mcp is passed. Dry-run by default; pass
 # --apply to write.
 #
@@ -23,7 +23,7 @@
 #     scripts/post-tool-hook.sh with per-bot env vars inlined. The
 #     entry is keyed on the matcher string, so re-running this script
 #     against an already-installed bot is a no-op (idempotent).
-#   - With --mcp, adds (or updates) .mcp.json mcpServers.agent-memory
+#   - With --mcp, adds (or updates) .mcp.json mcpServers.wasurezu
 #     using the same per-bot mode/env selection.
 #   - Prints unified diffs against the originals.
 #   - On --apply: writes the new file with a .bak backup of the
@@ -113,7 +113,7 @@ Options:
   --apply                 Write files. Without this flag, only print diffs.
   --dir <path>            Override the bot working directory.
   --mode postgres|sqlite  Select agent-memory backend env vars (default: postgres).
-  --mcp                   Also merge mcpServers.agent-memory into <bot_dir>/.mcp.json.
+  --mcp                   Also merge mcpServers.wasurezu into <bot_dir>/.mcp.json.
 
 Available bots:
 $(list_bots)
@@ -277,7 +277,7 @@ if (fs.existsSync(path)) {
 }
 
 if (!mcp.mcpServers || typeof mcp.mcpServers !== "object") mcp.mcpServers = {};
-mcp.mcpServers["agent-memory"] = {
+mcp.mcpServers["wasurezu"] = {
   command: "node",
   args: [entry],
   env,

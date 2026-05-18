@@ -9,7 +9,7 @@
 #      leaves it byte-identical
 #   4. --apply against a settings.json that already has unrelated hooks
 #      preserves those hooks and merges the PostToolUse entry
-#   5. --mcp creates/updates .mcp.json with mcpServers.agent-memory
+#   5. --mcp creates/updates .mcp.json with mcpServers.wasurezu
 #   6. --mode sqlite switches both hook and MCP env vars to SQLite
 #
 # Run: bash scripts/test-install-hook.sh
@@ -130,8 +130,8 @@ mkdir -p "$TARGET_DIR3"
 
 assert ".mcp.json was created" \
   "$([[ -f "${TARGET_DIR3}/.mcp.json" ]] && echo true || echo false)"
-assert ".mcp.json contains agent-memory server" \
-  "$(grep -q '"agent-memory"' "${TARGET_DIR3}/.mcp.json" && echo true || echo false)"
+assert ".mcp.json contains wasurezu server" \
+  "$(grep -q '"wasurezu"' "${TARGET_DIR3}/.mcp.json" && echo true || echo false)"
 assert ".mcp.json points at dist/index.js" \
   "$(grep -q 'agent-memory/dist/index.js' "${TARGET_DIR3}/.mcp.json" && echo true || echo false)"
 assert ".mcp.json contains DATABASE_URL in postgres mode" \
