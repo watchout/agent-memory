@@ -143,6 +143,7 @@ Compaction (~83% context)
 | `update_knowledge_status` | Archive / merge knowledge entries |
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
 | `recover_context` | Restore all context (called after compaction) |
+| `catch_up` | Sweep missed Claude Code conversation-log events into memory |
 | `set_recovery_config` | Tune recovery output limits per agent |
 
 ## Storage
