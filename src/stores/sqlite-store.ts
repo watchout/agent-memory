@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { deriveTaskIdFromTask } from "./task-id.js";
@@ -10,6 +11,7 @@ import type {
   TaskState,
   Knowledge,
   AgentMessage,
+  ConversationEvent,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -22,6 +24,8 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  SaveConversationEventInput,
+  GetConversationEventsInput,
 } from "./types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
@@ -106,6 +110,29 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_recovery_quality_agent
     ON recovery_quality_log(agent_id, created_at DESC)`,
 
+  `CREATE TABLE IF NOT EXISTS conversation_events (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    source TEXT NOT NULL,
+    source_event_id TEXT,
+    source_path TEXT,
+    role TEXT,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    occurred_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_source_event
+    ON conversation_events(agent_id, source, source_event_id)
+    WHERE source_event_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_hash_time
+    ON conversation_events(agent_id, source, content_hash, occurred_at)
+    WHERE source_event_id IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
+    ON conversation_events(agent_id, source, occurred_at DESC)`,
+
 ];
 
 let SQL_PROMISE: Promise<SqlJsStatic> | null = null;
@@ -118,6 +145,10 @@ function loadSqlJs(): Promise<SqlJsStatic> {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function contentHash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 function parseJsonArray(value: unknown): string[] {
@@ -760,6 +791,68 @@ export class SqliteStore implements Store {
     return [];
   }
 
+  async saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent> {
+    const id = uuidv4();
+    const now = nowIso();
+    const hash = input.content_hash ?? contentHash(input.content);
+    const occurredAt = input.occurred_at ?? now;
+    this.db.run(
+      `INSERT OR IGNORE INTO conversation_events
+        (id, agent_id, project, source, source_event_id, source_path, role,
+         content, content_hash, metadata, occurred_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.agent_id,
+        input.project ?? null,
+        input.source,
+        input.source_event_id ?? null,
+        input.source_path ?? null,
+        input.role ?? null,
+        input.content,
+        hash,
+        JSON.stringify(input.metadata ?? {}),
+        occurredAt,
+        now,
+      ]
+    );
+
+    const where = input.source_event_id
+      ? "agent_id = ? AND source = ? AND source_event_id = ?"
+      : "agent_id = ? AND source = ? AND content_hash = ? AND occurred_at = ?";
+    const params = input.source_event_id
+      ? [input.agent_id, input.source, input.source_event_id]
+      : [input.agent_id, input.source, hash, occurredAt];
+    const rows = this.allRows(`SELECT * FROM conversation_events WHERE ${where} LIMIT 1`, params);
+    this.persist();
+    return this.rowToConversationEvent(rows[0]);
+  }
+
+  async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
+    const conditions: string[] = ["agent_id = ?"];
+    const params: unknown[] = [input.agent_id];
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    if (input.source) {
+      conditions.push("source = ?");
+      params.push(input.source);
+    }
+    if (input.since) {
+      conditions.push("occurred_at >= ?");
+      params.push(input.since);
+    }
+    const rows = this.allRows(
+      `SELECT * FROM conversation_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC
+       LIMIT ${input.limit ?? 50}`,
+      params
+    );
+    return rows.map((row) => this.rowToConversationEvent(row));
+  }
+
   // ─── Recovery Config ─────────────────────────────────────────
 
   async getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null> {
@@ -950,6 +1043,34 @@ export class SqliteStore implements Store {
       supersede_reason: (row.supersede_reason as string | null) ?? undefined,
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
+    };
+  }
+
+  private rowToConversationEvent(row: Record<string, unknown>): ConversationEvent {
+    let metadata: Record<string, unknown> = {};
+    if (typeof row.metadata === "string") {
+      try {
+        const parsed = JSON.parse(row.metadata);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          metadata = parsed as Record<string, unknown>;
+        }
+      } catch {
+        metadata = {};
+      }
+    }
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      source: row.source as ConversationEvent["source"],
+      source_event_id: (row.source_event_id as string | null) ?? undefined,
+      source_path: (row.source_path as string | null) ?? undefined,
+      role: (row.role as string | null) ?? undefined,
+      content: row.content as string,
+      content_hash: row.content_hash as string,
+      metadata,
+      occurred_at: row.occurred_at as string,
+      created_at: row.created_at as string,
     };
   }
 }

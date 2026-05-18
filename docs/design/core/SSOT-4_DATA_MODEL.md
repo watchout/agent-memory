@@ -29,6 +29,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `knowledge` | 知識・洞察・パターン | embedding (vector 512), L1→L2 merge | embedding TEXT NULL |
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
+| `conversation_events` | Codex / Claude Code 等の生会話イベント保存 | metadata JSONB | metadata TEXT(JSON) |
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
 agent_messages は agent-comms スキーマ。**agent-memory が読み取り専用で連携**する形 (PG モード時のみ)。
@@ -186,6 +187,41 @@ CREATE INDEX idx_recovery_quality_agent ON recovery_quality_log(agent_id, create
 - `quality_score`: 0.0-1.0 の総合スコア (Stage 2 = AM-018 で算出ロジック実装)
 - `notes`: recovery summary を JSON で記録 (例: `{decisions: 3, tasks: 2, knowledge: 5, messages: 0}`)
 
+### 2.6 conversation_events (AM-031)
+
+```sql
+CREATE TABLE conversation_events (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        TEXT NOT NULL,
+  project         TEXT,
+  source          TEXT NOT NULL,      -- claude_code | codex | manual
+  source_event_id TEXT,
+  source_path     TEXT,
+  role            TEXT,
+  content         TEXT NOT NULL,
+  content_hash    TEXT NOT NULL,
+  metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at     TIMESTAMPTZ NOT NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_conversation_events_source_event
+  ON conversation_events (agent_id, source, source_event_id)
+  WHERE source_event_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_conversation_events_hash_time
+  ON conversation_events (agent_id, source, content_hash, occurred_at)
+  WHERE source_event_id IS NULL;
+
+CREATE INDEX idx_conversation_events_recent
+  ON conversation_events (agent_id, source, occurred_at DESC);
+```
+
+**用途**:
+- Codex / Claude Code のセッション再起動後に、失われた会話文脈を再処理できるよう raw event を保持する
+- structured memory (decisions / task_states / knowledge) へ抽出する前の provenance として使う
+- `source_event_id` があるログは event id で、ないログは `content_hash + occurred_at` で冪等化する
+
 ---
 
 ## 3. テーブル定義 (SQLite)
@@ -221,6 +257,7 @@ CREATE INDEX idx_recovery_quality_agent ON recovery_quality_log(agent_id, create
 - LIKE ベース全文検索 (CJK + ASCII boundary tokenization)
 - expire stale task states
 - recovery quality logging (PG と完全同等)
+- conversation_events raw event 保存 (metadata は TEXT(JSON) として保存)
 
 → 単体ユーザーにとっては必要十分。
 
@@ -372,3 +409,4 @@ PostgreSQL (オプション):
 | 2026-04-03 | framework retrofit 初版 | framework |
 | 2026-04-06 | recovery_config defaults + seed data 追記 | quality audit Phase A |
 | 2026-04-08 | AM-010 充足: テーブル全定義 (PG/SQLite両モード)、agent-comms 互換性、機能制約、SQLite getRecentMessages 制約明記 | Arc |
+| 2026-05-19 | AM-031: Codex / Claude Code セッション継続の基盤として conversation_events 追加 | Codex |

@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import type {
@@ -10,6 +11,7 @@ import type {
   TaskState,
   Knowledge,
   AgentMessage,
+  ConversationEvent,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -21,17 +23,25 @@ import type {
   SaveKnowledgeInput,
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
+  SaveConversationEventInput,
+  GetConversationEventsInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
 const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
 const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
+const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
+
+function contentHash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
 
 export class JsonStore implements Store {
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
+  private conversationEvents: ConversationEvent[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -40,6 +50,7 @@ export class JsonStore implements Store {
     this.decisions = await this.loadFile<Decision>(DECISIONS_FILE);
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
     this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
+    this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -348,9 +359,57 @@ export class JsonStore implements Store {
     await writeFile(KNOWLEDGE_FILE, JSON.stringify(this.knowledgeItems, null, 2));
   }
 
+  private async saveConversationEventsFile(): Promise<void> {
+    await writeFile(CONVERSATION_EVENTS_FILE, JSON.stringify(this.conversationEvents, null, 2));
+  }
+
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
+  }
+
+  async saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent> {
+    const hash = input.content_hash ?? contentHash(input.content);
+    const existing = this.conversationEvents.find((event) => {
+      if (event.agent_id !== input.agent_id || event.source !== input.source) return false;
+      if (input.source_event_id) return event.source_event_id === input.source_event_id;
+      return event.content_hash === hash && event.occurred_at === (input.occurred_at ?? event.occurred_at);
+    });
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const event: ConversationEvent = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      project: input.project,
+      source: input.source,
+      source_event_id: input.source_event_id,
+      source_path: input.source_path,
+      role: input.role,
+      content: input.content,
+      content_hash: hash,
+      metadata: input.metadata ?? {},
+      occurred_at: input.occurred_at ?? now,
+      created_at: now,
+    };
+    this.conversationEvents.push(event);
+    await this.saveConversationEventsFile();
+    return event;
+  }
+
+  async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
+    let results = this.conversationEvents.filter((event) => event.agent_id === input.agent_id);
+    if (input.project) results = results.filter((event) => event.project === input.project);
+    if (input.source) results = results.filter((event) => event.source === input.source);
+    if (input.since) {
+      const sinceMs = new Date(input.since).getTime();
+      results = results.filter((event) => new Date(event.occurred_at).getTime() >= sinceMs);
+    }
+    results.sort(
+      (a, b) =>
+        new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+    );
+    return results.slice(0, input.limit ?? 50);
   }
 
   async getRecoveryConfig(): Promise<RecoveryConfig | null> {

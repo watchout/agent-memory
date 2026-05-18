@@ -147,6 +147,42 @@ export interface AgentMessage {
   created_at: string;
 }
 
+export interface ConversationEvent {
+  id: string;
+  agent_id: string;
+  project?: string;
+  source: "claude_code" | "codex" | "manual";
+  source_event_id?: string;
+  source_path?: string;
+  role?: string;
+  content: string;
+  content_hash: string;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface SaveConversationEventInput {
+  agent_id: string;
+  project?: string;
+  source: "claude_code" | "codex" | "manual";
+  source_event_id?: string;
+  source_path?: string;
+  role?: string;
+  content: string;
+  content_hash?: string;
+  metadata?: Record<string, unknown>;
+  occurred_at?: string;
+}
+
+export interface GetConversationEventsInput {
+  agent_id: string;
+  project?: string;
+  source?: "claude_code" | "codex" | "manual";
+  since?: string;
+  limit?: number;
+}
+
 export interface RecoveryConfig {
   agent_id: string;
   max_tokens: number;
@@ -215,6 +251,12 @@ export interface Store {
 
   /** Get recent messages from agent_messages table (com integration, optional) */
   getRecentMessages(input: { agent_id: string; project?: string; limit?: number }): Promise<AgentMessage[]>;
+
+  /** Persist a raw conversation/log event for later extraction and replay (AM-031) */
+  saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent>;
+
+  /** Read raw conversation/log events in newest-first order (AM-031) */
+  getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]>;
 
   /** Save a knowledge entry (v0.3.0) */
   saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;
