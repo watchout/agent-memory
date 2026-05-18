@@ -325,7 +325,7 @@ export interface Store {
     ]
   },
   "mcpServers": {
-    "agent-memory": {
+    "wasurezu": {
       "command": "node",
       "args": ["/path/to/agent-memory/dist/index.js"],
       "env": {

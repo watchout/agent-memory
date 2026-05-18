@@ -37,7 +37,7 @@ async function main() {
   const store = await createStore();
 
   const server = new McpServer({
-    name: "agent-memory",
+    name: "wasurezu",
     version: "0.3.0",
   });
 
