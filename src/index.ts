@@ -10,6 +10,7 @@ import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
+import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -627,6 +628,52 @@ async function main() {
       } catch (err) {
         return {
           content: [safeText(`❌ Failed to update knowledge status: ${err}`)],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── ingest_conversation_events (AM-031 PR B) ─────────────────
+  server.tool(
+    "ingest_conversation_events",
+    "Sweep local AI-client transcript files into raw conversation event storage. AM-031 currently supports Claude Code JSONL logs only; Codex support is tracked separately. Redaction is applied before persistence and hashing.",
+    {
+      source: z
+        .enum(["claude_code"])
+        .optional()
+        .describe("Transcript source to ingest. Only 'claude_code' is implemented in this PR."),
+      project: z.string().optional().describe("Project identifier (defaults to AGENT_MEMORY_PROJECT env var)"),
+      since: z.string().optional().describe("ISO timestamp lower bound. Defaults to the last 24 hours."),
+      root: z.string().optional().describe("Override Claude projects root. Defaults to CLAUDE_PROJECTS_DIR or ~/.claude/projects."),
+      max_files: z.number().optional().describe("Maximum JSONL files to scan (default: 200)"),
+    },
+    async ({ source, project, since, root, max_files }) => {
+      const actualSource = source ?? "claude_code";
+      await logCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
+      try {
+        const result = await ingestClaudeConversationEvents(store, AGENT_ID, {
+          project: project || PROJECT,
+          since,
+          root,
+          max_files,
+        });
+        return {
+          content: [
+            safeText(
+              `Conversation ingest complete (source=${result.source})\n\n` +
+                `Files scanned: ${result.files_scanned}\n` +
+                `Lines seen: ${result.lines_seen}\n` +
+                `Events saved: ${result.events_saved}\n` +
+                `Duplicates: ${result.events_duplicate}\n` +
+                `Skipped: ${result.events_skipped}\n` +
+                `Since: ${result.since}`
+            ),
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [safeText(`Failed to ingest conversation events: ${err}`)],
           isError: true,
         };
       }

@@ -144,6 +144,7 @@ Compaction (~83% context)
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
 | `recover_context` | Restore all context (called after compaction) |
 | `set_recovery_config` | Tune recovery output limits per agent |
+| `ingest_conversation_events` | Sweep local Claude Code JSONL transcripts into raw event storage |
 
 ## Storage
 

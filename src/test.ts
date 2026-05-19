@@ -4,9 +4,10 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { rmSync, existsSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
+import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -841,6 +842,93 @@ async function testConversationEvents() {
   await store.close();
 }
 
+async function testClaudeConversationIngest() {
+  console.log("\n── Claude Conversation Ingest Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const root = mkdtempSync(join(tmpdir(), "am031-claude-ingest-"));
+  const projectDir = join(root, "project-a");
+  mkdirSync(projectDir, { recursive: true });
+  const logPath = join(projectDir, "session-abc.jsonl");
+  const home = homedir();
+  const lines = [
+    JSON.stringify({
+      type: "user",
+      timestamp: "2026-05-19T00:00:00.000Z",
+      sessionId: "session-abc",
+      cwd: `${home}/Developer/agent-memory`,
+      message: {
+        content:
+          `Please continue. TOKEN=gho_abcdefghijklmnopqrstuvwxyz123456 email dev@example.com path ${home}/Developer/agent-memory/src/index.ts`,
+      },
+    }),
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-05-19T00:01:00.000Z",
+      sessionId: "session-abc",
+      message: {
+        content: [{ type: "text", text: "Continuing AM-031 PR B from raw Claude ingest." }],
+      },
+    }),
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-05-19T00:02:00.000Z",
+      sessionId: "session-abc",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            name: "Write",
+            input: { file_path: `${home}/Developer/agent-memory/src/claude-conversation-ingest.ts` },
+          },
+        ],
+      },
+    }),
+    JSON.stringify({
+      type: "summary",
+      timestamp: "2026-05-19T00:03:00.000Z",
+      sessionId: "session-abc",
+      summary: "Session summarized before restart.",
+    }),
+    "{not-json",
+  ];
+  writeFileSync(logPath, lines.join("\n") + "\n");
+
+  const agentId = "test-claude-ingest-agent";
+  const first = await ingestClaudeConversationEvents(store, agentId, {
+    project: "hotel-app",
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+  const second = await ingestClaudeConversationEvents(store, agentId, {
+    project: "hotel-app",
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+
+  assert(first.files_scanned === 1, "ingest scans fixture file");
+  assert(first.events_saved === 4, "ingest saves four valid raw events");
+  assert(first.events_skipped === 1, "ingest skips malformed line");
+  assert(second.events_saved === 0, "second ingest saves no duplicates");
+  assert(second.events_duplicate === 4, "second ingest reports duplicates");
+
+  const events = await store.getConversationEvents({ agent_id: agentId, source: "claude_code" });
+  assert(events.length === 4, "stored Claude events are unique");
+  assert(events.every((e) => e.source === "claude_code"), "events use claude_code source");
+  assert(events.some((e) => e.role === "user"), "user role mapped");
+  assert(events.some((e) => e.role === "assistant"), "assistant role mapped");
+  assert(events.some((e) => e.role === "event"), "summary/event role mapped");
+  const combined = events.map((e) => e.content).join("\n");
+  assert(!combined.includes("gho_"), "GitHub token redacted before persistence");
+  assert(!combined.includes("dev@example.com"), "email redacted before persistence");
+  assert(combined.includes("~/Developer/agent-memory"), "home path normalized to ~");
+  assert(events.some((e) => e.metadata.redaction_version === "am031-redaction-v1"), "redaction version recorded");
+
+  rmSync(root, { recursive: true, force: true });
+  await store.close();
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -860,6 +948,7 @@ async function run() {
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
   await testConversationEvents();
+  await testClaudeConversationIngest();
 
   await cleanup();
 
