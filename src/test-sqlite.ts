@@ -753,7 +753,7 @@ async function testClaudeConversationIngest() {
         type: "user",
         timestamp: "2026-05-19T00:00:00.000Z",
         sessionId: "session-sqlite",
-        message: { content: `DATABASE_URL=postgres://user:pass@localhost/db ${home}/Developer/agent-memory` },
+        message: { content: `DATABASE_URL=postgres://user:pass@localhost/db ${home}/Developer/agent-memory xoxp-123456789012-abcdefghijkl https://discord.com/api/webhooks/123456/secret-token` },
       }),
       JSON.stringify({
         type: "assistant",
@@ -782,6 +782,8 @@ async function testClaudeConversationIngest() {
   assert(events.length === 2, "SQLite stores unique Claude events");
   const combined = events.map((e) => e.content).join("\n");
   assert(!combined.includes("postgres://user:pass"), "DATABASE_URL redacted");
+  assert(!combined.includes("xoxp-"), "Slack token redacted in SQLite ingest");
+  assert(!combined.includes("discord.com/api/webhooks"), "Discord webhook URL redacted in SQLite ingest");
   assert(combined.includes("~/Developer/agent-memory"), "home path normalized in SQLite ingest");
 
   rmSync(root, { recursive: true, force: true });

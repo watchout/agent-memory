@@ -860,7 +860,8 @@ async function testClaudeConversationIngest() {
       cwd: `${home}/Developer/agent-memory`,
       message: {
         content:
-          `Please continue. TOKEN=gho_abcdefghijklmnopqrstuvwxyz123456 email dev@example.com path ${home}/Developer/agent-memory/src/index.ts`,
+          `Please continue. TOKEN=gho_abcdefghijklmnopqrstuvwxyz123456 email dev@example.com path ${home}/Developer/agent-memory/src/index.ts ` +
+          "slack xoxb-123456789012-abcdefghijk AWS AKIAIOSFODNN7EXAMPLE google AIzaSyA123456789012345678901234567890123 webhook https://hooks.slack.com/services/T000/B000/XXXXXXXXXXXXXXXXXXXXXXXX",
       },
     }),
     JSON.stringify({
@@ -921,6 +922,10 @@ async function testClaudeConversationIngest() {
   assert(events.some((e) => e.role === "event"), "summary/event role mapped");
   const combined = events.map((e) => e.content).join("\n");
   assert(!combined.includes("gho_"), "GitHub token redacted before persistence");
+  assert(!combined.includes("xoxb-"), "Slack token redacted before persistence");
+  assert(!combined.includes("AKIAIOSFODNN7EXAMPLE"), "AWS access key redacted before persistence");
+  assert(!combined.includes("AIza"), "Google API key redacted before persistence");
+  assert(!combined.includes("hooks.slack.com/services"), "webhook URL redacted before persistence");
   assert(!combined.includes("dev@example.com"), "email redacted before persistence");
   assert(combined.includes("~/Developer/agent-memory"), "home path normalized to ~");
   assert(events.some((e) => e.metadata.redaction_version === "am031-redaction-v1"), "redaction version recorded");

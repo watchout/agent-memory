@@ -11,7 +11,11 @@ export interface RedactionResult {
 const SECRET_PATTERNS: RegExp[] = [
   /\bgho_[A-Za-z0-9_]{20,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/g,
   /\bsk-[A-Za-z0-9_-]{20,}\b/g,
+  /\b(?:anthropic|claude|openai|google|gemini|voyage|slack|discord|aws|azure)[_-]?(?:api[_-]?)?(?:key|token|secret)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s]+)/gi,
   /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
 ];
@@ -20,6 +24,8 @@ const CREDENTIAL_ENV_RE =
   /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASS|API_KEY|PRIVATE_KEY|DATABASE_URL)[A-Z0-9_]*)\s*=\s*("[^"]*"|'[^']*'|[^\s]+)/gi;
 
 const URL_CREDENTIAL_RE = /\b(https?:\/\/)([^:\s/@]+):([^@\s/]+)@/gi;
+const WEBHOOK_URL_RE =
+  /\bhttps:\/\/(?:hooks\.slack\.com\/services|discord(?:app)?\.com\/api\/webhooks|[^/\s]+\/webhook[s]?\/)[^\s"'<>]+/gi;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /\b(?:\+?\d[\d .()/-]{8,}\d)\b/g;
 
@@ -52,6 +58,10 @@ export function redactText(input: string): RedactionResult {
     return `${scheme}[REDACTED]@`;
   });
   text = urlRedacted;
+
+  const webhookRedacted = applyRedaction(text, WEBHOOK_URL_RE, "[REDACTED_WEBHOOK_URL]");
+  text = webhookRedacted.text;
+  redactionCount += webhookRedacted.count;
 
   for (const pattern of SECRET_PATTERNS) {
     const result = applyRedaction(text, pattern, "[REDACTED]");
