@@ -9,6 +9,7 @@ import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -1071,6 +1072,108 @@ async function testCodexConversationIngest() {
   await store.close();
 }
 
+async function testRestartPack() {
+  console.log("\n── Restart Pack Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const agentId = "test-restart-pack-agent";
+  const project = "hotel-app";
+  const home = homedir();
+
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "AM-031 implement restart_pack PR D",
+    status: "in_progress",
+    progress: "PR #83 is ready; PR D is in progress",
+    files_modified: [`${home}/Developer/agent-memory/src/restart-pack.ts`],
+    next_steps: "Open PR D and verify restart output",
+  });
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "AM-031 resolve blocked validation item",
+    status: "blocked",
+    progress: "Needs CEO validation after one cycle",
+  });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "restart_pack remains opt-in during PR D",
+    context: "CEO decision for AM-031",
+  });
+  await store.saveKnowledge({
+    agent_id: agentId,
+    project,
+    title: "Codex transcript source",
+    content: "~/.codex/sessions/YYYY/MM/DD/*.jsonl is canonical; history.jsonl is not.",
+    source_type: "manual",
+  });
+  await store.saveConversationEvent({
+    agent_id: agentId,
+    project,
+    source: "codex",
+    source_event_id: "codex-session:1",
+    role: "assistant",
+    content: "Continue PR D with restart_pack tests and docs.",
+    occurred_at: "2026-05-19T00:01:00.000Z",
+  });
+  await store.saveConversationEvent({
+    agent_id: agentId,
+    project,
+    source: "claude_code",
+    source_event_id: "claude-session:1",
+    role: "user",
+    content: "Session refresh should continue from memory.",
+    occurred_at: "2026-05-19T00:00:00.000Z",
+  });
+
+  const output = await generateRestartPack(store, {
+    agent_id: agentId,
+    project,
+    max_tokens: 1500,
+  });
+  assert(output.includes("SESSION RESTART PACK"), "restart_pack has header");
+  assert(output.includes("CURRENT OBJECTIVE"), "restart_pack includes objective");
+  assert(output.includes("NEXT CONCRETE ACTION"), "restart_pack includes next action");
+  assert(output.includes("BLOCKERS / NEEDS INFO"), "restart_pack includes blockers");
+  assert(output.includes("restart_pack remains opt-in"), "restart_pack includes decisions");
+  assert(output.includes("src/restart-pack.ts") || output.includes("~/Developer/agent-memory/src/restart-pack.ts"), "restart_pack includes relevant file");
+  assert(output.includes("AM-031"), "restart_pack includes refs");
+  assert(output.includes("[codex/assistant]"), "restart_pack includes Codex-derived conversation");
+  assert(output.includes("[claude_code/user]"), "restart_pack includes Claude-derived conversation");
+
+  const sparse = await generateRestartPack(store, {
+    agent_id: "test-restart-pack-empty-agent",
+    project,
+  });
+  assert(sparse.includes("SPARSE DATA NOTICE"), "restart_pack has sparse fallback");
+  assert(sparse.includes("No active task recorded"), "restart_pack handles no active task");
+
+  const truncated = buildRestartPack({
+    agentId: agentId,
+    project,
+    maxTokens: 80,
+    activeTasks: [],
+    blockedTasks: [],
+    completedTasks: [],
+    decisions: Array.from({ length: 20 }, (_, i) => ({
+      id: `decision-${i}`,
+      agent_id: agentId,
+      project,
+      decision: `Decision ${i} ${"x".repeat(80)}`,
+      tags: [],
+      status: "active",
+      created_at: "2026-05-19T00:00:00.000Z",
+    })),
+    knowledge: [],
+    conversationEvents: [],
+  });
+  assert(truncated.length < 700, "restart_pack enforces token budget truncation");
+
+  await store.close();
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -1092,6 +1195,7 @@ async function run() {
   await testConversationEvents();
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
+  await testRestartPack();
 
   await cleanup();
 

@@ -50,7 +50,7 @@ async function seed() {
   await store.close();
 }
 
-function runBoot(): Promise<{ code: number; stderr: string }> {
+function runBoot(mode?: string): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("npx", ["tsx", "src/boot.ts"], {
       env: {
@@ -59,18 +59,20 @@ function runBoot(): Promise<{ code: number; stderr: string }> {
         AGENT_MEMORY_DB_PATH: TEST_DB_PATH,
         AGENT_MEMORY_AGENT_ID: AGENT_ID,
         CLAUDE_SESSION_ID: SESSION_ID,
+        ...(mode ? { AGENT_MEMORY_BOOT_MODE: mode } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
+    let stdout = "";
     let stderr = "";
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.stdout.on("data", () => {
-      /* swallow recovery output */
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
     });
     child.on("error", reject);
-    child.on("exit", (code) => resolve({ code: code ?? -1, stderr }));
+    child.on("exit", (code) => resolve({ code: code ?? -1, stdout, stderr }));
   });
 }
 
@@ -140,6 +142,42 @@ async function verify() {
   await store.close();
 }
 
+async function verifyRestartPackBoot() {
+  const result = await runBoot("restart_pack");
+  if (result.code !== 0) {
+    console.error("boot.ts restart_pack mode exited with non-zero code");
+    console.error("stderr:", result.stderr);
+    failed++;
+    return;
+  }
+  assert(result.stdout.includes("SESSION RESTART PACK"), "restart_pack boot mode outputs restart pack");
+
+  const store = new SqliteStore(TEST_DB_PATH);
+  await store.initialize();
+  const sqlitePrivate = store as unknown as {
+    db: {
+      prepare: (sql: string) => {
+        bind: (p: unknown[]) => void;
+        step: () => boolean;
+        getAsObject: () => Record<string, unknown>;
+        free: () => void;
+      };
+    };
+  };
+  const stmt = sqlitePrivate.db.prepare(
+    `SELECT notes FROM recovery_quality_log
+      WHERE agent_id = ?
+      ORDER BY created_at DESC LIMIT 1`
+  );
+  stmt.bind([AGENT_ID]);
+  let row: Record<string, unknown> | null = null;
+  if (stmt.step()) row = stmt.getAsObject();
+  stmt.free();
+  const notes = typeof row?.notes === "string" ? JSON.parse(row.notes) : {};
+  assert(notes.source === "restart_pack_boot", "restart_pack boot logs recovery quality source");
+  await store.close();
+}
+
 async function cleanup() {
   if (existsSync(TEST_DB_PATH)) rmSync(TEST_DB_PATH);
 }
@@ -161,6 +199,7 @@ async function run() {
       assert(true, "boot.ts exited cleanly");
     }
     await verify();
+    await verifyRestartPackBoot();
   } finally {
     await cleanup();
   }
