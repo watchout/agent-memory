@@ -996,6 +996,33 @@ async function testCodexConversationIngest() {
       payload: { type: "function_call", call_id: "call-1", name: "shell", arguments: { cmd: "npm test" } },
     }),
     JSON.stringify({
+      timestamp: "2026-05-19T00:05:30.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call",
+        call_id: "call-2",
+        name: "shell",
+        arguments: {
+          cmd: "echo safe",
+          base_instructions: { text: "DO NOT PERSIST FUNCTION ARG BASE" },
+          thinking_trace: "DO NOT PERSIST FUNCTION ARG THINKING",
+        },
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:05:45.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call_output",
+        call_id: "call-2",
+        output: {
+          text: "safe output",
+          thought_summary: "DO NOT PERSIST FUNCTION OUTPUT THOUGHT",
+          base_instructions: { text: "DO NOT PERSIST FUNCTION OUTPUT BASE" },
+        },
+      },
+    }),
+    JSON.stringify({
       timestamp: "2026-05-19T00:06:00.000Z",
       type: "event_msg",
       payload: { type: "task_started", turn_id: "turn-1", model_context_window: 258400 },
@@ -1017,13 +1044,13 @@ async function testCodexConversationIngest() {
   });
 
   assert(first.files_scanned === 1, "Codex ingest scans YYYY/MM/DD fixture file");
-  assert(first.events_saved === 5, "Codex ingest saves visible raw events");
+  assert(first.events_saved === 7, "Codex ingest saves visible raw events");
   assert(first.events_skipped === 3, "Codex ingest skips developer/reasoning/malformed records");
   assert(second.events_saved === 0, "Codex second ingest saves no duplicates");
-  assert(second.events_duplicate === 5, "Codex second ingest reports duplicates");
+  assert(second.events_duplicate === 7, "Codex second ingest reports duplicates");
 
   const events = await store.getConversationEvents({ agent_id: agentId, source: "codex" });
-  assert(events.length === 5, "stored Codex events are unique");
+  assert(events.length === 7, "stored Codex events are unique");
   assert(events.some((e) => e.role === "user"), "Codex user role mapped");
   assert(events.some((e) => e.role === "assistant"), "Codex assistant role mapped");
   assert(events.some((e) => e.role === "tool"), "Codex tool role mapped");
@@ -1032,6 +1059,10 @@ async function testCodexConversationIngest() {
   assert(!combined.includes("DO NOT PERSIST BASE INSTRUCTIONS"), "base instructions excluded");
   assert(!combined.includes("DO NOT PERSIST DEVELOPER BODY"), "developer body excluded");
   assert(!combined.includes("DO NOT PERSIST REASONING"), "reasoning trace excluded");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION ARG BASE"), "function_call base instructions stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION ARG THINKING"), "function_call thinking stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION OUTPUT THOUGHT"), "function_call_output thought stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION OUTPUT BASE"), "function_call_output base instructions stripped");
   assert(!combined.includes("sk-"), "OpenAI-style key redacted");
   assert(combined.includes("~/Developer/agent-memory"), "Codex home path normalized");
   assert(events.some((e) => e.metadata.cli_version === "0.120.0"), "Codex metadata includes cli_version");

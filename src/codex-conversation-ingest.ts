@@ -250,14 +250,16 @@ function getSessionId(record: Record<string, unknown>, payload: Record<string, u
 }
 
 function getStablePayloadId(payload: Record<string, unknown>): string | undefined {
-  return getString(payload.id) ?? getString(payload.call_id) ?? getString(payload.turn_id);
+  const type = getString(payload.type) ?? "payload";
+  const id = getString(payload.id) ?? getString(payload.call_id) ?? getString(payload.turn_id);
+  return id ? `${type}:${id}` : undefined;
 }
 
 function isHiddenOrInstructionPayload(payload: Record<string, unknown>): boolean {
   const type = getString(payload.type);
   const role = getString(payload.role);
   if (role === "developer" || role === "system") return true;
-  if (type && /reasoning|thought|chain_of_thought/i.test(type)) return true;
+  if (type && /reasoning|thinking|thought|chain_of_thought/i.test(type)) return true;
   const content = payload.content;
   return Array.isArray(content) && content.some((item) => isReasoningBlock(item));
 }
@@ -299,10 +301,10 @@ function extractCodexContent(record: Record<string, unknown>, payload: Record<st
   if (typeof payload.text === "string") return payload.text;
   if (typeof payload.message === "string") return payload.message;
   if (payloadType === "function_call") {
-    return `[function_call:${getString(payload.name) ?? "unknown"}] ${safeCompactJson(payload.arguments ?? {})}`;
+    return `[function_call:${getString(payload.name) ?? "unknown"}] ${safeCompactJson(stripForbiddenFields(payload.arguments ?? {}))}`;
   }
   if (payloadType === "function_call_output") {
-    return `[function_call_output] ${safeCompactJson(payload.output ?? {})}`;
+    return `[function_call_output] ${safeCompactJson(stripForbiddenFields(payload.output ?? {}))}`;
   }
   return `[${payloadType ?? getString(record.type) ?? "unknown"}] ${safeCompactJson(stripForbiddenFields(payload))}`;
 }
@@ -332,7 +334,7 @@ function stripForbiddenFields(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
     if (key === "base_instructions" || key === "base_instructions_text") continue;
-    if (/reasoning|thought|chain_of_thought/i.test(key)) continue;
+    if (/reasoning|thinking|thought|chain_of_thought/i.test(key)) continue;
     out[key] = stripForbiddenFields(val);
   }
   return out;
@@ -357,5 +359,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isReasoningBlock(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const type = getString(value.type) ?? "";
-  return /reasoning|thought|chain_of_thought/i.test(type);
+  return /reasoning|thinking|thought|chain_of_thought/i.test(type);
 }

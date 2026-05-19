@@ -822,7 +822,20 @@ async function testCodexConversationIngest() {
       JSON.stringify({
         timestamp: "2026-05-19T00:02:00.000Z",
         type: "response_item",
-        payload: { type: "reasoning", text: "DO NOT STORE REASONING" },
+        payload: { type: "thinking", text: "DO NOT STORE THINKING" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-19T00:03:00.000Z",
+        type: "response_item",
+        payload: {
+          type: "function_call_output",
+          call_id: "call-sqlite",
+          output: {
+            text: "safe",
+            reasoning_trace: "DO NOT STORE OUTPUT REASONING",
+            base_instructions: { text: "DO NOT STORE OUTPUT BASE" },
+          },
+        },
       }),
     ].join("\n") + "\n"
   );
@@ -839,12 +852,12 @@ async function testCodexConversationIngest() {
     since: "2026-05-18T00:00:00.000Z",
   });
 
-  assert(first.events_saved === 2, "Codex ingest saves SQLite raw events");
+  assert(first.events_saved === 3, "Codex ingest saves SQLite raw events");
   assert(first.events_skipped === 1, "Codex ingest skips reasoning in SQLite");
-  assert(second.events_duplicate === 2, "Codex ingest is idempotent in SQLite");
+  assert(second.events_duplicate === 3, "Codex ingest is idempotent in SQLite");
   const events = await store.getConversationEvents({ agent_id: agentId, source: "codex" });
   const combined = events.map((e) => e.content).join("\n");
-  assert(!combined.includes("DO NOT STORE"), "Codex base/reasoning content excluded");
+  assert(!combined.includes("DO NOT STORE"), "Codex base/reasoning/thinking content excluded");
   assert(!combined.includes("github_pat_"), "GitHub PAT redacted in Codex ingest");
 
   rmSync(root, { recursive: true, force: true });
