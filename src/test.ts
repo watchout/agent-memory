@@ -1127,6 +1127,15 @@ async function testRestartPack() {
     content: "Session refresh should continue from memory.",
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
+  await store.saveConversationEvent({
+    agent_id: agentId,
+    project,
+    source: "manual",
+    source_event_id: "manual-unsafe:1",
+    role: "user",
+    content: `raw leak sk-abcdefghijklmnopqrstuvwxyz dev@example.com ${home}/Developer/agent-memory/private.txt`,
+    occurred_at: "2026-05-19T00:02:00.000Z",
+  });
 
   const output = await generateRestartPack(store, {
     agent_id: agentId,
@@ -1140,8 +1149,12 @@ async function testRestartPack() {
   assert(output.includes("restart_pack remains opt-in"), "restart_pack includes decisions");
   assert(output.includes("src/restart-pack.ts") || output.includes("~/Developer/agent-memory/src/restart-pack.ts"), "restart_pack includes relevant file");
   assert(output.includes("AM-031"), "restart_pack includes refs");
-  assert(output.includes("[codex/assistant]"), "restart_pack includes Codex-derived conversation");
-  assert(output.includes("[claude_code/user]"), "restart_pack includes Claude-derived conversation");
+  assert(output.includes("codex/assistant"), "restart_pack summarizes Codex-derived conversation metadata");
+  assert(output.includes("claude_code/user"), "restart_pack summarizes Claude-derived conversation metadata");
+  assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit raw conversation excerpt");
+  assert(!output.includes("sk-"), "restart_pack redacts secrets at output boundary");
+  assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
+  assert(!output.includes(`${home}/Developer`), "restart_pack does not emit full home path");
 
   const sparse = await generateRestartPack(store, {
     agent_id: "test-restart-pack-empty-agent",

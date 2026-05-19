@@ -2,6 +2,7 @@ import { homedir } from "os";
 import { relative, isAbsolute } from "path";
 import type { Store, ConversationEvent, Decision, Knowledge, TaskState } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, estimateTokens } from "./constants.js";
+import { redactText } from "./redact.js";
 
 export interface RestartPackInput {
   agent_id: string;
@@ -79,7 +80,7 @@ function buildSections(data: RestartPackData): string[] {
       "CURRENT OBJECTIVE",
       primaryTask
         ? primaryTask.task
-        : summarizeLatestConversation(data.conversationEvents) ?? "No current objective found in structured memory.",
+        : "No current objective found in structured memory.",
     ].join("\n")
   );
 
@@ -96,7 +97,7 @@ function buildSections(data: RestartPackData): string[] {
   sections.push(
     [
       "NEXT CONCRETE ACTION",
-      primaryTask?.next_steps ?? inferNextAction(data.conversationEvents) ?? "No next action recorded.",
+      primaryTask?.next_steps ?? "No next action recorded.",
     ].join("\n")
   );
 
@@ -157,40 +158,35 @@ function truncateSections(sections: string[], maxTokens: number): string[] {
   const out: string[] = [];
   let used = 0;
   for (const section of sections) {
-    const tokens = estimateTokens(section);
+    const safeSection = redactText(section).text;
+    const tokens = estimateTokens(safeSection);
     if (used + tokens <= maxTokens) {
-      out.push(section);
+      out.push(safeSection);
       used += tokens;
       continue;
     }
     const remaining = maxTokens - used;
     if (remaining > 30) {
-      out.push(section.slice(0, remaining * 4) + "\n...(truncated)");
+      out.push(safeSection.slice(0, remaining * 4) + "\n...(truncated)");
     }
     break;
   }
   return out;
 }
 
-function summarizeLatestConversation(events: ConversationEvent[]): string | null {
-  const event = events.find((item) => item.role === "user" || item.role === "assistant");
-  if (!event) return null;
-  return event.content.slice(0, 240);
-}
-
-function inferNextAction(events: ConversationEvent[]): string | null {
-  const match = events.find((event) => /next|continue|todo|follow[- ]?up/i.test(event.content));
-  return match ? match.content.slice(0, 240) : null;
-}
-
 function summarizeRecentConversation(events: ConversationEvent[]): string | null {
-  const visible = events
-    .filter((event) => event.role === "user" || event.role === "assistant")
-    .slice(0, 4);
-  if (visible.length === 0) return null;
-  return visible
-    .map((event) => `- [${event.source}/${event.role}] ${event.content.slice(0, 220)}`)
-    .join("\n");
+  if (events.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    const key = `${event.source}/${event.role ?? "event"}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const latest = events[0]?.occurred_at ?? "unknown";
+  return [
+    `Raw conversation events available: ${events.length}`,
+    `Latest event: ${latest}`,
+    ...Array.from(counts.entries()).map(([key, count]) => `- ${key}: ${count}`),
+  ].join("\n");
 }
 
 function collectFiles(tasks: TaskState[]): string[] {
@@ -212,7 +208,6 @@ function collectRefs(data: RestartPackData): string[] {
     .map((task) => [task.task, task.progress, task.next_steps].filter(Boolean).join(" "))
     .concat(data.decisions.map((decision) => `${decision.decision} ${decision.context ?? ""}`))
     .concat(data.knowledge.map((item) => `${item.title} ${item.content}`))
-    .concat(data.conversationEvents.map((event) => event.content))
     .join("\n");
 
   const matches = text.match(/\b(?:PR[#-]?\d+|ISSUE[#-]?\d+|AM-\d+|#[0-9]+|[a-zA-Z0-9._/-]+\/[a-zA-Z0-9._/-]+)\b/g) ?? [];
