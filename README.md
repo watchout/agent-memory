@@ -141,7 +141,7 @@ Compaction (~83% context)
 | `get_knowledge` | Retrieve knowledge entries |
 | `supersede_knowledge` | Replace an outdated knowledge entry with a corrected one (AM-024) |
 | `update_knowledge_status` | Archive / merge knowledge entries |
-| `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
+| `search_memory` | Cross-cutting search across decisions / tasks / knowledge / conversation events |
 | `recover_context` | Restore all context (called after compaction) |
 | `restart_pack` | Generate a concise restart summary for continuing after session refresh |
 | `set_recovery_config` | Tune recovery output limits per agent |

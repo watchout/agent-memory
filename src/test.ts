@@ -840,6 +840,14 @@ async function testConversationEvents() {
   const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
   assert(codexOnly.length === 1, "source filter works");
   assert(codexOnly[0].metadata.file === "src/stores/types.ts", "metadata round-trips");
+  const search = await store.searchMemory({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    query: "restart",
+    scope: "conversation",
+  });
+  assert(search.conversation_events.length >= 1, "search finds conversation event");
+  assert(search.decisions.length === 0 && search.task_states.length === 0, "scope=conversation excludes structured memory");
 
   await store.close();
 }

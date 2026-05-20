@@ -215,7 +215,7 @@ export interface LogRecoveryQualityInput {
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
-  scope?: "decisions" | "tasks" | "knowledge" | "messages" | "all";
+  scope?: "decisions" | "tasks" | "knowledge" | "messages" | "conversation" | "all";
   limit?: number;
   project?: string;
 }
@@ -225,6 +225,7 @@ export interface SearchMemoryResult {
   task_states: TaskState[];
   knowledge: Knowledge[];
   messages: AgentMessage[];
+  conversation_events: ConversationEvent[];
 }
 
 export interface Store {
@@ -246,7 +247,7 @@ export interface Store {
   /** Get task states with optional filters */
   getTaskStates(input: GetTaskStatesInput): Promise<TaskState[]>;
 
-  /** Search decisions, task_states, and knowledge by keyword */
+  /** Search decisions, task_states, knowledge, and redacted conversation events by keyword */
   searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult>;
 
   /** Get recent messages from agent_messages table (com integration, optional) */

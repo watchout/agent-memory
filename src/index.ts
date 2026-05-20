@@ -246,7 +246,7 @@ async function main() {
     {
       query: z.string().describe("Search keywords or natural language query"),
       scope: z
-        .enum(["decisions", "tasks", "knowledge", "messages", "all"])
+        .enum(["decisions", "tasks", "knowledge", "messages", "conversation", "all"])
         .optional()
         .describe("Search scope (default: all)"),
       limit: z.number().optional().describe("Max results (default: 5)"),
@@ -264,7 +264,12 @@ async function main() {
           project: project || PROJECT,
         });
 
-        const total = result.knowledge.length + result.decisions.length + result.task_states.length + result.messages.length;
+        const total =
+          result.knowledge.length +
+          result.decisions.length +
+          result.task_states.length +
+          result.messages.length +
+          result.conversation_events.length;
         if (total === 0) {
           return {
             content: [safeText(`🔍 search_memory: "${query}" — no results`)],
@@ -317,6 +322,17 @@ async function main() {
           for (const m of result.messages) {
             parts.push(`• [${m.source}] ${m.author_id}: ${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`);
             parts.push(`  ${m.created_at.slice(0, 10)}`);
+          }
+          parts.push("");
+        }
+
+        if (result.conversation_events.length > 0) {
+          parts.push("── CONVERSATION EVENTS ──");
+          for (const event of result.conversation_events) {
+            const source = `${event.source}/${event.role ?? "event"}`;
+            const excerpt = event.content.slice(0, 220);
+            parts.push(`• [${source}] ${excerpt}${event.content.length > 220 ? "..." : ""}`);
+            parts.push(`  ${event.occurred_at.slice(0, 10)}`);
           }
         }
 

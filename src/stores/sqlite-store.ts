@@ -709,6 +709,7 @@ export class SqliteStore implements Store {
     const decisions: Decision[] = [];
     const taskStates: TaskState[] = [];
     const knowledgeItems: Knowledge[] = [];
+    const conversationEvents: ConversationEvent[] = [];
 
     if (scope === "decisions" || scope === "all") {
       const conditions: string[] = ["agent_id = ?"];
@@ -776,8 +777,30 @@ export class SqliteStore implements Store {
       knowledgeItems.push(...rows.map((r) => this.rowToKnowledge(r)));
     }
 
+    if (scope === "conversation" || scope === "all") {
+      const conditions: string[] = ["agent_id = ?"];
+      const params: unknown[] = [input.agent_id];
+      if (input.project) {
+        conditions.push("project = ?");
+        params.push(input.project);
+      }
+      const likeClause = keywords
+        .map(() =>
+          "(coalesce(content,'') || ' ' || coalesce(role,'') || ' ' || coalesce(source,'')) LIKE ?"
+        )
+        .join(" OR ");
+      conditions.push(`(${likeClause})`);
+      for (const kw of keywords) params.push(`%${kw}%`);
+
+      const sql = `SELECT * FROM conversation_events
+                   WHERE ${conditions.join(" AND ")}
+                   ORDER BY occurred_at DESC LIMIT ${limit}`;
+      const rows = this.allRows(sql, params);
+      conversationEvents.push(...rows.map((r) => this.rowToConversationEvent(r)));
+    }
+
     // SQLite store has no agent_messages table — messages always empty.
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [] };
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [], conversation_events: conversationEvents };
   }
 
   // ─── Messages (no-op for SQLite) ─────────────────────────────
