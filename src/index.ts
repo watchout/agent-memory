@@ -12,6 +12,7 @@ import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import { generateRestartPack } from "./restart-pack.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -410,6 +411,34 @@ async function main() {
       } catch (err) {
         return {
           content: [safeText(`❌ Failed to recover context: ${err}`)],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── restart_pack (AM-031 PR D) ───────────────────────────────
+  server.tool(
+    "restart_pack",
+    "Generate a concise session restart pack optimized for continuing work after context refresh. Keeps recover_context backward-compatible while prioritizing objective, active task, next action, blockers, files, refs, decisions, knowledge, and recent conversation summary.",
+    {
+      project: z.string().optional().describe("Filter by project"),
+      max_tokens: z.number().optional().describe("Output token budget. Minimum floor is 500; default comes from recovery_config or 1500."),
+    },
+    async ({ project, max_tokens }) => {
+      await logCall("restart_pack", `project="${project || PROJECT || ""}" max_tokens=${max_tokens ?? ""}`);
+      try {
+        const output = await generateRestartPack(store, {
+          agent_id: AGENT_ID,
+          project: project || PROJECT,
+          max_tokens,
+        });
+        return {
+          content: [safeText(output)],
+        };
+      } catch (err) {
+        return {
+          content: [safeText(`Failed to generate restart_pack: ${err}`)],
           isError: true,
         };
       }

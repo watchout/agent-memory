@@ -8,6 +8,7 @@ import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
+import { generateRestartPack } from "./restart-pack.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -57,6 +58,30 @@ async function boot() {
           `[boot] recovery_config auto-init failed (non-fatal): ${err}\n`
         );
         cfg = { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
+      }
+    }
+
+    if (process.env.AGENT_MEMORY_BOOT_MODE === "restart_pack") {
+      try {
+        const output = await generateRestartPack(store, {
+          agent_id: AGENT_ID,
+          project: PROJECT,
+          max_tokens: cfg.max_tokens,
+        });
+        await store.logRecoveryQuality({
+          agent_id: AGENT_ID,
+          session_id: SESSION_ID,
+          recovered_tokens: estimateTokens(output),
+          task_continued: false,
+          notes: JSON.stringify({ source: "restart_pack_boot" }),
+        }).catch((err) => {
+          process.stderr.write(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`);
+          return "";
+        });
+        console.log(output);
+        return;
+      } catch (err) {
+        process.stderr.write(`[boot] restart_pack failed, falling back to recover_context format: ${err}\n`);
       }
     }
 

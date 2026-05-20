@@ -143,6 +143,7 @@ Compaction (~83% context)
 | `update_knowledge_status` | Archive / merge knowledge entries |
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge |
 | `recover_context` | Restore all context (called after compaction) |
+| `restart_pack` | Generate a concise restart summary for continuing after session refresh |
 | `set_recovery_config` | Tune recovery output limits per agent |
 | `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into raw event storage |
 
