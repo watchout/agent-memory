@@ -11,6 +11,25 @@
 
 ---
 
+## Current Release Gate
+
+The active public-release gate is now
+[`docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md`](operations/WORLD_CLASS_RELEASE_CRITERIA.md).
+
+This implementation plan remains the historical execution plan for OSS critical
+gaps. For current release decisions, use the world-class criteria document to
+separate:
+
+- internal opt-in
+- internal default
+- MCP public alpha
+- world-class public release
+
+AM-034 defines the shortest credible path to MCP public alpha while keeping the
+final bar high enough for serious technology teams to evaluate.
+
+---
+
 ## 0. Executive Summary
 
 ### 現状
