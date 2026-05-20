@@ -6,10 +6,11 @@
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
 import { SqliteStore } from "./stores/sqlite-store.js";
-import { rmSync, existsSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { homedir, tmpdir } from "os";
 import { stripOrphanSurrogates } from "./sanitize.js";
+import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
@@ -737,6 +738,57 @@ async function testConversationEvents() {
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
 }
 
+async function testClaudeConversationIngest() {
+  console.log("\n── SqliteStore Claude Conversation Ingest ──");
+
+  const root = mkdtempSync(join(tmpdir(), "am031-sqlite-claude-ingest-"));
+  const projectDir = join(root, "project-a");
+  mkdirSync(projectDir, { recursive: true });
+  const logPath = join(projectDir, "session-sqlite.jsonl");
+  const home = homedir();
+  writeFileSync(
+    logPath,
+    [
+      JSON.stringify({
+        type: "user",
+        timestamp: "2026-05-19T00:00:00.000Z",
+        sessionId: "session-sqlite",
+        message: { content: `DATABASE_URL=postgres://user:pass@localhost/db ${home}/Developer/agent-memory xoxp-123456789012-abcdefghijkl https://discord.com/api/webhooks/123456/secret-token` },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        timestamp: "2026-05-19T00:01:00.000Z",
+        sessionId: "session-sqlite",
+        message: { content: [{ type: "text", text: "Persist this Claude event." }] },
+      }),
+    ].join("\n") + "\n"
+  );
+
+  const agentId = `${AGENT}-claude-ingest`;
+  const first = await ingestClaudeConversationEvents(store, agentId, {
+    project: PROJECT,
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+  const second = await ingestClaudeConversationEvents(store, agentId, {
+    project: PROJECT,
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+
+  assert(first.events_saved === 2, "ingest saves SQLite raw events");
+  assert(second.events_duplicate === 2, "ingest is idempotent in SQLite");
+  const events = await store.getConversationEvents({ agent_id: agentId, source: "claude_code" });
+  assert(events.length === 2, "SQLite stores unique Claude events");
+  const combined = events.map((e) => e.content).join("\n");
+  assert(!combined.includes("postgres://user:pass"), "DATABASE_URL redacted");
+  assert(!combined.includes("xoxp-"), "Slack token redacted in SQLite ingest");
+  assert(!combined.includes("discord.com/api/webhooks"), "Discord webhook URL redacted in SQLite ingest");
+  assert(combined.includes("~/Developer/agent-memory"), "home path normalized in SQLite ingest");
+
+  rmSync(root, { recursive: true, force: true });
+}
+
 async function testStripOrphanSurrogates() {
   console.log("\n── stripOrphanSurrogates (search_memory bug fix) ──");
 
@@ -853,6 +905,7 @@ async function run() {
     await testExpireStaleTaskStates();
     await testGetRecentMessages();
     await testConversationEvents();
+    await testClaudeConversationIngest();
     await testStripOrphanSurrogates();
     await testPersistence();
   } finally {

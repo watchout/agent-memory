@@ -41,6 +41,7 @@ com: memに依存しない（watchdogはmemなしでも動く）
 | get_knowledge | ✅ | ナレッジの取得 | status?(enum:active/merged/archived/all), tags?(str[]), project?(str), limit?(num,1-100) | Knowledge[] |
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
+| ingest_conversation_events | ✅ | raw会話イベント取り込み | source?(enum:claude_code), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
 
 ## recover_context — Current vs Required
 
