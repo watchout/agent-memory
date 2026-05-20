@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, estimateTokens } from "./constants.js";
 import { generateRestartPack } from "./restart-pack.js";
+import { redactText } from "./redact.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -32,8 +33,10 @@ export interface CodexStartCliOptions {
   extraInstruction?: string;
 }
 
+export const CODEX_STARTUP_BRIDGE_ENV = "codex_startup_bridge_v1";
+
 export function buildCodexStartupPrompt(input: CodexStartupPromptInput): string {
-  return [
+  const prompt = [
     "You are starting a fresh Codex session with wasurezu restart recovery context.",
     "",
     "Before claiming that prior context is unavailable, read and use the embedded restart_pack below.",
@@ -54,6 +57,7 @@ export function buildCodexStartupPrompt(input: CodexStartupPromptInput): string 
   ]
     .filter(Boolean)
     .join("\n");
+  return redactText(prompt).text;
 }
 
 export function parseArgs(args: string[]): CodexStartCliOptions {
@@ -135,11 +139,10 @@ async function run() {
 }
 
 function launchCodex(options: CodexStartCliOptions, prompt: string): Promise<void> {
-  const args = options.cd ? ["--cd", options.cd, prompt] : [prompt];
   return new Promise((resolve, reject) => {
-    const child = spawn(options.codexBin, args, {
+    const child = spawn(options.codexBin, buildCodexLaunchArgs(options, prompt), {
       stdio: "inherit",
-      env: process.env,
+      env: buildCodexLaunchEnv(process.env),
     });
     child.on("error", reject);
     child.on("exit", (code, signal) => {
@@ -150,6 +153,17 @@ function launchCodex(options: CodexStartCliOptions, prompt: string): Promise<voi
       reject(new Error(`codex exited with ${signal ?? code}`));
     });
   });
+}
+
+export function buildCodexLaunchArgs(options: Pick<CodexStartCliOptions, "cd">, prompt: string): string[] {
+  return options.cd ? ["--cd", options.cd, prompt] : [prompt];
+}
+
+export function buildCodexLaunchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    AGENT_MEMORY_STARTUP_BRIDGE: CODEX_STARTUP_BRIDGE_ENV,
+  };
 }
 
 function requireValue(args: string[], index: number, flag: string): string {

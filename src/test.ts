@@ -11,7 +11,13 @@ import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js"
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
-import { buildCodexStartupPrompt, parseArgs } from "./codex-start.js";
+import {
+  CODEX_STARTUP_BRIDGE_ENV,
+  buildCodexLaunchArgs,
+  buildCodexLaunchEnv,
+  buildCodexStartupPrompt,
+  parseArgs,
+} from "./codex-start.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -1273,7 +1279,7 @@ function testCodexStartupBridge() {
       "CURRENT OBJECTIVE",
       "Stabilize queue consumer",
       "NEXT CONCRETE ACTION",
-      "Verify DB row 74155 and GitHub SSOT before merge.",
+      "Verify DB row 74155 and GitHub SSOT before merge. Never leak sk-test-AKIAIOSFODNN7EXAMPLE.",
     ].join("\n"),
     extraInstruction: "Use the canonical ~/Developer/codex workspace.",
   });
@@ -1284,6 +1290,8 @@ function testCodexStartupBridge() {
   assert(prompt.includes("verify GitHub state with the GitHub SSOT"), "Codex startup prompt requires GitHub SSOT for PR/status");
   assert(prompt.includes("SESSION RESTART PACK"), "Codex startup prompt embeds restart_pack");
   assert(prompt.includes("Use the canonical ~/Developer/codex workspace."), "Codex startup prompt includes extra instruction");
+  assert(!prompt.includes("sk-test"), "Codex startup prompt applies secondary redaction to compound secret prefix");
+  assert(!prompt.includes("AKIAIOSFODNN7EXAMPLE"), "Codex startup prompt applies secondary redaction to AWS-shaped suffix");
 
   const parsed = parseArgs(["--launch", "--cd", "/tmp/work", "--codex-bin", "codex-dev", "--max-tokens", "900", "--extra", "Probe R1 first."]);
   assert(parsed.launch === true, "Codex startup parser enables launch mode");
@@ -1291,6 +1299,30 @@ function testCodexStartupBridge() {
   assert(parsed.codexBin === "codex-dev", "Codex startup parser reads --codex-bin");
   assert(parsed.maxTokens === 900, "Codex startup parser reads --max-tokens");
   assert(parsed.extraInstruction === "Probe R1 first.", "Codex startup parser reads --extra");
+
+  const printAfterLaunch = parseArgs(["--launch", "--print"]);
+  assert(printAfterLaunch.launch === false, "Codex startup parser lets later --print disable launch");
+
+  const launchArgs = buildCodexLaunchArgs({ cd: "/tmp/work" }, "hello");
+  assert(launchArgs[0] === "--cd" && launchArgs[1] === "/tmp/work" && launchArgs[2] === "hello", "Codex launch args pass --cd before prompt");
+
+  const launchEnv = buildCodexLaunchEnv({ EXISTING_ENV: "kept" });
+  assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
+  assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
+
+  try {
+    parseArgs(["--max-tokens", "-1"]);
+    assert(false, "Codex startup parser rejects negative --max-tokens");
+  } catch {
+    assert(true, "Codex startup parser rejects negative --max-tokens");
+  }
+
+  try {
+    parseArgs(["--cd"]);
+    assert(false, "Codex startup parser rejects missing --cd value");
+  } catch {
+    assert(true, "Codex startup parser rejects missing --cd value");
+  }
 }
 
 function testConversationScopeSchemaRegression() {
