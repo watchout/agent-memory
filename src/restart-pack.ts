@@ -64,6 +64,12 @@ function buildSections(data: RestartPackData): string[] {
   const active = data.activeTasks[0];
   const blocked = data.blockedTasks[0];
   const primaryTask = active ?? blocked;
+  const hasRecentConversation = data.conversationEvents.length > 0;
+  const relevanceBasis = primaryTask ? primaryTask.task : "";
+  const relevantDecisions = primaryTask ? filterRelevant(data.decisions, relevanceBasis, decisionText) : data.decisions;
+  const relevantKnowledge = primaryTask ? filterRelevant(data.knowledge, relevanceBasis, knowledgeText) : data.knowledge;
+  const hiddenStructuredCount =
+    data.decisions.length - relevantDecisions.length + data.knowledge.length - relevantKnowledge.length;
 
   sections.push(
     [
@@ -80,7 +86,9 @@ function buildSections(data: RestartPackData): string[] {
       "CURRENT OBJECTIVE",
       primaryTask
         ? primaryTask.task
-        : "No current objective found in structured memory.",
+        : hasRecentConversation
+          ? "No structured current objective found. Recent conversation events are available; recover the latest objective with search_memory scope=conversation before acting."
+          : "No current objective found in structured memory.",
     ].join("\n")
   );
 
@@ -97,7 +105,10 @@ function buildSections(data: RestartPackData): string[] {
   sections.push(
     [
       "NEXT CONCRETE ACTION",
-      primaryTask?.next_steps ?? "No next action recorded.",
+      primaryTask?.next_steps ??
+        (hasRecentConversation
+          ? "Run search_memory with scope=conversation for the latest user request, then update task_state before continuing."
+          : "No next action recorded."),
     ].join("\n")
   );
 
@@ -112,9 +123,21 @@ function buildSections(data: RestartPackData): string[] {
     ].join("\n")
   );
 
-  if (data.decisions.length > 0) {
+  if (hiddenStructuredCount > 0) {
     sections.push(
-      ["RECENT DECISIONS", ...data.decisions.map((decision) => `- ${decision.decision}`)].join("\n")
+      [
+        "STRUCTURED MEMORY CAUTION",
+        `${hiddenStructuredCount} older decision/knowledge items were omitted because they did not match the current task. Use targeted search_memory only if the restart pack feels incomplete.`,
+      ].join("\n")
+    );
+  }
+
+  if (relevantDecisions.length > 0) {
+    const decisionsTitle = !primaryTask && hasRecentConversation
+      ? "RECENT DECISIONS (VERIFY AGAINST CONVERSATION)"
+      : "RECENT DECISIONS";
+    sections.push(
+      [decisionsTitle, ...relevantDecisions.map((decision) => `- ${clipLine(decision.decision, 260)}`)].join("\n")
     );
   }
 
@@ -123,16 +146,20 @@ function buildSections(data: RestartPackData): string[] {
     sections.push(["RELEVANT FILES", ...files.map((file) => `- ${renderPath(file)}`)].join("\n"));
   }
 
-  const refs = collectRefs(data);
+  const refs = collectRefs({
+    ...data,
+    decisions: relevantDecisions,
+    knowledge: relevantKnowledge,
+  }, !primaryTask && hasRecentConversation);
   if (refs.length > 0) {
     sections.push(["RELEVANT PRS / ISSUES / BRANCHES", ...refs.map((ref) => `- ${ref}`)].join("\n"));
   }
 
-  if (data.knowledge.length > 0) {
+  if (relevantKnowledge.length > 0) {
     sections.push(
       [
         "KEY KNOWLEDGE",
-        ...data.knowledge.map((item) => `- ${item.title}: ${item.content.slice(0, 220)}`),
+        ...relevantKnowledge.map((item) => `- ${clipLine(`${item.title}: ${item.content}`, 260)}`),
       ].join("\n")
     );
   }
@@ -189,6 +216,63 @@ function summarizeRecentConversation(events: ConversationEvent[]): string | null
   ].join("\n");
 }
 
+function clipLine(text: string, maxChars: number): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  return compact.length > maxChars ? compact.slice(0, maxChars - 15) + " ...(truncated)" : compact;
+}
+
+function decisionText(decision: Decision): string {
+  return [decision.decision, decision.context ?? "", ...decision.tags].join(" ");
+}
+
+function knowledgeText(item: Knowledge): string {
+  return [item.title, item.content, ...item.tags].join(" ");
+}
+
+function filterRelevant<T>(items: T[], basis: string, render: (item: T) => string): T[] {
+  const basisTokens = relevanceTokens(basis);
+  const basisAnchors = basisTokens.filter(isAnchorToken);
+  if (basisTokens.length === 0) return items.slice(0, 3);
+  return items
+    .map((item) => ({
+      item,
+      tokens: relevanceTokens(render(item)),
+    }))
+    .map(({ item, tokens }) => ({
+      item,
+      hasRequiredAnchor: basisAnchors.length === 0 || tokens.some((token) => basisAnchors.includes(token)),
+      score: tokens.filter((token) => basisTokens.includes(token)).length,
+    }))
+    .filter(({ score, hasRequiredAnchor }) => hasRequiredAnchor && score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item)
+    .slice(0, 3);
+}
+
+function isAnchorToken(token: string): boolean {
+  return /^(?:am-\d+|pr[#-]?\d+|issue[#-]?\d+|#[0-9]+)$/i.test(token);
+}
+
+function relevanceTokens(text: string): string[] {
+  const compactRefs = normalizeRefs(text.toLowerCase());
+  const matches = compactRefs.match(/am-\d+|pr[#-]?\d+|issue[#-]?\d+|#[0-9]+|[a-z0-9][a-z0-9_-]{3,}/g) ?? [];
+  const stop = new Set([
+    "with",
+    "from",
+    "after",
+    "before",
+    "current",
+    "status",
+    "tests",
+    "build",
+    "branch",
+    "worktree",
+    "developer",
+    "users",
+  ]);
+  return Array.from(new Set(matches.filter((token) => !stop.has(token))));
+}
+
 function collectFiles(tasks: TaskState[]): string[] {
   const seen = new Set<string>();
   for (const task of tasks) {
@@ -199,19 +283,27 @@ function collectFiles(tasks: TaskState[]): string[] {
   return Array.from(seen).slice(0, 12);
 }
 
-function collectRefs(data: RestartPackData): string[] {
-  const text = [
+function collectRefs(data: RestartPackData, structuredMemoryNeedsVerification = false): string[] {
+  const taskText = [
     ...data.activeTasks,
     ...data.blockedTasks,
-    ...data.completedTasks,
   ]
-    .map((task) => [task.task, task.progress, task.next_steps].filter(Boolean).join(" "))
-    .concat(data.decisions.map((decision) => `${decision.decision} ${decision.context ?? ""}`))
-    .concat(data.knowledge.map((item) => `${item.title} ${item.content}`))
-    .join("\n");
+    .map((task) => [task.task, task.progress, task.next_steps].filter(Boolean).join(" "));
+  const structuredText = structuredMemoryNeedsVerification
+    ? []
+    : data.decisions
+        .map((decision) => decision.decision)
+        .concat(data.knowledge.map((item) => `${item.title} ${item.content}`));
+  const text = normalizeRefs(taskText.concat(structuredText).join("\n"));
 
-  const matches = text.match(/\b(?:PR[#-]?\d+|ISSUE[#-]?\d+|AM-\d+|#[0-9]+|[a-zA-Z0-9._/-]+\/[a-zA-Z0-9._/-]+)\b/g) ?? [];
+  const matches = text.match(/\b(?:PR[#-]?\d+|ISSUE[#-]?\d+|AM-\d+|#[0-9]+)\b/gi) ?? [];
   return Array.from(new Set(matches)).slice(0, 12);
+}
+
+function normalizeRefs(text: string): string {
+  return text
+    .replace(/\b(PR)\s+#?\s*(\d+)\b/gi, "$1#$2")
+    .replace(/\b(ISSUE)\s+#?\s*(\d+)\b/gi, "$1#$2");
 }
 
 export function renderPath(path: string, cwd: string = process.cwd()): string {
