@@ -36,7 +36,7 @@ com: memに依存しない（watchdogはmemなしでも動く）
 | get_decisions | ✅ | 判断記録の取得 | project?(str), tags?(str[]), limit?(num), status?(enum) | Decision[] |
 | supersede_decision | ✅ | 判断の上書き | old_decision_id(uuid), new_decision(str), context?(str), tags?(str[]), project?(str) | {old, new} |
 | save_task_state | ✅ | タスク状態の保存 | task(str), status(enum), progress?(str), files_modified?(str[]), next_steps?(str), project?(str) | TaskState |
-| search_memory | ✅ | 横断検索 | query(str), scope?(enum), limit?(num), project?(str) | SearchMemoryResult |
+| search_memory | ✅ | 横断検索 | query(str), scope?(enum:decisions/tasks/knowledge/messages/conversation/all), limit?(num), project?(str) | SearchMemoryResult |
 | save_knowledge | ✅ | ナレッジの保存 | title(str,min1), content(str,min1), source_type?(enum:manual/decisions/messages), tags?(str[]), project?(str) | Knowledge object |
 | get_knowledge | ✅ | ナレッジの取得 | status?(enum:active/merged/archived/all), tags?(str[]), project?(str), limit?(num,1-100) | Knowledge[] |
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |

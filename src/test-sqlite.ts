@@ -505,6 +505,23 @@ async function testSearchMemory() {
     limit: 1,
   });
   assert(limited.decisions.length <= 1, "limit parameter works");
+
+  await store.saveConversationEvent({
+    agent_id: `${AGENT}-conversation-search`,
+    project: PROJECT,
+    source: "codex",
+    source_event_id: "search-conversation-event",
+    role: "assistant",
+    content: "Restart pack validation should continue from conversation memory.",
+    occurred_at: "2026-05-19T00:02:00.000Z",
+  });
+  const conversationOnly = await store.searchMemory({
+    agent_id: `${AGENT}-conversation-search`,
+    query: "restart",
+    scope: "conversation",
+  });
+  assert(conversationOnly.conversation_events.length >= 1, "search finds conversation event");
+  assert(conversationOnly.decisions.length === 0 && conversationOnly.task_states.length === 0, "scope=conversation excludes structured memory");
 }
 
 async function testJapaneseSearch() {

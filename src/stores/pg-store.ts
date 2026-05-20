@@ -422,6 +422,7 @@ export class PgStore implements Store {
     let taskStates: TaskState[] = [];
     let knowledgeItems: Knowledge[] = [];
     let messages: AgentMessage[] = [];
+    let conversationEvents: ConversationEvent[] = [];
 
     if (scope === "decisions" || scope === "all") {
       const conditions: string[] = ["agent_id = $1", "embedding IS NOT NULL"];
@@ -479,8 +480,11 @@ export class PgStore implements Store {
     if (scope === "messages" || scope === "all") {
       messages = await this.searchMessagesText(input);
     }
+    if (scope === "conversation" || scope === "all") {
+      conversationEvents = await this.searchConversationEventsText(input);
+    }
 
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages };
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages, conversation_events: conversationEvents };
   }
 
   /**
@@ -613,8 +617,58 @@ export class PgStore implements Store {
     if (scope === "messages" || scope === "all") {
       messages = await this.searchMessagesText(input);
     }
+    let conversationEvents: ConversationEvent[] = [];
+    if (scope === "conversation" || scope === "all") {
+      conversationEvents = await this.searchConversationEventsText(input);
+    }
 
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages };
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages, conversation_events: conversationEvents };
+  }
+
+  private async searchConversationEventsText(input: SearchMemoryInput): Promise<ConversationEvent[]> {
+    const limit = input.limit || 5;
+    const rawTokens = input.query.split(/\s+/).filter(Boolean);
+    const keywords: string[] = [];
+    for (const token of rawTokens) {
+      const parts = token.split(/(?<=[\u3000-\u9fff\uf900-\ufaff])(?=[a-z0-9])|(?<=[a-z0-9])(?=[\u3000-\u9fff\uf900-\ufaff])/i).filter(Boolean);
+      keywords.push(...parts);
+    }
+    if (keywords.length === 0) return [];
+
+    const tsQuery = keywords
+      .map((w) => w.replace(/[^\w\u3000-\u9fff\uf900-\ufaff]/g, ""))
+      .filter(Boolean)
+      .join(" | ");
+    const likePatterns = keywords.map((w) => `%${w}%`);
+
+    const conditions: string[] = ["agent_id = $1"];
+    const params: unknown[] = [input.agent_id];
+    let pi = 2;
+    if (input.project) {
+      conditions.push(`project = $${pi++}`);
+      params.push(input.project);
+    }
+
+    const searchClauses: string[] = [];
+    if (tsQuery) {
+      searchClauses.push(`to_tsvector('simple', coalesce(content,'')) @@ to_tsquery('simple', $${pi++})`);
+      params.push(tsQuery);
+    }
+    const likeClause = likePatterns.map((_, i) =>
+      `(coalesce(content,'') || ' ' || coalesce(role,'') || ' ' || coalesce(source,'')) ILIKE $${pi + i}`
+    ).join(" OR ");
+    searchClauses.push(`(${likeClause})`);
+    for (const pat of likePatterns) params.push(pat);
+
+    conditions.push(`(${searchClauses.join(" OR ")})`);
+    const result = await this.pool.query(
+      `SELECT * FROM conversation_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC
+       LIMIT ${limit}`,
+      params
+    );
+    return result.rows.map((row: Record<string, unknown>) => this.rowToConversationEvent(row));
   }
 
   /**

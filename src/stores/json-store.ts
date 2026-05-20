@@ -307,8 +307,25 @@ export class JsonStore implements Store {
         .slice(0, limit);
     }
 
+    let conversationEvents: ConversationEvent[] = [];
+
+    if (scope === "conversation" || scope === "all") {
+      conversationEvents = this.conversationEvents
+        .filter((event) => {
+          if (event.agent_id !== input.agent_id) return false;
+          if (input.project && event.project !== input.project) return false;
+          const searchText = [event.content, event.role || "", event.source].join(" ");
+          return matchesAny(searchText);
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+        )
+        .slice(0, limit);
+    }
+
     // messages search not available in JSON mode (requires agent-comms DB)
-    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [] };
+    return { decisions, task_states: taskStates, knowledge: knowledgeItems, messages: [], conversation_events: conversationEvents };
   }
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
