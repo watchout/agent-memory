@@ -314,3 +314,127 @@ Add these to the next fresh-session run:
 - Remaining INFO for run 2:
   - SQLite conversation ranking still ranks after fetching the newest `limit * 5` candidates.
   - Non-ticket active tasks should still be probed to ensure anchor filtering does not hide important knowledge.
+
+---
+
+## Run 2 Evaluation On Merged Main
+
+- Date: 2026-05-20
+- Evaluator: Codex
+- Commit under test: b664200c3bd5ef33df2573698caf214da75ba7fe (`fix(AM-031): harden restart recovery relevance`)
+- PR: #88 merged
+- DB backend: PostgreSQL
+- Project for controlled probes: `agent-memory-run2`
+- CTO live restart sample: included as smoke / friction evidence, not used as a seamless-recovery proof
+- CTO recovery_quality_log: 9a8abe0f-68dc-4cc8-ab5b-84c950fec134
+
+### Baseline Verification
+
+- `npm test`: 161 passed, 0 failed
+- `npx tsc --noEmit`: passed
+- `npm run build`: passed
+- `npx tsx src/test-boot-recovery.ts`: 16 passed, 0 failed
+- `git diff --check`: passed
+
+### CTO Live Restart Smoke
+
+- `restart_pack` boot: pass
+- Current objective recovered: `AM-031 run 2 recovery evaluation after L3 conditional PASS and ref fix`
+- Next action recovered: live MCP reload followed by run 2 additional probes
+- Result: useful but not seamless
+- Notes:
+  - The CTO restart required substantial search/reconstruction after restart.
+  - This validates live MCP / restart_pack availability, but does not prove "same as before restart" user experience.
+  - Treat this as deployment smoke and friction evidence.
+
+### Controlled Probe Results
+
+| Probe | Result | Evidence |
+|-------|--------|----------|
+| Unrelated active task | pass | `Implement OAuth flow` recovered; AM-031 stale memory omitted behind `STRUCTURED MEMORY CAUTION`. |
+| No active task, conversation only | pass | restart_pack surfaced `search_memory scope=conversation` fallback hint and did not emit the raw request. |
+| No-anchor task title | pass | `Implement caching layer` surfaced relevant caching knowledge through token-overlap fallback. |
+| Multi-anchor + space-separated refs | pass | `AM-031 + PR #84 and issue #12` surfaced refs as `AM-031`, `PR#84`, `issue#12`. |
+| Large structured memory set | pass | 110+ decisions did not bury the relevant `AM-777` item; pack generation was 13ms in the direct probe. |
+| PostgreSQL conversation ranking | pass | assistant/user content ranked above `token_count` / `turn_context` low-signal events in built-code direct probe. |
+| Safety redaction | fail on merged main, pass after local fix | `sk-test-AKIA...` became `sk-test-[REDACTED]` before the local fix because AWS-key redaction ran before `sk-*` redaction. |
+| Cross-backend ranking parity | info | JSON path covered by unit test; PostgreSQL direct probe passed; SQLite `limit * 5` candidate-window risk remains INFO. |
+
+### Safety Fix From Run 2
+
+- Finding: merged main left the `sk-test-` prefix visible when a compound fixture such as `sk-test-AKIAIOSFODNN7EXAMPLE` was redacted.
+- Root cause: `AKIA...` redaction ran before `sk-*` redaction, replacing only the AWS-shaped suffix.
+- Local fix:
+  - Move `sk-*` secret pattern before `AKIA...` in `src/redact.ts`.
+  - Add restart_pack regression for compound secret prefixes in `src/test.ts`.
+  - Add direct `redactText()` regression fixtures for compound, standalone AWS, and standalone OpenAI-style keys.
+- Post-fix verification:
+  - `npm test`: 167 passed, 0 failed
+  - `npx tsc --noEmit`: passed
+  - `npm run build`: passed
+  - `npx tsx src/test-boot-recovery.ts`: 16 passed, 0 failed
+  - `git diff --check`: passed
+  - Direct PostgreSQL safety probe no longer contains `sk-test`, `sk-`, `AKIAIOSFODNN7EXAMPLE`, `dev@example.com`, or `/Users/yuji/Developer/private`.
+
+### Redaction Fix Audit
+
+- Auditor: L2
+- Verdict: LGTM
+- Blocking issues: none
+- Merge recommendation: merge this follow-up PR.
+- Default-ready blocker status: resolved after this fix is merged and live MCP is reloaded.
+- Audit notes:
+  - Applying `sk-*` before `AKIA...` is the correct ordering.
+  - Direct checks confirmed compound, standalone AWS, standalone OpenAI-style, and env-var-like inputs are redacted.
+  - Additional direct `redactText()` fixtures are optional but useful; they were added after the audit.
+
+### Redaction Fix L1 Audit Result
+
+- Auditor: claude-direct / dev-auditor
+- Verdict: PASS / LGTM
+- Blocking issues: none
+- Merge recommendation: yes
+- Default-ready promotion blocker: conditionally resolved by merging this fix, reloading live MCP, and re-probing safety in the live process.
+
+#### Audit Conclusions
+
+- Redaction ordering is correct. `sk-*` now runs before `AKIA...`, so compound values such as `sk-test-AKIAIOSFODNN7EXAMPLE` are consumed as one secret instead of leaving a `sk-test-` prefix.
+- The change is low-risk because the `sk-*` pattern starts with a literal `sk-` and does not overlap with `gho_`, `github_pat_`, `xox*`, standalone `AKIA`, `AIza`, bearer, JWT, or generic env-var patterns.
+- The restart_pack regression pins the actual leak path: raw knowledge content can reach the restart pack, and output-boundary `redactText()` must remove the compound prefix.
+- The governance call is correct: merged main fails safety, local fix passes at 27/30, and default-ready promotion must wait for fix merge plus live MCP reload.
+
+#### Follow-Up Secret Coverage Ideas
+
+These are outside this fix's scope:
+
+- Stripe-style `sk_test_` / `sk_live_` underscore keys.
+- Multi-line PEM private keys.
+- URL query params containing secrets.
+- Markdown code-fenced secrets.
+- SQL string literal secrets.
+- Multiple adjacent secrets.
+- Additional webhook fixtures.
+
+### Run 2 Scorecard
+
+Score is recorded post-local-safety-fix. It must not be used for default promotion until the redaction fix is merged.
+
+| Dimension | Score |
+|-----------|-------|
+| S1 Current objective recovery | 5/5 |
+| S2 Next action quality | 4/5 |
+| S3 Status accuracy | 4/5 |
+| S4 Conversation search fallback | 4/5 |
+| S5 Structured memory reconstruction | 5/5 |
+| S6 Safety and uncertainty handling | 5/5 |
+| Total | 27/30 |
+
+### Run 2 Verdict
+
+- Post-fix pass level: default-ready candidate run 2/2
+- Automatic failure triggered after local fix: no
+- Default-ready promotion: blocked until the run 2 redaction fix is merged and reloaded in live MCP.
+- Rollout recommendation:
+  - Merge the redaction fix as a small follow-up.
+  - Reload live MCP.
+  - Then begin staged opt-in rollout; do not globally default-enable all bots from this run alone because CTO smoke was useful but not seamless.

@@ -10,6 +10,7 @@ import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
+import { redactText } from "./redact.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -862,6 +863,18 @@ async function testConversationEvents() {
   await store.close();
 }
 
+function testRedaction() {
+  console.log("\n── Redaction Tests ──");
+  const compound = redactText("secret sk-test-AKIAIOSFODNN7EXAMPLE");
+  assert(!compound.text.includes("sk-test"), "compound secret redacts sk-test prefix");
+  assert(!compound.text.includes("sk-"), "compound secret redacts sk- prefix");
+  assert(!compound.text.includes("AKIAIOSFODNN7EXAMPLE"), "compound secret redacts AWS suffix");
+
+  const standalone = redactText("aws AKIAIOSFODNN7EXAMPLE openai sk-abcdefghijklmnopqrstuvwxyz123456");
+  assert(!standalone.text.includes("AKIAIOSFODNN7EXAMPLE"), "standalone AWS key redacted");
+  assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
+}
+
 async function testClaudeConversationIngest() {
   console.log("\n── Claude Conversation Ingest Tests (JsonStore) ──");
   const store = new JsonStore();
@@ -1140,6 +1153,14 @@ async function testRestartPack() {
     content: "Older unrelated catch-up notes should not dominate a restart pack.",
     source_type: "manual",
   });
+  await store.saveKnowledge({
+    agent_id: agentId,
+    project,
+    title: "AM-031 safety fixture",
+    content: "Do not leak sk-test-AKIAIOSFODNN7EXAMPLE through restart_pack output.",
+    source_type: "manual",
+    tags: ["AM-031", "security"],
+  });
   await store.saveConversationEvent({
     agent_id: agentId,
     project,
@@ -1189,6 +1210,7 @@ async function testRestartPack() {
   assert(output.includes("claude_code/user"), "restart_pack summarizes Claude-derived conversation metadata");
   assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit raw conversation excerpt");
   assert(!output.includes("sk-"), "restart_pack redacts secrets at output boundary");
+  assert(!output.includes("sk-test"), "restart_pack redacts compound secret prefixes");
   assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
   assert(!output.includes(`${home}/Developer`), "restart_pack does not emit full home path");
 
@@ -1272,6 +1294,7 @@ async function run() {
   await testKnowledgeSupersede();
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
+  testRedaction();
   await testConversationEvents();
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
