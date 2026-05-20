@@ -19,6 +19,10 @@
 
 **前提**: agent-memory は既に本番環境で IYASAKA 内部 bot 群（CTO、agent-com-dev 他）に適用され、数日間の稼働実績がある。評価はその実運用データを元に行う。
 
+Session restart 単体の詳細な評価手順、採点基準、fallback 手順は
+[`docs/operations/RECOVERY_EVALUATION.md`](operations/RECOVERY_EVALUATION.md)
+を正とする。本フレームワークの Category C はその集計結果を参照する。
+
 ---
 
 ## 1. 評価対象の範囲
