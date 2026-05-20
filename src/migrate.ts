@@ -82,6 +82,30 @@ const MIGRATIONS = [
   // ─── AM-024: knowledge supersede columns (#57) ────────────────
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
+
+  // ─── AM-031: raw conversation/log events ─────────────────────
+  `CREATE TABLE IF NOT EXISTS conversation_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    source TEXT NOT NULL,
+    source_event_id TEXT,
+    source_path TEXT,
+    role TEXT,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_source_event
+     ON conversation_events (agent_id, source, source_event_id)
+     WHERE source_event_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_hash_time
+     ON conversation_events (agent_id, source, content_hash, occurred_at)
+     WHERE source_event_id IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
+     ON conversation_events (agent_id, source, occurred_at DESC)`,
 ];
 
 async function migrate() {

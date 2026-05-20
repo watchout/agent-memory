@@ -23,7 +23,7 @@ function assert(condition: boolean, msg: string) {
 }
 
 async function cleanup() {
-  const files = ["decisions.json", "task-states.json", "knowledge.json"];
+  const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json"];
   for (const f of files) {
     const path = join(TEST_DIR, f);
     if (existsSync(path)) rmSync(path);
@@ -796,6 +796,51 @@ async function testErrorHandling() {
   await store.close();
 }
 
+async function testConversationEvents() {
+  console.log("\n── Conversation Event Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const first = await store.saveConversationEvent({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    source: "codex",
+    source_event_id: "codex-event-1",
+    role: "assistant",
+    content: "We should continue AM-031 from the raw event storage PR.",
+    metadata: { file: "src/stores/types.ts" },
+    occurred_at: "2026-05-19T00:00:00.000Z",
+  });
+  const duplicate = await store.saveConversationEvent({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    source: "codex",
+    source_event_id: "codex-event-1",
+    role: "assistant",
+    content: "We should continue AM-031 from the raw event storage PR.",
+    occurred_at: "2026-05-19T00:00:00.000Z",
+  });
+  await store.saveConversationEvent({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    source: "claude_code",
+    source_event_id: "claude-event-1",
+    role: "user",
+    content: "Session restart should recover the active task.",
+    occurred_at: "2026-05-19T00:01:00.000Z",
+  });
+
+  assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
+  const all = await store.getConversationEvents({ agent_id: "test-agent" });
+  assert(all.length === 2, "getConversationEvents returns unique raw events");
+  assert(all[0].source === "claude_code", "events sorted newest first");
+  const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
+  assert(codexOnly.length === 1, "source filter works");
+  assert(codexOnly[0].metadata.file === "src/stores/types.ts", "metadata round-trips");
+
+  await store.close();
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -814,6 +859,7 @@ async function run() {
   await testKnowledgeSupersede();
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
+  await testConversationEvents();
 
   await cleanup();
 

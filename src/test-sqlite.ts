@@ -696,6 +696,47 @@ async function testGetRecentMessages() {
   assert(Array.isArray(msgs) && msgs.length === 0, "getRecentMessages returns empty array");
 }
 
+async function testConversationEvents() {
+  console.log("\n── SqliteStore Conversation Events ──");
+
+  const first = await store.saveConversationEvent({
+    agent_id: AGENT,
+    project: PROJECT,
+    source: "codex",
+    source_event_id: "codex-event-1",
+    source_path: "~/.codex/sessions/session.jsonl",
+    role: "assistant",
+    content: "Continue AM-031 from raw event persistence.",
+    metadata: { tool: "codex" },
+    occurred_at: "2026-05-19T00:00:00.000Z",
+  });
+  const duplicate = await store.saveConversationEvent({
+    agent_id: AGENT,
+    project: PROJECT,
+    source: "codex",
+    source_event_id: "codex-event-1",
+    content: "Continue AM-031 from raw event persistence.",
+    occurred_at: "2026-05-19T00:00:00.000Z",
+  });
+  await store.saveConversationEvent({
+    agent_id: AGENT,
+    project: PROJECT,
+    source: "claude_code",
+    source_event_id: "claude-event-1",
+    role: "user",
+    content: "Recover this after a session restart.",
+    occurred_at: "2026-05-19T00:01:00.000Z",
+  });
+
+  assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
+  const all = await store.getConversationEvents({ agent_id: AGENT, project: PROJECT });
+  assert(all.length === 2, "getConversationEvents returns unique raw events");
+  assert(all[0].source === "claude_code", "events sorted newest first");
+  const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });
+  assert(codexOnly.length === 1, "source filter works");
+  assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
+}
+
 async function testStripOrphanSurrogates() {
   console.log("\n── stripOrphanSurrogates (search_memory bug fix) ──");
 
@@ -811,6 +852,7 @@ async function run() {
     await testRecoveryQualityLog();
     await testExpireStaleTaskStates();
     await testGetRecentMessages();
+    await testConversationEvents();
     await testStripOrphanSurrogates();
     await testPersistence();
   } finally {

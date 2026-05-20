@@ -1,4 +1,5 @@
 import pg from "pg";
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import type {
@@ -7,6 +8,7 @@ import type {
   TaskState,
   Knowledge,
   AgentMessage,
+  ConversationEvent,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -19,6 +21,8 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  SaveConversationEventInput,
+  GetConversationEventsInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -28,6 +32,10 @@ import {
 } from "./voyage.js";
 
 const { Pool } = pg;
+
+function contentHash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
 
 const MIGRATIONS = [
   // decisions table
@@ -166,6 +174,30 @@ const MIGRATIONS = [
   // re-running PgStore.initialize() is a no-op once applied.
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
+
+  // AM-031: provider-neutral raw conversation/log events.
+  `CREATE TABLE IF NOT EXISTS conversation_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    source TEXT NOT NULL,
+    source_event_id TEXT,
+    source_path TEXT,
+    role TEXT,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_source_event
+     ON conversation_events (agent_id, source, source_event_id)
+     WHERE source_event_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_events_hash_time
+     ON conversation_events (agent_id, source, content_hash, occurred_at)
+     WHERE source_event_id IS NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
+     ON conversation_events (agent_id, source, occurred_at DESC)`,
 ];
 
 export class PgStore implements Store {
@@ -679,6 +711,78 @@ export class PgStore implements Store {
     }
   }
 
+  async saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent> {
+    const id = uuidv4();
+    const hash = input.content_hash ?? contentHash(input.content);
+    const occurredAt = input.occurred_at ?? new Date().toISOString();
+    const result = await this.pool.query(
+      `INSERT INTO conversation_events
+        (id, agent_id, project, source, source_event_id, source_path, role,
+         content, content_hash, metadata, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+       ON CONFLICT DO NOTHING
+       RETURNING *`,
+      [
+        id,
+        input.agent_id,
+        input.project ?? null,
+        input.source,
+        input.source_event_id ?? null,
+        input.source_path ?? null,
+        input.role ?? null,
+        input.content,
+        hash,
+        JSON.stringify(input.metadata ?? {}),
+        occurredAt,
+      ]
+    );
+    if (result.rows[0]) return this.rowToConversationEvent(result.rows[0]);
+
+    const existing = input.source_event_id
+      ? await this.pool.query(
+          `SELECT * FROM conversation_events
+           WHERE agent_id = $1 AND source = $2 AND source_event_id = $3
+           LIMIT 1`,
+          [input.agent_id, input.source, input.source_event_id]
+        )
+      : await this.pool.query(
+          `SELECT * FROM conversation_events
+           WHERE agent_id = $1 AND source = $2 AND content_hash = $3 AND occurred_at = $4
+           LIMIT 1`,
+          [input.agent_id, input.source, hash, occurredAt]
+        );
+    return this.rowToConversationEvent(existing.rows[0]);
+  }
+
+  async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
+    const conditions: string[] = ["agent_id = $1"];
+    const params: unknown[] = [input.agent_id];
+    let pi = 2;
+    if (input.project) {
+      conditions.push(`project = $${pi}`);
+      params.push(input.project);
+      pi++;
+    }
+    if (input.source) {
+      conditions.push(`source = $${pi}`);
+      params.push(input.source);
+      pi++;
+    }
+    if (input.since) {
+      conditions.push(`occurred_at >= $${pi}`);
+      params.push(input.since);
+      pi++;
+    }
+    const result = await this.pool.query(
+      `SELECT * FROM conversation_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC
+       LIMIT ${input.limit ?? 50}`,
+      params
+    );
+    return result.rows.map((row: Record<string, unknown>) => this.rowToConversationEvent(row));
+  }
+
   async getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null> {
     try {
       const result = await this.pool.query(
@@ -1005,6 +1109,29 @@ export class PgStore implements Store {
         row.updated_at instanceof Date
           ? row.updated_at.toISOString()
           : (row.updated_at as string),
+    };
+  }
+
+  private rowToConversationEvent(row: Record<string, unknown>): ConversationEvent {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: row.project as string | undefined,
+      source: row.source as ConversationEvent["source"],
+      source_event_id: row.source_event_id as string | undefined,
+      source_path: row.source_path as string | undefined,
+      role: row.role as string | undefined,
+      content: row.content as string,
+      content_hash: row.content_hash as string,
+      metadata: (row.metadata as Record<string, unknown>) || {},
+      occurred_at:
+        row.occurred_at instanceof Date
+          ? row.occurred_at.toISOString()
+          : (row.occurred_at as string),
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : (row.created_at as string),
     };
   }
 }
