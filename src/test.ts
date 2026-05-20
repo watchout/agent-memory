@@ -11,6 +11,7 @@ import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js"
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
+import { buildCodexStartupPrompt, parseArgs } from "./codex-start.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -1262,6 +1263,36 @@ async function testRestartPack() {
   await store.close();
 }
 
+function testCodexStartupBridge() {
+  console.log("\n── Codex Startup Bridge Tests ──");
+  const prompt = buildCodexStartupPrompt({
+    agentId: "codex-cto",
+    project: "codex",
+    restartPack: [
+      "SESSION RESTART PACK",
+      "CURRENT OBJECTIVE",
+      "Stabilize queue consumer",
+      "NEXT CONCRETE ACTION",
+      "Verify DB row 74155 and GitHub SSOT before merge.",
+    ].join("\n"),
+    extraInstruction: "Use the canonical ~/Developer/codex workspace.",
+  });
+
+  assert(prompt.includes("agent_id=codex-cto, project=codex"), "Codex startup prompt names memory namespace");
+  assert(prompt.includes("Before claiming that prior context is unavailable"), "Codex startup prompt prevents generic no-context response");
+  assert(prompt.includes("search_memory with scope=conversation"), "Codex startup prompt requires conversation fallback");
+  assert(prompt.includes("verify GitHub state with the GitHub SSOT"), "Codex startup prompt requires GitHub SSOT for PR/status");
+  assert(prompt.includes("SESSION RESTART PACK"), "Codex startup prompt embeds restart_pack");
+  assert(prompt.includes("Use the canonical ~/Developer/codex workspace."), "Codex startup prompt includes extra instruction");
+
+  const parsed = parseArgs(["--launch", "--cd", "/tmp/work", "--codex-bin", "codex-dev", "--max-tokens", "900", "--extra", "Probe R1 first."]);
+  assert(parsed.launch === true, "Codex startup parser enables launch mode");
+  assert(parsed.cd === "/tmp/work", "Codex startup parser reads --cd");
+  assert(parsed.codexBin === "codex-dev", "Codex startup parser reads --codex-bin");
+  assert(parsed.maxTokens === 900, "Codex startup parser reads --max-tokens");
+  assert(parsed.extraInstruction === "Probe R1 first.", "Codex startup parser reads --extra");
+}
+
 function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
@@ -1299,6 +1330,7 @@ async function run() {
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
   await testRestartPack();
+  testCodexStartupBridge();
   testConversationScopeSchemaRegression();
 
   await cleanup();

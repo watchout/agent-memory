@@ -25,6 +25,30 @@
 3. **LICENSE/CONTRIBUTING 未配置**
 4. **ADF framework 半端** (7 hook 中 2 のみ、SSOT 全て placeholder)
 5. **mvp-spec と実装の設計乖離** (下記 §2 参照、**公開前に方針決定が必要**)
+6. **Codex startup recovery が自動適用されない** (MCP tools は使えるが、Codex は Claude Code の SessionStart stdout injection 相当を持たないため、restart_pack を初回応答で読まない)
+
+### 2026-05-21 優先順位更新
+
+AM-031 / PR #88 と PR #89 により `restart_pack` の relevance / safety は
+internal default-ready 水準に近づいた。一方で CTO Codex セッションの実リセットで、
+restart_pack は存在していたが初回応答に自動注入されず、ユーザーが明示的に
+読み込み指示を出すまで復旧しなかった。
+
+このため公開前の優先順位を次のように更新する:
+
+| Priority | Work | Gate |
+|----------|------|------|
+| P0 | AM-032 Codex startup restart_pack bridge | Public-alpha / world release blocker |
+| P0 | Claude Code SessionStart と Codex bridge の両方で recovery evaluation を再実行 | Public-alpha score evidence |
+| P1 | Internal opt-in rollout for dev bots | Default-ready rollout |
+| P1 | SQLite ranking parity / non-ticket anchor probes | Follow-up hardening |
+
+AM-032 の方針:
+
+- plain Codex MCP config は `restart_pack` tool を expose するだけで、自動復旧とは呼ばない。
+- Codex startup recovery は `wasurezu-codex-start` bridge 経由で、restart_pack を初期プロンプトに埋め込んで開始する。
+- 世界公開では「Claude Code は SessionStart hook」「Codex は startup bridge」と互換性の差を明記する。
+- `wasurezu-codex-start --launch --cd <workspace>` が public-alpha の Codex run で使う標準起動経路。
 
 ### 推奨アクション
 - **Path B (現行コードベースで進化) を採用**し、mvp-spec を現状に合わせて更新
