@@ -8,6 +8,7 @@
  * launch Codex with that prompt.
  */
 import { spawn } from "child_process";
+import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, estimateTokens } from "./constants.js";
@@ -199,11 +200,12 @@ Environment:
 `);
 }
 
-function isMain(metaUrl: string): boolean {
-  return process.argv[1] === fileURLToPath(metaUrl);
+export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string): boolean {
+  if (!argvPath) return false;
+  return realpathSync(argvPath) === realpathSync(fileURLToPath(metaUrl));
 }
 
-if (isMain(import.meta.url)) {
+if (isMainEntrypoint(process.argv[1], import.meta.url)) {
   run().catch((err) => {
     console.error(`[wasurezu-codex-start] ${err instanceof Error ? err.message : err}`);
     process.exit(1);

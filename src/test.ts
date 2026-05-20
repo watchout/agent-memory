@@ -4,8 +4,9 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
@@ -16,6 +17,7 @@ import {
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
   buildCodexStartupPrompt,
+  isMainEntrypoint,
   parseArgs,
 } from "./codex-start.js";
 
@@ -1309,6 +1311,19 @@ function testCodexStartupBridge() {
   const launchEnv = buildCodexLaunchEnv({ EXISTING_ENV: "kept" });
   assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
   assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
+
+  const distEntrypoint = join(process.cwd(), "dist/codex-start.js");
+  const symlinkDir = mkdtempSync(join(tmpdir(), "am032-codex-bin-"));
+  const symlinkPath = join(symlinkDir, "wasurezu-codex-start");
+  if (existsSync(distEntrypoint)) {
+    symlinkSync(distEntrypoint, symlinkPath);
+    assert(isMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
+    const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
+    assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
+  } else {
+    assert(true, "Codex startup bin symlink test skipped because dist/codex-start.js is absent");
+  }
+  rmSync(symlinkDir, { recursive: true, force: true });
 
   try {
     parseArgs(["--max-tokens", "-1"]);
