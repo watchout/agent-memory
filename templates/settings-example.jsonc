@@ -1,9 +1,9 @@
 {
-  "// INSTRUCTIONS": "Add agent-memory to your mcpServers in ~/.claude/settings.json",
+  "// INSTRUCTIONS": "Add wasurezu to your mcpServers in ~/.claude/settings.json",
 
   "// OPTION A: JSON file mode (no database needed)": "",
   "mcpServers_json_mode": {
-    "agent-memory": {
+    "wasurezu": {
       "command": "node",
       "args": ["~/Developer/agent-memory/dist/index.js"],
       "env": {
@@ -15,7 +15,7 @@
 
   "// OPTION B: PostgreSQL mode": "",
   "mcpServers_pg_mode": {
-    "agent-memory": {
+    "wasurezu": {
       "command": "node",
       "args": ["~/Developer/agent-memory/dist/index.js"],
       "env": {
@@ -28,7 +28,7 @@
 
   "// IYASAKA multi-bot setup example": "",
   "mcpServers_iyasaka_example": {
-    "agent-memory": {
+    "wasurezu": {
       "command": "node",
       "args": ["~/Developer/agent-memory/dist/index.js"],
       "env": {
