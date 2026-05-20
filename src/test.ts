@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
+import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -934,6 +935,142 @@ async function testClaudeConversationIngest() {
   await store.close();
 }
 
+async function testCodexConversationIngest() {
+  console.log("\n── Codex Conversation Ingest Tests (JsonStore) ──");
+  const store = new JsonStore();
+  await store.initialize();
+
+  const root = mkdtempSync(join(tmpdir(), "am031-codex-ingest-"));
+  const sessionDir = join(root, "2026", "05", "19");
+  mkdirSync(sessionDir, { recursive: true });
+  const logPath = join(sessionDir, "rollout-2026-05-19T00-00-00-session-codex.jsonl");
+  const home = homedir();
+  const lines = [
+    JSON.stringify({
+      timestamp: "2026-05-19T00:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "session-codex",
+        cwd: `${home}/Developer/agent-memory`,
+        cli_version: "0.120.0",
+        model_provider: "openai",
+        model: "gpt-5",
+        base_instructions: { text: "DO NOT PERSIST BASE INSTRUCTIONS" },
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:01:00.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: `Continue Codex adapter. API_KEY=sk-abcdefghijklmnopqrstuvwxyz ${home}/Developer/agent-memory/src/index.ts` }],
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:02:00.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Implementing Codex raw ingest." }],
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:03:00.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "developer",
+        content: [{ type: "input_text", text: "DO NOT PERSIST DEVELOPER BODY" }],
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:04:00.000Z",
+      type: "response_item",
+      payload: { type: "reasoning", summary: "DO NOT PERSIST REASONING" },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:05:00.000Z",
+      type: "response_item",
+      payload: { type: "function_call", call_id: "call-1", name: "shell", arguments: { cmd: "npm test" } },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:05:30.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call",
+        call_id: "call-2",
+        name: "shell",
+        arguments: {
+          cmd: "echo safe",
+          base_instructions: { text: "DO NOT PERSIST FUNCTION ARG BASE" },
+          thinking_trace: "DO NOT PERSIST FUNCTION ARG THINKING",
+        },
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:05:45.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call_output",
+        call_id: "call-2",
+        output: {
+          text: "safe output",
+          thought_summary: "DO NOT PERSIST FUNCTION OUTPUT THOUGHT",
+          base_instructions: { text: "DO NOT PERSIST FUNCTION OUTPUT BASE" },
+        },
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-19T00:06:00.000Z",
+      type: "event_msg",
+      payload: { type: "task_started", turn_id: "turn-1", model_context_window: 258400 },
+    }),
+    "{not-json",
+  ];
+  writeFileSync(logPath, lines.join("\n") + "\n");
+
+  const agentId = "test-codex-ingest-agent";
+  const first = await ingestCodexConversationEvents(store, agentId, {
+    project: "hotel-app",
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+  const second = await ingestCodexConversationEvents(store, agentId, {
+    project: "hotel-app",
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+
+  assert(first.files_scanned === 1, "Codex ingest scans YYYY/MM/DD fixture file");
+  assert(first.events_saved === 7, "Codex ingest saves visible raw events");
+  assert(first.events_skipped === 3, "Codex ingest skips developer/reasoning/malformed records");
+  assert(second.events_saved === 0, "Codex second ingest saves no duplicates");
+  assert(second.events_duplicate === 7, "Codex second ingest reports duplicates");
+
+  const events = await store.getConversationEvents({ agent_id: agentId, source: "codex" });
+  assert(events.length === 7, "stored Codex events are unique");
+  assert(events.some((e) => e.role === "user"), "Codex user role mapped");
+  assert(events.some((e) => e.role === "assistant"), "Codex assistant role mapped");
+  assert(events.some((e) => e.role === "tool"), "Codex tool role mapped");
+  assert(events.some((e) => e.role === "system"), "Codex session_meta role mapped");
+  const combined = events.map((e) => e.content).join("\n");
+  assert(!combined.includes("DO NOT PERSIST BASE INSTRUCTIONS"), "base instructions excluded");
+  assert(!combined.includes("DO NOT PERSIST DEVELOPER BODY"), "developer body excluded");
+  assert(!combined.includes("DO NOT PERSIST REASONING"), "reasoning trace excluded");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION ARG BASE"), "function_call base instructions stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION ARG THINKING"), "function_call thinking stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION OUTPUT THOUGHT"), "function_call_output thought stripped");
+  assert(!combined.includes("DO NOT PERSIST FUNCTION OUTPUT BASE"), "function_call_output base instructions stripped");
+  assert(!combined.includes("sk-"), "OpenAI-style key redacted");
+  assert(combined.includes("~/Developer/agent-memory"), "Codex home path normalized");
+  assert(events.some((e) => e.metadata.cli_version === "0.120.0"), "Codex metadata includes cli_version");
+
+  rmSync(root, { recursive: true, force: true });
+  await store.close();
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -954,6 +1091,7 @@ async function run() {
   await testErrorHandling();
   await testConversationEvents();
   await testClaudeConversationIngest();
+  await testCodexConversationIngest();
 
   await cleanup();
 

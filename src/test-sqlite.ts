@@ -11,6 +11,7 @@ import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { stripOrphanSurrogates } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
+import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
@@ -789,6 +790,79 @@ async function testClaudeConversationIngest() {
   rmSync(root, { recursive: true, force: true });
 }
 
+async function testCodexConversationIngest() {
+  console.log("\n── SqliteStore Codex Conversation Ingest ──");
+
+  const root = mkdtempSync(join(tmpdir(), "am031-sqlite-codex-ingest-"));
+  const sessionDir = join(root, "2026", "05", "19");
+  mkdirSync(sessionDir, { recursive: true });
+  const logPath = join(sessionDir, "rollout-session-codex.jsonl");
+  const home = homedir();
+  writeFileSync(
+    logPath,
+    [
+      JSON.stringify({
+        timestamp: "2026-05-19T00:00:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: "session-sqlite-codex",
+          cwd: `${home}/Developer/agent-memory`,
+          base_instructions: { text: "DO NOT STORE" },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-19T00:01:00.000Z",
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "github_pat_abcdefghijklmnopqrstuvwxyz1234567890" }],
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-19T00:02:00.000Z",
+        type: "response_item",
+        payload: { type: "thinking", text: "DO NOT STORE THINKING" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-19T00:03:00.000Z",
+        type: "response_item",
+        payload: {
+          type: "function_call_output",
+          call_id: "call-sqlite",
+          output: {
+            text: "safe",
+            reasoning_trace: "DO NOT STORE OUTPUT REASONING",
+            base_instructions: { text: "DO NOT STORE OUTPUT BASE" },
+          },
+        },
+      }),
+    ].join("\n") + "\n"
+  );
+
+  const agentId = `${AGENT}-codex-ingest`;
+  const first = await ingestCodexConversationEvents(store, agentId, {
+    project: PROJECT,
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+  const second = await ingestCodexConversationEvents(store, agentId, {
+    project: PROJECT,
+    root,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+
+  assert(first.events_saved === 3, "Codex ingest saves SQLite raw events");
+  assert(first.events_skipped === 1, "Codex ingest skips reasoning in SQLite");
+  assert(second.events_duplicate === 3, "Codex ingest is idempotent in SQLite");
+  const events = await store.getConversationEvents({ agent_id: agentId, source: "codex" });
+  const combined = events.map((e) => e.content).join("\n");
+  assert(!combined.includes("DO NOT STORE"), "Codex base/reasoning/thinking content excluded");
+  assert(!combined.includes("github_pat_"), "GitHub PAT redacted in Codex ingest");
+
+  rmSync(root, { recursive: true, force: true });
+}
+
 async function testStripOrphanSurrogates() {
   console.log("\n── stripOrphanSurrogates (search_memory bug fix) ──");
 
@@ -906,6 +980,7 @@ async function run() {
     await testGetRecentMessages();
     await testConversationEvents();
     await testClaudeConversationIngest();
+    await testCodexConversationIngest();
     await testStripOrphanSurrogates();
     await testPersistence();
   } finally {

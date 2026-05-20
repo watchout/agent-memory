@@ -11,6 +11,7 @@ import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./
 import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
+import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -640,24 +641,32 @@ async function main() {
     "Sweep local AI-client transcript files into raw conversation event storage. AM-031 currently supports Claude Code JSONL logs only; Codex support is tracked separately. Redaction is applied before persistence and hashing.",
     {
       source: z
-        .enum(["claude_code"])
+        .enum(["claude_code", "codex"])
         .optional()
-        .describe("Transcript source to ingest. Only 'claude_code' is implemented in this PR."),
+        .describe("Transcript source to ingest. Supports 'claude_code' and 'codex'."),
       project: z.string().optional().describe("Project identifier (defaults to AGENT_MEMORY_PROJECT env var)"),
       since: z.string().optional().describe("ISO timestamp lower bound. Defaults to the last 24 hours."),
-      root: z.string().optional().describe("Override Claude projects root. Defaults to CLAUDE_PROJECTS_DIR or ~/.claude/projects."),
+      root: z.string().optional().describe("Override transcript root. Defaults to CLAUDE_PROJECTS_DIR/~/.claude/projects or CODEX_SESSIONS_DIR/~/.codex/sessions."),
       max_files: z.number().optional().describe("Maximum JSONL files to scan (default: 200)"),
     },
     async ({ source, project, since, root, max_files }) => {
       const actualSource = source ?? "claude_code";
       await logCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
       try {
-        const result = await ingestClaudeConversationEvents(store, AGENT_ID, {
-          project: project || PROJECT,
-          since,
-          root,
-          max_files,
-        });
+        const result =
+          actualSource === "codex"
+            ? await ingestCodexConversationEvents(store, AGENT_ID, {
+                project: project || PROJECT,
+                since,
+                root,
+                max_files,
+              })
+            : await ingestClaudeConversationEvents(store, AGENT_ID, {
+                project: project || PROJECT,
+                since,
+                root,
+                max_files,
+              });
         return {
           content: [
             safeText(
