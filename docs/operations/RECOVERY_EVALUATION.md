@@ -21,6 +21,11 @@ This is not a one-time launch checklist. It is the recurring quality gate for ev
 
 ## 2. Definitions
 
+Identity boundaries are defined in
+[`docs/operations/IDENTITY_BOUNDARY.md`](IDENTITY_BOUNDARY.md). Recovery
+evaluation must use a stable `agent_id` across restarts; `session_id` is
+evidence only and must not be treated as the memory namespace.
+
 | Term | Meaning |
 |------|---------|
 | Restart cycle | A real new Codex or Claude Code session opened after transcript ingest and `restart_pack` boot are enabled. |

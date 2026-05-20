@@ -151,6 +151,10 @@ quality_score =
 
 ## 5. multi-agent サポート (namespace)
 
+Identity boundary の正本は
+[`docs/operations/IDENTITY_BOUNDARY.md`](../../operations/IDENTITY_BOUNDARY.md)
+とする。本節は現行実装の namespace 概要を記載する。
+
 ### 5.1 agent_id namespace 原則
 
 全テーブルに `agent_id TEXT NOT NULL` カラムが存在し、**全クエリで `WHERE agent_id = ?` を必須とする**。
