@@ -654,17 +654,24 @@ export class PgStore implements Store {
       searchClauses.push(`to_tsvector('simple', coalesce(content,'')) @@ to_tsquery('simple', $${pi++})`);
       params.push(tsQuery);
     }
-    const likeClause = likePatterns.map((_, i) =>
-      `(coalesce(content,'') || ' ' || coalesce(role,'') || ' ' || coalesce(source,'')) ILIKE $${pi + i}`
+    const likeParamRefs = likePatterns.map(() => `$${pi++}`);
+    const likeClause = likeParamRefs.map((paramRef) =>
+      `(coalesce(content,'') || ' ' || coalesce(role,'') || ' ' || coalesce(source,'')) ILIKE ${paramRef}`
     ).join(" OR ");
     searchClauses.push(`(${likeClause})`);
     for (const pat of likePatterns) params.push(pat);
 
     conditions.push(`(${searchClauses.join(" OR ")})`);
+    const rankExpr = [
+      ...likeParamRefs.map((paramRef) => `CASE WHEN content ILIKE ${paramRef} THEN 1 ELSE 0 END`),
+      `CASE WHEN role IN ('user', 'assistant') THEN 0.25 ELSE 0 END`,
+      `CASE WHEN content ILIKE '%"type":"token_count"%' THEN -2 ELSE 0 END`,
+      `CASE WHEN content ILIKE '%"type":"turn_context"%' THEN -1 ELSE 0 END`,
+    ].join(" + ");
     const result = await this.pool.query(
       `SELECT * FROM conversation_events
        WHERE ${conditions.join(" AND ")}
-       ORDER BY occurred_at DESC
+       ORDER BY (${rankExpr}) DESC, occurred_at DESC
        LIMIT ${limit}`,
       params
     );

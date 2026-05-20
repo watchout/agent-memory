@@ -37,6 +37,18 @@ function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function conversationSearchScore(event: ConversationEvent, keywords: string[]): number {
+  const content = event.content.toLowerCase();
+  let score = 0;
+  for (const keyword of keywords) {
+    if (content.includes(keyword)) score += 1;
+  }
+  if (event.role === "user" || event.role === "assistant") score += 0.25;
+  if (content.includes('"type":"token_count"')) score -= 2;
+  if (content.includes('"type":"turn_context"')) score -= 1;
+  return score;
+}
+
 export class JsonStore implements Store {
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
@@ -318,8 +330,11 @@ export class JsonStore implements Store {
           return matchesAny(searchText);
         })
         .sort(
-          (a, b) =>
-            new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+          (a, b) => {
+            const scoreDiff = conversationSearchScore(b, keywords) - conversationSearchScore(a, keywords);
+            if (scoreDiff !== 0) return scoreDiff;
+            return new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+          }
         )
         .slice(0, limit);
     }

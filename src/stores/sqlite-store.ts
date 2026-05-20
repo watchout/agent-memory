@@ -173,6 +173,18 @@ function tokenizeQuery(query: string): string[] {
   return keywords.length > 0 ? keywords : [query];
 }
 
+function conversationSearchScore(event: ConversationEvent, keywords: string[]): number {
+  const content = event.content.toLowerCase();
+  let score = 0;
+  for (const keyword of keywords) {
+    if (content.includes(keyword.toLowerCase())) score += 1;
+  }
+  if (event.role === "user" || event.role === "assistant") score += 0.25;
+  if (content.includes('"type":"token_count"')) score -= 2;
+  if (content.includes('"type":"turn_context"')) score -= 1;
+  return score;
+}
+
 export class SqliteStore implements Store {
   private db!: Database;
   private dbPath: string;
@@ -794,9 +806,18 @@ export class SqliteStore implements Store {
 
       const sql = `SELECT * FROM conversation_events
                    WHERE ${conditions.join(" AND ")}
-                   ORDER BY occurred_at DESC LIMIT ${limit}`;
+                   ORDER BY occurred_at DESC LIMIT ${limit * 5}`;
       const rows = this.allRows(sql, params);
-      conversationEvents.push(...rows.map((r) => this.rowToConversationEvent(r)));
+      conversationEvents.push(
+        ...rows
+          .map((r) => this.rowToConversationEvent(r))
+          .sort((a, b) => {
+            const scoreDiff = conversationSearchScore(b, keywords) - conversationSearchScore(a, keywords);
+            if (scoreDiff !== 0) return scoreDiff;
+            return new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+          })
+          .slice(0, limit)
+      );
     }
 
     // SQLite store has no agent_messages table — messages always empty.

@@ -4,7 +4,7 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
@@ -832,14 +832,23 @@ async function testConversationEvents() {
     content: "Session restart should recover the active task.",
     occurred_at: "2026-05-19T00:01:00.000Z",
   });
+  await store.saveConversationEvent({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    source: "codex",
+    source_event_id: "codex-token-count-noise",
+    role: "event",
+    content: '{"type":"token_count","info":{"note":"restart"}}',
+    occurred_at: "2026-05-19T00:02:00.000Z",
+  });
 
   assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
   const all = await store.getConversationEvents({ agent_id: "test-agent" });
-  assert(all.length === 2, "getConversationEvents returns unique raw events");
-  assert(all[0].source === "claude_code", "events sorted newest first");
+  assert(all.length === 3, "getConversationEvents returns unique raw events");
+  assert(all[0].source_event_id === "codex-token-count-noise", "events sorted newest first");
   const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
-  assert(codexOnly.length === 1, "source filter works");
-  assert(codexOnly[0].metadata.file === "src/stores/types.ts", "metadata round-trips");
+  assert(codexOnly.length === 2, "source filter works");
+  assert(codexOnly.some((event) => event.metadata.file === "src/stores/types.ts"), "metadata round-trips");
   const search = await store.searchMemory({
     agent_id: "test-agent",
     project: "hotel-app",
@@ -848,6 +857,7 @@ async function testConversationEvents() {
   });
   assert(search.conversation_events.length >= 1, "search finds conversation event");
   assert(search.decisions.length === 0 && search.task_states.length === 0, "scope=conversation excludes structured memory");
+  assert(search.conversation_events[0].source_event_id !== "codex-token-count-noise", "conversation search ranks content above token_count noise");
 
   await store.close();
 }
@@ -1091,7 +1101,7 @@ async function testRestartPack() {
   await store.saveTaskState({
     agent_id: agentId,
     project,
-    task: "AM-031 implement restart_pack PR D",
+    task: "AM-031 implement restart_pack PR #84 and issue #12",
     status: "in_progress",
     progress: "PR #83 is ready; PR D is in progress",
     files_modified: [`${home}/Developer/agent-memory/src/restart-pack.ts`],
@@ -1110,11 +1120,24 @@ async function testRestartPack() {
     decision: "restart_pack remains opt-in during PR D",
     context: "CEO decision for AM-031",
   });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "AM-026 catch_up uses per-event ledger",
+    context: "Older unrelated catch-up work",
+  });
   await store.saveKnowledge({
     agent_id: agentId,
     project,
     title: "Codex transcript source",
     content: "~/.codex/sessions/YYYY/MM/DD/*.jsonl is canonical; history.jsonl is not.",
+    source_type: "manual",
+  });
+  await store.saveKnowledge({
+    agent_id: agentId,
+    project,
+    title: "AM-026 catch-up source",
+    content: "Older unrelated catch-up notes should not dominate a restart pack.",
     source_type: "manual",
   });
   await store.saveConversationEvent({
@@ -1155,14 +1178,36 @@ async function testRestartPack() {
   assert(output.includes("NEXT CONCRETE ACTION"), "restart_pack includes next action");
   assert(output.includes("BLOCKERS / NEEDS INFO"), "restart_pack includes blockers");
   assert(output.includes("restart_pack remains opt-in"), "restart_pack includes decisions");
+  assert(!output.includes("AM-026 catch_up uses per-event ledger"), "restart_pack suppresses stale unrelated decisions");
+  assert(output.includes("STRUCTURED MEMORY CAUTION"), "restart_pack explains suppressed stale structured memory");
   assert(output.includes("src/restart-pack.ts") || output.includes("~/Developer/agent-memory/src/restart-pack.ts"), "restart_pack includes relevant file");
   assert(output.includes("AM-031"), "restart_pack includes refs");
+  assert(output.includes("PR#84"), "restart_pack normalizes and includes space-separated PR refs");
+  assert(output.includes("issue#12") || output.includes("ISSUE#12"), "restart_pack normalizes and includes space-separated issue refs");
+  assert(!output.includes("Build/tests"), "restart_pack does not emit generic ref tokens");
   assert(output.includes("codex/assistant"), "restart_pack summarizes Codex-derived conversation metadata");
   assert(output.includes("claude_code/user"), "restart_pack summarizes Claude-derived conversation metadata");
   assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit raw conversation excerpt");
   assert(!output.includes("sk-"), "restart_pack redacts secrets at output boundary");
   assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
   assert(!output.includes(`${home}/Developer`), "restart_pack does not emit full home path");
+
+  const conversationOnlyAgent = "test-restart-pack-conversation-only-agent";
+  await store.saveConversationEvent({
+    agent_id: conversationOnlyAgent,
+    project,
+    source: "codex",
+    source_event_id: "codex-conversation-only:1",
+    role: "user",
+    content: "Please continue the restart recovery evaluation.",
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  const conversationOnly = await generateRestartPack(store, {
+    agent_id: conversationOnlyAgent,
+    project,
+  });
+  assert(conversationOnly.includes("search_memory scope=conversation"), "restart_pack directs fallback conversation search when structured memory is sparse");
+  assert(!conversationOnly.includes("Please continue the restart recovery evaluation."), "conversation fallback does not emit raw user request");
 
   const sparse = await generateRestartPack(store, {
     agent_id: "test-restart-pack-empty-agent",
@@ -1195,6 +1240,20 @@ async function testRestartPack() {
   await store.close();
 }
 
+function testConversationScopeSchemaRegression() {
+  console.log("\n── MCP Schema Regression Tests ──");
+  const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
+  assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
+
+  const distPath = join(process.cwd(), "dist/index.js");
+  if (existsSync(distPath)) {
+    const dist = readFileSync(distPath, "utf8");
+    assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
+  } else {
+    assert(true, "built MCP schema check skipped because dist/index.js is absent");
+  }
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -1217,6 +1276,7 @@ async function run() {
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
   await testRestartPack();
+  testConversationScopeSchemaRegression();
 
   await cleanup();
 
