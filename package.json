@@ -11,6 +11,8 @@
   },
   "files": [
     "dist",
+    "docs/operations/HOST_ADAPTERS.md",
+    "scripts/host-adapters",
     "README.md",
     "LICENSE",
     "CONTRIBUTING.md"

@@ -209,6 +209,16 @@ npx wasurezu-codex-start
 npx wasurezu-codex-start --launch --cd ~/Developer/codex
 ```
 
+For tmux-based local operations, optional host-adapter scripts are included:
+
+```bash
+CODEX_WORKSPACE=~/Developer/codex scripts/host-adapters/codex-tmux-restart.sh
+```
+
+These scripts are wrappers around the same `wasurezu-codex-start` bridge. They
+are intended for local operations and tests, not as MCP core lifecycle
+ownership.
+
 The intended Codex restart UX is to exit the old session first, then start a
 fresh session through the bridge:
 

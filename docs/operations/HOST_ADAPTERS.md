@@ -57,6 +57,17 @@ For Codex:
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
 
+For tmux-operated Codex sessions, wasurezu ships optional adapter scripts under
+`scripts/host-adapters/`:
+
+```bash
+CODEX_WORKSPACE=/path/to/workspace scripts/host-adapters/codex-tmux-restart.sh
+```
+
+These scripts are an operator convenience for a known local host environment.
+They exercise the real Codex startup bridge, but they do not change the core
+contract: wasurezu does not own host lifecycle for generic MCP clients.
+
 This avoids ambiguous singleton ownership. If multiple sessions are running for
 the same `agent_id` and project, that is an operator or host lifecycle issue,
 not an MCP server feature. Operators should prefer one active session per
