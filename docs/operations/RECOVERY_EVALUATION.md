@@ -45,7 +45,9 @@ evidence only and must not be treated as the memory namespace.
 Before running a recovery evaluation:
 
 - `ingest_conversation_events` has run for the target source(s): `codex`, `claude_code`, or both.
-- `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the target workspace.
+- For Claude Code, `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the
+  target workspace. For Codex, the startup bridge must generate and inject
+  `restart_pack` into the first prompt.
 - For Codex, the previous Codex session was exited normally and the fresh
   session was started through `wasurezu-codex-start --launch`, or the run must
   be labeled as manual MCP recovery instead of startup recovery.
@@ -161,7 +163,10 @@ Startup recovery is host-adapter based:
   the first model context.
 - Codex runs count when the previous session was exited and the fresh session
   starts with the restart pack already in the initial prompt, for example
-  through `wasurezu-codex-start --launch`.
+  through `wasurezu-codex-start --launch`. The evidence must show a launched
+  Codex run, not only `wasurezu-codex-start --print`; use
+  `recovery_quality_log.notes.launched_codex === true` or record the launch
+  command.
 - Plain MCP setups that require the user to say "read restart_pack" are useful
   manual recovery evidence, but they do not satisfy startup recovery.
 

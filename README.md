@@ -113,8 +113,8 @@ Total items restored: 10
 
 ```
 Session Start
-  → SessionStart hook auto-calls recover_context
-  → Active decisions + task states + recent knowledge injected
+  → SessionStart hook emits restart_pack recovery
+  → Current objective + next action + recovery controls injected
   → AI continues where it left off
 
 During Session

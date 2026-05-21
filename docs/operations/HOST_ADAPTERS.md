@@ -59,7 +59,9 @@ wasurezu-codex-start --launch --cd /path/to/workspace
 
 This avoids ambiguous singleton ownership. If multiple sessions are running for
 the same `agent_id` and project, that is an operator or host lifecycle issue,
-not an MCP server feature.
+not an MCP server feature. Operators should prefer one active session per
+`agent_id` and project because concurrent writers can interleave task,
+decision, knowledge, and conversation events.
 
 ## Evaluation Rule
 
@@ -68,7 +70,9 @@ already includes `restart_pack`.
 
 - Claude Code: counts when the SessionStart hook emits restart recovery.
 - Codex: counts when started through `wasurezu-codex-start --launch` or an
-  equivalent verified startup prompt adapter.
+  equivalent verified startup prompt adapter. Printed prompts from
+  `wasurezu-codex-start --print` are inspection evidence only, not startup
+  recovery runs.
 - MCP-only clients: do not count unless the host has a verified adapter or hook.
 
 Manual MCP recovery is still useful evidence, but it must be labeled as manual

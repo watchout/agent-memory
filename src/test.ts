@@ -1309,6 +1309,7 @@ function testCodexStartupBridge() {
 
   const printAfterLaunch = parseArgs(["--launch", "--print"]);
   assert(printAfterLaunch.launch === false, "Codex startup parser lets later --print disable launch");
+  assert(printAfterLaunch.launch !== true, "Codex --print does not count as launched startup evidence");
 
   const launchArgs = buildCodexLaunchArgs({ cd: "/tmp/work" }, "hello");
   assert(launchArgs[0] === "--cd" && launchArgs[1] === "/tmp/work" && launchArgs[2] === "hello", "Codex launch args pass --cd before prompt");
