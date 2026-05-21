@@ -76,7 +76,7 @@ function runBoot(mode?: string): Promise<{ code: number; stdout: string; stderr:
   });
 }
 
-async function verify() {
+async function verify(result: { stdout: string }) {
   const store = new SqliteStore(TEST_DB_PATH);
   await store.initialize();
 
@@ -138,6 +138,8 @@ async function verify() {
   assert(typeof summary.knowledge === "number", "notes.knowledge is a number");
   assert((summary.decisions as number) >= 1, "notes.decisions reflects seeded decision");
   assert((summary.tasks_in_progress as number) >= 1, "notes.tasks_in_progress reflects seeded task");
+  assert(result.stdout.includes("RECOVERY CONTROL"), "boot output includes recovery control ladder");
+  assert(result.stdout.includes("run search_memory before acting"), "boot output includes adaptive retrieval trigger");
 
   await store.close();
 }
@@ -151,6 +153,7 @@ async function verifyRestartPackBoot() {
     return;
   }
   assert(result.stdout.includes("SESSION RESTART PACK"), "restart_pack boot mode outputs restart pack");
+  assert(result.stdout.includes("RECOVERY CONTROL"), "restart_pack boot mode outputs recovery control ladder");
 
   const store = new SqliteStore(TEST_DB_PATH);
   await store.initialize();
@@ -198,7 +201,7 @@ async function run() {
     } else {
       assert(true, "boot.ts exited cleanly");
     }
-    await verify();
+    await verify(result);
     await verifyRestartPackBoot();
   } finally {
     await cleanup();

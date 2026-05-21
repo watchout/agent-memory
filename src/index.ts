@@ -7,7 +7,12 @@ import { join } from "path";
 import { homedir } from "os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
-import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
+import {
+  DEFAULT_RECOVERY_CONFIG,
+  SEARCH_MEMORY_TOOL_DESCRIPTION,
+  buildRecoveryOutput,
+  estimateTokens,
+} from "./constants.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
@@ -242,7 +247,7 @@ async function main() {
   // ─── search_memory ──────────────────────────────────────────────
   server.tool(
     "search_memory",
-    "Search agent's knowledge base using semantic similarity. Call this tool when you need context about past decisions, project architecture, or any information that may have been discussed in previous sessions. IMPORTANT: Call this proactively when starting a new task or when you are uncertain about project-specific details. Do not wait for the user to ask.",
+    SEARCH_MEMORY_TOOL_DESCRIPTION,
     {
       query: z.string().describe("Search keywords or natural language query"),
       scope: z
@@ -436,7 +441,7 @@ async function main() {
   // ─── restart_pack (AM-031 PR D) ───────────────────────────────
   server.tool(
     "restart_pack",
-    "Generate a concise session restart pack optimized for continuing work after context refresh. Keeps recover_context backward-compatible while prioritizing objective, active task, next action, blockers, files, refs, decisions, knowledge, and recent conversation summary.",
+    "Generate a concise session restart pack optimized for continuing work after context refresh. Use it as Layer 1 recovery, then use search_memory scope=conversation when the pack is incomplete before asking the user to restate context. Keeps recover_context backward-compatible while prioritizing objective, active task, next action, blockers, files, refs, decisions, knowledge, and recent conversation summary.",
     {
       project: z.string().optional().describe("Filter by project"),
       max_tokens: z.number().optional().describe("Output token budget. Minimum floor is 500; default comes from recovery_config or 1500."),

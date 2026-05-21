@@ -15,6 +15,21 @@ export const DEFAULT_RECOVERY_CONFIG: Omit<RecoveryConfig, "agent_id"> = {
   restart_message_threshold: 100,
 };
 
+export const SEARCH_MEMORY_TOOL_DESCRIPTION =
+  "Search agent memory by keyword or natural language. Use this as the adaptive retrieval layer: call it before making architectural or design decisions, when project context is unfamiliar, when restart_pack feels incomplete, when memory and external state may conflict, or before asking the user to restate context. For missing recent conversation after restart, use scope=conversation with focused queries. PR/status answers must be verified with the relevant external SSOT before acting.";
+
+export const RECOVERY_CONTROL_LINES = [
+  "Treat this boot context as Layer 1 recovery only.",
+  "Before architectural/design decisions, unfamiliar project context, or contradiction risk, run search_memory before acting.",
+  "If restart_pack is incomplete, use search_memory scope=conversation with focused queries before asking the user to restate context.",
+  "Treat PR/status memory as context only; verify with the external SSOT before merging or making status claims.",
+];
+
+export const RECOVERY_CONTROL_SECTION = [
+  "RECOVERY CONTROL",
+  ...RECOVERY_CONTROL_LINES.map((line) => `- ${line}`),
+].join("\n");
+
 /**
  * Rough token estimation: ~4 chars per token.
  */
@@ -131,7 +146,7 @@ export function buildRecoveryOutput(params: {
     }
   }
 
-  const footer = "Use search_memory to find past decisions when needed.";
+  const footer = RECOVERY_CONTROL_SECTION;
 
   const sections = [
     { key: "task", content: taskLines.join("\n") },

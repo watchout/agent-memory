@@ -240,6 +240,34 @@ established in prior sessions."
 - 「判断前の確認ステップ」として位置づけ（MetaRAGのmonitoringに相当）
 - compaction後の文脈喪失に明示的に言及（状況認識の手がかり）
 
+### 6.5 AM-035 implementation update (2026-05-21)
+
+AM-035 applies this research to the runtime control surfaces instead of relying
+on static project instructions.
+
+Implemented control points:
+
+1. `search_memory` tool description now explicitly frames the tool as the
+   adaptive retrieval layer. It tells the agent to search before architectural
+   or design decisions, unfamiliar project context, incomplete restart packs,
+   memory/SSOT conflicts, or asking the user to restate context.
+2. `restart_pack` output now includes a `RECOVERY CONTROL` section. This is a
+   small Layer 1 push that reminds the restarted agent when to pull more memory.
+3. Claude `boot.ts` fallback output now uses the same recovery-control ladder
+   through `buildRecoveryOutput`.
+4. `wasurezu-codex-start` uses the same control lines in the initial Codex
+   prompt, so Codex bridge startup and Claude hook startup share the same
+   adaptive-retrieval policy.
+5. Regression tests pin these control surfaces so future prompt or tool
+   description edits do not silently remove the retrieval trigger.
+
+Design consequence:
+
+- Deterministic boot/bridge output provides the minimum restart state.
+- MCP tool descriptions provide compaction-resistant retrieval triggers.
+- The agent is still allowed to ask the user, but only after using focused
+  memory search when restart context is incomplete.
+
 ---
 
 ## 7. 参考文献（主要）

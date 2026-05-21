@@ -1,7 +1,7 @@
 import { homedir } from "os";
 import { relative, isAbsolute } from "path";
 import type { Store, ConversationEvent, Decision, Knowledge, TaskState } from "./stores/types.js";
-import { DEFAULT_RECOVERY_CONFIG, estimateTokens } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_SECTION, estimateTokens } from "./constants.js";
 import { redactText } from "./redact.js";
 
 export interface RestartPackInput {
@@ -122,6 +122,8 @@ function buildSections(data: RestartPackData): string[] {
         : "No blockers recorded.",
     ].join("\n")
   );
+
+  sections.push(RECOVERY_CONTROL_SECTION);
 
   if (hiddenStructuredCount > 0) {
     sections.push(
