@@ -73,7 +73,11 @@ async function boot() {
           session_id: SESSION_ID,
           recovered_tokens: estimateTokens(output),
           task_continued: false,
-          notes: JSON.stringify({ source: "restart_pack_boot" }),
+          notes: JSON.stringify({
+            source: "restart_pack_boot",
+            host_adapter: "claude_code_session_start",
+            host_adapter_level: 2,
+          }),
         }).catch((err) => {
           process.stderr.write(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`);
           return "";
@@ -111,6 +115,8 @@ async function boot() {
     try {
       const notes = JSON.stringify({
         source: "boot",
+        host_adapter: "claude_code_session_start",
+        host_adapter_level: 2,
         decisions: decisions.length,
         tasks_in_progress: inProgressTasks.length,
         tasks_completed: completedTasks.length,

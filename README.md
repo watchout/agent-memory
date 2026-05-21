@@ -113,8 +113,8 @@ Total items restored: 10
 
 ```
 Session Start
-  → SessionStart hook auto-calls recover_context
-  → Active decisions + task states + recent knowledge injected
+  → SessionStart hook emits restart_pack recovery
+  → Current objective + next action + recovery controls injected
   → AI continues where it left off
 
 During Session
@@ -186,6 +186,11 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 | **Cursor / Gemini CLI** | ⏳ MCP tools work; startup integration in a later release |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
 
+See [`docs/operations/HOST_ADAPTERS.md`](docs/operations/HOST_ADAPTERS.md) for
+the support-level matrix. In short: MCP tools alone are manual recovery.
+Startup recovery requires a host adapter or native startup hook that places
+`restart_pack` in the first model context.
+
 ### Codex startup recovery
 
 Codex can use wasurezu MCP tools, but plain MCP configuration does not
@@ -203,6 +208,21 @@ npx wasurezu-codex-start
 # Or launch Codex with that prompt.
 npx wasurezu-codex-start --launch --cd ~/Developer/codex
 ```
+
+The intended Codex restart UX is to exit the old session first, then start a
+fresh session through the bridge:
+
+```text
+/exit
+```
+
+```bash
+npx wasurezu-codex-start --launch --cd ~/Developer/codex
+```
+
+wasurezu does not kill or replace existing Codex sessions. Session lifecycle is
+owned by the user or host. This keeps the bridge portable and avoids ambiguous
+singleton ownership.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
