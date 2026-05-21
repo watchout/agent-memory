@@ -57,22 +57,17 @@ For Codex:
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
 
-For tmux-operated Codex sessions, wasurezu ships optional adapter scripts under
-`scripts/host-adapters/`:
-
-```bash
-CODEX_WORKSPACE=/path/to/workspace scripts/host-adapters/codex-tmux-restart.sh
-```
-
-These scripts are an operator convenience for a known local host environment.
-They exercise the real Codex startup bridge, but they do not change the core
-contract: wasurezu does not own host lifecycle for generic MCP clients.
-
 This avoids ambiguous singleton ownership. If multiple sessions are running for
 the same `agent_id` and project, that is an operator or host lifecycle issue,
 not an MCP server feature. Operators should prefer one active session per
 `agent_id` and project because concurrent writers can interleave task,
 decision, knowledge, and conversation events.
+
+When integrated with AUN or another supervisor, that orchestrator owns runtime
+restart, requeue, finalization, reply, and close behavior. wasurezu supplies
+restart packs, recovery confidence, missing-context notes, and restart
+recommendations only. In wasurezu-only installs, restart recommendations must
+not be described as automatic runtime restart.
 
 ## Evaluation Rule
 

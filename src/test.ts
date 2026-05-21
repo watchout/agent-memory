@@ -4,7 +4,7 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
@@ -1378,32 +1378,16 @@ async function testCodexStartupBridge() {
   }
 }
 
-function testHostAdapterScripts() {
-  console.log("\n── Host Adapter Script Tests ──");
-  const scripts = [
-    "scripts/host-adapters/codex-start-with-wasurezu.sh",
-    "scripts/host-adapters/codex-tmux-exit.sh",
-    "scripts/host-adapters/codex-tmux-start.sh",
-    "scripts/host-adapters/codex-tmux-restart.sh",
-  ];
-
-  for (const script of scripts) {
-    assert(existsSync(script), `${script} exists`);
-    assert((statSync(script).mode & 0o111) !== 0, `${script} is executable`);
-    execFileSync("bash", ["-n", script]);
-  }
-
-  const restartScript = readFileSync("scripts/host-adapters/codex-tmux-restart.sh", "utf8");
-  assert(restartScript.includes("codex-tmux-exit.sh"), "restart script calls the repo exit adapter");
-  assert(restartScript.includes("codex-tmux-start.sh"), "restart script calls the repo start adapter");
-
-  const startScript = readFileSync("scripts/host-adapters/codex-tmux-start.sh", "utf8");
-  assert(startScript.includes("CODEX_WORKSPACE"), "start script supports workspace override");
-  assert(startScript.includes("codex-start-with-wasurezu.sh"), "start script launches the repo wasurezu bridge adapter");
-
+function testHostAdapterPackagingBoundary() {
+  console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
-  assert(packageJson.files.includes("scripts/host-adapters"), "npm package includes host adapter scripts");
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
+
+  const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
+  const normalizedHostAdapters = hostAdapters.replace(/\s+/g, " ");
+  assert(normalizedHostAdapters.includes("that orchestrator owns runtime"), "host adapter docs assign runtime restart to the orchestrator");
+  assert(normalizedHostAdapters.includes("restart recommendations only"), "host adapter docs keep wasurezu restart-only claims bounded");
 }
 
 function testConversationScopeSchemaRegression() {
@@ -1449,7 +1433,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
-  testHostAdapterScripts();
+  testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
 
   await cleanup();

@@ -209,16 +209,6 @@ npx wasurezu-codex-start
 npx wasurezu-codex-start --launch --cd ~/Developer/codex
 ```
 
-For tmux-based local operations, optional host-adapter scripts are included:
-
-```bash
-CODEX_WORKSPACE=~/Developer/codex scripts/host-adapters/codex-tmux-restart.sh
-```
-
-These scripts are wrappers around the same `wasurezu-codex-start` bridge. They
-are intended for local operations and tests, not as MCP core lifecycle
-ownership.
-
 The intended Codex restart UX is to exit the old session first, then start a
 fresh session through the bridge:
 
@@ -233,6 +223,10 @@ npx wasurezu-codex-start --launch --cd ~/Developer/codex
 wasurezu does not kill or replace existing Codex sessions. Session lifecycle is
 owned by the user or host. This keeps the bridge portable and avoids ambiguous
 singleton ownership.
+
+When integrated with AUN or another supervisor, that orchestrator owns runtime
+restart/requeue execution. wasurezu supplies restart packs, recovery confidence,
+and restart recommendations only.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
