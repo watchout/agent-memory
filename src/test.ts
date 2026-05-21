@@ -18,8 +18,10 @@ import {
   buildCodexLaunchEnv,
   buildCodexStartupPrompt,
   isMainEntrypoint,
+  logCodexStartupQuality,
   parseArgs,
 } from "./codex-start.js";
+import type { LogRecoveryQualityInput } from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -1274,7 +1276,7 @@ async function testRestartPack() {
   await store.close();
 }
 
-function testCodexStartupBridge() {
+async function testCodexStartupBridge() {
   console.log("\n── Codex Startup Bridge Tests ──");
   const prompt = buildCodexStartupPrompt({
     agentId: "codex-cto",
@@ -1310,6 +1312,33 @@ function testCodexStartupBridge() {
   const printAfterLaunch = parseArgs(["--launch", "--print"]);
   assert(printAfterLaunch.launch === false, "Codex startup parser lets later --print disable launch");
   assert(printAfterLaunch.launch !== true, "Codex --print does not count as launched startup evidence");
+
+  const qualityLogs: LogRecoveryQualityInput[] = [];
+  await logCodexStartupQuality(
+    {
+      async logRecoveryQuality(input: LogRecoveryQualityInput) {
+        qualityLogs.push(input);
+        return `log-${qualityLogs.length}`;
+      },
+    },
+    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
+    { launchRequested: true }
+  );
+  await logCodexStartupQuality(
+    {
+      async logRecoveryQuality(input: LogRecoveryQualityInput) {
+        qualityLogs.push(input);
+        return `log-${qualityLogs.length}`;
+      },
+    },
+    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
+    { launchRequested: true, launchedCodex: true }
+  );
+  const requestedNotes = JSON.parse(qualityLogs[0].notes ?? "{}");
+  const launchedNotes = JSON.parse(qualityLogs[1].notes ?? "{}");
+  assert(requestedNotes.launch_requested === true, "Codex startup telemetry records launch request");
+  assert(requestedNotes.launched_codex === false, "Codex startup telemetry does not mark launch before spawn success");
+  assert(launchedNotes.launched_codex === true, "Codex startup telemetry marks launched only after successful launch");
 
   const launchArgs = buildCodexLaunchArgs({ cd: "/tmp/work" }, "hello");
   assert(launchArgs[0] === "--cd" && launchArgs[1] === "/tmp/work" && launchArgs[2] === "hello", "Codex launch args pass --cd before prompt");
@@ -1391,7 +1420,7 @@ async function run() {
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
   await testRestartPack();
-  testCodexStartupBridge();
+  await testCodexStartupBridge();
   testConversationScopeSchemaRegression();
 
   await cleanup();

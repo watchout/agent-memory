@@ -11,6 +11,7 @@ import { spawn } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
+import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_LINES, estimateTokens } from "./constants.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
@@ -114,20 +115,7 @@ async function run() {
       extraInstruction: options.extraInstruction,
     });
 
-    await store.logRecoveryQuality({
-      agent_id: AGENT_ID,
-      session_id: SESSION_ID,
-      recovered_tokens: estimateTokens(restartPack),
-      task_continued: false,
-      notes: JSON.stringify({
-        source: "codex_startup_bridge",
-        host_adapter: "codex_startup_bridge",
-        host_adapter_level: 1,
-        launched_codex: options.launch,
-      }),
-    }).catch((err) => {
-      process.stderr.write(`[codex-start] logRecoveryQuality failed (non-fatal): ${err}\n`);
-    });
+    await logCodexStartupQuality(store, restartPack, { launchRequested: options.launch });
 
     if (!options.launch) {
       console.log(prompt);
@@ -135,9 +123,32 @@ async function run() {
     }
 
     await launchCodex(options, prompt);
+    await logCodexStartupQuality(store, restartPack, { launchRequested: true, launchedCodex: true });
   } finally {
     await store.close();
   }
+}
+
+export async function logCodexStartupQuality(
+  store: Pick<Store, "logRecoveryQuality">,
+  restartPack: string,
+  options: { launchRequested: boolean; launchedCodex?: boolean }
+): Promise<void> {
+  await store.logRecoveryQuality({
+    agent_id: AGENT_ID,
+    session_id: SESSION_ID,
+    recovered_tokens: estimateTokens(restartPack),
+    task_continued: false,
+    notes: JSON.stringify({
+      source: "codex_startup_bridge",
+      host_adapter: "codex_startup_bridge",
+      host_adapter_level: 1,
+      launch_requested: options.launchRequested,
+      launched_codex: options.launchedCodex === true,
+    }),
+  }).catch((err: unknown) => {
+    process.stderr.write(`[codex-start] logRecoveryQuality failed (non-fatal): ${err}\n`);
+  });
 }
 
 function launchCodex(options: CodexStartCliOptions, prompt: string): Promise<void> {
