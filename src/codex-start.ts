@@ -121,6 +121,8 @@ async function run() {
       task_continued: false,
       notes: JSON.stringify({
         source: "codex_startup_bridge",
+        host_adapter: "codex_startup_bridge",
+        host_adapter_level: 1,
         launched_codex: options.launch,
       }),
     }).catch((err) => {
@@ -190,6 +192,12 @@ Options:
   --codex-bin PATH     Codex executable to run. Default: codex.
   --max-tokens N       restart_pack token budget override.
   --extra TEXT         Add one extra startup instruction to the prompt.
+
+Restart UX:
+  Exit the old Codex session first, then start a fresh one through this bridge:
+    /exit
+    wasurezu-codex-start --launch --cd <workspace>
+  The bridge does not kill or replace existing Codex sessions.
 
 Environment:
   AGENT_MEMORY_AGENT_ID       Memory namespace. Default: default.

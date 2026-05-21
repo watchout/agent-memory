@@ -1316,6 +1316,7 @@ function testCodexStartupBridge() {
   const launchEnv = buildCodexLaunchEnv({ EXISTING_ENV: "kept" });
   assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
   assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
+  assert(CODEX_STARTUP_BRIDGE_ENV === "codex_startup_bridge_v1", "Codex startup bridge env has stable adapter marker");
 
   const distEntrypoint = join(process.cwd(), "dist/codex-start.js");
   const symlinkDir = mkdtempSync(join(tmpdir(), "am032-codex-bin-"));
@@ -1325,6 +1326,8 @@ function testCodexStartupBridge() {
     assert(isMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
     const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
     assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
+    assert(help.includes("/exit"), "Codex startup help documents exit-before-reentry UX");
+    assert(help.includes("does not kill or replace"), "Codex startup help avoids claiming session lifecycle ownership");
   } else {
     assert(true, "Codex startup bin symlink test skipped because dist/codex-start.js is absent");
   }

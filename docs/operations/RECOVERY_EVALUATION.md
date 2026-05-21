@@ -29,6 +29,8 @@ evidence only and must not be treated as the memory namespace.
 | Term | Meaning |
 |------|---------|
 | Restart cycle | A real new Codex or Claude Code session opened after transcript ingest and `restart_pack` boot are enabled. |
+| Host adapter | The host-specific mechanism that puts `restart_pack` into the first model context. Examples: Claude Code SessionStart hook, Codex startup bridge. |
+| Manual MCP recovery | A run where MCP tools are available but `restart_pack` was not present in the first model context. Useful evidence, but not startup recovery. |
 | Evaluator | Human or lead agent scoring the restarted agent's first response and follow-up behavior. |
 | Probe | A fixed test prompt given immediately after restart. |
 | Recovery pass | The restarted agent can continue the work without the user restating project context. |
@@ -44,9 +46,11 @@ Before running a recovery evaluation:
 
 - `ingest_conversation_events` has run for the target source(s): `codex`, `claude_code`, or both.
 - `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the target workspace.
-- For Codex, either `wasurezu-codex-start --launch` was used to start the
-  session, or the run must be labeled as manual MCP recovery instead of
-  startup recovery.
+- For Codex, the previous Codex session was exited normally and the fresh
+  session was started through `wasurezu-codex-start --launch`, or the run must
+  be labeled as manual MCP recovery instead of startup recovery.
+- For other MCP clients, a verified host adapter or native startup hook is
+  required before the run can count as startup recovery.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -65,11 +69,12 @@ Ground truth must be written before restart so the evaluation does not drift int
 
 1. In the pre-restart session, run transcript ingest for the target source.
 2. Confirm `restart_pack` boot succeeds once in the same environment.
-3. Start a fresh agent session in the same workspace. For Claude Code, use the
+3. Exit the old LLM session using the host's normal command, such as `/exit`.
+4. Start a fresh agent session in the same workspace. For Claude Code, use the
    configured SessionStart hook. For Codex, use `wasurezu-codex-start --launch`
    if the run is intended to count as startup recovery.
-4. Do not manually restate the project status.
-5. Give the probes below in order.
+5. Do not manually restate the project status.
+6. Give the probes below in order.
 
 ### 4.2 Required Probes
 
@@ -90,6 +95,8 @@ For each run, record:
 
 - agent id
 - project
+- host and host adapter level
+- startup path, such as `claude_code_session_start` or `codex_startup_bridge`
 - source(s) ingested
 - DB backend
 - commit SHA
@@ -148,11 +155,20 @@ The run fails regardless of point total if any of these occur:
 
 Scores below 24 require a fix before default promotion.
 
-Codex runs only count toward default-ready or public-alpha startup recovery if
-the session starts with the restart pack already in the initial prompt, for
-example through `wasurezu-codex-start --launch`. A plain Codex MCP setup that
-requires the user to say "read restart_pack" is useful manual recovery evidence,
-but it does not satisfy startup recovery.
+Startup recovery is host-adapter based:
+
+- Claude Code runs count when the SessionStart hook emits restart recovery into
+  the first model context.
+- Codex runs count when the previous session was exited and the fresh session
+  starts with the restart pack already in the initial prompt, for example
+  through `wasurezu-codex-start --launch`.
+- Plain MCP setups that require the user to say "read restart_pack" are useful
+  manual recovery evidence, but they do not satisfy startup recovery.
+
+Public-alpha evidence must include at least two host paths: one Claude Code
+SessionStart run and one Codex startup bridge run. World-class release evidence
+should include at least three host paths, or explicitly document why a host is
+manual MCP recovery only.
 
 ---
 

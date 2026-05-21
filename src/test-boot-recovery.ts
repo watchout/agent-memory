@@ -133,6 +133,8 @@ async function verify(result: { stdout: string }) {
     // fall through — assertion below will fail
   }
   assert(summary.source === "boot", "notes.source = 'boot'");
+  assert(summary.host_adapter === "claude_code_session_start", "boot notes record Claude Code host adapter");
+  assert(summary.host_adapter_level === 2, "boot notes record native lifecycle adapter level");
   assert(typeof summary.decisions === "number", "notes.decisions is a number");
   assert(typeof summary.tasks_in_progress === "number", "notes.tasks_in_progress is a number");
   assert(typeof summary.knowledge === "number", "notes.knowledge is a number");
@@ -178,6 +180,8 @@ async function verifyRestartPackBoot() {
   stmt.free();
   const notes = typeof row?.notes === "string" ? JSON.parse(row.notes) : {};
   assert(notes.source === "restart_pack_boot", "restart_pack boot logs recovery quality source");
+  assert(notes.host_adapter === "claude_code_session_start", "restart_pack boot logs host adapter");
+  assert(notes.host_adapter_level === 2, "restart_pack boot logs host adapter level");
   await store.close();
 }
 
