@@ -1207,6 +1207,9 @@ async function testRestartPack() {
   assert(output.includes("CURRENT OBJECTIVE"), "restart_pack includes objective");
   assert(output.includes("NEXT CONCRETE ACTION"), "restart_pack includes next action");
   assert(output.includes("BLOCKERS / NEEDS INFO"), "restart_pack includes blockers");
+  assert(output.includes("RECOVERY CONTROL"), "restart_pack includes adaptive recovery control section");
+  assert(output.includes("Before architectural/design decisions"), "restart_pack tells agents when to search memory");
+  assert(output.includes("scope=conversation"), "restart_pack tells agents to use conversation search before asking user");
   assert(output.includes("restart_pack remains opt-in"), "restart_pack includes decisions");
   assert(!output.includes("AM-026 catch_up uses per-event ledger"), "restart_pack suppresses stale unrelated decisions");
   assert(output.includes("STRUCTURED MEMORY CAUTION"), "restart_pack explains suppressed stale structured memory");
@@ -1288,8 +1291,10 @@ function testCodexStartupBridge() {
 
   assert(prompt.includes("agent_id=codex-cto, project=codex"), "Codex startup prompt names memory namespace");
   assert(prompt.includes("Before claiming that prior context is unavailable"), "Codex startup prompt prevents generic no-context response");
-  assert(prompt.includes("search_memory with scope=conversation"), "Codex startup prompt requires conversation fallback");
-  assert(prompt.includes("verify GitHub state with the GitHub SSOT"), "Codex startup prompt requires GitHub SSOT for PR/status");
+  assert(prompt.includes("search_memory scope=conversation"), "Codex startup prompt requires conversation fallback");
+  assert(prompt.includes("Before architectural/design decisions"), "Codex startup prompt includes adaptive retrieval trigger");
+  assert(prompt.includes("Treat this boot context as Layer 1 recovery only"), "Codex startup prompt labels boot context as Layer 1");
+  assert(prompt.includes("verify with the external SSOT"), "Codex startup prompt requires external SSOT for PR/status");
   assert(prompt.includes("SESSION RESTART PACK"), "Codex startup prompt embeds restart_pack");
   assert(prompt.includes("Use the canonical ~/Developer/codex workspace."), "Codex startup prompt includes extra instruction");
   assert(!prompt.includes("sk-test"), "Codex startup prompt applies secondary redaction to compound secret prefix");
@@ -1344,11 +1349,16 @@ function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
+  const constants = readFileSync(join(process.cwd(), "src/constants.ts"), "utf8");
+  assert(constants.includes("adaptive retrieval layer"), "source search_memory description includes adaptive retrieval trigger");
+  assert(constants.includes("before making architectural or design decisions"), "source search_memory description says when to search");
 
   const distPath = join(process.cwd(), "dist/index.js");
   if (existsSync(distPath)) {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
+    const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
+    assert(distConstants.includes("adaptive retrieval layer"), "built MCP schema includes adaptive retrieval trigger");
   } else {
     assert(true, "built MCP schema check skipped because dist/index.js is absent");
   }

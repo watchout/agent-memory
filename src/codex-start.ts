@@ -11,7 +11,7 @@ import { spawn } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
-import { DEFAULT_RECOVERY_CONFIG, estimateTokens } from "./constants.js";
+import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_LINES, estimateTokens } from "./constants.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
 
@@ -45,8 +45,7 @@ export function buildCodexStartupPrompt(input: CodexStartupPromptInput): string 
     "",
     "Startup requirements:",
     "- First summarize the recovered current objective and next concrete action.",
-    "- If the restart_pack is incomplete, use wasurezu search_memory with scope=conversation and focused queries before asking the user to restate context.",
-    "- Treat PR/status information from memory as context only; verify GitHub state with the GitHub SSOT before merging or making status claims.",
+    ...RECOVERY_CONTROL_LINES.map((line) => `- ${line}`),
     "- Clearly separate recovered facts, uncertainty, and any SSOT checks still needed.",
     "- Do not expose secrets, raw transcript dumps, private reasoning, or full home paths.",
     input.extraInstruction ? `- Additional instruction: ${input.extraInstruction}` : "",
