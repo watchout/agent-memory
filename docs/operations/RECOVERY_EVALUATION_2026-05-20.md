@@ -438,3 +438,37 @@ Score is recorded post-local-safety-fix. It must not be used for default promoti
   - Merge the redaction fix as a small follow-up.
   - Reload live MCP.
   - Then begin staged opt-in rollout; do not globally default-enable all bots from this run alone because CTO smoke was useful but not seamless.
+
+## Codex CTO Startup Injection Follow-Up
+
+- Date: 2026-05-21
+- Trigger: CTO Codex session was reset after AM-031 / PR #89.
+- Agent/project: `codex-cto` / `codex`
+- Result: restart_pack content was available and useful, but not automatically
+  consumed in the first Codex response.
+
+### Evidence
+
+- First response after restart was generic: the agent said it could not see the
+  previous work and asked the user to describe the task or error.
+- After the user explicitly instructed the agent to read wasurezu restart_pack,
+  it recovered:
+  - Current objective: `CTO restart recovery test: canonical codex workspace and agent-comms queue/Discord stabilization`
+  - Canonical workspace: `~/Developer/codex`
+  - Next action: inspect DB row `74155`, `discord-cto` runtime, and queue consumer state.
+  - PR/status caveat: verify PR #486 / #487 through GitHub SSOT before acting.
+
+### Judgment
+
+- `restart_pack` availability: pass
+- `restart_pack` content quality: pass
+- Codex automatic startup application: fail
+- Classification: manual MCP recovery evidence, not startup recovery evidence.
+
+### Follow-Up
+
+- GitHub issue: #90, AM-032 Codex startup restart_pack bridge.
+- Fix direction: provide a Codex startup bridge that embeds restart_pack into
+  the first prompt and optionally launches Codex with that prompt.
+- Public-alpha implication: Codex runs only count as startup recovery when they
+  start through this bridge or an equivalent automatic injection mechanism.

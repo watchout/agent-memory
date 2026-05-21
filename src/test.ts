@@ -4,13 +4,22 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
+import {
+  CODEX_STARTUP_BRIDGE_ENV,
+  buildCodexLaunchArgs,
+  buildCodexLaunchEnv,
+  buildCodexStartupPrompt,
+  isMainEntrypoint,
+  parseArgs,
+} from "./codex-start.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -1262,6 +1271,75 @@ async function testRestartPack() {
   await store.close();
 }
 
+function testCodexStartupBridge() {
+  console.log("\n── Codex Startup Bridge Tests ──");
+  const prompt = buildCodexStartupPrompt({
+    agentId: "codex-cto",
+    project: "codex",
+    restartPack: [
+      "SESSION RESTART PACK",
+      "CURRENT OBJECTIVE",
+      "Stabilize queue consumer",
+      "NEXT CONCRETE ACTION",
+      "Verify DB row 74155 and GitHub SSOT before merge. Never leak sk-test-AKIAIOSFODNN7EXAMPLE.",
+    ].join("\n"),
+    extraInstruction: "Use the canonical ~/Developer/codex workspace.",
+  });
+
+  assert(prompt.includes("agent_id=codex-cto, project=codex"), "Codex startup prompt names memory namespace");
+  assert(prompt.includes("Before claiming that prior context is unavailable"), "Codex startup prompt prevents generic no-context response");
+  assert(prompt.includes("search_memory with scope=conversation"), "Codex startup prompt requires conversation fallback");
+  assert(prompt.includes("verify GitHub state with the GitHub SSOT"), "Codex startup prompt requires GitHub SSOT for PR/status");
+  assert(prompt.includes("SESSION RESTART PACK"), "Codex startup prompt embeds restart_pack");
+  assert(prompt.includes("Use the canonical ~/Developer/codex workspace."), "Codex startup prompt includes extra instruction");
+  assert(!prompt.includes("sk-test"), "Codex startup prompt applies secondary redaction to compound secret prefix");
+  assert(!prompt.includes("AKIAIOSFODNN7EXAMPLE"), "Codex startup prompt applies secondary redaction to AWS-shaped suffix");
+
+  const parsed = parseArgs(["--launch", "--cd", "/tmp/work", "--codex-bin", "codex-dev", "--max-tokens", "900", "--extra", "Probe R1 first."]);
+  assert(parsed.launch === true, "Codex startup parser enables launch mode");
+  assert(parsed.cd === "/tmp/work", "Codex startup parser reads --cd");
+  assert(parsed.codexBin === "codex-dev", "Codex startup parser reads --codex-bin");
+  assert(parsed.maxTokens === 900, "Codex startup parser reads --max-tokens");
+  assert(parsed.extraInstruction === "Probe R1 first.", "Codex startup parser reads --extra");
+
+  const printAfterLaunch = parseArgs(["--launch", "--print"]);
+  assert(printAfterLaunch.launch === false, "Codex startup parser lets later --print disable launch");
+
+  const launchArgs = buildCodexLaunchArgs({ cd: "/tmp/work" }, "hello");
+  assert(launchArgs[0] === "--cd" && launchArgs[1] === "/tmp/work" && launchArgs[2] === "hello", "Codex launch args pass --cd before prompt");
+
+  const launchEnv = buildCodexLaunchEnv({ EXISTING_ENV: "kept" });
+  assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
+  assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
+
+  const distEntrypoint = join(process.cwd(), "dist/codex-start.js");
+  const symlinkDir = mkdtempSync(join(tmpdir(), "am032-codex-bin-"));
+  const symlinkPath = join(symlinkDir, "wasurezu-codex-start");
+  if (existsSync(distEntrypoint)) {
+    symlinkSync(distEntrypoint, symlinkPath);
+    assert(isMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
+    const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
+    assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
+  } else {
+    assert(true, "Codex startup bin symlink test skipped because dist/codex-start.js is absent");
+  }
+  rmSync(symlinkDir, { recursive: true, force: true });
+
+  try {
+    parseArgs(["--max-tokens", "-1"]);
+    assert(false, "Codex startup parser rejects negative --max-tokens");
+  } catch {
+    assert(true, "Codex startup parser rejects negative --max-tokens");
+  }
+
+  try {
+    parseArgs(["--cd"]);
+    assert(false, "Codex startup parser rejects missing --cd value");
+  } catch {
+    assert(true, "Codex startup parser rejects missing --cd value");
+  }
+}
+
 function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
@@ -1299,6 +1377,7 @@ async function run() {
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
   await testRestartPack();
+  testCodexStartupBridge();
   testConversationScopeSchemaRegression();
 
   await cleanup();

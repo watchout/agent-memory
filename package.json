@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "bin": {
     "wasurezu": "dist/index.js",
-    "agent-memory": "dist/index.js"
+    "agent-memory": "dist/index.js",
+    "wasurezu-codex-start": "dist/codex-start.js"
   },
   "files": [
     "dist",
@@ -32,7 +33,8 @@
     "test": "tsx src/test.ts",
     "test:pg": "tsx src/test-pg.ts",
     "migrate": "tsx src/migrate.ts",
-    "boot": "tsx src/boot.ts"
+    "boot": "tsx src/boot.ts",
+    "codex:start": "tsx src/codex-start.ts"
   },
   "keywords": [
     "mcp",

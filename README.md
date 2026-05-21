@@ -182,8 +182,30 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 | Tool | Status |
 |------|--------|
 | **Claude Code** | ✅ Full support (MCP + SessionStart hook + Compact Instructions) |
-| **Cursor / Codex / Gemini CLI** | ⏳ MCP tools work; SessionStart integration in v0.2.0 |
+| **Codex** | 🧪 MCP tools work; startup recovery requires `wasurezu-codex-start` bridge |
+| **Cursor / Gemini CLI** | ⏳ MCP tools work; startup integration in a later release |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
+
+### Codex startup recovery
+
+Codex can use wasurezu MCP tools, but plain MCP configuration does not
+automatically call `restart_pack` when a new Codex session starts. Use the
+startup bridge when you want restart recovery to be present in the first Codex
+prompt:
+
+```bash
+export AGENT_MEMORY_AGENT_ID=codex-cto
+export AGENT_MEMORY_PROJECT=codex
+
+# Print a restart_pack-backed prompt.
+npx wasurezu-codex-start
+
+# Or launch Codex with that prompt.
+npx wasurezu-codex-start --launch --cd ~/Developer/codex
+```
+
+Without this bridge, Codex support should be described as manual MCP recovery:
+the user or agent must explicitly call `restart_pack` after startup.
 
 ## Requirements
 

@@ -44,6 +44,9 @@ Before running a recovery evaluation:
 
 - `ingest_conversation_events` has run for the target source(s): `codex`, `claude_code`, or both.
 - `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the target workspace.
+- For Codex, either `wasurezu-codex-start --launch` was used to start the
+  session, or the run must be labeled as manual MCP recovery instead of
+  startup recovery.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -62,7 +65,9 @@ Ground truth must be written before restart so the evaluation does not drift int
 
 1. In the pre-restart session, run transcript ingest for the target source.
 2. Confirm `restart_pack` boot succeeds once in the same environment.
-3. Start a fresh agent session in the same workspace.
+3. Start a fresh agent session in the same workspace. For Claude Code, use the
+   configured SessionStart hook. For Codex, use `wasurezu-codex-start --launch`
+   if the run is intended to count as startup recovery.
 4. Do not manually restate the project status.
 5. Give the probes below in order.
 
@@ -142,6 +147,12 @@ The run fails regardless of point total if any of these occur:
 | Public-alpha ready | Three consecutive runs at 27/30 or higher, no automatic failures, at least one run each on Codex and Claude Code | Safe enough for public release messaging. |
 
 Scores below 24 require a fix before default promotion.
+
+Codex runs only count toward default-ready or public-alpha startup recovery if
+the session starts with the restart pack already in the initial prompt, for
+example through `wasurezu-codex-start --launch`. A plain Codex MCP setup that
+requires the user to say "read restart_pack" is useful manual recovery evidence,
+but it does not satisfy startup recovery.
 
 ---
 
