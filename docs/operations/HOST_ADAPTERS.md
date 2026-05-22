@@ -5,20 +5,44 @@
 
 ## Core Boundary
 
-wasurezu is an MCP memory server plus small host adapters. It does not own the
-LLM host process lifecycle.
+wasurezu is an MCP memory server plus small host adapters. Lifecycle ownership
+depends on install mode.
 
 The public contract is:
 
 - MCP tools expose memory operations.
 - `restart_pack` provides Layer 1 recovery context.
 - Host adapters inject `restart_pack` when a new LLM session starts.
-- The user or host exits the old LLM session and starts a new one through the
-  adapter.
-- wasurezu does not kill, replace, or multiplex existing LLM sessions.
+- With AUN or another supervisor installed, that orchestrator owns runtime
+  restart, requeue, finalization, reply, and close behavior. wasurezu supplies
+  restart packs, recovery confidence, missing-context notes, and continuity
+  signals.
+- Without AUN, wasurezu may execute local session refresh only when a supported
+  supervisor or host hook is available and restart lifecycle was explicitly
+  pre-authorized at install or config time.
+- In pure MCP-only mode, wasurezu can prepare packs and recommend restart, but
+  it cannot force host restart.
 
-This keeps recovery behavior portable across hosts. A host with a native
-startup hook can be transparent. A host without one uses an explicit bridge.
+This keeps recovery behavior portable across hosts without overstating what MCP
+alone can do. A host with a native startup hook can be transparent. A host
+without one uses an explicit bridge or remains manual MCP recovery.
+
+## Install Modes
+
+| Mode | Lifecycle Owner | Wasurezu Claim |
+|------|-----------------|----------------|
+| AUN or external supervisor | AUN/supervisor | Provides restart pack, recovery confidence, missing context, provenance, and continuity signals. Does not mutate AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or close. |
+| Standalone supervisor or host hook | wasurezu adapter, if pre-authorized | May run local `auto_restart`: pre-exit prepare, pack selection, local host refresh/restart, SessionStart/boot recovery, and lifecycle record with confidence/provenance. |
+| Pure MCP-only | User or host | Manual recovery only. Wasurezu can prepare packs and emit restart recommendations, but cannot force restart. |
+
+## Continuity Guard Modes
+
+| Mode | Valid When | Behavior |
+|------|------------|----------|
+| `auto_restart` | AUN is absent, a supported wasurezu supervisor/host hook exists, and restart lifecycle was pre-authorized at install/config time. | Prepare a bounded restart pack, select the pack, refresh/restart the local host session, run SessionStart/boot recovery, and record confidence/provenance. |
+| `recommend` | Default for AUN/supervisor or MCP installs. | Emit `restart_recommended` with pack reference, confidence, missing context, and provenance. Does not execute runtime restart. |
+| `pack_only` | Any install mode. | Create/update/fetch restart packs without emitting restart recommendations or executing restart. |
+| `off` | Any install mode. | Disable continuity guard behavior. |
 
 ## Support Levels
 
@@ -42,7 +66,7 @@ startup hook can be transparent. A host without one uses an explicit bridge.
 ## Restart UX
 
 For hosts without a native lifecycle hook, the intended UX is re-entry rather
-than external process management:
+than unmanaged process replacement:
 
 1. In the current LLM session, save any final task state if needed.
 2. Exit the current LLM session using the host's normal command, such as
@@ -62,6 +86,10 @@ the same `agent_id` and project, that is an operator or host lifecycle issue,
 not an MCP server feature. Operators should prefer one active session per
 `agent_id` and project because concurrent writers can interleave task,
 decision, knowledge, and conversation events.
+
+In standalone installs with a supported and pre-authorized supervisor or host
+hook, the same re-entry lifecycle may be driven by wasurezu as `auto_restart`.
+That claim must not be made for pure MCP-only installs.
 
 ## Evaluation Rule
 

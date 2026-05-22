@@ -1378,6 +1378,23 @@ async function testCodexStartupBridge() {
   }
 }
 
+function testHostAdapterPackagingBoundary() {
+  console.log("\n── Host Adapter Packaging Boundary Tests ──");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+  assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
+
+  const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
+  const normalizedHostAdapters = hostAdapters.replace(/\s+/g, " ");
+  const lowerHostAdapters = normalizedHostAdapters.toLowerCase();
+  assert(normalizedHostAdapters.includes("With AUN or another supervisor installed"), "host adapter docs separate AUN/supervisor mode");
+  assert(lowerHostAdapters.includes("does not mutate aun queue state"), "host adapter docs forbid wasurezu AUN queue lifecycle mutation");
+  assert(normalizedHostAdapters.includes("Without AUN, wasurezu may execute local session refresh"), "host adapter docs allow standalone pre-authorized refresh");
+  assert(normalizedHostAdapters.includes("Pure MCP-only"), "host adapter docs distinguish pure MCP-only mode");
+  assert(normalizedHostAdapters.includes("auto_restart"), "host adapter docs list auto_restart continuity guard mode");
+  assert(normalizedHostAdapters.includes("pre-authorized at install/config time"), "host adapter docs require pre-authorization for auto_restart");
+}
+
 function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
@@ -1421,6 +1438,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
+  testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
 
   await cleanup();

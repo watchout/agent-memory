@@ -31,6 +31,8 @@ evidence only and must not be treated as the memory namespace.
 | Restart cycle | A real new Codex or Claude Code session opened after transcript ingest and `restart_pack` boot are enabled. |
 | Host adapter | The host-specific mechanism that puts `restart_pack` into the first model context. Examples: Claude Code SessionStart hook, Codex startup bridge. |
 | Manual MCP recovery | A run where MCP tools are available but `restart_pack` was not present in the first model context. Useful evidence, but not startup recovery. |
+| Continuity guard mode | The configured restart-continuity behavior: `auto_restart`, `recommend`, `pack_only`, or `off`. |
+| Standalone auto restart | A wasurezu-driven local session refresh. Valid only when AUN is absent, a supported supervisor/host hook exists, and restart lifecycle was pre-authorized at install/config time. |
 | Evaluator | Human or lead agent scoring the restarted agent's first response and follow-up behavior. |
 | Probe | A fixed test prompt given immediately after restart. |
 | Recovery pass | The restarted agent can continue the work without the user restating project context. |
@@ -53,6 +55,10 @@ Before running a recovery evaluation:
   be labeled as manual MCP recovery instead of startup recovery.
 - For other MCP clients, a verified host adapter or native startup hook is
   required before the run can count as startup recovery.
+- If `auto_restart` is evaluated, record evidence that AUN was absent, a
+  supported supervisor or host hook was available, and restart lifecycle was
+  pre-authorized before the run. Otherwise the run must be labeled
+  `recommend`, `pack_only`, or manual MCP recovery.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -98,7 +104,9 @@ For each run, record:
 - agent id
 - project
 - host and host adapter level
+- continuity guard mode
 - startup path, such as `claude_code_session_start` or `codex_startup_bridge`
+- lifecycle owner: AUN/supervisor, wasurezu standalone adapter, or user/host
 - source(s) ingested
 - DB backend
 - commit SHA
