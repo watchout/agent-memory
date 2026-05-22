@@ -253,10 +253,10 @@ export interface Store {
   /** Get recent messages from agent_messages table (com integration, optional) */
   getRecentMessages(input: { agent_id: string; project?: string; limit?: number }): Promise<AgentMessage[]>;
 
-  /** Persist a raw conversation/log event for later extraction and replay (AM-031) */
+  /** Persist a redacted full-text conversation/log event for later extraction and replay (AM-031) */
   saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent>;
 
-  /** Read raw conversation/log events in newest-first order (AM-031) */
+  /** Read redacted full-text conversation/log events in newest-first order (AM-031) */
   getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]>;
 
   /** Save a knowledge entry (v0.3.0) */

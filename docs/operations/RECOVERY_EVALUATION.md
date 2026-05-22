@@ -55,10 +55,13 @@ Before running a recovery evaluation:
   be labeled as manual MCP recovery instead of startup recovery.
 - For other MCP clients, a verified host adapter or native startup hook is
   required before the run can count as startup recovery.
-- If `auto_restart` is evaluated, record evidence that AUN was absent, a
-  supported supervisor or host hook was available, and restart lifecycle was
-  pre-authorized before the run. Otherwise the run must be labeled
+- If `auto_restart` is evaluated, record evidence that AUN absence was
+  explicitly confirmed, a supported supervisor or host hook was available, and
+  restart lifecycle was pre-authorized before the run. Otherwise the run must be labeled
   `recommend`, `pack_only`, or manual MCP recovery.
+- For AUN/supervisor paths, run `restart_prepare` before runtime exit and
+  record its action, recovery confidence, missing context, provenance, and
+  whether context metrics were host-provided or estimated.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -112,6 +115,7 @@ For each run, record:
 - commit SHA
 - session id if available
 - `restart_pack` boot status
+- `restart_prepare` action, confidence, missing context, and pack ref when used
 - `recovery_quality_log` id or timestamp
 - probe answers
 - search queries used by the agent
@@ -328,6 +332,6 @@ The storage model should remain layered:
 - `conversation_events`: immutable redacted source log.
 - derived summaries: session/task/topic summaries generated from events.
 - structured memory: decisions, task states, knowledge, blockers, open questions.
-- retrieval layer: text search first; embeddings/rerank on summaries and structured memory, not on every raw line by default.
+- retrieval layer: text search first; embeddings/rerank on summaries and structured memory, not on every redacted event line by default.
 
-This keeps the raw source auditable while allowing future search and memory extraction strategies to change without rewriting the source log table.
+This keeps the redacted source auditable while allowing future search and memory extraction strategies to change without rewriting the source log table.

@@ -29,7 +29,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `knowledge` | 知識・洞察・パターン | embedding (vector 512), L1→L2 merge | embedding TEXT NULL |
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
-| `conversation_events` | Codex / Claude Code 等の生会話イベント保存 | metadata JSONB | metadata TEXT(JSON) |
+| `conversation_events` | Codex / Claude Code 等の redacted full-text conversation event 保存 | metadata JSONB | metadata TEXT(JSON) |
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
 agent_messages は agent-comms スキーマ。**agent-memory が読み取り専用で連携**する形 (PG モード時のみ)。
@@ -218,9 +218,11 @@ CREATE INDEX idx_conversation_events_recent
 ```
 
 **用途**:
-- Codex / Claude Code のセッション再起動後に、失われた会話文脈を再処理できるよう raw event を保持する
+- Codex / Claude Code のセッション再起動後に、失われた会話文脈を再処理できるよう redacted full-text conversation event を保持する
 - structured memory (decisions / task_states / knowledge) へ抽出する前の provenance として使う
 - `source_event_id` があるログは event id で、ないログは `content_hash + occurred_at` で冪等化する
+- ingest adapters apply redaction before persistence and hashing, exclude hidden reasoning and developer/base instruction bodies, and store only visible conversation/tool context
+- `restart_pack` must not dump these events wholesale; recent conversation is recovered through `search_memory scope=conversation` with focused queries
 
 ---
 
@@ -257,7 +259,7 @@ CREATE INDEX idx_conversation_events_recent
 - LIKE ベース全文検索 (CJK + ASCII boundary tokenization)
 - expire stale task states
 - recovery quality logging (PG と完全同等)
-- conversation_events raw event 保存 (metadata は TEXT(JSON) として保存)
+- conversation_events redacted full-text event 保存 (metadata は TEXT(JSON) として保存)
 
 → 単体ユーザーにとっては必要十分。
 

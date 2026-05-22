@@ -144,8 +144,9 @@ Compaction (~83% context)
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge / conversation events |
 | `recover_context` | Restore all context (called after compaction) |
 | `restart_pack` | Generate a concise restart summary for continuing after session refresh |
+| `restart_prepare` | Prepare a restart pack plus confidence, missing context, provenance, and restart recommendation for a host/AUN orchestrator |
 | `set_recovery_config` | Tune recovery output limits per agent |
-| `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into raw event storage |
+| `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into redacted full-text conversation event storage |
 
 ## Storage
 
@@ -157,6 +158,13 @@ wasurezu supports two storage backends:
 | **PostgreSQL + pgvector** | Set `AGENT_MEMORY_DATABASE_URL=postgresql://...` | Multi-agent teams, semantic vector search, large-scale |
 
 Both modes support the same MCP tools. PostgreSQL adds vector similarity search via [pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings.
+
+Conversation memory is redacted full-text event storage, not an unfiltered
+transcript dump. The ingest adapters keep visible user/assistant/tool context
+after redaction and source filtering, exclude hidden reasoning and developer
+instruction bodies, and make the events searchable through
+`search_memory scope=conversation`. `restart_pack` summarizes conversation
+metadata and fallback guidance, but does not emit raw transcript excerpts.
 
 To use PostgreSQL:
 
@@ -232,8 +240,15 @@ close.
 
 When AUN is absent, a supported wasurezu supervisor or host hook may run local
 `auto_restart` only if restart lifecycle was pre-authorized at install or config
-time. Pure MCP-only installs remain manual recovery: wasurezu can prepare packs
-and recommend restart, but cannot force the host to restart.
+time and AUN absence is explicitly confirmed. Unknown AUN status fails closed
+to `recommend`. Pure MCP-only installs remain manual recovery: wasurezu can
+prepare packs and recommend restart, but cannot force the host to restart.
+
+For deterministic orchestration, hosts should call `restart_prepare` first. It
+returns `pack_update_needed`, `restart_recommended`, or `restart_required` with
+recovery confidence, missing-context notes, provenance, and a `restart_pack`
+reference. It never mutates AUN queue state or performs runtime lifecycle
+actions.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.

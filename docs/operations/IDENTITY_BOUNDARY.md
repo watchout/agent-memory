@@ -88,7 +88,7 @@ It is used to answer:
 
 - which boot produced this recovery log
 - which restart cycle was evaluated
-- which transcript file/session a raw event came from
+- which transcript file/session a redacted conversation event came from
 
 It must not be used to decide whether memory is visible. If memory visibility depended on `session_id`, a restarted agent would be unable to read its own previous context.
 

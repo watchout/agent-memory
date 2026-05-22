@@ -11,13 +11,18 @@ import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
+import { prepareRestart } from "./restart-prepare.js";
+import {
+  isMainEntrypoint as isRestartCliMainEntrypoint,
+  parseRestartCliArgs,
+} from "./restart-cli.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_STARTUP_BRIDGE_ENV,
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
   buildCodexStartupPrompt,
-  isMainEntrypoint,
+  isMainEntrypoint as isCodexMainEntrypoint,
   logCodexStartupQuality,
   parseArgs,
 } from "./codex-start.js";
@@ -822,7 +827,7 @@ async function testConversationEvents() {
     source: "codex",
     source_event_id: "codex-event-1",
     role: "assistant",
-    content: "We should continue AM-031 from the raw event storage PR.",
+    content: "We should continue AM-031 from the redacted event storage PR.",
     metadata: { file: "src/stores/types.ts" },
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
@@ -832,7 +837,7 @@ async function testConversationEvents() {
     source: "codex",
     source_event_id: "codex-event-1",
     role: "assistant",
-    content: "We should continue AM-031 from the raw event storage PR.",
+    content: "We should continue AM-031 from the redacted event storage PR.",
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
   await store.saveConversationEvent({
@@ -854,9 +859,9 @@ async function testConversationEvents() {
     occurred_at: "2026-05-19T00:02:00.000Z",
   });
 
-  assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
+  assert(first.id === duplicate.id, "source_event_id deduplicates redacted events");
   const all = await store.getConversationEvents({ agent_id: "test-agent" });
-  assert(all.length === 3, "getConversationEvents returns unique raw events");
+  assert(all.length === 3, "getConversationEvents returns unique redacted events");
   assert(all[0].source_event_id === "codex-token-count-noise", "events sorted newest first");
   const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
   assert(codexOnly.length === 2, "source filter works");
@@ -953,7 +958,7 @@ async function testClaudeConversationIngest() {
   });
 
   assert(first.files_scanned === 1, "ingest scans fixture file");
-  assert(first.events_saved === 4, "ingest saves four valid raw events");
+  assert(first.events_saved === 4, "ingest saves four valid redacted events");
   assert(first.events_skipped === 1, "ingest skips malformed line");
   assert(second.events_saved === 0, "second ingest saves no duplicates");
   assert(second.events_duplicate === 4, "second ingest reports duplicates");
@@ -1087,7 +1092,7 @@ async function testCodexConversationIngest() {
   });
 
   assert(first.files_scanned === 1, "Codex ingest scans YYYY/MM/DD fixture file");
-  assert(first.events_saved === 7, "Codex ingest saves visible raw events");
+  assert(first.events_saved === 7, "Codex ingest saves visible redacted events");
   assert(first.events_skipped === 3, "Codex ingest skips developer/reasoning/malformed records");
   assert(second.events_saved === 0, "Codex second ingest saves no duplicates");
   assert(second.events_duplicate === 7, "Codex second ingest reports duplicates");
@@ -1222,7 +1227,7 @@ async function testRestartPack() {
   assert(!output.includes("Build/tests"), "restart_pack does not emit generic ref tokens");
   assert(output.includes("codex/assistant"), "restart_pack summarizes Codex-derived conversation metadata");
   assert(output.includes("claude_code/user"), "restart_pack summarizes Claude-derived conversation metadata");
-  assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit raw conversation excerpt");
+  assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit transcript excerpts");
   assert(!output.includes("sk-"), "restart_pack redacts secrets at output boundary");
   assert(!output.includes("sk-test"), "restart_pack redacts compound secret prefixes");
   assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
@@ -1353,7 +1358,7 @@ async function testCodexStartupBridge() {
   const symlinkPath = join(symlinkDir, "wasurezu-codex-start");
   if (existsSync(distEntrypoint)) {
     symlinkSync(distEntrypoint, symlinkPath);
-    assert(isMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
+    assert(isCodexMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
     const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
     assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
     assert(help.includes("/exit"), "Codex startup help documents exit-before-reentry UX");
@@ -1378,10 +1383,145 @@ async function testCodexStartupBridge() {
   }
 }
 
+async function testRestartPrepare() {
+  console.log("\n── Restart Prepare Tests ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const agentId = "test-restart-prepare-agent";
+  const project = "restart-prepare";
+
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "AM-038 implement restart_prepare",
+    status: "in_progress",
+    progress: "Core prepare path under test.",
+    next_steps: "Wire MCP tool and CLI.",
+  });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "Wasurezu does not mutate AUN queue lifecycle during restart_prepare.",
+    tags: ["AM-038", "AUN"],
+  });
+
+  const prepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    context_used_ratio: 0.91,
+    emit_pack: false,
+  });
+  assert(prepared.action === "restart_recommended", "restart_prepare recommends restart at host metrics recommend band");
+  assert(prepared.context_signal.source === "host_metrics", "restart_prepare labels host metric source");
+  assert(prepared.context_signal.band === "recommend", "restart_prepare maps 91% context to recommend band");
+  assert(prepared.recovery_confidence.level === "high", "restart_prepare reports high confidence for coherent pack");
+  assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("restart_pack:"), "restart_prepare returns pack reference");
+  assert(prepared.restart_pack === undefined, "restart_prepare can omit restart_pack text");
+  assert(prepared.notes.some((note) => note.includes("does not mutate AUN queue state")), "restart_prepare declares AUN lifecycle non-mutation");
+
+  const downgraded = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    aun_installed: true,
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(downgraded.requested_continuity_guard_mode === "auto_restart", "restart_prepare records requested auto_restart");
+  assert(downgraded.continuity_guard_mode === "recommend", "restart_prepare downgrades invalid auto_restart when AUN is installed");
+  assert(downgraded.auto_restart_blockers.includes("aun_installed"), "restart_prepare explains AUN auto_restart blocker");
+  assert(downgraded.can_auto_restart === false, "restart_prepare does not allow auto_restart with AUN installed");
+
+  const allowedAuto = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    aun_absent_confirmed: true,
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(allowedAuto.continuity_guard_mode === "auto_restart", "restart_prepare keeps valid standalone auto_restart");
+  assert(allowedAuto.can_auto_restart === true, "restart_prepare allows pre-authorized standalone auto_restart");
+
+  const unknownAunAuto = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(unknownAunAuto.continuity_guard_mode === "recommend", "restart_prepare downgrades auto_restart when AUN absence is unknown");
+  assert(unknownAunAuto.auto_restart_blockers.includes("aun_absence_not_confirmed"), "restart_prepare requires explicit AUN absence confirmation");
+  assert(unknownAunAuto.can_auto_restart === false, "restart_prepare does not allow auto_restart for unknown AUN status");
+
+  const sparse = await prepareRestart(store, {
+    agent_id: "test-restart-prepare-sparse-agent",
+    project,
+    emit_pack: false,
+  });
+  assert(sparse.context_signal.source === "estimated", "restart_prepare marks metric-absent signal as estimated");
+  assert(sparse.recovery_confidence.missing_context.includes("active_task"), "restart_prepare reports missing active task");
+  assert(sparse.action === "restart_recommended", "restart_prepare recommends restart on sparse semantic continuity");
+
+  const packOnly = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "pack_only",
+    context_used_ratio: 0.99,
+    emit_pack: false,
+  });
+  assert(packOnly.action === "pack_update_needed", "restart_prepare pack_only never emits restart_required");
+
+  const parsed = parseRestartCliArgs([
+    "prepare",
+    "--agent-id",
+    "agent",
+    "--project",
+    "proj",
+    "--mode",
+    "auto_restart",
+    "--pack-injection-mode",
+    "on_demand",
+    "--context-used-ratio",
+    "0.9",
+    "--aun-installed",
+    "--aun-absent",
+    "--no-pack",
+  ]);
+  assert(parsed.command === "prepare", "wasurezu-restart parser reads prepare command");
+  assert(parsed.agent_id === "agent", "wasurezu-restart parser reads agent id");
+  assert(parsed.continuity_guard_mode === "auto_restart", "wasurezu-restart parser reads guard mode");
+  assert(parsed.pack_injection_mode === "on_demand", "wasurezu-restart parser reads pack injection mode");
+  assert(parsed.context_used_ratio === 0.9, "wasurezu-restart parser reads context ratio");
+  assert(parsed.aun_installed === true, "wasurezu-restart parser reads AUN installed flag");
+  assert(parsed.aun_absent_confirmed === true, "wasurezu-restart parser reads AUN absent confirmation flag");
+  assert(parsed.emit_pack === false, "wasurezu-restart parser reads no-pack flag");
+
+  const distEntrypoint = join(process.cwd(), "dist/restart-cli.js");
+  const symlinkDir = mkdtempSync(join(tmpdir(), "am038-restart-bin-"));
+  const symlinkPath = join(symlinkDir, "wasurezu-restart");
+  if (existsSync(distEntrypoint)) {
+    symlinkSync(distEntrypoint, symlinkPath);
+    assert(isRestartCliMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "wasurezu-restart entrypoint resolves npm bin symlinks");
+    const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
+    assert(help.includes("wasurezu-restart"), "wasurezu-restart bin symlink executes CLI help");
+    assert(help.includes("prepare"), "wasurezu-restart help documents prepare command");
+  } else {
+    assert(true, "wasurezu-restart bin symlink test skipped because dist/restart-cli.js is absent");
+  }
+  rmSync(symlinkDir, { recursive: true, force: true });
+
+  await store.close();
+}
+
 function testHostAdapterPackagingBoundary() {
   console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
 
   const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
@@ -1399,14 +1539,31 @@ function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
+  assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
+  assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
+  assert(source.includes("aun_absent_confirmed"), "source restart_prepare schema exposes explicit AUN absence evidence");
+  assert(source.includes("unknown AUN status downgrades to recommend"), "source restart_prepare description documents AUN-unknown fail-closed behavior");
+  assert(source.includes("redacted full-text conversation event storage"), "source conversation ingest description avoids raw transcript claim");
   const constants = readFileSync(join(process.cwd(), "src/constants.ts"), "utf8");
   assert(constants.includes("adaptive retrieval layer"), "source search_memory description includes adaptive retrieval trigger");
   assert(constants.includes("before making architectural or design decisions"), "source search_memory description says when to search");
+
+  const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
+  assert(readme.includes("redacted full-text event storage"), "README documents conversation memory as redacted full-text storage");
+  assert(readme.includes("does not emit raw transcript excerpts"), "README documents restart_pack transcript boundary");
+  const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
+  assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
+  assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
+  const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
+  assert(dataModel.includes("redacted full-text conversation event"), "data model documents redacted full-text conversation events");
+  assert(dataModel.includes("exclude hidden reasoning"), "data model documents conversation event filtering boundary");
 
   const distPath = join(process.cwd(), "dist/index.js");
   if (existsSync(distPath)) {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
+    assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
+    assert(dist.includes("aun_absent_confirmed"), "built MCP schema exposes explicit AUN absence evidence");
     const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
     assert(distConstants.includes("adaptive retrieval layer"), "built MCP schema includes adaptive retrieval trigger");
   } else {
@@ -1438,6 +1595,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
+  await testRestartPrepare();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
 
