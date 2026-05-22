@@ -51,7 +51,7 @@ without one uses an explicit bridge or remains manual MCP recovery.
 It prepares a bounded restart pack and returns:
 
 - `pack_update_needed`, `restart_recommended`, or `restart_required`
-- `restart_pack` and `pack_ref`
+- `restart_pack` and `pack_ref` such as `selected_restart_pack:<id>`
 - recovery confidence
 - missing-context notes
 - provenance
@@ -60,6 +60,12 @@ It does not stop, restart, requeue, finalize, reply, close, or mutate AUN queue
 lifecycle. Host-provided context metrics are used only when supplied; otherwise
 the context signal is explicitly marked as estimated and based on semantic
 continuity.
+
+When pack injection is enabled, the `pack_ref` points to a persisted selected
+restart pack. Hosts can fetch it with `restart_pack_fetch` or
+`wasurezu-restart fetch --pack-ref <ref> --consume`, or pass it to a compatible
+boot path with `AGENT_MEMORY_SELECTED_PACK_REF`. Fetch/consume is still a
+wasurezu memory handoff only; it does not mutate AUN queue lifecycle.
 
 ## Support Levels
 

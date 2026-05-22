@@ -30,6 +30,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
 | `conversation_events` | Codex / Claude Code 等の redacted full-text conversation event 保存 | metadata JSONB | metadata TEXT(JSON) |
+| `selected_restart_packs` | restart_prepare が選択した boot handoff pack | metadata JSONB | metadata TEXT(JSON) |
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
 agent_messages は agent-comms スキーマ。**agent-memory が読み取り専用で連携**する形 (PG モード時のみ)。
@@ -223,6 +224,33 @@ CREATE INDEX idx_conversation_events_recent
 - `source_event_id` があるログは event id で、ないログは `content_hash + occurred_at` で冪等化する
 - ingest adapters apply redaction before persistence and hashing, exclude hidden reasoning and developer/base instruction bodies, and store only visible conversation/tool context
 - `restart_pack` must not dump these events wholesale; recent conversation is recovered through `search_memory scope=conversation` with focused queries
+
+### 2.7 selected_restart_packs (AM-039)
+
+```sql
+CREATE TABLE selected_restart_packs (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id     TEXT NOT NULL,
+  project      TEXT,
+  pack_ref     TEXT NOT NULL UNIQUE,
+  content      TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'active',
+  source       TEXT NOT NULL,
+  metadata     JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  consumed_at  TIMESTAMPTZ,
+  expires_at   TIMESTAMPTZ
+);
+
+CREATE INDEX idx_selected_restart_packs_agent
+  ON selected_restart_packs (agent_id, status, created_at DESC);
+```
+
+**用途**:
+- `restart_prepare` が生成した restart pack を `selected_restart_pack:<id>` として永続化する
+- AUN / host / supervisor が選択済み pack を fetch または consume して post-start boot に渡せるようにする
+- `consume` は selected pack の再利用を防ぐための handoff marker であり、AUN queue state / claim / delivery / finalization は変更しない
 
 ---
 

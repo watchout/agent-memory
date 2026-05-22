@@ -1,4 +1,3 @@
-import { createHash } from "crypto";
 import type { ConversationEvent, Decision, Knowledge, Store, TaskState } from "./stores/types.js";
 import { estimateTokens } from "./constants.js";
 import { generateRestartPack } from "./restart-pack.js";
@@ -95,8 +94,23 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     contextBand: contextSignal.band,
     runtimeContextError: input.runtime_context_error === true,
   });
-  const packRef = `restart_pack:${hashText(restartPack).slice(0, 16)}`;
   const generatedAt = new Date().toISOString();
+  const selectedPack = packInjectionMode === "off"
+    ? null
+    : await store.saveSelectedRestartPack({
+        agent_id: input.agent_id,
+        project: input.project,
+        content: restartPack,
+        source: "restart_prepare",
+        metadata: {
+          generated_at: generatedAt,
+          requested_continuity_guard_mode: requestedMode,
+          continuity_guard_mode: effectiveMode,
+          action,
+          context_signal: contextSignal,
+          recovery_confidence: { score, missing_context: missingContext },
+        },
+      });
 
   return {
     action,
@@ -105,7 +119,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     pack_injection_mode: packInjectionMode,
     can_auto_restart: autoRestartBlockers.length === 0 && requestedMode === "auto_restart",
     auto_restart_blockers: autoRestartBlockers,
-    pack_ref: packInjectionMode === "off" ? null : packRef,
+    pack_ref: selectedPack?.pack_ref ?? null,
     ...(input.emit_pack === false ? {} : { restart_pack: restartPack }),
     recovery_confidence: {
       score,
@@ -239,10 +253,6 @@ function notesFor(input: {
   }
   notes.push(`restart_prepare action=${input.action}.`);
   return notes;
-}
-
-function hashText(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
 }
 
 function ids(items: Array<{ id: string }>): string[] {

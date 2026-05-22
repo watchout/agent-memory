@@ -63,11 +63,21 @@ async function boot() {
 
     if (process.env.AGENT_MEMORY_BOOT_MODE === "restart_pack") {
       try {
-        const output = await generateRestartPack(store, {
-          agent_id: AGENT_ID,
-          project: PROJECT,
-          max_tokens: cfg.max_tokens,
-        });
+        const selectedPackRef = process.env.AGENT_MEMORY_SELECTED_PACK_REF;
+        const selectedPack = selectedPackRef
+          ? await store.consumeSelectedRestartPack({
+              agent_id: AGENT_ID,
+              project: PROJECT,
+              pack_ref: selectedPackRef,
+            })
+          : null;
+        const output = selectedPack?.content ?? (
+          await generateRestartPack(store, {
+            agent_id: AGENT_ID,
+            project: PROJECT,
+            max_tokens: cfg.max_tokens,
+          })
+        );
         await store.logRecoveryQuality({
           agent_id: AGENT_ID,
           session_id: SESSION_ID,
@@ -77,6 +87,8 @@ async function boot() {
             source: "restart_pack_boot",
             host_adapter: "claude_code_session_start",
             host_adapter_level: 2,
+            selected_pack_ref: selectedPack?.pack_ref,
+            selected_pack_consumed: selectedPack ? true : undefined,
           }),
         }).catch((err) => {
           process.stderr.write(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`);

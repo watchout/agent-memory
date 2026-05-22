@@ -62,6 +62,9 @@ Before running a recovery evaluation:
 - For AUN/supervisor paths, run `restart_prepare` before runtime exit and
   record its action, recovery confidence, missing context, provenance, and
   whether context metrics were host-provided or estimated.
+- If `restart_prepare` returns a `selected_restart_pack:<id>` reference, record
+  whether the host fetched or consumed it through `restart_pack_fetch`,
+  `wasurezu-restart fetch --consume`, or `AGENT_MEMORY_SELECTED_PACK_REF`.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -116,6 +119,7 @@ For each run, record:
 - session id if available
 - `restart_pack` boot status
 - `restart_prepare` action, confidence, missing context, and pack ref when used
+- selected restart pack fetch/consume status when a `pack_ref` is used
 - `recovery_quality_log` id or timestamp
 - probe answers
 - search queries used by the agent

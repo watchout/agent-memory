@@ -467,6 +467,39 @@ async function main() {
     }
   );
 
+  // ─── restart_pack_fetch (AM-039) ──────────────────────────────
+  server.tool(
+    "restart_pack_fetch",
+    "Fetch a selected restart pack by pack_ref for host/AUN boot consume. Set consume=true to mark it consumed atomically. This tool does not restart the host or mutate AUN queue lifecycle.",
+    {
+      pack_ref: z.string().describe("selected_restart_pack reference returned by restart_prepare"),
+      project: z.string().optional().describe("Filter by project"),
+      consume: z.boolean().optional().describe("Mark the selected pack as consumed after fetching."),
+    },
+    async ({ pack_ref, project, consume }) => {
+      await logCall("restart_pack_fetch", `pack_ref="${pack_ref}" consume=${consume === true}`);
+      try {
+        const pack = consume
+          ? await store.consumeSelectedRestartPack({ agent_id: AGENT_ID, project: project || PROJECT, pack_ref })
+          : await store.getSelectedRestartPack({ agent_id: AGENT_ID, project: project || PROJECT, pack_ref });
+        if (!pack) {
+          return {
+            content: [safeText(`Selected restart pack not found or already consumed: ${pack_ref}`)],
+            isError: true,
+          };
+        }
+        return {
+          content: [safeText(JSON.stringify(pack, null, 2))],
+        };
+      } catch (err) {
+        return {
+          content: [safeText(`Failed to fetch selected restart pack: ${err}`)],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── restart_prepare (AM-038) ──────────────────────────────────
   server.tool(
     "restart_prepare",

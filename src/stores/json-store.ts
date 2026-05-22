@@ -12,6 +12,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -25,6 +26,9 @@ import type {
   SupersedeKnowledgeInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveSelectedRestartPackInput,
+  GetSelectedRestartPackInput,
+  ConsumeSelectedRestartPackInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
@@ -32,6 +36,7 @@ const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
 const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
+const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -54,6 +59,7 @@ export class JsonStore implements Store {
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
   private conversationEvents: ConversationEvent[] = [];
+  private selectedRestartPacks: SelectedRestartPack[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -63,6 +69,7 @@ export class JsonStore implements Store {
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
     this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
     this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
+    this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -395,6 +402,10 @@ export class JsonStore implements Store {
     await writeFile(CONVERSATION_EVENTS_FILE, JSON.stringify(this.conversationEvents, null, 2));
   }
 
+  private async saveSelectedRestartPacksFile(): Promise<void> {
+    await writeFile(SELECTED_RESTART_PACKS_FILE, JSON.stringify(this.selectedRestartPacks, null, 2));
+  }
+
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
@@ -485,6 +496,53 @@ export class JsonStore implements Store {
 
   async updateSearchMemoryCount(): Promise<void> {
     // JSON store has no recovery_quality_log — no-op
+  }
+
+  async saveSelectedRestartPack(input: SaveSelectedRestartPackInput): Promise<SelectedRestartPack> {
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const pack: SelectedRestartPack = {
+      id,
+      agent_id: input.agent_id,
+      project: input.project,
+      pack_ref: `selected_restart_pack:${id}`,
+      content: input.content,
+      content_hash: contentHash(input.content),
+      status: "active",
+      source: input.source ?? "restart_prepare",
+      metadata: input.metadata ?? {},
+      created_at: now,
+      expires_at: input.expires_at,
+    };
+    this.selectedRestartPacks.push(pack);
+    await this.saveSelectedRestartPacksFile();
+    return pack;
+  }
+
+  async getSelectedRestartPack(input: GetSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    return this.findSelectedRestartPack(input);
+  }
+
+  async consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    const pack = this.findSelectedRestartPack(input);
+    if (!pack) return null;
+    pack.status = "consumed";
+    pack.consumed_at = input.consumed_at ?? new Date().toISOString();
+    await this.saveSelectedRestartPacksFile();
+    return pack;
+  }
+
+  private findSelectedRestartPack(input: GetSelectedRestartPackInput): SelectedRestartPack | null {
+    const now = Date.now();
+    const pack = this.selectedRestartPacks.find((item) => {
+      if (item.agent_id !== input.agent_id) return false;
+      if (item.pack_ref !== input.pack_ref) return false;
+      if (input.project && item.project !== input.project) return false;
+      if (item.status !== "active") return false;
+      if (item.expires_at && new Date(item.expires_at).getTime() <= now) return false;
+      return true;
+    });
+    return pack ?? null;
   }
 
   async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge> {
