@@ -9,6 +9,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -23,6 +24,9 @@ import type {
   LogRecoveryQualityInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveSelectedRestartPackInput,
+  GetSelectedRestartPackInput,
+  ConsumeSelectedRestartPackInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -198,6 +202,24 @@ const MIGRATIONS = [
      WHERE source_event_id IS NULL`,
   `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
      ON conversation_events (agent_id, source, occurred_at DESC)`,
+
+  // AM-039: selected restart packs for host/AUN boot consume.
+  `CREATE TABLE IF NOT EXISTS selected_restart_packs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    pack_ref TEXT NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    source TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    consumed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_selected_restart_packs_agent
+     ON selected_restart_packs (agent_id, status, created_at DESC)`,
 ];
 
 export class PgStore implements Store {
@@ -968,6 +990,59 @@ export class PgStore implements Store {
     }
   }
 
+  async saveSelectedRestartPack(input: SaveSelectedRestartPackInput): Promise<SelectedRestartPack> {
+    const id = uuidv4();
+    const packRef = `selected_restart_pack:${id}`;
+    const hash = createHash("sha256").update(input.content).digest("hex");
+    const result = await this.pool.query(
+      `INSERT INTO selected_restart_packs
+        (id, agent_id, project, pack_ref, content, content_hash, source, metadata, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        id,
+        input.agent_id,
+        input.project ?? null,
+        packRef,
+        input.content,
+        hash,
+        input.source ?? "restart_prepare",
+        input.metadata ?? {},
+        input.expires_at ?? null,
+      ]
+    );
+    return this.rowToSelectedRestartPack(result.rows[0]);
+  }
+
+  async getSelectedRestartPack(input: GetSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM selected_restart_packs
+       WHERE agent_id = $1
+         AND pack_ref = $2
+         AND ($3::text IS NULL OR project = $3)
+         AND status = 'active'
+         AND (expires_at IS NULL OR expires_at > now())
+       LIMIT 1`,
+      [input.agent_id, input.pack_ref, input.project ?? null]
+    );
+    return result.rows[0] ? this.rowToSelectedRestartPack(result.rows[0]) : null;
+  }
+
+  async consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    const result = await this.pool.query(
+      `UPDATE selected_restart_packs
+          SET status = 'consumed', consumed_at = COALESCE($4::timestamptz, now())
+        WHERE agent_id = $1
+          AND pack_ref = $2
+          AND ($3::text IS NULL OR project = $3)
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > now())
+        RETURNING *`,
+      [input.agent_id, input.pack_ref, input.project ?? null, input.consumed_at ?? null]
+    );
+    return result.rows[0] ? this.rowToSelectedRestartPack(result.rows[0]) : null;
+  }
+
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
     const id = uuidv4();
     const embeddingText = `${input.title} ${input.content}`.trim();
@@ -1193,6 +1268,32 @@ export class PgStore implements Store {
         row.created_at instanceof Date
           ? row.created_at.toISOString()
           : (row.created_at as string),
+    };
+  }
+
+  private rowToSelectedRestartPack(row: Record<string, unknown>): SelectedRestartPack {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      pack_ref: row.pack_ref as string,
+      content: row.content as string,
+      content_hash: row.content_hash as string,
+      status: row.status as SelectedRestartPack["status"],
+      source: row.source as SelectedRestartPack["source"],
+      metadata: (row.metadata as Record<string, unknown>) || {},
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : (row.created_at as string),
+      consumed_at:
+        row.consumed_at instanceof Date
+          ? row.consumed_at.toISOString()
+          : ((row.consumed_at as string | null) ?? undefined),
+      expires_at:
+        row.expires_at instanceof Date
+          ? row.expires_at.toISOString()
+          : ((row.expires_at as string | null) ?? undefined),
     };
   }
 }

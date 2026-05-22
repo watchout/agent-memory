@@ -106,6 +106,24 @@ const MIGRATIONS = [
      WHERE source_event_id IS NULL`,
   `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
      ON conversation_events (agent_id, source, occurred_at DESC)`,
+
+  // ─── AM-039: selected restart packs ───────────────────────────
+  `CREATE TABLE IF NOT EXISTS selected_restart_packs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    pack_ref TEXT NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    source TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    consumed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_selected_restart_packs_agent
+     ON selected_restart_packs (agent_id, status, created_at DESC)`,
 ];
 
 async function migrate() {

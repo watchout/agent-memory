@@ -5,9 +5,11 @@ import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode } from "./restart-prepare.js";
 
 interface CliOptions {
-  command: "prepare" | "help";
+  command: "prepare" | "fetch" | "help";
   agent_id: string;
   project?: string;
+  pack_ref?: string;
+  consume?: boolean;
   max_tokens?: number;
   continuity_guard_mode?: ContinuityGuardMode;
   pack_injection_mode?: PackInjectionMode;
@@ -27,12 +29,12 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
   if (command === "help" || command === "--help" || command === "-h") {
     return { command: "help", agent_id: env.AGENT_MEMORY_AGENT_ID || "default" };
   }
-  if (command !== "prepare") {
+  if (command !== "prepare" && command !== "fetch") {
     throw new Error(`unknown command: ${command}`);
   }
 
   const options: CliOptions = {
-    command: "prepare",
+    command,
     agent_id: env.AGENT_MEMORY_AGENT_ID || "default",
     project: env.AGENT_MEMORY_PROJECT || undefined,
   };
@@ -51,6 +53,12 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
         break;
       case "--project":
         options.project = next();
+        break;
+      case "--pack-ref":
+        options.pack_ref = next();
+        break;
+      case "--consume":
+        options.consume = true;
         break;
       case "--max-tokens":
         options.max_tokens = positiveNumber(arg, next());
@@ -104,10 +112,13 @@ export function printRestartCliHelp(): string {
     "",
     "Usage:",
     "  wasurezu-restart prepare [options]",
+    "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
     "",
     "Options:",
     "  --agent-id ID",
     "  --project PROJECT",
+    "  --pack-ref REF                selected_restart_pack reference for fetch",
+    "  --consume                     mark fetched selected pack as consumed",
     "  --max-tokens N",
     "  --mode auto_restart|recommend|pack_only|off",
     "  --pack-injection-mode auto_attach|on_demand|off",
@@ -131,6 +142,23 @@ async function main(): Promise<void> {
   }
   const store = await createStore();
   try {
+    if (options.command === "fetch") {
+      if (!options.pack_ref) throw new Error("fetch requires --pack-ref");
+      const pack = options.consume
+        ? await store.consumeSelectedRestartPack({
+            agent_id: options.agent_id,
+            project: options.project,
+            pack_ref: options.pack_ref,
+          })
+        : await store.getSelectedRestartPack({
+            agent_id: options.agent_id,
+            project: options.project,
+            pack_ref: options.pack_ref,
+          });
+      if (!pack) throw new Error(`selected restart pack not found or already consumed: ${options.pack_ref}`);
+      console.log(JSON.stringify(pack, null, 2));
+      return;
+    }
     const output = await prepareRestart(store, options);
     console.log(JSON.stringify(output, null, 2));
   } finally {

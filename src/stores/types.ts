@@ -195,6 +195,40 @@ export interface RecoveryConfig {
   restart_message_threshold: number;
 }
 
+export interface SelectedRestartPack {
+  id: string;
+  agent_id: string;
+  project?: string;
+  pack_ref: string;
+  content: string;
+  content_hash: string;
+  status: "active" | "consumed" | "expired";
+  source: "restart_prepare" | "manual";
+  metadata: Record<string, unknown>;
+  created_at: string;
+  consumed_at?: string;
+  expires_at?: string;
+}
+
+export interface SaveSelectedRestartPackInput {
+  agent_id: string;
+  project?: string;
+  content: string;
+  source?: "restart_prepare" | "manual";
+  metadata?: Record<string, unknown>;
+  expires_at?: string;
+}
+
+export interface GetSelectedRestartPackInput {
+  agent_id: string;
+  pack_ref: string;
+  project?: string;
+}
+
+export interface ConsumeSelectedRestartPackInput extends GetSelectedRestartPackInput {
+  consumed_at?: string;
+}
+
 /**
  * Input for logRecoveryQuality (AM-002, Stage 1).
  *
@@ -292,6 +326,15 @@ export interface Store {
 
   /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
   updateSearchMemoryCount(log_id: string, count: number): Promise<void>;
+
+  /** Persist a selected restart pack for later host/AUN boot consume (AM-039) */
+  saveSelectedRestartPack(input: SaveSelectedRestartPackInput): Promise<SelectedRestartPack>;
+
+  /** Fetch an active selected restart pack by reference without consuming it (AM-039) */
+  getSelectedRestartPack(input: GetSelectedRestartPackInput): Promise<SelectedRestartPack | null>;
+
+  /** Fetch and mark a selected restart pack as consumed (AM-039) */
+  consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null>;
 
   /** Close connections */
   close(): Promise<void>;

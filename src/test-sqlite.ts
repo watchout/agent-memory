@@ -756,6 +756,41 @@ async function testConversationEvents() {
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
 }
 
+async function testSelectedRestartPacks() {
+  console.log("\n── SqliteStore Selected Restart Packs ──");
+
+  const saved = await store.saveSelectedRestartPack({
+    agent_id: AGENT,
+    project: PROJECT,
+    content: "SESSION RESTART PACK\nContinue AM-039.",
+    metadata: { action: "pack_update_needed" },
+  });
+  assert(saved.pack_ref.startsWith("selected_restart_pack:"), "selected restart pack has stable ref prefix");
+  assert(saved.content_hash.length === 64, "selected restart pack has sha256 content hash");
+
+  const fetched = await store.getSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: saved.pack_ref });
+  assert(fetched?.content.includes("AM-039") === true, "selected restart pack can be fetched");
+  assert(fetched?.metadata.action === "pack_update_needed", "selected restart pack metadata round-trips");
+
+  const consumed = await store.consumeSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: saved.pack_ref });
+  assert(consumed?.status === "consumed", "selected restart pack can be consumed");
+
+  const afterConsume = await store.getSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: saved.pack_ref });
+  assert(afterConsume === null, "consumed selected restart pack is no longer active");
+
+  const concurrent = await store.saveSelectedRestartPack({
+    agent_id: AGENT,
+    project: PROJECT,
+    content: "SESSION RESTART PACK\nConcurrent consume canary.",
+  });
+  const [firstConsume, secondConsume] = await Promise.all([
+    store.consumeSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: concurrent.pack_ref }),
+    store.consumeSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: concurrent.pack_ref }),
+  ]);
+  const consumedCount = [firstConsume, secondConsume].filter((item) => item !== null).length;
+  assert(consumedCount === 1, "concurrent selected restart pack consume is single-use");
+}
+
 async function testClaudeConversationIngest() {
   console.log("\n── SqliteStore Claude Conversation Ingest ──");
 
@@ -996,6 +1031,7 @@ async function run() {
     await testExpireStaleTaskStates();
     await testGetRecentMessages();
     await testConversationEvents();
+    await testSelectedRestartPacks();
     await testClaudeConversationIngest();
     await testCodexConversationIngest();
     await testStripOrphanSurrogates();

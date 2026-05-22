@@ -1415,9 +1415,16 @@ async function testRestartPrepare() {
   assert(prepared.context_signal.source === "host_metrics", "restart_prepare labels host metric source");
   assert(prepared.context_signal.band === "recommend", "restart_prepare maps 91% context to recommend band");
   assert(prepared.recovery_confidence.level === "high", "restart_prepare reports high confidence for coherent pack");
-  assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("restart_pack:"), "restart_prepare returns pack reference");
+  assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("selected_restart_pack:"), "restart_prepare returns selected pack reference");
   assert(prepared.restart_pack === undefined, "restart_prepare can omit restart_pack text");
   assert(prepared.notes.some((note) => note.includes("does not mutate AUN queue state")), "restart_prepare declares AUN lifecycle non-mutation");
+  const selected = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
+  assert(selected !== null, "restart_prepare persists selected restart pack");
+  assert(selected?.content.includes("SESSION RESTART PACK") === true, "selected restart pack stores pack content");
+  const consumed = await store.consumeSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
+  assert(consumed?.status === "consumed", "selected restart pack can be consumed");
+  const afterConsume = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
+  assert(afterConsume === null, "consumed selected restart pack is no longer active");
 
   const downgraded = await prepareRestart(store, {
     agent_id: agentId,
@@ -1475,6 +1482,14 @@ async function testRestartPrepare() {
   });
   assert(packOnly.action === "pack_update_needed", "restart_prepare pack_only never emits restart_required");
 
+  const packOff = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    pack_injection_mode: "off",
+    emit_pack: false,
+  });
+  assert(packOff.pack_ref === null, "restart_prepare omits selected pack ref when pack injection is off");
+
   const parsed = parseRestartCliArgs([
     "prepare",
     "--agent-id",
@@ -1499,6 +1514,11 @@ async function testRestartPrepare() {
   assert(parsed.aun_installed === true, "wasurezu-restart parser reads AUN installed flag");
   assert(parsed.aun_absent_confirmed === true, "wasurezu-restart parser reads AUN absent confirmation flag");
   assert(parsed.emit_pack === false, "wasurezu-restart parser reads no-pack flag");
+
+  const parsedFetch = parseRestartCliArgs(["fetch", "--agent-id", "agent", "--pack-ref", "selected_restart_pack:abc", "--consume"]);
+  assert(parsedFetch.command === "fetch", "wasurezu-restart parser reads fetch command");
+  assert(parsedFetch.pack_ref === "selected_restart_pack:abc", "wasurezu-restart parser reads selected pack ref");
+  assert(parsedFetch.consume === true, "wasurezu-restart parser reads consume flag");
 
   const distEntrypoint = join(process.cwd(), "dist/restart-cli.js");
   const symlinkDir = mkdtempSync(join(tmpdir(), "am038-restart-bin-"));
@@ -1540,6 +1560,7 @@ function testConversationScopeSchemaRegression() {
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
   assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
+  assert(source.includes('"restart_pack_fetch"'), "source MCP schema includes restart_pack_fetch tool");
   assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
   assert(source.includes("aun_absent_confirmed"), "source restart_prepare schema exposes explicit AUN absence evidence");
   assert(source.includes("unknown AUN status downgrades to recommend"), "source restart_prepare description documents AUN-unknown fail-closed behavior");
@@ -1554,15 +1575,20 @@ function testConversationScopeSchemaRegression() {
   const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
   assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
   assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
+  assert(apiContract.includes("restart_pack_fetch"), "API contract documents restart_pack_fetch");
+  assert(apiContract.includes("selected_restart_pack:<id>"), "API contract documents selected restart pack refs");
+  assert(apiContract.includes("AGENT_MEMORY_SELECTED_PACK_REF"), "API contract documents boot selected-pack consume");
   const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
   assert(dataModel.includes("redacted full-text conversation event"), "data model documents redacted full-text conversation events");
   assert(dataModel.includes("exclude hidden reasoning"), "data model documents conversation event filtering boundary");
+  assert(dataModel.includes("selected_restart_packs"), "data model documents selected restart packs");
 
   const distPath = join(process.cwd(), "dist/index.js");
   if (existsSync(distPath)) {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
     assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
+    assert(dist.includes('"restart_pack_fetch"'), "built MCP schema includes restart_pack_fetch tool");
     assert(dist.includes("aun_absent_confirmed"), "built MCP schema exposes explicit AUN absence evidence");
     const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
     assert(distConstants.includes("adaptive retrieval layer"), "built MCP schema includes adaptive retrieval trigger");

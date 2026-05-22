@@ -12,6 +12,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
   GetDecisionsInput,
@@ -26,6 +27,9 @@ import type {
   LogRecoveryQualityInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveSelectedRestartPackInput,
+  GetSelectedRestartPackInput,
+  ConsumeSelectedRestartPackInput,
 } from "./types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
@@ -133,6 +137,23 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
     ON conversation_events(agent_id, source, occurred_at DESC)`,
 
+  `CREATE TABLE IF NOT EXISTS selected_restart_packs (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    pack_ref TEXT NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    source TEXT NOT NULL,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    consumed_at TEXT,
+    expires_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_selected_restart_packs_agent
+    ON selected_restart_packs(agent_id, status, created_at DESC)`,
+
 ];
 
 let SQL_PROMISE: Promise<SqlJsStatic> | null = null;
@@ -158,6 +179,16 @@ function parseJsonArray(value: unknown): string[] {
     return Array.isArray(parsed) ? parsed.map((v) => String(v)) : [];
   } catch {
     return [];
+  }
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string" || value.length === 0) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
   }
 }
 
@@ -1030,6 +1061,96 @@ export class SqliteStore implements Store {
     this.persist();
   }
 
+  async saveSelectedRestartPack(input: SaveSelectedRestartPackInput): Promise<SelectedRestartPack> {
+    const id = uuidv4();
+    const now = nowIso();
+    const pack: SelectedRestartPack = {
+      id,
+      agent_id: input.agent_id,
+      project: input.project,
+      pack_ref: `selected_restart_pack:${id}`,
+      content: input.content,
+      content_hash: contentHash(input.content),
+      status: "active",
+      source: input.source ?? "restart_prepare",
+      metadata: input.metadata ?? {},
+      created_at: now,
+      expires_at: input.expires_at,
+    };
+    this.db.run(
+      `INSERT INTO selected_restart_packs
+        (id, agent_id, project, pack_ref, content, content_hash, status, source, metadata, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        pack.id,
+        pack.agent_id,
+        pack.project ?? null,
+        pack.pack_ref,
+        pack.content,
+        pack.content_hash,
+        pack.status,
+        pack.source,
+        JSON.stringify(pack.metadata),
+        pack.created_at,
+        pack.expires_at ?? null,
+      ]
+    );
+    this.persist();
+    return pack;
+  }
+
+  async getSelectedRestartPack(input: GetSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    const rows = this.selectedRestartPackRows(input);
+    return rows[0] ? this.rowToSelectedRestartPack(rows[0]) : null;
+  }
+
+  async consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    const consumedAt = input.consumed_at ?? nowIso();
+    const conditions = ["agent_id = ?", "pack_ref = ?", "status = 'active'", "(expires_at IS NULL OR expires_at > ?)"];
+    const params: unknown[] = [input.agent_id, input.pack_ref, nowIso()];
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    this.db.run(
+      `UPDATE selected_restart_packs
+          SET status = 'consumed', consumed_at = ?
+        WHERE ${conditions.join(" AND ")}`,
+      [consumedAt, ...params] as never
+    );
+    if (this.db.getRowsModified() === 0) return null;
+    this.persist();
+    const row = this.selectedRestartPackByRef(input);
+    return row ? this.rowToSelectedRestartPack(row) : null;
+  }
+
+  private selectedRestartPackRows(input: GetSelectedRestartPackInput): Record<string, unknown>[] {
+    const conditions = ["agent_id = ?", "pack_ref = ?", "status = 'active'", "(expires_at IS NULL OR expires_at > ?)"];
+    const params: unknown[] = [input.agent_id, input.pack_ref, nowIso()];
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    return this.allRows(
+      `SELECT * FROM selected_restart_packs WHERE ${conditions.join(" AND ")} LIMIT 1`,
+      params
+    );
+  }
+
+  private selectedRestartPackByRef(input: GetSelectedRestartPackInput): Record<string, unknown> | null {
+    const conditions = ["agent_id = ?", "pack_ref = ?"];
+    const params: unknown[] = [input.agent_id, input.pack_ref];
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    const rows = this.allRows(
+      `SELECT * FROM selected_restart_packs WHERE ${conditions.join(" AND ")} LIMIT 1`,
+      params
+    );
+    return rows[0] ?? null;
+  }
+
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async close(): Promise<void> {
@@ -1115,6 +1236,23 @@ export class SqliteStore implements Store {
       metadata,
       occurred_at: row.occurred_at as string,
       created_at: row.created_at as string,
+    };
+  }
+
+  private rowToSelectedRestartPack(row: Record<string, unknown>): SelectedRestartPack {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      pack_ref: row.pack_ref as string,
+      content: row.content as string,
+      content_hash: row.content_hash as string,
+      status: row.status as SelectedRestartPack["status"],
+      source: row.source as SelectedRestartPack["source"],
+      metadata: parseJsonObject(row.metadata),
+      created_at: row.created_at as string,
+      consumed_at: (row.consumed_at as string | null) ?? undefined,
+      expires_at: (row.expires_at as string | null) ?? undefined,
     };
   }
 }

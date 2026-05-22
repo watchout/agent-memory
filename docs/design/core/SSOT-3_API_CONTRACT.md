@@ -43,6 +43,7 @@ com: memに依存しない（watchdogはmemなしでも動く）
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
 | restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num) | prioritized restart text |
 | restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool) | action, restart_pack?, pack_ref, recovery_confidence, context_signal, provenance, notes |
+| restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
 
 ## restart_prepare (AM-038)
@@ -55,7 +56,7 @@ runtime lifecycle:
 - `continuity_guard_mode`: effective mode after fail-closed checks
 - `requested_continuity_guard_mode`: caller-requested mode
 - `pack_injection_mode`: `auto_attach` / `on_demand` / `off`
-- `restart_pack` and `pack_ref`: generated pack content and reference
+- `restart_pack` and `pack_ref`: generated pack content and a selected-pack reference such as `selected_restart_pack:<id>`
 - `recovery_confidence`: semantic confidence and missing context
 - `context_signal`: host-provided context metric when supplied, otherwise `estimated`
 - `provenance`: agent/project/time/config inputs used for the decision
@@ -64,9 +65,16 @@ Boundary: `restart_prepare` does not stop, restart, requeue, finalize, reply,
 close, or mutate AUN queue lifecycle. `auto_restart` is fail-closed unless AUN
 absence is explicitly confirmed, a supported supervisor/host hook is available,
 and restart lifecycle was pre-authorized at install/config time. Unknown AUN
-status downgrades to `recommend`. `pack_ref` is currently a content
-hash reference; AM-039 is expected to add persisted selected-pack fetch/boot
-consume.
+status downgrades to `recommend`.
+
+If pack injection is enabled, `restart_prepare` persists the selected restart
+pack and returns a `selected_restart_pack:<id>` reference. Hosts and AUN can
+fetch it with `restart_pack_fetch` or `wasurezu-restart fetch --pack-ref <ref>`.
+Using `consume=true` marks the selected pack consumed so the same handoff is not
+treated as active twice. Claude Code boot can consume the same reference by
+setting `AGENT_MEMORY_SELECTED_PACK_REF` together with
+`AGENT_MEMORY_BOOT_MODE=restart_pack`; if the selected pack is missing or
+already consumed, boot falls back to generating a fresh restart pack.
 
 ## recover_context — Current vs Required
 

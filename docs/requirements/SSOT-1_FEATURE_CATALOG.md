@@ -59,6 +59,7 @@ recovery surface also includes:
 | AM-031 | `conversation_events` redacted full-text conversation memory | ✅ Implemented | SSOT-4 | Claude Code / Codex visible event ingest; redaction before persistence and hashing; hidden reasoning and developer/base instruction bodies excluded |
 | AM-031 | `restart_pack` startup recovery pack | ✅ Implemented | SSOT-3 | Current objective, next action, blockers, refs, safety-redacted output, and recovery control ladder |
 | AM-038 | `restart_prepare` deterministic prepare interface | ✅ Implemented | SSOT-3 | Host/AUN-facing action, confidence, missing context, provenance, and pack reference; does not mutate runtime or AUN lifecycle |
+| AM-039 | selected restart pack fetch/consume | 🚧 In progress | SSOT-3 / SSOT-4 | Persist `restart_prepare` output as `selected_restart_pack:<id>` and allow MCP/CLI/boot consumers to fetch or consume it without mutating AUN lifecycle |
 
 ## Remaining Work
 

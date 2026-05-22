@@ -145,6 +145,7 @@ Compaction (~83% context)
 | `recover_context` | Restore all context (called after compaction) |
 | `restart_pack` | Generate a concise restart summary for continuing after session refresh |
 | `restart_prepare` | Prepare a restart pack plus confidence, missing context, provenance, and restart recommendation for a host/AUN orchestrator |
+| `restart_pack_fetch` | Fetch or consume a selected restart pack produced by `restart_prepare` |
 | `set_recovery_config` | Tune recovery output limits per agent |
 | `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into redacted full-text conversation event storage |
 
@@ -183,6 +184,7 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 | `DATABASE_URL` | No | — | Legacy alias for `AGENT_MEMORY_DATABASE_URL` |
 | `AGENT_MEMORY_AGENT_ID` | No | `default` | Agent identifier (multi-agent namespace) |
 | `AGENT_MEMORY_PROJECT` | No | — | Default project name |
+| `AGENT_MEMORY_SELECTED_PACK_REF` | No | — | Consume this selected restart pack during `AGENT_MEMORY_BOOT_MODE=restart_pack` boot, then fall back to a generated pack if unavailable |
 | `VOYAGE_API_KEY` | No | — | Voyage AI key for embedding generation (PG mode only) |
 
 ## Compatibility
@@ -247,8 +249,10 @@ prepare packs and recommend restart, but cannot force the host to restart.
 For deterministic orchestration, hosts should call `restart_prepare` first. It
 returns `pack_update_needed`, `restart_recommended`, or `restart_required` with
 recovery confidence, missing-context notes, provenance, and a `restart_pack`
-reference. It never mutates AUN queue state or performs runtime lifecycle
-actions.
+reference such as `selected_restart_pack:<id>`. Hosts can fetch it through
+`restart_pack_fetch` or `wasurezu-restart fetch --pack-ref <ref> --consume`, or
+pass it to boot with `AGENT_MEMORY_SELECTED_PACK_REF`. It never mutates AUN
+queue state or performs runtime lifecycle actions.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.

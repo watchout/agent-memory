@@ -50,7 +50,7 @@ async function seed() {
   await store.close();
 }
 
-function runBoot(mode?: string): Promise<{ code: number; stdout: string; stderr: string }> {
+function runBoot(mode?: string, extraEnv: Record<string, string> = {}): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("npx", ["tsx", "src/boot.ts"], {
       env: {
@@ -60,6 +60,7 @@ function runBoot(mode?: string): Promise<{ code: number; stdout: string; stderr:
         AGENT_MEMORY_AGENT_ID: AGENT_ID,
         CLAUDE_SESSION_ID: SESSION_ID,
         ...(mode ? { AGENT_MEMORY_BOOT_MODE: mode } : {}),
+        ...extraEnv,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -185,6 +186,65 @@ async function verifyRestartPackBoot() {
   await store.close();
 }
 
+async function verifySelectedRestartPackBoot() {
+  const store = new SqliteStore(TEST_DB_PATH);
+  await store.initialize();
+  const selected = await store.saveSelectedRestartPack({
+    agent_id: AGENT_ID,
+    content: [
+      "# SESSION RESTART PACK",
+      "",
+      "## SELECTED PACK CANARY",
+      "- boot should consume this preselected handoff pack",
+    ].join("\n"),
+    source: "manual",
+  });
+  await store.close();
+
+  const result = await runBoot("restart_pack", {
+    AGENT_MEMORY_SELECTED_PACK_REF: selected.pack_ref,
+  });
+  if (result.code !== 0) {
+    console.error("boot.ts selected restart_pack mode exited with non-zero code");
+    console.error("stderr:", result.stderr);
+    failed++;
+    return;
+  }
+  assert(result.stdout.includes("SELECTED PACK CANARY"), "restart_pack boot consumes selected pack content");
+
+  const verifyStore = new SqliteStore(TEST_DB_PATH);
+  await verifyStore.initialize();
+  const consumed = await verifyStore.getSelectedRestartPack({
+    agent_id: AGENT_ID,
+    pack_ref: selected.pack_ref,
+  });
+  assert(consumed === null, "selected restart pack is no longer active after boot consume");
+
+  const sqlitePrivate = verifyStore as unknown as {
+    db: {
+      prepare: (sql: string) => {
+        bind: (p: unknown[]) => void;
+        step: () => boolean;
+        getAsObject: () => Record<string, unknown>;
+        free: () => void;
+      };
+    };
+  };
+  const stmt = sqlitePrivate.db.prepare(
+    `SELECT notes FROM recovery_quality_log
+      WHERE agent_id = ?
+      ORDER BY created_at DESC LIMIT 1`
+  );
+  stmt.bind([AGENT_ID]);
+  let row: Record<string, unknown> | null = null;
+  if (stmt.step()) row = stmt.getAsObject();
+  stmt.free();
+  const notes = typeof row?.notes === "string" ? JSON.parse(row.notes) : {};
+  assert(notes.selected_pack_ref === selected.pack_ref, "restart_pack boot logs selected pack ref");
+  assert(notes.selected_pack_consumed === true, "restart_pack boot logs selected pack consume");
+  await verifyStore.close();
+}
+
 async function cleanup() {
   if (existsSync(TEST_DB_PATH)) rmSync(TEST_DB_PATH);
 }
@@ -207,6 +267,7 @@ async function run() {
     }
     await verify(result);
     await verifyRestartPackBoot();
+    await verifySelectedRestartPackBoot();
   } finally {
     await cleanup();
   }
