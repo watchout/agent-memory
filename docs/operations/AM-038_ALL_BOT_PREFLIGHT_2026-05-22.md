@@ -87,6 +87,8 @@ After PR #102 is merged and deployed into the live MCP/runtime checkout:
    and rerun the prepare check.
 3. Select one AUN-managed bot and one non-AUN/manual host path for fresh
    restart evidence.
-4. Record host adapter, host adapter level, `restart_prepare.action`,
+4. For any standalone `auto_restart` evidence, record explicit AUN absence
+   confirmation, supervisor/host hook availability, and restart preauthorization.
+5. Record host adapter, host adapter level, `restart_prepare.action`,
    confidence, missing context, pack ref, and whether the first model context
    received the pack.

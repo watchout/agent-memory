@@ -18,6 +18,7 @@ export interface RestartPrepareInput {
   continuity_guard_mode?: ContinuityGuardMode;
   pack_injection_mode?: PackInjectionMode;
   aun_installed?: boolean;
+  aun_absent_confirmed?: boolean;
   supervisor_available?: boolean;
   restart_preauthorized?: boolean;
   context_used_ratio?: number;
@@ -147,7 +148,11 @@ async function loadSnapshot(store: Store, input: RestartPrepareInput): Promise<S
 function autoRestartBlockersFor(input: RestartPrepareInput): string[] {
   if (input.continuity_guard_mode !== "auto_restart") return [];
   const blockers: string[] = [];
-  if (input.aun_installed) blockers.push("aun_installed");
+  if (input.aun_installed) {
+    blockers.push("aun_installed");
+  } else if (!input.aun_absent_confirmed) {
+    blockers.push("aun_absence_not_confirmed");
+  }
   if (!input.supervisor_available) blockers.push("supervisor_or_host_hook_unavailable");
   if (!input.restart_preauthorized) blockers.push("restart_lifecycle_not_preauthorized");
   return blockers;

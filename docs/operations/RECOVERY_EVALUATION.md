@@ -55,9 +55,9 @@ Before running a recovery evaluation:
   be labeled as manual MCP recovery instead of startup recovery.
 - For other MCP clients, a verified host adapter or native startup hook is
   required before the run can count as startup recovery.
-- If `auto_restart` is evaluated, record evidence that AUN was absent, a
-  supported supervisor or host hook was available, and restart lifecycle was
-  pre-authorized before the run. Otherwise the run must be labeled
+- If `auto_restart` is evaluated, record evidence that AUN absence was
+  explicitly confirmed, a supported supervisor or host hook was available, and
+  restart lifecycle was pre-authorized before the run. Otherwise the run must be labeled
   `recommend`, `pack_only`, or manual MCP recovery.
 - For AUN/supervisor paths, run `restart_prepare` before runtime exit and
   record its action, recovery confidence, missing context, provenance, and

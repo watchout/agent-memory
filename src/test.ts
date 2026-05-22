@@ -1437,12 +1437,25 @@ async function testRestartPrepare() {
     agent_id: agentId,
     project,
     continuity_guard_mode: "auto_restart",
+    aun_absent_confirmed: true,
     supervisor_available: true,
     restart_preauthorized: true,
     emit_pack: false,
   });
   assert(allowedAuto.continuity_guard_mode === "auto_restart", "restart_prepare keeps valid standalone auto_restart");
   assert(allowedAuto.can_auto_restart === true, "restart_prepare allows pre-authorized standalone auto_restart");
+
+  const unknownAunAuto = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(unknownAunAuto.continuity_guard_mode === "recommend", "restart_prepare downgrades auto_restart when AUN absence is unknown");
+  assert(unknownAunAuto.auto_restart_blockers.includes("aun_absence_not_confirmed"), "restart_prepare requires explicit AUN absence confirmation");
+  assert(unknownAunAuto.can_auto_restart === false, "restart_prepare does not allow auto_restart for unknown AUN status");
 
   const sparse = await prepareRestart(store, {
     agent_id: "test-restart-prepare-sparse-agent",
@@ -1475,6 +1488,7 @@ async function testRestartPrepare() {
     "--context-used-ratio",
     "0.9",
     "--aun-installed",
+    "--aun-absent",
     "--no-pack",
   ]);
   assert(parsed.command === "prepare", "wasurezu-restart parser reads prepare command");
@@ -1483,6 +1497,7 @@ async function testRestartPrepare() {
   assert(parsed.pack_injection_mode === "on_demand", "wasurezu-restart parser reads pack injection mode");
   assert(parsed.context_used_ratio === 0.9, "wasurezu-restart parser reads context ratio");
   assert(parsed.aun_installed === true, "wasurezu-restart parser reads AUN installed flag");
+  assert(parsed.aun_absent_confirmed === true, "wasurezu-restart parser reads AUN absent confirmation flag");
   assert(parsed.emit_pack === false, "wasurezu-restart parser reads no-pack flag");
 
   const distEntrypoint = join(process.cwd(), "dist/restart-cli.js");

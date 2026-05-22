@@ -42,7 +42,7 @@ com: memに依存しない（watchdogはmemなしでも動く）
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
 | restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num) | prioritized restart text |
-| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool) | action, restart_pack?, pack_ref, recovery_confidence, context_signal, provenance, notes |
+| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool) | action, restart_pack?, pack_ref, recovery_confidence, context_signal, provenance, notes |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
 
 ## restart_prepare (AM-038)
@@ -62,8 +62,9 @@ runtime lifecycle:
 
 Boundary: `restart_prepare` does not stop, restart, requeue, finalize, reply,
 close, or mutate AUN queue lifecycle. `auto_restart` is fail-closed unless AUN
-is absent, a supported supervisor/host hook is available, and restart lifecycle
-was pre-authorized at install/config time. `pack_ref` is currently a content
+absence is explicitly confirmed, a supported supervisor/host hook is available,
+and restart lifecycle was pre-authorized at install/config time. Unknown AUN
+status downgrades to `recommend`. `pack_ref` is currently a content
 hash reference; AM-039 is expected to add persisted selected-pack fetch/boot
 consume.
 

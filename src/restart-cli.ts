@@ -12,6 +12,7 @@ interface CliOptions {
   continuity_guard_mode?: ContinuityGuardMode;
   pack_injection_mode?: PackInjectionMode;
   aun_installed?: boolean;
+  aun_absent_confirmed?: boolean;
   supervisor_available?: boolean;
   restart_preauthorized?: boolean;
   context_used_ratio?: number;
@@ -73,6 +74,10 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--aun-installed":
         options.aun_installed = true;
         break;
+      case "--aun-absent":
+      case "--aun-absent-confirmed":
+        options.aun_absent_confirmed = true;
+        break;
       case "--supervisor-available":
         options.supervisor_available = true;
         break;
@@ -110,6 +115,7 @@ export function printRestartCliHelp(): string {
     "  --context-tokens N            host-provided used tokens",
     "  --context-window-tokens N     host-provided window size",
     "  --aun-installed",
+    "  --aun-absent                 explicitly confirm AUN is absent for auto_restart",
     "  --supervisor-available",
     "  --restart-preauthorized",
     "  --runtime-context-error",

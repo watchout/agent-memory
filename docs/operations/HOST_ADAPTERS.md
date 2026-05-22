@@ -19,7 +19,8 @@ The public contract is:
   signals.
 - Without AUN, wasurezu may execute local session refresh only when a supported
   supervisor or host hook is available and restart lifecycle was explicitly
-  pre-authorized at install or config time.
+  pre-authorized at install or config time. AUN absence must be explicitly
+  confirmed; unknown AUN status fails closed to `recommend`.
 - In pure MCP-only mode, wasurezu can prepare packs and recommend restart, but
   it cannot force host restart.
 
@@ -39,7 +40,7 @@ without one uses an explicit bridge or remains manual MCP recovery.
 
 | Mode | Valid When | Behavior |
 |------|------------|----------|
-| `auto_restart` | AUN is absent, a supported wasurezu supervisor/host hook exists, and restart lifecycle was pre-authorized at install/config time. | Prepare a bounded restart pack, select the pack, refresh/restart the local host session, run SessionStart/boot recovery, and record confidence/provenance. |
+| `auto_restart` | AUN absence is explicitly confirmed, a supported wasurezu supervisor/host hook exists, and restart lifecycle was pre-authorized at install/config time. | Prepare a bounded restart pack, select the pack, refresh/restart the local host session, run SessionStart/boot recovery, and record confidence/provenance. Unknown AUN status downgrades to `recommend`. |
 | `recommend` | Default for AUN/supervisor or MCP installs. | Emit `restart_recommended` with pack reference, confidence, missing context, and provenance. Does not execute runtime restart. |
 | `pack_only` | Any install mode. | Create/update/fetch restart packs without emitting restart recommendations or executing restart. |
 | `off` | Any install mode. | Disable continuity guard behavior. |

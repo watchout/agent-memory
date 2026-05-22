@@ -240,8 +240,9 @@ close.
 
 When AUN is absent, a supported wasurezu supervisor or host hook may run local
 `auto_restart` only if restart lifecycle was pre-authorized at install or config
-time. Pure MCP-only installs remain manual recovery: wasurezu can prepare packs
-and recommend restart, but cannot force the host to restart.
+time and AUN absence is explicitly confirmed. Unknown AUN status fails closed
+to `recommend`. Pure MCP-only installs remain manual recovery: wasurezu can
+prepare packs and recommend restart, but cannot force the host to restart.
 
 For deterministic orchestration, hosts should call `restart_prepare` first. It
 returns `pack_update_needed`, `restart_recommended`, or `restart_required` with
