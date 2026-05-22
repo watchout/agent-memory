@@ -1,8 +1,9 @@
 /**
- * AM-031 PR C: Codex raw conversation event ingest.
+ * AM-031 PR C: Codex redacted full-text conversation event ingest.
  *
  * Supports ~/.codex/sessions/YYYY/MM/DD/*.jsonl. The adapter excludes
- * base/system/developer instruction bodies and hidden reasoning traces.
+ * base/system/developer instruction bodies and hidden reasoning traces, then
+ * stores redacted visible conversation/tool context.
  */
 import { readFileSync, readdirSync, statSync, existsSync, type Dirent } from "fs";
 import { basename, join } from "path";

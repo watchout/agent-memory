@@ -725,7 +725,7 @@ async function testConversationEvents() {
     source_event_id: "codex-event-1",
     source_path: "~/.codex/sessions/session.jsonl",
     role: "assistant",
-    content: "Continue AM-031 from raw event persistence.",
+    content: "Continue AM-031 from redacted event persistence.",
     metadata: { tool: "codex" },
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
@@ -734,7 +734,7 @@ async function testConversationEvents() {
     project: PROJECT,
     source: "codex",
     source_event_id: "codex-event-1",
-    content: "Continue AM-031 from raw event persistence.",
+    content: "Continue AM-031 from redacted event persistence.",
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
   await store.saveConversationEvent({
@@ -747,9 +747,9 @@ async function testConversationEvents() {
     occurred_at: "2026-05-19T00:01:00.000Z",
   });
 
-  assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
+  assert(first.id === duplicate.id, "source_event_id deduplicates redacted events");
   const all = await store.getConversationEvents({ agent_id: AGENT, project: PROJECT });
-  assert(all.length === 2, "getConversationEvents returns unique raw events");
+  assert(all.length === 2, "getConversationEvents returns unique redacted events");
   assert(all[0].source === "claude_code", "events sorted newest first");
   const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });
   assert(codexOnly.length === 1, "source filter works");
@@ -794,7 +794,7 @@ async function testClaudeConversationIngest() {
     since: "2026-05-18T00:00:00.000Z",
   });
 
-  assert(first.events_saved === 2, "ingest saves SQLite raw events");
+  assert(first.events_saved === 2, "ingest saves SQLite redacted events");
   assert(second.events_duplicate === 2, "ingest is idempotent in SQLite");
   const events = await store.getConversationEvents({ agent_id: agentId, source: "claude_code" });
   assert(events.length === 2, "SQLite stores unique Claude events");
@@ -869,7 +869,7 @@ async function testCodexConversationIngest() {
     since: "2026-05-18T00:00:00.000Z",
   });
 
-  assert(first.events_saved === 3, "Codex ingest saves SQLite raw events");
+  assert(first.events_saved === 3, "Codex ingest saves SQLite redacted events");
   assert(first.events_skipped === 1, "Codex ingest skips reasoning in SQLite");
   assert(second.events_duplicate === 3, "Codex ingest is idempotent in SQLite");
   const events = await store.getConversationEvents({ agent_id: agentId, source: "codex" });

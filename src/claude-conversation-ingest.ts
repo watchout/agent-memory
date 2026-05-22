@@ -1,8 +1,9 @@
 /**
- * AM-031 PR B: Claude Code raw conversation event ingest.
+ * AM-031 PR B: Claude Code redacted full-text conversation event ingest.
  *
- * This deliberately stores redacted raw events only. Structured extraction
- * into decisions/task_states/knowledge remains a later phase.
+ * This deliberately stores only redacted visible conversation/tool context.
+ * Structured extraction into decisions/task_states/knowledge remains a later
+ * phase.
  */
 import { readFileSync, readdirSync, statSync, existsSync, type Dirent } from "fs";
 import { basename, join } from "path";

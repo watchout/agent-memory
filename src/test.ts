@@ -827,7 +827,7 @@ async function testConversationEvents() {
     source: "codex",
     source_event_id: "codex-event-1",
     role: "assistant",
-    content: "We should continue AM-031 from the raw event storage PR.",
+    content: "We should continue AM-031 from the redacted event storage PR.",
     metadata: { file: "src/stores/types.ts" },
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
@@ -837,7 +837,7 @@ async function testConversationEvents() {
     source: "codex",
     source_event_id: "codex-event-1",
     role: "assistant",
-    content: "We should continue AM-031 from the raw event storage PR.",
+    content: "We should continue AM-031 from the redacted event storage PR.",
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
   await store.saveConversationEvent({
@@ -859,9 +859,9 @@ async function testConversationEvents() {
     occurred_at: "2026-05-19T00:02:00.000Z",
   });
 
-  assert(first.id === duplicate.id, "source_event_id deduplicates raw events");
+  assert(first.id === duplicate.id, "source_event_id deduplicates redacted events");
   const all = await store.getConversationEvents({ agent_id: "test-agent" });
-  assert(all.length === 3, "getConversationEvents returns unique raw events");
+  assert(all.length === 3, "getConversationEvents returns unique redacted events");
   assert(all[0].source_event_id === "codex-token-count-noise", "events sorted newest first");
   const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
   assert(codexOnly.length === 2, "source filter works");
@@ -958,7 +958,7 @@ async function testClaudeConversationIngest() {
   });
 
   assert(first.files_scanned === 1, "ingest scans fixture file");
-  assert(first.events_saved === 4, "ingest saves four valid raw events");
+  assert(first.events_saved === 4, "ingest saves four valid redacted events");
   assert(first.events_skipped === 1, "ingest skips malformed line");
   assert(second.events_saved === 0, "second ingest saves no duplicates");
   assert(second.events_duplicate === 4, "second ingest reports duplicates");
@@ -1092,7 +1092,7 @@ async function testCodexConversationIngest() {
   });
 
   assert(first.files_scanned === 1, "Codex ingest scans YYYY/MM/DD fixture file");
-  assert(first.events_saved === 7, "Codex ingest saves visible raw events");
+  assert(first.events_saved === 7, "Codex ingest saves visible redacted events");
   assert(first.events_skipped === 3, "Codex ingest skips developer/reasoning/malformed records");
   assert(second.events_saved === 0, "Codex second ingest saves no duplicates");
   assert(second.events_duplicate === 7, "Codex second ingest reports duplicates");
@@ -1227,7 +1227,7 @@ async function testRestartPack() {
   assert(!output.includes("Build/tests"), "restart_pack does not emit generic ref tokens");
   assert(output.includes("codex/assistant"), "restart_pack summarizes Codex-derived conversation metadata");
   assert(output.includes("claude_code/user"), "restart_pack summarizes Claude-derived conversation metadata");
-  assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit raw conversation excerpt");
+  assert(!output.includes("Session refresh should continue from memory."), "restart_pack does not emit transcript excerpts");
   assert(!output.includes("sk-"), "restart_pack redacts secrets at output boundary");
   assert(!output.includes("sk-test"), "restart_pack redacts compound secret prefixes");
   assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
@@ -1526,9 +1526,20 @@ function testConversationScopeSchemaRegression() {
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
   assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
   assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
+  assert(source.includes("redacted full-text conversation event storage"), "source conversation ingest description avoids raw transcript claim");
   const constants = readFileSync(join(process.cwd(), "src/constants.ts"), "utf8");
   assert(constants.includes("adaptive retrieval layer"), "source search_memory description includes adaptive retrieval trigger");
   assert(constants.includes("before making architectural or design decisions"), "source search_memory description says when to search");
+
+  const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
+  assert(readme.includes("redacted full-text event storage"), "README documents conversation memory as redacted full-text storage");
+  assert(readme.includes("does not emit raw transcript excerpts"), "README documents restart_pack transcript boundary");
+  const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
+  assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
+  assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
+  const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
+  assert(dataModel.includes("redacted full-text conversation event"), "data model documents redacted full-text conversation events");
+  assert(dataModel.includes("exclude hidden reasoning"), "data model documents conversation event filtering boundary");
 
   const distPath = join(process.cwd(), "dist/index.js");
   if (existsSync(distPath)) {

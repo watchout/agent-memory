@@ -49,6 +49,17 @@
 | ⚠️ Partial | 1 |
 | ❌ Not Implemented | 9 |
 
+## Current Recovery Additions (AM-031+)
+
+This catalog predates the AM-031 restart recovery work. The current implemented
+recovery surface also includes:
+
+| ID | Feature | Status | SSOT | Notes |
+|----|---------|--------|------|-------|
+| AM-031 | `conversation_events` redacted full-text conversation memory | ✅ Implemented | SSOT-4 | Claude Code / Codex visible event ingest; redaction before persistence and hashing; hidden reasoning and developer/base instruction bodies excluded |
+| AM-031 | `restart_pack` startup recovery pack | ✅ Implemented | SSOT-3 | Current objective, next action, blockers, refs, safety-redacted output, and recovery control ladder |
+| AM-038 | `restart_prepare` deterministic prepare interface | ✅ Implemented | SSOT-3 | Host/AUN-facing action, confidence, missing context, provenance, and pack reference; does not mutate runtime or AUN lifecycle |
+
 ## Remaining Work
 
 ### P1: 機能改善（次の着手候補）

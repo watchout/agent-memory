@@ -225,7 +225,7 @@ agent-memory (wasurezu) は **MCP (Model Context Protocol) server** として AI
 | **Recovery Config** | bot 別の復元戦略 (max_tokens / limits) |
 | **Recovery Quality Log** | 復旧品質の計測ログ、AM-002 で完全実装 |
 | **Compaction** | Claude Code の context 圧縮処理、古いメッセージを忘れる原因 |
-| **L1/L2/L3** | 階層化された記憶 (raw / summary / consolidated)、v0.2.0+ で実装予定 |
+| **L1/L2/L3** | 階層化された記憶 (redacted source / summary / consolidated)、v0.2.0+ で実装予定 |
 | **agent-comms** | Discord/Slack 等の bot 間通信を担う関連プロジェクト、optional 連携 |
 | **Path B** | 2026-04-08 に CEO が決定した進化方針、mvp-spec ではなく現行 v0.3.0 を base に |
 

@@ -146,7 +146,7 @@ Compaction (~83% context)
 | `restart_pack` | Generate a concise restart summary for continuing after session refresh |
 | `restart_prepare` | Prepare a restart pack plus confidence, missing context, provenance, and restart recommendation for a host/AUN orchestrator |
 | `set_recovery_config` | Tune recovery output limits per agent |
-| `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into raw event storage |
+| `ingest_conversation_events` | Sweep local Claude Code / Codex JSONL transcripts into redacted full-text conversation event storage |
 
 ## Storage
 
@@ -158,6 +158,13 @@ wasurezu supports two storage backends:
 | **PostgreSQL + pgvector** | Set `AGENT_MEMORY_DATABASE_URL=postgresql://...` | Multi-agent teams, semantic vector search, large-scale |
 
 Both modes support the same MCP tools. PostgreSQL adds vector similarity search via [pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings.
+
+Conversation memory is redacted full-text event storage, not an unfiltered
+transcript dump. The ingest adapters keep visible user/assistant/tool context
+after redaction and source filtering, exclude hidden reasoning and developer
+instruction bodies, and make the events searchable through
+`search_memory scope=conversation`. `restart_pack` summarizes conversation
+metadata and fallback guidance, but does not emit raw transcript excerpts.
 
 To use PostgreSQL:
 

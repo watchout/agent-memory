@@ -175,7 +175,7 @@ const MIGRATIONS = [
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersedes UUID REFERENCES knowledge(id)`,
   `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS supersede_reason TEXT`,
 
-  // AM-031: provider-neutral raw conversation/log events.
+  // AM-031: provider-neutral redacted full-text conversation/log events.
   `CREATE TABLE IF NOT EXISTS conversation_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id TEXT NOT NULL,

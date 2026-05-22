@@ -175,7 +175,7 @@ function buildSections(data: RestartPackData): string[] {
     sections.push(
       [
         "SPARSE DATA NOTICE",
-        "No structured memory or raw conversation events are available yet. Start by saving task state or ingesting conversation events.",
+        "No structured memory or redacted conversation events are available yet. Start by saving task state or ingesting conversation events.",
       ].join("\n")
     );
   }

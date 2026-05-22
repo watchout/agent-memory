@@ -743,7 +743,7 @@ async function main() {
   // ─── ingest_conversation_events (AM-031 PR B) ─────────────────
   server.tool(
     "ingest_conversation_events",
-    "Sweep local AI-client transcript files into raw conversation event storage. AM-031 currently supports Claude Code JSONL logs only; Codex support is tracked separately. Redaction is applied before persistence and hashing.",
+    "Sweep local AI-client transcript files into redacted full-text conversation event storage. Supports Claude Code and Codex JSONL logs. Hidden reasoning and developer/base instruction bodies are excluded; redaction is applied before persistence and hashing.",
     {
       source: z
         .enum(["claude_code", "codex"])

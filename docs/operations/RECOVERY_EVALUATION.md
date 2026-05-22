@@ -332,6 +332,6 @@ The storage model should remain layered:
 - `conversation_events`: immutable redacted source log.
 - derived summaries: session/task/topic summaries generated from events.
 - structured memory: decisions, task states, knowledge, blockers, open questions.
-- retrieval layer: text search first; embeddings/rerank on summaries and structured memory, not on every raw line by default.
+- retrieval layer: text search first; embeddings/rerank on summaries and structured memory, not on every redacted event line by default.
 
-This keeps the raw source auditable while allowing future search and memory extraction strategies to change without rewriting the source log table.
+This keeps the redacted source auditable while allowing future search and memory extraction strategies to change without rewriting the source log table.
