@@ -470,7 +470,7 @@ async function main() {
   // ─── restart_prepare (AM-038) ──────────────────────────────────
   server.tool(
     "restart_prepare",
-    "Prepare a bounded restart pack and structured continuity signal for host/AUN restart orchestration. This tool does not stop, restart, requeue, finalize, reply, close, or mutate AUN queue lifecycle. Use it to produce pack_update_needed, restart_recommended, recovery_confidence, missing_context, and provenance.",
+    "Prepare a bounded restart pack and structured continuity signal for host/AUN restart orchestration. This tool does not stop, restart, requeue, finalize, reply, close, or mutate AUN queue lifecycle. auto_restart requires explicit aun_absent_confirmed=true plus supervisor availability and restart preauthorization; unknown AUN status downgrades to recommend.",
     {
       project: z.string().optional().describe("Filter by project"),
       max_tokens: z.number().optional().describe("restart_pack token budget override"),
@@ -483,6 +483,10 @@ async function main() {
         .optional()
         .describe("Whether the prepared restart pack should be attached automatically, on demand, or not at all."),
       aun_installed: z.boolean().optional().describe("True when AUN/supervisor owns runtime lifecycle."),
+      aun_absent_confirmed: z
+        .boolean()
+        .optional()
+        .describe("True only when the caller has explicitly verified AUN is absent. Required for standalone auto_restart."),
       supervisor_available: z.boolean().optional().describe("True when a supported wasurezu supervisor/host hook is available."),
       restart_preauthorized: z.boolean().optional().describe("True when restart lifecycle was pre-authorized at install/config time."),
       context_used_ratio: z.number().optional().describe("Host-provided context usage ratio from 0.0 to 1.0. Omit when unknown."),
@@ -501,6 +505,7 @@ async function main() {
           continuity_guard_mode: args.continuity_guard_mode,
           pack_injection_mode: args.pack_injection_mode,
           aun_installed: args.aun_installed,
+          aun_absent_confirmed: args.aun_absent_confirmed,
           supervisor_available: args.supervisor_available,
           restart_preauthorized: args.restart_preauthorized,
           context_used_ratio: args.context_used_ratio,

@@ -1541,6 +1541,8 @@ function testConversationScopeSchemaRegression() {
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
   assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
   assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
+  assert(source.includes("aun_absent_confirmed"), "source restart_prepare schema exposes explicit AUN absence evidence");
+  assert(source.includes("unknown AUN status downgrades to recommend"), "source restart_prepare description documents AUN-unknown fail-closed behavior");
   assert(source.includes("redacted full-text conversation event storage"), "source conversation ingest description avoids raw transcript claim");
   const constants = readFileSync(join(process.cwd(), "src/constants.ts"), "utf8");
   assert(constants.includes("adaptive retrieval layer"), "source search_memory description includes adaptive retrieval trigger");
@@ -1561,6 +1563,7 @@ function testConversationScopeSchemaRegression() {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
     assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
+    assert(dist.includes("aun_absent_confirmed"), "built MCP schema exposes explicit AUN absence evidence");
     const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
     assert(distConstants.includes("adaptive retrieval layer"), "built MCP schema includes adaptive retrieval trigger");
   } else {
