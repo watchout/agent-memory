@@ -18,6 +18,7 @@ import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { generateRestartPack } from "./restart-pack.js";
+import { prepareRestart } from "./restart-prepare.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -460,6 +461,60 @@ async function main() {
       } catch (err) {
         return {
           content: [safeText(`Failed to generate restart_pack: ${err}`)],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── restart_prepare (AM-038) ──────────────────────────────────
+  server.tool(
+    "restart_prepare",
+    "Prepare a bounded restart pack and structured continuity signal for host/AUN restart orchestration. This tool does not stop, restart, requeue, finalize, reply, close, or mutate AUN queue lifecycle. Use it to produce pack_update_needed, restart_recommended, recovery_confidence, missing_context, and provenance.",
+    {
+      project: z.string().optional().describe("Filter by project"),
+      max_tokens: z.number().optional().describe("restart_pack token budget override"),
+      continuity_guard_mode: z
+        .enum(["auto_restart", "recommend", "pack_only", "off"])
+        .optional()
+        .describe("Continuity guard mode. auto_restart is valid only without AUN, with supported hook, and pre-authorization."),
+      pack_injection_mode: z
+        .enum(["auto_attach", "on_demand", "off"])
+        .optional()
+        .describe("Whether the prepared restart pack should be attached automatically, on demand, or not at all."),
+      aun_installed: z.boolean().optional().describe("True when AUN/supervisor owns runtime lifecycle."),
+      supervisor_available: z.boolean().optional().describe("True when a supported wasurezu supervisor/host hook is available."),
+      restart_preauthorized: z.boolean().optional().describe("True when restart lifecycle was pre-authorized at install/config time."),
+      context_used_ratio: z.number().optional().describe("Host-provided context usage ratio from 0.0 to 1.0. Omit when unknown."),
+      context_tokens: z.number().optional().describe("Host-provided used tokens. Requires context_window_tokens."),
+      context_window_tokens: z.number().optional().describe("Host-provided context window size. Requires context_tokens."),
+      runtime_context_error: z.boolean().optional().describe("True when host/AUN observed a compaction or runtime context error."),
+      emit_pack: z.boolean().optional().describe("Set false to omit restart_pack text from JSON output."),
+    },
+    async (args) => {
+      await logCall("restart_prepare", `project="${args.project || PROJECT || ""}" mode="${args.continuity_guard_mode ?? "recommend"}"`);
+      try {
+        const output = await prepareRestart(store, {
+          agent_id: AGENT_ID,
+          project: args.project || PROJECT,
+          max_tokens: args.max_tokens,
+          continuity_guard_mode: args.continuity_guard_mode,
+          pack_injection_mode: args.pack_injection_mode,
+          aun_installed: args.aun_installed,
+          supervisor_available: args.supervisor_available,
+          restart_preauthorized: args.restart_preauthorized,
+          context_used_ratio: args.context_used_ratio,
+          context_tokens: args.context_tokens,
+          context_window_tokens: args.context_window_tokens,
+          runtime_context_error: args.runtime_context_error,
+          emit_pack: args.emit_pack,
+        });
+        return {
+          content: [safeText(JSON.stringify(output, null, 2))],
+        };
+      } catch (err) {
+        return {
+          content: [safeText(`Failed to prepare restart continuity signal: ${err}`)],
           isError: true,
         };
       }

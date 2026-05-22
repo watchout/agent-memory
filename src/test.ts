@@ -11,13 +11,18 @@ import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
+import { prepareRestart } from "./restart-prepare.js";
+import {
+  isMainEntrypoint as isRestartCliMainEntrypoint,
+  parseRestartCliArgs,
+} from "./restart-cli.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_STARTUP_BRIDGE_ENV,
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
   buildCodexStartupPrompt,
-  isMainEntrypoint,
+  isMainEntrypoint as isCodexMainEntrypoint,
   logCodexStartupQuality,
   parseArgs,
 } from "./codex-start.js";
@@ -1353,7 +1358,7 @@ async function testCodexStartupBridge() {
   const symlinkPath = join(symlinkDir, "wasurezu-codex-start");
   if (existsSync(distEntrypoint)) {
     symlinkSync(distEntrypoint, symlinkPath);
-    assert(isMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
+    assert(isCodexMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Codex startup entrypoint resolves npm bin symlinks");
     const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
     assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
     assert(help.includes("/exit"), "Codex startup help documents exit-before-reentry UX");
@@ -1378,10 +1383,130 @@ async function testCodexStartupBridge() {
   }
 }
 
+async function testRestartPrepare() {
+  console.log("\n── Restart Prepare Tests ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const agentId = "test-restart-prepare-agent";
+  const project = "restart-prepare";
+
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "AM-038 implement restart_prepare",
+    status: "in_progress",
+    progress: "Core prepare path under test.",
+    next_steps: "Wire MCP tool and CLI.",
+  });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "Wasurezu does not mutate AUN queue lifecycle during restart_prepare.",
+    tags: ["AM-038", "AUN"],
+  });
+
+  const prepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    context_used_ratio: 0.91,
+    emit_pack: false,
+  });
+  assert(prepared.action === "restart_recommended", "restart_prepare recommends restart at host metrics recommend band");
+  assert(prepared.context_signal.source === "host_metrics", "restart_prepare labels host metric source");
+  assert(prepared.context_signal.band === "recommend", "restart_prepare maps 91% context to recommend band");
+  assert(prepared.recovery_confidence.level === "high", "restart_prepare reports high confidence for coherent pack");
+  assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("restart_pack:"), "restart_prepare returns pack reference");
+  assert(prepared.restart_pack === undefined, "restart_prepare can omit restart_pack text");
+  assert(prepared.notes.some((note) => note.includes("does not mutate AUN queue state")), "restart_prepare declares AUN lifecycle non-mutation");
+
+  const downgraded = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    aun_installed: true,
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(downgraded.requested_continuity_guard_mode === "auto_restart", "restart_prepare records requested auto_restart");
+  assert(downgraded.continuity_guard_mode === "recommend", "restart_prepare downgrades invalid auto_restart when AUN is installed");
+  assert(downgraded.auto_restart_blockers.includes("aun_installed"), "restart_prepare explains AUN auto_restart blocker");
+  assert(downgraded.can_auto_restart === false, "restart_prepare does not allow auto_restart with AUN installed");
+
+  const allowedAuto = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "auto_restart",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    emit_pack: false,
+  });
+  assert(allowedAuto.continuity_guard_mode === "auto_restart", "restart_prepare keeps valid standalone auto_restart");
+  assert(allowedAuto.can_auto_restart === true, "restart_prepare allows pre-authorized standalone auto_restart");
+
+  const sparse = await prepareRestart(store, {
+    agent_id: "test-restart-prepare-sparse-agent",
+    project,
+    emit_pack: false,
+  });
+  assert(sparse.context_signal.source === "estimated", "restart_prepare marks metric-absent signal as estimated");
+  assert(sparse.recovery_confidence.missing_context.includes("active_task"), "restart_prepare reports missing active task");
+  assert(sparse.action === "restart_recommended", "restart_prepare recommends restart on sparse semantic continuity");
+
+  const packOnly = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "pack_only",
+    context_used_ratio: 0.99,
+    emit_pack: false,
+  });
+  assert(packOnly.action === "pack_update_needed", "restart_prepare pack_only never emits restart_required");
+
+  const parsed = parseRestartCliArgs([
+    "prepare",
+    "--agent-id",
+    "agent",
+    "--project",
+    "proj",
+    "--mode",
+    "auto_restart",
+    "--pack-injection-mode",
+    "on_demand",
+    "--context-used-ratio",
+    "0.9",
+    "--aun-installed",
+    "--no-pack",
+  ]);
+  assert(parsed.command === "prepare", "wasurezu-restart parser reads prepare command");
+  assert(parsed.agent_id === "agent", "wasurezu-restart parser reads agent id");
+  assert(parsed.continuity_guard_mode === "auto_restart", "wasurezu-restart parser reads guard mode");
+  assert(parsed.pack_injection_mode === "on_demand", "wasurezu-restart parser reads pack injection mode");
+  assert(parsed.context_used_ratio === 0.9, "wasurezu-restart parser reads context ratio");
+  assert(parsed.aun_installed === true, "wasurezu-restart parser reads AUN installed flag");
+  assert(parsed.emit_pack === false, "wasurezu-restart parser reads no-pack flag");
+
+  const distEntrypoint = join(process.cwd(), "dist/restart-cli.js");
+  const symlinkDir = mkdtempSync(join(tmpdir(), "am038-restart-bin-"));
+  const symlinkPath = join(symlinkDir, "wasurezu-restart");
+  if (existsSync(distEntrypoint)) {
+    symlinkSync(distEntrypoint, symlinkPath);
+    assert(isRestartCliMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "wasurezu-restart entrypoint resolves npm bin symlinks");
+    const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
+    assert(help.includes("wasurezu-restart"), "wasurezu-restart bin symlink executes CLI help");
+    assert(help.includes("prepare"), "wasurezu-restart help documents prepare command");
+  } else {
+    assert(true, "wasurezu-restart bin symlink test skipped because dist/restart-cli.js is absent");
+  }
+  rmSync(symlinkDir, { recursive: true, force: true });
+
+  await store.close();
+}
+
 function testHostAdapterPackagingBoundary() {
   console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
 
   const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
@@ -1399,6 +1524,8 @@ function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
+  assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
+  assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
   const constants = readFileSync(join(process.cwd(), "src/constants.ts"), "utf8");
   assert(constants.includes("adaptive retrieval layer"), "source search_memory description includes adaptive retrieval trigger");
   assert(constants.includes("before making architectural or design decisions"), "source search_memory description says when to search");
@@ -1407,6 +1534,7 @@ function testConversationScopeSchemaRegression() {
   if (existsSync(distPath)) {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
+    assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
     const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
     assert(distConstants.includes("adaptive retrieval layer"), "built MCP schema includes adaptive retrieval trigger");
   } else {
@@ -1438,6 +1566,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
+  await testRestartPrepare();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
 

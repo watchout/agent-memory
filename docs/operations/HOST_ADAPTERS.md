@@ -44,6 +44,22 @@ without one uses an explicit bridge or remains manual MCP recovery.
 | `pack_only` | Any install mode. | Create/update/fetch restart packs without emitting restart recommendations or executing restart. |
 | `off` | Any install mode. | Disable continuity guard behavior. |
 
+## Prepare Interface
+
+`restart_prepare` is the deterministic pre-restart interface for hosts and AUN.
+It prepares a bounded restart pack and returns:
+
+- `pack_update_needed`, `restart_recommended`, or `restart_required`
+- `restart_pack` and `pack_ref`
+- recovery confidence
+- missing-context notes
+- provenance
+
+It does not stop, restart, requeue, finalize, reply, close, or mutate AUN queue
+lifecycle. Host-provided context metrics are used only when supplied; otherwise
+the context signal is explicitly marked as estimated and based on semantic
+continuity.
+
 ## Support Levels
 
 | Level | Name | Requirement | Recovery Claim |

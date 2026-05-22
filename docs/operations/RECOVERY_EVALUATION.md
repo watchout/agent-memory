@@ -59,6 +59,9 @@ Before running a recovery evaluation:
   supported supervisor or host hook was available, and restart lifecycle was
   pre-authorized before the run. Otherwise the run must be labeled
   `recommend`, `pack_only`, or manual MCP recovery.
+- For AUN/supervisor paths, run `restart_prepare` before runtime exit and
+  record its action, recovery confidence, missing context, provenance, and
+  whether context metrics were host-provided or estimated.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
@@ -112,6 +115,7 @@ For each run, record:
 - commit SHA
 - session id if available
 - `restart_pack` boot status
+- `restart_prepare` action, confidence, missing context, and pack ref when used
 - `recovery_quality_log` id or timestamp
 - probe answers
 - search queries used by the agent
