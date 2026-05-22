@@ -1386,8 +1386,13 @@ function testHostAdapterPackagingBoundary() {
 
   const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
   const normalizedHostAdapters = hostAdapters.replace(/\s+/g, " ");
-  assert(normalizedHostAdapters.includes("that orchestrator owns runtime"), "host adapter docs assign runtime restart to the orchestrator");
-  assert(normalizedHostAdapters.includes("restart recommendations only"), "host adapter docs keep wasurezu restart-only claims bounded");
+  const lowerHostAdapters = normalizedHostAdapters.toLowerCase();
+  assert(normalizedHostAdapters.includes("With AUN or another supervisor installed"), "host adapter docs separate AUN/supervisor mode");
+  assert(lowerHostAdapters.includes("does not mutate aun queue state"), "host adapter docs forbid wasurezu AUN queue lifecycle mutation");
+  assert(normalizedHostAdapters.includes("Without AUN, wasurezu may execute local session refresh"), "host adapter docs allow standalone pre-authorized refresh");
+  assert(normalizedHostAdapters.includes("Pure MCP-only"), "host adapter docs distinguish pure MCP-only mode");
+  assert(normalizedHostAdapters.includes("auto_restart"), "host adapter docs list auto_restart continuity guard mode");
+  assert(normalizedHostAdapters.includes("pre-authorized at install/config time"), "host adapter docs require pre-authorization for auto_restart");
 }
 
 function testConversationScopeSchemaRegression() {

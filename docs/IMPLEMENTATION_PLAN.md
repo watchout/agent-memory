@@ -49,12 +49,33 @@ AM-032 / AM-036 の方針:
 - Codex startup recovery は `wasurezu-codex-start` bridge 経由で、restart_pack を初期プロンプトに埋め込んで開始する。
 - 世界公開では「Claude Code は SessionStart hook」「Codex は startup bridge」と互換性の差を明記する。
 - `wasurezu-codex-start --launch --cd <workspace>` が public-alpha の Codex run で使う標準起動経路。
-- wasurezu は既存 LLM セッションを kill / replace しない。再起動 UX は
-  `/exit` で古いセッションを閉じ、host adapter 経由で入り直す。
+- AUN ありでは、runtime restart / requeue / finalization / reply / close は
+  AUN が所有する。wasurezu は restart pack、recovery confidence、
+  missing-context notes、provenance、continuity signals を提供し、AUN queue
+  state や claim lifecycle は変更しない。
+- AUN なしでも、supported supervisor / host hook があり install/config 時に
+  restart lifecycle が pre-authorized されている場合は、wasurezu standalone
+  `auto_restart` として local session refresh を実行できる。
+- pure MCP-only mode では restart 推奨と pack prepare までで、host restart は
+  強制しない。
 - LLM host ごとの差分は adapter として分離する。Claude Code は native
   lifecycle integration、Codex は startup prompt bridge、その他 MCP client は
   verified adapter ができるまで manual MCP recovery として扱う。
 - host adapter matrix は `docs/operations/HOST_ADAPTERS.md` を SSOT とする。
+
+### 2026-05-22 優先順位更新
+
+ARC #101 の design correction により、開発順序を次のように更新する:
+
+| Priority | Work | Purpose |
+|----------|------|---------|
+| P0 | AM-037 / PR #100: install-mode boundary docs/package fix | AUNあり、standalone supervisor、pure MCP-only の lifecycle claim を正しく分ける |
+| P0 | AM-038: deterministic `restart_prepare` API/CLI | AUN/supervisor から呼べる pre-exit prepare と pack freshness check を提供 |
+| P0 | AM-039: selected restart pack fetch + boot consume | AUN が選んだ pack を post-start hook で確実に注入する |
+| P1 | AM-040: continuity guard modes | `auto_restart` / `recommend` / `pack_only` / `off` と install-mode validation |
+| P1 | AM-041: context metrics + semantic degradation | host metrics がある時だけ context percentage を使い、ない時は semantic signals として扱う |
+| P1 | AM-042: AUN integration contract | AUN #502 と接続する event/schema/telemetry contract を固定 |
+| P2 | AM-043: public-alpha evidence runs | Claude Code SessionStart + Codex bridge + AUN/standalone path の 27/30+ evidence |
 
 ### 推奨アクション
 - **Path B (現行コードベースで進化) を採用**し、mvp-spec を現状に合わせて更新

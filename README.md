@@ -226,7 +226,14 @@ singleton ownership.
 
 When integrated with AUN or another supervisor, that orchestrator owns runtime
 restart/requeue execution. wasurezu supplies restart packs, recovery confidence,
-and restart recommendations only.
+missing-context notes, provenance, and continuity signals; it does not mutate
+AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or
+close.
+
+When AUN is absent, a supported wasurezu supervisor or host hook may run local
+`auto_restart` only if restart lifecycle was pre-authorized at install or config
+time. Pure MCP-only installs remain manual recovery: wasurezu can prepare packs
+and recommend restart, but cannot force the host to restart.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
