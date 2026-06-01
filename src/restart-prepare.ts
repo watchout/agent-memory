@@ -1,9 +1,19 @@
 import type { ConversationEvent, Decision, Knowledge, Store, TaskState } from "./stores/types.js";
 import { estimateTokens } from "./constants.js";
-import { generateRestartPack } from "./restart-pack.js";
+import {
+  buildHostInvocationContextArtifact,
+  buildRecoveryPackArtifact,
+  buildRestartPack,
+  loadRestartPackData,
+  type HostInvocationDeliveryMode,
+  type HostInvocationTargetRuntime,
+  type RestartPackData,
+  type UntrustedContextPolicy,
+} from "./restart-pack.js";
 
 export type ContinuityGuardMode = "auto_restart" | "recommend" | "pack_only" | "off";
 export type PackInjectionMode = "auto_attach" | "on_demand" | "off";
+export type RestartPackFormat = "text" | "recovery-pack-v1" | "host-invocation-context-v1";
 export type RestartPrepareAction =
   | "off"
   | "pack_update_needed"
@@ -25,6 +35,11 @@ export interface RestartPrepareInput {
   context_window_tokens?: number;
   runtime_context_error?: boolean;
   emit_pack?: boolean;
+  pack_format?: RestartPackFormat;
+  target_runtime?: HostInvocationTargetRuntime;
+  delivery_mode?: HostInvocationDeliveryMode;
+  trusted_instruction?: string;
+  untrusted_context_policy?: UntrustedContextPolicy;
 }
 
 export interface RestartPrepareOutput {
@@ -35,6 +50,8 @@ export interface RestartPrepareOutput {
   can_auto_restart: boolean;
   auto_restart_blockers: string[];
   pack_ref: string | null;
+  restart_pack_format: RestartPackFormat;
+  restart_pack_schema_ref?: "recovery-pack/v1" | "host-invocation-context/v1";
   restart_pack?: string;
   recovery_confidence: {
     score: number;
@@ -74,15 +91,17 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
   const effectiveMode: ContinuityGuardMode =
     requestedMode === "auto_restart" && autoRestartBlockers.length > 0 ? "recommend" : requestedMode;
   const packInjectionMode = input.pack_injection_mode ?? "auto_attach";
+  const packFormat = input.pack_format ?? "text";
 
-  const [snapshot, restartPack] = await Promise.all([
+  const [snapshot, restartPackData] = await Promise.all([
     loadSnapshot(store, input),
-    generateRestartPack(store, {
+    loadRestartPackData(store, {
       agent_id: input.agent_id,
       project: input.project,
       max_tokens: input.max_tokens,
     }),
   ]);
+  const preparedPack = buildPreparedPackContent(restartPackData, input);
 
   const missingContext = missingContextFor(snapshot);
   const score = confidenceScore(missingContext);
@@ -100,10 +119,15 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     : await store.saveSelectedRestartPack({
         agent_id: input.agent_id,
         project: input.project,
-        content: restartPack,
+        content: preparedPack.content,
         source: "restart_prepare",
         metadata: {
           generated_at: generatedAt,
+          pack_format: packFormat,
+          pack_schema_ref: preparedPack.schema_ref,
+          target_runtime: input.target_runtime,
+          delivery_mode: input.delivery_mode,
+          untrusted_context_policy: input.untrusted_context_policy,
           requested_continuity_guard_mode: requestedMode,
           continuity_guard_mode: effectiveMode,
           action,
@@ -120,7 +144,9 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     can_auto_restart: autoRestartBlockers.length === 0 && requestedMode === "auto_restart",
     auto_restart_blockers: autoRestartBlockers,
     pack_ref: selectedPack?.pack_ref ?? null,
-    ...(input.emit_pack === false ? {} : { restart_pack: restartPack }),
+    restart_pack_format: packFormat,
+    ...(preparedPack.schema_ref ? { restart_pack_schema_ref: preparedPack.schema_ref } : {}),
+    ...(input.emit_pack === false ? {} : { restart_pack: preparedPack.content }),
     recovery_confidence: {
       score,
       level: score >= 0.8 ? "high" : score >= 0.55 ? "medium" : "low",
@@ -131,7 +157,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
       generated_at: generatedAt,
       agent_id: input.agent_id,
       project: input.project,
-      pack_tokens: estimateTokens(restartPack),
+      pack_tokens: estimateTokens(preparedPack.content),
       active_task_ids: ids(snapshot.activeTasks),
       blocked_task_ids: ids(snapshot.blockedTasks),
       decision_ids: ids(snapshot.decisions),
@@ -146,6 +172,36 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
       action,
     }),
   };
+}
+
+function buildPreparedPackContent(
+  data: RestartPackData,
+  input: RestartPrepareInput
+): {
+  content: string;
+  schema_ref?: "recovery-pack/v1" | "host-invocation-context/v1";
+} {
+  const format = input.pack_format ?? "text";
+  if (format === "recovery-pack-v1") {
+    return {
+      content: JSON.stringify(buildRecoveryPackArtifact(data), null, 2),
+      schema_ref: "recovery-pack/v1",
+    };
+  }
+  if (format === "host-invocation-context-v1") {
+    const recoveryPack = buildRecoveryPackArtifact(data);
+    const hostContext = buildHostInvocationContextArtifact(recoveryPack, {
+      target_runtime: input.target_runtime ?? "codex",
+      delivery_mode: input.delivery_mode,
+      trusted_instruction: input.trusted_instruction,
+      untrusted_context_policy: input.untrusted_context_policy,
+    });
+    return {
+      content: JSON.stringify(hostContext, null, 2),
+      schema_ref: "host-invocation-context/v1",
+    };
+  }
+  return { content: buildRestartPack(data) };
 }
 
 async function loadSnapshot(store: Store, input: RestartPrepareInput): Promise<Snapshot> {

@@ -115,7 +115,7 @@ Current `restart_pack` behavior:
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
 | restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num), format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum:codex/claude/generic-mcp-host), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | prioritized restart text or schema-shaped artifact JSON |
-| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool) | action, restart_pack?, pack_ref, recovery_confidence, context_signal, provenance, notes |
+| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool), pack_format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | action, restart_pack?, restart_pack_format, restart_pack_schema_ref?, pack_ref, recovery_confidence, context_signal, provenance, notes |
 | restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
 
@@ -129,7 +129,7 @@ runtime lifecycle:
 - `continuity_guard_mode`: effective mode after fail-closed checks
 - `requested_continuity_guard_mode`: caller-requested mode
 - `pack_injection_mode`: `auto_attach` / `on_demand` / `off`
-- `restart_pack` and `pack_ref`: generated pack content and a selected-pack reference such as `selected_restart_pack:<id>`
+- `restart_pack`, `restart_pack_format`, `restart_pack_schema_ref`, and `pack_ref`: generated pack content plus selected-pack reference such as `selected_restart_pack:<id>`
 - `recovery_confidence`: semantic confidence and missing context
 - `context_signal`: host-provided context metric when supplied, otherwise `estimated`
 - `provenance`: agent/project/time/config inputs used for the decision
@@ -143,6 +143,11 @@ status downgrades to `recommend`.
 If pack injection is enabled, `restart_prepare` persists the selected restart
 pack and returns a `selected_restart_pack:<id>` reference. Hosts and AUN can
 fetch it with `restart_pack_fetch` or `wasurezu-restart fetch --pack-ref <ref>`.
+The persisted content defaults to human-readable text, but callers may set
+`pack_format=recovery-pack-v1` or `pack_format=host-invocation-context-v1` to
+persist schema-shaped JSON selected packs. Host invocation packs use the same
+`target_runtime`, `delivery_mode`, `trusted_instruction`, and
+`untrusted_context_policy` semantics as `restart_pack`.
 Using `consume=true` marks the selected pack consumed so the same handoff is not
 treated as active twice. Claude Code boot can consume the same reference by
 setting `AGENT_MEMORY_SELECTED_PACK_REF` together with

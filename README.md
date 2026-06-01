@@ -260,6 +260,10 @@ queue state or performs runtime lifecycle actions. Runtime adapters invoke the
 model/runtime, pass bounded recovery context, and return structured evidence;
 they do not own restart policy or recovery-pack ranking.
 
+For adapter automation, `restart_prepare` can persist selected packs as
+`recovery-pack/v1` or `host-invocation-context/v1` JSON by setting
+`pack_format`; the default remains human-readable text for compatibility.
+
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
 

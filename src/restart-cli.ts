@@ -2,7 +2,8 @@
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
-import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode } from "./restart-prepare.js";
+import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
+import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 
 interface CliOptions {
   command: "prepare" | "fetch" | "help";
@@ -22,6 +23,11 @@ interface CliOptions {
   context_window_tokens?: number;
   runtime_context_error?: boolean;
   emit_pack?: boolean;
+  pack_format?: RestartPackFormat;
+  target_runtime?: HostInvocationTargetRuntime;
+  delivery_mode?: HostInvocationDeliveryMode;
+  trusted_instruction?: string;
+  untrusted_context_policy?: UntrustedContextPolicy;
 }
 
 export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = process.env): CliOptions {
@@ -98,6 +104,21 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--no-pack":
         options.emit_pack = false;
         break;
+      case "--pack-format":
+        options.pack_format = packFormat(next());
+        break;
+      case "--target-runtime":
+        options.target_runtime = targetRuntime(next());
+        break;
+      case "--delivery-mode":
+        options.delivery_mode = deliveryMode(next());
+        break;
+      case "--trusted-instruction":
+        options.trusted_instruction = next();
+        break;
+      case "--untrusted-context-policy":
+        options.untrusted_context_policy = untrustedContextPolicy(next());
+        break;
       default:
         throw new Error(`unknown option: ${arg}`);
     }
@@ -131,6 +152,11 @@ export function printRestartCliHelp(): string {
     "  --restart-preauthorized",
     "  --runtime-context-error",
     "  --no-pack                     omit restart_pack text from JSON output",
+    "  --pack-format text|recovery-pack-v1|host-invocation-context-v1",
+    "  --target-runtime codex|claude|generic-mcp-host",
+    "  --delivery-mode stdin-json|system-prompt-fragment|append-system-prompt-fragment|session-start-hook|tui-fallback",
+    "  --trusted-instruction TEXT    trusted wrapper instruction; must not embed raw shell commands",
+    "  --untrusted-context-policy quote-as-data-only|omit|summarize-only",
   ].join("\n");
 }
 
@@ -174,6 +200,34 @@ function guardMode(value: string): ContinuityGuardMode {
 function injectionMode(value: string): PackInjectionMode {
   if (value === "auto_attach" || value === "on_demand" || value === "off") return value;
   throw new Error(`invalid pack injection mode: ${value}`);
+}
+
+function packFormat(value: string): RestartPackFormat {
+  if (value === "text" || value === "recovery-pack-v1" || value === "host-invocation-context-v1") return value;
+  throw new Error(`invalid pack format: ${value}`);
+}
+
+function targetRuntime(value: string): HostInvocationTargetRuntime {
+  if (value === "codex" || value === "claude" || value === "generic-mcp-host") return value;
+  throw new Error(`invalid target runtime: ${value}`);
+}
+
+function deliveryMode(value: string): HostInvocationDeliveryMode {
+  if (
+    value === "stdin-json" ||
+    value === "system-prompt-fragment" ||
+    value === "append-system-prompt-fragment" ||
+    value === "session-start-hook" ||
+    value === "tui-fallback"
+  ) {
+    return value;
+  }
+  throw new Error(`invalid delivery mode: ${value}`);
+}
+
+function untrustedContextPolicy(value: string): UntrustedContextPolicy {
+  if (value === "quote-as-data-only" || value === "omit" || value === "summarize-only") return value;
+  throw new Error(`invalid untrusted context policy: ${value}`);
 }
 
 function positiveNumber(flag: string, value: string): number {

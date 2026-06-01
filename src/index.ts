@@ -568,6 +568,23 @@ async function main() {
       context_window_tokens: z.number().optional().describe("Host-provided context window size. Requires context_tokens."),
       runtime_context_error: z.boolean().optional().describe("True when host/AUN observed a compaction or runtime context error."),
       emit_pack: z.boolean().optional().describe("Set false to omit restart_pack text from JSON output."),
+      pack_format: z
+        .enum(["text", "recovery-pack-v1", "host-invocation-context-v1"])
+        .optional()
+        .describe("Selected pack format. Defaults to text; structured formats persist schema-shaped JSON selected packs."),
+      target_runtime: z
+        .enum(["codex", "claude", "generic-mcp-host"])
+        .optional()
+        .describe("Target runtime for host-invocation-context-v1 selected packs."),
+      delivery_mode: z
+        .enum(["stdin-json", "system-prompt-fragment", "append-system-prompt-fragment", "session-start-hook", "tui-fallback"])
+        .optional()
+        .describe("Delivery mode for host-invocation-context-v1 selected packs."),
+      trusted_instruction: z.string().optional().describe("Trusted wrapper instruction for host invocation. Must not embed raw shell commands."),
+      untrusted_context_policy: z
+        .enum(["quote-as-data-only", "omit", "summarize-only"])
+        .optional()
+        .describe("How the host adapter treats contextual content. Default is quote-as-data-only."),
     },
     async (args) => {
       await logCall("restart_prepare", `project="${args.project || PROJECT || ""}" mode="${args.continuity_guard_mode ?? "recommend"}"`);
@@ -587,6 +604,11 @@ async function main() {
           context_window_tokens: args.context_window_tokens,
           runtime_context_error: args.runtime_context_error,
           emit_pack: args.emit_pack,
+          pack_format: args.pack_format,
+          target_runtime: args.target_runtime,
+          delivery_mode: args.delivery_mode,
+          trusted_instruction: args.trusted_instruction,
+          untrusted_context_policy: args.untrusted_context_policy,
         });
         return {
           content: [safeText(JSON.stringify(output, null, 2))],
