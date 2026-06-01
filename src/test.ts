@@ -1531,7 +1531,6 @@ async function testRestartPrepare() {
     agent_id: agentId,
     project,
     pack_format: "host-invocation-context-v1",
-    target_runtime: "codex",
     emit_pack: false,
   });
   assert(structuredPrepared.restart_pack_format === "host-invocation-context-v1", "restart_prepare records structured selected pack format");
@@ -1543,8 +1542,32 @@ async function testRestartPrepare() {
   assert(validateHostInvocationContextArtifact(selectedStructuredContent).valid, "structured selected restart pack content validates as host invocation context");
   assert(selectedStructuredContent.target_runtime === "codex", "structured selected restart pack targets Codex");
   assert(selectedStructuredContent.delivery_mode === "stdin-json", "structured selected restart pack defaults Codex to stdin-json");
+  assert(selectedStructuredContent.untrusted_context_policy === "quote-as-data-only", "structured selected restart pack defaults contextual content to data-only");
   assert(selectedStructured!.metadata.pack_format === "host-invocation-context-v1", "structured selected restart pack metadata records pack format");
   assert(selectedStructured!.metadata.pack_schema_ref === "host-invocation-context/v1", "structured selected restart pack metadata records schema ref");
+  assert(selectedStructured!.metadata.target_runtime === "codex", "structured selected restart pack metadata records default target runtime");
+  assert(selectedStructured!.metadata.delivery_mode === "stdin-json", "structured selected restart pack metadata records default delivery mode");
+  assert(selectedStructured!.metadata.untrusted_context_policy === "quote-as-data-only", "structured selected restart pack metadata records default untrusted context policy");
+
+  const explicitStructured = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    pack_format: "host-invocation-context-v1",
+    target_runtime: "claude",
+    delivery_mode: "session-start-hook",
+    untrusted_context_policy: "summarize-only",
+    emit_pack: false,
+  });
+  const selectedExplicit = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: explicitStructured.pack_ref! });
+  assert(selectedExplicit !== null, "restart_prepare persists explicit structured selected restart pack");
+  const selectedExplicitContent = JSON.parse(selectedExplicit!.content);
+  assert(validateHostInvocationContextArtifact(selectedExplicitContent).valid, "explicit structured selected restart pack content validates");
+  assert(selectedExplicitContent.target_runtime === "claude", "explicit structured selected restart pack targets Claude");
+  assert(selectedExplicitContent.delivery_mode === "session-start-hook", "explicit structured selected restart pack records session-start delivery");
+  assert(selectedExplicitContent.untrusted_context_policy === "summarize-only", "explicit structured selected restart pack records untrusted context policy");
+  assert(selectedExplicit!.metadata.target_runtime === "claude", "structured selected restart pack metadata round-trips explicit target runtime");
+  assert(selectedExplicit!.metadata.delivery_mode === "session-start-hook", "structured selected restart pack metadata round-trips explicit delivery mode");
+  assert(selectedExplicit!.metadata.untrusted_context_policy === "summarize-only", "structured selected restart pack metadata round-trips explicit untrusted context policy");
 
   const recoveryPrepared = await prepareRestart(store, {
     agent_id: agentId,

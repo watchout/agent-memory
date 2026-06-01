@@ -85,6 +85,14 @@ interface Snapshot {
   conversationEvents: ConversationEvent[];
 }
 
+interface PreparedPackContent {
+  content: string;
+  schema_ref?: "recovery-pack/v1" | "host-invocation-context/v1";
+  target_runtime?: HostInvocationTargetRuntime;
+  delivery_mode?: HostInvocationDeliveryMode;
+  untrusted_context_policy?: UntrustedContextPolicy;
+}
+
 export async function prepareRestart(store: Store, input: RestartPrepareInput): Promise<RestartPrepareOutput> {
   const requestedMode = input.continuity_guard_mode ?? "recommend";
   const autoRestartBlockers = autoRestartBlockersFor(input);
@@ -125,9 +133,9 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
           generated_at: generatedAt,
           pack_format: packFormat,
           pack_schema_ref: preparedPack.schema_ref,
-          target_runtime: input.target_runtime,
-          delivery_mode: input.delivery_mode,
-          untrusted_context_policy: input.untrusted_context_policy,
+          target_runtime: preparedPack.target_runtime,
+          delivery_mode: preparedPack.delivery_mode,
+          untrusted_context_policy: preparedPack.untrusted_context_policy,
           requested_continuity_guard_mode: requestedMode,
           continuity_guard_mode: effectiveMode,
           action,
@@ -177,10 +185,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
 function buildPreparedPackContent(
   data: RestartPackData,
   input: RestartPrepareInput
-): {
-  content: string;
-  schema_ref?: "recovery-pack/v1" | "host-invocation-context/v1";
-} {
+): PreparedPackContent {
   const format = input.pack_format ?? "text";
   if (format === "recovery-pack-v1") {
     return {
@@ -199,6 +204,9 @@ function buildPreparedPackContent(
     return {
       content: JSON.stringify(hostContext, null, 2),
       schema_ref: "host-invocation-context/v1",
+      target_runtime: hostContext.target_runtime,
+      delivery_mode: hostContext.delivery_mode,
+      untrusted_context_policy: hostContext.untrusted_context_policy,
     };
   }
   return { content: buildRestartPack(data) };
