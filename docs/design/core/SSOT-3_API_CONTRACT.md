@@ -92,6 +92,12 @@ hooks, MCP `structuredContent`, or other verified host surfaces. If the host
 cannot support structured delivery, the delivery mode must be labeled
 `tui-fallback` and evidence must be degraded.
 
+Generated structured artifacts must validate against the published JSON Schema
+files in addition to implementation-level semantic guardrails. The in-process
+guardrails remain responsible for checks that JSON Schema does not express,
+such as aggregate token-budget enforcement and raw shell-command rejection in
+`trusted_instruction`.
+
 Current `restart_pack` behavior:
 
 - default / omitted `format`: backward-compatible human-readable restart text

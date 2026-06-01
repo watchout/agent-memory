@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
+import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import {
@@ -1257,6 +1258,7 @@ async function testRestartPack() {
     max_tokens: 1500,
   });
   assert(validateRecoveryPackArtifact(recoveryPack).valid, "recovery-pack/v1 validates generated artifact");
+  assert(validateRecoveryPackJsonSchema(recoveryPack).valid, "recovery-pack/v1 validates against canonical JSON Schema");
   assert(recoveryPack.pack_id.startsWith("restart_pack:"), "recovery-pack/v1 has stable pack id prefix");
   assert(recoveryPack.project === project, "recovery-pack/v1 includes project");
   assert(recoveryPack.confidence === "high", "recovery-pack/v1 reports high confidence when task and context exist");
@@ -1280,6 +1282,7 @@ async function testRestartPack() {
     target_runtime: "codex",
   });
   assert(validateHostInvocationContextArtifact(codexHostContext).valid, "host-invocation-context/v1 validates generated Codex artifact");
+  assert(validateHostInvocationContextJsonSchema(codexHostContext).valid, "host-invocation-context/v1 validates against canonical JSON Schema");
   assert(codexHostContext.target_runtime === "codex", "host-invocation-context/v1 supports Codex target runtime");
   assert(codexHostContext.delivery_mode === "stdin-json", "host-invocation-context/v1 defaults Codex to stdin-json");
   assert(codexHostContext.untrusted_context_policy === "quote-as-data-only", "host-invocation-context/v1 defaults contextual content to data-only");
@@ -1292,8 +1295,23 @@ async function testRestartPack() {
 
   const strictPack = validateRecoveryPackArtifact({ ...recoveryPack, unexpected: true });
   assert(!strictPack.valid, "recovery-pack/v1 validation rejects additional properties");
+  const strictPackSchema = validateRecoveryPackJsonSchema({ ...recoveryPack, unexpected: true });
+  assert(!strictPackSchema.valid, "recovery-pack/v1 canonical schema rejects additional properties");
+  const invalidGeneratedAtSchema = validateRecoveryPackJsonSchema({ ...recoveryPack, generated_at: "not-a-date" });
+  assert(!invalidGeneratedAtSchema.valid, "recovery-pack/v1 canonical schema rejects invalid date-time");
+  const invalidTokenBudgetSchema = validateRecoveryPackJsonSchema({ ...recoveryPack, token_budget: 0 });
+  assert(!invalidTokenBudgetSchema.valid, "recovery-pack/v1 canonical schema enforces token budget minimum");
   const strictHostContext = validateHostInvocationContextArtifact({ ...codexHostContext, unexpected: true });
   assert(!strictHostContext.valid, "host-invocation-context/v1 validation rejects additional properties");
+  const strictHostContextSchema = validateHostInvocationContextJsonSchema({ ...codexHostContext, unexpected: true });
+  assert(!strictHostContextSchema.valid, "host-invocation-context/v1 canonical schema rejects additional properties");
+  const invalidHostRuntimeSchema = validateHostInvocationContextJsonSchema({ ...codexHostContext, target_runtime: "terminal" });
+  assert(!invalidHostRuntimeSchema.valid, "host-invocation-context/v1 canonical schema rejects invalid target runtime");
+  const invalidNestedPackSchema = validateHostInvocationContextJsonSchema({
+    ...codexHostContext,
+    context_data: { ...codexHostContext.context_data, token_budget: 0 },
+  });
+  assert(!invalidNestedPackSchema.valid, "host-invocation-context/v1 canonical schema resolves recovery-pack $ref");
   for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test", "$ rm -rf /tmp/example"]) {
     const shellCommandContext = validateHostInvocationContextArtifact({
       ...codexHostContext,
@@ -1829,6 +1847,7 @@ function testConversationScopeSchemaRegression() {
   assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
   assert(apiContract.includes("restart_pack_fetch"), "API contract documents restart_pack_fetch");
   assert(apiContract.includes("pack_format=recovery-pack-v1"), "API contract documents structured selected-pack format");
+  assert(apiContract.includes("published JSON Schema"), "API contract documents canonical schema validation");
   assert(apiContract.includes("selected_restart_pack:<id>"), "API contract documents selected restart pack refs");
   assert(apiContract.includes("AGENT_MEMORY_SELECTED_PACK_REF"), "API contract documents boot selected-pack consume");
   const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
