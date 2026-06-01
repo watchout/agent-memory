@@ -12,6 +12,7 @@
   },
   "files": [
     "dist",
+    "docs/design/schemas",
     "docs/operations/HOST_ADAPTERS.md",
     "README.md",
     "LICENSE",

@@ -73,6 +73,25 @@ proper adapter or hook. Normal operation must not depend on typing a prompt
 into a live TUI, nor on a SessionStart self-kick deciding restart policy from
 inside the model prompt.
 
+## Structured Host Invocation Artifacts (AM-110 planned)
+
+Policy authority: `SSOT-6_LIVING_MEMORY_CONTROL.md`. This section owns the
+API-facing artifact names and schema references.
+
+Automation should consume:
+
+| Artifact | Schema | Purpose |
+|----------|--------|---------|
+| `recovery-pack/v1` | `docs/design/schemas/recovery-pack-v1.schema.json` | Bounded, provenance-bearing recovery content with confidence, missing context, trust level, actionability, and sensitivity metadata. |
+| `host-invocation-context/v1` | `docs/design/schemas/host-invocation-context-v1.schema.json` | Runtime-adapter handoff wrapper with target runtime, delivery mode, trusted instruction, data-only policy, schema ref, and embedded recovery pack. |
+
+Human-readable `recover_context` and `restart_pack` outputs may remain for
+manual users, but adapter automation should prefer these structured artifacts.
+Host adapters can render them into stdin JSON, prompt fragments, SessionStart
+hooks, MCP `structuredContent`, or other verified host surfaces. If the host
+cannot support structured delivery, the delivery mode must be labeled
+`tui-fallback` and evidence must be degraded.
+
 ## MCP Tools
 
 | Tool | Status | Description | Input | Output |

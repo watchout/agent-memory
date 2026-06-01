@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/schemas/host-invocation-context-v1.schema.json",
+  "title": "Wasurezu Host Invocation Context v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "context_id",
+    "pack_id",
+    "target_runtime",
+    "delivery_mode",
+    "trusted_instruction",
+    "context_data",
+    "untrusted_context_policy",
+    "schema_ref"
+  ],
+  "properties": {
+    "context_id": { "type": "string", "minLength": 1 },
+    "pack_id": { "type": "string", "minLength": 1 },
+    "target_runtime": {
+      "type": "string",
+      "enum": ["codex", "claude", "generic-mcp-host"]
+    },
+    "delivery_mode": {
+      "type": "string",
+      "enum": [
+        "stdin-json",
+        "system-prompt-fragment",
+        "append-system-prompt-fragment",
+        "session-start-hook",
+        "tui-fallback"
+      ]
+    },
+    "trusted_instruction": { "type": "string", "minLength": 1 },
+    "context_data": {
+      "$ref": "recovery-pack-v1.schema.json"
+    },
+    "untrusted_context_policy": {
+      "type": "string",
+      "enum": ["quote-as-data-only", "omit", "summarize-only"]
+    },
+    "schema_ref": { "type": "string", "minLength": 1 }
+  }
+}
