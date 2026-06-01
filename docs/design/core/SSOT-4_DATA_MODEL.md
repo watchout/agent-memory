@@ -3,6 +3,7 @@
 > 起源: framework retrofit (2026-04-03), quality audit Phase A (2026-04-06)
 > 拡充: AM-010 SSOT 充足 by Arc (2026-04-08)
 > ステータス: v0.3.0 現行実装に基づく single source of truth (mvp-spec から Path B 移行後)
+> Policy authority: SSOT-6 owns continuity semantics; this file owns schema/data-model contracts.
 
 ---
 
@@ -34,6 +35,16 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
 agent_messages は agent-comms スキーマ。**agent-memory が読み取り専用で連携**する形 (PG モード時のみ)。
+
+AM-044 planned control-plane tables:
+
+| テーブル | 用途 | 備考 |
+|----------|------|------|
+| `raw_events` | user/assistant/tool/file/host/runtime events の canonical ledger | `conversation_events` を包含する上位 ledger |
+| `session_checkpoints` | session ごとの active task/goal, files/artifacts, pending actions, metrics | pre-exit prepare / observe_context の出力 |
+| `recovery_packs` | restart pack header と quality metadata | pack_id, reason, source_event_ids, confidence, missing_context |
+| `recovery_pack_items` | pack item の provenance / priority / freshness / confidence | bounded pack ranking の証跡 |
+| `session_lifecycle_events` | observe, prepare, pack_created, restart_recommended, restart_executed, recovery_loaded, recovery_degraded | runner / adapter / AUN 境界の audit trail |
 
 ---
 
@@ -251,6 +262,104 @@ CREATE INDEX idx_selected_restart_packs_agent
 - `restart_prepare` が生成した restart pack を `selected_restart_pack:<id>` として永続化する
 - AUN / host / supervisor が選択済み pack を fetch または consume して post-start boot に渡せるようにする
 - `consume` は selected pack の再利用を防ぐための handoff marker であり、AUN queue state / claim / delivery / finalization は変更しない
+
+### 2.8 control-plane continuity ledger (AM-044 planned)
+
+These tables make Wasurezu's canonical state durable and runner-readable. They
+are planned schema, not yet part of the current v0.3.0 migrations.
+
+```sql
+CREATE TABLE raw_events (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        TEXT NOT NULL,
+  session_id      TEXT,
+  project         TEXT,
+  source          TEXT NOT NULL,
+  event_type      TEXT NOT NULL, -- user_message | assistant_message | tool_call | tool_result | file_ref | context_ref | host_event | runtime_event
+  role            TEXT,
+  content         TEXT,
+  content_hash    TEXT,
+  source_event_id TEXT,
+  source_path     TEXT,
+  metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at     TIMESTAMPTZ NOT NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE session_checkpoints (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        TEXT NOT NULL,
+  session_id      TEXT NOT NULL,
+  project         TEXT,
+  host            TEXT,
+  active_task     TEXT,
+  active_goal     TEXT,
+  current_files   TEXT[] DEFAULT '{}',
+  artifacts       TEXT[] DEFAULT '{}',
+  pending_actions TEXT[] DEFAULT '{}',
+  context_metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source_event_ids TEXT[] DEFAULT '{}',
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE recovery_packs (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id         TEXT NOT NULL,
+  session_id       TEXT,
+  project          TEXT,
+  reason           TEXT NOT NULL,
+  budget_tokens    INTEGER,
+  source_event_ids TEXT[] DEFAULT '{}',
+  confidence       DOUBLE PRECISION,
+  missing_context  TEXT[] DEFAULT '{}',
+  status           TEXT NOT NULL DEFAULT 'active',
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  expires_at       TIMESTAMPTZ
+);
+
+CREATE TABLE recovery_pack_items (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pack_id          UUID NOT NULL REFERENCES recovery_packs(id),
+  item_type        TEXT NOT NULL,
+  content          TEXT NOT NULL,
+  source_event_ids TEXT[] DEFAULT '{}',
+  provenance       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  priority         INTEGER NOT NULL DEFAULT 0,
+  freshness        DOUBLE PRECISION,
+  confidence       DOUBLE PRECISION,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE session_lifecycle_events (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id         TEXT NOT NULL,
+  session_id       TEXT,
+  project          TEXT,
+  action           TEXT NOT NULL, -- observe | prepare | pack_created | restart_recommended | restart_executed | recovery_loaded | recovery_degraded
+  band             TEXT,          -- ok | prepare | warn | recommend | require | pack_only | on_demand | off
+  owner            TEXT NOT NULL, -- wasurezu | aun | host | user
+  reason           TEXT,
+  affected_task    TEXT,
+  affected_claim   TEXT,
+  affected_goal    TEXT,
+  pack_id          UUID,
+  source_event_ids TEXT[] DEFAULT '{}',
+  confidence       DOUBLE PRECISION,
+  missing_context  TEXT[] DEFAULT '{}',
+  outcome          TEXT,          -- full | partial | degraded | failed
+  work_state       TEXT,          -- resumed | requeued | pending
+  metadata         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+Control-plane constraints:
+
+- `raw_events` is the canonical source for transcript-like and runtime facts.
+- `conversation_events` may remain as a compatibility ingest table or view, but restart/recovery ranking should move toward `raw_events` + checkpoints.
+- Restart pack generation must be bounded and source-bearing through `recovery_packs` and `recovery_pack_items`.
+- Every restart or recovery attempt must create a `session_lifecycle_events` audit record with reason, owner, pack, confidence, missing context, and outcome.
+- Runtime adapters may append structured evidence, but they must not own lifecycle policy or destructive memory rewrite.
 
 ---
 

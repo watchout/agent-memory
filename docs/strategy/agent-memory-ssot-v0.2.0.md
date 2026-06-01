@@ -3,6 +3,12 @@
 > Claude Codeの記憶喪失問題を解決するMCPサーバー。
 > 単体動作。DB推奨/なしでも動く。OSS（MIT License）。
 
+> Status: Legacy v0.2 design reference. Current continuity/control-plane
+> authority is `../design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`; runtime and
+> identity binding authority is `../design/core/SSOT-7_RUNTIME_AGENT_BINDING.md`.
+> The SessionStart-only language below is historical and scoped to the older
+> Claude Code path.
+
 ---
 
 ## 変更サマリー: v0.1.0 → v0.2.0

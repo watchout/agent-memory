@@ -28,6 +28,51 @@ com: memに依存しない（watchdogはmemなしでも動く）
 - com単体: agent-comms専用DB（agent_messages, agents等）
 - 両方: 共有DB（全テーブルが同一DBに存在、cross-searchが高速）
 
+## Session Continuity Control Plane (AM-044 planned)
+
+Policy authority: `SSOT-6_LIVING_MEMORY_CONTROL.md`. This section mirrors the
+required API / runner shape only; it does not redefine lifecycle ownership or
+restart policy independently.
+
+Wasurezu session continuity is exposed through deterministic memory/session
+control-plane APIs. The canonical source is the durable Wasurezu ledger, not a
+live TUI transcript or an LLM's prompt-local judgment.
+
+Primary control-plane responsibilities:
+
+- observe context and persist host/runtime signals
+- prepare pre-exit restart state
+- generate bounded, source-bearing restart packs
+- load post-start recovery packs
+- report recovery confidence and missing context
+- recommend restart bands without executing foreign lifecycle policy
+
+Internal APIs / runner actions should be equivalent to:
+
+| Action | Purpose |
+|--------|---------|
+| `observe_context(session_id)` | Persist current task/goal, files/artifacts, host, runtime, token/context metrics, and recent event anchors. |
+| `prepare_restart(session_id, reason)` | Freeze pre-exit evidence, create/update checkpoint, and decide whether a pack is needed. |
+| `create_restart_pack(session_id, budget, project)` | Generate a bounded pack from durable events/checkpoints with provenance. |
+| `load_recovery_pack(pack_id)` | Return a selected pack for a host adapter or startup hook. |
+| `record_recovery_result(session_id, pack_id, confidence, missing_context)` | Persist post-start recovery outcome and missing-context evidence. |
+| `recommend_restart(session_id, band)` | Emit typed lifecycle recommendation without mutating host/AUN lifecycle. |
+
+Lifecycle bands:
+
+`ok` / `prepare` / `warn` / `recommend` / `require` / `pack_only` /
+`on_demand` / `off`.
+
+Runtime adapters are only adapters. They may invoke the model/runtime, pass a
+bounded recovery pack, and return structured evidence. They must not own
+lifecycle state mutation, final close, queue repair, restart policy,
+recovery-pack ranking policy, or destructive memory rewrite.
+
+TUI text injection is a compatibility fallback only for runtimes without a
+proper adapter or hook. Normal operation must not depend on typing a prompt
+into a live TUI, nor on a SessionStart self-kick deciding restart policy from
+inside the model prompt.
+
 ## MCP Tools
 
 | Tool | Status | Description | Input | Output |

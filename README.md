@@ -63,13 +63,15 @@ Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
 }
 ```
 
-### 3. Add Compact Instructions
+### 3. Optional Fallback Instructions
 
-Add this to your project's `CLAUDE.md`:
+Add this to your project's `CLAUDE.md` only as a soft fallback. Normal startup
+recovery should come from a host adapter, hook, launcher, or supervisor loading
+a bounded restart pack before the model acts.
 
 ```markdown
-## Compact Instructions
-After compaction, as your FIRST action:
+## Fallback Memory Instructions
+If no startup adapter or hook has already loaded recovery context:
 1. Call `recover_context` to restore decisions and task state
 2. Review the recovered context before continuing
 
@@ -113,7 +115,7 @@ Total items restored: 10
 
 ```
 Session Start
-  → SessionStart hook emits restart_pack recovery
+  → Host adapter or hook loads a bounded restart_pack
   → Current objective + next action + recovery controls injected
   → AI continues where it left off
 
@@ -191,15 +193,17 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 
 | Tool | Status |
 |------|--------|
-| **Claude Code** | ✅ Full support (MCP + SessionStart hook + Compact Instructions) |
-| **Codex** | 🧪 MCP tools work; startup recovery requires `wasurezu-codex-start` bridge |
+| **Claude Code** | ✅ MCP + native SessionStart adapter for loading recovery packs |
+| **Codex** | 🧪 MCP tools work; startup recovery requires `wasurezu-codex-start` runtime adapter |
 | **Cursor / Gemini CLI** | ⏳ MCP tools work; startup integration in a later release |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
 
 See [`docs/operations/HOST_ADAPTERS.md`](docs/operations/HOST_ADAPTERS.md) for
 the support-level matrix. In short: MCP tools alone are manual recovery.
 Startup recovery requires a host adapter or native startup hook that places
-`restart_pack` in the first model context.
+`restart_pack` in the first model context. The control-plane source of truth is
+Wasurezu's durable ledger and recovery pack state, not a live TUI transcript.
+TUI text injection is a compatibility fallback only.
 
 ### Codex startup recovery
 
@@ -252,7 +256,9 @@ recovery confidence, missing-context notes, provenance, and a `restart_pack`
 reference such as `selected_restart_pack:<id>`. Hosts can fetch it through
 `restart_pack_fetch` or `wasurezu-restart fetch --pack-ref <ref> --consume`, or
 pass it to boot with `AGENT_MEMORY_SELECTED_PACK_REF`. It never mutates AUN
-queue state or performs runtime lifecycle actions.
+queue state or performs runtime lifecycle actions. Runtime adapters invoke the
+model/runtime, pass bounded recovery context, and return structured evidence;
+they do not own restart policy or recovery-pack ranking.
 
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
