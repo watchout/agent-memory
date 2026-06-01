@@ -17,7 +17,7 @@ import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
-import { generateRestartPack } from "./restart-pack.js";
+import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
@@ -442,14 +442,55 @@ async function main() {
   // ─── restart_pack (AM-031 PR D) ───────────────────────────────
   server.tool(
     "restart_pack",
-    "Generate a concise session restart pack optimized for continuing work after context refresh. Use it as Layer 1 recovery, then use search_memory scope=conversation when the pack is incomplete before asking the user to restate context. Keeps recover_context backward-compatible while prioritizing objective, active task, next action, blockers, files, refs, decisions, knowledge, and recent conversation summary.",
+    "Generate a concise session restart pack optimized for continuing work after context refresh. Default format is human-readable text. For automation, set format=recovery-pack-v1 or format=host-invocation-context-v1 to receive schema-shaped JSON with provenance, confidence, missing_context, trust, and redaction metadata. Use it as Layer 1 recovery, then use search_memory scope=conversation when the pack is incomplete before asking the user to restate context. Keeps recover_context backward-compatible while prioritizing objective, active task, next action, blockers, files, refs, decisions, knowledge, and recent conversation summary.",
     {
       project: z.string().optional().describe("Filter by project"),
       max_tokens: z.number().optional().describe("Output token budget. Minimum floor is 500; default comes from recovery_config or 1500."),
+      format: z
+        .enum(["text", "recovery-pack-v1", "host-invocation-context-v1"])
+        .optional()
+        .describe("Output format. text is backward-compatible; structured formats are the automation contract."),
+      target_runtime: z
+        .enum(["codex", "claude", "generic-mcp-host"])
+        .optional()
+        .describe("Required for host-invocation-context-v1 unless defaulting to codex."),
+      delivery_mode: z
+        .enum(["stdin-json", "system-prompt-fragment", "append-system-prompt-fragment", "session-start-hook", "tui-fallback"])
+        .optional()
+        .describe("Host delivery mode. tui-fallback must be treated as degraded compatibility."),
+      trusted_instruction: z.string().optional().describe("Trusted wrapper instruction for host invocation. Must not embed raw shell commands."),
+      untrusted_context_policy: z
+        .enum(["quote-as-data-only", "omit", "summarize-only"])
+        .optional()
+        .describe("How the host adapter treats contextual content. Default is quote-as-data-only."),
     },
-    async ({ project, max_tokens }) => {
-      await logCall("restart_pack", `project="${project || PROJECT || ""}" max_tokens=${max_tokens ?? ""}`);
+    async ({ project, max_tokens, format, target_runtime, delivery_mode, trusted_instruction, untrusted_context_policy }) => {
+      await logCall("restart_pack", `project="${project || PROJECT || ""}" max_tokens=${max_tokens ?? ""} format=${format ?? "text"}`);
       try {
+        if (format === "recovery-pack-v1") {
+          const output = await generateRecoveryPackArtifact(store, {
+            agent_id: AGENT_ID,
+            project: project || PROJECT,
+            max_tokens,
+          });
+          return {
+            content: [safeText(JSON.stringify(output, null, 2))],
+          };
+        }
+        if (format === "host-invocation-context-v1") {
+          const output = await generateHostInvocationContext(store, {
+            agent_id: AGENT_ID,
+            project: project || PROJECT,
+            max_tokens,
+            target_runtime: target_runtime ?? "codex",
+            delivery_mode,
+            trusted_instruction,
+            untrusted_context_policy,
+          });
+          return {
+            content: [safeText(JSON.stringify(output, null, 2))],
+          };
+        }
         const output = await generateRestartPack(store, {
           agent_id: AGENT_ID,
           project: project || PROJECT,

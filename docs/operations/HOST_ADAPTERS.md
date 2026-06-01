@@ -57,6 +57,11 @@ Adapter automation should consume `host-invocation-context/v1`, whose
 into the host's supported input surface, but external/contextual content must
 remain data only and must not become executable instruction.
 
+The MCP `restart_pack` tool keeps the human-readable text output as its
+default for manual users. Automation should request `format=recovery-pack-v1`
+or `format=host-invocation-context-v1` and then validate the returned JSON
+before host delivery.
+
 Wasurezu owns memory/recovery artifacts, confidence, missing context, and
 provenance. AUN, Shirube, or another installed runner owns lifecycle policy,
 CLI execution, queue behavior, and final close/requeue decisions.

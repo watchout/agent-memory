@@ -145,7 +145,7 @@ Compaction (~83% context)
 | `update_knowledge_status` | Archive / merge knowledge entries |
 | `search_memory` | Cross-cutting search across decisions / tasks / knowledge / conversation events |
 | `recover_context` | Restore all context (called after compaction) |
-| `restart_pack` | Generate a concise restart summary for continuing after session refresh |
+| `restart_pack` | Generate a concise restart summary, or `recovery-pack/v1` / `host-invocation-context/v1` JSON for adapter automation |
 | `restart_prepare` | Prepare a restart pack plus confidence, missing context, provenance, and restart recommendation for a host/AUN orchestrator |
 | `restart_pack_fetch` | Fetch or consume a selected restart pack produced by `restart_prepare` |
 | `set_recovery_config` | Tune recovery output limits per agent |
