@@ -1563,12 +1563,23 @@ function testHostAdapterPackagingBoundary() {
   const ssot7 = readFileSync("docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md", "utf8");
   const normalizedSsot7 = ssot7.replace(/\s+/g, " ");
   assert(normalizedSsot7.includes("identity and runtime-binding SSOT"), "SSOT-7 owns runtime identity binding");
+  assert(normalizedSsot7.includes("does not own restart policy"), "SSOT-7 does not own restart policy");
   assert(normalizedSsot7.includes("session_id` must not become the memory namespace"), "SSOT-7 keeps session_id out of memory namespace");
   assert(ssot7.includes("AUN Adapter Identity"), "SSOT-7 covers optional AUN adapter identity");
 
   const legacySsot = readFileSync("docs/SSOT.md", "utf8");
   assert(legacySsot.includes("Legacy v0.2 design reference"), "legacy SSOT is marked superseded");
   assert(legacySsot.includes("SSOT-6_LIVING_MEMORY_CONTROL.md"), "legacy SSOT points to SSOT-6");
+
+  const apiContract = readFileSync("docs/design/core/SSOT-3_API_CONTRACT.md", "utf8");
+  const normalizedApiContract = apiContract.replace(/\s+/g, " ");
+  assert(normalizedApiContract.includes("mirrors the required API / runner shape only"), "SSOT-3 is limited to API/runner shape");
+  assert(normalizedApiContract.includes("does not redefine lifecycle ownership or restart policy independently"), "SSOT-3 does not redefine lifecycle policy");
+
+  const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
+  const normalizedDataModel = dataModel.replace(/\s+/g, " ");
+  assert(normalizedDataModel.includes("this file owns schema/data-model contracts"), "SSOT-4 is limited to schema/data-model contracts");
+  assert(normalizedDataModel.includes("Runtime adapters may append structured evidence, but they must not own lifecycle policy"), "SSOT-4 preserves adapter policy boundary");
 
   const codexRecovery = readFileSync("docs/operations/CODEX_RECOVERY_CONTROL.md", "utf8");
   const normalizedCodexRecovery = codexRecovery.replace(/\s+/g, " ");
