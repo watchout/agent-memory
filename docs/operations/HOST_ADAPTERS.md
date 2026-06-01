@@ -52,6 +52,26 @@ bounded recovery pack into that runtime, and return structured evidence. They
 must not own lifecycle state mutation, final close, queue repair, restart
 policy, recovery-pack ranking policy, or destructive memory rewrite.
 
+Adapter automation should consume `host-invocation-context/v1`, whose
+`context_data` is a `recovery-pack/v1`. The adapter may render that artifact
+into the host's supported input surface, but external/contextual content must
+remain data only and must not become executable instruction.
+
+Wasurezu owns memory/recovery artifacts, confidence, missing context, and
+provenance. AUN, Shirube, or another installed runner owns lifecycle policy,
+CLI execution, queue behavior, and final close/requeue decisions.
+
+Host invocation profiles:
+
+| Target runtime | Structured delivery profile | Boundary |
+|----------------|-----------------------------|----------|
+| `codex` | `stdin-json` or verified prompt-plus-stdin startup surface | Wasurezu emits schema-valid context. The Codex launcher/runner executes the host command. |
+| `claude` | `system-prompt-fragment`, `append-system-prompt-fragment`, or `session-start-hook` where verified | Wasurezu emits schema-valid context. The Claude hook/runner loads it and returns structured evidence. |
+| `generic-mcp-host` | MCP `structuredContent` with an `outputSchema` where supported | Wasurezu emits schema-valid context. The host controls invocation and lifecycle. |
+
+The artifacts must not embed raw shell commands. Host-specific launch commands
+belong in the runner or adapter implementation, not in the recovery pack.
+
 TUI text injection is allowed only as a compatibility fallback for runtimes
 with no proper adapter or hook. It must not be the primary automation path. A
 SessionStart hook may load a precomputed pack, but SessionStart/TUI self-kick

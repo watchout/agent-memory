@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/schemas/recovery-pack-v1.schema.json",
+  "title": "Wasurezu Recovery Pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack_id",
+    "project",
+    "generated_at",
+    "token_budget",
+    "confidence",
+    "confidence_reasons",
+    "missing_context",
+    "items"
+  ],
+  "properties": {
+    "pack_id": { "type": "string", "minLength": 1 },
+    "project": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "token_budget": { "type": "integer", "minimum": 1 },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "confidence_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_context": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recovery_pack_item" }
+    },
+    "review_prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "expected_response_schema_ref"],
+      "properties": {
+        "review_id": { "type": "string", "minLength": 1 },
+        "expected_response_schema_ref": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "recovery_pack_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "kind",
+        "trust_level",
+        "source_ref",
+        "summary",
+        "actionability",
+        "sensitivity"
+      ],
+      "properties": {
+        "item_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "current_task",
+            "decision",
+            "knowledge",
+            "recent_message",
+            "raw_conversation",
+            "file_hint",
+            "risk"
+          ]
+        },
+        "trust_level": {
+          "type": "string",
+          "enum": ["system", "project", "agent_memory", "external", "unknown"]
+        },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "source_time": { "type": "string", "format": "date-time" },
+        "summary": { "type": "string", "minLength": 1 },
+        "actionability": {
+          "type": "string",
+          "enum": ["must_read", "use_if_relevant", "background"]
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": ["public", "internal", "secret_redacted", "pii_redacted"]
+        }
+      }
+    }
+  }
+}

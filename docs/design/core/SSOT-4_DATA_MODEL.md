@@ -46,6 +46,13 @@ AM-044 planned control-plane tables:
 | `recovery_pack_items` | pack item の provenance / priority / freshness / confidence | bounded pack ranking の証跡 |
 | `session_lifecycle_events` | observe, prepare, pack_created, restart_recommended, restart_executed, recovery_loaded, recovery_degraded | runner / adapter / AUN 境界の audit trail |
 
+Structured artifact schemas:
+
+| Artifact | Schema |
+|----------|--------|
+| `recovery-pack/v1` | `docs/design/schemas/recovery-pack-v1.schema.json` |
+| `host-invocation-context/v1` | `docs/design/schemas/host-invocation-context-v1.schema.json` |
+
 ---
 
 ## 2. テーブル定義 (PostgreSQL)
@@ -357,7 +364,8 @@ Control-plane constraints:
 
 - `raw_events` is the canonical source for transcript-like and runtime facts.
 - `conversation_events` may remain as a compatibility ingest table or view, but restart/recovery ranking should move toward `raw_events` + checkpoints.
-- Restart pack generation must be bounded and source-bearing through `recovery_packs` and `recovery_pack_items`.
+- Restart pack generation must be bounded and source-bearing through `recovery_packs` and `recovery_pack_items`, and API serialization should conform to `recovery-pack/v1`.
+- Host adapter handoff should conform to `host-invocation-context/v1` and mark fallback delivery as `tui-fallback`.
 - Every restart or recovery attempt must create a `session_lifecycle_events` audit record with reason, owner, pack, confidence, missing context, and outcome.
 - Runtime adapters may append structured evidence, but they must not own lifecycle policy or destructive memory rewrite.
 

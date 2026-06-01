@@ -1541,6 +1541,7 @@ function testHostAdapterPackagingBoundary() {
   console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(packageJson.files.includes("docs/design/schemas"), "npm package includes structured artifact schemas");
   assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
 
@@ -1553,12 +1554,18 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("Pure MCP-only"), "host adapter docs distinguish pure MCP-only mode");
   assert(normalizedHostAdapters.includes("auto_restart"), "host adapter docs list auto_restart continuity guard mode");
   assert(normalizedHostAdapters.includes("pre-authorized at install/config time"), "host adapter docs require pre-authorization for auto_restart");
+  assert(normalizedHostAdapters.includes("host-invocation-context/v1"), "host adapter docs require structured host invocation artifact");
+  assert(lowerHostAdapters.includes("external/contextual content must remain data only"), "host adapter docs preserve data-only context boundary");
+  assert(normalizedHostAdapters.includes("AUN, Shirube, or another installed runner owns lifecycle policy"), "host adapter docs preserve external runner lifecycle ownership");
+  assert(normalizedHostAdapters.includes("The artifacts must not embed raw shell commands"), "host adapter docs keep raw shell commands out of recovery artifacts");
 
   const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
   assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
   assert(ssot6.includes("TUI input, SessionStart self-kick"), "SSOT-6 marks TUI and SessionStart self-kick as fallback");
   assert(ssot6.includes("Wasurezu must not independently restart an AUN-supervised runtime"), "SSOT-6 preserves AUN suite boundary");
   assert(ssot6.includes("Lifecycle bands"), "SSOT-6 defines typed lifecycle bands");
+  assert(ssot6.includes("recovery-pack/v1"), "SSOT-6 defines recovery-pack artifact");
+  assert(ssot6.includes("host-invocation-context/v1"), "SSOT-6 defines host invocation artifact");
 
   const ssot7 = readFileSync("docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md", "utf8");
   const normalizedSsot7 = ssot7.replace(/\s+/g, " ");
@@ -1575,21 +1582,46 @@ function testHostAdapterPackagingBoundary() {
   const normalizedApiContract = apiContract.replace(/\s+/g, " ");
   assert(normalizedApiContract.includes("mirrors the required API / runner shape only"), "SSOT-3 is limited to API/runner shape");
   assert(normalizedApiContract.includes("does not redefine lifecycle ownership or restart policy independently"), "SSOT-3 does not redefine lifecycle policy");
+  assert(normalizedApiContract.includes("docs/design/schemas/recovery-pack-v1.schema.json"), "SSOT-3 points to recovery pack schema");
+  assert(normalizedApiContract.includes("docs/design/schemas/host-invocation-context-v1.schema.json"), "SSOT-3 points to host invocation schema");
 
   const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
   const normalizedDataModel = dataModel.replace(/\s+/g, " ");
   assert(normalizedDataModel.includes("this file owns schema/data-model contracts"), "SSOT-4 is limited to schema/data-model contracts");
   assert(normalizedDataModel.includes("Runtime adapters may append structured evidence, but they must not own lifecycle policy"), "SSOT-4 preserves adapter policy boundary");
+  assert(normalizedDataModel.includes("API serialization should conform to `recovery-pack/v1`"), "SSOT-4 maps recovery pack schema to data model");
+  assert(normalizedDataModel.includes("mark fallback delivery as `tui-fallback`"), "SSOT-4 maps fallback delivery evidence");
 
   const codexRecovery = readFileSync("docs/operations/CODEX_RECOVERY_CONTROL.md", "utf8");
   const normalizedCodexRecovery = codexRecovery.replace(/\s+/g, " ");
   assert(normalizedCodexRecovery.includes("launcher-controlled"), "Codex recovery docs prefer launcher-controlled recovery");
   assert(normalizedCodexRecovery.includes("soft fallback controls only"), "Codex recovery docs mark AGENTS/tool fallback as soft");
+  assert(normalizedCodexRecovery.includes("target_runtime=codex"), "Codex recovery docs bind host invocation target runtime");
+  assert(normalizedCodexRecovery.includes("delivery_mode=tui-fallback"), "Codex recovery docs label TUI fallback delivery");
 
   const hostContextHealth = readFileSync("docs/operations/HOST_CONTEXT_HEALTH_DESIGN.md", "utf8");
   const normalizedHostContextHealth = hostContextHealth.replace(/\s+/g, " ");
   assert(normalizedHostContextHealth.includes("not primarily an LLM prompt decision"), "host context health docs reject prompt-primary decisions");
   assert(normalizedHostContextHealth.includes("must not pretend to know actual context percentage"), "host context health docs require metric-source discipline");
+
+  const recoveryPackSchema = JSON.parse(readFileSync("docs/design/schemas/recovery-pack-v1.schema.json", "utf8"));
+  assert(recoveryPackSchema.$id.includes("recovery-pack-v1.schema.json"), "recovery-pack schema has stable id");
+  assert(recoveryPackSchema.required.includes("pack_id"), "recovery-pack schema requires pack id");
+  assert(recoveryPackSchema.required.includes("confidence"), "recovery-pack schema requires confidence");
+  assert(recoveryPackSchema.required.includes("missing_context"), "recovery-pack schema requires missing context");
+  assert(recoveryPackSchema.properties.confidence.enum.includes("low"), "recovery-pack schema has low confidence enum");
+  const recoveryItem = recoveryPackSchema.$defs.recovery_pack_item;
+  assert(recoveryItem.required.includes("source_ref"), "recovery-pack items require provenance source");
+  assert(recoveryItem.properties.sensitivity.enum.includes("secret_redacted"), "recovery-pack items record redaction status");
+
+  const hostInvocationSchema = JSON.parse(readFileSync("docs/design/schemas/host-invocation-context-v1.schema.json", "utf8"));
+  assert(hostInvocationSchema.$id.includes("host-invocation-context-v1.schema.json"), "host-invocation schema has stable id");
+  assert(hostInvocationSchema.required.includes("trusted_instruction"), "host-invocation schema requires trusted instruction");
+  assert(hostInvocationSchema.properties.target_runtime.enum.includes("codex"), "host-invocation schema supports Codex");
+  assert(hostInvocationSchema.properties.target_runtime.enum.includes("claude"), "host-invocation schema supports Claude");
+  assert(hostInvocationSchema.properties.delivery_mode.enum.includes("stdin-json"), "host-invocation schema supports structured stdin delivery");
+  assert(hostInvocationSchema.properties.delivery_mode.enum.includes("tui-fallback"), "host-invocation schema labels TUI fallback");
+  assert(hostInvocationSchema.properties.untrusted_context_policy.enum.includes("quote-as-data-only"), "host-invocation schema requires data-only policy");
 }
 
 function testConversationScopeSchemaRegression() {

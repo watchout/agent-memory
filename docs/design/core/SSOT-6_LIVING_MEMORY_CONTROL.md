@@ -148,7 +148,33 @@ Runtime adapters must not own:
 
 ---
 
-## 8. Fallback Rule
+## 8. Structured Host Invocation Artifacts
+
+Automation consumes structured artifacts, not ad hoc prompt text.
+
+Wasurezu owns:
+
+- `recovery-pack/v1`: bounded memory/recovery content with confidence,
+  missing context, provenance, trust level, actionability, and redaction status
+- `host-invocation-context/v1`: the adapter handoff wrapper that names the
+  target runtime, delivery mode, trusted instruction, data-only policy, schema
+  reference, and embedded recovery pack
+
+Stable schemas:
+
+- `docs/design/schemas/recovery-pack-v1.schema.json`
+- `docs/design/schemas/host-invocation-context-v1.schema.json`
+
+Host adapters may render these artifacts into host-specific invocation forms,
+but they must not change the recovery-pack ranking policy or treat untrusted
+context as executable instruction.
+
+Canonical delivery is structured where the host supports it. `tui-fallback` is
+valid only as degraded compatibility evidence.
+
+---
+
+## 9. Fallback Rule
 
 TUI input, SessionStart self-kick, `AGENTS.md` first-action recovery, and MCP
 tool-description recovery are compatibility/fallback paths only.
@@ -165,7 +191,7 @@ host supports it.
 
 ---
 
-## 9. Typed Lifecycle Actions
+## 10. Typed Lifecycle Actions
 
 The API or internal runner surface should expose deterministic equivalents of:
 
@@ -196,7 +222,7 @@ must be deterministic and testable.
 
 ---
 
-## 10. Evidence Requirements
+## 11. Evidence Requirements
 
 Every restart or recovery attempt must record:
 
@@ -216,9 +242,10 @@ This evidence can later form an Agent Continuity Record for enterprise audit.
 
 ---
 
-## 11. Related Work Mapping
+## 12. Related Work Mapping
 
 - #101 maps to lifecycle bands, context-health policy, restart pack requirements, and AUN ownership.
 - #103 maps to raw event ledger, memory atoms/edges, retrieval runs, consolidation, and source-bearing memory packs.
 - #107 maps to Agent Continuity Record, provenance, governance, and enterprise positioning.
 - #108 maps to this SSOT hierarchy and fallback-vs-primary boundary.
+- #110 maps to `recovery-pack/v1`, `host-invocation-context/v1`, and structured host adapter delivery.

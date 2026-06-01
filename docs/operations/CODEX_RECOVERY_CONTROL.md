@@ -22,12 +22,17 @@ The primary Codex startup recovery path is:
 
 1. Wasurezu runner or host adapter observes context and prepares restart state.
 2. Wasurezu creates or selects a bounded, source-bearing restart pack.
-3. The Codex launcher loads the pack into the fresh runtime startup context.
-4. The adapter records structured evidence such as pack id, session id,
+3. Wasurezu serializes a `host-invocation-context/v1` for `target_runtime=codex`.
+4. The Codex launcher loads the pack into the fresh runtime startup context.
+5. The adapter records structured evidence such as pack id, session id,
    confidence, missing context, and launch outcome.
 
 The launcher may pass context into Codex, but it does not own restart policy or
 recovery-pack ranking. Those remain Wasurezu control-plane responsibilities.
+
+Preferred delivery is structured (`stdin-json`) when a verified non-interactive
+Codex surface is available. Prompt-fragment delivery is compatibility behavior.
+Live TUI delivery must be recorded as `delivery_mode=tui-fallback`.
 
 ---
 
