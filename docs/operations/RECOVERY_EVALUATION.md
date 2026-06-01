@@ -3,6 +3,7 @@
 > Project: wasurezu / agent-memory
 > Status: AM-031 operational standard
 > Purpose: Define a repeatable pass/fail and scoring protocol for session restart recovery.
+> Authority: `docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md` for continuity policy and `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md` for identity binding.
 
 ---
 
@@ -47,6 +48,9 @@ evidence only and must not be treated as the memory namespace.
 Before running a recovery evaluation:
 
 - `ingest_conversation_events` has run for the target source(s): `codex`, `claude_code`, or both.
+- Pre-exit prepare and post-start recovery use deterministic hook/runner paths
+  where available. A prompt inside the model must not be the component that
+  decides context-limit policy or recovery-pack ranking.
 - For Claude Code, `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the
   target workspace. For Codex, the startup bridge must generate and inject
   `restart_pack` into the first prompt.
@@ -113,6 +117,10 @@ For each run, record:
 - continuity guard mode
 - startup path, such as `claude_code_session_start` or `codex_startup_bridge`
 - lifecycle owner: AUN/supervisor, wasurezu standalone adapter, or user/host
+- reason
+- affected task, claim, or goal
+- pack id / pack ref
+- source event ids or provenance anchors
 - source(s) ingested
 - DB backend
 - commit SHA
@@ -121,6 +129,9 @@ For each run, record:
 - `restart_prepare` action, confidence, missing context, and pack ref when used
 - selected restart pack fetch/consume status when a `pack_ref` is used
 - `recovery_quality_log` id or timestamp
+- session lifecycle event id or timestamp when available
+- whether user-visible work was resumed, requeued, or left pending
+- whether recovery was full, partial, degraded, or failed
 - probe answers
 - search queries used by the agent
 - final scorecard
@@ -176,7 +187,8 @@ Scores below 24 require a fix before default promotion.
 Startup recovery is host-adapter based:
 
 - Claude Code runs count when the SessionStart hook emits restart recovery into
-  the first model context.
+  the first model context. The hook is a load path; policy and pack generation
+  must come from deterministic Wasurezu state.
 - Codex runs count when the previous session was exited and the fresh session
   starts with the restart pack already in the initial prompt, for example
   through `wasurezu-codex-start --launch`. The evidence must show a launched
@@ -185,6 +197,9 @@ Startup recovery is host-adapter based:
   command.
 - Plain MCP setups that require the user to say "read restart_pack" are useful
   manual recovery evidence, but they do not satisfy startup recovery.
+- TUI text injection into an already-running runtime is compatibility fallback
+  only and must be labeled manual recovery unless a verified adapter/hook owns
+  the startup path.
 
 Public-alpha evidence must include at least two host paths: one Claude Code
 SessionStart run and one Codex startup bridge run. World-class release evidence
@@ -254,8 +269,16 @@ Only ask the user after Levels 1-3 fail or conflict. The question must be narrow
 - Sources ingested:
 - Commit SHA:
 - Fresh session tool:
+- Reason:
+- Owner:
+- Affected task/claim/goal:
+- Pack id/ref:
+- Source event ids / provenance:
 - restart_pack boot: pass/fail
 - recovery_quality_log:
+- session_lifecycle_event:
+- Work state: resumed / requeued / pending
+- Recovery outcome: full / partial / degraded / failed
 
 ## Ground Truth
 

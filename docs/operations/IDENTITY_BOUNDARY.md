@@ -3,6 +3,7 @@
 > Project: wasurezu / agent-memory
 > Status: AM-031 operational standard
 > Purpose: Define how memory is scoped when sessions restart or LLM runtimes are swapped.
+> Authority: `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md`; this operations doc mirrors the runtime/agent binding SSOT.
 
 ---
 

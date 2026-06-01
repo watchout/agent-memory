@@ -2,17 +2,25 @@
 
 > Status: AM-036 operational design
 > Purpose: define what wasurezu can honestly claim for each LLM host.
+> Authority: `docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md` for continuity policy, `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md` for identity binding.
 
 ## Core Boundary
 
 wasurezu is an MCP memory server plus small host adapters. Lifecycle ownership
 depends on install mode.
 
+The primary automation path is the Wasurezu control plane: durable events,
+session checkpoints, restart packs, recovery confidence, and lifecycle events
+owned by Wasurezu runners or supervisors. A live TUI transcript is not the
+canonical state, and a prompt inside the model must not be the component that
+decides context-limit policy.
+
 The public contract is:
 
 - MCP tools expose memory operations.
 - `restart_pack` provides Layer 1 recovery context.
-- Host adapters inject `restart_pack` when a new LLM session starts.
+- Host adapters load or attach a bounded `restart_pack` when a new LLM session
+  starts and return structured recovery evidence.
 - With AUN or another supervisor installed, that orchestrator owns runtime
   restart, requeue, finalization, reply, and close behavior. wasurezu supplies
   restart packs, recovery confidence, missing-context notes, and continuity
@@ -28,12 +36,33 @@ This keeps recovery behavior portable across hosts without overstating what MCP
 alone can do. A host with a native startup hook can be transparent. A host
 without one uses an explicit bridge or remains manual MCP recovery.
 
+## Control-Plane Runner Boundary
+
+Wasurezu continuity operations are deterministic runner actions, equivalent to:
+
+- `observe_context(session_id)`
+- `prepare_restart(session_id, reason)`
+- `create_restart_pack(session_id, budget, project)`
+- `load_recovery_pack(pack_id)`
+- `record_recovery_result(session_id, pack_id, confidence, missing_context)`
+- `recommend_restart(session_id, band)`
+
+Runtime adapters are deliberately narrow. They may invoke the runtime, pass a
+bounded recovery pack into that runtime, and return structured evidence. They
+must not own lifecycle state mutation, final close, queue repair, restart
+policy, recovery-pack ranking policy, or destructive memory rewrite.
+
+TUI text injection is allowed only as a compatibility fallback for runtimes
+with no proper adapter or hook. It must not be the primary automation path. A
+SessionStart hook may load a precomputed pack, but SessionStart/TUI self-kick
+must not be treated as the primary restart mechanism or policy engine.
+
 ## Install Modes
 
 | Mode | Lifecycle Owner | Wasurezu Claim |
 |------|-----------------|----------------|
 | AUN or external supervisor | AUN/supervisor | Provides restart pack, recovery confidence, missing context, provenance, and continuity signals. Does not mutate AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or close. |
-| Standalone supervisor or host hook | wasurezu adapter, if pre-authorized | May run local `auto_restart`: pre-exit prepare, pack selection, local host refresh/restart, SessionStart/boot recovery, and lifecycle record with confidence/provenance. |
+| Standalone supervisor or host hook | wasurezu runner/supervisor, if pre-authorized | May run local `auto_restart`: pre-exit prepare, pack selection, local host refresh/restart, post-start pack load, and lifecycle record with confidence/provenance. |
 | Pure MCP-only | User or host | Manual recovery only. Wasurezu can prepare packs and emit restart recommendations, but cannot force restart. |
 
 ## Continuity Guard Modes
@@ -80,8 +109,8 @@ wasurezu memory handoff only; it does not mutate AUN queue lifecycle.
 
 | Host | Level | Startup Path | Notes |
 |------|-------|--------------|-------|
-| Claude Code | 2 | SessionStart hook runs `boot.js` with `AGENT_MEMORY_BOOT_MODE=restart_pack`. | Best current UX because the host provides a deterministic startup hook. |
-| Codex | 1 | Exit the old session, then start with `wasurezu-codex-start --launch --cd <workspace>`. | Plain Codex MCP config is manual recovery only. The bridge is required for startup recovery evidence. |
+| Claude Code | 2 | SessionStart hook runs `boot.js` with `AGENT_MEMORY_BOOT_MODE=restart_pack`. | Native hook can load recovery context, but control-plane runners own prepare/pack/confidence policy. |
+| Codex | 1 | Exit the old session, then start with `wasurezu-codex-start --launch --cd <workspace>`. | Plain Codex MCP config is manual recovery only. The bridge is a runtime adapter, not lifecycle policy owner. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Other MCP clients | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Do not claim startup recovery until an adapter or native hook is verified. |
@@ -113,6 +142,10 @@ decision, knowledge, and conversation events.
 In standalone installs with a supported and pre-authorized supervisor or host
 hook, the same re-entry lifecycle may be driven by wasurezu as `auto_restart`.
 That claim must not be made for pure MCP-only installs.
+
+TUI compatibility fallback must be labeled as such in evidence. A run that
+requires manually typing a prompt into an already-running TUI is manual
+recovery, not primary startup automation.
 
 ## Evaluation Rule
 

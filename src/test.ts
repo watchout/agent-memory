@@ -1553,6 +1553,43 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("Pure MCP-only"), "host adapter docs distinguish pure MCP-only mode");
   assert(normalizedHostAdapters.includes("auto_restart"), "host adapter docs list auto_restart continuity guard mode");
   assert(normalizedHostAdapters.includes("pre-authorized at install/config time"), "host adapter docs require pre-authorization for auto_restart");
+
+  const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
+  assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
+  assert(ssot6.includes("TUI input, SessionStart self-kick"), "SSOT-6 marks TUI and SessionStart self-kick as fallback");
+  assert(ssot6.includes("Wasurezu must not independently restart an AUN-supervised runtime"), "SSOT-6 preserves AUN suite boundary");
+  assert(ssot6.includes("Lifecycle bands"), "SSOT-6 defines typed lifecycle bands");
+
+  const ssot7 = readFileSync("docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md", "utf8");
+  const normalizedSsot7 = ssot7.replace(/\s+/g, " ");
+  assert(normalizedSsot7.includes("identity and runtime-binding SSOT"), "SSOT-7 owns runtime identity binding");
+  assert(normalizedSsot7.includes("does not own restart policy"), "SSOT-7 does not own restart policy");
+  assert(normalizedSsot7.includes("session_id` must not become the memory namespace"), "SSOT-7 keeps session_id out of memory namespace");
+  assert(ssot7.includes("AUN Adapter Identity"), "SSOT-7 covers optional AUN adapter identity");
+
+  const legacySsot = readFileSync("docs/SSOT.md", "utf8");
+  assert(legacySsot.includes("Legacy v0.2 design reference"), "legacy SSOT is marked superseded");
+  assert(legacySsot.includes("SSOT-6_LIVING_MEMORY_CONTROL.md"), "legacy SSOT points to SSOT-6");
+
+  const apiContract = readFileSync("docs/design/core/SSOT-3_API_CONTRACT.md", "utf8");
+  const normalizedApiContract = apiContract.replace(/\s+/g, " ");
+  assert(normalizedApiContract.includes("mirrors the required API / runner shape only"), "SSOT-3 is limited to API/runner shape");
+  assert(normalizedApiContract.includes("does not redefine lifecycle ownership or restart policy independently"), "SSOT-3 does not redefine lifecycle policy");
+
+  const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
+  const normalizedDataModel = dataModel.replace(/\s+/g, " ");
+  assert(normalizedDataModel.includes("this file owns schema/data-model contracts"), "SSOT-4 is limited to schema/data-model contracts");
+  assert(normalizedDataModel.includes("Runtime adapters may append structured evidence, but they must not own lifecycle policy"), "SSOT-4 preserves adapter policy boundary");
+
+  const codexRecovery = readFileSync("docs/operations/CODEX_RECOVERY_CONTROL.md", "utf8");
+  const normalizedCodexRecovery = codexRecovery.replace(/\s+/g, " ");
+  assert(normalizedCodexRecovery.includes("launcher-controlled"), "Codex recovery docs prefer launcher-controlled recovery");
+  assert(normalizedCodexRecovery.includes("soft fallback controls only"), "Codex recovery docs mark AGENTS/tool fallback as soft");
+
+  const hostContextHealth = readFileSync("docs/operations/HOST_CONTEXT_HEALTH_DESIGN.md", "utf8");
+  const normalizedHostContextHealth = hostContextHealth.replace(/\s+/g, " ");
+  assert(normalizedHostContextHealth.includes("not primarily an LLM prompt decision"), "host context health docs reject prompt-primary decisions");
+  assert(normalizedHostContextHealth.includes("must not pretend to know actual context percentage"), "host context health docs require metric-source discipline");
 }
 
 function testConversationScopeSchemaRegression() {
