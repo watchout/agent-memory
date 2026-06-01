@@ -121,6 +121,11 @@ restart pack. Hosts can fetch it with `restart_pack_fetch` or
 boot path with `AGENT_MEMORY_SELECTED_PACK_REF`. Fetch/consume is still a
 wasurezu memory handoff only; it does not mutate AUN queue lifecycle.
 
+By default the selected pack content is the backward-compatible text restart
+pack. Automation can request `pack_format=recovery-pack-v1` or
+`pack_format=host-invocation-context-v1` on `restart_prepare` so the persisted
+selected pack content is schema-shaped JSON for adapter delivery.
+
 ## Support Levels
 
 | Level | Name | Requirement | Recovery Claim |

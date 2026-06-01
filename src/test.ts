@@ -1527,6 +1527,59 @@ async function testRestartPrepare() {
   const afterConsume = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
   assert(afterConsume === null, "consumed selected restart pack is no longer active");
 
+  const structuredPrepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    pack_format: "host-invocation-context-v1",
+    emit_pack: false,
+  });
+  assert(structuredPrepared.restart_pack_format === "host-invocation-context-v1", "restart_prepare records structured selected pack format");
+  assert(structuredPrepared.restart_pack_schema_ref === "host-invocation-context/v1", "restart_prepare records host invocation schema ref");
+  assert(structuredPrepared.restart_pack === undefined, "restart_prepare can omit structured restart_pack JSON from output");
+  const selectedStructured = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: structuredPrepared.pack_ref! });
+  assert(selectedStructured !== null, "restart_prepare persists structured selected restart pack");
+  const selectedStructuredContent = JSON.parse(selectedStructured!.content);
+  assert(validateHostInvocationContextArtifact(selectedStructuredContent).valid, "structured selected restart pack content validates as host invocation context");
+  assert(selectedStructuredContent.target_runtime === "codex", "structured selected restart pack targets Codex");
+  assert(selectedStructuredContent.delivery_mode === "stdin-json", "structured selected restart pack defaults Codex to stdin-json");
+  assert(selectedStructuredContent.untrusted_context_policy === "quote-as-data-only", "structured selected restart pack defaults contextual content to data-only");
+  assert(selectedStructured!.metadata.pack_format === "host-invocation-context-v1", "structured selected restart pack metadata records pack format");
+  assert(selectedStructured!.metadata.pack_schema_ref === "host-invocation-context/v1", "structured selected restart pack metadata records schema ref");
+  assert(selectedStructured!.metadata.target_runtime === "codex", "structured selected restart pack metadata records default target runtime");
+  assert(selectedStructured!.metadata.delivery_mode === "stdin-json", "structured selected restart pack metadata records default delivery mode");
+  assert(selectedStructured!.metadata.untrusted_context_policy === "quote-as-data-only", "structured selected restart pack metadata records default untrusted context policy");
+
+  const explicitStructured = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    pack_format: "host-invocation-context-v1",
+    target_runtime: "claude",
+    delivery_mode: "session-start-hook",
+    untrusted_context_policy: "summarize-only",
+    emit_pack: false,
+  });
+  const selectedExplicit = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: explicitStructured.pack_ref! });
+  assert(selectedExplicit !== null, "restart_prepare persists explicit structured selected restart pack");
+  const selectedExplicitContent = JSON.parse(selectedExplicit!.content);
+  assert(validateHostInvocationContextArtifact(selectedExplicitContent).valid, "explicit structured selected restart pack content validates");
+  assert(selectedExplicitContent.target_runtime === "claude", "explicit structured selected restart pack targets Claude");
+  assert(selectedExplicitContent.delivery_mode === "session-start-hook", "explicit structured selected restart pack records session-start delivery");
+  assert(selectedExplicitContent.untrusted_context_policy === "summarize-only", "explicit structured selected restart pack records untrusted context policy");
+  assert(selectedExplicit!.metadata.target_runtime === "claude", "structured selected restart pack metadata round-trips explicit target runtime");
+  assert(selectedExplicit!.metadata.delivery_mode === "session-start-hook", "structured selected restart pack metadata round-trips explicit delivery mode");
+  assert(selectedExplicit!.metadata.untrusted_context_policy === "summarize-only", "structured selected restart pack metadata round-trips explicit untrusted context policy");
+
+  const recoveryPrepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    pack_format: "recovery-pack-v1",
+    pack_injection_mode: "off",
+  });
+  assert(recoveryPrepared.restart_pack_format === "recovery-pack-v1", "restart_prepare supports recovery-pack selected format");
+  assert(recoveryPrepared.restart_pack_schema_ref === "recovery-pack/v1", "restart_prepare records recovery-pack schema ref");
+  assert(JSON.parse(recoveryPrepared.restart_pack ?? "{}").confidence === "high", "restart_prepare emits recovery-pack JSON when requested");
+  assert(recoveryPrepared.pack_ref === null, "structured restart_prepare still honors pack injection off");
+
   const downgraded = await prepareRestart(store, {
     agent_id: agentId,
     project,
@@ -1605,6 +1658,14 @@ async function testRestartPrepare() {
     "0.9",
     "--aun-installed",
     "--aun-absent",
+    "--pack-format",
+    "host-invocation-context-v1",
+    "--target-runtime",
+    "claude",
+    "--delivery-mode",
+    "session-start-hook",
+    "--untrusted-context-policy",
+    "quote-as-data-only",
     "--no-pack",
   ]);
   assert(parsed.command === "prepare", "wasurezu-restart parser reads prepare command");
@@ -1614,6 +1675,10 @@ async function testRestartPrepare() {
   assert(parsed.context_used_ratio === 0.9, "wasurezu-restart parser reads context ratio");
   assert(parsed.aun_installed === true, "wasurezu-restart parser reads AUN installed flag");
   assert(parsed.aun_absent_confirmed === true, "wasurezu-restart parser reads AUN absent confirmation flag");
+  assert(parsed.pack_format === "host-invocation-context-v1", "wasurezu-restart parser reads selected pack format");
+  assert(parsed.target_runtime === "claude", "wasurezu-restart parser reads target runtime");
+  assert(parsed.delivery_mode === "session-start-hook", "wasurezu-restart parser reads delivery mode");
+  assert(parsed.untrusted_context_policy === "quote-as-data-only", "wasurezu-restart parser reads untrusted context policy");
   assert(parsed.emit_pack === false, "wasurezu-restart parser reads no-pack flag");
 
   const parsedFetch = parseRestartCliArgs(["fetch", "--agent-id", "agent", "--pack-ref", "selected_restart_pack:abc", "--consume"]);
@@ -1630,6 +1695,7 @@ async function testRestartPrepare() {
     const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
     assert(help.includes("wasurezu-restart"), "wasurezu-restart bin symlink executes CLI help");
     assert(help.includes("prepare"), "wasurezu-restart help documents prepare command");
+    assert(help.includes("--pack-format"), "wasurezu-restart help documents selected pack format");
   } else {
     assert(true, "wasurezu-restart bin symlink test skipped because dist/restart-cli.js is absent");
   }
@@ -1743,6 +1809,7 @@ function testConversationScopeSchemaRegression() {
   assert(source.includes('"host-invocation-context-v1"'), "source restart_pack schema includes structured host invocation format");
   assert(source.includes("target_runtime"), "source restart_pack schema includes target runtime");
   assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
+  assert(source.includes("pack_format"), "source restart_prepare schema includes selected pack format");
   assert(source.includes('"restart_pack_fetch"'), "source MCP schema includes restart_pack_fetch tool");
   assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
   assert(source.includes("aun_absent_confirmed"), "source restart_prepare schema exposes explicit AUN absence evidence");
@@ -1756,10 +1823,12 @@ function testConversationScopeSchemaRegression() {
   assert(readme.includes("redacted full-text event storage"), "README documents conversation memory as redacted full-text storage");
   assert(readme.includes("does not emit raw transcript excerpts"), "README documents restart_pack transcript boundary");
   assert(readme.includes("host-invocation-context/v1"), "README documents structured restart_pack automation output");
+  assert(readme.includes("`pack_format`"), "README documents structured selected-pack persistence");
   const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
   assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
   assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
   assert(apiContract.includes("restart_pack_fetch"), "API contract documents restart_pack_fetch");
+  assert(apiContract.includes("pack_format=recovery-pack-v1"), "API contract documents structured selected-pack format");
   assert(apiContract.includes("selected_restart_pack:<id>"), "API contract documents selected restart pack refs");
   assert(apiContract.includes("AGENT_MEMORY_SELECTED_PACK_REF"), "API contract documents boot selected-pack consume");
   const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
@@ -1774,6 +1843,7 @@ function testConversationScopeSchemaRegression() {
     assert(dist.includes('"host-invocation-context-v1"'), "built MCP schema includes structured host invocation format");
     assert(dist.includes("target_runtime"), "built MCP schema includes target runtime");
     assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
+    assert(dist.includes("pack_format"), "built MCP schema includes selected pack format");
     assert(dist.includes('"restart_pack_fetch"'), "built MCP schema includes restart_pack_fetch tool");
     assert(dist.includes("aun_absent_confirmed"), "built MCP schema exposes explicit AUN absence evidence");
     const distConstants = readFileSync(join(process.cwd(), "dist/constants.js"), "utf8");
