@@ -34,6 +34,11 @@ Preferred delivery is structured (`stdin-json`) when a verified non-interactive
 Codex surface is available. Prompt-fragment delivery is compatibility behavior.
 Live TUI delivery must be recorded as `delivery_mode=tui-fallback`.
 
+MCP callers can request the Codex-shaped artifact with
+`restart_pack format=host-invocation-context-v1 target_runtime=codex`. The
+returned context is data-only recovery material; the launcher or runner owns
+the actual Codex command invocation.
+
 ---
 
 ## 3. Fallback Paths

@@ -73,7 +73,7 @@ proper adapter or hook. Normal operation must not depend on typing a prompt
 into a live TUI, nor on a SessionStart self-kick deciding restart policy from
 inside the model prompt.
 
-## Structured Host Invocation Artifacts (AM-110 planned)
+## Structured Host Invocation Artifacts (AM-110)
 
 Policy authority: `SSOT-6_LIVING_MEMORY_CONTROL.md`. This section owns the
 API-facing artifact names and schema references.
@@ -92,6 +92,15 @@ hooks, MCP `structuredContent`, or other verified host surfaces. If the host
 cannot support structured delivery, the delivery mode must be labeled
 `tui-fallback` and evidence must be degraded.
 
+Current `restart_pack` behavior:
+
+- default / omitted `format`: backward-compatible human-readable restart text
+- `format=recovery-pack-v1`: schema-shaped recovery artifact JSON
+- `format=host-invocation-context-v1`: schema-shaped host wrapper JSON
+- `target_runtime=codex`: defaults to `delivery_mode=stdin-json`
+- `target_runtime=claude`: defaults to `delivery_mode=session-start-hook`
+- `untrusted_context_policy` defaults to `quote-as-data-only`
+
 ## MCP Tools
 
 | Tool | Status | Description | Input | Output |
@@ -105,7 +114,7 @@ cannot support structured delivery, the delivery mode must be labeled
 | get_knowledge | ✅ | ナレッジの取得 | status?(enum:active/merged/archived/all), tags?(str[]), project?(str), limit?(num,1-100) | Knowledge[] |
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
-| restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num) | prioritized restart text |
+| restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num), format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum:codex/claude/generic-mcp-host), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | prioritized restart text or schema-shaped artifact JSON |
 | restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool) | action, restart_pack?, pack_ref, recovery_confidence, context_signal, provenance, notes |
 | restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |

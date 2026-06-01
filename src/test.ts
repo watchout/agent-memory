@@ -10,7 +10,21 @@ import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
-import { buildRestartPack, generateRestartPack } from "./restart-pack.js";
+import {
+  HOST_INVOCATION_CONTEXT_ALLOWED_KEYS,
+  RECOVERY_PACK_ALLOWED_KEYS,
+  RECOVERY_PACK_ITEM_ALLOWED_KEYS,
+  RECOVERY_PACK_REVIEW_PROMPT_ALLOWED_KEYS,
+  buildHostInvocationContextArtifact,
+  buildRecoveryPackArtifact,
+  buildRestartPack,
+  estimateRecoveryPackContentTokens,
+  generateHostInvocationContext,
+  generateRecoveryPackArtifact,
+  generateRestartPack,
+  validateHostInvocationContextArtifact,
+  validateRecoveryPackArtifact,
+} from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
 import {
   isMainEntrypoint as isRestartCliMainEntrypoint,
@@ -40,6 +54,10 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+function sameStringSet(actual: string[], expected: readonly string[]): boolean {
+  return actual.slice().sort().join("\n") === Array.from(expected).sort().join("\n");
 }
 
 async function cleanup() {
@@ -1233,6 +1251,57 @@ async function testRestartPack() {
   assert(!output.includes("dev@example.com"), "restart_pack redacts email at output boundary");
   assert(!output.includes(`${home}/Developer`), "restart_pack does not emit full home path");
 
+  const recoveryPack = await generateRecoveryPackArtifact(store, {
+    agent_id: agentId,
+    project,
+    max_tokens: 1500,
+  });
+  assert(validateRecoveryPackArtifact(recoveryPack).valid, "recovery-pack/v1 validates generated artifact");
+  assert(recoveryPack.pack_id.startsWith("restart_pack:"), "recovery-pack/v1 has stable pack id prefix");
+  assert(recoveryPack.project === project, "recovery-pack/v1 includes project");
+  assert(recoveryPack.confidence === "high", "recovery-pack/v1 reports high confidence when task and context exist");
+  assert(recoveryPack.missing_context.length === 0, "recovery-pack/v1 reports no missing context for coherent pack");
+  assert(recoveryPack.items.some((item) => item.kind === "current_task"), "recovery-pack/v1 includes current task item");
+  assert(recoveryPack.items.some((item) => item.kind === "decision"), "recovery-pack/v1 includes decision item");
+  assert(recoveryPack.items.some((item) => item.kind === "knowledge"), "recovery-pack/v1 includes knowledge item");
+  assert(recoveryPack.items.some((item) => item.kind === "recent_message"), "recovery-pack/v1 includes recent message evidence item");
+  assert(recoveryPack.items.some((item) => item.trust_level === "external"), "recovery-pack/v1 marks conversation-derived context as external");
+  assert(recoveryPack.items.some((item) => item.source_ref.startsWith("conversation_event:")), "recovery-pack/v1 item includes conversation provenance");
+  assert(recoveryPack.items.some((item) => item.sensitivity === "secret_redacted"), "recovery-pack/v1 records secret redaction status");
+  const recoveryJson = JSON.stringify(recoveryPack);
+  assert(!recoveryJson.includes("sk-test"), "recovery-pack/v1 redacts compound secret prefixes before emit");
+  assert(!recoveryJson.includes("dev@example.com"), "recovery-pack/v1 redacts emails before emit");
+  assert(estimateRecoveryPackContentTokens(recoveryPack) <= recoveryPack.token_budget, "recovery-pack/v1 enforces aggregate content token budget");
+
+  const codexHostContext = await generateHostInvocationContext(store, {
+    agent_id: agentId,
+    project,
+    max_tokens: 1500,
+    target_runtime: "codex",
+  });
+  assert(validateHostInvocationContextArtifact(codexHostContext).valid, "host-invocation-context/v1 validates generated Codex artifact");
+  assert(codexHostContext.target_runtime === "codex", "host-invocation-context/v1 supports Codex target runtime");
+  assert(codexHostContext.delivery_mode === "stdin-json", "host-invocation-context/v1 defaults Codex to stdin-json");
+  assert(codexHostContext.untrusted_context_policy === "quote-as-data-only", "host-invocation-context/v1 defaults contextual content to data-only");
+  assert(codexHostContext.context_data.pack_id === codexHostContext.pack_id, "host-invocation-context/v1 embeds matching recovery pack");
+  assert(!codexHostContext.trusted_instruction.includes("codex exec"), "host-invocation-context/v1 does not embed Codex shell commands");
+
+  const claudeHostContext = buildHostInvocationContextArtifact(recoveryPack, { target_runtime: "claude" });
+  assert(validateHostInvocationContextArtifact(claudeHostContext).valid, "host-invocation-context/v1 validates Claude profile");
+  assert(claudeHostContext.delivery_mode === "session-start-hook", "host-invocation-context/v1 defaults Claude to session-start-hook");
+
+  const strictPack = validateRecoveryPackArtifact({ ...recoveryPack, unexpected: true });
+  assert(!strictPack.valid, "recovery-pack/v1 validation rejects additional properties");
+  const strictHostContext = validateHostInvocationContextArtifact({ ...codexHostContext, unexpected: true });
+  assert(!strictHostContext.valid, "host-invocation-context/v1 validation rejects additional properties");
+  for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test", "$ rm -rf /tmp/example"]) {
+    const shellCommandContext = validateHostInvocationContextArtifact({
+      ...codexHostContext,
+      trusted_instruction,
+    });
+    assert(!shellCommandContext.valid, `host-invocation-context/v1 rejects raw shell command: ${trusted_instruction}`);
+  }
+
   const conversationOnlyAgent = "test-restart-pack-conversation-only-agent";
   await store.saveConversationEvent({
     agent_id: conversationOnlyAgent,
@@ -1256,6 +1325,13 @@ async function testRestartPack() {
   });
   assert(sparse.includes("SPARSE DATA NOTICE"), "restart_pack has sparse fallback");
   assert(sparse.includes("No active task recorded"), "restart_pack handles no active task");
+  const sparseStructured = await generateRecoveryPackArtifact(store, {
+    agent_id: "test-restart-pack-empty-agent",
+    project,
+  });
+  assert(sparseStructured.confidence === "low", "recovery-pack/v1 reports low confidence when context is sparse");
+  assert(sparseStructured.missing_context.includes("active_task"), "recovery-pack/v1 reports missing active task");
+  assert(sparseStructured.missing_context.includes("supporting_context"), "recovery-pack/v1 reports missing supporting context");
 
   const truncated = buildRestartPack({
     agentId: agentId,
@@ -1277,6 +1353,31 @@ async function testRestartPack() {
     conversationEvents: [],
   });
   assert(truncated.length < 700, "restart_pack enforces token budget truncation");
+
+  const structuredTruncated = buildRecoveryPackArtifact({
+    agentId: agentId,
+    project,
+    maxTokens: 80,
+    activeTasks: [{
+      id: "task-long",
+      agent_id: agentId,
+      project,
+      task: `AM-110 implement structured recovery artifacts ${"x".repeat(600)} sk-test-AKIAIOSFODNN7EXAMPLE`,
+      status: "in_progress",
+      progress: `Large progress note ${"y".repeat(600)}`,
+      files_modified: [],
+      next_steps: `Validate schema output ${"z".repeat(600)}`,
+      created_at: "2026-05-19T00:00:00.000Z",
+    }],
+    blockedTasks: [],
+    completedTasks: [],
+    decisions: [],
+    knowledge: [],
+    conversationEvents: [],
+  }, { generated_at: "2026-05-19T00:00:00.000Z", pack_id: "restart_pack:test:bounded" });
+  assert(estimateRecoveryPackContentTokens(structuredTruncated) <= structuredTruncated.token_budget, "structured recovery-pack content is bounded by token budget");
+  assert(JSON.stringify(structuredTruncated).includes("(truncated)"), "structured recovery-pack truncates oversized summaries");
+  assert(!JSON.stringify(structuredTruncated).includes("sk-test"), "structured recovery-pack redacts before truncation emit");
 
   await store.close();
 }
@@ -1606,28 +1707,41 @@ function testHostAdapterPackagingBoundary() {
 
   const recoveryPackSchema = JSON.parse(readFileSync("docs/design/schemas/recovery-pack-v1.schema.json", "utf8"));
   assert(recoveryPackSchema.$id.includes("recovery-pack-v1.schema.json"), "recovery-pack schema has stable id");
+  assert(recoveryPackSchema.additionalProperties === false, "recovery-pack schema rejects additional properties");
+  assert(sameStringSet(Object.keys(recoveryPackSchema.properties), RECOVERY_PACK_ALLOWED_KEYS), "recovery-pack validator keys match schema properties");
   assert(recoveryPackSchema.required.includes("pack_id"), "recovery-pack schema requires pack id");
   assert(recoveryPackSchema.required.includes("confidence"), "recovery-pack schema requires confidence");
   assert(recoveryPackSchema.required.includes("missing_context"), "recovery-pack schema requires missing context");
+  assert(recoveryPackSchema.properties.token_budget.minimum === 1, "recovery-pack schema pins token budget minimum");
   assert(recoveryPackSchema.properties.confidence.enum.includes("low"), "recovery-pack schema has low confidence enum");
+  assert(sameStringSet(Object.keys(recoveryPackSchema.properties.review_prompt.properties), RECOVERY_PACK_REVIEW_PROMPT_ALLOWED_KEYS), "recovery-pack review_prompt validator keys match schema properties");
   const recoveryItem = recoveryPackSchema.$defs.recovery_pack_item;
+  assert(recoveryItem.additionalProperties === false, "recovery-pack item schema rejects additional properties");
+  assert(sameStringSet(Object.keys(recoveryItem.properties), RECOVERY_PACK_ITEM_ALLOWED_KEYS), "recovery-pack item validator keys match schema properties");
   assert(recoveryItem.required.includes("source_ref"), "recovery-pack items require provenance source");
+  assert(recoveryItem.properties.trust_level.enum.includes("external"), "recovery-pack items support external trust level");
   assert(recoveryItem.properties.sensitivity.enum.includes("secret_redacted"), "recovery-pack items record redaction status");
 
   const hostInvocationSchema = JSON.parse(readFileSync("docs/design/schemas/host-invocation-context-v1.schema.json", "utf8"));
   assert(hostInvocationSchema.$id.includes("host-invocation-context-v1.schema.json"), "host-invocation schema has stable id");
+  assert(hostInvocationSchema.additionalProperties === false, "host-invocation schema rejects additional properties");
+  assert(sameStringSet(Object.keys(hostInvocationSchema.properties), HOST_INVOCATION_CONTEXT_ALLOWED_KEYS), "host-invocation validator keys match schema properties");
   assert(hostInvocationSchema.required.includes("trusted_instruction"), "host-invocation schema requires trusted instruction");
   assert(hostInvocationSchema.properties.target_runtime.enum.includes("codex"), "host-invocation schema supports Codex");
   assert(hostInvocationSchema.properties.target_runtime.enum.includes("claude"), "host-invocation schema supports Claude");
   assert(hostInvocationSchema.properties.delivery_mode.enum.includes("stdin-json"), "host-invocation schema supports structured stdin delivery");
   assert(hostInvocationSchema.properties.delivery_mode.enum.includes("tui-fallback"), "host-invocation schema labels TUI fallback");
   assert(hostInvocationSchema.properties.untrusted_context_policy.enum.includes("quote-as-data-only"), "host-invocation schema requires data-only policy");
+  const recoveryPackRef = hostInvocationSchema.properties.context_data.$ref;
+  assert(readFileSync(join("docs/design/schemas", recoveryPackRef), "utf8").includes("Wasurezu Recovery Pack v1"), "host-invocation schema relative $ref resolves to recovery-pack schema");
 }
 
 function testConversationScopeSchemaRegression() {
   console.log("\n── MCP Schema Regression Tests ──");
   const source = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
   assert(source.includes('"conversation"'), "source search_memory schema includes conversation scope");
+  assert(source.includes('"host-invocation-context-v1"'), "source restart_pack schema includes structured host invocation format");
+  assert(source.includes("target_runtime"), "source restart_pack schema includes target runtime");
   assert(source.includes('"restart_prepare"'), "source MCP schema includes restart_prepare tool");
   assert(source.includes('"restart_pack_fetch"'), "source MCP schema includes restart_pack_fetch tool");
   assert(source.includes("does not stop, restart, requeue"), "source restart_prepare description preserves lifecycle boundary");
@@ -1641,6 +1755,7 @@ function testConversationScopeSchemaRegression() {
   const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
   assert(readme.includes("redacted full-text event storage"), "README documents conversation memory as redacted full-text storage");
   assert(readme.includes("does not emit raw transcript excerpts"), "README documents restart_pack transcript boundary");
+  assert(readme.includes("host-invocation-context/v1"), "README documents structured restart_pack automation output");
   const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
   assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
   assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
@@ -1656,6 +1771,8 @@ function testConversationScopeSchemaRegression() {
   if (existsSync(distPath)) {
     const dist = readFileSync(distPath, "utf8");
     assert(dist.includes('"conversation"'), "built MCP schema includes conversation scope");
+    assert(dist.includes('"host-invocation-context-v1"'), "built MCP schema includes structured host invocation format");
+    assert(dist.includes("target_runtime"), "built MCP schema includes target runtime");
     assert(dist.includes('"restart_prepare"'), "built MCP schema includes restart_prepare tool");
     assert(dist.includes('"restart_pack_fetch"'), "built MCP schema includes restart_pack_fetch tool");
     assert(dist.includes("aun_absent_confirmed"), "built MCP schema exposes explicit AUN absence evidence");
