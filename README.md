@@ -193,7 +193,7 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 
 | Tool | Status |
 |------|--------|
-| **Claude Code** | ✅ MCP + native SessionStart adapter for loading recovery packs |
+| **Claude Code** | ✅ MCP + `wasurezu-claude-start` runner + native SessionStart load hook |
 | **Codex** | 🧪 MCP tools work; startup recovery requires `wasurezu-codex-start` runtime adapter |
 | **Cursor / Gemini CLI** | ⏳ MCP tools work; startup integration in a later release |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
@@ -204,6 +204,44 @@ Startup recovery requires a host adapter or native startup hook that places
 `restart_pack` in the first model context. The control-plane source of truth is
 Wasurezu's durable ledger and recovery pack state, not a live TUI transcript.
 TUI text injection is a compatibility fallback only.
+
+### Claude Code resession recovery
+
+Claude Code has a native SessionStart hook that can load a selected restart
+pack, but the hook is not the restart policy owner. Use the Claude runner when
+you want Wasurezu to deterministically observe host context-health input,
+prepare a structured selected pack, and then launch a fresh Claude session only
+when standalone restart gates are pre-authorized:
+
+```bash
+export AGENT_MEMORY_AGENT_ID=auditor
+export AGENT_MEMORY_PROJECT=dev-auditor
+
+# Prepare evidence only. This is the default and does not launch Claude.
+npx wasurezu-claude-start --context-used-ratio 0.91
+
+# Launch a fresh Claude session only when standalone gates pass.
+npx wasurezu-claude-start --launch \
+  --mode auto_restart \
+  --aun-absent \
+  --supervisor-available \
+  --restart-preauthorized \
+  --cd ~/Developer/dev-auditor \
+  --mcp-config .mcp.json
+```
+
+The runner always prepares `host-invocation-context/v1` with
+`target_runtime=claude` and `delivery_mode=session-start-hook`. It passes the
+selected pack reference through `AGENT_MEMORY_SELECTED_PACK_REF` and
+`AGENT_MEMORY_BOOT_MODE=restart_pack` so the next SessionStart hook can consume
+the pack. `--launch` fails closed when AUN is installed, AUN absence is
+unknown, no supervisor/host hook is available, restart is not pre-authorized,
+or the context signal only requires `prepare`/`warn`.
+
+`wasurezu-claude-start` does not kill or replace existing Claude sessions.
+Close the old session through Claude's normal lifecycle or an installed
+supervisor before launching a fresh one. TUI input and SessionStart self-kick
+remain fallback only.
 
 ### Codex startup recovery
 

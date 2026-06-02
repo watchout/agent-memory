@@ -219,6 +219,43 @@ setting `AGENT_MEMORY_SELECTED_PACK_REF` together with
 `AGENT_MEMORY_BOOT_MODE=restart_pack`; if the selected pack is missing or
 already consumed, boot falls back to generating a fresh restart pack.
 
+## `wasurezu-claude-start` (AM-125)
+
+`wasurezu-claude-start` is the Claude host runner entrypoint for standalone
+context-health recovery. It is a runtime adapter / supervisor convenience path,
+not an MCP core lifecycle mutation surface.
+
+The runner must call `restart_prepare` with:
+
+- `pack_format=host-invocation-context-v1`
+- `target_runtime=claude`
+- `delivery_mode=session-start-hook`
+- `untrusted_context_policy=quote-as-data-only`
+
+It accepts host-provided metrics (`context_used_ratio` or
+`context_tokens`/`context_window_tokens`) and passes them through to
+`restart_prepare`. When metrics are absent, the resulting `context_signal` must
+remain `source=estimated`; the runner must not pretend to know the real context
+percentage.
+
+Runner behavior:
+
+- default mode prints bounded runner evidence and does not launch Claude
+- `prepare` and `warn` bands produce selected packs but do not launch
+- `recommend` and `require` bands may launch only when `restart_prepare`
+  returns `can_auto_restart=true`
+- `--launch` is fail-closed unless AUN absence is explicit, a supported
+  supervisor/host hook is available, and restart lifecycle was pre-authorized
+- AUN-supervised mode must not independently restart Claude or mutate AUN queue
+  lifecycle
+
+The runner may start a fresh Claude process by passing
+`AGENT_MEMORY_SELECTED_PACK_REF` and `AGENT_MEMORY_BOOT_MODE=restart_pack` into
+the child environment. It must not kill or replace an existing Claude process.
+SessionStart remains the selected-pack load hook, not the restart policy owner.
+TUI input, SessionStart self-kick, and first-action prompt recovery remain
+fallback only.
+
 ## recover_context — Current vs Required
 
 ### Current Implementation (v0.3.0)
