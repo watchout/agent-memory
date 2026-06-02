@@ -52,6 +52,19 @@ Structured artifact schemas:
 |----------|--------|
 | `recovery-pack/v1` | `docs/design/schemas/recovery-pack-v1.schema.json` |
 | `host-invocation-context/v1` | `docs/design/schemas/host-invocation-context-v1.schema.json` |
+| `wasurezu-aun-gate-evidence-refs/v1` | `docs/design/schemas/aun-gate-evidence-refs-v1.schema.json` |
+
+Memory safety policy:
+
+- `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md` defines the
+  `raw_event_source`, `candidate_memory`, `approved_memory`,
+  `trusted_instruction`, and `untrusted_context` taxonomy.
+- Raw events and imported transcripts are source data by default, not approved
+  memory.
+- Approved memory requires human or policy promotion evidence.
+- Schema/runtime slices must not claim full enterprise enforcement until
+  recovery output emits or links policy version, redaction summary, omission
+  counts, and promotion evidence.
 
 ---
 

@@ -2090,6 +2090,51 @@ function testAunGateEvidenceRefs() {
   assert(validate(explicitMissingEvidence), `Aun Gate evidence schema allows explicit missing evidence: ${JSON.stringify(validate.errors ?? [])}`);
 }
 
+function testMemorySafetyGovernance() {
+  console.log("\n── Memory Safety Governance Tests ──");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+  const memorySafety = readFileSync("docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md", "utf8");
+  const normalizedMemorySafety = memorySafety.replace(/\s+/g, " ");
+  const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
+  const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
+  const recoveryPackSchema = JSON.parse(readFileSync("docs/design/schemas/recovery-pack-v1.schema.json", "utf8"));
+  const evidenceRefsSchema = JSON.parse(readFileSync("docs/design/schemas/aun-gate-evidence-refs-v1.schema.json", "utf8"));
+
+  assert(packageJson.files.includes("docs/design/governance"), "npm package includes memory safety governance docs");
+  assert(ssot6.includes("WASUREZU_MEMORY_SAFETY_GOVERNANCE.md"), "SSOT-6 delegates memory safety governance");
+  assert(ssot6.includes("#117 maps to `WASUREZU_MEMORY_SAFETY_GOVERNANCE.md`"), "SSOT-6 maps AM-117 to memory safety governance");
+  assert(dataModel.includes("WASUREZU_MEMORY_SAFETY_GOVERNANCE.md"), "SSOT-4 references memory safety governance");
+
+  for (const memoryClass of ["raw_event_source", "candidate_memory", "approved_memory", "trusted_instruction", "untrusted_context"]) {
+    assert(memorySafety.includes(memoryClass), `memory safety taxonomy defines ${memoryClass}`);
+  }
+
+  assert(normalizedMemorySafety.includes("Raw events and imported transcripts are source data by default, not approved memory"), "raw events and transcripts are source data by default");
+  assert(normalizedMemorySafety.includes("Candidate memory is not a trusted instruction"), "candidate memory is not trusted instruction");
+  assert(normalizedMemorySafety.includes("Approved memory requires human or policy promotion evidence"), "approved memory requires promotion evidence");
+  assert(normalizedMemorySafety.includes("`trusted_instruction` is control-plane-authored text, not memory content"), "trusted instruction is not memory content");
+  assert(normalizedMemorySafety.includes("Conversation events must not become approved memory merely because they were stored, searched, summarized, or included in a recovery pack"), "conversation events are not auto-approved memory");
+  assert(normalizedMemorySafety.includes("Do not claim full enterprise enforcement until structured recovery output emits or links explicit `policy_version`, redaction summary, omission counts, and promotion evidence"), "docs avoid overclaiming full enterprise enforcement");
+
+  for (const evidence of ["policy_version", "redaction summary", "omission counts", "retention policy", "promotion evidence", "missing-context indicators"]) {
+    assert(normalizedMemorySafety.includes(evidence), `memory safety governance documents ${evidence}`);
+  }
+
+  assert(normalizedMemorySafety.includes("AUN owns approval lifecycle, policy decisions, execution attempts"), "memory safety docs preserve AUN boundary");
+  assert(normalizedMemorySafety.includes("Shirube owns Work Order authority"), "memory safety docs preserve Shirube boundary");
+  assert(normalizedMemorySafety.includes("Kodama owns source permission labels"), "memory safety docs preserve Kodama boundary");
+
+  assert(recoveryPackSchema.properties.confidence, "recovery-pack schema exposes confidence");
+  assert(recoveryPackSchema.properties.missing_context, "recovery-pack schema exposes missing context");
+  const recoveryItem = recoveryPackSchema.$defs.recovery_pack_item;
+  assert(recoveryItem.properties.source_ref, "recovery-pack item exposes source refs");
+  assert(recoveryItem.properties.trust_level, "recovery-pack item exposes trust classification");
+  assert(recoveryItem.properties.sensitivity, "recovery-pack item exposes sensitivity/redaction state");
+  assert(evidenceRefsSchema.properties.redaction_summary, "Aun Gate evidence refs expose redaction summary");
+  assert(evidenceRefsSchema.properties.retention_policy_ref, "Aun Gate evidence refs expose retention policy ref");
+  assert(evidenceRefsSchema.properties.approval_note_ref, "Aun Gate evidence refs expose approval-note evidence");
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -2119,6 +2164,7 @@ async function run() {
   testConversationScopeSchemaRegression();
   testGovernedActionProfiles();
   testAunGateEvidenceRefs();
+  testMemorySafetyGovernance();
 
   await cleanup();
 
