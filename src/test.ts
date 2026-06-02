@@ -1743,6 +1743,12 @@ function testHostAdapterPackagingBoundary() {
   assert(lowerHostAdapters.includes("external/contextual content must remain data only"), "host adapter docs preserve data-only context boundary");
   assert(normalizedHostAdapters.includes("AUN, Shirube, or another installed runner owns lifecycle policy"), "host adapter docs preserve external runner lifecycle ownership");
   assert(normalizedHostAdapters.includes("The artifacts must not embed raw shell commands"), "host adapter docs keep raw shell commands out of recovery artifacts");
+  assert(normalizedHostAdapters.includes("AUN CP-40D Runtime Invocation Alignment"), "host adapter docs include AUN CP-40D alignment");
+  assert(normalizedHostAdapters.includes("not an AUN `RuntimeRunnerInvocation/v1`"), "host adapter docs keep Wasurezu artifact separate from AUN runner invocation");
+  assert(normalizedHostAdapters.includes("RuntimeInvocationProfile/v1"), "host adapter docs reference AUN runtime profile ownership");
+  assert(normalizedHostAdapters.includes("RuntimeRunnerResult/v1"), "host adapter docs reference AUN runner result evidence");
+  assert(normalizedHostAdapters.includes("context_pack_refs"), "host adapter docs map recovery pack to AUN context pack refs");
+  assert(normalizedHostAdapters.includes("scheduler activation, recovery success, merge authorization, final delivery proof"), "host adapter docs keep TUI fallback degraded under CP-40D");
 
   const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
   assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
@@ -1769,6 +1775,10 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedApiContract.includes("does not redefine lifecycle ownership or restart policy independently"), "SSOT-3 does not redefine lifecycle policy");
   assert(normalizedApiContract.includes("docs/design/schemas/recovery-pack-v1.schema.json"), "SSOT-3 points to recovery pack schema");
   assert(normalizedApiContract.includes("docs/design/schemas/host-invocation-context-v1.schema.json"), "SSOT-3 points to host invocation schema");
+  assert(normalizedApiContract.includes("Cross-repo boundary with AUN CP-40D"), "SSOT-3 documents AUN CP-40D boundary");
+  assert(normalizedApiContract.includes("Wasurezu `host-invocation-context/v1` is a recovery/context artifact, not an AUN `RuntimeRunnerInvocation/v1`"), "SSOT-3 keeps host invocation artifact out of AUN runner invocation ownership");
+  assert(normalizedApiContract.includes("AUN runner code owns `RuntimeInvocationProfile/v1`"), "SSOT-3 assigns AUN runtime profile ownership");
+  assert(normalizedApiContract.includes("Wasurezu `context_data` may be referenced by AUN as `context_pack_refs`"), "SSOT-3 maps context data to AUN context pack refs");
 
   const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
   const normalizedDataModel = dataModel.replace(/\s+/g, " ");

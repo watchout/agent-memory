@@ -107,6 +107,23 @@ Current `restart_pack` behavior:
 - `target_runtime=claude`: defaults to `delivery_mode=session-start-hook`
 - `untrusted_context_policy` defaults to `quote-as-data-only`
 
+Cross-repo boundary with AUN CP-40D:
+
+- Wasurezu `host-invocation-context/v1` is a recovery/context artifact, not an
+  AUN `RuntimeRunnerInvocation/v1`.
+- AUN runner code owns `RuntimeInvocationProfile/v1`,
+  `RuntimeRunnerInvocation/v1`, `RuntimeRunnerResult/v1`, argv construction,
+  feature detection, process execution, stream parsing, retry/quarantine,
+  final close/requeue, and lifecycle completion.
+- Wasurezu `context_data` may be referenced by AUN as `context_pack_refs` or an
+  equivalent profile-managed stdin/file payload with provenance.
+- Wasurezu `trusted_instruction` is control-plane-authored text only. It must
+  not contain shell commands or interpolated untrusted context.
+- `delivery_mode=stdin-json` aligns with CP-40D
+  `prompt_delivery=stdin-json`. Prompt fragments, SessionStart hooks, and
+  `tui-fallback` are adapter-specific renderings and must be recorded as
+  feature-detected or degraded evidence by the runtime owner.
+
 ## MCP Tools
 
 | Tool | Status | Description | Input | Output |

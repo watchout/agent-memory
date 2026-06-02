@@ -74,6 +74,34 @@ Host invocation profiles:
 | `claude` | `system-prompt-fragment`, `append-system-prompt-fragment`, or `session-start-hook` where verified | Wasurezu emits schema-valid context. The Claude hook/runner loads it and returns structured evidence. |
 | `generic-mcp-host` | MCP `structuredContent` with an `outputSchema` where supported | Wasurezu emits schema-valid context. The host controls invocation and lifecycle. |
 
+### AUN CP-40D Runtime Invocation Alignment
+
+When AUN consumes Wasurezu recovery artifacts, the AUN host runtime invocation
+adapter contract remains the lower runtime layer. Wasurezu's
+`host-invocation-context/v1` is not an AUN `RuntimeRunnerInvocation/v1`; it is
+the bounded context pack input that AUN runner code can reference before
+launching Codex, Claude, or a custom runtime.
+
+Boundary mapping:
+
+| Wasurezu field | AUN CP-40D use | Owner |
+|----------------|----------------|-------|
+| `target_runtime=codex` / `claude` | Select or validate `RuntimeInvocationProfile/v1.runtime` for Codex or Claude. | AUN runner/profile code |
+| `target_runtime=generic-mcp-host` | Map to a custom or host-specific runtime profile if one is installed. | AUN runner/profile code |
+| `delivery_mode=stdin-json` | Compatible with CP-40D `prompt_delivery=stdin-json`. | AUN host adapter |
+| `system-prompt-fragment`, `append-system-prompt-fragment`, `session-start-hook` | Adapter rendering choices for hosts that support prompt or hook delivery. If AUN uses CP-40D non-interactive CLI execution, it may map these to `prompt-arg`, `stdin-text`, or `session-resume` only when feature-detected and policy-allowed. | AUN host adapter |
+| `delivery_mode=tui-fallback` | Degraded compatibility evidence only; it must not count as scheduler activation, recovery success, merge authorization, final delivery proof, or lifecycle completion. | AUN host adapter and deterministic completion code |
+| `trusted_instruction` | May become CP-40D `trusted_instruction` only as control-plane-authored text. It must not contain shell commands or interpolated untrusted content. | Wasurezu emits, AUN validates before launch |
+| `context_data` (`recovery-pack/v1`) | Becomes `context_pack_refs` or an equivalent profile-managed stdin/file payload with provenance. It must not be interpolated into argv, environment names, file paths, branch names, command flags, or prompt arguments as executable text. | AUN runner/adapter code |
+| `untrusted_context_policy` | Reinforces CP-40D separation of trusted instructions from untrusted queue, GitHub, docs, tool, and chat context. | Both; AUN enforces at runtime boundary |
+
+The AUN contract owns `RuntimeInvocationProfile/v1`,
+`RuntimeRunnerInvocation/v1`, `RuntimeRunnerResult/v1`, feature detection,
+argv construction, process timeout, stream parsing, schema-valid result
+evidence, and degraded fallback evidence. Wasurezu supplies only the structured
+recovery artifact, provenance, confidence, missing context, and selected-pack
+references.
+
 The artifacts must not embed raw shell commands. Host-specific launch commands
 belong in the runner or adapter implementation, not in the recovery pack.
 
