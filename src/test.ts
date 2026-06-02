@@ -61,6 +61,10 @@ function sameStringSet(actual: string[], expected: readonly string[]): boolean {
   return actual.slice().sort().join("\n") === Array.from(expected).sort().join("\n");
 }
 
+function mcpToolNamesFromSource(source: string): string[] {
+  return Array.from(source.matchAll(/server\.tool\(\s*\n\s*"([^"]+)"/g), (match) => match[1]);
+}
+
 async function cleanup() {
   const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json"];
   for (const f of files) {
@@ -1882,6 +1886,80 @@ function testConversationScopeSchemaRegression() {
   }
 }
 
+function testGovernedActionProfiles() {
+  console.log("\n── Governed Action Profile Tests ──");
+  const profileDoc = readFileSync("docs/design/governance/WASUREZU_GOVERNED_ACTION_PROFILES.md", "utf8");
+  const profileJson = JSON.parse(readFileSync("docs/design/governance/wasurezu-governed-action-profiles.v1.json", "utf8"));
+  const source = readFileSync("src/index.ts", "utf8");
+  const apiContract = readFileSync("docs/design/core/SSOT-3_API_CONTRACT.md", "utf8");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+
+  assert(packageJson.files.includes("docs/design/governance"), "npm package includes governed action profiles");
+  assert(profileDoc.includes("Aun Gate-ready"), "governed action profile docs state Aun Gate readiness purpose");
+  assert(profileDoc.includes("Private reasoning is excluded by default"), "governed action profile docs exclude private reasoning by default");
+  assert(profileDoc.includes("set_recovery_config` is critical"), "governed action profile docs mark recovery config as critical");
+  assert(apiContract.includes("wasurezu-governed-action-profiles.v1.json"), "SSOT-3 points to governed action profiles");
+
+  assert(profileJson.schema_ref === "governed-action-surface-profile/v1", "governed action profile has stable schema ref");
+  assert(profileJson.private_reasoning_default === "excluded", "governed action profile excludes private reasoning by default");
+  assert(Array.isArray(profileJson.profiles), "governed action profile contains profiles array");
+
+  const sourceToolNames = mcpToolNamesFromSource(source);
+  const profileToolNames = profileJson.profiles.map((profile: any) => String(profile.surface_id).replace(/^wasurezu\./, ""));
+  assert(sameStringSet(profileToolNames, sourceToolNames), "every MCP tool has exactly one governed action profile");
+
+  const allowedClasses = ["read", "reveal", "write", "delete", "action", "external_send", "admin", "execute_code"];
+  const allowedRisks = ["low", "medium", "high", "critical"];
+  for (const profile of profileJson.profiles) {
+    assert(profile.surface_type === "mcp_tool", `${profile.surface_id} profile is an MCP tool`);
+    assert(profile.product === "wasurezu", `${profile.surface_id} profile names Wasurezu product`);
+    assert(profile.owner_repo === "watchout/agent-memory", `${profile.surface_id} profile names owner repo`);
+    assert(Array.isArray(profile.capability_classes) && profile.capability_classes.length > 0, `${profile.surface_id} declares capability classes`);
+    assert(profile.capability_classes.every((klass: string) => allowedClasses.includes(klass)), `${profile.surface_id} uses known capability classes`);
+    assert(allowedRisks.includes(profile.risk_level), `${profile.surface_id} declares known risk level`);
+    assert(typeof profile.reveal_behavior === "string" && profile.reveal_behavior.length > 0, `${profile.surface_id} declares reveal behavior`);
+    assert(profile.identity_requirements?.actor_required === true, `${profile.surface_id} requires actor evidence`);
+    assert(profile.identity_requirements?.agent_id_required === true, `${profile.surface_id} requires agent id evidence`);
+    assert(Array.isArray(profile.context_requirements?.denied_labels), `${profile.surface_id} declares denied context labels`);
+    assert(profile.context_requirements.denied_labels.includes("private_reasoning"), `${profile.surface_id} denies private reasoning by default`);
+    assert(typeof profile.approval_policy?.approval_required === "boolean", `${profile.surface_id} declares approval policy`);
+    assert(profile.audit_policy?.audit_required === true, `${profile.surface_id} requires audit`);
+    assert(profile.audit_policy?.redaction_required === true, `${profile.surface_id} requires redaction`);
+    assert(Array.isArray(profile.audit_policy?.audit_summary_fields) && profile.audit_policy.audit_summary_fields.length > 0, `${profile.surface_id} declares audit summary fields`);
+    assert(Array.isArray(profile.redaction_requirements) && profile.redaction_requirements.length > 0, `${profile.surface_id} declares redaction requirements`);
+    assert(Array.isArray(profile.retention_requirements) && profile.retention_requirements.length > 0, `${profile.surface_id} declares retention requirements`);
+    assert(typeof profile.rollback_policy?.rollback_kind === "string", `${profile.surface_id} declares rollback policy`);
+  }
+
+  const byId = new Map(profileJson.profiles.map((profile: any) => [profile.surface_id, profile]));
+  const setConfig = byId.get("wasurezu.set_recovery_config") as any;
+  assert(setConfig.risk_level === "critical", "set_recovery_config is critical risk");
+  assert(setConfig.capability_classes.includes("admin"), "set_recovery_config is an admin surface");
+  assert(setConfig.approval_policy.approval_required === true, "set_recovery_config requires approval");
+  assert(setConfig.memory_requirements.approval_note_required === true, "set_recovery_config requires approval-note evidence");
+  assert(setConfig.memory_requirements.human_intent_ref_required === true, "set_recovery_config requires human intent evidence");
+
+  for (const id of ["wasurezu.search_memory", "wasurezu.recover_context", "wasurezu.restart_pack", "wasurezu.restart_pack_fetch", "wasurezu.restart_prepare"]) {
+    const profile = byId.get(id) as any;
+    assert(profile.risk_level === "high", `${id} is high risk read/reveal`);
+    assert(profile.capability_classes.includes("reveal"), `${id} declares reveal capability`);
+    assert(profile.context_requirements.required_labels.includes("redaction_evidence"), `${id} requires redaction evidence label`);
+  }
+
+  const ingest = byId.get("wasurezu.ingest_conversation_events") as any;
+  assert(ingest.capability_classes.includes("action"), "ingest_conversation_events is an action surface");
+  assert(ingest.context_requirements.denied_labels.includes("developer_instruction"), "ingest_conversation_events excludes developer instructions");
+  assert(ingest.context_requirements.denied_labels.includes("base_instruction"), "ingest_conversation_events excludes base instructions");
+  assert(ingest.redaction_requirements.includes("redact_before_persistence_and_hashing"), "ingest_conversation_events redacts before persistence and hashing");
+
+  const restartPrepare = byId.get("wasurezu.restart_prepare") as any;
+  assert(restartPrepare.context_requirements.denied_labels.includes("aun_queue_mutation"), "restart_prepare profile forbids AUN queue mutation");
+  assert(restartPrepare.context_requirements.denied_labels.includes("runtime_restart_authority"), "restart_prepare profile forbids runtime restart authority");
+
+  const restartPack = byId.get("wasurezu.restart_pack") as any;
+  assert(restartPack.redaction_requirements.includes("shell_free_trusted_instruction"), "restart_pack profile requires shell-free trusted instruction");
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -1909,6 +1987,7 @@ async function run() {
   await testRestartPrepare();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
+  testGovernedActionProfiles();
 
   await cleanup();
 
