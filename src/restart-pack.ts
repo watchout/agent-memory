@@ -3,6 +3,7 @@ import { relative, isAbsolute } from "path";
 import type { Store, ConversationEvent, Decision, Knowledge, TaskState } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_SECTION, estimateTokens } from "./constants.js";
 import { redactText } from "./redact.js";
+import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 
 export interface RestartPackInput {
   agent_id: string;
@@ -215,6 +216,7 @@ export function buildRecoveryPackArtifact(
     items,
   };
   assertValidArtifact(validateRecoveryPackArtifact(artifact), "recovery-pack/v1");
+  assertValidArtifact(validateRecoveryPackJsonSchema(artifact), "recovery-pack/v1 JSON Schema");
   return artifact;
 }
 
@@ -239,6 +241,7 @@ export function buildHostInvocationContextArtifact(
     schema_ref: HOST_INVOCATION_SCHEMA_REF,
   };
   assertValidArtifact(validateHostInvocationContextArtifact(artifact), "host-invocation-context/v1");
+  assertValidArtifact(validateHostInvocationContextJsonSchema(artifact), "host-invocation-context/v1 JSON Schema");
   return artifact;
 }
 
