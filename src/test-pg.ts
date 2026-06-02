@@ -49,6 +49,102 @@ async function testMigration() {
   assert(true, "migrations are idempotent (IF NOT EXISTS)");
 }
 
+function withPgSearchPath(connectionString: string, schema: string): string {
+  const url = new URL(connectionString);
+  const option = `-c search_path=${schema},public`;
+  const existing = url.searchParams.get("options");
+  url.searchParams.set("options", existing ? `${existing} ${option}` : option);
+  return url.toString();
+}
+
+async function testRawEventsLegacyOccurredAtMigration() {
+  console.log("\n── PgStore raw_events legacy occurred_at migration ──");
+
+  const pg = await import("pg");
+  const schema = `am124_legacy_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  const legacyId = "00000000-0000-4000-8000-000000000124";
+  const duplicateLegacyId = "00000000-0000-4000-8000-000000001124";
+  const admin = new pg.default.Pool({ connectionString: DATABASE_URL! });
+
+  try {
+    await admin.query(`CREATE SCHEMA ${schema}`);
+    await admin.query(
+      `CREATE TABLE ${schema}.raw_events (
+        id UUID PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        content_hash TEXT,
+        event_at TIMESTAMPTZ,
+        ingested_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ
+      )`,
+    );
+    await admin.query(
+      `INSERT INTO ${schema}.raw_events
+         (id, agent_id, source, event_type, content_hash, event_at, ingested_at, created_at)
+       VALUES
+         ($1, $2, $3, $4, $5, $6, NULL, NULL),
+         ($7, $2, $3, $4, $5, $6, NULL, NULL)`,
+      [
+        legacyId,
+        `${AGENT}-legacy-raw`,
+        "legacy",
+        "host_event",
+        "legacy-hash",
+        "2026-05-19T00:04:00.000Z",
+        duplicateLegacyId,
+      ],
+    );
+
+    const legacyStore = new PgStore(withPgSearchPath(DATABASE_URL!, schema));
+    try {
+      await legacyStore.initialize();
+    } finally {
+      await legacyStore.close();
+    }
+
+    const row = await admin.query(
+      `SELECT occurred_at, source_event_id
+         FROM ${schema}.raw_events
+        WHERE id IN ($1, $2)
+        ORDER BY id`,
+      [legacyId, duplicateLegacyId],
+    );
+    assert(
+      row.rows.length === 2 &&
+        row.rows.every(
+          (record) =>
+            record.occurred_at instanceof Date &&
+            record.occurred_at.toISOString() === "2026-05-19T00:04:00.000Z",
+        ),
+      "raw_events legacy rows backfill occurred_at from event_at",
+    );
+    assert(
+      row.rows.every((record) =>
+        String(record.source_event_id).startsWith("legacy-raw-event:"),
+      ),
+      "raw_events legacy duplicate hash/time rows get synthesized source_event_id",
+    );
+
+    const column = await admin.query(
+      `SELECT is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = 'raw_events'
+          AND column_name = 'occurred_at'`,
+      [schema],
+    );
+    assert(
+      column.rows[0]?.is_nullable === "NO",
+      "raw_events occurred_at is enforced NOT NULL after migration",
+    );
+  } finally {
+    await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await admin.end();
+  }
+}
+
 async function testDecisionCRUD() {
   console.log("\n── PgStore Decision CRUD ──");
 
@@ -731,6 +827,7 @@ async function run() {
   try {
     await setup();
     await testMigration();
+    await testRawEventsLegacyOccurredAtMigration();
     await testDecisionCRUD();
     await testSupersede();
     await testTaskStates();

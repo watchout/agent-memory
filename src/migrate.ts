@@ -154,7 +154,78 @@ const MIGRATIONS = [
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_path TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ`,
+  `ALTER TABLE raw_events ALTER COLUMN occurred_at SET DEFAULT now()`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()`,
+  `DO $$
+   BEGIN
+     IF NOT EXISTS (
+       SELECT 1
+         FROM pg_constraint
+        WHERE conrelid = 'raw_events'::regclass
+          AND conname = 'raw_events_occurred_at_not_null'
+     ) THEN
+       ALTER TABLE raw_events
+         ADD CONSTRAINT raw_events_occurred_at_not_null
+         CHECK (occurred_at IS NOT NULL) NOT VALID;
+     END IF;
+   END $$`,
+  `WITH duplicate_backfill_hash_time AS (
+     SELECT id
+       FROM (
+         SELECT id,
+                COUNT(*) OVER (
+                  PARTITION BY
+                    agent_id,
+                    source,
+                    content_hash,
+                    COALESCE(occurred_at, event_at, ingested_at, created_at, now())
+                ) AS duplicate_count
+           FROM raw_events
+          WHERE source_event_id IS NULL
+            AND content_hash IS NOT NULL
+       ) ranked
+      WHERE duplicate_count > 1
+   )
+   UPDATE raw_events
+      SET source_event_id = 'legacy-raw-event:' || id::text,
+          occurred_at = COALESCE(occurred_at, event_at, ingested_at, created_at, now()),
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'migration_source_event_id',
+            'synthesized_before_occurred_at_backfill',
+            'migration',
+            'am103_raw_events_occurred_at_not_null'
+          )
+    WHERE id IN (SELECT id FROM duplicate_backfill_hash_time)
+      AND source_event_id IS NULL`,
+  `UPDATE raw_events
+     SET occurred_at = COALESCE(occurred_at, event_at, ingested_at, created_at, now())
+     WHERE occurred_at IS NULL`,
+  `WITH duplicate_hash_time AS (
+     SELECT id
+       FROM (
+         SELECT id,
+                COUNT(*) OVER (
+                  PARTITION BY agent_id, source, content_hash, occurred_at
+                ) AS duplicate_count
+           FROM raw_events
+          WHERE source_event_id IS NULL
+            AND content_hash IS NOT NULL
+            AND occurred_at IS NOT NULL
+       ) ranked
+      WHERE duplicate_count > 1
+   )
+  UPDATE raw_events
+      SET source_event_id = 'legacy-raw-event:' || id::text,
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'migration_source_event_id',
+            'synthesized_from_legacy_duplicate',
+            'migration',
+            'am103_raw_events_occurred_at_not_null'
+          )
+    WHERE id IN (SELECT id FROM duplicate_hash_time)
+      AND source_event_id IS NULL`,
+  `ALTER TABLE raw_events VALIDATE CONSTRAINT raw_events_occurred_at_not_null`,
+  `ALTER TABLE raw_events ALTER COLUMN occurred_at SET NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_events_source_event
      ON raw_events (agent_id, source, source_event_id)
      WHERE source_event_id IS NOT NULL`,
