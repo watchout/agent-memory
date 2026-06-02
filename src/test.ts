@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
+import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
@@ -1900,44 +1901,49 @@ function testGovernedActionProfiles() {
   assert(profileDoc.includes("set_recovery_config` is critical"), "governed action profile docs mark recovery config as critical");
   assert(apiContract.includes("wasurezu-governed-action-profiles.v1.json"), "SSOT-3 points to governed action profiles");
 
-  assert(profileJson.schema_ref === "governed-action-surface-profile/v1", "governed action profile has stable schema ref");
-  assert(profileJson.private_reasoning_default === "excluded", "governed action profile excludes private reasoning by default");
-  assert(Array.isArray(profileJson.profiles), "governed action profile contains profiles array");
+  const arcSchema = JSON.parse(readFileSync("docs/design/governance/governed-action-surface-profile.schema.json", "utf8"));
+  const ajv = new Ajv2020({ strict: false });
+  const validate = ajv.compile(arcSchema);
+  assert(validate(profileJson), `governed action profile validates against ARC schema: ${JSON.stringify(validate.errors ?? [])}`);
+  assert(profileJson.profile_version === "0.1.0", "governed action profile pins ARC profile version");
+  assert(Array.isArray(profileJson.surfaces), "governed action profile contains surfaces array");
 
   const sourceToolNames = mcpToolNamesFromSource(source);
-  const profileToolNames = profileJson.profiles.map((profile: any) => String(profile.surface_id).replace(/^wasurezu\./, ""));
+  const profileToolNames = profileJson.surfaces.map((surface: any) => String(surface.surface_id).replace(/^wasurezu\./, ""));
   assert(sameStringSet(profileToolNames, sourceToolNames), "every MCP tool has exactly one governed action profile");
 
   const allowedClasses = ["read", "reveal", "write", "delete", "action", "external_send", "admin", "execute_code"];
   const allowedRisks = ["low", "medium", "high", "critical"];
-  for (const profile of profileJson.profiles) {
-    assert(profile.surface_type === "mcp_tool", `${profile.surface_id} profile is an MCP tool`);
-    assert(profile.product === "wasurezu", `${profile.surface_id} profile names Wasurezu product`);
-    assert(profile.owner_repo === "watchout/agent-memory", `${profile.surface_id} profile names owner repo`);
-    assert(Array.isArray(profile.capability_classes) && profile.capability_classes.length > 0, `${profile.surface_id} declares capability classes`);
-    assert(profile.capability_classes.every((klass: string) => allowedClasses.includes(klass)), `${profile.surface_id} uses known capability classes`);
-    assert(allowedRisks.includes(profile.risk_level), `${profile.surface_id} declares known risk level`);
-    assert(typeof profile.reveal_behavior === "string" && profile.reveal_behavior.length > 0, `${profile.surface_id} declares reveal behavior`);
-    assert(profile.identity_requirements?.actor_required === true, `${profile.surface_id} requires actor evidence`);
-    assert(profile.identity_requirements?.agent_id_required === true, `${profile.surface_id} requires agent id evidence`);
-    assert(Array.isArray(profile.context_requirements?.denied_labels), `${profile.surface_id} declares denied context labels`);
-    assert(profile.context_requirements.denied_labels.includes("private_reasoning"), `${profile.surface_id} denies private reasoning by default`);
-    assert(typeof profile.approval_policy?.approval_required === "boolean", `${profile.surface_id} declares approval policy`);
-    assert(profile.audit_policy?.audit_required === true, `${profile.surface_id} requires audit`);
-    assert(profile.audit_policy?.redaction_required === true, `${profile.surface_id} requires redaction`);
-    assert(Array.isArray(profile.audit_policy?.audit_summary_fields) && profile.audit_policy.audit_summary_fields.length > 0, `${profile.surface_id} declares audit summary fields`);
-    assert(Array.isArray(profile.redaction_requirements) && profile.redaction_requirements.length > 0, `${profile.surface_id} declares redaction requirements`);
-    assert(Array.isArray(profile.retention_requirements) && profile.retention_requirements.length > 0, `${profile.surface_id} declares retention requirements`);
-    assert(typeof profile.rollback_policy?.rollback_kind === "string", `${profile.surface_id} declares rollback policy`);
+  for (const surface of profileJson.surfaces) {
+    assert(surface.surface_type === "mcp_tool", `${surface.surface_id} profile is an MCP tool`);
+    assert(Array.isArray(surface.capability_classes) && surface.capability_classes.length > 0, `${surface.surface_id} declares capability classes`);
+    assert(surface.capability_classes.every((klass: string) => allowedClasses.includes(klass)), `${surface.surface_id} uses known capability classes`);
+    assert(allowedRisks.includes(surface.risk_level), `${surface.surface_id} declares known risk level`);
+    assert(surface.boundary?.standalone_required === true, `${surface.surface_id} declares standalone boundary`);
+    assert(surface.boundary?.state_owner === "wasurezu", `${surface.surface_id} assigns Wasurezu state ownership`);
+    assert(surface.boundary?.direct_db_access_to_other_products === false, `${surface.surface_id} forbids direct DB access to other products`);
+    assert(Array.isArray(surface.boundary?.forbidden_dependencies), `${surface.surface_id} declares forbidden dependencies`);
+    assert(surface.boundary.forbidden_dependencies.includes("shared_credentials"), `${surface.surface_id} forbids shared credentials`);
+    assert(surface.identity_requirements?.actor_required === true, `${surface.surface_id} requires actor evidence`);
+    assert(surface.identity_requirements?.agent_id_required === true, `${surface.surface_id} requires agent id evidence`);
+    assert(Array.isArray(surface.context_requirements?.denied_labels), `${surface.surface_id} declares denied context labels`);
+    assert(surface.context_requirements.denied_labels.includes("private_reasoning"), `${surface.surface_id} denies private reasoning by default`);
+    assert(typeof surface.approval_policy?.approval_required === "boolean", `${surface.surface_id} declares approval policy`);
+    assert(surface.audit_policy?.audit_required === true, `${surface.surface_id} requires audit`);
+    assert(surface.audit_policy?.redaction_required === true, `${surface.surface_id} requires redaction`);
+    assert(typeof surface.rollback_policy?.rollback_kind === "string", `${surface.surface_id} declares rollback policy`);
+    assert(typeof surface.notes === "string" && surface.notes.includes("redaction_requirements="), `${surface.surface_id} records redaction requirements in notes`);
+    assert(surface.notes.includes("retention_requirements="), `${surface.surface_id} records retention requirements in notes`);
   }
 
-  const byId = new Map(profileJson.profiles.map((profile: any) => [profile.surface_id, profile]));
+  const byId = new Map(profileJson.surfaces.map((surface: any) => [surface.surface_id, surface]));
   const setConfig = byId.get("wasurezu.set_recovery_config") as any;
   assert(setConfig.risk_level === "critical", "set_recovery_config is critical risk");
   assert(setConfig.capability_classes.includes("admin"), "set_recovery_config is an admin surface");
   assert(setConfig.approval_policy.approval_required === true, "set_recovery_config requires approval");
   assert(setConfig.memory_requirements.approval_note_required === true, "set_recovery_config requires approval-note evidence");
   assert(setConfig.memory_requirements.human_intent_ref_required === true, "set_recovery_config requires human intent evidence");
+  assert(setConfig.notes.includes("critical_admin_surface"), "set_recovery_config notes explain critical admin surface");
 
   for (const id of ["wasurezu.search_memory", "wasurezu.recover_context", "wasurezu.restart_pack", "wasurezu.restart_pack_fetch", "wasurezu.restart_prepare"]) {
     const profile = byId.get(id) as any;
@@ -1950,14 +1956,16 @@ function testGovernedActionProfiles() {
   assert(ingest.capability_classes.includes("action"), "ingest_conversation_events is an action surface");
   assert(ingest.context_requirements.denied_labels.includes("developer_instruction"), "ingest_conversation_events excludes developer instructions");
   assert(ingest.context_requirements.denied_labels.includes("base_instruction"), "ingest_conversation_events excludes base instructions");
-  assert(ingest.redaction_requirements.includes("redact_before_persistence_and_hashing"), "ingest_conversation_events redacts before persistence and hashing");
+  assert(ingest.notes.includes("redact_before_persistence_and_hashing"), "ingest_conversation_events redacts before persistence and hashing");
+  assert(ingest.notes.includes("transcript_events_are_source_data_not_approved_memory_by_default"), "ingest_conversation_events keeps transcripts as source data");
 
   const restartPrepare = byId.get("wasurezu.restart_prepare") as any;
   assert(restartPrepare.context_requirements.denied_labels.includes("aun_queue_mutation"), "restart_prepare profile forbids AUN queue mutation");
   assert(restartPrepare.context_requirements.denied_labels.includes("runtime_restart_authority"), "restart_prepare profile forbids runtime restart authority");
+  assert(restartPrepare.boundary.receiving_product_revalidates === true, "restart_prepare artifact consumers revalidate");
 
   const restartPack = byId.get("wasurezu.restart_pack") as any;
-  assert(restartPack.redaction_requirements.includes("shell_free_trusted_instruction"), "restart_pack profile requires shell-free trusted instruction");
+  assert(restartPack.notes.includes("shell_free_trusted_instruction"), "restart_pack profile requires shell-free trusted instruction");
 }
 
 // Run all tests

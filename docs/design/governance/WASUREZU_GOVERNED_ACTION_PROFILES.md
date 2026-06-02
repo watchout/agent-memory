@@ -3,13 +3,14 @@
 > Status: AM-120 inventory/profile contract
 > Purpose: make Wasurezu MCP tools Aun Gate-ready before live enforcement exists.
 > Machine-readable profile: `docs/design/governance/wasurezu-governed-action-profiles.v1.json`
+> ARC schema: `docs/design/governance/governed-action-surface-profile.schema.json`
 
 ## Boundary
 
-These profiles classify Wasurezu action surfaces. They do not enable live Aun
-Gate enforcement, do not authorize action execution, and do not mutate AUN
-queue, claim, requeue, final close, retry, quarantine, merge, or runtime
-lifecycle state.
+These ARC `governed-action-surface-profile/v1` surfaces classify Wasurezu
+action surfaces. They do not enable live Aun Gate enforcement, do not authorize
+action execution, and do not mutate AUN queue, claim, requeue, final close,
+retry, quarantine, merge, or runtime lifecycle state.
 
 Wasurezu supplies governed memory and recovery evidence. AUN/Shirube may later
 consume these profiles for policy, approval, execution-attempt, and audit
@@ -21,7 +22,8 @@ be machine-readable for search, recovery, import, and configuration surfaces.
 ## Current MCP Inventory
 
 The current MCP surface is defined in `src/index.ts`. Every listed tool has a
-matching `wasurezu.<tool>` profile in the JSON file.
+matching `wasurezu.<tool>` surface in the JSON file. Each surface includes the
+ARC-required standalone/interop `boundary` block.
 
 | Tool | Capability classes | Risk | Approval posture |
 |------|--------------------|------|------------------|
