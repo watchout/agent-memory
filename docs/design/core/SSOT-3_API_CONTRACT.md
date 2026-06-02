@@ -124,6 +124,39 @@ Cross-repo boundary with AUN CP-40D:
   `tui-fallback` are adapter-specific renderings and must be recorded as
   feature-detected or degraded evidence by the runtime owner.
 
+## Aun Gate Evidence Refs (AM-119)
+
+Policy and execution authority remains outside Wasurezu. This section defines
+the Wasurezu evidence-ref bundle that AUN can attach to approval requests and
+execution-attempt ledger rows.
+
+| Artifact | Schema | Purpose |
+|----------|--------|---------|
+| `wasurezu-aun-gate-evidence-refs/v1` | `docs/design/schemas/aun-gate-evidence-refs-v1.schema.json` | Recovery, memory, approval-note, redaction, retention, resume, and rollback-context references for Aun Gate records. |
+
+Required evidence fields:
+
+- `recovery_pack_id`
+- `memory_event_ids`
+- `human_intent_ref`
+- `approval_note_ref`
+- `redaction_summary`
+- `retention_policy_ref`
+- `resume_ref`
+- `rollback_context_ref`
+
+Boundary:
+
+- Wasurezu owns the evidence references and their memory/recovery provenance.
+- AUN owns approval lifecycle, policy decision, execution attempts, broker
+  behavior, retry/quarantine, final close/requeue, and runtime lifecycle.
+- `approval_note_ref` and `human_intent_ref` are evidence inputs, not execution
+  authorization.
+- `authorizes_execution` must be `false`, `mutates_aun_lifecycle` must be
+  `false`, and `private_reasoning_included` must be `false`.
+- Unknown or unavailable evidence must be represented in `missing_evidence`;
+  Wasurezu must not silently infer approval, retention, or safe-resume state.
+
 ## MCP Tools
 
 Governed action profiles for these tools live in

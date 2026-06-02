@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/schemas/aun-gate-evidence-refs-v1.schema.json",
+  "title": "Wasurezu Aun Gate Evidence Refs v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_ref",
+    "contract_version",
+    "provider_product",
+    "owner_repo",
+    "evidence_owner",
+    "execution_owner",
+    "authorizes_execution",
+    "mutates_aun_lifecycle",
+    "recovery_pack_id",
+    "memory_event_ids",
+    "human_intent_ref",
+    "approval_note_ref",
+    "redaction_summary",
+    "retention_policy_ref",
+    "resume_ref",
+    "rollback_context_ref",
+    "private_reasoning_included",
+    "source_refs",
+    "missing_evidence"
+  ],
+  "properties": {
+    "schema_ref": {
+      "const": "wasurezu-aun-gate-evidence-refs/v1"
+    },
+    "contract_version": {
+      "const": "0.1.0"
+    },
+    "provider_product": {
+      "const": "wasurezu"
+    },
+    "owner_repo": {
+      "const": "watchout/agent-memory"
+    },
+    "evidence_owner": {
+      "const": "wasurezu"
+    },
+    "execution_owner": {
+      "const": "aun"
+    },
+    "authorizes_execution": {
+      "const": false
+    },
+    "mutates_aun_lifecycle": {
+      "const": false
+    },
+    "recovery_pack_id": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "memory_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "human_intent_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "approval_note_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "redaction_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "status",
+        "private_reasoning_excluded",
+        "redacted_counts",
+        "omitted_counts",
+        "notes"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "redacted-before-emit",
+            "already-redacted",
+            "none-required",
+            "unknown"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "full",
+            "partial",
+            "degraded",
+            "not_applicable"
+          ]
+        },
+        "private_reasoning_excluded": {
+          "const": true
+        },
+        "redacted_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "omitted_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "retention_policy_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "resume_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "rollback_context_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "private_reasoning_included": {
+      "const": false
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "nullable_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    }
+  }
+}
