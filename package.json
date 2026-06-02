@@ -8,6 +8,7 @@
     "wasurezu": "dist/index.js",
     "agent-memory": "dist/index.js",
     "wasurezu-codex-start": "dist/codex-start.js",
+    "wasurezu-claude-start": "dist/claude-start.js",
     "wasurezu-restart": "dist/restart-cli.js"
   },
   "files": [
@@ -38,7 +39,8 @@
     "test:pg": "tsx src/test-pg.ts",
     "migrate": "tsx src/migrate.ts",
     "boot": "tsx src/boot.ts",
-    "codex:start": "tsx src/codex-start.ts"
+    "codex:start": "tsx src/codex-start.ts",
+    "claude:start": "tsx src/claude-start.ts"
   },
   "keywords": [
     "mcp",

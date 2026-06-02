@@ -167,7 +167,7 @@ selected pack content is schema-shaped JSON for adapter delivery.
 
 | Host | Level | Startup Path | Notes |
 |------|-------|--------------|-------|
-| Claude Code | 2 | SessionStart hook runs `boot.js` with `AGENT_MEMORY_BOOT_MODE=restart_pack`. | Native hook can load recovery context, but control-plane runners own prepare/pack/confidence policy. |
+| Claude Code | 2 | `wasurezu-claude-start` prepares a selected `host-invocation-context/v1` pack; SessionStart runs `boot.js` with `AGENT_MEMORY_BOOT_MODE=restart_pack` to load it. | The Claude runner owns deterministic prepare/launch gating in standalone mode. SessionStart is a load hook, not the restart policy owner. |
 | Codex | 1 | Exit the old session, then start with `wasurezu-codex-start --launch --cd <workspace>`. | Plain Codex MCP config is manual recovery only. The bridge is a runtime adapter, not lifecycle policy owner. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
@@ -190,6 +190,40 @@ For Codex:
 /exit
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
+
+For Claude Code standalone resession:
+
+```bash
+/exit
+wasurezu-claude-start --launch \
+  --mode auto_restart \
+  --aun-absent \
+  --supervisor-available \
+  --restart-preauthorized \
+  --cd /path/to/workspace \
+  --mcp-config .mcp.json
+```
+
+`wasurezu-claude-start` always calls `restart_prepare` with
+`pack_format=host-invocation-context-v1`, `target_runtime=claude`, and
+`delivery_mode=session-start-hook`. It accepts host-provided context metrics
+(`--context-used-ratio` or `--context-tokens` plus
+`--context-window-tokens`) and labels missing metrics as estimated. Its
+`prepare`, `warn`, `recommend`, and `require` bands come from the
+control-plane context signal, not from a prompt-local LLM decision.
+
+`--launch` is fail-closed. It only starts a fresh Claude process when
+`restart_prepare` reports `can_auto_restart=true`, a selected pack exists, and
+the action is `restart_recommended` or `restart_required`. This requires
+explicit AUN absence, supervisor/host-hook availability, and restart
+pre-authorization. If AUN is installed or AUN status is unknown, the runner
+prints evidence and does not launch Claude.
+
+The runner does not kill or replace existing Claude sessions. Operators or the
+installed supervisor must close the old session through the host's normal
+mechanism before starting the new one. The next Claude session receives
+`AGENT_MEMORY_SELECTED_PACK_REF` and `AGENT_MEMORY_BOOT_MODE=restart_pack` so
+the SessionStart hook can consume the selected pack.
 
 This avoids ambiguous singleton ownership. If multiple sessions are running for
 the same `agent_id` and project, that is an operator or host lifecycle issue,

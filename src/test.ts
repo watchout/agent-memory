@@ -42,6 +42,16 @@ import {
   logCodexStartupQuality,
   parseArgs,
 } from "./codex-start.js";
+import {
+  CLAUDE_RESESSION_RUNNER_ENV,
+  buildClaudeLaunchArgs,
+  buildClaudeLaunchEnv,
+  buildClaudeRunnerResult,
+  isMainEntrypoint as isClaudeMainEntrypoint,
+  launchBlockersFor,
+  parseClaudeStartArgs,
+  prepareClaudeResession,
+} from "./claude-start.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
@@ -1507,6 +1517,214 @@ async function testCodexStartupBridge() {
   }
 }
 
+async function testClaudeResessionRunner() {
+  console.log("\n── Claude Resession Runner Tests ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const agentId = "test-claude-runner-agent";
+  const project = "claude-runner";
+
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "AM-125 implement Claude host resession runner",
+    status: "in_progress",
+    progress: "Runner tests are preparing selected packs.",
+    next_steps: "Verify standalone launch gating.",
+  });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "Claude SessionStart loads selected packs but does not own restart policy.",
+    tags: ["AM-125", "claude"],
+  });
+
+  const prepareBand = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    contextUsedRatio: 0.72,
+    launch: false,
+  });
+  assert(prepareBand.prepare.context_signal.source === "host_metrics", "Claude runner uses host-provided context metrics");
+  assert(prepareBand.prepare.context_signal.band === "prepare", "Claude runner maps 72% context to prepare band");
+  assert(prepareBand.prepare.action === "pack_update_needed", "Claude runner prepare band updates pack without recommending restart");
+  assert(prepareBand.prepare.restart_pack_format === "host-invocation-context-v1", "Claude runner persists structured host invocation packs");
+  assert(prepareBand.prepare.restart_pack_schema_ref === "host-invocation-context/v1", "Claude runner records host invocation schema ref");
+
+  const warnBand = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    contextUsedRatio: 0.83,
+    launch: false,
+  });
+  assert(warnBand.prepare.context_signal.band === "warn", "Claude runner maps 83% context to warn band");
+  assert(warnBand.prepare.action === "pack_update_needed", "Claude runner warn band does not force restart");
+
+  const recommendBand = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    contextUsedRatio: 0.91,
+    launch: false,
+  });
+  assert(recommendBand.prepare.context_signal.band === "recommend", "Claude runner maps 91% context to recommend band");
+  assert(recommendBand.prepare.action === "restart_recommended", "Claude runner recommend band emits restart recommendation");
+
+  const requireBand = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    contextUsedRatio: 0.96,
+    launch: false,
+  });
+  assert(requireBand.prepare.context_signal.band === "require", "Claude runner maps 96% context to require band");
+  assert(requireBand.prepare.action === "restart_required", "Claude runner require band emits restart_required");
+  assert(requireBand.prepare.pack_ref?.startsWith("selected_restart_pack:") === true, "Claude runner returns selected pack ref");
+  const selected = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: requireBand.prepare.pack_ref! });
+  assert(selected !== null, "Claude runner persists selected restart pack");
+  const selectedContent = JSON.parse(selected!.content);
+  assert(validateHostInvocationContextArtifact(selectedContent).valid, "Claude runner selected pack validates as host invocation context");
+  assert(selectedContent.target_runtime === "claude", "Claude runner targets Claude");
+  assert(selectedContent.delivery_mode === "session-start-hook", "Claude runner uses SessionStart delivery");
+  assert(selectedContent.untrusted_context_policy === "quote-as-data-only", "Claude runner keeps context data-only");
+
+  const runtimeError = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    runtimeContextError: true,
+    launch: false,
+  });
+  assert(runtimeError.prepare.action === "restart_required", "Claude runner treats runtime context error as restart_required");
+  assert(runtimeError.prepare.context_signal.source === "estimated", "Claude runner marks metric-absent signal as estimated");
+
+  const sparse = await prepareClaudeResession(store, {
+    agentId: "test-claude-runner-sparse",
+    project,
+    launch: false,
+  });
+  assert(sparse.prepare.recovery_confidence.level === "low", "Claude runner reports low confidence for sparse pack");
+  assert(sparse.prepare.recovery_confidence.missing_context.includes("active_task"), "Claude runner reports missing active task");
+
+  const pureMcpLaunch = buildClaudeRunnerResult(requireBand.prepare, true);
+  assert(pureMcpLaunch.launch_blockers.includes("restart_prepare_can_auto_restart_false"), "Claude runner launch fails closed without auto_restart authorization");
+
+  const aunBlocked = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    continuityGuardMode: "auto_restart",
+    aunInstalled: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+    contextUsedRatio: 0.96,
+    launch: true,
+  });
+  assert(aunBlocked.prepare.can_auto_restart === false, "Claude runner does not auto restart in AUN-supervised mode");
+  assert(aunBlocked.launch_blockers.includes("aun_installed"), "Claude runner exposes AUN launch blocker");
+
+  const preauthorized = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    continuityGuardMode: "auto_restart",
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+    contextUsedRatio: 0.96,
+    launch: true,
+  });
+  assert(preauthorized.prepare.can_auto_restart === true, "Claude runner allows pre-authorized standalone auto_restart");
+  assert(launchBlockersFor(preauthorized.prepare).length === 0, "Claude runner has no launch blockers when standalone gates pass");
+  assert(preauthorized.launch_blockers.length === 0, "Claude runner result has no launch blockers for valid standalone launch");
+
+  const prepareOnlyLaunch = await prepareClaudeResession(store, {
+    agentId,
+    project,
+    continuityGuardMode: "auto_restart",
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+    contextUsedRatio: 0.72,
+    launch: true,
+  });
+  assert(prepareOnlyLaunch.launch_blockers.includes("restart_not_recommended_or_required"), "Claude runner does not launch for prepare-only band");
+
+  const launchEnv = buildClaudeLaunchEnv({ EXISTING_ENV: "kept" }, preauthorized.prepare);
+  assert(launchEnv.EXISTING_ENV === "kept", "Claude runner launch env preserves existing values");
+  assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CLAUDE_RESESSION_RUNNER_ENV, "Claude runner marks startup bridge env");
+  assert(launchEnv.AGENT_MEMORY_BOOT_MODE === "restart_pack", "Claude runner launch env enables restart_pack boot");
+  assert(launchEnv.AGENT_MEMORY_SELECTED_PACK_REF === preauthorized.prepare.pack_ref, "Claude runner passes selected pack ref to next session");
+
+  const launchArgs = buildClaudeLaunchArgs({ mcpConfig: ".mcp.json", claudeArgs: ["--dangerously-skip-permissions"] });
+  assert(launchArgs[0] === "--mcp-config" && launchArgs[1] === ".mcp.json", "Claude runner launch args pass mcp config");
+  assert(launchArgs.includes("--dangerously-skip-permissions"), "Claude runner launch args preserve explicit argv items");
+
+  const parsed = parseClaudeStartArgs([
+    "--launch",
+    "--agent-id",
+    "auditor",
+    "--project",
+    "dev-auditor",
+    "--mode",
+    "auto_restart",
+    "--context-used-ratio",
+    "0.96",
+    "--aun-absent",
+    "--supervisor-available",
+    "--restart-preauthorized",
+    "--cd",
+    "/tmp/dev-auditor",
+    "--mcp-config",
+    ".mcp.json",
+    "--claude-bin",
+    "claude-dev",
+    "--claude-arg",
+    "--dangerously-skip-permissions",
+  ]);
+  assert(parsed.launch === true, "Claude runner parser enables launch");
+  assert(parsed.agentId === "auditor", "Claude runner parser reads agent id");
+  assert(parsed.project === "dev-auditor", "Claude runner parser reads project");
+  assert(parsed.continuityGuardMode === "auto_restart", "Claude runner parser reads guard mode");
+  assert(parsed.contextUsedRatio === 0.96, "Claude runner parser reads context ratio");
+  assert(parsed.aunAbsentConfirmed === true, "Claude runner parser reads AUN absence evidence");
+  assert(parsed.supervisorAvailable === true, "Claude runner parser reads supervisor availability");
+  assert(parsed.restartPreauthorized === true, "Claude runner parser reads restart preauthorization");
+  assert(parsed.cd === "/tmp/dev-auditor", "Claude runner parser reads working directory");
+  assert(parsed.mcpConfig === ".mcp.json", "Claude runner parser reads mcp config");
+  assert(parsed.claudeBin === "claude-dev", "Claude runner parser reads Claude bin");
+  assert(parsed.claudeArgs.includes("--dangerously-skip-permissions"), "Claude runner parser reads repeated Claude args");
+
+  const printAfterLaunch = parseClaudeStartArgs(["--launch", "--print"]);
+  assert(printAfterLaunch.launch === false, "Claude runner parser lets later --print disable launch");
+
+  try {
+    parseClaudeStartArgs(["--context-used-ratio", "1.2"]);
+    assert(false, "Claude runner parser rejects invalid context ratio");
+  } catch {
+    assert(true, "Claude runner parser rejects invalid context ratio");
+  }
+
+  try {
+    parseClaudeStartArgs(["--max-tokens", "0"]);
+    assert(false, "Claude runner parser rejects zero max tokens");
+  } catch {
+    assert(true, "Claude runner parser rejects zero max tokens");
+  }
+
+  const distEntrypoint = join(process.cwd(), "dist/claude-start.js");
+  const symlinkDir = mkdtempSync(join(tmpdir(), "am125-claude-bin-"));
+  const symlinkPath = join(symlinkDir, "wasurezu-claude-start");
+  if (existsSync(distEntrypoint)) {
+    symlinkSync(distEntrypoint, symlinkPath);
+    assert(isClaudeMainEntrypoint(symlinkPath, `file://${distEntrypoint}`), "Claude runner entrypoint resolves npm bin symlinks");
+    const help = execFileSync(process.execPath, [symlinkPath, "--help"], { encoding: "utf8" });
+    assert(help.includes("wasurezu-claude-start"), "Claude runner bin symlink executes CLI help");
+    assert(help.includes("does not kill or replace"), "Claude runner help avoids claiming process replacement");
+    assert(help.includes("TUI input remains fallback only"), "Claude runner help keeps TUI fallback-only boundary");
+  } else {
+    assert(true, "Claude runner bin symlink test skipped because dist/claude-start.js is absent");
+  }
+  rmSync(symlinkDir, { recursive: true, force: true });
+
+  await store.close();
+}
+
 async function testRestartPrepare() {
   console.log("\n── Restart Prepare Tests ──");
   const store = new JsonStore();
@@ -1733,6 +1951,7 @@ function testHostAdapterPackagingBoundary() {
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
   assert(packageJson.files.includes("docs/design/schemas"), "npm package includes structured artifact schemas");
   assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
+  assert(packageJson.bin["wasurezu-claude-start"] === "dist/claude-start.js", "npm package exposes wasurezu-claude-start CLI");
   assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
 
   const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
@@ -1754,6 +1973,10 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("RuntimeRunnerResult/v1"), "host adapter docs reference AUN runner result evidence");
   assert(normalizedHostAdapters.includes("context_pack_refs"), "host adapter docs map recovery pack to AUN context pack refs");
   assert(normalizedHostAdapters.includes("scheduler activation, recovery success, merge authorization, final delivery proof"), "host adapter docs keep TUI fallback degraded under CP-40D");
+  assert(normalizedHostAdapters.includes("`wasurezu-claude-start` prepares a selected `host-invocation-context/v1` pack"), "host adapter docs define Claude runner primary path");
+  assert(normalizedHostAdapters.includes("SessionStart is a load hook, not the restart policy owner"), "host adapter docs keep Claude SessionStart as load hook");
+  assert(normalizedHostAdapters.includes("`--launch` is fail-closed"), "host adapter docs document Claude runner launch fail-closed behavior");
+  assert(normalizedHostAdapters.includes("The runner does not kill or replace existing Claude sessions"), "host adapter docs avoid claiming Claude process replacement");
 
   const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
   assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
@@ -1784,6 +2007,8 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedApiContract.includes("Wasurezu `host-invocation-context/v1` is a recovery/context artifact, not an AUN `RuntimeRunnerInvocation/v1`"), "SSOT-3 keeps host invocation artifact out of AUN runner invocation ownership");
   assert(normalizedApiContract.includes("AUN runner code owns `RuntimeInvocationProfile/v1`"), "SSOT-3 assigns AUN runtime profile ownership");
   assert(normalizedApiContract.includes("Wasurezu `context_data` may be referenced by AUN as `context_pack_refs`"), "SSOT-3 maps context data to AUN context pack refs");
+  assert(normalizedApiContract.includes("`wasurezu-claude-start` is the Claude host runner entrypoint"), "SSOT-3 documents Claude runner API boundary");
+  assert(normalizedApiContract.includes("SessionStart remains the selected-pack load hook, not the restart policy owner"), "SSOT-3 pins Claude SessionStart boundary");
 
   const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
   const normalizedDataModel = dataModel.replace(/\s+/g, " ");
@@ -1857,6 +2082,8 @@ function testConversationScopeSchemaRegression() {
   assert(readme.includes("does not emit raw transcript excerpts"), "README documents restart_pack transcript boundary");
   assert(readme.includes("host-invocation-context/v1"), "README documents structured restart_pack automation output");
   assert(readme.includes("`pack_format`"), "README documents structured selected-pack persistence");
+  assert(readme.includes("wasurezu-claude-start"), "README documents Claude resession runner");
+  assert(readme.includes("SessionStart self-kick"), "README keeps Claude self-kick fallback-only boundary");
   const apiContract = readFileSync(join(process.cwd(), "docs/design/core/SSOT-3_API_CONTRACT.md"), "utf8");
   assert(apiContract.includes("restart_prepare"), "API contract documents restart_prepare");
   assert(apiContract.includes("does not stop, restart, requeue"), "API contract preserves restart_prepare lifecycle boundary");
@@ -1865,6 +2092,7 @@ function testConversationScopeSchemaRegression() {
   assert(apiContract.includes("published JSON Schema"), "API contract documents canonical schema validation");
   assert(apiContract.includes("selected_restart_pack:<id>"), "API contract documents selected restart pack refs");
   assert(apiContract.includes("AGENT_MEMORY_SELECTED_PACK_REF"), "API contract documents boot selected-pack consume");
+  assert(apiContract.includes("wasurezu-claude-start"), "API contract documents Claude runner");
   const dataModel = readFileSync(join(process.cwd(), "docs/design/core/SSOT-4_DATA_MODEL.md"), "utf8");
   assert(dataModel.includes("redacted full-text conversation event"), "data model documents redacted full-text conversation events");
   assert(dataModel.includes("exclude hidden reasoning"), "data model documents conversation event filtering boundary");
@@ -2159,6 +2387,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
+  await testClaudeResessionRunner();
   await testRestartPrepare();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
