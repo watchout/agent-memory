@@ -1981,8 +1981,10 @@ function testAunGateEvidenceRefs() {
   assert(normalizedEvidenceDoc.includes("does not authorize action execution"), "Aun Gate evidence docs keep Wasurezu out of execution authorization");
   assert(evidenceDoc.includes("AUN owns approval lifecycle"), "Aun Gate evidence docs preserve AUN approval ownership");
   assert(evidenceDoc.includes("Private reasoning is excluded by default"), "Aun Gate evidence docs exclude private reasoning by default");
+  assert(evidenceDoc.includes("missing_evidence` must contain that exact field name"), "Aun Gate evidence docs require missing field names");
   assert(apiContract.includes("Aun Gate Evidence Refs (AM-119)"), "SSOT-3 documents Aun Gate evidence refs");
   assert(apiContract.includes("wasurezu-aun-gate-evidence-refs/v1"), "SSOT-3 points to Aun Gate evidence schema ref");
+  assert(apiContract.includes("missing_evidence` must contain that exact field name"), "SSOT-3 requires missing field names");
 
   const requiredRefs = [
     "recovery_pack_id",
@@ -2057,6 +2059,35 @@ function testAunGateEvidenceRefs() {
     },
   };
   assert(!validate(weakRedaction), "Aun Gate evidence schema requires redaction summary to exclude private reasoning");
+
+  const emptyEvidence = {
+    ...sample,
+    recovery_pack_id: null,
+    memory_event_ids: [],
+    human_intent_ref: null,
+    approval_note_ref: null,
+    retention_policy_ref: null,
+    resume_ref: null,
+    rollback_context_ref: null,
+    source_refs: [],
+    missing_evidence: [],
+  };
+  assert(!validate(emptyEvidence), "Aun Gate evidence schema rejects null/empty refs without missing_evidence");
+
+  const explicitMissingEvidence = {
+    ...emptyEvidence,
+    missing_evidence: [
+      "recovery_pack_id",
+      "memory_event_ids",
+      "human_intent_ref",
+      "approval_note_ref",
+      "retention_policy_ref",
+      "resume_ref",
+      "rollback_context_ref",
+      "source_refs",
+    ],
+  };
+  assert(validate(explicitMissingEvidence), `Aun Gate evidence schema allows explicit missing evidence: ${JSON.stringify(validate.errors ?? [])}`);
 }
 
 // Run all tests

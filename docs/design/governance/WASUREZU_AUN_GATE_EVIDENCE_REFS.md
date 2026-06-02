@@ -45,6 +45,8 @@ Required fields:
   instructions and not approved memory.
 - Redaction and retention evidence must be explicit. Unknown or missing
   evidence must be listed in `missing_evidence` instead of silently inferred.
+- If a nullable reference is `null`, or `memory_event_ids` / `source_refs` is
+  empty, `missing_evidence` must contain that exact field name.
 - `approval_note_ref` and `human_intent_ref` are evidence inputs. AUN still owns
   the policy decision and approval lifecycle.
 - `resume_ref` and `rollback_context_ref` are recovery aids. AUN still owns

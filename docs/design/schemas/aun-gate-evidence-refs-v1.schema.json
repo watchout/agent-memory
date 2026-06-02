@@ -25,6 +25,112 @@
     "source_refs",
     "missing_evidence"
   ],
+  "allOf": [
+    {
+      "if": {
+        "required": ["recovery_pack_id"],
+        "properties": {
+          "recovery_pack_id": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "recovery_pack_id" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["memory_event_ids"],
+        "properties": {
+          "memory_event_ids": { "maxItems": 0 }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "memory_event_ids" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["human_intent_ref"],
+        "properties": {
+          "human_intent_ref": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "human_intent_ref" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["approval_note_ref"],
+        "properties": {
+          "approval_note_ref": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "approval_note_ref" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["retention_policy_ref"],
+        "properties": {
+          "retention_policy_ref": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "retention_policy_ref" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["resume_ref"],
+        "properties": {
+          "resume_ref": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "resume_ref" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["rollback_context_ref"],
+        "properties": {
+          "rollback_context_ref": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "rollback_context_ref" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["source_refs"],
+        "properties": {
+          "source_refs": { "maxItems": 0 }
+        }
+      },
+      "then": {
+        "properties": {
+          "missing_evidence": { "contains": { "const": "source_refs" } }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_ref": {
       "const": "wasurezu-aun-gate-evidence-refs/v1"

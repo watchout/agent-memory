@@ -156,6 +156,8 @@ Boundary:
   `false`, and `private_reasoning_included` must be `false`.
 - Unknown or unavailable evidence must be represented in `missing_evidence`;
   Wasurezu must not silently infer approval, retention, or safe-resume state.
+- If a nullable reference is `null`, or `memory_event_ids` / `source_refs` is
+  empty, `missing_evidence` must contain that exact field name.
 
 ## MCP Tools
 
