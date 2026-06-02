@@ -1968,6 +1968,128 @@ function testGovernedActionProfiles() {
   assert(restartPack.notes.includes("shell_free_trusted_instruction"), "restart_pack profile requires shell-free trusted instruction");
 }
 
+function testAunGateEvidenceRefs() {
+  console.log("\n── Aun Gate Evidence Ref Tests ──");
+  const schema = JSON.parse(readFileSync("docs/design/schemas/aun-gate-evidence-refs-v1.schema.json", "utf8"));
+  const evidenceDoc = readFileSync("docs/design/governance/WASUREZU_AUN_GATE_EVIDENCE_REFS.md", "utf8");
+  const normalizedEvidenceDoc = evidenceDoc.replace(/\s+/g, " ");
+  const apiContract = readFileSync("docs/design/core/SSOT-3_API_CONTRACT.md", "utf8");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+
+  assert(packageJson.files.includes("docs/design/schemas"), "npm package includes Aun Gate evidence schema directory");
+  assert(packageJson.files.includes("docs/design/governance"), "npm package includes Aun Gate evidence governance docs");
+  assert(normalizedEvidenceDoc.includes("does not authorize action execution"), "Aun Gate evidence docs keep Wasurezu out of execution authorization");
+  assert(evidenceDoc.includes("AUN owns approval lifecycle"), "Aun Gate evidence docs preserve AUN approval ownership");
+  assert(evidenceDoc.includes("Private reasoning is excluded by default"), "Aun Gate evidence docs exclude private reasoning by default");
+  assert(evidenceDoc.includes("missing_evidence` must contain that exact field name"), "Aun Gate evidence docs require missing field names");
+  assert(apiContract.includes("Aun Gate Evidence Refs (AM-119)"), "SSOT-3 documents Aun Gate evidence refs");
+  assert(apiContract.includes("wasurezu-aun-gate-evidence-refs/v1"), "SSOT-3 points to Aun Gate evidence schema ref");
+  assert(apiContract.includes("missing_evidence` must contain that exact field name"), "SSOT-3 requires missing field names");
+
+  const requiredRefs = [
+    "recovery_pack_id",
+    "memory_event_ids",
+    "human_intent_ref",
+    "approval_note_ref",
+    "redaction_summary",
+    "retention_policy_ref",
+    "resume_ref",
+    "rollback_context_ref",
+  ];
+  for (const field of requiredRefs) {
+    assert(schema.required.includes(field), `Aun Gate evidence schema requires ${field}`);
+    assert(apiContract.includes(field), `SSOT-3 documents ${field}`);
+    assert(evidenceDoc.includes(field), `Aun Gate evidence docs document ${field}`);
+  }
+
+  const sample = {
+    schema_ref: "wasurezu-aun-gate-evidence-refs/v1",
+    contract_version: "0.1.0",
+    provider_product: "wasurezu",
+    owner_repo: "watchout/agent-memory",
+    evidence_owner: "wasurezu",
+    execution_owner: "aun",
+    authorizes_execution: false,
+    mutates_aun_lifecycle: false,
+    recovery_pack_id: "restart_pack:aun:test:123",
+    memory_event_ids: ["conversation_event:abc", "decision:def"],
+    human_intent_ref: "human_intent:github-issue-119",
+    approval_note_ref: "approval_note:manual-review-123",
+    redaction_summary: {
+      mode: "redacted-before-emit",
+      status: "full",
+      private_reasoning_excluded: true,
+      redacted_counts: {
+        secret: 1,
+        pii: 2,
+      },
+      omitted_counts: {
+        private_reasoning: 3,
+      },
+      notes: ["raw transcript remains source data"],
+    },
+    retention_policy_ref: "retention_policy:memory-default",
+    resume_ref: "selected_restart_pack:abc",
+    rollback_context_ref: "rollback_context:manual-reconcile-123",
+    private_reasoning_included: false,
+    source_refs: ["docs/design/core/SSOT-3_API_CONTRACT.md", "docs/design/schemas/recovery-pack-v1.schema.json"],
+    missing_evidence: [],
+  };
+  const ajv = new Ajv2020({ strict: false });
+  const validate = ajv.compile(schema);
+  assert(validate(sample), `Aun Gate evidence ref sample validates: ${JSON.stringify(validate.errors ?? [])}`);
+
+  const withExtra = { ...sample, execution_allowed: true };
+  assert(!validate(withExtra), "Aun Gate evidence schema rejects additional properties");
+
+  const executionAuthority = { ...sample, authorizes_execution: true };
+  assert(!validate(executionAuthority), "Aun Gate evidence schema rejects Wasurezu execution authorization");
+
+  const lifecycleMutation = { ...sample, mutates_aun_lifecycle: true };
+  assert(!validate(lifecycleMutation), "Aun Gate evidence schema rejects AUN lifecycle mutation");
+
+  const privateReasoning = { ...sample, private_reasoning_included: true };
+  assert(!validate(privateReasoning), "Aun Gate evidence schema rejects private reasoning inclusion");
+
+  const weakRedaction = {
+    ...sample,
+    redaction_summary: {
+      ...sample.redaction_summary,
+      private_reasoning_excluded: false,
+    },
+  };
+  assert(!validate(weakRedaction), "Aun Gate evidence schema requires redaction summary to exclude private reasoning");
+
+  const emptyEvidence = {
+    ...sample,
+    recovery_pack_id: null,
+    memory_event_ids: [],
+    human_intent_ref: null,
+    approval_note_ref: null,
+    retention_policy_ref: null,
+    resume_ref: null,
+    rollback_context_ref: null,
+    source_refs: [],
+    missing_evidence: [],
+  };
+  assert(!validate(emptyEvidence), "Aun Gate evidence schema rejects null/empty refs without missing_evidence");
+
+  const explicitMissingEvidence = {
+    ...emptyEvidence,
+    missing_evidence: [
+      "recovery_pack_id",
+      "memory_event_ids",
+      "human_intent_ref",
+      "approval_note_ref",
+      "retention_policy_ref",
+      "resume_ref",
+      "rollback_context_ref",
+      "source_refs",
+    ],
+  };
+  assert(validate(explicitMissingEvidence), `Aun Gate evidence schema allows explicit missing evidence: ${JSON.stringify(validate.errors ?? [])}`);
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -1996,6 +2118,7 @@ async function run() {
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
   testGovernedActionProfiles();
+  testAunGateEvidenceRefs();
 
   await cleanup();
 
