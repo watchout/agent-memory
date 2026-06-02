@@ -751,6 +751,40 @@ async function testConversationEvents() {
   const all = await store.getConversationEvents({ agent_id: AGENT, project: PROJECT });
   assert(all.length === 2, "getConversationEvents returns unique redacted events");
   assert(all[0].source === "claude_code", "events sorted newest first");
+  const rawConversationEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(rawConversationEvents.length === 2, "conversation_events are mirrored into raw_events");
+  const firstRawEvent = rawConversationEvents.find((event) => event.source_event_id === first.id);
+  assert(firstRawEvent !== undefined, "raw_events includes conversation event provenance");
+  if (!firstRawEvent) throw new Error("missing raw event for first conversation event");
+  assert(firstRawEvent.event_type === "assistant_message", "raw_events maps assistant conversation role");
+  assert(firstRawEvent.content_hash === first.content_hash, "raw_events preserves conversation content hash");
+  assert(firstRawEvent.metadata.compatibility_table === "conversation_events", "raw_events records compatibility provenance");
+  const duplicateRawEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(duplicateRawEvents.length === 2, "duplicate conversation ingest does not duplicate raw_events");
+  const manualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "sqlite-manual-raw-1",
+    event_type: "host_event",
+    content: "SQLite host observed prepare band.",
+    metadata: { band: "prepare" },
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  const duplicateManualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "sqlite-manual-raw-1",
+    event_type: "host_event",
+    content: "SQLite host observed prepare band.",
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  assert(manualRaw.id === duplicateManualRaw.id, "raw_events deduplicate by source_event_id");
+  const sessionRaw = await store.getRawEvents({ agent_id: AGENT, session_id: "sqlite-session-raw-1" });
+  assert(sessionRaw.length === 1 && sessionRaw[0].metadata.band === "prepare", "raw_events filters by session_id");
   const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });
   assert(codexOnly.length === 1, "source filter works");
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");

@@ -5,6 +5,7 @@ import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { deriveTaskIdFromTask } from "./task-id.js";
+import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import type {
   Store,
   Decision,
@@ -12,6 +13,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  RawEvent,
   SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
@@ -27,6 +29,8 @@ import type {
   LogRecoveryQualityInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveRawEventInput,
+  GetRawEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -136,6 +140,40 @@ const MIGRATIONS = [
     WHERE source_event_id IS NULL`,
   `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
     ON conversation_events(agent_id, source, occurred_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS raw_events (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    session_id TEXT,
+    project TEXT,
+    host TEXT NOT NULL DEFAULT 'unknown',
+    source TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'event',
+    source_ref TEXT NOT NULL DEFAULT '{}',
+    source_ref_hash TEXT NOT NULL DEFAULT '',
+    event_at TEXT,
+    ingested_at TEXT,
+    content_text TEXT,
+    content_json TEXT,
+    redaction_level TEXT NOT NULL DEFAULT 'basic',
+    private_reasoning INTEGER NOT NULL DEFAULT 0,
+    content TEXT,
+    content_hash TEXT,
+    source_event_id TEXT,
+    source_path TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    occurred_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_events_source_event
+    ON raw_events(agent_id, source, source_event_id)
+    WHERE source_event_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_events_hash_time
+    ON raw_events(agent_id, source, content_hash, occurred_at)
+    WHERE source_event_id IS NULL AND content_hash IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_raw_events_recent
+    ON raw_events(agent_id, source, occurred_at DESC)`,
 
   `CREATE TABLE IF NOT EXISTS selected_restart_packs (
     id TEXT PRIMARY KEY,
@@ -899,8 +937,10 @@ export class SqliteStore implements Store {
       ? [input.agent_id, input.source, input.source_event_id]
       : [input.agent_id, input.source, hash, occurredAt];
     const rows = this.allRows(`SELECT * FROM conversation_events WHERE ${where} LIMIT 1`, params);
+    const event = this.rowToConversationEvent(rows[0]);
     this.persist();
-    return this.rowToConversationEvent(rows[0]);
+    await this.ensureConversationRawEvent(event);
+    return event;
   }
 
   async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
@@ -926,6 +966,95 @@ export class SqliteStore implements Store {
       params
     );
     return rows.map((row) => this.rowToConversationEvent(row));
+  }
+
+  async saveRawEvent(input: SaveRawEventInput): Promise<RawEvent> {
+    const id = uuidv4();
+    const now = nowIso();
+    const hash = input.content_hash ?? (input.content ? contentHash(input.content) : undefined);
+    const occurredAt = input.occurred_at ?? now;
+    const sourceRef = rawEventSourceRef(input);
+    const sourceRefHash = contentHash(JSON.stringify(sourceRef));
+    this.db.run(
+      `INSERT OR IGNORE INTO raw_events
+        (id, agent_id, session_id, project, host, source, event_type, role,
+         source_ref, source_ref_hash, event_at, ingested_at, content_text,
+         content_json, redaction_level, private_reasoning, content, content_hash,
+         source_event_id, source_path, metadata, occurred_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.agent_id,
+        input.session_id ?? null,
+        input.project ?? null,
+        input.host ?? "unknown",
+        input.source,
+        input.event_type,
+        input.role ?? "event",
+        JSON.stringify(sourceRef),
+        sourceRefHash,
+        occurredAt,
+        now,
+        input.content ?? null,
+        null,
+        input.redaction_level ?? "basic",
+        input.private_reasoning ? 1 : 0,
+        input.content ?? null,
+        hash ?? null,
+        input.source_event_id ?? null,
+        input.source_path ?? null,
+        JSON.stringify(input.metadata ?? {}),
+        occurredAt,
+        now,
+      ]
+    );
+
+    const where = input.source_event_id
+      ? "agent_id = ? AND source = ? AND source_event_id = ?"
+      : "agent_id = ? AND source = ? AND content_hash = ? AND occurred_at = ?";
+    const params = input.source_event_id
+      ? [input.agent_id, input.source, input.source_event_id]
+      : [input.agent_id, input.source, hash, occurredAt];
+    const rows = this.allRows(`SELECT * FROM raw_events WHERE ${where} LIMIT 1`, params);
+    this.persist();
+    return this.rowToRawEvent(rows[0]);
+  }
+
+  async getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]> {
+    const conditions: string[] = ["agent_id = ?"];
+    const params: unknown[] = [input.agent_id];
+    if (input.session_id) {
+      conditions.push("session_id = ?");
+      params.push(input.session_id);
+    }
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    if (input.source) {
+      conditions.push("source = ?");
+      params.push(input.source);
+    }
+    if (input.event_type) {
+      conditions.push("event_type = ?");
+      params.push(input.event_type);
+    }
+    if (input.since) {
+      conditions.push("occurred_at >= ?");
+      params.push(input.since);
+    }
+    const rows = this.allRows(
+      `SELECT * FROM raw_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC
+       LIMIT ${input.limit ?? 50}`,
+      params
+    );
+    return rows.map((row) => this.rowToRawEvent(row));
+  }
+
+  private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
+    await this.saveRawEvent(conversationEventToRawEventInput(event));
   }
 
   // ─── Recovery Config ─────────────────────────────────────────
@@ -1236,6 +1365,30 @@ export class SqliteStore implements Store {
       metadata,
       occurred_at: row.occurred_at as string,
       created_at: row.created_at as string,
+    };
+  }
+
+  private rowToRawEvent(row: Record<string, unknown>): RawEvent {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      session_id: (row.session_id as string | null) ?? undefined,
+      project: (row.project as string | null) ?? undefined,
+      host: (row.host as string | null) ?? undefined,
+      source: row.source as string,
+      event_type: row.event_type as RawEvent["event_type"],
+      role: (row.role as string | null) ?? undefined,
+      content: ((row.content as string | null) ?? (row.content_text as string | null)) ?? undefined,
+      content_hash: (row.content_hash as string | null) ?? undefined,
+      source_ref: parseJsonObject(row.source_ref),
+      source_ref_hash: (row.source_ref_hash as string | null) ?? undefined,
+      source_event_id: (row.source_event_id as string | null) ?? undefined,
+      source_path: (row.source_path as string | null) ?? undefined,
+      redaction_level: (row.redaction_level as string | null) ?? undefined,
+      private_reasoning: Boolean(row.private_reasoning),
+      metadata: parseJsonObject(row.metadata),
+      occurred_at: ((row.occurred_at as string | null) ?? (row.event_at as string | null)) ?? "",
+      created_at: ((row.created_at as string | null) ?? (row.ingested_at as string | null)) ?? "",
     };
   }
 

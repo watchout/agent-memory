@@ -162,6 +162,65 @@ export interface ConversationEvent {
   created_at: string;
 }
 
+export interface RawEvent {
+  id: string;
+  agent_id: string;
+  session_id?: string;
+  project?: string;
+  host?: string;
+  source: string;
+  event_type:
+    | "user_message"
+    | "assistant_message"
+    | "tool_call"
+    | "tool_result"
+    | "file_ref"
+    | "context_ref"
+    | "host_event"
+    | "runtime_event";
+  role?: string;
+  content?: string;
+  content_hash?: string;
+  source_ref?: Record<string, unknown>;
+  source_ref_hash?: string;
+  source_event_id?: string;
+  source_path?: string;
+  redaction_level?: string;
+  private_reasoning?: boolean;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface SaveRawEventInput {
+  agent_id: string;
+  session_id?: string;
+  project?: string;
+  host?: string;
+  source: string;
+  event_type: RawEvent["event_type"];
+  role?: string;
+  content?: string;
+  content_hash?: string;
+  source_ref?: Record<string, unknown>;
+  redaction_level?: string;
+  private_reasoning?: boolean;
+  source_event_id?: string;
+  source_path?: string;
+  metadata?: Record<string, unknown>;
+  occurred_at?: string;
+}
+
+export interface GetRawEventsInput {
+  agent_id: string;
+  session_id?: string;
+  project?: string;
+  source?: string;
+  event_type?: RawEvent["event_type"];
+  since?: string;
+  limit?: number;
+}
+
 export interface SaveConversationEventInput {
   agent_id: string;
   project?: string;
@@ -292,6 +351,12 @@ export interface Store {
 
   /** Read redacted full-text conversation/log events in newest-first order (AM-031) */
   getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]>;
+
+  /** Persist a source-bearing raw event in the canonical ledger (AM-103 first slice) */
+  saveRawEvent(input: SaveRawEventInput): Promise<RawEvent>;
+
+  /** Read canonical raw events in newest-first order (AM-103 first slice) */
+  getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]>;
 
   /** Save a knowledge entry (v0.3.0) */
   saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;

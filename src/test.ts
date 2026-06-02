@@ -864,7 +864,7 @@ async function testConversationEvents() {
     content: "We should continue AM-031 from the redacted event storage PR.",
     occurred_at: "2026-05-19T00:00:00.000Z",
   });
-  await store.saveConversationEvent({
+  const second = await store.saveConversationEvent({
     agent_id: "test-agent",
     project: "hotel-app",
     source: "claude_code",
@@ -873,7 +873,7 @@ async function testConversationEvents() {
     content: "Session restart should recover the active task.",
     occurred_at: "2026-05-19T00:01:00.000Z",
   });
-  await store.saveConversationEvent({
+  const third = await store.saveConversationEvent({
     agent_id: "test-agent",
     project: "hotel-app",
     source: "codex",
@@ -887,9 +887,47 @@ async function testConversationEvents() {
   const all = await store.getConversationEvents({ agent_id: "test-agent" });
   assert(all.length === 3, "getConversationEvents returns unique redacted events");
   assert(all[0].source_event_id === "codex-token-count-noise", "events sorted newest first");
+  const rawConversationEvents = await store.getRawEvents({ agent_id: "test-agent", source: "conversation_event" });
+  const mirroredConversationEventIds = new Set(rawConversationEvents.map((event) => event.source_event_id));
+  assert([first.id, second.id, third.id].every((id) => mirroredConversationEventIds.has(id)), "conversation_events are mirrored into raw_events");
+  const firstRawEvent = rawConversationEvents.find((event) => event.source_event_id === first.id);
+  assert(firstRawEvent !== undefined, "raw_events includes conversation event provenance");
+  if (!firstRawEvent) throw new Error("missing raw event for first conversation event");
+  assert(firstRawEvent.event_type === "assistant_message", "raw_events maps assistant conversation role");
+  assert(firstRawEvent.content_hash === first.content_hash, "raw_events preserves conversation content hash");
+  assert(firstRawEvent.metadata.compatibility_table === "conversation_events", "raw_events records compatibility provenance");
+  assert(firstRawEvent.metadata.conversation_source === "codex", "raw_events records original conversation source");
+  assert(firstRawEvent.metadata.conversation_source_event_id === "codex-event-1", "raw_events records original source event id");
   const codexOnly = await store.getConversationEvents({ agent_id: "test-agent", source: "codex" });
   assert(codexOnly.length === 2, "source filter works");
   assert(codexOnly.some((event) => event.metadata.file === "src/stores/types.ts"), "metadata round-trips");
+  const duplicateRawEvents = await store.getRawEvents({ agent_id: "test-agent", source: "conversation_event" });
+  const duplicateMirrors = duplicateRawEvents.filter((event) => [first.id, second.id, third.id].includes(event.source_event_id ?? ""));
+  assert(duplicateMirrors.length === 3, "duplicate conversation ingest does not duplicate raw_events");
+  const manualRaw = await store.saveRawEvent({
+    agent_id: "test-agent",
+    session_id: "session-raw-1",
+    project: "hotel-app",
+    source: "manual",
+    source_event_id: "manual-raw-1",
+    event_type: "host_event",
+    content: "Host observed prepare band.",
+    metadata: { band: "prepare" },
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  const duplicateManualRaw = await store.saveRawEvent({
+    agent_id: "test-agent",
+    session_id: "session-raw-1",
+    project: "hotel-app",
+    source: "manual",
+    source_event_id: "manual-raw-1",
+    event_type: "host_event",
+    content: "Host observed prepare band.",
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  assert(manualRaw.id === duplicateManualRaw.id, "raw_events deduplicate by source_event_id");
+  const sessionRaw = await store.getRawEvents({ agent_id: "test-agent", session_id: "session-raw-1" });
+  assert(sessionRaw.length === 1 && sessionRaw[0].metadata.band === "prepare", "raw_events filters by session_id");
   const search = await store.searchMemory({
     agent_id: "test-agent",
     project: "hotel-app",
@@ -1788,6 +1826,8 @@ function testHostAdapterPackagingBoundary() {
   const dataModel = readFileSync("docs/design/core/SSOT-4_DATA_MODEL.md", "utf8");
   const normalizedDataModel = dataModel.replace(/\s+/g, " ");
   assert(normalizedDataModel.includes("this file owns schema/data-model contracts"), "SSOT-4 is limited to schema/data-model contracts");
+  assert(normalizedDataModel.includes("`raw_events` is implemented as the first AM-103 ledger slice"), "SSOT-4 marks raw_events implemented");
+  assert(normalizedDataModel.includes("conversation events are mirrored into `raw_events`"), "SSOT-4 documents conversation-to-raw bridge");
   assert(normalizedDataModel.includes("Runtime adapters may append structured evidence, but they must not own lifecycle policy"), "SSOT-4 preserves adapter policy boundary");
   assert(normalizedDataModel.includes("API serialization should conform to `recovery-pack/v1`"), "SSOT-4 maps recovery pack schema to data model");
   assert(normalizedDataModel.includes("mark fallback delivery as `tui-fallback`"), "SSOT-4 maps fallback delivery evidence");
