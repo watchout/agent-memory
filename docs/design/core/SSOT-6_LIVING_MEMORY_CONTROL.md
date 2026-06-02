@@ -18,6 +18,7 @@ independent source of truth.
 | Runtime / agent identity binding | `SSOT-7_RUNTIME_AGENT_BINDING.md` |
 | Data model and schema contracts | `SSOT-4_DATA_MODEL.md` |
 | MCP / CLI / internal API shapes | `SSOT-3_API_CONTRACT.md` |
+| Memory safety taxonomy, promotion boundary, redaction/retention evidence | `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md` |
 | Host-specific runbooks, rollout evidence, local audit packets | `docs/operations/*` |
 | Legacy v0.2 startup/recovery design | `docs/SSOT.md` and `docs/strategy/agent-memory-ssot-v0.2.0.md` |
 
@@ -249,3 +250,4 @@ This evidence can later form an Agent Continuity Record for enterprise audit.
 - #107 maps to Agent Continuity Record, provenance, governance, and enterprise positioning.
 - #108 maps to this SSOT hierarchy and fallback-vs-primary boundary.
 - #110 maps to `recovery-pack/v1`, `host-invocation-context/v1`, and structured host adapter delivery.
+- #117 maps to `WASUREZU_MEMORY_SAFETY_GOVERNANCE.md`, memory safety taxonomy, candidate-vs-approved promotion boundaries, and redaction/retention evidence requirements.
