@@ -13,6 +13,7 @@
   "files": [
     "dist",
     "docs/design/schemas",
+    "docs/design/governance",
     "docs/operations/HOST_ADAPTERS.md",
     "README.md",
     "LICENSE",

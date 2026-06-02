@@ -126,6 +126,11 @@ Cross-repo boundary with AUN CP-40D:
 
 ## MCP Tools
 
+Governed action profiles for these tools live in
+`docs/design/governance/wasurezu-governed-action-profiles.v1.json`.
+SSOT-3 owns the API-facing tool list; the governance profile owns risk,
+approval, redaction, retention, and audit classification.
+
 | Tool | Status | Description | Input | Output |
 |------|--------|-------------|-------|--------|
 | log_decision | ✅ | 判断記録の保存 | decision(str), context?(str), tags?(str[]), project?(str) | Decision object |
@@ -133,13 +138,15 @@ Cross-repo boundary with AUN CP-40D:
 | supersede_decision | ✅ | 判断の上書き | old_decision_id(uuid), new_decision(str), context?(str), tags?(str[]), project?(str) | {old, new} |
 | save_task_state | ✅ | タスク状態の保存 | task(str), status(enum), progress?(str), files_modified?(str[]), next_steps?(str), project?(str) | TaskState |
 | search_memory | ✅ | 横断検索 | query(str), scope?(enum:decisions/tasks/knowledge/messages/conversation/all), limit?(num), project?(str) | SearchMemoryResult |
+| recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state + decisions + knowledge + recent messages |
+| restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num), format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum:codex/claude/generic-mcp-host), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | prioritized restart text or schema-shaped artifact JSON |
+| restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
+| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool), pack_format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | action, restart_pack?, restart_pack_format, restart_pack_schema_ref?, pack_ref, recovery_confidence, context_signal, provenance, notes |
+| set_recovery_config | ✅ | recovery config の更新 | agent_id(str), max_tokens?(num), task_states_limit?(num), decisions_limit?(num), knowledge_limit?(num), messages_limit?(num) | recovery config |
 | save_knowledge | ✅ | ナレッジの保存 | title(str,min1), content(str,min1), source_type?(enum:manual/decisions/messages), tags?(str[]), project?(str) | Knowledge object |
 | get_knowledge | ✅ | ナレッジの取得 | status?(enum:active/merged/archived/all), tags?(str[]), project?(str), limit?(num,1-100) | Knowledge[] |
+| supersede_knowledge | ✅ | ナレッジの上書き | old_id(uuid), new_title(str), new_content(str), reason(str), tags?(str[]), project?(str) | {old, new} |
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
-| recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state 1件 + knowledge 3件 |
-| restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num), format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum:codex/claude/generic-mcp-host), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | prioritized restart text or schema-shaped artifact JSON |
-| restart_prepare | ✅ | host/AUN向けの再起動準備 | project?(str), max_tokens?(num), continuity_guard_mode?(enum), pack_injection_mode?(enum), host metrics?(object), runtime_context_error?(bool), aun_installed?(bool), aun_absent_confirmed?(bool), supervisor_available?(bool), restart_preauthorized?(bool), emit_pack?(bool), pack_format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | action, restart_pack?, restart_pack_format, restart_pack_schema_ref?, pack_ref, recovery_confidence, context_signal, provenance, notes |
-| restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
 
 ## restart_prepare (AM-038)

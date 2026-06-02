@@ -1,0 +1,1378 @@
+{
+  "profile_version": "0.1.0",
+  "product": "wasurezu",
+  "owner_repo": "watchout/agent-memory",
+  "source_refs": [
+    "https://github.com/watchout/agent-memory/issues/120",
+    "src/index.ts",
+    "docs/design/core/SSOT-3_API_CONTRACT.md",
+    "docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md",
+    "iyasaka-arc/cross-cutting/specs/draft/2026-06-02-governed-action-surface-profile.md"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "wasurezu.log_decision",
+      "surface_type": "mcp_tool",
+      "display_name": "log_decision",
+      "description": "Persist an architectural or operational decision.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "decision",
+          "project"
+        ],
+        "data_categories": [
+          "decision_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=does_not_reveal_stored_memory | conditional_approval=required only if an external policy marks the decision category as governed | audit_summary_fields=actor,agent_id,project,decision_summary,tags,decision_id | redaction_requirements=redact_secrets_before_output,do_not_store_private_reasoning | retention_requirements=supersession_preserves_history"
+    },
+    {
+      "surface_id": "wasurezu.get_decisions",
+      "surface_type": "mcp_tool",
+      "display_name": "get_decisions",
+      "description": "Read stored decisions by project, tag, limit, and status.",
+      "capability_classes": [
+        "read",
+        "reveal"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "decision",
+          "project",
+          "tag",
+          "status"
+        ],
+        "data_categories": [
+          "decision_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": false,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "none",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_decision_memory | conditional_approval=required if policy/security/release decisions are marked restricted | audit_summary_fields=actor,agent_id,project,tags,status,limit,result_count,redaction_summary | redaction_requirements=redact_secrets_before_output | retention_requirements=read_does_not_change_retention"
+    },
+    {
+      "surface_id": "wasurezu.supersede_decision",
+      "surface_type": "mcp_tool",
+      "display_name": "supersede_decision",
+      "description": "Replace an old decision with a new decision while preserving history.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "decision",
+          "project"
+        ],
+        "data_categories": [
+          "decision_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_superseded_and_new_decision_summary | conditional_approval=required when replacing architecture authority, release policy, security policy, or governance decisions | audit_summary_fields=actor,agent_id,project,old_decision_id,new_decision_id,reason,tags | redaction_requirements=redact_secrets_before_output,preserve_history_without_private_reasoning | retention_requirements=supersession_preserves_history"
+    },
+    {
+      "surface_id": "wasurezu.save_task_state",
+      "surface_type": "mcp_tool",
+      "display_name": "save_task_state",
+      "description": "Persist current task state, progress, files, and next steps.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "task_state",
+          "project",
+          "file_ref"
+        ],
+        "data_categories": [
+          "task_memory",
+          "file_references"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=does_not_reveal_stored_memory | conditional_approval=required only if external policy marks task state as governed | audit_summary_fields=actor,agent_id,project,task_id,status,files_modified,next_steps_summary | redaction_requirements=redact_secrets_before_output,normalize_home_paths | retention_requirements=task_history_is_append_or_upsert_by_task_id"
+    },
+    {
+      "surface_id": "wasurezu.search_memory",
+      "surface_type": "mcp_tool",
+      "display_name": "search_memory",
+      "description": "Search decisions, tasks, knowledge, messages, and redacted conversation events.",
+      "capability_classes": [
+        "read",
+        "reveal"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "project",
+          "search_scope",
+          "conversation_event",
+          "knowledge",
+          "decision",
+          "task_state"
+        ],
+        "data_categories": [
+          "memory",
+          "redacted_conversation",
+          "decision_memory",
+          "task_memory",
+          "knowledge_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope",
+          "redaction_evidence"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": false,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "none",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "limit broad memory search by policy",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_memory_search_results | conditional_approval=required for restricted project scopes or broad sensitive reveal | audit_summary_fields=actor,agent_id,project,query_hash,scope,limit,result_counts_by_type,redaction_summary | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning,conversation_events_are_redacted_before_storage | retention_requirements=read_does_not_change_retention"
+    },
+    {
+      "surface_id": "wasurezu.recover_context",
+      "surface_type": "mcp_tool",
+      "display_name": "recover_context",
+      "description": "Restore startup context from configured memory limits and log recovery quality.",
+      "capability_classes": [
+        "read",
+        "reveal",
+        "write"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "artifact_ref"
+        ],
+        "allowed_dependencies": [
+          "artifact_reference"
+        ],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": true
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "project",
+          "recovery_config",
+          "recovery_quality_log"
+        ],
+        "data_categories": [
+          "memory",
+          "recovery_context",
+          "redacted_conversation"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope",
+          "redaction_evidence"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "manual_reconcile",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "limit repeated broad recovery by policy",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_recovery_context | conditional_approval=required for restricted project scopes or broad sensitive reveal | audit_summary_fields=actor,agent_id,session_id,project,recovered_counts,recovery_log_id,redaction_summary | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning,bound_recovered_context | retention_requirements=writes_recovery_quality_log_only",
+      "interop_contracts": [
+        {
+          "target_product": "aun",
+          "mode": "artifact_ref",
+          "contract_ref": "wasurezu recovery/memory artifact reference",
+          "direction": "outbound"
+        }
+      ]
+    },
+    {
+      "surface_id": "wasurezu.restart_pack",
+      "surface_type": "mcp_tool",
+      "display_name": "restart_pack",
+      "description": "Generate bounded text or structured recovery artifacts with provenance, confidence, missing context, trust, and redaction metadata.",
+      "capability_classes": [
+        "read",
+        "reveal"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "artifact_ref"
+        ],
+        "allowed_dependencies": [
+          "artifact_reference"
+        ],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": true
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "project",
+          "recovery_pack",
+          "host_invocation_context"
+        ],
+        "data_categories": [
+          "memory",
+          "recovery_context",
+          "redacted_conversation",
+          "provenance"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope",
+          "redaction_evidence",
+          "token_budget"
+        ],
+        "denied_labels": [
+          "private_reasoning",
+          "raw_shell_command"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": false,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "none",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "token budget and project scope required",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_bounded_recovery_artifact | conditional_approval=required for restricted project scopes or degraded delivery policies | audit_summary_fields=actor,agent_id,project,format,max_tokens,pack_id,confidence,missing_context,source_event_ids,redaction_summary | redaction_requirements=redact_before_emit,exclude_private_reasoning,do_not_emit_raw_transcript_excerpts,shell_free_trusted_instruction | retention_requirements=generated_pack_is_evidence_not_lifecycle_authority",
+      "interop_contracts": [
+        {
+          "target_product": "aun",
+          "mode": "artifact_ref",
+          "contract_ref": "recovery-pack/v1 or host-invocation-context/v1",
+          "direction": "outbound"
+        }
+      ]
+    },
+    {
+      "surface_id": "wasurezu.restart_pack_fetch",
+      "surface_type": "mcp_tool",
+      "display_name": "restart_pack_fetch",
+      "description": "Fetch a selected restart pack and optionally mark it consumed.",
+      "capability_classes": [
+        "read",
+        "reveal",
+        "write"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "artifact_ref"
+        ],
+        "allowed_dependencies": [
+          "artifact_reference"
+        ],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": true
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "selected_restart_pack",
+          "project"
+        ],
+        "data_categories": [
+          "recovery_context",
+          "selected_pack_metadata"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "pack_ref",
+          "project_scope",
+          "redaction_evidence"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "manual_reconcile",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_selected_recovery_artifact | conditional_approval=required only for restricted selected-pack refs | audit_summary_fields=actor,agent_id,project,pack_ref,consume,pack_status,redaction_summary | redaction_requirements=redact_before_output,selected_pack_content_must_already_be_redacted | retention_requirements=consume_marks_handoff_used_without_mutating_aun_queue",
+      "interop_contracts": [
+        {
+          "target_product": "aun",
+          "mode": "artifact_ref",
+          "contract_ref": "wasurezu recovery/memory artifact reference",
+          "direction": "outbound"
+        }
+      ]
+    },
+    {
+      "surface_id": "wasurezu.restart_prepare",
+      "surface_type": "mcp_tool",
+      "display_name": "restart_prepare",
+      "description": "Prepare bounded restart evidence and selected-pack refs without mutating host or AUN lifecycle.",
+      "capability_classes": [
+        "read",
+        "reveal",
+        "write"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "artifact_ref"
+        ],
+        "allowed_dependencies": [
+          "artifact_reference"
+        ],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": true
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "project",
+          "selected_restart_pack",
+          "continuity_signal"
+        ],
+        "data_categories": [
+          "recovery_context",
+          "continuity_evidence",
+          "host_metrics"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope",
+          "redaction_evidence",
+          "aun_ownership_boundary"
+        ],
+        "denied_labels": [
+          "private_reasoning",
+          "aun_queue_mutation",
+          "runtime_restart_authority"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "manual_reconcile",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_and_persists_restart_evidence | conditional_approval=standalone auto_restart requires explicit AUN absence, supervisor availability, and preauthorization evidence | audit_summary_fields=actor,agent_id,project,continuity_guard_mode,context_signal,pack_ref,pack_format,confidence,missing_context,auto_restart_blockers,redaction_summary | redaction_requirements=redact_before_emit,exclude_private_reasoning,shell_free_trusted_instruction | retention_requirements=selected_pack_persistence_records_status_and_metadata | does_not_mutate_aun_queue_or_runtime_lifecycle",
+      "interop_contracts": [
+        {
+          "target_product": "aun",
+          "mode": "artifact_ref",
+          "contract_ref": "wasurezu recovery/memory artifact reference",
+          "direction": "outbound"
+        }
+      ]
+    },
+    {
+      "surface_id": "wasurezu.set_recovery_config",
+      "surface_type": "mcp_tool",
+      "display_name": "set_recovery_config",
+      "description": "Update per-agent recovery limits that determine how much context is restored and revealed.",
+      "capability_classes": [
+        "admin",
+        "write"
+      ],
+      "risk_level": "critical",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "agent_id",
+          "recovery_config"
+        ],
+        "data_categories": [
+          "recovery_policy",
+          "memory_reveal_limits"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": false
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "admin_policy",
+          "approval_note"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": true,
+        "human_intent_ref_required": true
+      },
+      "approval_policy": {
+        "approval_required": true,
+        "approver_role": "owner_or_admin",
+        "approval_ttl_seconds": 3600,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": true,
+        "rollback_kind": "restore_snapshot",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "admin changes should be rate limited by policy",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_updated_recovery_limits | conditional_approval=always required because this controls restored/revealed memory limits | audit_summary_fields=actor,target_agent_id,changed_fields,old_limits,new_limits,approval_note_ref,human_intent_ref | redaction_requirements=do_not_log_secret_channel_names,redact_admin_notes | retention_requirements=config_change_history_required_for_enterprise | critical_admin_surface=changes what memory can be restored and revealed to agents"
+    },
+    {
+      "surface_id": "wasurezu.save_knowledge",
+      "surface_type": "mcp_tool",
+      "display_name": "save_knowledge",
+      "description": "Persist a knowledge entry for future retrieval.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "knowledge",
+          "project",
+          "tag"
+        ],
+        "data_categories": [
+          "knowledge_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=does_not_reveal_stored_memory | conditional_approval=required before promoting policy/security/customer data to approved memory | audit_summary_fields=actor,agent_id,project,knowledge_id,title,source_type,tags | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning,mark_untrusted_source_text_as_data | retention_requirements=supersession_or_archive_preserves_history"
+    },
+    {
+      "surface_id": "wasurezu.get_knowledge",
+      "surface_type": "mcp_tool",
+      "display_name": "get_knowledge",
+      "description": "Read knowledge entries by status, tag, project, and limit.",
+      "capability_classes": [
+        "read",
+        "reveal"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "knowledge",
+          "project",
+          "tag",
+          "status"
+        ],
+        "data_categories": [
+          "knowledge_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": false,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "none",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_knowledge_memory | conditional_approval=required if policy/security/customer knowledge is restricted | audit_summary_fields=actor,agent_id,project,status,tags,limit,result_count,redaction_summary | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning | retention_requirements=read_does_not_change_retention"
+    },
+    {
+      "surface_id": "wasurezu.supersede_knowledge",
+      "surface_type": "mcp_tool",
+      "display_name": "supersede_knowledge",
+      "description": "Replace outdated or incorrect knowledge while preserving history.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "knowledge",
+          "project",
+          "tag"
+        ],
+        "data_categories": [
+          "knowledge_memory"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_superseded_and_new_knowledge_summary | conditional_approval=required when replacing policy, security, retention, or customer-data knowledge | audit_summary_fields=actor,agent_id,project,old_knowledge_id,new_knowledge_id,reason,tags | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning,preserve_history_without_promoting_untrusted_text | retention_requirements=supersession_preserves_history"
+    },
+    {
+      "surface_id": "wasurezu.update_knowledge_status",
+      "surface_type": "mcp_tool",
+      "display_name": "update_knowledge_status",
+      "description": "Archive, activate, or mark knowledge as merged.",
+      "capability_classes": [
+        "write"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "knowledge",
+          "status"
+        ],
+        "data_categories": [
+          "knowledge_memory",
+          "retention_metadata"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": false
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "compensating_action",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": null,
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_updated_knowledge_status | conditional_approval=required for policy/security entries or retention-sensitive archive/merge operations | audit_summary_fields=actor,agent_id,knowledge_id,old_status,new_status,merged_into | redaction_requirements=redact_secrets_before_output | retention_requirements=archive_or_merge_is_retention_adjacent"
+    },
+    {
+      "surface_id": "wasurezu.ingest_conversation_events",
+      "surface_type": "mcp_tool",
+      "display_name": "ingest_conversation_events",
+      "description": "Sweep local Claude Code or Codex transcript files into redacted conversation event storage.",
+      "capability_classes": [
+        "write",
+        "action",
+        "reveal"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "transcript_root",
+          "conversation_event",
+          "project",
+          "source"
+        ],
+        "data_categories": [
+          "redacted_conversation",
+          "tool_context",
+          "transcript_metadata"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "redaction_before_persistence",
+          "current_session_or_allowlisted_root"
+        ],
+        "denied_labels": [
+          "private_reasoning",
+          "developer_instruction",
+          "base_instruction"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "manual_reconcile",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "limit file count and broad roots by policy",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_ingest_summary_only | conditional_approval=required for broad imports outside current-session or allowlisted transcript roots | audit_summary_fields=actor,agent_id,project,source,root_hash,since,max_files,files_scanned,events_saved,events_skipped,duplicates,redaction_version | redaction_requirements=redact_before_persistence_and_hashing,exclude_private_reasoning,exclude_developer_and_base_instructions,store_visible_conversation_tool_context_only | retention_requirements=raw_transcripts_remain_external_source_data,conversation_events_are_source_data_not_approved_memory | transcript_events_are_source_data_not_approved_memory_by_default"
+    }
+  ]
+}
