@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "kusabi": "dist/index.js",
     "wasurezu": "dist/index.js",
     "agent-memory": "dist/index.js",
     "wasurezu-codex-start": "dist/codex-start.js",

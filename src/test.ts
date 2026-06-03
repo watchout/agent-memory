@@ -2085,6 +2085,10 @@ function testHostAdapterPackagingBoundary() {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
   assert(packageJson.files.includes("docs/design/schemas"), "npm package includes structured artifact schemas");
+  assert(packageJson.bin["kusabi"] === packageJson.bin["wasurezu"], "npm package exposes kusabi as wasurezu-compatible MCP CLI alias");
+  assert(packageJson.bin["kusabi"] === "dist/index.js", "kusabi CLI alias points at the existing MCP entrypoint");
+  assert(packageJson.bin["wasurezu"] === "dist/index.js", "wasurezu CLI remains on the existing MCP entrypoint");
+  assert(packageJson.bin["agent-memory"] === "dist/index.js", "agent-memory compatibility CLI remains on the existing MCP entrypoint");
   assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(packageJson.bin["wasurezu-claude-start"] === "dist/claude-start.js", "npm package exposes wasurezu-claude-start CLI");
   assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
