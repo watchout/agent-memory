@@ -49,6 +49,114 @@ async function testMigration() {
   assert(true, "migrations are idempotent (IF NOT EXISTS)");
 }
 
+function withPgSearchPath(connectionString: string, schema: string): string {
+  const url = new URL(connectionString);
+  const option = `-c search_path=${schema},public`;
+  const existing = url.searchParams.get("options");
+  url.searchParams.set("options", existing ? `${existing} ${option}` : option);
+  return url.toString();
+}
+
+async function testRawEventsLegacyOccurredAtMigration() {
+  console.log("\n── PgStore raw_events legacy occurred_at migration ──");
+
+  const pg = await import("pg");
+  const schema = `am124_legacy_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  const legacyId = "00000000-0000-4000-8000-000000000124";
+  const duplicateLegacyId = "00000000-0000-4000-8000-000000001124";
+  const admin = new pg.default.Pool({ connectionString: DATABASE_URL! });
+
+  try {
+    await admin.query(`CREATE SCHEMA ${schema}`);
+    await admin.query(
+      `CREATE TABLE ${schema}.raw_events (
+        id UUID PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        event_at TIMESTAMPTZ,
+        ingested_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ
+      )`,
+    );
+    await admin.query(
+      `INSERT INTO ${schema}.raw_events
+         (id, agent_id, source, event_type, content_hash, event_at, ingested_at, created_at)
+       VALUES
+         ($1, $2, $3, $4, $5, $6, NULL, NULL),
+         ($7, $2, $3, $4, $5, $6, NULL, NULL)`,
+      [
+        legacyId,
+        `${AGENT}-legacy-raw`,
+        "legacy",
+        "host_event",
+        "legacy-hash",
+        "2026-05-19T00:04:00.000Z",
+        duplicateLegacyId,
+      ],
+    );
+
+    const legacyStore = new PgStore(withPgSearchPath(DATABASE_URL!, schema));
+    try {
+      await legacyStore.initialize();
+    } finally {
+      await legacyStore.close();
+    }
+
+    const row = await admin.query(
+      `SELECT occurred_at, source_event_id
+         FROM ${schema}.raw_events
+        WHERE id IN ($1, $2)
+        ORDER BY id`,
+      [legacyId, duplicateLegacyId],
+    );
+    assert(
+      row.rows.length === 2 &&
+        row.rows.every(
+          (record) =>
+            record.occurred_at instanceof Date &&
+            record.occurred_at.toISOString() === "2026-05-19T00:04:00.000Z",
+        ),
+      "raw_events legacy rows backfill occurred_at from event_at",
+    );
+    assert(
+      row.rows.every((record) =>
+        String(record.source_event_id).startsWith("legacy-raw-event:"),
+      ),
+      "raw_events legacy duplicate hash/time rows get synthesized source_event_id",
+    );
+
+    const column = await admin.query(
+      `SELECT is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = 'raw_events'
+          AND column_name = 'occurred_at'`,
+      [schema],
+    );
+    assert(
+      column.rows[0]?.is_nullable === "NO",
+      "raw_events occurred_at is enforced NOT NULL after migration",
+    );
+    const contentHashColumn = await admin.query(
+      `SELECT is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = 'raw_events'
+          AND column_name = 'content_hash'`,
+      [schema],
+    );
+    assert(
+      contentHashColumn.rows[0]?.is_nullable === "YES",
+      "raw_events content_hash is nullable for source_ref-only events after migration",
+    );
+  } finally {
+    await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await admin.end();
+  }
+}
+
 async function testDecisionCRUD() {
   console.log("\n── PgStore Decision CRUD ──");
 
@@ -673,6 +781,72 @@ async function testConversationEvents() {
   const all = await store.getConversationEvents({ agent_id: AGENT, project: PROJECT });
   assert(all.length === 2, "getConversationEvents returns unique redacted events");
   assert(all[0].source === "claude_code", "events sorted newest first");
+  const rawConversationEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(rawConversationEvents.length === 2, "conversation_events are mirrored into raw_events");
+  const firstRawEvent = rawConversationEvents.find((event) => event.source_event_id === first.id);
+  assert(firstRawEvent !== undefined, "raw_events includes conversation event provenance");
+  if (!firstRawEvent) throw new Error("missing raw event for first conversation event");
+  assert(firstRawEvent.event_type === "assistant_message", "raw_events maps assistant conversation role");
+  assert(firstRawEvent.content_hash === first.content_hash, "raw_events preserves conversation content hash");
+  assert(firstRawEvent.metadata.compatibility_table === "conversation_events", "raw_events records compatibility provenance");
+  const duplicateRawEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(duplicateRawEvents.length === 2, "duplicate conversation ingest does not duplicate raw_events");
+  const manualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "pg-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "pg-manual-raw-1",
+    event_type: "host_event",
+    content: "PG host observed prepare band.",
+    metadata: { band: "prepare" },
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  const duplicateManualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "pg-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "pg-manual-raw-1",
+    event_type: "host_event",
+    content: "PG host observed prepare band.",
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  assert(manualRaw.id === duplicateManualRaw.id, "raw_events deduplicate by source_event_id");
+  const sourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "pg-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    metadata: { ratio: 0.91 },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const duplicateSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "pg-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const distinctSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "pg-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "codex-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  assert(sourceRefRaw.id === duplicateSourceRefRaw.id, "raw_events deduplicate source_ref-only events by source_ref_hash");
+  assert(sourceRefRaw.id !== distinctSourceRefRaw.id, "raw_events do not collapse distinct source_ref-only events with same timestamp");
+  assert(sourceRefRaw.content_hash === undefined, "source_ref-only raw_events do not require content_hash");
+  assert(sourceRefRaw.source_ref_hash?.length === 64, "source_ref-only raw_events keep source_ref_hash identity");
+  const sessionRaw = await store.getRawEvents({ agent_id: AGENT, session_id: "pg-session-raw-1" });
+  assert(sessionRaw.length === 1 && sessionRaw[0].metadata.band === "prepare", "raw_events filters by session_id");
   const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });
   assert(codexOnly.length === 1, "source filter works");
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
@@ -682,6 +856,7 @@ async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
   const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  await pool.query("DELETE FROM raw_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM conversation_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [`${AGENT}%`]);
@@ -696,6 +871,7 @@ async function run() {
   try {
     await setup();
     await testMigration();
+    await testRawEventsLegacyOccurredAtMigration();
     await testDecisionCRUD();
     await testSupersede();
     await testTaskStates();

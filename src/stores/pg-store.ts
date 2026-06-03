@@ -2,6 +2,7 @@ import pg from "pg";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
+import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import type {
   Store,
   Decision,
@@ -9,6 +10,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  RawEvent,
   SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
@@ -24,6 +26,8 @@ import type {
   LogRecoveryQualityInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveRawEventInput,
+  GetRawEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -202,6 +206,136 @@ const MIGRATIONS = [
      WHERE source_event_id IS NULL`,
   `CREATE INDEX IF NOT EXISTS idx_conversation_events_recent
      ON conversation_events (agent_id, source, occurred_at DESC)`,
+
+  // AM-103: canonical raw event ledger. conversation_events remains a
+  // compatibility ingest table; redacted transcript events are mirrored here.
+  `CREATE TABLE IF NOT EXISTS raw_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    session_id TEXT,
+    project TEXT,
+    host TEXT NOT NULL DEFAULT 'unknown',
+    source TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'event',
+    source_ref JSONB NOT NULL DEFAULT '{}'::jsonb,
+    source_ref_hash TEXT NOT NULL DEFAULT '',
+    event_at TIMESTAMPTZ,
+    ingested_at TIMESTAMPTZ DEFAULT now(),
+    content_text TEXT,
+    content_json JSONB,
+    redaction_level TEXT NOT NULL DEFAULT 'basic',
+    private_reasoning BOOLEAN NOT NULL DEFAULT false,
+    content TEXT,
+    content_hash TEXT,
+    source_event_id TEXT,
+    source_path TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS agent_id TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS session_id TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS project TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS host TEXT NOT NULL DEFAULT 'unknown'`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS event_type TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'event'`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_ref JSONB NOT NULL DEFAULT '{}'::jsonb`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_ref_hash TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS event_at TIMESTAMPTZ`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMPTZ DEFAULT now()`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content_text TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content_json JSONB`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS redaction_level TEXT NOT NULL DEFAULT 'basic'`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS private_reasoning BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content_hash TEXT`,
+  `ALTER TABLE raw_events ALTER COLUMN content_hash DROP NOT NULL`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_event_id TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_path TEXT`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ`,
+  `ALTER TABLE raw_events ALTER COLUMN occurred_at SET DEFAULT now()`,
+  `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()`,
+  `DO $$
+   BEGIN
+     IF NOT EXISTS (
+       SELECT 1
+         FROM pg_constraint
+        WHERE conrelid = 'raw_events'::regclass
+          AND conname = 'raw_events_occurred_at_not_null'
+     ) THEN
+       ALTER TABLE raw_events
+         ADD CONSTRAINT raw_events_occurred_at_not_null
+         CHECK (occurred_at IS NOT NULL) NOT VALID;
+     END IF;
+   END $$`,
+  `WITH duplicate_backfill_hash_time AS (
+     SELECT id
+       FROM (
+         SELECT id,
+                COUNT(*) OVER (
+                  PARTITION BY
+                    agent_id,
+                    source,
+                    content_hash,
+                    COALESCE(occurred_at, event_at, ingested_at, created_at, now())
+                ) AS duplicate_count
+           FROM raw_events
+          WHERE source_event_id IS NULL
+            AND content_hash IS NOT NULL
+       ) ranked
+      WHERE duplicate_count > 1
+   )
+   UPDATE raw_events
+      SET source_event_id = 'legacy-raw-event:' || id::text,
+          occurred_at = COALESCE(occurred_at, event_at, ingested_at, created_at, now()),
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'migration_source_event_id',
+            'synthesized_before_occurred_at_backfill',
+            'migration',
+            'am103_raw_events_occurred_at_not_null'
+          )
+    WHERE id IN (SELECT id FROM duplicate_backfill_hash_time)
+      AND source_event_id IS NULL`,
+  `UPDATE raw_events
+     SET occurred_at = COALESCE(occurred_at, event_at, ingested_at, created_at, now())
+     WHERE occurred_at IS NULL`,
+  `WITH duplicate_hash_time AS (
+     SELECT id
+       FROM (
+         SELECT id,
+                COUNT(*) OVER (
+                  PARTITION BY agent_id, source, content_hash, occurred_at
+                ) AS duplicate_count
+           FROM raw_events
+          WHERE source_event_id IS NULL
+            AND content_hash IS NOT NULL
+            AND occurred_at IS NOT NULL
+       ) ranked
+      WHERE duplicate_count > 1
+   )
+  UPDATE raw_events
+      SET source_event_id = 'legacy-raw-event:' || id::text,
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'migration_source_event_id',
+            'synthesized_from_legacy_duplicate',
+            'migration',
+            'am103_raw_events_occurred_at_not_null'
+          )
+    WHERE id IN (SELECT id FROM duplicate_hash_time)
+      AND source_event_id IS NULL`,
+  `ALTER TABLE raw_events VALIDATE CONSTRAINT raw_events_occurred_at_not_null`,
+  `ALTER TABLE raw_events ALTER COLUMN occurred_at SET NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_events_source_event
+     ON raw_events (agent_id, source, source_event_id)
+     WHERE source_event_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_events_hash_time
+     ON raw_events (agent_id, source, content_hash, occurred_at)
+     WHERE source_event_id IS NULL AND content_hash IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_raw_events_recent
+     ON raw_events (agent_id, source, occurred_at DESC)`,
 
   // AM-039: selected restart packs for host/AUN boot consume.
   `CREATE TABLE IF NOT EXISTS selected_restart_packs (
@@ -819,7 +953,11 @@ export class PgStore implements Store {
         occurredAt,
       ]
     );
-    if (result.rows[0]) return this.rowToConversationEvent(result.rows[0]);
+    if (result.rows[0]) {
+      const event = this.rowToConversationEvent(result.rows[0]);
+      await this.ensureConversationRawEvent(event);
+      return event;
+    }
 
     const existing = input.source_event_id
       ? await this.pool.query(
@@ -834,7 +972,9 @@ export class PgStore implements Store {
            LIMIT 1`,
           [input.agent_id, input.source, hash, occurredAt]
         );
-    return this.rowToConversationEvent(existing.rows[0]);
+    const event = this.rowToConversationEvent(existing.rows[0]);
+    await this.ensureConversationRawEvent(event);
+    return event;
   }
 
   async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
@@ -864,6 +1004,124 @@ export class PgStore implements Store {
       params
     );
     return result.rows.map((row: Record<string, unknown>) => this.rowToConversationEvent(row));
+  }
+
+  async saveRawEvent(input: SaveRawEventInput): Promise<RawEvent> {
+    const id = uuidv4();
+    const hash = input.content_hash ?? (input.content ? contentHash(input.content) : undefined);
+    const occurredAt = input.occurred_at ?? new Date().toISOString();
+    const sourceRef = rawEventSourceRef(input);
+    const sourceRefHash = contentHash(JSON.stringify(sourceRef));
+    const findExisting = async () => {
+      if (input.source_event_id) {
+        return this.pool.query(
+          `SELECT * FROM raw_events
+           WHERE agent_id = $1 AND source = $2 AND source_event_id = $3
+           LIMIT 1`,
+          [input.agent_id, input.source, input.source_event_id]
+        );
+      }
+      if (hash !== undefined) {
+        return this.pool.query(
+          `SELECT * FROM raw_events
+           WHERE agent_id = $1 AND source = $2 AND content_hash = $3 AND occurred_at = $4
+           LIMIT 1`,
+          [input.agent_id, input.source, hash, occurredAt]
+        );
+      }
+      return this.pool.query(
+        `SELECT * FROM raw_events
+         WHERE agent_id = $1 AND source = $2 AND source_ref_hash = $3 AND occurred_at = $4
+         LIMIT 1`,
+        [input.agent_id, input.source, sourceRefHash, occurredAt]
+      );
+    };
+
+    if (!input.source_event_id && hash === undefined) {
+      const existing = await findExisting();
+      if (existing.rows[0]) return this.rowToRawEvent(existing.rows[0]);
+    }
+
+    const result = await this.pool.query(
+      `INSERT INTO raw_events
+        (id, agent_id, session_id, project, host, source, event_type, role,
+         source_ref, source_ref_hash, event_at, content_text, content_json,
+         redaction_level, private_reasoning, content, content_hash,
+         source_event_id, source_path, metadata, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19, $20::jsonb, $21)
+       ON CONFLICT DO NOTHING
+       RETURNING *`,
+      [
+        id,
+        input.agent_id,
+        input.session_id ?? null,
+        input.project ?? null,
+        input.host ?? "unknown",
+        input.source,
+        input.event_type,
+        input.role ?? "event",
+        JSON.stringify(sourceRef),
+        sourceRefHash,
+        occurredAt,
+        input.content ?? null,
+        null,
+        input.redaction_level ?? "basic",
+        input.private_reasoning ?? false,
+        input.content ?? null,
+        hash ?? null,
+        input.source_event_id ?? null,
+        input.source_path ?? null,
+        JSON.stringify(input.metadata ?? {}),
+        occurredAt,
+      ]
+    );
+    if (result.rows[0]) return this.rowToRawEvent(result.rows[0]);
+
+    const existing = await findExisting();
+    return this.rowToRawEvent(existing.rows[0]);
+  }
+
+  async getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]> {
+    const conditions: string[] = ["agent_id = $1"];
+    const params: unknown[] = [input.agent_id];
+    let pi = 2;
+    if (input.session_id) {
+      conditions.push(`session_id = $${pi}`);
+      params.push(input.session_id);
+      pi++;
+    }
+    if (input.project) {
+      conditions.push(`project = $${pi}`);
+      params.push(input.project);
+      pi++;
+    }
+    if (input.source) {
+      conditions.push(`source = $${pi}`);
+      params.push(input.source);
+      pi++;
+    }
+    if (input.event_type) {
+      conditions.push(`event_type = $${pi}`);
+      params.push(input.event_type);
+      pi++;
+    }
+    if (input.since) {
+      conditions.push(`occurred_at >= $${pi}`);
+      params.push(input.since);
+      pi++;
+    }
+    const result = await this.pool.query(
+      `SELECT * FROM raw_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC
+       LIMIT ${input.limit ?? 50}`,
+      params
+    );
+    return result.rows.map((row: Record<string, unknown>) => this.rowToRawEvent(row));
+  }
+
+  private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
+    await this.saveRawEvent(conversationEventToRawEventInput(event));
   }
 
   async getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null> {
@@ -1268,6 +1526,40 @@ export class PgStore implements Store {
         row.created_at instanceof Date
           ? row.created_at.toISOString()
           : (row.created_at as string),
+    };
+  }
+
+  private rowToRawEvent(row: Record<string, unknown>): RawEvent {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      session_id: row.session_id as string | undefined,
+      project: row.project as string | undefined,
+      host: row.host as string | undefined,
+      source: row.source as string,
+      event_type: row.event_type as RawEvent["event_type"],
+      role: row.role as string | undefined,
+      content: (row.content as string | undefined) ?? (row.content_text as string | undefined),
+      content_hash: (row.content_hash as string | null) ?? undefined,
+      source_ref: (row.source_ref as Record<string, unknown>) || {},
+      source_ref_hash: (row.source_ref_hash as string | null) ?? undefined,
+      source_event_id: row.source_event_id as string | undefined,
+      source_path: row.source_path as string | undefined,
+      redaction_level: row.redaction_level as string | undefined,
+      private_reasoning: row.private_reasoning as boolean | undefined,
+      metadata: (row.metadata as Record<string, unknown>) || {},
+      occurred_at:
+        row.occurred_at instanceof Date
+          ? row.occurred_at.toISOString()
+          : row.event_at instanceof Date
+            ? row.event_at.toISOString()
+            : ((row.occurred_at as string | null) ?? (row.event_at as string)),
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : row.ingested_at instanceof Date
+            ? row.ingested_at.toISOString()
+            : ((row.created_at as string | null) ?? (row.ingested_at as string)),
     };
   }
 

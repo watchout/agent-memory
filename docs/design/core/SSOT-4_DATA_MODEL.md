@@ -31,6 +31,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
 | `conversation_events` | Codex / Claude Code 等の redacted full-text conversation event 保存 | metadata JSONB | metadata TEXT(JSON) |
+| `raw_events` | user/assistant/tool/file/host/runtime events の canonical ledger | metadata JSONB | metadata TEXT(JSON) |
 | `selected_restart_packs` | restart_prepare が選択した boot handoff pack | metadata JSONB | metadata TEXT(JSON) |
 | `agent_messages` | Discord 履歴 (agent-comms 連携時のみ) | - | **存在しない** (SQLite モードでは getRecentMessages 常に空) |
 
@@ -40,7 +41,6 @@ AM-044 planned control-plane tables:
 
 | テーブル | 用途 | 備考 |
 |----------|------|------|
-| `raw_events` | user/assistant/tool/file/host/runtime events の canonical ledger | `conversation_events` を包含する上位 ledger |
 | `session_checkpoints` | session ごとの active task/goal, files/artifacts, pending actions, metrics | pre-exit prepare / observe_context の出力 |
 | `recovery_packs` | restart pack header と quality metadata | pack_id, reason, source_event_ids, confidence, missing_context |
 | `recovery_pack_items` | pack item の provenance / priority / freshness / confidence | bounded pack ranking の証跡 |
@@ -283,10 +283,16 @@ CREATE INDEX idx_selected_restart_packs_agent
 - AUN / host / supervisor が選択済み pack を fetch または consume して post-start boot に渡せるようにする
 - `consume` は selected pack の再利用を防ぐための handoff marker であり、AUN queue state / claim / delivery / finalization は変更しない
 
-### 2.8 control-plane continuity ledger (AM-044 planned)
+### 2.8 raw_events and control-plane continuity ledger
 
-These tables make Wasurezu's canonical state durable and runner-readable. They
-are planned schema, not yet part of the current v0.3.0 migrations.
+`raw_events` is implemented as the first AM-103 ledger slice. It makes
+redacted conversation imports and other source facts durable as canonical
+source data. `conversation_events` remains a compatibility ingest table; new
+conversation events are mirrored into `raw_events` with source-bearing
+provenance.
+
+`session_checkpoints`, `recovery_packs`, `recovery_pack_items`, and
+`session_lifecycle_events` remain planned follow-up schema.
 
 ```sql
 CREATE TABLE raw_events (
@@ -294,9 +300,18 @@ CREATE TABLE raw_events (
   agent_id        TEXT NOT NULL,
   session_id      TEXT,
   project         TEXT,
+  host            TEXT NOT NULL DEFAULT 'unknown',
   source          TEXT NOT NULL,
   event_type      TEXT NOT NULL, -- user_message | assistant_message | tool_call | tool_result | file_ref | context_ref | host_event | runtime_event
-  role            TEXT,
+  role            TEXT NOT NULL DEFAULT 'event',
+  source_ref      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source_ref_hash TEXT NOT NULL DEFAULT '',
+  event_at        TIMESTAMPTZ,
+  ingested_at     TIMESTAMPTZ DEFAULT NOW(),
+  content_text    TEXT,
+  content_json    JSONB,
+  redaction_level TEXT NOT NULL DEFAULT 'basic',
+  private_reasoning BOOLEAN NOT NULL DEFAULT FALSE,
   content         TEXT,
   content_hash    TEXT,
   source_event_id TEXT,
@@ -305,6 +320,17 @@ CREATE TABLE raw_events (
   occurred_at     TIMESTAMPTZ NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX uq_raw_events_source_event
+  ON raw_events (agent_id, source, source_event_id)
+  WHERE source_event_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_raw_events_hash_time
+  ON raw_events (agent_id, source, content_hash, occurred_at)
+  WHERE source_event_id IS NULL AND content_hash IS NOT NULL;
+
+CREATE INDEX idx_raw_events_recent
+  ON raw_events (agent_id, source, occurred_at DESC);
 
 CREATE TABLE session_checkpoints (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

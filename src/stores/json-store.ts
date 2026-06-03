@@ -5,6 +5,7 @@ import { homedir } from "os";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
+import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import type {
   Store,
   Decision,
@@ -12,6 +13,7 @@ import type {
   Knowledge,
   AgentMessage,
   ConversationEvent,
+  RawEvent,
   SelectedRestartPack,
   RecoveryConfig,
   LogDecisionInput,
@@ -26,6 +28,8 @@ import type {
   SupersedeKnowledgeInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
+  SaveRawEventInput,
+  GetRawEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -36,6 +40,7 @@ const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
 const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
+const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
 
 function contentHash(content: string): string {
@@ -59,6 +64,7 @@ export class JsonStore implements Store {
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
   private conversationEvents: ConversationEvent[] = [];
+  private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
 
   async initialize(): Promise<void> {
@@ -69,6 +75,7 @@ export class JsonStore implements Store {
     this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
     this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
     this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
+    this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
@@ -402,6 +409,10 @@ export class JsonStore implements Store {
     await writeFile(CONVERSATION_EVENTS_FILE, JSON.stringify(this.conversationEvents, null, 2));
   }
 
+  private async saveRawEventsFile(): Promise<void> {
+    await writeFile(RAW_EVENTS_FILE, JSON.stringify(this.rawEvents, null, 2));
+  }
+
   private async saveSelectedRestartPacksFile(): Promise<void> {
     await writeFile(SELECTED_RESTART_PACKS_FILE, JSON.stringify(this.selectedRestartPacks, null, 2));
   }
@@ -418,7 +429,10 @@ export class JsonStore implements Store {
       if (input.source_event_id) return event.source_event_id === input.source_event_id;
       return event.content_hash === hash && event.occurred_at === (input.occurred_at ?? event.occurred_at);
     });
-    if (existing) return existing;
+    if (existing) {
+      await this.ensureConversationRawEvent(existing);
+      return existing;
+    }
 
     const now = new Date().toISOString();
     const event: ConversationEvent = {
@@ -437,6 +451,7 @@ export class JsonStore implements Store {
     };
     this.conversationEvents.push(event);
     await this.saveConversationEventsFile();
+    await this.ensureConversationRawEvent(event);
     return event;
   }
 
@@ -453,6 +468,67 @@ export class JsonStore implements Store {
         new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
     );
     return results.slice(0, input.limit ?? 50);
+  }
+
+  async saveRawEvent(input: SaveRawEventInput): Promise<RawEvent> {
+    const now = new Date().toISOString();
+    const hash = input.content_hash ?? (input.content ? contentHash(input.content) : undefined);
+    const occurredAt = input.occurred_at ?? now;
+    const sourceRef = rawEventSourceRef(input);
+    const sourceRefHash = contentHash(JSON.stringify(sourceRef));
+    const existing = this.rawEvents.find((event) => {
+      if (event.agent_id !== input.agent_id || event.source !== input.source) return false;
+      if (input.source_event_id) return event.source_event_id === input.source_event_id;
+      if (hash !== undefined) return event.content_hash === hash && event.occurred_at === occurredAt;
+      return event.source_ref_hash === sourceRefHash && event.occurred_at === occurredAt;
+    });
+    if (existing) return existing;
+
+    const event: RawEvent = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      session_id: input.session_id,
+      project: input.project,
+      host: input.host,
+      source: input.source,
+      event_type: input.event_type,
+      role: input.role,
+      content: input.content,
+      content_hash: hash,
+      source_ref: sourceRef,
+      source_ref_hash: sourceRefHash,
+      source_event_id: input.source_event_id,
+      source_path: input.source_path,
+      redaction_level: input.redaction_level ?? "basic",
+      private_reasoning: input.private_reasoning ?? false,
+      metadata: input.metadata ?? {},
+      occurred_at: occurredAt,
+      created_at: now,
+    };
+    this.rawEvents.push(event);
+    await this.saveRawEventsFile();
+    return event;
+  }
+
+  async getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]> {
+    let results = this.rawEvents.filter((event) => event.agent_id === input.agent_id);
+    if (input.session_id) results = results.filter((event) => event.session_id === input.session_id);
+    if (input.project) results = results.filter((event) => event.project === input.project);
+    if (input.source) results = results.filter((event) => event.source === input.source);
+    if (input.event_type) results = results.filter((event) => event.event_type === input.event_type);
+    if (input.since) {
+      const sinceMs = new Date(input.since).getTime();
+      results = results.filter((event) => new Date(event.occurred_at).getTime() >= sinceMs);
+    }
+    results.sort(
+      (a, b) =>
+        new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+    );
+    return results.slice(0, input.limit ?? 50);
+  }
+
+  private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
+    await this.saveRawEvent(conversationEventToRawEventInput(event));
   }
 
   async getRecoveryConfig(): Promise<RecoveryConfig | null> {

@@ -751,6 +751,72 @@ async function testConversationEvents() {
   const all = await store.getConversationEvents({ agent_id: AGENT, project: PROJECT });
   assert(all.length === 2, "getConversationEvents returns unique redacted events");
   assert(all[0].source === "claude_code", "events sorted newest first");
+  const rawConversationEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(rawConversationEvents.length === 2, "conversation_events are mirrored into raw_events");
+  const firstRawEvent = rawConversationEvents.find((event) => event.source_event_id === first.id);
+  assert(firstRawEvent !== undefined, "raw_events includes conversation event provenance");
+  if (!firstRawEvent) throw new Error("missing raw event for first conversation event");
+  assert(firstRawEvent.event_type === "assistant_message", "raw_events maps assistant conversation role");
+  assert(firstRawEvent.content_hash === first.content_hash, "raw_events preserves conversation content hash");
+  assert(firstRawEvent.metadata.compatibility_table === "conversation_events", "raw_events records compatibility provenance");
+  const duplicateRawEvents = await store.getRawEvents({ agent_id: AGENT, source: "conversation_event" });
+  assert(duplicateRawEvents.length === 2, "duplicate conversation ingest does not duplicate raw_events");
+  const manualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "sqlite-manual-raw-1",
+    event_type: "host_event",
+    content: "SQLite host observed prepare band.",
+    metadata: { band: "prepare" },
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  const duplicateManualRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-1",
+    project: PROJECT,
+    source: "manual",
+    source_event_id: "sqlite-manual-raw-1",
+    event_type: "host_event",
+    content: "SQLite host observed prepare band.",
+    occurred_at: "2026-05-19T00:03:00.000Z",
+  });
+  assert(manualRaw.id === duplicateManualRaw.id, "raw_events deduplicate by source_event_id");
+  const sourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    metadata: { ratio: 0.91 },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const duplicateSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const distinctSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "codex-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  assert(sourceRefRaw.id === duplicateSourceRefRaw.id, "raw_events deduplicate source_ref-only events by source_ref_hash");
+  assert(sourceRefRaw.id !== distinctSourceRefRaw.id, "raw_events do not collapse distinct source_ref-only events with same timestamp");
+  assert(sourceRefRaw.content_hash === undefined, "source_ref-only raw_events do not require content_hash");
+  assert(sourceRefRaw.source_ref_hash?.length === 64, "source_ref-only raw_events keep source_ref_hash identity");
+  const sessionRaw = await store.getRawEvents({ agent_id: AGENT, session_id: "sqlite-session-raw-1" });
+  assert(sessionRaw.length === 1 && sessionRaw[0].metadata.band === "prepare", "raw_events filters by session_id");
   const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });
   assert(codexOnly.length === 1, "source filter works");
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
