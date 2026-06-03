@@ -975,6 +975,19 @@ export class SqliteStore implements Store {
     const occurredAt = input.occurred_at ?? now;
     const sourceRef = rawEventSourceRef(input);
     const sourceRefHash = contentHash(JSON.stringify(sourceRef));
+    const where = input.source_event_id
+      ? "agent_id = ? AND source = ? AND source_event_id = ?"
+      : hash !== undefined
+        ? "agent_id = ? AND source = ? AND content_hash = ? AND occurred_at = ?"
+        : "agent_id = ? AND source = ? AND source_ref_hash = ? AND occurred_at = ?";
+    const params = input.source_event_id
+      ? [input.agent_id, input.source, input.source_event_id]
+      : hash !== undefined
+        ? [input.agent_id, input.source, hash, occurredAt]
+        : [input.agent_id, input.source, sourceRefHash, occurredAt];
+    const existingRows = this.allRows(`SELECT * FROM raw_events WHERE ${where} LIMIT 1`, params);
+    if (existingRows[0]) return this.rowToRawEvent(existingRows[0]);
+
     this.db.run(
       `INSERT OR IGNORE INTO raw_events
         (id, agent_id, session_id, project, host, source, event_type, role,
@@ -1009,12 +1022,6 @@ export class SqliteStore implements Store {
       ]
     );
 
-    const where = input.source_event_id
-      ? "agent_id = ? AND source = ? AND source_event_id = ?"
-      : "agent_id = ? AND source = ? AND content_hash = ? AND occurred_at = ?";
-    const params = input.source_event_id
-      ? [input.agent_id, input.source, input.source_event_id]
-      : [input.agent_id, input.source, hash, occurredAt];
     const rows = this.allRows(`SELECT * FROM raw_events WHERE ${where} LIMIT 1`, params);
     this.persist();
     return this.rowToRawEvent(rows[0]);

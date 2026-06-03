@@ -783,6 +783,38 @@ async function testConversationEvents() {
     occurred_at: "2026-05-19T00:03:00.000Z",
   });
   assert(manualRaw.id === duplicateManualRaw.id, "raw_events deduplicate by source_event_id");
+  const sourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    metadata: { ratio: 0.91 },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const duplicateSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "claude-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  const distinctSourceRefRaw = await store.saveRawEvent({
+    agent_id: AGENT,
+    session_id: "sqlite-session-raw-ref-1",
+    project: PROJECT,
+    source: "host_context",
+    event_type: "context_ref",
+    source_ref: { kind: "context_health", ref: "codex-context-ratio" },
+    occurred_at: "2026-05-19T00:04:00.000Z",
+  });
+  assert(sourceRefRaw.id === duplicateSourceRefRaw.id, "raw_events deduplicate source_ref-only events by source_ref_hash");
+  assert(sourceRefRaw.id !== distinctSourceRefRaw.id, "raw_events do not collapse distinct source_ref-only events with same timestamp");
+  assert(sourceRefRaw.content_hash === undefined, "source_ref-only raw_events do not require content_hash");
+  assert(sourceRefRaw.source_ref_hash?.length === 64, "source_ref-only raw_events keep source_ref_hash identity");
   const sessionRaw = await store.getRawEvents({ agent_id: AGENT, session_id: "sqlite-session-raw-1" });
   assert(sessionRaw.length === 1 && sessionRaw[0].metadata.band === "prepare", "raw_events filters by session_id");
   const codexOnly = await store.getConversationEvents({ agent_id: AGENT, source: "codex" });

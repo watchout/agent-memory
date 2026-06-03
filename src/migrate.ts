@@ -150,6 +150,7 @@ const MIGRATIONS = [
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS private_reasoning BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content_hash TEXT`,
+  `ALTER TABLE raw_events ALTER COLUMN content_hash DROP NOT NULL`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_event_id TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_path TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,

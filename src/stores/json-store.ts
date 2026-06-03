@@ -479,7 +479,8 @@ export class JsonStore implements Store {
     const existing = this.rawEvents.find((event) => {
       if (event.agent_id !== input.agent_id || event.source !== input.source) return false;
       if (input.source_event_id) return event.source_event_id === input.source_event_id;
-      return event.content_hash === hash && event.occurred_at === occurredAt;
+      if (hash !== undefined) return event.content_hash === hash && event.occurred_at === occurredAt;
+      return event.source_ref_hash === sourceRefHash && event.occurred_at === occurredAt;
     });
     if (existing) return existing;
 

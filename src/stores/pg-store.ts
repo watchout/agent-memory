@@ -251,6 +251,7 @@ const MIGRATIONS = [
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS private_reasoning BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS content_hash TEXT`,
+  `ALTER TABLE raw_events ALTER COLUMN content_hash DROP NOT NULL`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_event_id TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS source_path TEXT`,
   `ALTER TABLE raw_events ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,
@@ -1011,6 +1012,36 @@ export class PgStore implements Store {
     const occurredAt = input.occurred_at ?? new Date().toISOString();
     const sourceRef = rawEventSourceRef(input);
     const sourceRefHash = contentHash(JSON.stringify(sourceRef));
+    const findExisting = async () => {
+      if (input.source_event_id) {
+        return this.pool.query(
+          `SELECT * FROM raw_events
+           WHERE agent_id = $1 AND source = $2 AND source_event_id = $3
+           LIMIT 1`,
+          [input.agent_id, input.source, input.source_event_id]
+        );
+      }
+      if (hash !== undefined) {
+        return this.pool.query(
+          `SELECT * FROM raw_events
+           WHERE agent_id = $1 AND source = $2 AND content_hash = $3 AND occurred_at = $4
+           LIMIT 1`,
+          [input.agent_id, input.source, hash, occurredAt]
+        );
+      }
+      return this.pool.query(
+        `SELECT * FROM raw_events
+         WHERE agent_id = $1 AND source = $2 AND source_ref_hash = $3 AND occurred_at = $4
+         LIMIT 1`,
+        [input.agent_id, input.source, sourceRefHash, occurredAt]
+      );
+    };
+
+    if (!input.source_event_id && hash === undefined) {
+      const existing = await findExisting();
+      if (existing.rows[0]) return this.rowToRawEvent(existing.rows[0]);
+    }
+
     const result = await this.pool.query(
       `INSERT INTO raw_events
         (id, agent_id, session_id, project, host, source, event_type, role,
@@ -1046,19 +1077,7 @@ export class PgStore implements Store {
     );
     if (result.rows[0]) return this.rowToRawEvent(result.rows[0]);
 
-    const existing = input.source_event_id
-      ? await this.pool.query(
-          `SELECT * FROM raw_events
-           WHERE agent_id = $1 AND source = $2 AND source_event_id = $3
-           LIMIT 1`,
-          [input.agent_id, input.source, input.source_event_id]
-        )
-      : await this.pool.query(
-          `SELECT * FROM raw_events
-           WHERE agent_id = $1 AND source = $2 AND content_hash = $3 AND occurred_at = $4
-           LIMIT 1`,
-          [input.agent_id, input.source, hash, occurredAt]
-        );
+    const existing = await findExisting();
     return this.rowToRawEvent(existing.rows[0]);
   }
 
@@ -1521,9 +1540,9 @@ export class PgStore implements Store {
       event_type: row.event_type as RawEvent["event_type"],
       role: row.role as string | undefined,
       content: (row.content as string | undefined) ?? (row.content_text as string | undefined),
-      content_hash: row.content_hash as string | undefined,
+      content_hash: (row.content_hash as string | null) ?? undefined,
       source_ref: (row.source_ref as Record<string, unknown>) || {},
-      source_ref_hash: row.source_ref_hash as string | undefined,
+      source_ref_hash: (row.source_ref_hash as string | null) ?? undefined,
       source_event_id: row.source_event_id as string | undefined,
       source_path: row.source_path as string | undefined,
       redaction_level: row.redaction_level as string | undefined,
