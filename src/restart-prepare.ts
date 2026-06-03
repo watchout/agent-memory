@@ -1,5 +1,6 @@
 import type { ConversationEvent, Decision, Knowledge, Store, TaskState } from "./stores/types.js";
 import { estimateTokens } from "./constants.js";
+import { detectContinuityRisks, type ContinuityRisk } from "./continuity-analysis.js";
 import {
   buildHostInvocationContextArtifact,
   buildRecoveryPackArtifact,
@@ -83,6 +84,7 @@ interface Snapshot {
   decisions: Decision[];
   knowledge: Knowledge[];
   conversationEvents: ConversationEvent[];
+  continuityRisks: ContinuityRisk[];
 }
 
 interface PreparedPackContent {
@@ -118,6 +120,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     mode: effectiveMode,
     score,
     missingContext,
+    continuityRisks: snapshot.continuityRisks,
     contextBand: contextSignal.band,
     runtimeContextError: input.runtime_context_error === true,
   });
@@ -178,6 +181,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
       packInjectionMode,
       contextSignalSource: contextSignal.source,
       action,
+      continuityRisks: snapshot.continuityRisks,
     }),
   };
 }
@@ -220,7 +224,14 @@ async function loadSnapshot(store: Store, input: RestartPrepareInput): Promise<S
     store.getKnowledge({ agent_id: input.agent_id, project: input.project, limit: 5, status: "active" }),
     store.getConversationEvents({ agent_id: input.agent_id, project: input.project, limit: 8 }),
   ]);
-  return { activeTasks, blockedTasks, decisions, knowledge, conversationEvents };
+  return {
+    activeTasks,
+    blockedTasks,
+    decisions,
+    knowledge,
+    conversationEvents,
+    continuityRisks: detectContinuityRisks({ decisions }),
+  };
 }
 
 function autoRestartBlockersFor(input: RestartPrepareInput): string[] {
@@ -243,6 +254,9 @@ function missingContextFor(snapshot: Snapshot): string[] {
   if (!active?.next_steps) missing.push("next_action");
   if (snapshot.decisions.length === 0) missing.push("latest_decision");
   if (snapshot.knowledge.length === 0 && snapshot.conversationEvents.length === 0) missing.push("supporting_context");
+  for (const risk of snapshot.continuityRisks) {
+    if (!missing.includes(risk.missing_context_key)) missing.push(risk.missing_context_key);
+  }
   return missing;
 }
 
@@ -252,6 +266,7 @@ function confidenceScore(missingContext: string[]): number {
     next_action: 0.25,
     latest_decision: 0.15,
     supporting_context: 0.15,
+    contradictory_decisions: 0.3,
   };
   const penalty = missingContext.reduce((sum, key) => sum + (weights[key] ?? 0.1), 0);
   return Math.max(0, Math.min(1, Number((1 - penalty).toFixed(2))));
@@ -287,12 +302,14 @@ function actionFor(input: {
   mode: ContinuityGuardMode;
   score: number;
   missingContext: string[];
+  continuityRisks: ContinuityRisk[];
   contextBand: RestartPrepareOutput["context_signal"]["band"];
   runtimeContextError: boolean;
 }): RestartPrepareAction {
   if (input.mode === "off") return "off";
   if (input.mode === "pack_only") return "pack_update_needed";
   if (input.runtimeContextError || input.contextBand === "require") return "restart_required";
+  if (input.continuityRisks.length > 0) return "restart_recommended";
   if (input.contextBand === "recommend" || input.score < 0.55) return "restart_recommended";
   return "pack_update_needed";
 }
@@ -303,6 +320,7 @@ function notesFor(input: {
   packInjectionMode: PackInjectionMode;
   contextSignalSource: "host_metrics" | "estimated";
   action: RestartPrepareAction;
+  continuityRisks: ContinuityRisk[];
 }): string[] {
   const notes: string[] = [];
   notes.push("wasurezu does not mutate AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or close.");
@@ -314,6 +332,9 @@ function notesFor(input: {
   }
   if (input.packInjectionMode === "off") {
     notes.push("pack injection is off; restart_pack content is generated for inspection only.");
+  }
+  for (const risk of input.continuityRisks) {
+    notes.push(`semantic continuity degraded: ${risk.kind}; ${risk.source_refs.join(", ")}.`);
   }
   notes.push(`restart_prepare action=${input.action}.`);
   return notes;

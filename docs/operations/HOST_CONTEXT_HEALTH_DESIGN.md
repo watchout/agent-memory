@@ -22,6 +22,7 @@ provenance must be explicit.
 | Host/runtime token-window metrics | measured | May drive `prepare`, `warn`, `recommend`, or `require` bands. |
 | Supervisor/AUN context health signal | measured or delegated | May drive lifecycle recommendation for the owning supervisor. |
 | Wasurezu semantic sparse-pack signal | estimated | May recommend recovery but must be labeled estimated. |
+| Wasurezu contradictory-memory signal | estimated | Active contradictory decisions without a supersede/provenance winner may recommend recovery and must be labeled estimated. |
 | LLM self-report inside prompt | soft | Fallback signal only; not sufficient for normal automation. |
 
 ---

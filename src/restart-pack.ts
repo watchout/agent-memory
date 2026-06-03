@@ -4,6 +4,7 @@ import type { Store, ConversationEvent, Decision, Knowledge, TaskState } from ".
 import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_SECTION, estimateTokens } from "./constants.js";
 import { redactText } from "./redact.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
+import { detectContinuityRisks } from "./continuity-analysis.js";
 
 export interface RestartPackInput {
   agent_id: string;
@@ -254,6 +255,7 @@ function buildSections(data: RestartPackData): string[] {
   const relevanceBasis = primaryTask ? primaryTask.task : "";
   const relevantDecisions = primaryTask ? filterRelevant(data.decisions, relevanceBasis, decisionText) : data.decisions;
   const relevantKnowledge = primaryTask ? filterRelevant(data.knowledge, relevanceBasis, knowledgeText) : data.knowledge;
+  const continuityRisks = detectContinuityRisks({ decisions: data.decisions });
   const hiddenStructuredCount =
     data.decisions.length - relevantDecisions.length + data.knowledge.length - relevantKnowledge.length;
 
@@ -316,6 +318,15 @@ function buildSections(data: RestartPackData): string[] {
       [
         "STRUCTURED MEMORY CAUTION",
         `${hiddenStructuredCount} older decision/knowledge items were omitted because they did not match the current task. Use targeted search_memory only if the restart pack feels incomplete.`,
+      ].join("\n")
+    );
+  }
+
+  if (continuityRisks.length > 0) {
+    sections.push(
+      [
+        "CONTINUITY RISKS",
+        ...continuityRisks.map((risk) => `- ${risk.summary}`),
       ].join("\n")
     );
   }
@@ -397,6 +408,7 @@ function buildRecoveryItems(data: RestartPackData): RecoveryPackItem[] {
   const relevanceBasis = primaryTask ? primaryTask.task : "";
   const relevantDecisions = primaryTask ? filterRelevant(data.decisions, relevanceBasis, decisionText) : data.decisions;
   const relevantKnowledge = primaryTask ? filterRelevant(data.knowledge, relevanceBasis, knowledgeText) : data.knowledge;
+  const continuityRisks = detectContinuityRisks({ decisions: data.decisions });
   const hiddenStructuredCount =
     data.decisions.length - relevantDecisions.length + data.knowledge.length - relevantKnowledge.length;
   const items: RecoveryPackItem[] = [];
@@ -502,6 +514,17 @@ function buildRecoveryItems(data: RestartPackData): RecoveryPackItem[] {
     }));
   }
 
+  for (const risk of continuityRisks) {
+    items.push(recoveryItem({
+      item_id: `risk:${risk.kind}:${risk.source_ids.join(":")}`,
+      kind: "risk",
+      trust_level: "agent_memory",
+      source_ref: risk.source_refs[0] ?? "restart_pack:continuity_analysis",
+      summary: risk.summary,
+      actionability: "must_read",
+    }));
+  }
+
   return items;
 }
 
@@ -565,6 +588,9 @@ function missingContextFor(data: RestartPackData): string[] {
   if (!active?.next_steps) missing.push("next_action");
   if (data.decisions.length === 0) missing.push("latest_decision");
   if (data.knowledge.length === 0 && data.conversationEvents.length === 0) missing.push("supporting_context");
+  for (const risk of detectContinuityRisks({ decisions: data.decisions })) {
+    if (!missing.includes(risk.missing_context_key)) missing.push(risk.missing_context_key);
+  }
   return missing;
 }
 
@@ -579,6 +605,7 @@ function confidenceScore(missingContext: string[]): number {
     next_action: 0.25,
     latest_decision: 0.15,
     supporting_context: 0.15,
+    contradictory_decisions: 0.3,
   };
   const penalty = missingContext.reduce((sum, key) => sum + (weights[key] ?? 0.1), 0);
   return Math.max(0, Math.min(1, Number((1 - penalty).toFixed(2))));
