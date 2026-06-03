@@ -1938,6 +1938,60 @@ async function testRestartPrepare() {
   assert(sparse.recovery_confidence.missing_context.includes("active_task"), "restart_prepare reports missing active task");
   assert(sparse.action === "restart_recommended", "restart_prepare recommends restart on sparse semantic continuity");
 
+  const contradictionAgentId = "test-restart-prepare-contradictory-agent";
+  await store.saveTaskState({
+    agent_id: contradictionAgentId,
+    project,
+    task: "AM-101 restart pack and continuity guard foundation",
+    status: "in_progress",
+    progress: "Contradictory-memory regression is under test.",
+    next_steps: "Resolve the decision conflict before relying on recovery output.",
+  });
+  const positiveDecision = await store.logDecision({
+    agent_id: contradictionAgentId,
+    project,
+    decision: "Use SQLite as the default backend for AM-101 continuity guard tests.",
+    tags: ["AM-101", "continuity"],
+  });
+  const negativeDecision = await store.logDecision({
+    agent_id: contradictionAgentId,
+    project,
+    decision: "Do not use SQLite as the default backend for AM-101 continuity guard tests.",
+    tags: ["AM-101", "continuity"],
+  });
+  await store.saveKnowledge({
+    agent_id: contradictionAgentId,
+    project,
+    title: "AM-101 continuity evidence",
+    content: "Restart recovery must expose confidence, missing context, and provenance without runtime restart authority.",
+    source_type: "manual",
+    tags: ["AM-101"],
+  });
+  const contradictory = await prepareRestart(store, {
+    agent_id: contradictionAgentId,
+    project,
+    pack_format: "recovery-pack-v1",
+  });
+  assert(contradictory.context_signal.source === "estimated", "restart_prepare labels contradictory-memory signal as estimated when metrics are absent");
+  assert(contradictory.context_signal.band === "unknown", "restart_prepare does not invent context band for contradictory memory");
+  assert(contradictory.action === "restart_recommended", "restart_prepare recommends restart for unresolved contradictory memory");
+  assert(contradictory.recovery_confidence.missing_context.includes("contradictory_decisions"), "restart_prepare reports contradictory decisions as missing context");
+  assert(contradictory.recovery_confidence.level === "medium", "restart_prepare lowers confidence for contradictory decisions");
+  assert(contradictory.provenance.decision_ids.includes(positiveDecision.id), "restart_prepare provenance includes positive contradictory decision");
+  assert(contradictory.provenance.decision_ids.includes(negativeDecision.id), "restart_prepare provenance includes negative contradictory decision");
+  assert(contradictory.notes.some((note) => note.includes("contradictory_decisions")), "restart_prepare notes contradictory semantic degradation");
+  const contradictoryPack = JSON.parse(contradictory.restart_pack ?? "{}");
+  assert(validateRecoveryPackArtifact(contradictoryPack).valid, "contradictory recovery-pack/v1 remains valid");
+  assert(contradictoryPack.missing_context.includes("contradictory_decisions"), "recovery-pack/v1 exposes contradictory decision missing context");
+  assert(
+    contradictoryPack.items.some((item: any) =>
+      item.kind === "risk" &&
+      item.source_ref.startsWith("decision:") &&
+      item.summary.includes("Active decisions disagree")
+    ),
+    "recovery-pack/v1 includes provenance-bearing contradictory decision risk"
+  );
+
   const packOnly = await prepareRestart(store, {
     agent_id: agentId,
     project,
@@ -1946,6 +2000,17 @@ async function testRestartPrepare() {
     emit_pack: false,
   });
   assert(packOnly.action === "pack_update_needed", "restart_prepare pack_only never emits restart_required");
+
+  const offMode = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    continuity_guard_mode: "off",
+    context_used_ratio: 0.99,
+    emit_pack: false,
+  });
+  assert(offMode.context_signal.source === "host_metrics", "restart_prepare off mode still reports host metric provenance");
+  assert(offMode.context_signal.band === "require", "restart_prepare off mode still reports observed require band");
+  assert(offMode.action === "off", "restart_prepare off mode suppresses continuity recommendations");
 
   const packOff = await prepareRestart(store, {
     agent_id: agentId,
