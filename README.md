@@ -5,6 +5,11 @@
 
 `wasurezu` (Japanese for "won't forget") is an [MCP](https://modelcontextprotocol.io) server that gives AI coding agents like Claude Code a persistent, structured memory layer. Decisions, task state, and learnings survive context-window compaction and session crashes.
 
+`Kusabi` is the additive public-facing alias for the same tool. Existing
+`wasurezu` package identity, MCP server config, MCP tool namespace, database
+paths, and startup recovery instructions remain supported and authoritative
+during the transition.
+
 > ⚠️ **Early Stage (v0.3.0, internal-use snapshot)** — currently used internally by the IYASAKA bot swarm. The public OSS release is in preparation (see AM-013 / AM-014). API may still change before the first public alpha. Feedback welcome via GitHub Issues.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
