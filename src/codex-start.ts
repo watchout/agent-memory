@@ -7,7 +7,7 @@
  * bridge generates a restart_pack-backed initial prompt and can optionally
  * launch Codex with that prompt.
  */
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
@@ -29,6 +29,8 @@ export interface CodexStartupPromptInput {
 
 export interface CodexStartCliOptions {
   launch: boolean;
+  dryRun: boolean;
+  doctor: boolean;
   cd?: string;
   codexBin: string;
   maxTokens?: number;
@@ -36,6 +38,46 @@ export interface CodexStartCliOptions {
 }
 
 export const CODEX_STARTUP_BRIDGE_ENV = "codex_startup_bridge_v1";
+export const CODEX_POSITIONAL_PROMPT_CONTRACT = "codex [OPTIONS] [PROMPT]";
+export const CODEX_PROMPT_DELIVERY_MODE = "positional-prompt-argv";
+export const CODEX_ARGV_VISIBILITY_NOTE =
+  "Codex prompt delivery currently uses a positional prompt argument unless a verified stdin or prompt-file Codex surface is available; this can expose the bounded restart_pack in the Codex process argv.";
+
+export interface CodexDoctorCommandResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}
+
+export interface CodexDoctorReport {
+  runner: "wasurezu-codex-start";
+  codex_bin: string;
+  positional_prompt_contract: string;
+  prompt_delivery_mode: string;
+  codex_help_available: boolean;
+  codex_version_available: boolean;
+  help_mentions_prompt_argument: boolean;
+  version?: string;
+  argv_visibility_risk: string;
+  live_launch_performed: false;
+  notes: string[];
+}
+
+export interface CodexLaunchPreview {
+  runner: "wasurezu-codex-start";
+  launch_requested: boolean;
+  would_launch_codex: boolean;
+  codex_bin: string;
+  cd?: string;
+  prompt_delivery_mode: string;
+  positional_prompt_contract: string;
+  argv_visibility_risk: string;
+  prompt_chars: number;
+  prompt_arg_index: number;
+  args_preview: string[];
+  live_launch_performed: false;
+}
 
 export function buildCodexStartupPrompt(input: CodexStartupPromptInput): string {
   const prompt = [
@@ -64,6 +106,8 @@ export function buildCodexStartupPrompt(input: CodexStartupPromptInput): string 
 export function parseArgs(args: string[]): CodexStartCliOptions {
   const options: CodexStartCliOptions = {
     launch: false,
+    dryRun: false,
+    doctor: false,
     codexBin: process.env.AGENT_MEMORY_CODEX_BIN || "codex",
   };
 
@@ -73,6 +117,10 @@ export function parseArgs(args: string[]): CodexStartCliOptions {
       options.launch = true;
     } else if (arg === "--print") {
       options.launch = false;
+    } else if (arg === "--dry-run") {
+      options.dryRun = true;
+    } else if (arg === "--doctor") {
+      options.doctor = true;
     } else if (arg === "--cd") {
       options.cd = requireValue(args, ++i, "--cd");
     } else if (arg === "--codex-bin") {
@@ -99,6 +147,12 @@ export function parseArgs(args: string[]): CodexStartCliOptions {
 
 async function run() {
   const options = parseArgs(process.argv.slice(2));
+
+  if (options.doctor) {
+    console.log(JSON.stringify(buildCodexDoctorReport(options), null, 2));
+    return;
+  }
+
   const store = await createStore();
 
   try {
@@ -114,6 +168,11 @@ async function run() {
       restartPack,
       extraInstruction: options.extraInstruction,
     });
+
+    if (options.dryRun) {
+      console.log(JSON.stringify(buildCodexLaunchPreview(options, prompt), null, 2));
+      return;
+    }
 
     await logCodexStartupQuality(store, restartPack, { launchRequested: options.launch });
 
@@ -172,10 +231,74 @@ export function buildCodexLaunchArgs(options: Pick<CodexStartCliOptions, "cd">, 
   return options.cd ? ["--cd", options.cd, prompt] : [prompt];
 }
 
+export function buildCodexLaunchPreview(
+  options: Pick<CodexStartCliOptions, "launch" | "cd" | "codexBin">,
+  prompt: string
+): CodexLaunchPreview {
+  const args = options.cd
+    ? ["--cd", options.cd, "[restart_pack prompt omitted]"]
+    : ["[restart_pack prompt omitted]"];
+  return {
+    runner: "wasurezu-codex-start",
+    launch_requested: options.launch,
+    would_launch_codex: options.launch,
+    codex_bin: options.codexBin,
+    cd: options.cd,
+    prompt_delivery_mode: CODEX_PROMPT_DELIVERY_MODE,
+    positional_prompt_contract: CODEX_POSITIONAL_PROMPT_CONTRACT,
+    argv_visibility_risk: CODEX_ARGV_VISIBILITY_NOTE,
+    prompt_chars: prompt.length,
+    prompt_arg_index: args.length - 1,
+    args_preview: args,
+    live_launch_performed: false,
+  };
+}
+
 export function buildCodexLaunchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return {
     ...env,
     AGENT_MEMORY_STARTUP_BRIDGE: CODEX_STARTUP_BRIDGE_ENV,
+  };
+}
+
+export function buildCodexDoctorReport(
+  options: Pick<CodexStartCliOptions, "codexBin">,
+  runCommand: (bin: string, args: string[]) => CodexDoctorCommandResult = runCodexDoctorCommand
+): CodexDoctorReport {
+  const help = runCommand(options.codexBin, ["--help"]);
+  const version = runCommand(options.codexBin, ["--version"]);
+  const helpText = `${help.stdout}\n${help.stderr}`;
+  const versionText = `${version.stdout}\n${version.stderr}`.trim();
+  const helpMentionsPrompt = /\[?PROMPT\]?|initial prompt|positional prompt/i.test(helpText);
+  return {
+    runner: "wasurezu-codex-start",
+    codex_bin: options.codexBin,
+    positional_prompt_contract: CODEX_POSITIONAL_PROMPT_CONTRACT,
+    prompt_delivery_mode: CODEX_PROMPT_DELIVERY_MODE,
+    codex_help_available: help.status === 0,
+    codex_version_available: version.status === 0,
+    help_mentions_prompt_argument: helpMentionsPrompt,
+    version: version.status === 0 && versionText ? versionText.split("\n")[0] : undefined,
+    argv_visibility_risk: CODEX_ARGV_VISIBILITY_NOTE,
+    live_launch_performed: false,
+    notes: [
+      "Doctor mode does not launch Codex.",
+      "A positive help match means the local Codex help still advertises a prompt argument surface; it is not public-alpha recovery evidence.",
+      "Use launcher-controlled runs plus recovery evidence for startup recovery claims.",
+    ],
+  };
+}
+
+function runCodexDoctorCommand(bin: string, args: string[]): CodexDoctorCommandResult {
+  const result = spawnSync(bin, args, {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+    error: result.error ? String(result.error) : undefined,
   };
 }
 
@@ -199,6 +322,8 @@ Usage:
 Options:
   --print              Print the generated prompt. This is the default.
   --launch             Launch Codex with the generated prompt.
+  --dry-run            Print launch preview JSON without writing telemetry or launching Codex.
+  --doctor             Check local Codex CLI help/version surfaces without launching Codex.
   --cd DIR             Pass a working directory to codex --cd when launching.
   --codex-bin PATH     Codex executable to run. Default: codex.
   --max-tokens N       restart_pack token budget override.
@@ -209,6 +334,10 @@ Restart UX:
     /exit
     wasurezu-codex-start --launch --cd <workspace>
   The bridge does not kill or replace existing Codex sessions.
+  Current Codex prompt delivery uses the tested contract:
+    ${CODEX_POSITIONAL_PROMPT_CONTRACT}
+  Until a verified stdin or prompt-file Codex surface exists, the bounded
+  restart_pack prompt may be visible in the Codex process argv.
 
 Environment:
   AGENT_MEMORY_AGENT_ID       Memory namespace. Default: default.
