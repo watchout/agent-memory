@@ -264,6 +264,9 @@ npx wasurezu-codex-start
 
 # Or launch Codex with that prompt.
 npx wasurezu-codex-start --launch --cd ~/Developer/codex
+
+# Inspect the local Codex CLI contract without launching Codex.
+npx wasurezu-codex-start --doctor
 ```
 
 The intended Codex restart UX is to exit the old session first, then start a
@@ -280,6 +283,28 @@ npx wasurezu-codex-start --launch --cd ~/Developer/codex
 wasurezu does not kill or replace existing Codex sessions. Session lifecycle is
 owned by the user or host. This keeps the bridge portable and avoids ambiguous
 singleton ownership.
+
+The package also ships optional operator scripts under
+`scripts/host-adapters/` for repo/package-based installs:
+
+```bash
+scripts/host-adapters/codex-bridge-launch.sh --dry-run --cd ~/Developer/codex
+scripts/host-adapters/codex-tmux-exit.sh --dry-run --session codex
+scripts/host-adapters/codex-tmux-start.sh --dry-run --session codex --cd ~/Developer/codex
+scripts/host-adapters/codex-tmux-restart.sh --dry-run --session codex --cd ~/Developer/codex
+```
+
+These scripts are operator conveniences. They do not make Wasurezu the owner of
+Codex lifecycle, do not mutate AUN queue state, and are not public-alpha
+startup-recovery evidence unless paired with a real launcher-controlled run and
+recovery report.
+
+Current Codex launch hardening is explicit about the remaining CLI limitation:
+the tested contract is `codex [OPTIONS] [PROMPT]`. Until Codex exposes and this
+project verifies a stdin or prompt-file startup surface, the bounded
+`restart_pack` prompt may be visible in the Codex process argv during launch.
+Use `--doctor` and `--dry-run` to record local compatibility evidence without
+launching Codex.
 
 When integrated with AUN or another supervisor, that orchestrator owns runtime
 restart/requeue execution. wasurezu supplies restart packs, recovery confidence,

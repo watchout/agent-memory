@@ -191,6 +191,30 @@ For Codex:
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
 
+Codex launcher hardening helpers:
+
+```bash
+wasurezu-codex-start --doctor
+wasurezu-codex-start --launch --dry-run --cd /path/to/workspace
+scripts/host-adapters/codex-bridge-launch.sh --dry-run --cd /path/to/workspace
+scripts/host-adapters/codex-tmux-exit.sh --dry-run --session codex
+scripts/host-adapters/codex-tmux-start.sh --dry-run --session codex --cd /path/to/workspace
+scripts/host-adapters/codex-tmux-restart.sh --dry-run --session codex --cd /path/to/workspace
+```
+
+The `scripts/host-adapters/` Codex scripts are packaged operator conveniences.
+They are not MCP core lifecycle ownership and do not by themselves prove
+startup recovery. Tests and audits should use `--dry-run` to verify command
+construction without launching Codex, touching tmux, or mutating production
+state.
+
+The current verified Codex CLI startup contract is
+`codex [OPTIONS] [PROMPT]`. `wasurezu-codex-start --doctor` checks local
+Codex help/version surfaces without launching Codex. Until a stdin or
+prompt-file startup surface is verified, the bounded restart pack prompt may be
+visible in the Codex process argv. That is a documented compatibility
+limitation, not public-alpha evidence.
+
 For Claude Code standalone resession:
 
 ```bash

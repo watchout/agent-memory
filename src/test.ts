@@ -4,7 +4,7 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
@@ -34,9 +34,13 @@ import {
 } from "./restart-cli.js";
 import { redactText } from "./redact.js";
 import {
+  CODEX_ARGV_VISIBILITY_NOTE,
+  CODEX_POSITIONAL_PROMPT_CONTRACT,
   CODEX_STARTUP_BRIDGE_ENV,
+  buildCodexDoctorReport,
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
+  buildCodexLaunchPreview,
   buildCodexStartupPrompt,
   isMainEntrypoint as isCodexMainEntrypoint,
   logCodexStartupQuality,
@@ -1518,6 +1522,10 @@ async function testCodexStartupBridge() {
   assert(parsed.maxTokens === 900, "Codex startup parser reads --max-tokens");
   assert(parsed.extraInstruction === "Probe R1 first.", "Codex startup parser reads --extra");
 
+  const dryRunParsed = parseArgs(["--launch", "--dry-run", "--doctor", "--codex-bin", "codex-dev"]);
+  assert(dryRunParsed.dryRun === true, "Codex startup parser reads --dry-run");
+  assert(dryRunParsed.doctor === true, "Codex startup parser reads --doctor");
+
   const printAfterLaunch = parseArgs(["--launch", "--print"]);
   assert(printAfterLaunch.launch === false, "Codex startup parser lets later --print disable launch");
   assert(printAfterLaunch.launch !== true, "Codex --print does not count as launched startup evidence");
@@ -1552,6 +1560,35 @@ async function testCodexStartupBridge() {
   const launchArgs = buildCodexLaunchArgs({ cd: "/tmp/work" }, "hello");
   assert(launchArgs[0] === "--cd" && launchArgs[1] === "/tmp/work" && launchArgs[2] === "hello", "Codex launch args pass --cd before prompt");
 
+  const preview = buildCodexLaunchPreview({ launch: true, cd: "/tmp/work", codexBin: "codex-dev" }, prompt);
+  assert(preview.live_launch_performed === false, "Codex dry-run preview does not perform live launch");
+  assert(preview.args_preview.includes("[restart_pack prompt omitted]"), "Codex dry-run preview omits restart_pack prompt content");
+  assert(!JSON.stringify(preview).includes("SESSION RESTART PACK"), "Codex dry-run preview does not leak restart_pack text");
+  assert(preview.positional_prompt_contract === CODEX_POSITIONAL_PROMPT_CONTRACT, "Codex dry-run preview reports positional prompt contract");
+  assert(preview.argv_visibility_risk === CODEX_ARGV_VISIBILITY_NOTE, "Codex dry-run preview reports argv visibility risk");
+
+  const doctor = buildCodexDoctorReport(
+    { codexBin: "codex-dev" },
+    (_bin, args) => {
+      if (args[0] === "--help") {
+        return {
+          status: 0,
+          stdout: "Usage: codex [OPTIONS] [PROMPT]\n",
+          stderr: "",
+        };
+      }
+      return {
+        status: 0,
+        stdout: "codex 0.99.0-test\n",
+        stderr: "",
+      };
+    }
+  );
+  assert(doctor.codex_help_available === true, "Codex doctor records help availability");
+  assert(doctor.help_mentions_prompt_argument === true, "Codex doctor detects prompt argument contract");
+  assert(doctor.live_launch_performed === false, "Codex doctor does not launch Codex");
+  assert(doctor.argv_visibility_risk === CODEX_ARGV_VISIBILITY_NOTE, "Codex doctor reports argv visibility limitation");
+
   const launchEnv = buildCodexLaunchEnv({ EXISTING_ENV: "kept" });
   assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
   assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
@@ -1567,6 +1604,9 @@ async function testCodexStartupBridge() {
     assert(help.includes("wasurezu-codex-start"), "Codex startup bin symlink executes CLI help");
     assert(help.includes("/exit"), "Codex startup help documents exit-before-reentry UX");
     assert(help.includes("does not kill or replace"), "Codex startup help avoids claiming session lifecycle ownership");
+    assert(help.includes("--doctor"), "Codex startup help documents doctor mode");
+    assert(help.includes("--dry-run"), "Codex startup help documents dry-run mode");
+    assert(help.includes(CODEX_POSITIONAL_PROMPT_CONTRACT), "Codex startup help documents positional prompt contract");
   } else {
     assert(true, "Codex startup bin symlink test skipped because dist/codex-start.js is absent");
   }
@@ -2091,7 +2131,66 @@ function testHostAdapterPackagingBoundary() {
   assert(packageJson.bin["agent-memory"] === "dist/index.js", "agent-memory compatibility CLI remains on the existing MCP entrypoint");
   assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(packageJson.bin["wasurezu-claude-start"] === "dist/claude-start.js", "npm package exposes wasurezu-claude-start CLI");
-  assert(!packageJson.files.includes("scripts/host-adapters"), "npm package does not claim host runtime restart scripts");
+  assert(packageJson.files.includes("scripts/host-adapters"), "npm package includes optional host adapter scripts");
+
+  const codexHostScripts = [
+    "scripts/host-adapters/codex-bridge-launch.sh",
+    "scripts/host-adapters/codex-tmux-exit.sh",
+    "scripts/host-adapters/codex-tmux-start.sh",
+    "scripts/host-adapters/codex-tmux-restart.sh",
+  ];
+  for (const script of codexHostScripts) {
+    assert(existsSync(script), `${script} exists`);
+    assert((statSync(script).mode & 0o111) !== 0, `${script} is executable`);
+    execFileSync("bash", ["-n", script]);
+    assert(true, `${script} passes bash syntax check`);
+  }
+
+  const bridgeDryRun = execFileSync("bash", [
+    "scripts/host-adapters/codex-bridge-launch.sh",
+    "--dry-run",
+    "--cd",
+    "/tmp/work",
+    "--codex-bin",
+    "codex-dev",
+  ], { encoding: "utf8" });
+  assert(bridgeDryRun.includes("DRY-RUN codex bridge launch"), "Codex bridge script supports dry-run");
+  assert(bridgeDryRun.includes("wasurezu-codex-start"), "Codex bridge script invokes wasurezu-codex-start");
+  assert(bridgeDryRun.includes("--dry-run"), "Codex bridge script dry-run preserves no-launch mode");
+
+  const tmuxExitDryRun = execFileSync("bash", [
+    "scripts/host-adapters/codex-tmux-exit.sh",
+    "--dry-run",
+    "--session",
+    "codex-test",
+  ], { encoding: "utf8" });
+  assert(tmuxExitDryRun.includes("DRY-RUN codex tmux exit"), "Codex tmux exit script supports dry-run");
+  assert(tmuxExitDryRun.includes("/exit"), "Codex tmux exit script sends normal host exit command");
+
+  const tmuxStartDryRun = execFileSync("bash", [
+    "scripts/host-adapters/codex-tmux-start.sh",
+    "--dry-run",
+    "--session",
+    "codex-test",
+    "--cd",
+    "/tmp/work",
+    "--codex-bin",
+    "codex-dev",
+  ], { encoding: "utf8" });
+  assert(tmuxStartDryRun.includes("DRY-RUN codex tmux start"), "Codex tmux start script supports dry-run");
+  assert(tmuxStartDryRun.includes("bridge_command:"), "Codex tmux start script reports bridge command");
+  assert(tmuxStartDryRun.includes("wasurezu-codex-start"), "Codex tmux start script starts through the bridge");
+
+  const tmuxRestartDryRun = execFileSync("bash", [
+    "scripts/host-adapters/codex-tmux-restart.sh",
+    "--dry-run",
+    "--session",
+    "codex-test",
+    "--cd",
+    "/tmp/work",
+  ], { encoding: "utf8" });
+  assert(tmuxRestartDryRun.includes("DRY-RUN codex tmux exit"), "Codex tmux restart script dry-runs exit step");
+  assert(tmuxRestartDryRun.includes("DRY-RUN codex tmux start"), "Codex tmux restart script dry-runs start step");
 
   const hostAdapters = readFileSync("docs/operations/HOST_ADAPTERS.md", "utf8");
   const normalizedHostAdapters = hostAdapters.replace(/\s+/g, " ");
@@ -2116,6 +2215,10 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("SessionStart is a load hook, not the restart policy owner"), "host adapter docs keep Claude SessionStart as load hook");
   assert(normalizedHostAdapters.includes("`--launch` is fail-closed"), "host adapter docs document Claude runner launch fail-closed behavior");
   assert(normalizedHostAdapters.includes("The runner does not kill or replace existing Claude sessions"), "host adapter docs avoid claiming Claude process replacement");
+  assert(normalizedHostAdapters.includes("Codex launcher hardening helpers"), "host adapter docs document Codex hardening helpers");
+  assert(normalizedHostAdapters.includes("scripts/host-adapters/"), "host adapter docs document packaged operator scripts");
+  assert(normalizedHostAdapters.includes("`codex [OPTIONS] [PROMPT]`"), "host adapter docs document Codex positional prompt contract");
+  assert(lowerHostAdapters.includes("visible in the codex process argv"), "host adapter docs disclose Codex argv visibility limitation");
 
   const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
   assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
@@ -2164,6 +2267,11 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedCodexRecovery.includes("soft fallback controls only"), "Codex recovery docs mark AGENTS/tool fallback as soft");
   assert(normalizedCodexRecovery.includes("target_runtime=codex"), "Codex recovery docs bind host invocation target runtime");
   assert(normalizedCodexRecovery.includes("delivery_mode=tui-fallback"), "Codex recovery docs label TUI fallback delivery");
+  assert(normalizedCodexRecovery.includes("codex [OPTIONS] [PROMPT]"), "Codex recovery docs pin tested CLI prompt contract");
+  assert(normalizedCodexRecovery.includes("wasurezu-codex-start --doctor"), "Codex recovery docs document doctor mode");
+  assert(normalizedCodexRecovery.includes("scripts/host-adapters/"), "Codex recovery docs document packaged operator scripts");
+  assert(normalizedCodexRecovery.includes("visible in the Codex process argv"), "Codex recovery docs disclose argv visibility limitation");
+  assert(normalizedCodexRecovery.includes("Their tests must use `--dry-run`"), "Codex recovery docs require no-live-launch script tests");
 
   const hostContextHealth = readFileSync("docs/operations/HOST_CONTEXT_HEALTH_DESIGN.md", "utf8");
   const normalizedHostContextHealth = hostContextHealth.replace(/\s+/g, " ");

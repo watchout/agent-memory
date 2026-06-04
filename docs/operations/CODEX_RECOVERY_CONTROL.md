@@ -39,9 +39,43 @@ MCP callers can request the Codex-shaped artifact with
 returned context is data-only recovery material; the launcher or runner owns
 the actual Codex command invocation.
 
+## 3. CLI Contract And Operator Scripts
+
+The currently tested Codex launch contract is:
+
+```text
+codex [OPTIONS] [PROMPT]
+```
+
+`wasurezu-codex-start --doctor` checks the local Codex help/version surfaces
+without launching Codex. It is compatibility evidence only; it is not a startup
+recovery run.
+
+`wasurezu-codex-start --launch --dry-run` prints a launch preview that omits
+the restart pack text and does not write telemetry or launch Codex. Use it for
+script and packaging checks.
+
+The npm package includes optional Codex operator helpers under
+`scripts/host-adapters/`:
+
+- `codex-bridge-launch.sh`
+- `codex-tmux-exit.sh`
+- `codex-tmux-start.sh`
+- `codex-tmux-restart.sh`
+
+These scripts are repo-owned host adapter conveniences. They do not own restart
+policy, kill or replace sessions by force, mutate AUN queue lifecycle, or prove
+public-alpha recovery. Their tests must use `--dry-run` and shell syntax checks
+only.
+
+Until Codex exposes and this project verifies a stdin or prompt-file startup
+surface, the bounded restart pack prompt may be visible in the Codex process
+argv during launch. This limitation must stay visible in release/readiness
+evidence and must not be hidden behind a public-alpha claim.
+
 ---
 
-## 3. Fallback Paths
+## 4. Fallback Paths
 
 These are compatibility fallback only:
 
@@ -54,7 +88,7 @@ Fallback evidence must be labeled as manual recovery.
 
 ---
 
-## 4. AUN Suite Mode
+## 5. AUN Suite Mode
 
 When Codex is supervised by AUN, AUN owns runtime restart, requeue, and queue
 lifecycle. Wasurezu may provide restart packs, recovery confidence, missing
