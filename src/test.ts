@@ -12,6 +12,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import { PG_MIGRATIONS } from "./stores/pg-migrations.js";
 import {
   HOST_INVOCATION_CONTEXT_ALLOWED_KEYS,
   RECOVERY_PACK_ALLOWED_KEYS,
@@ -74,6 +75,10 @@ function assert(condition: boolean, msg: string) {
 
 function sameStringSet(actual: string[], expected: readonly string[]): boolean {
   return actual.slice().sort().join("\n") === Array.from(expected).sort().join("\n");
+}
+
+function normalizeSql(sql: string): string {
+  return sql.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function mcpToolNamesFromSource(source: string): string[] {
@@ -2120,6 +2125,42 @@ async function testRestartPrepare() {
   await store.close();
 }
 
+function testPgMigrationSourceOfTruth() {
+  console.log("\n── PostgreSQL Migration Source-of-Truth Tests ──");
+  const migrateSource = readFileSync("src/migrate.ts", "utf8");
+  const pgStoreSource = readFileSync("src/stores/pg-store.ts", "utf8");
+  const pgMigrationsSource = readFileSync("src/stores/pg-migrations.ts", "utf8");
+
+  assert(pgMigrationsSource.includes("export const PG_MIGRATIONS"), "PG migrations are exported from the shared source");
+  assert(migrateSource.includes("PG_MIGRATIONS"), "standalone migrate runner imports the shared PG migration source");
+  assert(pgStoreSource.includes("PG_MIGRATIONS"), "PgStore imports the shared PG migration source");
+  assert(!/\bconst\s+MIGRATIONS\s*=/.test(migrateSource), "standalone migrate runner has no local migration array");
+  assert(!/\bconst\s+MIGRATIONS\s*=/.test(pgStoreSource), "PgStore has no local migration array");
+  assert(!/`[^`]*ALTER TABLE/i.test(migrateSource), "standalone migrate runner does not embed local ALTER statements");
+  assert(!/`[^`]*ALTER TABLE/i.test(pgStoreSource), "PgStore does not embed local ALTER statements");
+  assert(PG_MIGRATIONS.length > 40, "canonical PG migration source contains the runtime schema history");
+
+  const canonicalSql = PG_MIGRATIONS.map(normalizeSql).join("\n");
+  const requiredFragments = [
+    ["pgvector extension", "create extension if not exists vector"],
+    ["recovery_config table", "create table if not exists recovery_config"],
+    ["recovery_quality_log table", "create table if not exists recovery_quality_log"],
+    ["task_id task state column", "alter table task_states add column if not exists task_id"],
+    ["task state unique index", "create unique index if not exists uq_task_states_agent_task_id"],
+    ["knowledge supersedes column", "alter table knowledge add column if not exists supersedes"],
+    ["knowledge supersede_reason column", "alter table knowledge add column if not exists supersede_reason"],
+    ["conversation event source index", "create unique index if not exists uq_conversation_events_source_event"],
+    ["raw event occurred_at column", "alter table raw_events add column if not exists occurred_at"],
+    ["raw event occurred_at not-null enforcement", "alter table raw_events alter column occurred_at set not null"],
+    ["raw event source unique index", "create unique index if not exists uq_raw_events_source_event"],
+    ["selected restart packs table", "create table if not exists selected_restart_packs"],
+  ] as const;
+
+  for (const [label, fragment] of requiredFragments) {
+    assert(canonicalSql.includes(fragment), `canonical PG migrations include ${label}`);
+  }
+}
+
 function testHostAdapterPackagingBoundary() {
   console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
@@ -2638,6 +2679,7 @@ async function run() {
   await testCodexStartupBridge();
   await testClaudeResessionRunner();
   await testRestartPrepare();
+  testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
   testGovernedActionProfiles();
