@@ -17,6 +17,7 @@ import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import { summarizeRawCaptureCoverage } from "./raw-capture-coverage.js";
 import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
 
@@ -882,7 +883,10 @@ async function main() {
                 `Events saved: ${result.events_saved}\n` +
                 `Duplicates: ${result.events_duplicate}\n` +
                 `Skipped: ${result.events_skipped}\n` +
-                `Since: ${result.since}`
+                `Since: ${result.since}\n` +
+                `Coverage: ${result.coverage.status}\n` +
+                `Coverage missing context: ${result.coverage.missing_context.join(", ") || "none"}\n` +
+                `Coverage notes:\n- ${summarizeRawCaptureCoverage(result.coverage).join("\n- ")}`
             ),
           ],
         };

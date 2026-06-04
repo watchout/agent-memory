@@ -10,6 +10,7 @@ import { basename, join } from "path";
 import { homedir } from "os";
 import type { Store } from "./stores/types.js";
 import { normalizeHomePath, redactText } from "./redact.js";
+import { inspectRawCaptureCoverage, type RawCaptureCoverageReport } from "./raw-capture-coverage.js";
 
 export const CLAUDE_PROJECTS_MAX_DEPTH = 3;
 const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
@@ -29,6 +30,7 @@ export interface ClaudeConversationIngestResult {
   events_duplicate: number;
   events_skipped: number;
   since: string;
+  coverage: RawCaptureCoverageReport;
 }
 
 export function getClaudeProjectsDir(): string {
@@ -80,7 +82,17 @@ export async function ingestClaudeConversationEvents(
     throw new Error(`Invalid since timestamp: ${input.since}`);
   }
 
-  const files = findClaudeJsonlFiles(since, input.root).slice(0, input.max_files ?? 200);
+  const root = input.root ?? getClaudeProjectsDir();
+  const maxFiles = input.max_files ?? 200;
+  const files = findClaudeJsonlFiles(since, root).slice(0, maxFiles);
+  const coverage = inspectRawCaptureCoverage({
+    source: "claude_code",
+    project: input.project,
+    root,
+    since: since.toISOString(),
+    max_files: maxFiles,
+    max_depth: CLAUDE_PROJECTS_MAX_DEPTH,
+  });
   const result: ClaudeConversationIngestResult = {
     source: "claude_code",
     files_scanned: files.length,
@@ -89,6 +101,7 @@ export async function ingestClaudeConversationEvents(
     events_duplicate: 0,
     events_skipped: 0,
     since: since.toISOString(),
+    coverage,
   };
 
   for (const file of files) {

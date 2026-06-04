@@ -12,6 +12,11 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import {
+  inspectRawCaptureCoverage,
+  rawCaptureMissingContext,
+  summarizeRawCaptureCoverage,
+} from "./raw-capture-coverage.js";
 import { PG_MIGRATIONS } from "./stores/pg-migrations.js";
 import {
   HOST_INVOCATION_CONTEXT_ALLOWED_KEYS,
@@ -1004,6 +1009,80 @@ function testRedaction() {
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
 }
 
+function testRawCaptureCoverage() {
+  console.log("\n── Raw Capture Coverage Tests ──");
+  const since = "2026-05-18T00:00:00.000Z";
+
+  const unknownRoot = mkdtempSync(join(tmpdir(), "am139-unknown-"));
+  writeFileSync(join(unknownRoot, "session-a.jsonl"), "{}\n");
+  writeFileSync(join(unknownRoot, "dev@example.com.txt"), "do not ingest this content sk-test-secret\n");
+  const unknown = inspectRawCaptureCoverage({
+    source: "claude_code",
+    project: "dev-auditor",
+    root: unknownRoot,
+    since,
+  });
+  const unknownSource = unknown.sources[0];
+  assert(unknown.status === "degraded", "raw capture unknown files degrade coverage");
+  assert(unknown.project === "dev-auditor", "raw capture coverage reports project");
+  assert(unknownSource.known_files === 1, "raw capture counts known transcript files");
+  assert(unknownSource.unknown_files === 1, "raw capture counts unknown transcript files");
+  assert(unknown.missing_context.includes("raw_capture_unknown_files"), "unknown files become missing context");
+  const unknownRef = unknownSource.source_refs.find((ref) => ref.type === "unknown_file")?.ref ?? "";
+  assert(!unknownRef.includes("dev@example.com"), "unknown file refs are redacted");
+  assert(!unknownRef.includes("sk-test-secret"), "unknown file contents are not exposed");
+
+  const staleRoot = mkdtempSync(join(tmpdir(), "am139-stale-"));
+  writeFileSync(join(staleRoot, "session-b.jsonl"), "{}\n");
+  const stale = inspectRawCaptureCoverage({
+    source: "codex",
+    root: staleRoot,
+    since,
+    cursor_updated_at: new Date(Date.now() - 60_000).toISOString(),
+    stale_after_ms: 1,
+  });
+  assert(stale.status === "degraded", "stale raw capture cursor degrades coverage");
+  assert(stale.missing_context.includes("raw_capture_cursor_stale"), "stale cursor becomes missing context");
+
+  const backlogRoot = mkdtempSync(join(tmpdir(), "am139-backlog-"));
+  writeFileSync(join(backlogRoot, "session-1.jsonl"), "{}\n");
+  writeFileSync(join(backlogRoot, "session-2.jsonl"), "{}\n");
+  writeFileSync(join(backlogRoot, "session-3.jsonl"), "{}\n");
+  const backlog = inspectRawCaptureCoverage({
+    source: "claude_code",
+    root: backlogRoot,
+    since,
+    max_files: 1,
+    pending_events: 2,
+  });
+  assert(backlog.status === "degraded", "pending raw capture backlog degrades coverage");
+  assert(backlog.sources[0].pending_files === 2, "raw capture reports pending transcript files");
+  assert(backlog.sources[0].pending_events === 2, "raw capture reports pending backlog events separately");
+  assert(backlog.missing_context.includes("raw_capture_backlog_pending"), "pending backlog becomes missing context");
+  assert(rawCaptureMissingContext(backlog).includes("raw_capture_backlog_pending"), "raw capture missing-context helper reports backlog");
+  assert(
+    summarizeRawCaptureCoverage(backlog).some((note) => note.includes("pending_files=2")),
+    "raw capture coverage notes distinguish pending backlog"
+  );
+
+  const cleanRoot = mkdtempSync(join(tmpdir(), "am139-clean-"));
+  writeFileSync(join(cleanRoot, "session-clean.jsonl"), "{}\n");
+  const clean = inspectRawCaptureCoverage({
+    source: "codex",
+    root: cleanRoot,
+    since,
+    cursor_updated_at: new Date().toISOString(),
+    stale_after_ms: 60_000,
+  });
+  assert(clean.status === "clean", "clean raw capture coverage passes");
+  assert(clean.missing_context.length === 0, "clean raw capture has no missing context");
+
+  rmSync(unknownRoot, { recursive: true, force: true });
+  rmSync(staleRoot, { recursive: true, force: true });
+  rmSync(backlogRoot, { recursive: true, force: true });
+  rmSync(cleanRoot, { recursive: true, force: true });
+}
+
 async function testClaudeConversationIngest() {
   console.log("\n── Claude Conversation Ingest Tests (JsonStore) ──");
   const store = new JsonStore();
@@ -1073,6 +1152,7 @@ async function testClaudeConversationIngest() {
   assert(first.files_scanned === 1, "ingest scans fixture file");
   assert(first.events_saved === 4, "ingest saves four valid redacted events");
   assert(first.events_skipped === 1, "ingest skips malformed line");
+  assert(first.coverage.status === "clean", "Claude ingest reports clean raw capture coverage");
   assert(second.events_saved === 0, "second ingest saves no duplicates");
   assert(second.events_duplicate === 4, "second ingest reports duplicates");
 
@@ -1207,6 +1287,7 @@ async function testCodexConversationIngest() {
   assert(first.files_scanned === 1, "Codex ingest scans YYYY/MM/DD fixture file");
   assert(first.events_saved === 7, "Codex ingest saves visible redacted events");
   assert(first.events_skipped === 3, "Codex ingest skips developer/reasoning/malformed records");
+  assert(first.coverage.status === "clean", "Codex ingest reports clean raw capture coverage");
   assert(second.events_saved === 0, "Codex second ingest saves no duplicates");
   assert(second.events_duplicate === 7, "Codex second ingest reports duplicates");
 
@@ -1883,6 +1964,34 @@ async function testRestartPrepare() {
   const afterConsume = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
   assert(afterConsume === null, "consumed selected restart pack is no longer active");
 
+  const rawCoverageRoot = mkdtempSync(join(tmpdir(), "am139-prepare-coverage-"));
+  writeFileSync(join(rawCoverageRoot, "session-prepare.jsonl"), "{}\n");
+  writeFileSync(join(rawCoverageRoot, "unclassified.log"), "not imported by the raw capture policy\n");
+  const rawCaptureCoverage = inspectRawCaptureCoverage({
+    source: "claude_code",
+    project,
+    root: rawCoverageRoot,
+    since: "2026-05-18T00:00:00.000Z",
+  });
+  const coveragePrepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    emit_pack: false,
+    raw_capture_coverage: rawCaptureCoverage,
+  });
+  assert(
+    coveragePrepared.recovery_confidence.missing_context.includes("raw_capture_unknown_files"),
+    "restart_prepare includes raw capture coverage gaps in missing context"
+  );
+  assert(
+    coveragePrepared.notes.some((note) => note.includes("raw capture claude_code degraded")),
+    "restart_prepare notes raw capture coverage degradation"
+  );
+  const selectedCoverage = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: coveragePrepared.pack_ref! });
+  const selectedCoverageMetadata = selectedCoverage?.metadata.raw_capture_coverage as { status?: string } | undefined;
+  assert(selectedCoverageMetadata?.status === "degraded", "selected restart pack metadata records raw capture coverage");
+  rmSync(rawCoverageRoot, { recursive: true, force: true });
+
   const structuredPrepared = await prepareRestart(store, {
     agent_id: agentId,
     project,
@@ -2261,6 +2370,11 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("scripts/host-adapters/"), "host adapter docs document packaged operator scripts");
   assert(normalizedHostAdapters.includes("`codex [OPTIONS] [PROMPT]`"), "host adapter docs document Codex positional prompt contract");
   assert(lowerHostAdapters.includes("visible in the codex process argv"), "host adapter docs disclose Codex argv visibility limitation");
+  assert(normalizedHostAdapters.includes("Raw Capture Coverage Diagnostics"), "host adapter docs define raw capture coverage diagnostics");
+  assert(normalizedHostAdapters.includes("unknown files are surfaced as redacted provenance refs only"), "host adapter docs prevent raw capture policy broadening");
+  assert(normalizedHostAdapters.includes("raw_capture_unknown_files"), "host adapter docs document unknown-file missing context");
+  assert(normalizedHostAdapters.includes("raw_capture_backlog_pending"), "host adapter docs document backlog missing context");
+  assert(normalizedHostAdapters.includes("raw_capture_cursor_stale"), "host adapter docs document stale cursor missing context");
 
   const ssot6 = readFileSync("docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md", "utf8");
   assert(ssot6.includes("top-level Wasurezu continuity"), "SSOT-6 is the top-level continuity authority");
@@ -2673,6 +2787,7 @@ async function run() {
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
   testRedaction();
+  testRawCaptureCoverage();
   await testConversationEvents();
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
