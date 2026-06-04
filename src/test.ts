@@ -2165,6 +2165,7 @@ function testHostAdapterPackagingBoundary() {
   console.log("\n── Host Adapter Packaging Boundary Tests ──");
   const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
+  assert(packageJson.files.includes("docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md"), "npm package includes README-linked release criteria docs");
   assert(packageJson.files.includes("docs/design/schemas"), "npm package includes structured artifact schemas");
   assert(packageJson.bin["kusabi"] === packageJson.bin["wasurezu"], "npm package exposes kusabi as wasurezu-compatible MCP CLI alias");
   assert(packageJson.bin["kusabi"] === "dist/index.js", "kusabi CLI alias points at the existing MCP entrypoint");

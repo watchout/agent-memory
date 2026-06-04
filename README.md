@@ -335,6 +335,13 @@ For adapter automation, `restart_prepare` can persist selected packs as
 Without this bridge, Codex support should be described as manual MCP recovery:
 the user or agent must explicitly call `restart_pack` after startup.
 
+## Release Roadmap
+
+The public MCP release gate is tracked in
+[`docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md`](./docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md).
+It distinguishes internal opt-in, internal default, MCP public alpha, and the
+final world-class public release bar.
+
 ## Requirements
 
 - Node.js 18+

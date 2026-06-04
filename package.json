@@ -17,6 +17,7 @@
     "docs/design/schemas",
     "docs/design/governance",
     "docs/operations/HOST_ADAPTERS.md",
+    "docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md",
     "scripts/host-adapters",
     "README.md",
     "LICENSE",
