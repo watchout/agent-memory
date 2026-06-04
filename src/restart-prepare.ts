@@ -2,6 +2,11 @@ import type { ConversationEvent, Decision, Knowledge, Store, TaskState } from ".
 import { estimateTokens } from "./constants.js";
 import { detectContinuityRisks, type ContinuityRisk } from "./continuity-analysis.js";
 import {
+  rawCaptureMissingContext,
+  summarizeRawCaptureCoverage,
+  type RawCaptureCoverageReport,
+} from "./raw-capture-coverage.js";
+import {
   buildHostInvocationContextArtifact,
   buildRecoveryPackArtifact,
   buildRestartPack,
@@ -41,6 +46,7 @@ export interface RestartPrepareInput {
   delivery_mode?: HostInvocationDeliveryMode;
   trusted_instruction?: string;
   untrusted_context_policy?: UntrustedContextPolicy;
+  raw_capture_coverage?: RawCaptureCoverageReport;
 }
 
 export interface RestartPrepareOutput {
@@ -113,7 +119,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
   ]);
   const preparedPack = buildPreparedPackContent(restartPackData, input);
 
-  const missingContext = missingContextFor(snapshot);
+  const missingContext = missingContextFor(snapshot, input.raw_capture_coverage);
   const score = confidenceScore(missingContext);
   const contextSignal = contextSignalFor(input);
   const action = actionFor({
@@ -144,6 +150,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
           action,
           context_signal: contextSignal,
           recovery_confidence: { score, missing_context: missingContext },
+          raw_capture_coverage: input.raw_capture_coverage,
         },
       });
 
@@ -182,6 +189,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
       contextSignalSource: contextSignal.source,
       action,
       continuityRisks: snapshot.continuityRisks,
+      rawCaptureCoverage: input.raw_capture_coverage,
     }),
   };
 }
@@ -247,7 +255,7 @@ function autoRestartBlockersFor(input: RestartPrepareInput): string[] {
   return blockers;
 }
 
-function missingContextFor(snapshot: Snapshot): string[] {
+function missingContextFor(snapshot: Snapshot, rawCaptureCoverage?: RawCaptureCoverageReport): string[] {
   const missing: string[] = [];
   const active = snapshot.activeTasks[0] ?? snapshot.blockedTasks[0];
   if (!active) missing.push("active_task");
@@ -256,6 +264,9 @@ function missingContextFor(snapshot: Snapshot): string[] {
   if (snapshot.knowledge.length === 0 && snapshot.conversationEvents.length === 0) missing.push("supporting_context");
   for (const risk of snapshot.continuityRisks) {
     if (!missing.includes(risk.missing_context_key)) missing.push(risk.missing_context_key);
+  }
+  for (const key of rawCaptureCoverage ? rawCaptureMissingContext(rawCaptureCoverage) : []) {
+    if (!missing.includes(key)) missing.push(key);
   }
   return missing;
 }
@@ -267,6 +278,10 @@ function confidenceScore(missingContext: string[]): number {
     latest_decision: 0.15,
     supporting_context: 0.15,
     contradictory_decisions: 0.3,
+    raw_capture_unavailable: 0.25,
+    raw_capture_unknown_files: 0.15,
+    raw_capture_backlog_pending: 0.1,
+    raw_capture_cursor_stale: 0.15,
   };
   const penalty = missingContext.reduce((sum, key) => sum + (weights[key] ?? 0.1), 0);
   return Math.max(0, Math.min(1, Number((1 - penalty).toFixed(2))));
@@ -321,6 +336,7 @@ function notesFor(input: {
   contextSignalSource: "host_metrics" | "estimated";
   action: RestartPrepareAction;
   continuityRisks: ContinuityRisk[];
+  rawCaptureCoverage?: RawCaptureCoverageReport;
 }): string[] {
   const notes: string[] = [];
   notes.push("wasurezu does not mutate AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or close.");
@@ -335,6 +351,9 @@ function notesFor(input: {
   }
   for (const risk of input.continuityRisks) {
     notes.push(`semantic continuity degraded: ${risk.kind}; ${risk.source_refs.join(", ")}.`);
+  }
+  if (input.rawCaptureCoverage) {
+    notes.push(...summarizeRawCaptureCoverage(input.rawCaptureCoverage));
   }
   notes.push(`restart_prepare action=${input.action}.`);
   return notes;

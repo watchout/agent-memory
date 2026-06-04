@@ -154,6 +154,28 @@ pack. Automation can request `pack_format=recovery-pack-v1` or
 `pack_format=host-invocation-context-v1` on `restart_prepare` so the persisted
 selected pack content is schema-shaped JSON for adapter delivery.
 
+## Raw Capture Coverage Diagnostics
+
+Raw transcript capture is recovery evidence, not restart authority. A capture
+scan that finds unclassified files, stale cursor evidence, or pending backlog
+must not be counted as clean review/backlog continuity. The diagnostic status
+is:
+
+- `clean`: known transcript files were within scan limits, no unknown files
+  were observed, and any supplied cursor evidence is fresh.
+- `degraded`: recovery may proceed with explicit missing-context markers such
+  as `raw_capture_unknown_files`, `raw_capture_backlog_pending`, or
+  `raw_capture_cursor_stale`.
+- `failed`: the expected transcript root cannot be scanned, so consumers must
+  treat raw capture as unavailable.
+
+`ingest_conversation_events` reports this coverage status alongside ingest
+counts. `restart_prepare` can consume the same coverage report and add the
+raw-capture gaps to recovery confidence and missing-context output. This does
+not broaden raw capture policy: unknown files are surfaced as redacted
+provenance refs only, not imported as transcript content. AUN and other
+supervisors remain responsible for runtime lifecycle and queue state.
+
 ## Support Levels
 
 | Level | Name | Requirement | Recovery Claim |

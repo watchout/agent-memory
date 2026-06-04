@@ -10,6 +10,7 @@ import { basename, join } from "path";
 import { homedir } from "os";
 import type { Store } from "./stores/types.js";
 import { normalizeHomePath, redactText } from "./redact.js";
+import { inspectRawCaptureCoverage, type RawCaptureCoverageReport } from "./raw-capture-coverage.js";
 
 export const CODEX_SESSIONS_MAX_DEPTH = 4;
 const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
@@ -29,6 +30,7 @@ export interface CodexConversationIngestResult {
   events_duplicate: number;
   events_skipped: number;
   since: string;
+  coverage: RawCaptureCoverageReport;
 }
 
 export function getCodexSessionsDir(): string {
@@ -80,7 +82,17 @@ export async function ingestCodexConversationEvents(
     throw new Error(`Invalid since timestamp: ${input.since}`);
   }
 
-  const files = findCodexJsonlFiles(since, input.root).slice(0, input.max_files ?? 200);
+  const root = input.root ?? getCodexSessionsDir();
+  const maxFiles = input.max_files ?? 200;
+  const files = findCodexJsonlFiles(since, root).slice(0, maxFiles);
+  const coverage = inspectRawCaptureCoverage({
+    source: "codex",
+    project: input.project,
+    root,
+    since: since.toISOString(),
+    max_files: maxFiles,
+    max_depth: CODEX_SESSIONS_MAX_DEPTH,
+  });
   const result: CodexConversationIngestResult = {
     source: "codex",
     files_scanned: files.length,
@@ -89,6 +101,7 @@ export async function ingestCodexConversationEvents(
     events_duplicate: 0,
     events_skipped: 0,
     since: since.toISOString(),
+    coverage,
   };
 
   for (const file of files) {
