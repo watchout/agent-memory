@@ -6,6 +6,7 @@
  *
  * Uses transaction rollback for test isolation — no persistent side effects.
  */
+import { readFileSync } from "fs";
 import { PgStore } from "./stores/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -55,6 +56,23 @@ function withPgSearchPath(connectionString: string, schema: string): string {
   const existing = url.searchParams.get("options");
   url.searchParams.set("options", existing ? `${existing} ${option}` : option);
   return url.toString();
+}
+
+function testKnowledgeSupersedeUpdateSqlGuard() {
+  console.log("\n── PgStore knowledge supersede SQL guard ──");
+  const pgStoreSource = readFileSync("src/stores/pg-store.ts", "utf8").replace(/\s+/g, " ");
+  assert(
+    pgStoreSource.includes(
+      "UPDATE knowledge SET status = 'superseded', updated_at = now() WHERE id = $1 AND agent_id = $2 RETURNING *",
+    ),
+    "supersedeKnowledge UPDATE keeps id + agent_id guard",
+  );
+  assert(
+    !pgStoreSource.includes(
+      "UPDATE knowledge SET status = 'superseded', updated_at = now() WHERE id = $1 RETURNING *",
+    ),
+    "supersedeKnowledge UPDATE does not regress to id-only guard",
+  );
 }
 
 async function testRawEventsLegacyOccurredAtMigration() {
@@ -151,6 +169,81 @@ async function testRawEventsLegacyOccurredAtMigration() {
       contentHashColumn.rows[0]?.is_nullable === "YES",
       "raw_events content_hash is nullable for source_ref-only events after migration",
     );
+  } finally {
+    await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await admin.end();
+  }
+}
+
+async function testMigrationRerunSafetyInIsolatedSchema() {
+  console.log("\n── PgStore isolated schema migration rerun safety ──");
+
+  const pg = await import("pg");
+  const schema = `am076_rerun_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  const admin = new pg.default.Pool({ connectionString: DATABASE_URL! });
+
+  try {
+    await admin.query(`CREATE SCHEMA ${schema}`);
+    const isolatedStore = new PgStore(withPgSearchPath(DATABASE_URL!, schema));
+    try {
+      await isolatedStore.initialize();
+      await isolatedStore.initialize();
+      assert(true, "isolated schema migrations can run twice");
+    } finally {
+      await isolatedStore.close();
+    }
+
+    const tables = await admin.query(
+      `SELECT table_name
+         FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_name = ANY($2::text[])
+        ORDER BY table_name`,
+      [
+        schema,
+        [
+          "conversation_events",
+          "decisions",
+          "knowledge",
+          "raw_events",
+          "recovery_config",
+          "recovery_quality_log",
+          "selected_restart_packs",
+          "task_states",
+        ],
+      ],
+    );
+    assert(tables.rows.length === 8, "isolated migration creates the expected PG tables");
+
+    const rawOccurredAt = await admin.query(
+      `SELECT is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = 'raw_events'
+          AND column_name = 'occurred_at'`,
+      [schema],
+    );
+    assert(
+      rawOccurredAt.rows[0]?.is_nullable === "NO",
+      "isolated migration rerun preserves raw_events occurred_at NOT NULL",
+    );
+
+    const indexes = await admin.query(
+      `SELECT indexname
+         FROM pg_indexes
+        WHERE schemaname = $1
+          AND indexname = ANY($2::text[])`,
+      [
+        schema,
+        [
+          "uq_task_states_agent_task_id",
+          "uq_raw_events_source_event",
+          "uq_raw_events_hash_time",
+          "idx_selected_restart_packs_agent",
+        ],
+      ],
+    );
+    assert(indexes.rows.length === 4, "isolated migration rerun keeps required indexes present");
   } finally {
     await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await admin.end();
@@ -743,6 +836,16 @@ async function testKnowledgeSupersede() {
   } catch {
     assert(true, "agent isolation in knowledge supersede works");
   }
+  const otherAfter = await store.getKnowledge({ agent_id: `${AGENT}-other`, status: "all" });
+  const untouchedOther = otherAfter.find((k) => k.id === otherK.id);
+  assert(
+    untouchedOther?.status === "active",
+    "wrong-agent knowledge supersede leaves target row active",
+  );
+  assert(
+    otherAfter.filter((k) => k.supersedes === otherK.id).length === 0,
+    "wrong-agent knowledge supersede creates no superseding row",
+  );
 }
 
 async function testConversationEvents() {
@@ -860,6 +963,7 @@ async function cleanup() {
   await pool.query("DELETE FROM conversation_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM knowledge WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM recovery_quality_log WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.end();
 }
@@ -871,6 +975,7 @@ async function run() {
   try {
     await setup();
     await testMigration();
+    await testMigrationRerunSafetyInIsolatedSchema();
     await testRawEventsLegacyOccurredAtMigration();
     await testDecisionCRUD();
     await testSupersede();
@@ -881,6 +986,7 @@ async function run() {
     await testAgentIsolation();
     await testBootSimulation();
     await testRecoveryQualityLog();
+    testKnowledgeSupersedeUpdateSqlGuard();
     await testKnowledgeSupersede();
     await testConversationEvents();
   } finally {
