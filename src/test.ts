@@ -5,12 +5,13 @@
  */
 import { JsonStore } from "./stores/json-store.js";
 import { createStore } from "./stores/index.js";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
+import { buildCatchUpSourceADryRunManifest } from "./catch-up.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import {
@@ -1115,6 +1116,98 @@ function testRawCaptureCoverage() {
   rmSync(staleRoot, { recursive: true, force: true });
   rmSync(backlogRoot, { recursive: true, force: true });
   rmSync(cleanRoot, { recursive: true, force: true });
+}
+
+function testCatchUpSourceADryRun() {
+  console.log("\n── Catch-Up Source A Dry-Run Tests ──");
+  const since = "2026-05-18T00:00:00.000Z";
+  const until = "2026-05-20T00:00:00.000Z";
+  const inRange = new Date("2026-05-19T00:00:00.000Z");
+  const old = new Date("2026-05-17T00:00:00.000Z");
+
+  const claudeRoot = mkdtempSync(join(tmpdir(), "am058-claude-"));
+  const claudeProject = join(claudeRoot, "project-dev@example.com");
+  mkdirSync(claudeProject, { recursive: true });
+  const claudeCandidate = join(claudeProject, "session-a.jsonl");
+  const claudeOld = join(claudeProject, "session-old.jsonl");
+  writeFileSync(claudeCandidate, JSON.stringify({ type: "user", timestamp: since }) + "\n");
+  writeFileSync(claudeOld, JSON.stringify({ type: "user", timestamp: "2026-05-17T00:00:00.000Z" }) + "\n");
+  utimesSync(claudeCandidate, inRange, inRange);
+  utimesSync(claudeOld, old, old);
+
+  const codexRoot = mkdtempSync(join(tmpdir(), "am058-codex-"));
+  const codexDir = join(codexRoot, "2026", "05", "19");
+  mkdirSync(codexDir, { recursive: true });
+  const codexOne = join(codexDir, "rollout-one.jsonl");
+  const codexTwo = join(codexDir, "rollout-two.jsonl");
+  writeFileSync(codexOne, JSON.stringify({ type: "session_meta", timestamp: since }) + "\n");
+  writeFileSync(codexTwo, JSON.stringify({ type: "response_item", timestamp: since }) + "\n");
+  utimesSync(codexOne, inRange, inRange);
+  utimesSync(codexTwo, inRange, inRange);
+
+  const manifest = buildCatchUpSourceADryRunManifest({
+    source: "all",
+    project: "dev-auditor",
+    since,
+    until,
+    roots: {
+      claude_code: claudeRoot,
+      codex: codexRoot,
+    },
+    max_files: 1,
+  });
+
+  assert(manifest.dry_run === true, "catch-up Source A manifest is dry-run");
+  assert(manifest.writes_performed === false, "catch-up Source A dry-run performs no writes");
+  assert(manifest.approved_memory_promoted === false, "catch-up Source A dry-run promotes no approved memory");
+  assert(manifest.policy_version === "catch-up-source-a-dry-run-v1", "catch-up Source A manifest records policy version");
+  assert(manifest.project === "dev-auditor", "catch-up Source A manifest reports project");
+  assert(manifest.totals.candidate_files === 3, "catch-up Source A manifest counts bounded candidates before max-file truncation");
+  assert(manifest.totals.emitted_refs === 2, "catch-up Source A manifest emits bounded refs per source");
+  assert(manifest.totals.skipped_files === 1, "catch-up Source A manifest reports skipped over-limit files");
+  assert(manifest.notes.some((note) => note.includes("source data only")), "catch-up Source A manifest keeps logs as source data");
+
+  const claude = manifest.sources.find((source) => source.source === "claude_code");
+  const codex = manifest.sources.find((source) => source.source === "codex");
+  assert(claude?.status === "ready", "catch-up Source A reports Claude discovery ready");
+  assert(claude?.candidate_files === 1, "catch-up Source A filters Claude files by since/until");
+  assert(claude?.candidate_refs.length === 1, "catch-up Source A emits Claude candidate ref");
+  assert(!(claude?.candidate_refs[0].source_ref ?? "").includes("dev@example.com"), "catch-up Source A redacts email in provenance refs");
+  assert(codex?.candidate_files === 2, "catch-up Source A discovers Codex session files");
+  assert(codex?.emitted_refs === 1, "catch-up Source A bounds Codex emitted refs");
+  assert(codex?.skipped_reasons.includes("max_files_exceeded") === true, "catch-up Source A reports max file bound as skipped reason");
+
+  const missing = buildCatchUpSourceADryRunManifest({
+    source: "claude_code",
+    roots: { claude_code: join(claudeRoot, "missing") },
+    since,
+    until,
+  });
+  assert(missing.sources[0].status === "degraded", "catch-up Source A missing root is degraded evidence");
+  assert(missing.sources[0].skipped_reasons.includes("root_missing"), "catch-up Source A reports missing root");
+
+  const emptyWindow = buildCatchUpSourceADryRunManifest({
+    source: "codex",
+    roots: { codex: codexRoot },
+    since: "2026-05-21T00:00:00.000Z",
+    until: "2026-05-22T00:00:00.000Z",
+  });
+  assert(emptyWindow.sources[0].candidate_files === 0, "catch-up Source A respects since/until window");
+  assert(emptyWindow.sources[0].skipped_reasons.includes("no_candidate_files"), "catch-up Source A reports no candidates explicitly");
+
+  let invalidRangeRejected = false;
+  try {
+    buildCatchUpSourceADryRunManifest({
+      since: "2026-05-22T00:00:00.000Z",
+      until: "2026-05-21T00:00:00.000Z",
+    });
+  } catch {
+    invalidRangeRejected = true;
+  }
+  assert(invalidRangeRejected, "catch-up Source A rejects invalid since/until ranges");
+
+  rmSync(claudeRoot, { recursive: true, force: true });
+  rmSync(codexRoot, { recursive: true, force: true });
 }
 
 async function testClaudeConversationIngest() {
@@ -2920,6 +3013,7 @@ async function run() {
   testRedaction();
   await testExplicitPostgresStoreFailsClosed();
   testRawCaptureCoverage();
+  testCatchUpSourceADryRun();
   await testConversationEvents();
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
