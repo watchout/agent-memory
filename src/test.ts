@@ -65,6 +65,7 @@ import {
   parseClaudeStartArgs,
   prepareClaudeResession,
 } from "./claude-start.js";
+import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
@@ -2048,6 +2049,156 @@ async function testClaudeResessionRunner() {
   await store.close();
 }
 
+async function testClaudeMarkerController() {
+  console.log("\n── Claude Marker Controller Tests (AM-138 Cell B) ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const agentId = "test-claude-marker-agent";
+  const project = "/Users/yuji/Developer/dev-auditor";
+
+  await store.saveTaskState({
+    agent_id: agentId,
+    project,
+    task: "Recover dev-auditor after Claude context exhaustion",
+    status: "in_progress",
+    progress: "Controller tests are preparing marker evidence.",
+    next_steps: "Delegate to wasurezu-claude-start without live restart.",
+  });
+  await store.logDecision({
+    agent_id: agentId,
+    project,
+    decision: "restart-required.json is input evidence only; the controller owns deterministic gating.",
+    tags: ["AM-138", "claude-marker"],
+  });
+
+  const root = mkdtempSync(join(tmpdir(), "am138-claude-marker-"));
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trustedBin = join(binDir, "wasurezu-claude-start");
+  writeFileSync(trustedBin, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(trustedBin, 0o755);
+  const markerPath = join(root, "restart-required.json");
+  writeFileSync(markerPath, JSON.stringify({
+    status: "restart_required",
+    reason: "claude_precompact_auto",
+    project,
+    host: "claude-code",
+    session_id: "claude-session-1",
+    measured_context_tokens: 960000,
+    context_window_tokens: 1000000,
+  }));
+
+  const ready = await controlClaudeRestartMarker({
+    store,
+    agentId,
+    markerPath,
+    restartCommand: "wasurezu-claude-start --launch",
+    env: { PATH: binDir },
+    launchRequested: true,
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+  });
+  assert(ready.marker_path === markerPath, "Claude marker controller records marker path");
+  assert(ready.marker_status === "restart_required", "Claude marker controller consumes restart_required marker");
+  assert(ready.reason === "claude_precompact_auto", "Claude marker controller records marker reason");
+  assert(ready.project === project, "Claude marker controller records marker project");
+  assert(ready.host === "claude-code", "Claude marker controller records marker host");
+  assert(ready.runner === "wasurezu-claude-start", "Claude marker controller delegates to Claude runner");
+  assert(ready.command.status === "pass", "Claude marker controller requires command preflight pass");
+  assert(ready.command.command_kind === "trusted_package_bin", "Claude marker controller accepts trusted package/bin command");
+  assert(ready.prepare.context_signal.source === "host_metrics", "Claude marker controller passes marker metrics to restart preparation");
+  assert(ready.prepare.context_signal.band === "require", "Claude marker controller maps high marker metrics to require band");
+  assert(ready.prepare.action === "restart_required", "Claude marker controller preserves restart_required action");
+  assert(ready.selected_pack_ref?.startsWith("selected_restart_pack:") === true, "Claude marker controller records selected pack ref");
+  assert(ready.confidence.level !== "low", "Claude marker controller reports recovery confidence");
+  assert(ready.launch_permitted === true, "Claude marker controller permits standalone launch only after gates pass");
+  assert(ready.executed_restart === false, "Claude marker controller does not execute live restart");
+  assert(ready.outcome === "prepared", "Claude marker controller reports prepared outcome when gates pass");
+  assert(ready.notes.some((note) => note.includes("does not execute a live restart")), "Claude marker controller documents no-live-restart behavior");
+  assert(ready.notes.some((note) => note.includes("SessionStart remains")), "Claude marker controller keeps SessionStart as load hook only");
+
+  const metricAbsent = await controlClaudeRestartMarker({
+    store,
+    agentId,
+    marker: {
+      status: "restart_required",
+      reason: "claude_precompact_auto",
+      project,
+      host: "claude-code",
+    },
+    restartCommand: "wasurezu-claude-start --launch",
+    env: { PATH: binDir },
+    launchRequested: true,
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+  });
+  assert(metricAbsent.prepare.context_signal.source === "estimated", "Claude marker controller marks metric-absent marker as estimated");
+  assert(metricAbsent.outcome === "degraded", "Claude marker controller reports metric-absent restart as degraded evidence");
+  assert(metricAbsent.notes.some((note) => note.includes("did not provide host context metrics")), "Claude marker controller explains missing marker metrics");
+
+  const aunBlocked = await controlClaudeRestartMarker({
+    store,
+    agentId,
+    marker: {
+      status: "restart_required",
+      reason: "claude_precompact_auto",
+      project,
+      context_used_ratio: 0.96,
+    },
+    restartCommand: "wasurezu-claude-start --launch",
+    env: { PATH: binDir },
+    launchRequested: true,
+    aunInstalled: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+  });
+  assert(aunBlocked.launch_permitted === false, "Claude marker controller blocks launch when AUN is present");
+  assert(aunBlocked.launch_blockers.includes("aun_installed"), "Claude marker controller exposes AUN blocker");
+  assert(aunBlocked.outcome === "blocked", "Claude marker controller reports AUN-present marker as blocked");
+  assert(aunBlocked.executed_restart === false, "Claude marker controller never mutates AUN-supervised runtime");
+
+  const relative = await controlClaudeRestartMarker({
+    store,
+    agentId,
+    marker: {
+      status: "restart_required",
+      reason: "claude_precompact_auto",
+      project,
+      context_used_ratio: 0.96,
+    },
+    restartCommand: "scripts/restart-from-context-marker.sh",
+    env: { PATH: binDir },
+    launchRequested: true,
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+  });
+  assert(relative.command.status === "fail", "Claude marker controller fails closed for relative restart commands");
+  assert(relative.command.reasons.includes("restart_command_relative_rejected"), "Claude marker controller reports relative command blocker");
+  assert(relative.launch_permitted === false, "Claude marker controller does not permit launch after command preflight failure");
+  assert(relative.failure_class === "restart_command_relative_rejected", "Claude marker controller records command failure class");
+
+  const ignored = await controlClaudeRestartMarker({
+    store,
+    agentId,
+    marker: { status: "restart_not_required", project },
+    restartCommand: "wasurezu-claude-start --launch",
+    env: { PATH: binDir },
+    launchRequested: true,
+    aunAbsentConfirmed: true,
+    supervisorAvailable: true,
+    restartPreauthorized: true,
+  });
+  assert(ignored.marker_status === "ignored", "Claude marker controller ignores non-restart markers");
+  assert(ignored.outcome === "skipped", "Claude marker controller skips non-restart markers");
+  assert(ignored.executed_restart === false, "Claude marker controller skip path does not execute restart");
+
+  rmSync(root, { recursive: true, force: true });
+  await store.close();
+}
+
 function testRestartCommandPreflight() {
   console.log("\n── Restart Command Preflight Tests (AM-138 Cell A) ──");
   const root = mkdtempSync(join(tmpdir(), "am138-restart-command-"));
@@ -3020,6 +3171,7 @@ async function run() {
   await testRestartPack();
   await testCodexStartupBridge();
   await testClaudeResessionRunner();
+  await testClaudeMarkerController();
   testRestartCommandPreflight();
   await testRestartPrepare();
   testPgMigrationSourceOfTruth();
