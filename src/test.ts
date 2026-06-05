@@ -4,6 +4,7 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
+import { createStore } from "./stores/index.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
@@ -82,6 +83,11 @@ function sameStringSet(actual: string[], expected: readonly string[]): boolean {
   return actual.slice().sort().join("\n") === Array.from(expected).sort().join("\n");
 }
 
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
 function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -91,7 +97,7 @@ function mcpToolNamesFromSource(source: string): string[] {
 }
 
 async function cleanup() {
-  const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json"];
+  const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json", "raw-events.json"];
   for (const f of files) {
     const path = join(TEST_DIR, f);
     if (existsSync(path)) rmSync(path);
@@ -1007,6 +1013,33 @@ function testRedaction() {
   const standalone = redactText("aws AKIAIOSFODNN7EXAMPLE openai sk-abcdefghijklmnopqrstuvwxyz123456");
   assert(!standalone.text.includes("AKIAIOSFODNN7EXAMPLE"), "standalone AWS key redacted");
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
+}
+
+async function testExplicitPostgresStoreFailsClosed() {
+  console.log("\n── Explicit PostgreSQL Store Mode Tests ──");
+  const originalDbType = process.env.AGENT_MEMORY_DB_TYPE;
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  const originalAgentMemoryDatabaseUrl = process.env.AGENT_MEMORY_DATABASE_URL;
+  const originalPgConnectTimeout = process.env.PGCONNECT_TIMEOUT;
+  try {
+    process.env.AGENT_MEMORY_DB_TYPE = "postgres";
+    process.env.DATABASE_URL = "postgresql://127.0.0.1:1/agent_memory_fail_closed";
+    delete process.env.AGENT_MEMORY_DATABASE_URL;
+    process.env.PGCONNECT_TIMEOUT = "1";
+
+    let failedClosed = false;
+    try {
+      await createStore();
+    } catch {
+      failedClosed = true;
+    }
+    assert(failedClosed, "explicit postgres mode refuses SQLite fallback on connection failure");
+  } finally {
+    restoreEnv("AGENT_MEMORY_DB_TYPE", originalDbType);
+    restoreEnv("DATABASE_URL", originalDatabaseUrl);
+    restoreEnv("AGENT_MEMORY_DATABASE_URL", originalAgentMemoryDatabaseUrl);
+    restoreEnv("PGCONNECT_TIMEOUT", originalPgConnectTimeout);
+  }
 }
 
 function testRawCaptureCoverage() {
@@ -2787,6 +2820,7 @@ async function run() {
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
   testRedaction();
+  await testExplicitPostgresStoreFailsClosed();
   testRawCaptureCoverage();
   await testConversationEvents();
   await testClaudeConversationIngest();
