@@ -43,6 +43,12 @@ export async function createStore(): Promise<Store> {
       console.error("[agent-memory] Connected to PostgreSQL");
       return store;
     } catch (err) {
+      if (dbType === "postgres") {
+        console.error(
+          `[agent-memory] PostgreSQL connection failed in explicit postgres mode; refusing SQLite fallback: ${err}`
+        );
+        throw err;
+      }
       console.error(
         `[agent-memory] PostgreSQL connection failed, falling back to SQLite: ${err}`
       );
