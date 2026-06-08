@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "purpose": "Explicit compatibility approvals for Company Dev OS source identities that differ from the current Wasurezu recovery target registry. Unlisted identity differences are verifier BLOCK findings.",
+  "min_company_targets": 1,
+  "min_registry_targets": 1,
+  "approvals": [
+    {
+      "id": "cdo-alias-ai-dev-framework-adf-lead-to-adf-dev-20260608",
+      "cwd": "/Users/yuji/Developer/ai-dev-framework",
+      "source_agent_id": "adf-lead",
+      "source_project": "ai-dev-framework",
+      "registry_agent_id": "adf-dev",
+      "registry_project": "ai-dev-framework",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility while the runtime roster and Wasurezu recovery partition for ai-dev-framework are reconciled."
+    },
+    {
+      "id": "cdo-alias-misell-cloud-main-project-20260608",
+      "cwd": "/Users/yuji/Developer/misell/cloud-main",
+      "source_agent_id": "misell-dev",
+      "source_project": "cloud-main",
+      "registry_agent_id": "misell-dev",
+      "registry_project": "misell",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "The two local misell checkouts intentionally share the Wasurezu project partition named misell."
+    },
+    {
+      "id": "cdo-alias-misell-dev-project-20260608",
+      "cwd": "/Users/yuji/Developer/misell/dev",
+      "source_agent_id": "misell-dev",
+      "source_project": "dev",
+      "registry_agent_id": "misell-dev",
+      "registry_project": "misell",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "The two local misell checkouts intentionally share the Wasurezu project partition named misell."
+    },
+    {
+      "id": "cdo-alias-haishin-plus-hub-legacy-checkout-20260608",
+      "cwd": "/Users/yuji/Developer/haishin-puls-hub",
+      "source_agent_id": "haishin-plus-hub-dev",
+      "source_project": "haishin-puls-hub",
+      "registry_agent_id": "haishin-dev",
+      "registry_project": "haishin-puls-hub",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "The active local checkout uses the historical haishin-dev Wasurezu partition."
+    },
+    {
+      "id": "cdo-alias-iyasaka-dev-to-arc-20260608",
+      "cwd": "/Users/yuji/Developer/iyasaka",
+      "source_agent_id": "iyasaka-dev",
+      "source_project": "iyasaka",
+      "registry_agent_id": "arc",
+      "registry_project": "iyasaka",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "The current Wasurezu recovery partition for this local checkout is arc pending Company Dev OS source reconciliation."
+    },
+    {
+      "id": "cdo-alias-tech-lead-source-to-cto-20260608",
+      "cwd": "/Users/yuji/Developer/tech-lead",
+      "source_agent_id": "tech-lead",
+      "source_project": "tech-lead",
+      "registry_agent_id": "cto",
+      "registry_project": "tech-lead",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility for the legacy tech-lead source identity while CTO partition migration is separated into a rollbackable live sync."
+    },
+    {
+      "id": "cdo-alias-tech-lead-codex-cto-to-cto-20260608",
+      "cwd": "/Users/yuji/Developer/tech-lead",
+      "source_agent_id": "codex-cto",
+      "source_project": "tech-lead",
+      "registry_agent_id": "cto",
+      "registry_project": "tech-lead",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility for the codex-cto bot workspace overlay while CTO partition migration is separated into a rollbackable live sync."
+    },
+    {
+      "id": "cdo-alias-x-marketing-dev-to-xmarketing-dev-20260608",
+      "cwd": "/Users/yuji/Developer/x-marketing-engine",
+      "source_agent_id": "x-marketing-dev",
+      "source_project": "x-marketing-engine",
+      "registry_agent_id": "xmarketing-dev",
+      "registry_project": "x-marketing-engine",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "The active local Wasurezu partition uses xmarketing-dev without the hyphen."
+    },
+    {
+      "id": "cdo-alias-codex-audit-l2auditor-to-codex-audit-20260608",
+      "cwd": "/Users/yuji/Developer/codex-audit",
+      "source_agent_id": "l2auditor",
+      "source_project": "codex-audit",
+      "registry_agent_id": "codex-audit",
+      "registry_project": "codex-audit",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility while L2 runtime ownership and Wasurezu recovery partition are reconciled."
+    },
+    {
+      "id": "cdo-alias-dev-auditor-devauditor-to-auditor-20260608",
+      "cwd": "/Users/yuji/Developer/dev-auditor",
+      "source_agent_id": "devauditor",
+      "source_project": "dev-auditor",
+      "registry_agent_id": "auditor",
+      "registry_project": "dev-auditor",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility while L1 auditor runtime ownership and Wasurezu recovery partition are reconciled."
+    },
+    {
+      "id": "cdo-alias-codex-aun-aun-to-codex-aun-20260608",
+      "cwd": "/Users/yuji/Developer/codex-aun",
+      "source_agent_id": "aun",
+      "source_project": "codex-aun",
+      "registry_agent_id": "codex-aun",
+      "registry_project": "codex-aun",
+      "approved_by": "company-dev-os-target-sync-l2-rework",
+      "expires_at": "2026-07-08T00:00:00.000Z",
+      "reason": "Temporary compatibility while AUN runtime ownership and Wasurezu recovery partition are reconciled."
+    }
+  ]
+}

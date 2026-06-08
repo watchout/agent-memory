@@ -1,0 +1,186 @@
+import assert from "node:assert/strict";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { runCompanyDevOsRecoveryTargetAudit } from "./company-dev-os-recovery-target-audit.js";
+
+async function writeRecoveryFiles(root: string): Promise<void> {
+  await mkdir(join(root, ".codex"), { recursive: true });
+  await writeFile(
+    join(root, "AGENTS.md"),
+    "<!-- agent-memory-codex-agents:start -->\n# Wasurezu Startup Recovery\n<!-- agent-memory-codex-agents:end -->\n"
+  );
+  await writeFile(
+    join(root, ".codex", "instructions.md"),
+    "<!-- agent-memory-codex-recovery:start -->\n## Wasurezu Startup Recovery\n<!-- agent-memory-codex-recovery:end -->\n"
+  );
+  const launcher = join(root, ".codex", "start-with-memory.sh");
+  await writeFile(launcher, "#!/usr/bin/env bash\nexit 0\n");
+  await chmod(launcher, 0o755);
+}
+
+async function main(): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), "am-cdo-recovery-audit-"));
+  try {
+    const devRoot = join(root, "Developer");
+    const companyRoot = join(devRoot, "iyasaka-arc");
+    const scriptsRoot = join(companyRoot, "cross-cutting", "scripts");
+    const repoA = join(devRoot, "repo-a");
+    const qa = join(devRoot, "qa");
+    await mkdir(scriptsRoot, { recursive: true });
+    await mkdir(repoA, { recursive: true });
+    await mkdir(qa, { recursive: true });
+
+    await writeFile(
+      join(scriptsRoot, "apply-company-dev-os-runtime-overlay.py"),
+      'TARGETS = [\n    Target("repo-a", "watchout/repo-a", "repo-a-dev", "specified"),\n]\n'
+    );
+    await writeFile(
+      join(scriptsRoot, "apply-company-dev-os-bot-workspace-overlay.py"),
+      'BOT_WORKSPACES = [\n    BotWorkspace("qa", "qa", "qa", "Codex", "qa", False, "qa bot"),\n]\n'
+    );
+    await writeRecoveryFiles(repoA);
+
+    const targetsFile = join(root, "targets.json");
+    await writeFile(
+      targetsFile,
+      JSON.stringify({
+        version: 1,
+        targets: [
+          {
+            agent_id: "repo-a-dev",
+            project: "repo-a",
+            cwd: repoA,
+            host: "both",
+          },
+        ],
+      }) + "\n"
+    );
+
+    const missing = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(missing.status, "fail");
+    assert(missing.findings.some((item) => item.code === "registry_missing" && item.cwd === qa));
+    assert(missing.findings.some((item) => item.code === "launcher_missing" && item.cwd === qa));
+
+    await writeRecoveryFiles(qa);
+    await writeFile(
+      targetsFile,
+      JSON.stringify({
+        version: 1,
+        targets: [
+          {
+            agent_id: "repo-a-dev",
+            project: "repo-a",
+            cwd: repoA,
+            host: "both",
+          },
+          {
+            agent_id: "qa",
+            project: "qa",
+            cwd: qa,
+            host: "codex",
+          },
+        ],
+      }) + "\n"
+    );
+
+    const pass = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(pass.status, "pass");
+    assert.equal(pass.totals.block_findings, 0);
+    assert.equal(pass.totals.existing_company_targets, 2);
+
+    await writeFile(
+      targetsFile,
+      JSON.stringify({
+        version: 1,
+        targets: [
+          {
+            agent_id: "repo-a-dev",
+            project: "repo-a",
+            cwd: repoA,
+            host: "both",
+          },
+          {
+            agent_id: "qa-runtime",
+            project: "qa",
+            cwd: qa,
+            host: "codex",
+          },
+        ],
+      }) + "\n"
+    );
+
+    const unapprovedMismatch = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(unapprovedMismatch.status, "fail");
+    assert(unapprovedMismatch.findings.some((item) =>
+      item.code === "registry_identity_differs" &&
+      item.severity === "block" &&
+      item.cwd === qa
+    ));
+
+    const aliasFile = join(root, "aliases.json");
+    await writeFile(
+      aliasFile,
+      JSON.stringify({
+        version: 1,
+        approvals: [
+          {
+            id: "qa-test-alias",
+            cwd: qa,
+            source_agent_id: "qa",
+            source_project: "qa",
+            registry_agent_id: "qa-runtime",
+            registry_project: "qa",
+            approved_by: "test",
+            reason: "test-approved alias",
+          },
+        ],
+      }) + "\n"
+    );
+    const approvedMismatch = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      aliasFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(approvedMismatch.status, "pass");
+    assert(approvedMismatch.findings.some((item) =>
+      item.code === "registry_identity_differs" &&
+      item.severity === "warn" &&
+      item.approval_id === "qa-test-alias"
+    ));
+
+    await writeFile(join(scriptsRoot, "apply-company-dev-os-runtime-overlay.py"), "TARGETS = []\n");
+    await writeFile(join(scriptsRoot, "apply-company-dev-os-bot-workspace-overlay.py"), "BOT_WORKSPACES = []\n");
+    await writeFile(targetsFile, JSON.stringify({ version: 1, targets: [] }) + "\n");
+    const empty = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(empty.status, "fail");
+    assert(empty.findings.some((item) => item.code === "company_targets_below_minimum"));
+    assert(empty.findings.some((item) => item.code === "registry_targets_below_minimum"));
+
+    console.log("company dev os recovery target audit tests passed");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
