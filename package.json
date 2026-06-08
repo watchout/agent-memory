@@ -14,6 +14,7 @@
   },
   "files": [
     "dist",
+    "docs/brand",
     "docs/design/SOURCE_ALIGNMENT.md",
     "docs/design/schemas",
     "docs/design/governance",

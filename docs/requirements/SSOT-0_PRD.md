@@ -49,6 +49,28 @@ enforcement. The #148 requirements-positioning delta is a separate follow-up.
 | Repository | github.com/watchout/agent-memory |
 | Status | Path B: 現行 v0.3.0 コードベースで進化、MVP 公開準備中 |
 
+### §1.1 Positioning Ladder And Claim Boundary
+
+Wasurezu adopts staged positioning. The public alpha must not be re-scoped as
+the full internal control-plane or enterprise enforcement product.
+
+`Kusabi (wasurezu compatibility name)` may be used in product/positioning prose.
+Operational surfaces remain compatibility-first `wasurezu` surfaces until an
+explicit follow-up changes and tests a specific surface.
+
+| Lane | Product claim | Current status | Explicit boundary |
+|------|---------------|----------------|-------------------|
+| **OSS/public alpha** | Local MCP memory and recovery layer for individual technical users, with zero-config SQLite and compatibility-first `wasurezu` package, CLI, MCP server, tool namespace, DB path, env vars, and startup instructions. | Active MVP lane. Release remains gated by AM-012/AM-013/AM-014 and the OSS Evaluation Framework. | Does not claim AUN lifecycle ownership, full enterprise governance enforcement, broad ingest/reveal approval, or silent/default automatic restart authority. |
+| **Internal suite/control-plane** | Living Memory Control Plane for IYASAKA multi-agent operation: raw events, memory atoms, recovery/restart packs, restart continuity, runtime binding, and AUN integration evidence. | Internal opt-in lane. SSOT-6/SSOT-7 define ownership boundaries. | Not a public default claim. AUN owns queue/runtime lifecycle in suite mode; Wasurezu supplies memory/recovery evidence and recommendations. |
+| **Enterprise/governance** | Audit/evidence/enforcement posture for governed memory, recovery, import, reveal, and restart surfaces. | Future gated lane. Current governance docs and schemas are policy contracts, not live enforcement completion. | Requires machine-readable evidence emission, cross-MCP approval owner consumption, fail-closed behavior for critical actions, and contract tests before any full enforcement claim. |
+
+Standalone OSS/local approval authority is the local operator who owns the
+install, config, and local data. Approval must be represented by explicit local
+config, install-time opt-in, or local approval/intention evidence. Silent
+defaults are not approval. Pure MCP-only hosts may prepare packs, recommend
+manual action, or report `missing_evidence`; they must not silently authorize
+critical actions or pretend to own a host approval lifecycle.
+
 ## §2 Problem Statement
 
 AI コーディングエージェント (Claude Code、Cursor、Codex 等) は **session ごとに記憶を失う**:
@@ -156,6 +178,33 @@ agent-memory (wasurezu) は **MCP (Model Context Protocol) server** として AI
 
 詳細: `docs/OSS_EVALUATION_FRAMEWORK.md`
 
+### Claim-Level Acceptance Gates (#148)
+
+Do not use a single binary "enforcement done" claim. Release and positioning
+language must name the strongest completed claim level.
+
+| Claim level | Acceptance criteria | Allowed claim | Not allowed |
+|-------------|---------------------|---------------|-------------|
+| **Policy contract complete** | Governance docs, schemas, risk inventory, source alignment, and boundary language exist in the active source set. | Wasurezu has documented policy/evidence contracts and governed-action inventory. | Live enforcement, approval ownership, or safe default behavior claims. |
+| **Evidence emission complete** | Recovery/restart/memory-pack outputs emit or link `policy_version`, redaction summary, omission counts, source/provenance refs, trust or memory-safety class, promotion evidence for approved memory, and explicit `missing_evidence` where applicable. | Wasurezu emits machine-readable evidence that another control-plane owner can consume. | Claiming AUN/Shirube/Kodama consumed or enforced the evidence unless integration tests prove it. |
+| **Live enforcement complete** | The relevant approval/control-plane owner consumes the profiles/evidence, fails closed for critical actions, records approval and execution-attempt evidence, and contract tests prove the behavior. | Full enforcement only for the exact owner/surfaces covered by tests. | A repo-wide or enterprise-wide enforcement claim by Wasurezu alone. |
+
+Minimum acceptance gates for later evidence/live-enforcement cells:
+
+- `set_recovery_config` is critical and requires explicit local operator intent
+  or approval evidence before any enterprise-style enforcement claim.
+- Broad `ingest_conversation_events` outside current-session or allowlisted
+  roots requires explicit local approval evidence; otherwise only bounded
+  current-session/import-preview behavior may be claimed.
+- High-risk reveal/recovery surfaces such as `search_memory`,
+  `recover_context`, `restart_pack`, `restart_pack_fetch`, and
+  `restart_prepare` require redaction, provenance, scope, and missing-evidence
+  outputs before evidence-emission claims.
+- Restart/auto-attach behavior must fail closed. `auto_restart` remains off by
+  silent default and degrades to recommendation unless AUN absence, supported
+  supervisor or host hook availability, and restart preauthorization evidence
+  are all present.
+
 ### 公開後の継続指標
 
 - **採用**: GitHub stars / npm weekly downloads / 公開後 1 ヶ月
@@ -173,6 +222,8 @@ agent-memory (wasurezu) は **MCP (Model Context Protocol) server** として AI
 - multi-agent namespace
 - 単体ユーザー想定 (single machine)
 - Claude Code 動作確認
+- OSS/public alpha lane claims only. Internal control-plane and
+  enterprise/governance claims require their own gates.
 
 ### Out of Scope (v0.1.0-alpha)
 
@@ -183,6 +234,10 @@ agent-memory (wasurezu) は **MCP (Model Context Protocol) server** として AI
 - **アダプタパターン抽象化** (Slack/Telegram 等)
 - **管理ダッシュボード**
 - **quality_score 算出ロジック** (Stage 2 = AM-018)
+- **full enterprise governance enforcement** (policy contracts may exist, but
+  live enforcement requires later evidence/live-enforcement gates)
+- **silent/default automatic host restart** (only documented host-adapter
+  recommendations or explicitly preauthorized standalone paths may be claimed)
 
 ## §9 Milestones
 
