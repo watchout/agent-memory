@@ -24,6 +24,29 @@ export type RecoveryPackItemKind =
 export type RecoveryPackTrustLevel = "system" | "project" | "agent_memory" | "external" | "unknown";
 export type RecoveryPackActionability = "must_read" | "use_if_relevant" | "background";
 export type RecoveryPackSensitivity = "public" | "internal" | "secret_redacted" | "pii_redacted";
+export type RecoveryPackMemorySafetyClass =
+  | "raw_event_source"
+  | "candidate_memory"
+  | "approved_memory"
+  | "trusted_instruction"
+  | "untrusted_context";
+export type RecoveryPackRedactionState = "redacted-before-emit" | "already-redacted" | "none-required" | "unknown";
+
+export interface RecoveryPackRedactionSummary {
+  mode: RecoveryPackRedactionState;
+  status: "full" | "partial" | "degraded" | "not_applicable";
+  private_reasoning_excluded: true;
+  redacted_counts: Record<string, number>;
+  omitted_counts: Record<string, number>;
+  notes: string[];
+}
+
+export interface RecoveryPackPromotionEvidence {
+  promotion_ref: string;
+  promoted_at?: string;
+  promoted_by?: string;
+  policy_version?: string;
+}
 
 export interface RecoveryPackItem {
   item_id: string;
@@ -34,6 +57,9 @@ export interface RecoveryPackItem {
   summary: string;
   actionability: RecoveryPackActionability;
   sensitivity: RecoveryPackSensitivity;
+  memory_safety_class?: RecoveryPackMemorySafetyClass;
+  redaction_state?: RecoveryPackRedactionState;
+  promotion_evidence?: RecoveryPackPromotionEvidence;
 }
 
 export interface RecoveryPackArtifact {
@@ -45,6 +71,12 @@ export interface RecoveryPackArtifact {
   confidence_reasons: string[];
   missing_context: string[];
   items: RecoveryPackItem[];
+  schema_ref?: string;
+  policy_version?: string;
+  redaction_summary?: RecoveryPackRedactionSummary;
+  retention_policy_ref?: string | null;
+  source_refs?: string[];
+  missing_evidence?: string[];
   review_prompt?: {
     review_id: string;
     expected_response_schema_ref: string;
@@ -92,6 +124,12 @@ export const RECOVERY_PACK_ALLOWED_KEYS = [
   "confidence_reasons",
   "missing_context",
   "items",
+  "schema_ref",
+  "policy_version",
+  "redaction_summary",
+  "retention_policy_ref",
+  "source_refs",
+  "missing_evidence",
   "review_prompt",
 ] as const;
 
@@ -109,6 +147,16 @@ export const RECOVERY_PACK_ITEM_ALLOWED_KEYS = [
   "summary",
   "actionability",
   "sensitivity",
+  "memory_safety_class",
+  "redaction_state",
+  "promotion_evidence",
+] as const;
+
+export const RECOVERY_PACK_PROMOTION_EVIDENCE_ALLOWED_KEYS = [
+  "promotion_ref",
+  "promoted_at",
+  "promoted_by",
+  "policy_version",
 ] as const;
 
 export const HOST_INVOCATION_CONTEXT_ALLOWED_KEYS = [
@@ -137,6 +185,8 @@ export interface RestartPackData {
 const MIN_TOKEN_BUDGET = 500;
 const DEFAULT_TOKEN_BUDGET = 1500;
 const HOST_INVOCATION_SCHEMA_REF = "host-invocation-context/v1";
+export const RECOVERY_PACK_SCHEMA_REF = "wasurezu-recovery-pack/v1";
+export const RECOVERY_PACK_POLICY_VERSION = "wasurezu-memory-safety-governance/0.1.0";
 
 export async function generateRestartPack(store: Store, input: RestartPackInput): Promise<string> {
   const data = await loadRestartPackData(store, input);
@@ -206,6 +256,7 @@ export function buildRecoveryPackArtifact(
   const confidence = confidenceFor(missingContext);
   const confidenceReasons = confidenceReasonsFor(data, missingContext);
   const items = boundedRecoveryItems(buildRecoveryItems(data), data.maxTokens, confidenceReasons, missingContext);
+  const cl2Evidence = buildRecoveryPackCl2Evidence(items);
   const artifact: RecoveryPackArtifact = {
     pack_id: options.pack_id ?? `restart_pack:${data.agentId}:${data.project ?? "default"}:${Date.parse(generatedAt)}`,
     project: data.project ?? "default",
@@ -215,6 +266,7 @@ export function buildRecoveryPackArtifact(
     confidence_reasons: confidenceReasons,
     missing_context: missingContext,
     items,
+    ...cl2Evidence,
   };
   assertValidArtifact(validateRecoveryPackArtifact(artifact), "recovery-pack/v1");
   assertValidArtifact(validateRecoveryPackJsonSchema(artifact), "recovery-pack/v1 JSON Schema");
@@ -530,11 +582,91 @@ function buildRecoveryItems(data: RestartPackData): RecoveryPackItem[] {
 
 function recoveryItem(input: Omit<RecoveryPackItem, "sensitivity"> & { sensitivity?: RecoveryPackSensitivity }): RecoveryPackItem {
   const redacted = redactText(input.summary);
-  return {
+  const sensitivity = input.sensitivity ?? (redacted.redaction_count > 0 ? "secret_redacted" : "internal");
+  const requestedMemorySafetyClass = input.memory_safety_class ?? memorySafetyClassFor(input.kind, input.trust_level);
+  const memorySafetyClass =
+    requestedMemorySafetyClass === "approved_memory" && !input.promotion_evidence?.promotion_ref
+      ? "candidate_memory"
+      : requestedMemorySafetyClass;
+  const item: RecoveryPackItem = {
     ...input,
     summary: clipLine(redacted.text, 1200),
-    sensitivity: input.sensitivity ?? (redacted.redaction_count > 0 ? "secret_redacted" : "internal"),
+    sensitivity,
+    memory_safety_class: memorySafetyClass,
+    redaction_state: input.redaction_state ?? redactionStateFor(sensitivity),
   };
+  if (memorySafetyClass === "approved_memory" && input.promotion_evidence) {
+    item.promotion_evidence = input.promotion_evidence;
+  }
+  return item;
+}
+
+function memorySafetyClassFor(
+  kind: RecoveryPackItemKind,
+  trustLevel: RecoveryPackTrustLevel
+): RecoveryPackMemorySafetyClass {
+  if (trustLevel === "external" || kind === "raw_conversation" || kind === "recent_message") return "raw_event_source";
+  if (trustLevel === "unknown") return "untrusted_context";
+  if (trustLevel === "system") return "trusted_instruction";
+  return "candidate_memory";
+}
+
+function redactionStateFor(sensitivity: RecoveryPackSensitivity): RecoveryPackRedactionState {
+  return sensitivity === "secret_redacted" || sensitivity === "pii_redacted"
+    ? "redacted-before-emit"
+    : "none-required";
+}
+
+function buildRecoveryPackCl2Evidence(
+  items: RecoveryPackItem[]
+): Pick<
+  RecoveryPackArtifact,
+  "schema_ref" | "policy_version" | "redaction_summary" | "retention_policy_ref" | "source_refs" | "missing_evidence"
+> {
+  const sourceRefs = uniqueStrings(items.map((item) => item.source_ref).filter((ref) => ref.length > 0));
+  const missingEvidence: string[] = ["retention_policy_ref"];
+  if (sourceRefs.length === 0) missingEvidence.push("source_refs");
+  for (const item of items) {
+    if (!item.memory_safety_class && !missingEvidence.includes("items[].memory_safety_class")) {
+      missingEvidence.push("items[].memory_safety_class");
+    }
+    if (!item.redaction_state && !missingEvidence.includes("items[].redaction_state")) {
+      missingEvidence.push("items[].redaction_state");
+    }
+    if (item.memory_safety_class === "approved_memory" && !item.promotion_evidence?.promotion_ref) {
+      missingEvidence.push("items[].promotion_evidence");
+    }
+  }
+  return {
+    schema_ref: RECOVERY_PACK_SCHEMA_REF,
+    policy_version: RECOVERY_PACK_POLICY_VERSION,
+    redaction_summary: redactionSummaryFor(items),
+    retention_policy_ref: null,
+    source_refs: sourceRefs,
+    missing_evidence: uniqueStrings(missingEvidence),
+  };
+}
+
+function redactionSummaryFor(items: RecoveryPackItem[]): RecoveryPackRedactionSummary {
+  const redactedItems = items.filter((item) => item.sensitivity === "secret_redacted" || item.sensitivity === "pii_redacted");
+  const redactedCounts: Record<string, number> = {};
+  if (redactedItems.length > 0) redactedCounts.redacted_items = redactedItems.length;
+  const piiItems = items.filter((item) => item.sensitivity === "pii_redacted").length;
+  if (piiItems > 0) redactedCounts.pii_items = piiItems;
+  const secretItems = items.filter((item) => item.sensitivity === "secret_redacted").length;
+  if (secretItems > 0) redactedCounts.secret_items = secretItems;
+  return {
+    mode: redactedItems.length > 0 ? "redacted-before-emit" : "none-required",
+    status: "full",
+    private_reasoning_excluded: true,
+    redacted_counts: redactedCounts,
+    omitted_counts: {},
+    notes: ["item summaries are redacted before emit; private reasoning is excluded"],
+  };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
 }
 
 function boundedRecoveryItems(
@@ -651,6 +783,24 @@ export function validateRecoveryPackArtifact(value: unknown): ArtifactValidation
   requireEnum(value, "confidence", ["high", "medium", "low"], "recovery_pack", errors);
   requireStringArray(value, "confidence_reasons", "recovery_pack", errors);
   requireStringArray(value, "missing_context", "recovery_pack", errors);
+  if ("schema_ref" in value && value.schema_ref !== undefined) {
+    requireConst(value, "schema_ref", RECOVERY_PACK_SCHEMA_REF, "recovery_pack", errors);
+  }
+  if ("policy_version" in value && value.policy_version !== undefined) {
+    requireString(value, "policy_version", "recovery_pack", errors);
+  }
+  if ("redaction_summary" in value && value.redaction_summary !== undefined) {
+    validateRedactionSummary(value.redaction_summary, "recovery_pack.redaction_summary", errors);
+  }
+  if ("retention_policy_ref" in value && value.retention_policy_ref !== undefined) {
+    requireNullableRef(value, "retention_policy_ref", "recovery_pack", errors);
+  }
+  if ("source_refs" in value && value.source_refs !== undefined) {
+    requireStringArray(value, "source_refs", "recovery_pack", errors, { minLength: 1, unique: true });
+  }
+  if ("missing_evidence" in value && value.missing_evidence !== undefined) {
+    requireStringArray(value, "missing_evidence", "recovery_pack", errors, { minLength: 1, unique: true });
+  }
   const items = value.items;
   if (!Array.isArray(items)) {
     errors.push("recovery_pack.items must be an array");
@@ -682,6 +832,65 @@ export function validateRecoveryPackArtifact(value: unknown): ArtifactValidation
   return { valid: errors.length === 0, errors };
 }
 
+export function validateRecoveryPackCl2Profile(value: unknown): ArtifactValidationResult {
+  const errors = validateRecoveryPackArtifact(value).errors.slice();
+  if (!isRecord(value)) return { valid: false, errors: ["recovery pack must be an object"] };
+
+  const missingEvidence = Array.isArray(value.missing_evidence)
+    ? new Set(value.missing_evidence.filter((item): item is string => typeof item === "string"))
+    : null;
+  if (!missingEvidence) {
+    errors.push("recovery_pack.missing_evidence must be present for CL2 profile");
+  }
+
+  requirePresentOrMissingEvidence(value, "schema_ref", missingEvidence, errors, (actual) => actual === RECOVERY_PACK_SCHEMA_REF);
+  requirePresentOrMissingEvidence(value, "policy_version", missingEvidence, errors, (actual) => typeof actual === "string" && actual.length > 0);
+  requirePresentOrMissingEvidence(value, "redaction_summary", missingEvidence, errors, (actual) => {
+    const nestedErrors: string[] = [];
+    validateRedactionSummary(actual, "recovery_pack.redaction_summary", nestedErrors);
+    return nestedErrors.length === 0;
+  });
+  requirePresentOrMissingEvidence(value, "retention_policy_ref", missingEvidence, errors, (actual) => typeof actual === "string" && actual.length > 0);
+  requirePresentOrMissingEvidence(value, "source_refs", missingEvidence, errors, (actual) =>
+    Array.isArray(actual) && actual.length > 0 && uniqueStringArray(actual)
+  );
+
+  if (Array.isArray(value.items)) {
+    value.items.forEach((item, index) => {
+      if (!isRecord(item)) return;
+      const itemPath = `recovery_pack.items[${index}]`;
+      const safetyClass = item.memory_safety_class;
+      if (
+        typeof safetyClass !== "string" ||
+        !["raw_event_source", "candidate_memory", "approved_memory", "trusted_instruction", "untrusted_context"].includes(safetyClass)
+      ) {
+        if (!missingEvidence?.has("items[].memory_safety_class")) {
+          errors.push(`${itemPath}.memory_safety_class must be present or missing_evidence must include items[].memory_safety_class`);
+        }
+      }
+      const redactionState = item.redaction_state;
+      if (
+        typeof redactionState !== "string" ||
+        !["redacted-before-emit", "already-redacted", "none-required", "unknown"].includes(redactionState)
+      ) {
+        if (!missingEvidence?.has("items[].redaction_state")) {
+          errors.push(`${itemPath}.redaction_state must be present or missing_evidence must include items[].redaction_state`);
+        }
+      }
+      if (safetyClass === "approved_memory") {
+        if (!isRecord(item.promotion_evidence) || typeof item.promotion_evidence.promotion_ref !== "string" || item.promotion_evidence.promotion_ref.length === 0) {
+          errors.push(`${itemPath}.promotion_evidence.promotion_ref is required for approved_memory`);
+        }
+      }
+      if (typeof item.summary === "string" && looksLikePrivateReasoning(item.summary)) {
+        errors.push(`${itemPath}.summary must not include private reasoning or base/developer instruction text`);
+      }
+    });
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 function validateRecoveryPackItem(value: unknown, path: string, errors: string[]): void {
   if (!isRecord(value)) {
     errors.push(`${path} must be an object`);
@@ -696,6 +905,15 @@ function validateRecoveryPackItem(value: unknown, path: string, errors: string[]
   requireString(value, "summary", path, errors);
   requireEnum(value, "actionability", ["must_read", "use_if_relevant", "background"], path, errors);
   requireEnum(value, "sensitivity", ["public", "internal", "secret_redacted", "pii_redacted"], path, errors);
+  if ("memory_safety_class" in value && value.memory_safety_class !== undefined) {
+    requireEnum(value, "memory_safety_class", ["raw_event_source", "candidate_memory", "approved_memory", "trusted_instruction", "untrusted_context"], path, errors);
+  }
+  if ("redaction_state" in value && value.redaction_state !== undefined) {
+    requireEnum(value, "redaction_state", ["redacted-before-emit", "already-redacted", "none-required", "unknown"], path, errors);
+  }
+  if ("promotion_evidence" in value && value.promotion_evidence !== undefined) {
+    validatePromotionEvidence(value.promotion_evidence, `${path}.promotion_evidence`, errors);
+  }
 }
 
 export function validateHostInvocationContextArtifact(value: unknown): ArtifactValidationResult {
@@ -716,6 +934,13 @@ export function validateHostInvocationContextArtifact(value: unknown): ArtifactV
   }
   if (typeof value.trusted_instruction === "string" && looksLikeRawShellCommand(value.trusted_instruction)) {
     errors.push("host_invocation_context.trusted_instruction must not embed raw shell commands");
+  }
+  if (typeof value.trusted_instruction === "string" && isRecord(value.context_data)) {
+    const unsafeInstructionErrors = rawContextInTrustedInstruction(
+      value.trusted_instruction,
+      value.context_data.items
+    );
+    errors.push(...unsafeInstructionErrors);
   }
   return { valid: errors.length === 0, errors };
 }
@@ -741,9 +966,43 @@ function requireString(value: Record<string, unknown>, key: string, path: string
   }
 }
 
-function requireStringArray(value: Record<string, unknown>, key: string, path: string, errors: string[]): void {
+function requireConst(
+  value: Record<string, unknown>,
+  key: string,
+  expected: unknown,
+  path: string,
+  errors: string[]
+): void {
+  if (value[key] !== expected) {
+    errors.push(`${path}.${key} must be ${JSON.stringify(expected)}`);
+  }
+}
+
+function requireStringArray(
+  value: Record<string, unknown>,
+  key: string,
+  path: string,
+  errors: string[],
+  options: { minLength?: number; unique?: boolean } = {}
+): void {
   if (!Array.isArray(value[key]) || !(value[key] as unknown[]).every((item) => typeof item === "string")) {
     errors.push(`${path}.${key} must be a string array`);
+    return;
+  }
+  const items = value[key] as string[];
+  const minLength = options.minLength;
+  if (minLength !== undefined && !items.every((item) => item.length >= minLength)) {
+    errors.push(`${path}.${key} must contain only strings with length >= ${minLength}`);
+  }
+  if (options.unique && new Set(items).size !== items.length) {
+    errors.push(`${path}.${key} must contain unique strings`);
+  }
+}
+
+function requireNullableRef(value: Record<string, unknown>, key: string, path: string, errors: string[]): void {
+  const actual = value[key];
+  if (actual !== null && (typeof actual !== "string" || actual.length === 0)) {
+    errors.push(`${path}.${key} must be a non-empty string or null`);
   }
 }
 
@@ -775,8 +1034,83 @@ function requireEnum(
   }
 }
 
+function validateRedactionSummary(value: unknown, path: string, errors: string[]): void {
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+  const allowed = ["mode", "status", "private_reasoning_excluded", "redacted_counts", "omitted_counts", "notes"];
+  requireOnlyKeys(value, allowed, path, errors);
+  requireEnum(value, "mode", ["redacted-before-emit", "already-redacted", "none-required", "unknown"], path, errors);
+  requireEnum(value, "status", ["full", "partial", "degraded", "not_applicable"], path, errors);
+  requireConst(value, "private_reasoning_excluded", true, path, errors);
+  validateCountObject(value.redacted_counts, `${path}.redacted_counts`, errors);
+  validateCountObject(value.omitted_counts, `${path}.omitted_counts`, errors);
+  requireStringArray(value, "notes", path, errors);
+}
+
+function validateCountObject(value: unknown, path: string, errors: string[]): void {
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+      errors.push(`${path}.${key} must be an integer >= 0`);
+    }
+  }
+}
+
+function validatePromotionEvidence(value: unknown, path: string, errors: string[]): void {
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+  requireOnlyKeys(value, RECOVERY_PACK_PROMOTION_EVIDENCE_ALLOWED_KEYS, path, errors);
+  requireString(value, "promotion_ref", path, errors);
+  if ("promoted_at" in value && value.promoted_at !== undefined) requireString(value, "promoted_at", path, errors);
+  if ("promoted_by" in value && value.promoted_by !== undefined) requireString(value, "promoted_by", path, errors);
+  if ("policy_version" in value && value.policy_version !== undefined) requireString(value, "policy_version", path, errors);
+}
+
+function requirePresentOrMissingEvidence(
+  value: Record<string, unknown>,
+  key: string,
+  missingEvidence: Set<string> | null,
+  errors: string[],
+  present: (actual: unknown) => boolean
+): void {
+  if (present(value[key])) return;
+  if (missingEvidence?.has(key)) return;
+  errors.push(`recovery_pack.${key} must be present for CL2 profile or missing_evidence must include ${key}`);
+}
+
+function uniqueStringArray(value: unknown[]): boolean {
+  return value.every((item) => typeof item === "string" && item.length > 0) && new Set(value).size === value.length;
+}
+
 function looksLikeRawShellCommand(text: string): boolean {
   return /(^|\n)\s*(?:(?:[$>])\s+\S|(?:sh|bash|zsh)\s+-c\b|codex\s+exec\b|claude\s+-p\b|wasurezu-codex-start\b)/.test(text);
+}
+
+function looksLikePrivateReasoning(text: string): boolean {
+  return /\b(?:private reasoning|hidden reasoning|developer instruction|base instruction|do not persist reasoning|do not persist developer|do not persist base)\b/i.test(text);
+}
+
+function rawContextInTrustedInstruction(trustedInstruction: string, items: unknown): string[] {
+  if (!Array.isArray(items)) return [];
+  const errors: string[] = [];
+  const normalizedInstruction = trustedInstruction.replace(/\s+/g, " ").trim();
+  items.forEach((item, index) => {
+    if (!isRecord(item)) return;
+    if (item.memory_safety_class !== "raw_event_source" && item.memory_safety_class !== "untrusted_context") return;
+    if (typeof item.summary !== "string") return;
+    const summary = item.summary.replace(/\s+/g, " ").trim();
+    if (summary.length >= 24 && normalizedInstruction.includes(summary)) {
+      errors.push(`host_invocation_context.trusted_instruction must not embed raw/untrusted context_data.items[${index}].summary`);
+    }
+  });
+  return errors;
 }
 
 function summarizeRecentConversation(events: ConversationEvent[]): string | null {

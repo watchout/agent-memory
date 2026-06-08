@@ -22,6 +22,8 @@ import {
 import { PG_MIGRATIONS } from "./stores/pg-migrations.js";
 import {
   HOST_INVOCATION_CONTEXT_ALLOWED_KEYS,
+  RECOVERY_PACK_POLICY_VERSION,
+  RECOVERY_PACK_SCHEMA_REF,
   RECOVERY_PACK_ALLOWED_KEYS,
   RECOVERY_PACK_ITEM_ALLOWED_KEYS,
   RECOVERY_PACK_REVIEW_PROMPT_ALLOWED_KEYS,
@@ -33,6 +35,7 @@ import {
   generateRecoveryPackArtifact,
   generateRestartPack,
   validateHostInvocationContextArtifact,
+  validateRecoveryPackCl2Profile,
   validateRecoveryPackArtifact,
 } from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
@@ -1562,8 +1565,16 @@ async function testRestartPack() {
   });
   assert(validateRecoveryPackArtifact(recoveryPack).valid, "recovery-pack/v1 validates generated artifact");
   assert(validateRecoveryPackJsonSchema(recoveryPack).valid, "recovery-pack/v1 validates against canonical JSON Schema");
+  assert(validateRecoveryPackCl2Profile(recoveryPack).valid, "recovery-pack/v1 generated artifact satisfies CL2 evidence profile with explicit missing evidence");
   assert(recoveryPack.pack_id.startsWith("restart_pack:"), "recovery-pack/v1 has stable pack id prefix");
   assert(recoveryPack.project === project, "recovery-pack/v1 includes project");
+  assert(recoveryPack.schema_ref === RECOVERY_PACK_SCHEMA_REF, "recovery-pack/v1 emits cross-MCP schema_ref");
+  assert(recoveryPack.policy_version === RECOVERY_PACK_POLICY_VERSION, "recovery-pack/v1 emits policy_version");
+  assert(recoveryPack.retention_policy_ref === null, "recovery-pack/v1 can emit nullable retention policy ref");
+  assert(recoveryPack.missing_evidence?.includes("retention_policy_ref") === true, "recovery-pack/v1 records missing nullable retention policy evidence");
+  assert((recoveryPack.source_refs?.length ?? 0) > 0, "recovery-pack/v1 emits pack-level source refs");
+  assert(recoveryPack.redaction_summary?.private_reasoning_excluded === true, "recovery-pack/v1 excludes private reasoning in redaction summary");
+  assert(recoveryPack.redaction_summary?.mode === "redacted-before-emit", "recovery-pack/v1 reports redaction-before-emit when secrets are redacted");
   assert(recoveryPack.confidence === "high", "recovery-pack/v1 reports high confidence when task and context exist");
   assert(recoveryPack.missing_context.length === 0, "recovery-pack/v1 reports no missing context for coherent pack");
   assert(recoveryPack.items.some((item) => item.kind === "current_task"), "recovery-pack/v1 includes current task item");
@@ -1573,10 +1584,76 @@ async function testRestartPack() {
   assert(recoveryPack.items.some((item) => item.trust_level === "external"), "recovery-pack/v1 marks conversation-derived context as external");
   assert(recoveryPack.items.some((item) => item.source_ref.startsWith("conversation_event:")), "recovery-pack/v1 item includes conversation provenance");
   assert(recoveryPack.items.some((item) => item.sensitivity === "secret_redacted"), "recovery-pack/v1 records secret redaction status");
+  assert(recoveryPack.items.every((item) => item.memory_safety_class !== undefined), "recovery-pack/v1 emits item memory safety classes");
+  assert(recoveryPack.items.every((item) => item.redaction_state !== undefined), "recovery-pack/v1 emits item redaction states");
+  assert(recoveryPack.items.some((item) => item.memory_safety_class === "raw_event_source"), "recovery-pack/v1 marks conversation evidence as raw event source");
+  assert(recoveryPack.items.every((item) => item.memory_safety_class !== "approved_memory"), "recovery-pack/v1 does not claim approved memory without promotion evidence");
   const recoveryJson = JSON.stringify(recoveryPack);
   assert(!recoveryJson.includes("sk-test"), "recovery-pack/v1 redacts compound secret prefixes before emit");
   assert(!recoveryJson.includes("dev@example.com"), "recovery-pack/v1 redacts emails before emit");
+  assert(!recoveryJson.includes("Session refresh should continue from memory."), "recovery-pack/v1 does not emit raw transcript excerpts");
   assert(estimateRecoveryPackContentTokens(recoveryPack) <= recoveryPack.token_budget, "recovery-pack/v1 enforces aggregate content token budget");
+
+  const oldStyleItems = recoveryPack.items.map(({ memory_safety_class: _memorySafetyClass, redaction_state: _redactionState, promotion_evidence: _promotionEvidence, ...item }) => item);
+  const {
+    schema_ref: _schemaRef,
+    policy_version: _policyVersion,
+    redaction_summary: _redactionSummary,
+    retention_policy_ref: _retentionPolicyRef,
+    source_refs: _sourceRefs,
+    missing_evidence: _missingEvidence,
+    ...oldStylePack
+  } = { ...recoveryPack, items: oldStyleItems };
+  assert(validateRecoveryPackArtifact(oldStylePack).valid, "old-style recovery-pack/v1 remains implementation-valid without CL2 fields");
+  assert(validateRecoveryPackJsonSchema(oldStylePack).valid, "old-style recovery-pack/v1 remains JSON-Schema-valid without CL2 fields");
+  assert(!validateRecoveryPackCl2Profile(oldStylePack).valid, "old-style recovery-pack/v1 cannot claim CL2 without missing_evidence");
+
+  const fullCl2Pack = {
+    ...recoveryPack,
+    retention_policy_ref: "retention_policy:wasurezu-default",
+    missing_evidence: [],
+  };
+  assert(validateRecoveryPackCl2Profile(fullCl2Pack).valid, "recovery-pack/v1 CL2 profile passes when all evidence is present");
+  const { policy_version: _missingPolicyVersion, ...packWithoutPolicyVersion } = fullCl2Pack;
+  const policyVersionListedMissing = {
+    ...packWithoutPolicyVersion,
+    missing_evidence: ["policy_version"],
+  };
+  assert(validateRecoveryPackCl2Profile(policyVersionListedMissing).valid, "CL2 profile allows absent policy_version only when missing_evidence lists it");
+  const retentionMissingUnlisted = {
+    ...recoveryPack,
+    retention_policy_ref: null,
+    missing_evidence: [],
+  };
+  assert(!validateRecoveryPackCl2Profile(retentionMissingUnlisted).valid, "CL2 profile rejects null retention_policy_ref without missing_evidence");
+  const sourceRefsMissingListed = {
+    ...fullCl2Pack,
+    source_refs: [],
+    missing_evidence: ["source_refs"],
+  };
+  assert(validateRecoveryPackCl2Profile(sourceRefsMissingListed).valid, "CL2 profile allows empty source_refs only when missing_evidence lists it");
+  const approvedWithoutPromotion = {
+    ...fullCl2Pack,
+    items: [
+      {
+        ...fullCl2Pack.items[0],
+        memory_safety_class: "approved_memory",
+      },
+      ...fullCl2Pack.items.slice(1),
+    ],
+  };
+  assert(!validateRecoveryPackCl2Profile(approvedWithoutPromotion).valid, "CL2 profile rejects approved_memory without promotion_evidence");
+  const privateReasoningPack = {
+    ...fullCl2Pack,
+    items: [
+      {
+        ...fullCl2Pack.items[0],
+        summary: "private reasoning: do not persist reasoning",
+      },
+      ...fullCl2Pack.items.slice(1),
+    ],
+  };
+  assert(!validateRecoveryPackCl2Profile(privateReasoningPack).valid, "CL2 profile rejects private reasoning text in pack items");
 
   const codexHostContext = await generateHostInvocationContext(store, {
     agent_id: agentId,
@@ -1591,6 +1668,18 @@ async function testRestartPack() {
   assert(codexHostContext.untrusted_context_policy === "quote-as-data-only", "host-invocation-context/v1 defaults contextual content to data-only");
   assert(codexHostContext.context_data.pack_id === codexHostContext.pack_id, "host-invocation-context/v1 embeds matching recovery pack");
   assert(!codexHostContext.trusted_instruction.includes("codex exec"), "host-invocation-context/v1 does not embed Codex shell commands");
+  assert(validateRecoveryPackCl2Profile(codexHostContext.context_data).valid, "host-invocation-context/v1 embeds CL2-compatible recovery pack");
+  const rawContextItem = codexHostContext.context_data.items.find((item) => item.memory_safety_class === "raw_event_source");
+  if (rawContextItem) {
+    assert(
+      !codexHostContext.trusted_instruction.includes(rawContextItem.summary),
+      "host-invocation-context/v1 keeps raw event source content out of trusted_instruction"
+    );
+    assert(
+      !validateHostInvocationContextArtifact({ ...codexHostContext, trusted_instruction: rawContextItem.summary }).valid,
+      "host-invocation-context/v1 rejects raw event source content copied into trusted_instruction"
+    );
+  }
 
   const claudeHostContext = buildHostInvocationContextArtifact(recoveryPack, { target_runtime: "claude" });
   assert(validateHostInvocationContextArtifact(claudeHostContext).valid, "host-invocation-context/v1 validates Claude profile");
@@ -2780,6 +2869,9 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedApiContract.includes("Wasurezu `host-invocation-context/v1` is a recovery/context artifact, not an AUN `RuntimeRunnerInvocation/v1`"), "SSOT-3 keeps host invocation artifact out of AUN runner invocation ownership");
   assert(normalizedApiContract.includes("AUN runner code owns `RuntimeInvocationProfile/v1`"), "SSOT-3 assigns AUN runtime profile ownership");
   assert(normalizedApiContract.includes("Wasurezu `context_data` may be referenced by AUN as `context_pack_refs`"), "SSOT-3 maps context data to AUN context pack refs");
+  assert(normalizedApiContract.includes("CL2 evidence emission profile for `recovery-pack/v1`"), "SSOT-3 documents recovery-pack CL2 evidence profile");
+  assert(normalizedApiContract.includes("base `recovery-pack-v1` schema remains backward-compatible"), "SSOT-3 keeps recovery-pack v1 CL2 fields additive optional");
+  assert(normalizedApiContract.includes("`approved_memory` requires `promotion_evidence.promotion_ref`"), "SSOT-3 documents approved memory promotion evidence gate");
   assert(normalizedApiContract.includes("`wasurezu-claude-start` is the Claude host runner entrypoint"), "SSOT-3 documents Claude runner API boundary");
   assert(normalizedApiContract.includes("SessionStart remains the selected-pack load hook, not the restart policy owner"), "SSOT-3 pins Claude SessionStart boundary");
 
@@ -2790,6 +2882,8 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedDataModel.includes("conversation events are mirrored into `raw_events`"), "SSOT-4 documents conversation-to-raw bridge");
   assert(normalizedDataModel.includes("Runtime adapters may append structured evidence, but they must not own lifecycle policy"), "SSOT-4 preserves adapter policy boundary");
   assert(normalizedDataModel.includes("API serialization should conform to `recovery-pack/v1`"), "SSOT-4 maps recovery pack schema to data model");
+  assert(normalizedDataModel.includes("CL2 evidence fields are additive optional serialization fields"), "SSOT-4 keeps CL2 evidence additive optional");
+  assert(normalizedDataModel.includes("`missing_evidence` is contract-completeness evidence and is separate from `missing_context`"), "SSOT-4 separates missing evidence from missing context");
   assert(normalizedDataModel.includes("mark fallback delivery as `tui-fallback`"), "SSOT-4 maps fallback delivery evidence");
 
   const codexRecovery = readFileSync("docs/operations/CODEX_RECOVERY_CONTROL.md", "utf8");
@@ -2816,15 +2910,24 @@ function testHostAdapterPackagingBoundary() {
   assert(recoveryPackSchema.required.includes("pack_id"), "recovery-pack schema requires pack id");
   assert(recoveryPackSchema.required.includes("confidence"), "recovery-pack schema requires confidence");
   assert(recoveryPackSchema.required.includes("missing_context"), "recovery-pack schema requires missing context");
+  assert(!recoveryPackSchema.required.includes("schema_ref"), "recovery-pack schema keeps CL2 fields optional in base v1");
+  assert(recoveryPackSchema.properties.schema_ref.const === RECOVERY_PACK_SCHEMA_REF, "recovery-pack schema pins cross-MCP schema_ref");
+  assert(recoveryPackSchema.properties.redaction_summary.$ref === "#/$defs/redaction_summary", "recovery-pack schema reuses canonical redaction summary def");
   assert(recoveryPackSchema.properties.token_budget.minimum === 1, "recovery-pack schema pins token budget minimum");
   assert(recoveryPackSchema.properties.confidence.enum.includes("low"), "recovery-pack schema has low confidence enum");
+  assert(recoveryPackSchema.$defs.redaction_summary.properties.private_reasoning_excluded.const === true, "recovery-pack redaction summary excludes private reasoning");
+  assert(recoveryPackSchema.$defs.redaction_summary.properties.redacted_counts.additionalProperties.minimum === 0, "recovery-pack redaction summary counts are non-negative");
   assert(sameStringSet(Object.keys(recoveryPackSchema.properties.review_prompt.properties), RECOVERY_PACK_REVIEW_PROMPT_ALLOWED_KEYS), "recovery-pack review_prompt validator keys match schema properties");
   const recoveryItem = recoveryPackSchema.$defs.recovery_pack_item;
   assert(recoveryItem.additionalProperties === false, "recovery-pack item schema rejects additional properties");
   assert(sameStringSet(Object.keys(recoveryItem.properties), RECOVERY_PACK_ITEM_ALLOWED_KEYS), "recovery-pack item validator keys match schema properties");
   assert(recoveryItem.required.includes("source_ref"), "recovery-pack items require provenance source");
+  assert(!recoveryItem.required.includes("memory_safety_class"), "recovery-pack items keep CL2 fields optional in base v1");
   assert(recoveryItem.properties.trust_level.enum.includes("external"), "recovery-pack items support external trust level");
   assert(recoveryItem.properties.sensitivity.enum.includes("secret_redacted"), "recovery-pack items record redaction status");
+  assert(recoveryItem.properties.memory_safety_class.enum.includes("raw_event_source"), "recovery-pack items support raw event source safety class");
+  assert(recoveryItem.properties.promotion_evidence.$ref === "#/$defs/promotion_evidence", "recovery-pack approved memory promotion evidence has a canonical def");
+  assert(recoveryPackSchema.$defs.promotion_evidence.required.includes("promotion_ref"), "recovery-pack promotion evidence requires promotion_ref");
 
   const hostInvocationSchema = JSON.parse(readFileSync("docs/design/schemas/host-invocation-context-v1.schema.json", "utf8"));
   assert(hostInvocationSchema.$id.includes("host-invocation-context-v1.schema.json"), "host-invocation schema has stable id");
