@@ -19,6 +19,7 @@ Code:
 - `src/company-dev-os-recovery-target-audit.ts`
 - `src/test-company-dev-os-recovery-target-audit.ts`
 - `scripts/codex-memory-start.sh`
+- `scripts/recovery-review-request.sh`
 - `scripts/test-context-health-wrappers.sh`
 
 Audit manifest:
@@ -47,6 +48,10 @@ Boot-only:
 - `scripts/codex-memory-start.sh --boot-only` forces recovery review DB writes
   off and AUN notify dry-run unless `AGENT_MEMORY_BOOT_ONLY_LIVE_REVIEW=1` is
   set explicitly.
+- The default recovery-review path is part of this change set:
+  `scripts/recovery-review-request.sh` creates request artifacts and appends a
+  local JSONL request event while respecting the boot-only DB-off and dry-run
+  environment.
 - The wrapper may still create local run-dir artifacts for the boot prompt and
   review request, but it does not perform DB review persistence or live notify
   by default in boot-only mode.
@@ -115,6 +120,7 @@ rm -f \
   src/company-dev-os-recovery-target-audit.ts \
   src/test-company-dev-os-recovery-target-audit.ts \
   scripts/codex-memory-start.sh \
+  scripts/recovery-review-request.sh \
   scripts/test-context-health-wrappers.sh \
   docs/operations/company-dev-os-recovery-target-aliases.json \
   docs/operations/CODEX_STARTUP_RECOVERY_TARGET_SYNC_L2_REWORK.md
