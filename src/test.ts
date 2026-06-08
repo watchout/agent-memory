@@ -2309,6 +2309,11 @@ function testHostAdapterPackagingBoundary() {
   assert(packageJson.files.includes("docs/operations/HOST_ADAPTERS.md"), "npm package includes host adapter docs");
   assert(packageJson.files.includes("docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md"), "npm package includes README-linked release criteria docs");
   assert(packageJson.files.includes("docs/design/schemas"), "npm package includes structured artifact schemas");
+  assert(packageJson.files.includes("SECURITY.md"), "npm package includes security policy");
+  assert(packageJson.scripts.build.includes("npm run clean && tsc"), "npm build removes stale dist output before compiling");
+  assert(packageJson.scripts.prepack === "npm run build", "npm prepack rebuilds package artifacts");
+  const tsconfig = JSON.parse(readFileSync("tsconfig.json", "utf8"));
+  assert(tsconfig.exclude.includes("src/test*.ts"), "TypeScript package build excludes test entrypoints from dist");
   assert(packageJson.bin["kusabi"] === packageJson.bin["wasurezu"], "npm package exposes kusabi as wasurezu-compatible MCP CLI alias");
   assert(packageJson.bin["kusabi"] === "dist/index.js", "kusabi CLI alias points at the existing MCP entrypoint");
   assert(packageJson.bin["wasurezu"] === "dist/index.js", "wasurezu CLI remains on the existing MCP entrypoint");
