@@ -26,6 +26,34 @@ Related authority split:
   `docs/design/governance/*` and `docs/design/schemas/*`
 - Product naming compatibility: `docs/brand/kusabi-naming-decision.md`
 
+## Positioning And Claim-Level Gates
+
+The catalog separates implementation status from product/release claims. A tool
+or document can be implemented while the stronger public-alpha, evidence, or
+live-enforcement claim remains gated.
+
+| Area | Feature surface | Code / doc status | Strongest current claim | Next gate before stronger claim |
+|------|-----------------|-------------------|-------------------------|---------------------------------|
+| OSS/public alpha memory | `log_decision`, `save_task_state`, `search_memory`, `recover_context`, SQLite default, package distribution docs | Implemented or tracked in this catalog | Local MCP memory and recovery layer candidate for OSS/public alpha | AM-012/AM-013 evaluation, release hygiene, recovery outcome evidence |
+| Structured recovery / host adapters | `restart_pack`, `restart_prepare`, `restart_pack_fetch`, `recovery-pack/v1`, `host-invocation-context/v1` | Implemented | Structured recovery pack and documented host-adapter preparation | Recovery quality evidence and host-specific run evidence before public restart claims |
+| Internal suite/control-plane | raw events, conversation ingest, restart packs, runtime binding, AUN evidence refs | Implemented/partial across SSOT-3/4/6/7 and governance docs | Internal opt-in Living Memory Control Plane evidence substrate | Suite-mode integration review; Wasurezu must not own AUN queue/runtime lifecycle |
+| Governance policy contracts | memory safety governance, governed action profiles, AUN evidence refs, schema/profile files | Policy contract complete | Policy/evidence contracts and governed-action inventory exist | Evidence-emission fields in runtime outputs before claiming evidence emission complete |
+| Evidence emission | `policy_version`, redaction summary, omission counts, source/provenance refs, trust or memory-safety class, promotion evidence, `missing_evidence` | Not complete as a feature-catalog claim | Not yet claimable beyond existing structured-artifact fields | Contract/schema follow-up PR plus tests |
+| Live enforcement | approval-owner consumption, fail-closed critical actions, approval/execution-attempt evidence | Not implemented in Wasurezu alone | Not claimable | AUN/Shirube/Kodama or local approval owner integration plus fail-closed contract tests |
+
+Critical acceptance gates from #148:
+
+- `set_recovery_config` is a critical admin surface. Enterprise-style
+  enforcement claims require explicit local operator intent or approval
+  evidence.
+- Broad `ingest_conversation_events` outside current-session or allowlisted
+  roots requires explicit local approval evidence; otherwise claims must stay
+  bounded to current-session/import-preview behavior.
+- High-risk reveal/recovery surfaces require redaction, provenance, scope, and
+  missing-evidence outputs before evidence-emission claims.
+- Restart/auto-attach claims require fail-closed behavior. Silent defaults are
+  not approval, and Wasurezu must not claim AUN lifecycle ownership.
+
 ## Feature List
 
 | ID | Feature | Priority | Status | SSOT | Notes |
