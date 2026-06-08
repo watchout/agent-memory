@@ -6,6 +6,35 @@
 
 ---
 
+## §0 Source Set And Provenance
+
+This PRD is part of the active design source set defined in
+[`docs/design/SOURCE_ALIGNMENT.md`](../design/SOURCE_ALIGNMENT.md).
+
+Requirement changes must link active in-branch sources for governance, schema,
+brand, runtime binding, and operational evidence. Do not treat documents that
+exist only in another checkout or unmerged branch as normative unless the exact
+branch or commit provenance is included in the requirement delta.
+
+Current source alignment:
+
+- Public-alpha and OSS release scope: this PRD, `SSOT-1`, and
+  `docs/OSS_EVALUATION_FRAMEWORK.md`.
+- Continuity control-plane and runtime identity: `SSOT-6` and `SSOT-7`.
+- API, data-model, and cross-cutting contracts: `SSOT-3`, `SSOT-4`, and
+  `SSOT-5`.
+- Governance policy/evidence contracts:
+  `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md`,
+  `docs/design/governance/WASUREZU_AUN_GATE_EVIDENCE_REFS.md`,
+  `docs/design/governance/WASUREZU_GOVERNED_ACTION_PROFILES.md`, and their
+  machine-readable schema/profile files.
+- Product naming and compatibility:
+  `docs/brand/kusabi-naming-decision.md`.
+
+This provenance section does not rename runtime surfaces, switch package or MCP
+defaults, change startup/recovery behavior, or claim full enterprise
+enforcement. The #148 requirements-positioning delta is a separate follow-up.
+
 ## §1 Product Overview
 
 | Item | Value |

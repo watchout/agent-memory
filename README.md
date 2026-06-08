@@ -8,7 +8,10 @@
 `Kusabi` is the additive public-facing alias for the same tool. Existing
 `wasurezu` package identity, MCP server config, MCP tool namespace, database
 paths, and startup recovery instructions remain supported and authoritative
-during the transition.
+during the transition. The compatibility boundary is recorded in
+[`docs/brand/kusabi-naming-decision.md`](docs/brand/kusabi-naming-decision.md);
+the active design source set is recorded in
+[`docs/design/SOURCE_ALIGNMENT.md`](docs/design/SOURCE_ALIGNMENT.md).
 
 > ⚠️ **Early Stage (v0.3.0, internal-use snapshot)** — currently used internally by the IYASAKA bot swarm. The public OSS release is in preparation (see AM-013 / AM-014). API may still change before the first public alpha. Feedback welcome via GitHub Issues.
 

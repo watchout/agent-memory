@@ -5,6 +5,27 @@
 
 ---
 
+## Source Alignment
+
+This catalog is part of the active source set defined in
+[`docs/design/SOURCE_ALIGNMENT.md`](../design/SOURCE_ALIGNMENT.md).
+
+Feature status in this file means the implementation surface exists in the
+current Wasurezu code line. It does not by itself prove public-alpha release
+readiness, enterprise governance enforcement, AUN approval authority, or safe
+default behavior for critical actions.
+
+Related authority split:
+
+- API-facing tool contracts: `docs/design/core/SSOT-3_API_CONTRACT.md`
+- Data-model and schema contracts: `docs/design/core/SSOT-4_DATA_MODEL.md`
+- Cross-cutting safety and operations: `docs/design/core/SSOT-5_CROSS_CUTTING.md`
+- Continuity control-plane boundaries: `docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`
+- Runtime and memory identity boundaries: `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md`
+- Governance policy/evidence contracts and machine-readable profiles:
+  `docs/design/governance/*` and `docs/design/schemas/*`
+- Product naming compatibility: `docs/brand/kusabi-naming-decision.md`
+
 ## Feature List
 
 | ID | Feature | Priority | Status | SSOT | Notes |
