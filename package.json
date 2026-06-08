@@ -14,6 +14,7 @@
   },
   "files": [
     "dist",
+    "docs/design/SOURCE_ALIGNMENT.md",
     "docs/design/schemas",
     "docs/design/governance",
     "docs/operations/HOST_ADAPTERS.md",

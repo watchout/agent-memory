@@ -14,11 +14,15 @@ independent source of truth.
 
 | Area | Authority |
 |------|-----------|
+| Active source-set provenance and compatibility boundaries | `docs/design/SOURCE_ALIGNMENT.md` |
 | Control-plane architecture, lifecycle bands, ownership boundaries, recovery confidence | `SSOT-6_LIVING_MEMORY_CONTROL.md` |
 | Runtime / agent identity binding | `SSOT-7_RUNTIME_AGENT_BINDING.md` |
 | Data model and schema contracts | `SSOT-4_DATA_MODEL.md` |
 | MCP / CLI / internal API shapes | `SSOT-3_API_CONTRACT.md` |
 | Memory safety taxonomy, promotion boundary, redaction/retention evidence | `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md` |
+| Governed action profile inventory and schema | `docs/design/governance/WASUREZU_GOVERNED_ACTION_PROFILES.md`, `docs/design/governance/wasurezu-governed-action-profiles.v1.json`, `docs/design/governance/governed-action-surface-profile.schema.json` |
+| AUN gate evidence reference contract | `docs/design/governance/WASUREZU_AUN_GATE_EVIDENCE_REFS.md`, `docs/design/schemas/aun-gate-evidence-refs-v1.schema.json` |
+| Product naming and compatibility transition | `docs/brand/kusabi-naming-decision.md` |
 | Host-specific runbooks, rollout evidence, local audit packets | `docs/operations/*` |
 | Legacy v0.2 startup/recovery design | `docs/SSOT.md` and `docs/strategy/agent-memory-ssot-v0.2.0.md` |
 
