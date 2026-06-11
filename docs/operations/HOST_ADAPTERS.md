@@ -230,6 +230,20 @@ startup recovery. Tests and audits should use `--dry-run` to verify command
 construction without launching Codex, touching tmux, or mutating production
 state.
 
+Supervisor restart command preflight:
+
+- A restart marker such as `restart-required.json` is an input signal, not
+  evidence that restart was executed.
+- A standalone supervisor must preflight its restart command before claiming
+  recovery readiness.
+- The restart command must be an absolute executable path or a trusted
+  package/bin command such as `wasurezu-claude-start`.
+- Relative commands such as `scripts/restart-from-context-marker.sh` are
+  rejected because marker run directories must not influence command
+  resolution.
+- Missing, non-executable, or not-preauthorized restart commands fail closed
+  with structured diagnostics.
+
 The current verified Codex CLI startup contract is
 `codex [OPTIONS] [PROMPT]`. `wasurezu-codex-start --doctor` checks local
 Codex help/version surfaces without launching Codex. Until a stdin or

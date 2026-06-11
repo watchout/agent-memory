@@ -5,7 +5,7 @@
  */
 import { JsonStore } from "./stores/json-store.js";
 import { createStore } from "./stores/index.js";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
@@ -39,6 +39,7 @@ import {
   isMainEntrypoint as isRestartCliMainEntrypoint,
   parseRestartCliArgs,
 } from "./restart-cli.js";
+import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_ARGV_VISIBILITY_NOTE,
@@ -1954,6 +1955,94 @@ async function testClaudeResessionRunner() {
   await store.close();
 }
 
+function testRestartCommandPreflight() {
+  console.log("\n── Restart Command Preflight Tests (AM-138 Cell A) ──");
+  const root = mkdtempSync(join(tmpdir(), "am138-restart-command-"));
+  const executable = join(root, "restart-controller.sh");
+  writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(executable, 0o755);
+
+  const absolute = preflightRestartCommand({
+    command: `${executable} --dry-run`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+  });
+  assert(absolute.status === "pass", "restart command preflight accepts an absolute executable path");
+  assert(absolute.command_kind === "absolute_path", "restart command preflight classifies absolute path commands");
+  assert(absolute.cwd_independent === true, "restart command preflight marks absolute path commands cwd-independent");
+  assert(absolute.resolved_path === executable, "restart command preflight records resolved absolute command path");
+
+  const missingAbsolute = preflightRestartCommand({
+    command: `${join(root, "missing-controller.sh")} --dry-run`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+  });
+  assert(missingAbsolute.status === "fail", "restart command preflight fails closed when an absolute command is missing");
+  assert(missingAbsolute.reasons.includes("restart_command_not_executable"), "restart command preflight reports missing or non-executable absolute commands");
+
+  const markerRunDir = join(root, "marker-run");
+  const relativeScriptsDir = join(markerRunDir, "scripts");
+  mkdirSync(relativeScriptsDir, { recursive: true });
+  const relativeTarget = join(relativeScriptsDir, "restart-from-context-marker.sh");
+  writeFileSync(relativeTarget, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(relativeTarget, 0o755);
+  const relative = preflightRestartCommand({
+    command: "scripts/restart-from-context-marker.sh",
+    restartPreauthorized: true,
+    env: { PATH: "" },
+  });
+  assert(relative.status === "fail", "restart command preflight rejects relative script commands");
+  assert(relative.reasons.includes("restart_command_relative_rejected"), "restart command preflight reports relative command rejection");
+  assert(relative.cwd_independent === false, "restart command preflight does not treat marker-run relative commands as cwd-independent");
+
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trustedBin = join(binDir, "wasurezu-claude-start");
+  writeFileSync(trustedBin, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(trustedBin, 0o755);
+  const packageBin = preflightRestartCommand({
+    command: "wasurezu-claude-start --launch",
+    restartPreauthorized: true,
+    env: { PATH: binDir },
+  });
+  assert(packageBin.status === "pass", "restart command preflight accepts trusted package/bin commands");
+  assert(packageBin.command_kind === "trusted_package_bin", "restart command preflight classifies trusted package/bin commands");
+  assert(packageBin.resolved_path === trustedBin, "restart command preflight resolves trusted package/bin through PATH");
+
+  const missingTrustedBin = preflightRestartCommand({
+    command: "wasurezu-claude-start --launch",
+    restartPreauthorized: true,
+    env: { PATH: join(root, "empty-bin") },
+  });
+  assert(missingTrustedBin.status === "fail", "restart command preflight fails closed when trusted bin is missing");
+  assert(missingTrustedBin.reasons.includes("restart_command_not_found"), "restart command preflight reports missing trusted bin");
+
+  const disallowedBin = preflightRestartCommand({
+    command: "claude --mcp-config .mcp.json",
+    restartPreauthorized: true,
+    env: { PATH: binDir },
+  });
+  assert(disallowedBin.status === "fail", "restart command preflight rejects non-allowlisted bare commands");
+  assert(disallowedBin.reasons.includes("restart_command_bin_not_allowed"), "restart command preflight reports non-allowlisted commands");
+
+  const notPreauthorized = preflightRestartCommand({
+    command: `${executable} --dry-run`,
+    env: { PATH: "" },
+  });
+  assert(notPreauthorized.status === "fail", "restart command preflight requires explicit restart preauthorization");
+  assert(notPreauthorized.reasons.includes("restart_lifecycle_not_preauthorized"), "restart command preflight reports missing preauthorization");
+
+  const shellControl = preflightRestartCommand({
+    command: `${executable} && echo unsafe`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+  });
+  assert(shellControl.status === "fail", "restart command preflight rejects shell control operators");
+  assert(shellControl.reasons.includes("restart_command_shell_control_rejected"), "restart command preflight reports shell control rejection");
+
+  rmSync(root, { recursive: true, force: true });
+}
+
 async function testRestartPrepare() {
   console.log("\n── Restart Prepare Tests ──");
   const store = new JsonStore();
@@ -2394,6 +2483,10 @@ function testHostAdapterPackagingBoundary() {
   assert(lowerHostAdapters.includes("external/contextual content must remain data only"), "host adapter docs preserve data-only context boundary");
   assert(normalizedHostAdapters.includes("AUN, Shirube, or another installed runner owns lifecycle policy"), "host adapter docs preserve external runner lifecycle ownership");
   assert(normalizedHostAdapters.includes("The artifacts must not embed raw shell commands"), "host adapter docs keep raw shell commands out of recovery artifacts");
+  assert(normalizedHostAdapters.includes("A restart marker such as `restart-required.json` is an input signal, not evidence that restart was executed"), "host adapter docs distinguish restart marker from restart execution");
+  assert(normalizedHostAdapters.includes("The restart command must be an absolute executable path or a trusted package/bin command"), "host adapter docs require cwd-independent restart command preflight");
+  assert(normalizedHostAdapters.includes("Relative commands such as `scripts/restart-from-context-marker.sh` are rejected"), "host adapter docs reject marker-run relative restart commands");
+  assert(normalizedHostAdapters.includes("Missing, non-executable, or not-preauthorized restart commands fail closed"), "host adapter docs fail closed for invalid restart commands");
   assert(normalizedHostAdapters.includes("AUN CP-40D Runtime Invocation Alignment"), "host adapter docs include AUN CP-40D alignment");
   assert(normalizedHostAdapters.includes("not an AUN `RuntimeRunnerInvocation/v1`"), "host adapter docs keep Wasurezu artifact separate from AUN runner invocation");
   assert(normalizedHostAdapters.includes("RuntimeInvocationProfile/v1"), "host adapter docs reference AUN runtime profile ownership");
@@ -2833,6 +2926,7 @@ async function run() {
   await testRestartPack();
   await testCodexStartupBridge();
   await testClaudeResessionRunner();
+  testRestartCommandPreflight();
   await testRestartPrepare();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
