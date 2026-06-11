@@ -20,6 +20,7 @@ import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { summarizeRawCaptureCoverage } from "./raw-capture-coverage.js";
 import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
+import { catchUp } from "./catch-up.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -893,6 +894,52 @@ async function main() {
       } catch (err) {
         return {
           content: [safeText(`Failed to ingest conversation events: ${err}`)],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── catch_up (AM-026) ─────────────────────────────────────────
+  server.tool(
+    "catch_up",
+    "Sweep recent Claude Code conversation logs (~/.claude/projects/*.jsonl) for tag/tool-use events the PostToolUse hook may have missed. Inserts new task_states / decisions / knowledge with ±60s dedup against the catch_up_log ledger. Use this when you suspect the hook was offline or after onboarding a new bot. Source A = jsonl conversation logs only; Source B (Discord history) is reserved for a future PR and not yet exposed in the source enum.",
+    {
+      since: z
+        .string()
+        .optional()
+        .describe(
+          "ISO8601 lower bound. Defaults to the previous sweep's last event_at, or 24h ago if none."
+        ),
+      source: z
+        .enum(["conversation"])
+        .optional()
+        .describe("Which source to sweep. Only 'conversation' is implemented in AM-026."),
+      dry_run: z
+        .boolean()
+        .optional()
+        .describe("True = report counts but do not insert into target tables. Default false."),
+    },
+    async ({ since, source, dry_run }) => {
+      await logCall("catch_up", `since="${since ?? ""}" source="${source ?? "conversation"}" dry_run=${dry_run ?? false}`);
+      try {
+        const result = await catchUp(store, AGENT_ID, { since, source, dry_run });
+        return {
+          content: [
+            safeText(
+              `Catch-up complete (source=${source ?? "conversation"}${dry_run ? ", dry_run" : ""})\n\n` +
+                `Caught:\n` +
+                `  decisions:   ${result.caught.decisions}\n` +
+                `  task_states: ${result.caught.task_states}\n` +
+                `  knowledge:   ${result.caught.knowledge}\n` +
+                `Skipped (dedup): ${result.skipped}\n` +
+                `Last checked:    ${result.last_checked}`
+            ),
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [safeText(`Failed catch_up: ${err}`)],
           isError: true,
         };
       }
