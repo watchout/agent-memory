@@ -1373,6 +1373,99 @@
         "timeout_seconds": null
       },
       "notes": "reveal_behavior=reveals_ingest_summary_only | conditional_approval=required for broad imports outside current-session or allowlisted transcript roots | audit_summary_fields=actor,agent_id,project,source,root_hash,since,max_files,files_scanned,events_saved,events_skipped,duplicates,redaction_version | redaction_requirements=redact_before_persistence_and_hashing,exclude_private_reasoning,exclude_developer_and_base_instructions,store_visible_conversation_tool_context_only | retention_requirements=raw_transcripts_remain_external_source_data,conversation_events_are_source_data_not_approved_memory | transcript_events_are_source_data_not_approved_memory_by_default"
+    },
+    {
+      "surface_id": "wasurezu.catch_up",
+      "surface_type": "mcp_tool",
+      "display_name": "catch_up",
+      "description": "Sweep recent Claude Code conversation logs for tag/tool-use events the PostToolUse hook may have missed. Inserts task_states, decisions, and knowledge with ±60s dedup against the catch_up_log ledger.",
+      "capability_classes": [
+        "write",
+        "action",
+        "reveal"
+      ],
+      "risk_level": "medium",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "catch_up_log",
+          "decisions",
+          "task_states",
+          "knowledge",
+          "jsonl_transcript"
+        ],
+        "data_categories": [
+          "agent_memory",
+          "transcript_metadata"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "current_session_or_allowlisted_root"
+        ],
+        "denied_labels": [
+          "private_reasoning",
+          "developer_instruction",
+          "base_instruction"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": true,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "manual_reconcile",
+        "replay_supported": false
+      },
+      "execution_policy": {
+        "dry_run_supported": true,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "limit file scan depth by MAX_PROJECTS_GLOB_DEPTH=3",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_catch_up_summary_only | dry_run=suppresses all writes including ledger rows | dedup_window=±60s per content_hash per agent | audit_summary_fields=actor,agent_id,source,since,dry_run,caught_decisions,caught_task_states,caught_knowledge,skipped,last_checked | redaction_requirements=source_jsonl_is_external_source_data_not_approved_memory | retention_requirements=catch_up_log_rows_are_permanent_forensic_trail"
     }
   ]
 }

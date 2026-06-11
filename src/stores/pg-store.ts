@@ -14,6 +14,7 @@ import type {
   RawEvent,
   SelectedRestartPack,
   RecoveryConfig,
+  CatchUpLog,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -32,6 +33,7 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveCatchUpLogInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -1126,6 +1128,38 @@ export class PgStore implements Store {
     } finally {
       client.release();
     }
+  }
+
+  // ─── Catch-up Log (AM-026) — stub pending pg migration ──────────
+
+  async getLastCatchUpLog(
+    _agent_id: string,
+    _source: "conversation" | "discord"
+  ): Promise<CatchUpLog | null> {
+    // TODO AM-026: implement catch_up_log table in pg-store
+    return null;
+  }
+
+  async saveCatchUpLog(_input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    // TODO AM-026: implement catch_up_log table in pg-store
+    throw new Error("saveCatchUpLog not yet implemented in PgStore");
+  }
+
+  async isCatchUpDuplicate(_input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean> {
+    // TODO AM-026: implement catch_up_log table in pg-store
+    return false;
+  }
+
+  async getFailedCatchUpLogs(
+    _agent_id: string,
+    _source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]> {
+    // TODO AM-026: implement catch_up_log table in pg-store
+    return [];
   }
 
   async close(): Promise<void> {

@@ -1,5 +1,7 @@
-import { existsSync, readdirSync, statSync, type Dirent } from "fs";
+import { createHash } from "crypto";
+import { existsSync, readFileSync, readdirSync, statSync, type Dirent } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 import {
   CLAUDE_PROJECTS_MAX_DEPTH,
   getClaudeProjectsDir,
@@ -9,6 +11,12 @@ import {
   getCodexSessionsDir,
 } from "./codex-conversation-ingest.js";
 import { normalizeHomePath, redactText } from "./redact.js";
+import type {
+  Store,
+  CatchUpInput,
+  CatchUpResult,
+  CatchUpLog,
+} from "./stores/types.js";
 
 export type CatchUpHostSource = "claude_code" | "codex";
 export type CatchUpSourceSelector = CatchUpHostSource | "all";
@@ -235,4 +243,441 @@ function safeRef(value: string): string {
 
 function sum(items: CatchUpSourceManifest[], key: "candidate_files" | "emitted_refs" | "skipped_files"): number {
   return items.reduce((total, item) => total + item[key], 0);
+}
+
+// ─── AM-026 Full Catch-up Implementation ────────────────────────────────────
+
+/** Hard cap on glob recursion depth — ARC condition #4 (`maxDepth=3`). */
+export const MAX_PROJECTS_GLOB_DEPTH = 3;
+
+/** Default lookback when no prior catch_up_log row exists for an agent. */
+const CATCHUP_DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+/** Cap on the content_preview column so it stays log-friendly. */
+const PREVIEW_LEN = 200;
+
+/**
+ * Internal shape produced by `extractFromRecord`. Not exported as
+ * a public type because callers only see the aggregate `CatchUpResult`.
+ */
+export interface ExtractedEvent {
+  target_table: "decisions" | "task_states" | "knowledge";
+  content: string;
+  title?: string;
+  task_status?: "in_progress" | "completed" | "blocked";
+  files_modified?: string[];
+  event_at: string;
+  ticket_id?: string;
+}
+
+const TASK_TAG_RE = /\[TASK:(start|done|block)\]/i;
+const DECISION_TAG_RE = /\[DECISION\]/i;
+const KNOWLEDGE_TAG_RE = /\[KNOWLEDGE\]/i;
+const TICKET_RE = /(?:FEAT-\d+|AM-\d+|PR[#＃]\d+|ISSUE[#＃]\d+|#\d+)/i;
+const GIT_COMMIT_RE = /\bgit\s+commit\b/;
+const TEST_RUN_RE = /\b(npm\s+(?:run\s+)?test|pytest|jest|go\s+test|cargo\s+test|vitest)\b/;
+
+/** Resolve the directory we walk for jsonl files. */
+export function getProjectsDir(): string {
+  return process.env.CLAUDE_PROJECTS_DIR || join(homedir(), ".claude", "projects");
+}
+
+/**
+ * Recursively list `*.jsonl` files under `root` whose mtime is at or
+ * after `since`. Hard-capped at `MAX_PROJECTS_GLOB_DEPTH` levels deep.
+ */
+export function findJsonlFiles(
+  since: Date,
+  root: string = getProjectsDir(),
+  maxDepth: number = MAX_PROJECTS_GLOB_DEPTH
+): string[] {
+  if (!existsSync(root)) return [];
+  const out: string[] = [];
+  const sinceMs = since.getTime();
+
+  const walk = (dir: string, depth: number): void => {
+    if (depth > maxDepth) return;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true }) as Dirent[];
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const name = entry.name as string;
+      const path = join(dir, name);
+      if (entry.isDirectory()) {
+        walk(path, depth + 1);
+      } else if (entry.isFile() && name.endsWith(".jsonl")) {
+        let st: ReturnType<typeof statSync>;
+        try {
+          st = statSync(path);
+        } catch {
+          continue;
+        }
+        if (st.mtimeMs >= sinceMs) {
+          out.push(path);
+        }
+      }
+    }
+  };
+
+  walk(root, 1);
+  return out;
+}
+
+/**
+ * Iterate over jsonl lines whose `timestamp` field is at or after `since`.
+ */
+export function parseJsonl(path: string, since: Date): ExtractedEvent[] {
+  let raw: string;
+  try {
+    raw = readFileSync(path, "utf-8");
+  } catch {
+    return [];
+  }
+  const sinceMs = since.getTime();
+  const events: ExtractedEvent[] = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let record: unknown;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!record || typeof record !== "object") continue;
+    const ts = (record as { timestamp?: unknown }).timestamp;
+    if (typeof ts !== "string") continue;
+    const tsMs = Date.parse(ts);
+    if (Number.isNaN(tsMs) || tsMs < sinceMs) continue;
+    events.push(...extractFromRecord(record as Record<string, unknown>));
+  }
+  return events;
+}
+
+/**
+ * Convert a single jsonl record into zero or more extractable events.
+ */
+export function extractFromRecord(record: Record<string, unknown>): ExtractedEvent[] {
+  if (record.type !== "assistant") return [];
+  const message = record.message as { content?: unknown } | undefined;
+  if (!message || !Array.isArray(message.content)) return [];
+
+  const ts = record.timestamp as string;
+  const events: ExtractedEvent[] = [];
+
+  for (const block of message.content as Array<Record<string, unknown>>) {
+    if (block.type === "tool_use") {
+      events.push(...extractFromToolUse(block, ts));
+    } else if (block.type === "text" && typeof block.text === "string") {
+      events.push(...extractFromText(block.text, ts));
+    }
+  }
+  return events;
+}
+
+function extractFromToolUse(block: Record<string, unknown>, event_at: string): ExtractedEvent[] {
+  const name = block.name as string;
+  const input = (block.input as Record<string, unknown>) ?? {};
+
+  if (name === "Edit" || name === "Write") {
+    const filePath = input.file_path as string | undefined;
+    if (!filePath) return [];
+    return [
+      {
+        target_table: "task_states",
+        content: `${name} ${filePath}`,
+        files_modified: [filePath],
+        task_status: "in_progress",
+        event_at,
+      },
+    ];
+  }
+
+  if (name === "Bash") {
+    const command = (input.command as string | undefined) ?? "";
+    if (GIT_COMMIT_RE.test(command)) {
+      return [
+        {
+          target_table: "knowledge",
+          title: "git commit (catch-up)",
+          content: command.slice(0, 1000),
+          event_at,
+        },
+      ];
+    }
+    if (TEST_RUN_RE.test(command)) {
+      return [
+        {
+          target_table: "knowledge",
+          title: "test run (catch-up)",
+          content: command.slice(0, 500),
+          event_at,
+        },
+      ];
+    }
+  }
+
+  return [];
+}
+
+function extractFromText(text: string, event_at: string): ExtractedEvent[] {
+  const events: ExtractedEvent[] = [];
+  const ticketId = TICKET_RE.exec(text)?.[0];
+
+  const taskMatch = TASK_TAG_RE.exec(text);
+  if (taskMatch) {
+    const sub = taskMatch[1].toLowerCase() as "start" | "done" | "block";
+    const statusMap: Record<string, ExtractedEvent["task_status"]> = {
+      start: "in_progress",
+      done: "completed",
+      block: "blocked",
+    };
+    events.push({
+      target_table: "task_states",
+      content: text.replace(TASK_TAG_RE, "").trim(),
+      task_status: statusMap[sub],
+      ticket_id: ticketId,
+      event_at,
+    });
+  }
+
+  if (DECISION_TAG_RE.test(text)) {
+    events.push({
+      target_table: "decisions",
+      content: text.replace(DECISION_TAG_RE, "").trim(),
+      ticket_id: ticketId,
+      event_at,
+    });
+  }
+
+  if (KNOWLEDGE_TAG_RE.test(text)) {
+    events.push({
+      target_table: "knowledge",
+      title: ticketId ? `${ticketId}: catch-up knowledge` : "catch-up knowledge",
+      content: text.replace(KNOWLEDGE_TAG_RE, "").trim(),
+      ticket_id: ticketId,
+      event_at,
+    });
+  }
+
+  return events;
+}
+
+/** SHA-256 hex of the content string — the dedup key for the ledger. */
+export function contentHash(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+/**
+ * Entry point. Walks Source A (jsonl) only — Source B (Discord) is
+ * reserved as a future PR. Returns a `CatchUpResult` summarizing
+ * the sweep.
+ */
+export async function catchUp(
+  store: Store,
+  agentId: string,
+  input: CatchUpInput = {}
+): Promise<CatchUpResult> {
+  const source = input.source ?? "all";
+  const dryRun = input.dry_run === true;
+
+  const runConversation = source === "all" || source === "conversation";
+  if (!runConversation) {
+    return {
+      caught: { decisions: 0, task_states: 0, knowledge: 0 },
+      skipped: 0,
+      last_checked: new Date().toISOString(),
+    };
+  }
+
+  // Compute `since`. Caller-provided > last sweep's event_at > 24h ago.
+  let since: Date;
+  if (input.since) {
+    since = new Date(input.since);
+    if (Number.isNaN(since.getTime())) {
+      throw new Error(`Invalid since: ${input.since}`);
+    }
+  } else {
+    const last = await store.getLastCatchUpLog(agentId, "conversation");
+    since = last
+      ? new Date(last.event_at)
+      : new Date(Date.now() - CATCHUP_DEFAULT_LOOKBACK_MS);
+  }
+
+  const caught = { decisions: 0, task_states: 0, knowledge: 0 };
+  let skipped = 0;
+
+  const files = findJsonlFiles(since);
+  for (const file of files) {
+    const events = parseJsonl(file, since);
+    for (const event of events) {
+      const hash = contentHash(event.content);
+      const dup = await store.isCatchUpDuplicate({
+        agent_id: agentId,
+        content_hash: hash,
+        event_at: event.event_at,
+      });
+
+      if (dup) {
+        skipped++;
+        if (!dryRun) {
+          await store.saveCatchUpLog({
+            agent_id: agentId,
+            source: "conversation",
+            content_hash: hash,
+            target_table: event.target_table,
+            status: "skipped",
+            content_preview: event.content.slice(0, PREVIEW_LEN),
+            event_at: event.event_at,
+          });
+        }
+        continue;
+      }
+
+      if (dryRun) {
+        caught[event.target_table]++;
+        continue;
+      }
+
+      const target_id = await insertEvent(store, agentId, event);
+      if (target_id) {
+        caught[event.target_table]++;
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          target_id,
+          status: "inserted",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+      } else {
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          status: "failed",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+      }
+    }
+  }
+
+  if (!dryRun) {
+    await retryFailed(store, agentId, caught);
+  }
+
+  return {
+    caught,
+    skipped,
+    last_checked: new Date().toISOString(),
+  };
+}
+
+/**
+ * Failed retry sweep — re-attempts `status='failed'` ledger rows.
+ */
+async function retryFailed(
+  store: Store,
+  agentId: string,
+  caught: { decisions: number; task_states: number; knowledge: number }
+): Promise<void> {
+  const failedRows = await store.getFailedCatchUpLogs(agentId, "conversation");
+  if (failedRows.length === 0) return;
+
+  const pending: CatchUpLog[] = [];
+  for (const row of failedRows) {
+    const alreadyResolved = await store.isCatchUpDuplicate({
+      agent_id: agentId,
+      content_hash: row.content_hash,
+      event_at: row.event_at,
+    });
+    if (!alreadyResolved) pending.push(row);
+  }
+  if (pending.length === 0) return;
+
+  const earliest = new Date(pending[0].event_at);
+  const retrySince = new Date(earliest.getTime() - 60_000);
+
+  const pendingByHash = new Map<string, CatchUpLog>();
+  for (const row of pending) pendingByHash.set(row.content_hash, row);
+
+  const retryFiles = findJsonlFiles(retrySince);
+  for (const file of retryFiles) {
+    if (pendingByHash.size === 0) break;
+    const events = parseJsonl(file, retrySince);
+    for (const event of events) {
+      if (pendingByHash.size === 0) break;
+      const hash = contentHash(event.content);
+      if (!pendingByHash.has(hash)) continue;
+
+      const target_id = await insertEvent(store, agentId, event);
+      if (target_id) {
+        caught[event.target_table]++;
+        await store.saveCatchUpLog({
+          agent_id: agentId,
+          source: "conversation",
+          content_hash: hash,
+          target_table: event.target_table,
+          target_id,
+          status: "inserted",
+          content_preview: event.content.slice(0, PREVIEW_LEN),
+          event_at: event.event_at,
+        });
+        pendingByHash.delete(hash);
+      }
+    }
+  }
+}
+
+/**
+ * Dispatch an extracted event into the right store method.
+ */
+async function insertEvent(
+  store: Store,
+  agentId: string,
+  event: ExtractedEvent
+): Promise<string | undefined> {
+  try {
+    if (event.target_table === "decisions") {
+      const row = await store.logDecision({
+        agent_id: agentId,
+        decision: event.content,
+        context: "Captured by catch-up Source A (conversation)",
+        tags: event.ticket_id ? [event.ticket_id, "catch-up"] : ["catch-up"],
+      });
+      return row.id;
+    }
+
+    if (event.target_table === "task_states") {
+      const row = await store.saveTaskState({
+        agent_id: agentId,
+        task_id: event.ticket_id,
+        task: event.content.slice(0, 200),
+        status: event.task_status ?? "in_progress",
+        progress: event.content,
+        files_modified: event.files_modified,
+      });
+      return row.id;
+    }
+
+    if (event.target_table === "knowledge") {
+      const row = await store.saveKnowledge({
+        agent_id: agentId,
+        title: (event.title ?? event.content.slice(0, 80)).slice(0, 200),
+        content: event.content,
+        source_type: "messages",
+        tags: event.ticket_id ? [event.ticket_id, "catch-up"] : ["catch-up"],
+      });
+      return row.id;
+    }
+  } catch (err) {
+    process.stderr.write(`[catch-up] insert failed (non-fatal): ${err}\n`);
+  }
+  return undefined;
 }

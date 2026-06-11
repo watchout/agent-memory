@@ -221,6 +221,58 @@ export interface GetRawEventsInput {
   limit?: number;
 }
 
+// ─── AM-026: Catch-up ledger types ──────────────────────────────────────────
+
+/**
+ * A row in the `catch_up_log` ledger table. Each row records
+ * the outcome of a single catch-up event attempt.
+ *
+ * `status` semantics (design draft 3/3):
+ *   - `inserted`: target-table row was written. **Only this status
+ *     triggers dedup** via `isCatchUpDuplicate`.
+ *   - `skipped`: dedup hit on a previous `inserted` row. Written as
+ *     forensic trail; does NOT prevent future inserts.
+ *   - `failed`: target-table insert threw an exception. Does NOT
+ *     prevent retry runs (retry path walks failed rows explicitly).
+ *
+ * A `dry_run` sweep writes **no** ledger rows at all.
+ */
+export interface CatchUpLog {
+  id: string;
+  agent_id: string;
+  source: "conversation" | "discord";
+  content_hash: string;
+  target_table: "decisions" | "task_states" | "knowledge";
+  target_id?: string;
+  status: "inserted" | "skipped" | "failed";
+  content_preview?: string;
+  event_at: string;
+  created_at: string;
+}
+
+export interface CatchUpInput {
+  since?: string;
+  source?: "conversation" | "discord" | "all";
+  dry_run?: boolean;
+}
+
+export interface CatchUpResult {
+  caught: { decisions: number; task_states: number; knowledge: number };
+  skipped: number;
+  last_checked: string;
+}
+
+export interface SaveCatchUpLogInput {
+  agent_id: string;
+  source: "conversation" | "discord";
+  content_hash: string;
+  target_table: "decisions" | "task_states" | "knowledge";
+  target_id?: string;
+  status: "inserted" | "skipped" | "failed";
+  content_preview?: string;
+  event_at: string;
+}
+
 export interface SaveConversationEventInput {
   agent_id: string;
   project?: string;
@@ -400,6 +452,24 @@ export interface Store {
 
   /** Fetch and mark a selected restart pack as consumed (AM-039) */
   consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null>;
+
+  // ─── AM-026: Catch-up ledger methods ────────────────────────────────────
+
+  /** Get the most recent catch_up_log row for an agent+source pair. */
+  getLastCatchUpLog(agent_id: string, source: "conversation" | "discord"): Promise<CatchUpLog | null>;
+
+  /** Append a catch_up_log row reflecting the outcome of one sweep event. */
+  saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog>;
+
+  /**
+   * Return true iff a `status='inserted'` row exists within a ±60s window
+   * around `event_at` for the given (agent_id, content_hash) pair.
+   * Only `inserted` rows count; `skipped` and `failed` do not.
+   */
+  isCatchUpDuplicate(input: { agent_id: string; content_hash: string; event_at: string }): Promise<boolean>;
+
+  /** Return all `status='failed'` rows for an agent+source, ordered by event_at ASC. */
+  getFailedCatchUpLogs(agent_id: string, source: "conversation" | "discord"): Promise<CatchUpLog[]>;
 
   /** Close connections */
   close(): Promise<void>;

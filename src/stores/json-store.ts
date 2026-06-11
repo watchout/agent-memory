@@ -16,6 +16,7 @@ import type {
   RawEvent,
   SelectedRestartPack,
   RecoveryConfig,
+  CatchUpLog,
   LogDecisionInput,
   GetDecisionsInput,
   SupersedeDecisionInput,
@@ -33,6 +34,7 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveCatchUpLogInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
@@ -42,6 +44,7 @@ const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
 const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
+const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -66,6 +69,7 @@ export class JsonStore implements Store {
   private conversationEvents: ConversationEvent[] = [];
   private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
+  private catchUpLog: CatchUpLog[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -77,6 +81,7 @@ export class JsonStore implements Store {
     this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
     this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
+    this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -698,6 +703,73 @@ export class JsonStore implements Store {
       throw err;
     }
     return { old: oldItem, new: newItem };
+  }
+
+  // ─── Catch-up Log (AM-026) ───────────────────────────────────
+
+  private async saveCatchUpLogFile(): Promise<void> {
+    await writeFile(CATCH_UP_LOG_FILE, JSON.stringify(this.catchUpLog, null, 2));
+  }
+
+  async getLastCatchUpLog(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog | null> {
+    const matching = this.catchUpLog
+      .filter((row) => row.agent_id === agent_id && row.source === source)
+      .sort((a, b) => (a.event_at < b.event_at ? 1 : -1));
+    return matching[0] ?? null;
+  }
+
+  async saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    const row: CatchUpLog = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      source: input.source,
+      content_hash: input.content_hash,
+      target_table: input.target_table,
+      target_id: input.target_id,
+      status: input.status,
+      content_preview: input.content_preview,
+      event_at: input.event_at,
+      created_at: new Date().toISOString(),
+    };
+    this.catchUpLog.push(row);
+    await this.saveCatchUpLogFile();
+    return row;
+  }
+
+  async isCatchUpDuplicate(input: {
+    agent_id: string;
+    content_hash: string;
+    event_at: string;
+  }): Promise<boolean> {
+    // BLOCK fix #6: only `status='inserted'` rows count as dedup
+    // hits. `skipped` rows are forensic trail and `failed` rows
+    // must not block retries — see types.ts for the rationale.
+    const eventAt = new Date(input.event_at).getTime();
+    for (const row of this.catchUpLog) {
+      if (row.status !== "inserted") continue;
+      if (row.agent_id !== input.agent_id) continue;
+      if (row.content_hash !== input.content_hash) continue;
+      const delta = Math.abs(new Date(row.event_at).getTime() - eventAt);
+      if (delta <= 60_000) return true;
+    }
+    return false;
+  }
+
+  async getFailedCatchUpLogs(
+    agent_id: string,
+    source: "conversation" | "discord"
+  ): Promise<CatchUpLog[]> {
+    return this.catchUpLog
+      .filter(
+        (row) =>
+          row.agent_id === agent_id &&
+          row.source === source &&
+          row.status === "failed"
+      )
+      .sort((a, b) => (a.event_at < b.event_at ? -1 : 1));
   }
 
   async close(): Promise<void> {
