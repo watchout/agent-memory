@@ -107,6 +107,28 @@ Current `restart_pack` behavior:
 - `target_runtime=claude`: defaults to `delivery_mode=session-start-hook`
 - `untrusted_context_policy` defaults to `quote-as-data-only`
 
+CL2 evidence emission profile for `recovery-pack/v1`:
+
+- The base `recovery-pack-v1` schema remains backward-compatible. CL2 fields
+  are additive optional fields on v1, not a `v1.1` / `v2` bump.
+- A pack may claim CL2 evidence emission only when `schema_ref`,
+  `policy_version`, `redaction_summary`, `retention_policy_ref`,
+  `source_refs`, `missing_evidence`, item `memory_safety_class`, and item
+  `redaction_state` are present and non-empty, or the exact missing field /
+  stable item path is listed in `missing_evidence`.
+- `schema_ref` for this artifact is `wasurezu-recovery-pack/v1`.
+- `redaction_summary` uses the AUN-compatible shape: `mode`, `status`,
+  `private_reasoning_excluded=true`, `redacted_counts`, `omitted_counts`, and
+  `notes`.
+- `missing_evidence` is evidence-contract completeness. It must not be
+  overloaded with `missing_context`, which remains recovery-quality context.
+- `approved_memory` requires `promotion_evidence.promotion_ref`. Without that
+  evidence, emitters must downgrade the item to `candidate_memory` or fail the
+  CL2 profile; they must not emit it as approved memory.
+- `raw_event_source` and `untrusted_context` items remain data-only recovery
+  context. They must not be copied into `trusted_instruction` or any executable
+  host invocation field.
+
 Cross-repo boundary with AUN CP-40D:
 
 - Wasurezu `host-invocation-context/v1` is a recovery/context artifact, not an

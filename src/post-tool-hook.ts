@@ -39,7 +39,9 @@ if (!process.env.DATABASE_URL && config.database_url) {
   process.env.DATABASE_URL = config.database_url;
 }
 const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
+const DB_TYPE = (process.env.AGENT_MEMORY_DB_TYPE || "").toLowerCase();
+const needsUrl = DB_TYPE !== "sqlite" && DB_TYPE !== "json";
+if (needsUrl && !DATABASE_URL) {
   console.error("[agent-memory hook] DATABASE_URL is not set (env nor config.json), skipping");
   process.exit(0);
 }

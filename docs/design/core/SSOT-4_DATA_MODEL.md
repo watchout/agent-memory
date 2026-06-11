@@ -65,6 +65,12 @@ Memory safety policy:
 - Schema/runtime slices must not claim full enterprise enforcement until
   recovery output emits or links policy version, redaction summary, omission
   counts, and promotion evidence.
+- `recovery-pack/v1` CL2 evidence fields are additive optional serialization
+  fields. Base v1 records remain valid without them, but a CL2 claim requires
+  present evidence fields or exact field names / stable item paths in
+  `missing_evidence`.
+- `missing_evidence` is contract-completeness evidence and is separate from
+  `missing_context`, which remains recovery-quality context.
 
 ---
 
@@ -403,7 +409,7 @@ Control-plane constraints:
 
 - `raw_events` is the canonical source for transcript-like and runtime facts.
 - `conversation_events` may remain as a compatibility ingest table or view, but restart/recovery ranking should move toward `raw_events` + checkpoints.
-- Restart pack generation must be bounded and source-bearing through `recovery_packs` and `recovery_pack_items`, and API serialization should conform to `recovery-pack/v1`.
+- Restart pack generation must be bounded and source-bearing through `recovery_packs` and `recovery_pack_items`, and API serialization should conform to `recovery-pack/v1` with CL2 evidence fields emitted or listed in `missing_evidence` when a CL2 evidence-emission claim is made.
 - Host adapter handoff should conform to `host-invocation-context/v1` and mark fallback delivery as `tui-fallback`.
 - Every restart or recovery attempt must create a `session_lifecycle_events` audit record with reason, owner, pack, confidence, missing context, and outcome.
 - Runtime adapters may append structured evidence, but they must not own lifecycle policy or destructive memory rewrite.

@@ -32,6 +32,26 @@
       "type": "array",
       "items": { "$ref": "#/$defs/recovery_pack_item" }
     },
+    "schema_ref": {
+      "const": "wasurezu-recovery-pack/v1"
+    },
+    "policy_version": { "type": "string", "minLength": 1 },
+    "redaction_summary": {
+      "$ref": "#/$defs/redaction_summary"
+    },
+    "retention_policy_ref": {
+      "$ref": "#/$defs/nullable_ref"
+    },
+    "source_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
     "review_prompt": {
       "type": "object",
       "additionalProperties": false,
@@ -83,8 +103,103 @@
         "sensitivity": {
           "type": "string",
           "enum": ["public", "internal", "secret_redacted", "pii_redacted"]
+        },
+        "memory_safety_class": {
+          "type": "string",
+          "enum": [
+            "raw_event_source",
+            "candidate_memory",
+            "approved_memory",
+            "trusted_instruction",
+            "untrusted_context"
+          ]
+        },
+        "redaction_state": {
+          "type": "string",
+          "enum": [
+            "redacted-before-emit",
+            "already-redacted",
+            "none-required",
+            "unknown"
+          ]
+        },
+        "promotion_evidence": {
+          "$ref": "#/$defs/promotion_evidence"
         }
       }
+    },
+    "redaction_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "status",
+        "private_reasoning_excluded",
+        "redacted_counts",
+        "omitted_counts",
+        "notes"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "redacted-before-emit",
+            "already-redacted",
+            "none-required",
+            "unknown"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "full",
+            "partial",
+            "degraded",
+            "not_applicable"
+          ]
+        },
+        "private_reasoning_excluded": {
+          "const": true
+        },
+        "redacted_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "omitted_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "promotion_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promotion_ref"],
+      "properties": {
+        "promotion_ref": { "type": "string", "minLength": 1 },
+        "promoted_at": { "type": "string", "format": "date-time" },
+        "promoted_by": { "type": "string", "minLength": 1 },
+        "policy_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nullable_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
     }
   }
 }
