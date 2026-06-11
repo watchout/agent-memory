@@ -48,6 +48,11 @@ evidence only and must not be treated as the memory namespace.
 Before running a recovery evaluation:
 
 - `ingest_conversation_events` has run for the target source(s): `codex`, `claude_code`, or both.
+- If catch-up Source A is used before ingest, record the dry-run manifest
+  first. The manifest is discovery evidence only: it reports supported local
+  host log candidates, since/until bounds, skipped reasons, and redacted
+  provenance refs. It performs no memory writes and must not be counted as
+  approved memory promotion.
 - Pre-exit prepare and post-start recovery use deterministic hook/runner paths
   where available. A prompt inside the model must not be the component that
   decides context-limit policy or recovery-pack ranking.
@@ -69,6 +74,10 @@ Before running a recovery evaluation:
 - If `restart_prepare` returns a `selected_restart_pack:<id>` reference, record
   whether the host fetched or consumed it through `restart_pack_fetch`,
   `wasurezu-restart fetch --consume`, or `AGENT_MEMORY_SELECTED_PACK_REF`.
+- For catch-up Source A dry-runs, record `policy_version`,
+  `writes_performed=false`, `approved_memory_promoted=false`, candidate counts,
+  skipped reasons, and redacted source refs. Raw host logs remain source data
+  until a later reviewed raw-event normalization/import path persists them.
 - The target DB is reachable.
 - The latest working state is represented by at least one of:
   - active `task_state`
