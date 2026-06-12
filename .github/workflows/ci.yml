@@ -54,3 +54,8 @@ jobs:
 
       - name: Run post-tool-hook tests
         run: HOME=$(mktemp -d) npx tsx src/test-post-tool-hook.ts
+
+      - name: Run Gate 0 tests
+        run: |
+          HOME=$(mktemp -d) npx tsx tests/gate0/no-secret-recovery.ts
+          HOME=$(mktemp -d) npx tsx tests/gate0/migration-idempotency.ts
