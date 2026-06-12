@@ -205,6 +205,7 @@ approval, redaction, retention, and audit classification.
 | supersede_knowledge | ✅ | ナレッジの上書き | old_id(uuid), new_title(str), new_content(str), reason(str), tags?(str[]), project?(str) | {old, new} |
 | update_knowledge_status | ✅ | ナレッジステータス変更 | id(uuid), status(enum:active/merged/archived), merged_into?(uuid) | Knowledge object |
 | ingest_conversation_events | ✅ | redacted full-text conversation event 取り込み | source?(enum:claude_code/codex), project?(str), since?(ISO), root?(str), max_files?(num) | ingest summary |
+| catch_up | ✅ | jsonl conversation log sweep for missed hook events | since?(ISO), source?(enum:conversation), dry_run?(bool) | ingest summary with inserted/skipped counts |
 
 ## restart_prepare (AM-038)
 
