@@ -329,7 +329,7 @@ export function findJsonlFiles(
 /**
  * Iterate over jsonl lines whose `timestamp` field is at or after `since`.
  */
-export function parseJsonl(path: string, since: Date): ExtractedEvent[] {
+export function parseJsonl(path: string, since: Date, opts?: ExtractOptions): ExtractedEvent[] {
   let raw: string;
   try {
     raw = readFileSync(path, "utf-8");
@@ -351,15 +351,28 @@ export function parseJsonl(path: string, since: Date): ExtractedEvent[] {
     if (typeof ts !== "string") continue;
     const tsMs = Date.parse(ts);
     if (Number.isNaN(tsMs) || tsMs < sinceMs) continue;
-    events.push(...extractFromRecord(record as Record<string, unknown>));
+    events.push(...extractFromRecord(record as Record<string, unknown>, opts));
   }
   return events;
 }
 
 /**
+ * P2-CS1: tag-derived extraction is legacy and off by default, matching
+ * the post-tool-hook opt-in (AGENT_MEMORY_LEGACY_TAG_CAPTURE). Tool-use
+ * extraction (Edit/Write, git commit, test runs) is not tag-based and
+ * always runs. Spec: docs/impl/IMPL-2026-06-13-catchup-tag-gating.md
+ */
+export interface ExtractOptions {
+  legacyTagCapture?: boolean;
+}
+
+/**
  * Convert a single jsonl record into zero or more extractable events.
  */
-export function extractFromRecord(record: Record<string, unknown>): ExtractedEvent[] {
+export function extractFromRecord(
+  record: Record<string, unknown>,
+  opts?: ExtractOptions
+): ExtractedEvent[] {
   if (record.type !== "assistant") return [];
   const message = record.message as { content?: unknown } | undefined;
   if (!message || !Array.isArray(message.content)) return [];
@@ -370,7 +383,11 @@ export function extractFromRecord(record: Record<string, unknown>): ExtractedEve
   for (const block of message.content as Array<Record<string, unknown>>) {
     if (block.type === "tool_use") {
       events.push(...extractFromToolUse(block, ts));
-    } else if (block.type === "text" && typeof block.text === "string") {
+    } else if (
+      opts?.legacyTagCapture === true &&
+      block.type === "text" &&
+      typeof block.text === "string"
+    ) {
       events.push(...extractFromText(block.text, ts));
     }
   }
@@ -509,9 +526,15 @@ export async function catchUp(
   const caught = { decisions: 0, task_states: 0, knowledge: 0 };
   let skipped = 0;
 
+  // P2-CS1: same flag name and value grammar as the post-tool-hook
+  // opt-in (PR #166). Default off — tag-derived records stay retired.
+  const legacyTagCapture = /^(1|true)$/i.test(
+    process.env.AGENT_MEMORY_LEGACY_TAG_CAPTURE ?? ""
+  );
+
   const files = findJsonlFiles(since);
   for (const file of files) {
-    const events = parseJsonl(file, since);
+    const events = parseJsonl(file, since, { legacyTagCapture });
     for (const event of events) {
       const hash = contentHash(event.content);
       const dup = await store.isCatchUpDuplicate({

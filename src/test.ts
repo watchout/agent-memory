@@ -12,7 +12,7 @@ import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
-import { buildCatchUpSourceADryRunManifest } from "./catch-up.js";
+import { buildCatchUpSourceADryRunManifest, extractFromRecord } from "./catch-up.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import {
@@ -3417,6 +3417,56 @@ async function testSqliteMigrationIdempotency() {
 }
 
 // Run all tests
+// P2-CS1: catch_up tag-derived extraction is legacy opt-in.
+// Spec: docs/impl/IMPL-2026-06-13-catchup-tag-gating.md
+function testCatchUpTagGating() {
+  console.log("\n── Catch-Up Tag Gating (P2-CS1) ──");
+
+  const record = {
+    type: "assistant",
+    timestamp: "2026-06-13T00:00:00.000Z",
+    message: {
+      content: [
+        { type: "text", text: "[TASK:start] AM-000 tag should be gated" },
+        { type: "tool_use", name: "Edit", input: { file_path: "src/app.ts" } },
+      ],
+    },
+  };
+
+  const byDefault = extractFromRecord(record);
+  assert(byDefault.length === 1, "default extraction yields only the tool_use event");
+  assert(byDefault[0].target_table === "task_states", "tool_use event targets task_states");
+  assert(byDefault[0].files_modified?.[0] === "src/app.ts", "tool_use event carries files_modified");
+  assert(
+    !byDefault.some((e) => e.content.includes("tag should be gated")),
+    "no tag-derived event extracted by default"
+  );
+
+  const optedIn = extractFromRecord(record, { legacyTagCapture: true });
+  assert(optedIn.length === 2, "opt-in extraction yields tool_use + tag events");
+  const tagEvent = optedIn.find((e) => e.content.includes("tag should be gated"));
+  assert(tagEvent?.task_status === "in_progress", "opt-in tag event maps TASK:start to in_progress");
+  assert(tagEvent?.ticket_id === "AM-000", "opt-in tag event extracts ticket id");
+
+  const decisionRecord = {
+    type: "assistant",
+    timestamp: "2026-06-13T00:00:00.000Z",
+    message: {
+      content: [
+        { type: "text", text: "[DECISION] gated decision" },
+        { type: "text", text: "[KNOWLEDGE] gated knowledge" },
+      ],
+    },
+  };
+  assert(extractFromRecord(decisionRecord).length === 0, "DECISION/KNOWLEDGE tags yield nothing by default");
+  const decisionsOptIn = extractFromRecord(decisionRecord, { legacyTagCapture: true });
+  assert(
+    decisionsOptIn.some((e) => e.target_table === "decisions") &&
+      decisionsOptIn.some((e) => e.target_table === "knowledge"),
+    "DECISION/KNOWLEDGE tags extract when opted in"
+  );
+}
+
 async function run() {
   console.log("agent-memory test suite\n");
   await cleanup();
@@ -3438,6 +3488,7 @@ async function run() {
   await testExplicitPostgresStoreFailsClosed();
   testRawCaptureCoverage();
   testCatchUpSourceADryRun();
+  testCatchUpTagGating();
   await testConversationEvents();
   await testClaudeConversationIngest();
   await testCodexConversationIngest();
