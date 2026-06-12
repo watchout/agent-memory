@@ -59,3 +59,4 @@ jobs:
         run: |
           HOME=$(mktemp -d) npx tsx tests/gate0/no-secret-recovery.ts
           HOME=$(mktemp -d) npx tsx tests/gate0/migration-idempotency.ts
+          HOME=$(mktemp -d) npx tsx tests/gate0/search-memory-regression.ts
