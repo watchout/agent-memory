@@ -6,7 +6,7 @@
  * Discord message text and inserts into the agent-memory DB.
  *
  * Supported tool paths:
- *   1. mcp__agent-comms__reply / send_message — original MCP path
+ *   1. mcp__agent-comms__send — current agent-comms MCP path
  *   2. Bash + curl POST to discord.com/api/v\d+/channels/.../messages
  *      (added by AM-016 because several bots had to fall back to
  *       direct Discord REST while the agent-comms reply tool's
@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
+import { AGENT_COMMS_SEND_TOOL, AGENT_COMMS_CONTENT_FIELD } from "./agent-comms-contract.js";
 
 // --- Config file support ---
 // Load ~/.agent-memory/config.json to avoid inlining env vars in settings.json.
@@ -74,9 +75,7 @@ const BASH_CONTENT_RE = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"/;
 interface HookInput {
   tool_name: string;
   tool_input: {
-    /** Legacy MCP reply / send_message field. Kept for old payloads. */
-    text?: string;
-    /** New MCP `send` content field (AM-030, agent-comms PR#117). */
+    /** MCP `send` content field (AM-030, agent-comms PR#117). */
     content?: string;
     chat_id?: string;
     command?: string;
@@ -267,8 +266,8 @@ async function main() {
   // the stale dispatcher was zero (every dev bot uses the Bash +
   // curl workaround, see Path 2 below), but PR#64 wired the new
   // tool name into the matcher, so the dispatcher needs to follow.
-  if (toolName === "mcp__agent-comms__send") {
-    const text = input.tool_input?.content || "";
+  if (toolName === AGENT_COMMS_SEND_TOOL) {
+    const text = input.tool_input?.[AGENT_COMMS_CONTENT_FIELD] || "";
     if (!text) process.exit(0);
     if (!parseTag(text)) process.exit(0);
 

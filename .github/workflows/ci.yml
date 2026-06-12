@@ -44,7 +44,9 @@ jobs:
         run: npx tsx src/test.ts
 
       - name: Run spec-enforcement tests
-        run: npx tsx tests/spec-enforcement/anti-regression-am027.ts
+        run: |
+          npx tsx tests/spec-enforcement/anti-regression-am027.ts
+          npx tsx tests/spec-enforcement/anti-regression-agent-comms-contract.ts
 
       - name: Run SQLite store tests
         run: HOME=$(mktemp -d) npx tsx src/test-sqlite.ts

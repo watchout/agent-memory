@@ -361,7 +361,7 @@ watchdog設計:
 
 ### タグルール
 
-全Botの発言（agent-comms reply/send）をPostToolUse hookで監視し、以下のタグを検出：
+全Botの発言（agent-comms `send`）をPostToolUse hookで監視し、以下のタグを検出：
 
 | タグ | 蓄積先 | 例 |
 |------|--------|-----|
@@ -374,8 +374,8 @@ watchdog設計:
 ### Detector処理フロー
 
 ```
-PostToolUse hook (agent-comms reply/send完了後)
-→ stdin: { tool_name, tool_input: { text, chat_id } }
+PostToolUse hook (agent-comms send完了後)
+→ stdin: { tool_name, tool_input: { content, chat_id } }
 → Detector: タグパターン検出 (/\[(TASK:(start|done|block)|DECISION|KNOWLEDGE)\]/i)
 → 検出なし: exit 0（何もしない）
 → 検出あり: DB INSERT (DirectDB Adapter)
@@ -403,7 +403,7 @@ settings.jsonのhook定義でコマンドに環境変数を直接指定する：
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "mcp__agent-comms__reply|mcp__agent-comms__send_message",
+        "matcher": "mcp__agent-comms__send",
         "command": "DATABASE_URL='postgresql://...' AGENT_MEMORY_AGENT_ID='cto' AGENT_MEMORY_PROJECT='tech-lead' node /path/to/agent-memory/dist/post-tool-hook.js"
       }
     ]

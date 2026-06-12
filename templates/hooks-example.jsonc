@@ -1,6 +1,7 @@
 {
   "// INSTRUCTIONS": "Add this PostToolUse hook to your project's .claude/settings.json",
-  "// NOTE": "The hook fires after agent-comms reply/send and auto-detects memory tags",
+  "// NOTE": "The hook fires after agent-comms send and auto-detects memory tags",
+  "// TOOL_INPUT": "agent-comms send carries the message body in tool_input.content",
   "//": "--- Environment Variables ---",
   "// DATABASE_URL": "PostgreSQL connection string for agent-memory DB (REQUIRED)",
   "// AGENT_MEMORY_AGENT_ID": "Bot identifier used as agent_id in DB records (e.g. 'cto', 'arc')",
@@ -11,7 +12,7 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "mcp__agent-comms__reply|mcp__agent-comms__send_message",
+        "matcher": "mcp__agent-comms__send",
         "hooks": [
           {
             "type": "command",
