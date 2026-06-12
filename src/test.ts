@@ -45,6 +45,7 @@ import {
   parseRestartCliArgs,
 } from "./restart-cli.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
+import { runSupervisorPreflight } from "./restart-cli.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_ARGV_VISIBILITY_NOTE,
@@ -2377,6 +2378,64 @@ function testRestartCommandPreflight() {
   rmSync(root, { recursive: true, force: true });
 }
 
+function testSupervisorPreflight() {
+  console.log("\n── Supervisor Preflight Tests (Issue #138) ──");
+  const root = mkdtempSync(join(tmpdir(), "am138-supervisor-preflight-"));
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trustedBin = join(binDir, "wasurezu-claude-start");
+  writeFileSync(trustedBin, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(trustedBin, 0o755);
+
+  const CHECKED_AT = "2026-01-01T00:00:00.000Z";
+
+  // Correctly configured supervisor: trusted bin on PATH
+  const pass = runSupervisorPreflight("wasurezu-claude-start --launch", true, CHECKED_AT, { PATH: binDir });
+  assert(pass.status === "pass", "supervisor preflight passes for trusted bin command");
+  assert(pass.command_kind === "trusted_package_bin", "supervisor preflight classifies trusted bin correctly");
+  assert(pass.cwd_independent === true, "supervisor preflight marks trusted bin as cwd-independent");
+  assert(pass.remediation.length === 0, "supervisor preflight has no remediation when configured correctly");
+
+  // Legacy broken config: relative script path (the original bug from issue #138)
+  const relativeResult = runSupervisorPreflight(
+    "scripts/restart-from-context-marker.sh",
+    true,
+    CHECKED_AT,
+    { PATH: binDir }
+  );
+  assert(relativeResult.status === "fail", "supervisor preflight fails for legacy relative script command");
+  assert(
+    relativeResult.reasons.includes("restart_command_relative_rejected"),
+    "supervisor preflight reports relative command rejection for legacy config"
+  );
+  assert(relativeResult.remediation.length > 0, "supervisor preflight provides remediation for relative command");
+  assert(
+    relativeResult.remediation[0].includes("wasurezu-claude-start"),
+    "supervisor preflight remediation names the correct trusted bin"
+  );
+
+  // Missing command — reads from WASUREZU_RESTART_COMMAND env var
+  const fromEnv = runSupervisorPreflight(undefined, true, CHECKED_AT, {
+    PATH: binDir,
+    WASUREZU_RESTART_COMMAND: "wasurezu-claude-start --launch",
+  });
+  assert(fromEnv.status === "pass", "supervisor preflight reads restart command from WASUREZU_RESTART_COMMAND env var");
+
+  // Not preauthorized
+  const noAuth = runSupervisorPreflight("wasurezu-claude-start --launch", false, CHECKED_AT, { PATH: binDir });
+  assert(noAuth.status === "fail", "supervisor preflight fails when restart lifecycle not preauthorized");
+  assert(
+    noAuth.reasons.includes("restart_lifecycle_not_preauthorized"),
+    "supervisor preflight reports missing preauthorization"
+  );
+  assert(
+    noAuth.remediation.some((r) => r.includes("WASUREZU_RESTART_PREAUTHORIZED")),
+    "supervisor preflight remediation mentions WASUREZU_RESTART_PREAUTHORIZED env var"
+  );
+
+  rmSync(root, { recursive: true, force: true });
+}
+
 async function testRestartPrepare() {
   console.log("\n── Restart Prepare Tests ──");
   const store = new JsonStore();
@@ -3387,6 +3446,7 @@ async function run() {
   await testClaudeResessionRunner();
   await testClaudeMarkerController();
   testRestartCommandPreflight();
+  testSupervisorPreflight();
   await testRestartPrepare();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
