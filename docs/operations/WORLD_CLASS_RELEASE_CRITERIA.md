@@ -49,7 +49,7 @@ does not make the project public-alpha-ready or world-class-ready.
 
 ## 3. Current Position
 
-As of 2026-06-04:
+As of 2026-06-12:
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -58,16 +58,19 @@ As of 2026-06-04:
 | Codex startup bridge | Implemented, hardening in progress | PR #91 merged. #92/#99 hardening is represented by PR #135 and remains audit/merge gated. |
 | Deterministic prepare / selected pack handoff | Implemented | AM-038 / AM-039 landed through #102 / #105 / #106. `restart_prepare`, selected pack refs, and `wasurezu-restart` are existing capabilities. |
 | Raw event / continuity foundation | Implemented foundation | #124 and #132 landed initial raw-event and continuity guard slices. More release evidence is still required. |
-| Kusabi naming transition | Phase 0/1 landed | #133/#134 add public-facing Kusabi alias while preserving wasurezu package/config/MCP namespace/database compatibility. |
+| Kusabi naming transition | All phases landed | #128-#131 closed. `kusabi` bin alias present. `wasurezu` package/config/MCP namespace/database compatibility preserved. |
+| AM-026 catch-up / Source A sweep | Implemented | PR #155 merged. `catch_up` MCP tool with dedup ledger, full jsonl sweep. |
+| Gate 0 CI coverage | Substantially expanded | PRs #157-#161: SQLite isolation, migration idempotency, no-secret recovery, supervisor preflight, search_memory regression. All in CI hard gate. |
+| Restart supervisor preflight | Implemented | PR #160 merged. `wasurezu-restart preflight` detects legacy relative-path configs and provides remediation. |
 | MCP public alpha readiness | Not yet | Needs audited #135 or equivalent, fresh Claude/Codex recovery runs, clean install evidence, security/privacy docs, and release audit. |
 | World-class readiness | Not yet | Needs broader safety suite, clean install evidence, observability, release docs, and consecutive recovery score evidence. |
 
 Approximate readiness:
 
-- Internal opt-in: 85%
-- Internal default: 75-80%
-- MCP public alpha: 60-65%
-- World-class public release: 45-50%
+- Internal opt-in: 90%
+- Internal default: 80-85%
+- MCP public alpha: 65-70%
+- World-class public release: 50-55%
 
 These percentages are planning estimates only. They must not be used as
 marketing, public-alpha, or enterprise-readiness claims.
@@ -329,11 +332,15 @@ Claim allowed:
 
 ## 7. Immediate Next Actions
 
-1. Complete L1/L2/L3 review for #135 or its successor before using Codex hardening as release evidence.
-2. Run a Codex bridge fresh recovery evaluation after the audited hardening PR is merged or explicitly adopted.
-3. Run a Claude Code runner/SessionStart fresh recovery evaluation.
-4. Update public-alpha evidence table with exact run ids, scores, and known gaps.
-5. Complete README quick start and client-specific install docs.
-6. Add or update `SECURITY.md`, privacy/retention notes, and troubleshooting docs before public-alpha claims.
-7. Run L1/L2/L3 public-alpha release audit.
-8. Keep package/repo/DB path/MCP namespace migration out of release claims unless a separate governed migration PR approves it.
+As of 2026-06-12. Completed items are noted inline.
+
+1. ~~Gate 0 CI expansion (no-secret recovery, migration idempotency, search regression, supervisor preflight)~~ — Done: PRs #157-#161.
+2. Complete L1/L2/L3 review for #135 or its successor before using Codex hardening as release evidence.
+3. Run a Codex bridge fresh recovery evaluation after the audited hardening PR is merged or explicitly adopted.
+4. Run a Claude Code runner/SessionStart fresh recovery evaluation.
+5. Update public-alpha evidence table with exact run ids, scores, and known gaps.
+6. Complete README quick start and client-specific install docs.
+7. Add or update `SECURITY.md`, privacy/retention notes, and troubleshooting docs before public-alpha claims.
+8. Run L1/L2/L3 public-alpha release audit.
+9. Issue #108 spec consolidation (SSOT-6/7 / control-plane runner boundary) — requires CTO/CEO gate; do not proceed without protected-category approval.
+10. Keep package/repo/DB path/MCP namespace migration out of release claims unless a separate governed migration PR approves it.
