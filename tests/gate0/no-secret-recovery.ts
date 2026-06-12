@@ -33,6 +33,11 @@ const PROJECT = "gate0";
 const FAKE_OPENAI_KEY = "sk-ant-fake123abcDEFGHIJKLMNOPQRSTUV";
 const FAKE_GITHUB_TOKEN = "github_pat_faketoken123ABCDEFGHIJKLMNOPQRfake";
 const FAKE_GHO_TOKEN = "gho_fakeGHOtokenABCDEFGHIJKLMNOPQ";
+// AM-034 §4.2 expansion fixtures
+const FAKE_STRIPE_KEY = "sk_live_FAKEstripe0123456789";
+const FAKE_PEM_BODY = "MIIEFAKEPEMBODY0123456789";
+const FAKE_PEM_BLOCK = `-----BEGIN RSA PRIVATE KEY-----\n${FAKE_PEM_BODY}\n-----END RSA PRIVATE KEY-----`;
+const FAKE_QUERY_URL = "https://api.example.com/cb?access_token=FAKEQUERYTOKEN0123";
 
 async function runTests(): Promise<void> {
   const tmpDir = mkdtempSync(join(tmpdir(), "gate0-secret-"));
@@ -71,6 +76,17 @@ async function runTests(): Promise<void> {
       tags: ["auth"],
     });
 
+    // Seed knowledge containing the AM-034 expansion fixtures so the
+    // restart-pack output boundary is probed for them too.
+    await store.saveKnowledge({
+      agent_id: AGENT,
+      project: PROJECT,
+      title: "Payment + infra creds note",
+      content: `Stripe uses ${FAKE_STRIPE_KEY}; deploy key is ${FAKE_PEM_BLOCK}; callback is ${FAKE_QUERY_URL}`,
+      source_type: "manual",
+      tags: ["payments"],
+    });
+
     console.log("\n── Gate 0: no-secret-recovery ──");
 
     // ── Test 1: redactText removes sk- pattern ──
@@ -105,6 +121,20 @@ async function runTests(): Promise<void> {
       redacted.text.includes("[REDACTED]"),
       "redactText output contains [REDACTED] placeholder"
     );
+
+    // ── AM-034 §4.2 expansion: redactText layer ──
+    assert(!redactText(FAKE_STRIPE_KEY).text.includes(FAKE_STRIPE_KEY), "redactText removes Stripe sk_live_ key");
+    assert(!redactText(FAKE_PEM_BLOCK).text.includes(FAKE_PEM_BODY), "redactText removes PEM private key body");
+    assert(!redactText(FAKE_QUERY_URL).text.includes("FAKEQUERYTOKEN0123"), "redactText removes URL query token value");
+
+    // ── AM-034 §4.2 expansion: restart-pack output boundary ──
+    const pack2 = await generateRestartPack(store, {
+      agent_id: AGENT,
+      project: PROJECT,
+    });
+    assert(!pack2.includes(FAKE_STRIPE_KEY), "generateRestartPack output does not contain raw Stripe key");
+    assert(!pack2.includes(FAKE_PEM_BODY), "generateRestartPack output does not contain PEM body");
+    assert(!pack2.includes("FAKEQUERYTOKEN0123"), "generateRestartPack output does not contain URL query token");
 
     await store.close?.();
   } finally {

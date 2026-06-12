@@ -1,6 +1,6 @@
 import { homedir } from "os";
 
-export const REDACTION_VERSION = "am031-redaction-v1";
+export const REDACTION_VERSION = "am034-redaction-v2";
 
 export interface RedactionResult {
   text: string;
@@ -9,10 +9,21 @@ export interface RedactionResult {
 }
 
 const SECRET_PATTERNS: RegExp[] = [
-  /\bgho_[A-Za-z0-9_]{20,}\b/g,
+  // PEM blocks first: their multi-line body must vanish as one unit
+  // before token-shaped patterns can nibble at the base64 inside.
+  /-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----[\s\S]*?-----END [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/g,
+  // GitHub token family: ghp_ (PAT), gho_ (OAuth), ghu_ (user-to-server),
+  // ghs_ (server-to-server), ghr_ (refresh).
+  /\bgh[opusr]_[A-Za-z0-9_]{20,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+  // Order matters (AM-031 run 2 incident): sk-* / sk_* families must
+  // run before AKIA so compound fixtures like sk-test-AKIA... and
+  // sk_test_AKIA... do not survive as a partial prefix.
   /\bsk-[A-Za-z0-9_-]{20,}\b/g,
+  // Stripe secret / restricted keys + webhook signing secrets.
+  /\b[sr]k_(?:live|test)_[A-Za-z0-9]{10,}\b/g,
+  /\bwhsec_[A-Za-z0-9]{10,}\b/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\bAIza[0-9A-Za-z_-]{20,}\b/g,
   /\b(?:anthropic|claude|openai|google|gemini|voyage|slack|discord|aws|azure)[_-]?(?:api[_-]?)?(?:key|token|secret)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s]+)/gi,
@@ -26,6 +37,11 @@ const CREDENTIAL_ENV_RE =
 const URL_CREDENTIAL_RE = /\b(https?:\/\/)([^:\s/@]+):([^@\s/]+)@/gi;
 const WEBHOOK_URL_RE =
   /\bhttps:\/\/(?:hooks\.slack\.com\/services|discord(?:app)?\.com\/api\/webhooks|[^/\s]+\/webhook[s]?\/)[^\s"'<>]+/gi;
+// Secret-bearing URL query parameters: keep the parameter name, drop
+// the value. Keywords are end-anchored on the param name to limit
+// false positives (e.g. "?design=" must not match "sig").
+const URL_QUERY_SECRET_RE =
+  /([?&][A-Za-z0-9_.-]*(?:token|secret|key|password|passwd|credential|signature|sig|auth)=)[^&#\s"'<>]+/gi;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /\b(?:\+?\d[\d .()/-]{8,}\d)\b/g;
 
@@ -62,6 +78,12 @@ export function redactText(input: string): RedactionResult {
   const webhookRedacted = applyRedaction(text, WEBHOOK_URL_RE, "[REDACTED_WEBHOOK_URL]");
   text = webhookRedacted.text;
   redactionCount += webhookRedacted.count;
+
+  const queryRedacted = text.replace(URL_QUERY_SECRET_RE, (_match, prefix: string) => {
+    redactionCount++;
+    return `${prefix}[REDACTED]`;
+  });
+  text = queryRedacted;
 
   for (const pattern of SECRET_PATTERNS) {
     const result = applyRedaction(text, pattern, "[REDACTED]");
