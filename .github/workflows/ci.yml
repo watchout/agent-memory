@@ -62,3 +62,4 @@ jobs:
           HOME=$(mktemp -d) npx tsx tests/gate0/search-memory-regression.ts
           HOME=$(mktemp -d) npx tsx tests/gate0/search-output-redaction.ts
           HOME=$(mktemp -d) npx tsx tests/gate0/recovery-output-redaction.ts
+          HOME=$(mktemp -d) npx tsx tests/gate0/codex-bridge-output-redaction.ts
