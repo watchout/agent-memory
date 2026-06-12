@@ -1050,6 +1050,90 @@ async function testStripOrphanSurrogates() {
   assert(hasSurrogate(fixed) === false, "sanitized output contains no orphans");
 }
 
+async function testSupersedeKnowledgeAgentIsolation() {
+  console.log("\n── SqliteStore Supersede Knowledge Agent Isolation ──");
+
+  // Agent A saves K1, Agent B saves K2
+  const agentA = `${AGENT}-iso-a`;
+  const agentB = `${AGENT}-iso-b`;
+
+  const kA = await store.saveKnowledge({
+    agent_id: agentA,
+    title: "Agent A knowledge",
+    content: "Known by agent A",
+    source_type: "manual",
+  });
+
+  const kB = await store.saveKnowledge({
+    agent_id: agentB,
+    title: "Agent B knowledge",
+    content: "Known by agent B",
+    source_type: "manual",
+  });
+
+  // Agent A supersedes its own K1
+  const result = await store.supersedeKnowledge({
+    agent_id: agentA,
+    old_id: kA.id,
+    new_title: "Agent A updated knowledge",
+    new_content: "Updated by agent A",
+    reason: "Revised understanding",
+  });
+
+  assert(result.old.status === "superseded", "agent A original knowledge is superseded");
+  assert(result.new.status === "active", "agent A replacement knowledge is active");
+
+  // Agent B's knowledge must remain 'active' — unaffected by A's supersede
+  const bActive = await store.getKnowledge({ agent_id: agentB, status: "active" });
+  assert(
+    bActive.some((k) => k.id === kB.id),
+    "agent B knowledge remains active after agent A supersedes"
+  );
+
+  const bAll = await store.getKnowledge({ agent_id: agentB, status: "all" });
+  assert(
+    bAll.every((k) => k.status === "active"),
+    "agent B has no superseded records"
+  );
+}
+
+async function testMigrationIdempotency() {
+  console.log("\n── SqliteStore Migration Idempotency ──");
+
+  const idempPath = join(tmpdir(), `agent-memory-idempotency-${Date.now()}.db`);
+  let s: SqliteStore | null = null;
+  try {
+    s = new SqliteStore(idempPath);
+    await s.initialize();
+
+    // Seed a decision and knowledge entry
+    await s.logDecision({
+      agent_id: "idemp-agent",
+      decision: "First decision",
+      context: "Initial context",
+    });
+    await s.saveKnowledge({
+      agent_id: "idemp-agent",
+      title: "First knowledge",
+      content: "Initial knowledge content",
+      source_type: "manual",
+    });
+
+    // Call initialize() a second time — must be a no-op (no error, no data loss)
+    await s.initialize();
+
+    const decisions = await s.getDecisions({ agent_id: "idemp-agent", status: "all" });
+    assert(decisions.length === 1, "seeded decision survives second initialize()");
+
+    const knowledge = await s.getKnowledge({ agent_id: "idemp-agent", status: "all" });
+    assert(knowledge.length === 1, "seeded knowledge survives second initialize()");
+    assert(knowledge[0].title === "First knowledge", "knowledge content unchanged after re-init");
+  } finally {
+    if (s) await s.close();
+    if (existsSync(idempPath)) rmSync(idempPath);
+  }
+}
+
 async function testPersistence() {
   console.log("\n── SqliteStore Persistence ──");
 
@@ -1101,6 +1185,8 @@ async function run() {
     await testClaudeConversationIngest();
     await testCodexConversationIngest();
     await testStripOrphanSurrogates();
+    await testSupersedeKnowledgeAgentIsolation();
+    await testMigrationIdempotency();
     await testPersistence();
   } finally {
     await cleanup();
