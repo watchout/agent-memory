@@ -357,11 +357,16 @@ watchdog設計:
     → Botプロセスが起動完了したかを確認（MCP接続確立をチェック）
 ```
 
-## PostToolUse Hook — タグ自動検出 (FEAT-025)
+## PostToolUse Hook — タグ自動検出 (FEAT-025) — **LEGACY (P2-CS1)**
+
+> **Status: legacy / default off (2026-06-12)**。タグ自動検出は P2-CS1 で legacy 化され、
+> hook は **`AGENT_MEMORY_LEGACY_TAG_CAPTURE=1`** (env) または
+> `~/.agent-memory/config.json` の `"legacy_tag_capture": "1"` による明示 opt-in なしでは
+> **完全 no-op (exit 0)**。後継の蓄積経路は raw capture daemon (P2-CS3)。
 
 ### タグルール
 
-全Botの発言（agent-comms `send`）をPostToolUse hookで監視し、以下のタグを検出：
+全Botの発言（agent-comms `send`）をPostToolUse hookで監視し、以下のタグを検出（opt-in 時のみ）：
 
 | タグ | 蓄積先 | 例 |
 |------|--------|-----|
@@ -392,6 +397,7 @@ PostToolUse hookはClaude SDKの子プロセスとして実行されるため、
 | `DATABASE_URL` | PostgreSQL接続先 | なし（必須） |
 | `AGENT_MEMORY_AGENT_ID` | 蓄積元Bot識別子 | `"default"` |
 | `AGENT_MEMORY_PROJECT` | プロジェクト名 | `undefined` |
+| `AGENT_MEMORY_LEGACY_TAG_CAPTURE` | legacy タグ検出の opt-in（`1`/`true` で有効。未設定 = hook は no-op） | 無効 |
 
 #### 受け渡し方式: hookコマンドへの環境変数インライン指定
 
