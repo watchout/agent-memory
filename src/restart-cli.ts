@@ -4,9 +4,10 @@ import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
+import { preflightRestartCommand } from "./restart-command-preflight.js";
 
 interface CliOptions {
-  command: "prepare" | "fetch" | "help";
+  command: "prepare" | "fetch" | "preflight" | "help";
   agent_id: string;
   project?: string;
   pack_ref?: string;
@@ -28,6 +29,7 @@ interface CliOptions {
   delivery_mode?: HostInvocationDeliveryMode;
   trusted_instruction?: string;
   untrusted_context_policy?: UntrustedContextPolicy;
+  restart_command?: string;
 }
 
 export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = process.env): CliOptions {
@@ -35,7 +37,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
   if (command === "help" || command === "--help" || command === "-h") {
     return { command: "help", agent_id: env.AGENT_MEMORY_AGENT_ID || "default" };
   }
-  if (command !== "prepare" && command !== "fetch") {
+  if (command !== "prepare" && command !== "fetch" && command !== "preflight") {
     throw new Error(`unknown command: ${command}`);
   }
 
@@ -119,6 +121,9 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--untrusted-context-policy":
         options.untrusted_context_policy = untrustedContextPolicy(next());
         break;
+      case "--restart-command":
+        options.restart_command = next();
+        break;
       default:
         throw new Error(`unknown option: ${arg}`);
     }
@@ -134,6 +139,7 @@ export function printRestartCliHelp(): string {
     "Usage:",
     "  wasurezu-restart prepare [options]",
     "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
+    "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized]",
     "",
     "Options:",
     "  --agent-id ID",
@@ -160,10 +166,85 @@ export function printRestartCliHelp(): string {
   ].join("\n");
 }
 
+export interface SupervisorPreflightResult {
+  cli: "wasurezu-restart preflight";
+  checked_at: string;
+  status: "pass" | "fail";
+  restart_command: string | null;
+  command_kind: string;
+  cwd_independent: boolean;
+  resolved_path: string | null;
+  restart_preauthorized: boolean;
+  reasons: string[];
+  diagnostics: string[];
+  remediation: string[];
+}
+
+export function runSupervisorPreflight(
+  restartCommand: string | undefined,
+  restartPreauthorized: boolean,
+  checkedAt: string,
+  env: NodeJS.ProcessEnv = process.env
+): SupervisorPreflightResult {
+  const effectiveCommand = restartCommand ?? env.WASUREZU_RESTART_COMMAND ?? env.AGENT_MEMORY_RESTART_COMMAND;
+  const result = preflightRestartCommand({
+    command: effectiveCommand,
+    restartPreauthorized,
+    env,
+  });
+
+  const remediation: string[] = [];
+  if (result.reasons.includes("restart_command_relative_rejected")) {
+    remediation.push(
+      "Change the supervisor restart command from a relative path (e.g. scripts/restart-from-context-marker.sh) to the trusted bin: wasurezu-claude-start --launch"
+    );
+  }
+  if (result.reasons.includes("restart_command_bin_not_allowed")) {
+    remediation.push("Use one of the allowed restart bins: wasurezu-claude-start, wasurezu-codex-start, wasurezu-restart");
+  }
+  if (result.reasons.includes("restart_command_not_found")) {
+    remediation.push("Ensure the restart bin is installed and available on PATH (npm install -g wasurezu or npx wasurezu)");
+  }
+  if (result.reasons.includes("restart_command_missing")) {
+    remediation.push("Set WASUREZU_RESTART_COMMAND=wasurezu-claude-start --launch or pass --restart-command to the preflight check");
+  }
+  if (result.reasons.includes("restart_lifecycle_not_preauthorized")) {
+    remediation.push("Pass --restart-preauthorized flag or set WASUREZU_RESTART_PREAUTHORIZED=1 to confirm restart lifecycle is authorized");
+  }
+
+  return {
+    cli: "wasurezu-restart preflight",
+    checked_at: checkedAt,
+    status: result.status,
+    restart_command: result.command,
+    command_kind: result.command_kind,
+    cwd_independent: result.cwd_independent,
+    resolved_path: result.resolved_path,
+    restart_preauthorized: result.restart_preauthorized,
+    reasons: result.reasons,
+    diagnostics: result.diagnostics,
+    remediation,
+  };
+}
+
 async function main(): Promise<void> {
   const options = parseRestartCliArgs(process.argv.slice(2));
   if (options.command === "help") {
     console.log(printRestartCliHelp());
+    return;
+  }
+  if (options.command === "preflight") {
+    const restartPreauthorized =
+      options.restart_preauthorized === true ||
+      process.env.WASUREZU_RESTART_PREAUTHORIZED === "1" ||
+      process.env.WASUREZU_RESTART_PREAUTHORIZED === "true";
+    const result = runSupervisorPreflight(
+      options.restart_command,
+      restartPreauthorized,
+      new Date().toISOString()
+    );
+    console.log(JSON.stringify(result, null, 2));
+    if (result.status === "fail") process.exit(1);
     return;
   }
   const store = await createStore();
