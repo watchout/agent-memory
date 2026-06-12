@@ -4,6 +4,7 @@
  * Run: tsx src/test.ts
  */
 import { JsonStore } from "./stores/json-store.js";
+import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
@@ -3246,6 +3247,116 @@ function testMemorySafetyGovernance() {
   assert(evidenceRefsSchema.properties.approval_note_ref, "Aun Gate evidence refs expose approval-note evidence");
 }
 
+async function testSqliteSupersedeKnowledgeAgentIsolation() {
+  console.log("\n── supersedeKnowledge agent_id isolation (SqliteStore) ──");
+  const dbPath = join(mkdtempSync(join(tmpdir(), "am076-sqlite-iso-")), "test.db");
+
+  const storeA = new SqliteStore(dbPath);
+  await storeA.initialize();
+
+  const storeB = new SqliteStore(dbPath);
+  await storeB.initialize();
+
+  const agentA = "agent-iso-a";
+  const agentB = "agent-iso-b";
+
+  // Seed agent A with K1
+  const k1 = await storeA.saveKnowledge({
+    agent_id: agentA,
+    title: "shared-title",
+    content: "Agent A version of shared-title",
+    source_type: "manual",
+    project: "iso-test",
+  });
+
+  // Seed agent B with K2 (same title, different agent)
+  const k2 = await storeB.saveKnowledge({
+    agent_id: agentB,
+    title: "shared-title",
+    content: "Agent B version of shared-title",
+    source_type: "manual",
+    project: "iso-test",
+  });
+
+  // Agent A supersedes K1
+  const result = await storeA.supersedeKnowledge({
+    agent_id: agentA,
+    old_id: k1.id,
+    new_title: "shared-title (updated by A)",
+    new_content: "Agent A superseded version",
+    reason: "agent A refreshed",
+    project: "iso-test",
+  });
+  assert(result.old.status === "superseded", "agent A: old K1 is superseded");
+
+  // Agent B's K2 must still be active
+  const bKnowledge = await storeB.getKnowledge({ agent_id: agentB, status: "active" });
+  const bK2 = bKnowledge.find((k) => k.id === k2.id);
+  assert(bK2 !== undefined, "agent B's K2 still exists after agent A supersedes");
+  assert(bK2?.status === "active", "agent B's K2 is still active (not affected by agent A supersede)");
+
+  // Agent A's old K1 is superseded
+  const aAll = await storeA.getKnowledge({ agent_id: agentA, status: "all" });
+  const aK1 = aAll.find((k) => k.id === k1.id);
+  assert(aK1?.status === "superseded", "agent A's old K1 is superseded in SqliteStore");
+
+  await storeA.close();
+  await storeB.close();
+  rmSync(dbPath, { force: true });
+}
+
+async function testSqliteMigrationIdempotency() {
+  console.log("\n── Migration idempotency (SqliteStore) ──");
+  const dbPath = join(mkdtempSync(join(tmpdir(), "am076-sqlite-idempotent-")), "test.db");
+
+  // First initialization + seed data
+  const store1 = new SqliteStore(dbPath);
+  await store1.initialize();
+
+  const agentId = "idempotency-test-agent";
+  const k1 = await store1.saveKnowledge({
+    agent_id: agentId,
+    title: "Idempotency Knowledge Item",
+    content: "This row must survive double-initialize.",
+    source_type: "manual",
+    project: "idempotency-test",
+  });
+  const d1 = await store1.logDecision({
+    agent_id: agentId,
+    decision: "Use idempotent migrations",
+    context: "Double-init must not destroy data.",
+    tags: ["migration"],
+    project: "idempotency-test",
+  });
+  await store1.close();
+
+  // Second initialization on same path — should be safe
+  const store2 = new SqliteStore(dbPath);
+  await store2.initialize();
+
+  const knowledgeAfter = await store2.getKnowledge({ agent_id: agentId, status: "all" });
+  assert(knowledgeAfter.length === 1, "seeded knowledge row survives double-initialize");
+  assert(knowledgeAfter[0].id === k1.id, "knowledge row id is unchanged after re-initialize");
+
+  const decisionsAfter = await store2.getDecisions({ agent_id: agentId, status: "all" });
+  assert(decisionsAfter.length === 1, "seeded decision row survives double-initialize");
+  assert(decisionsAfter[0].id === d1.id, "decision row id is unchanged after re-initialize");
+
+  // No duplicate rows
+  const allKnowledge = await store2.getKnowledge({ agent_id: agentId, status: "all" });
+  const knowledgeIds = allKnowledge.map((k) => k.id);
+  const uniqueKnowledgeIds = new Set(knowledgeIds);
+  assert(knowledgeIds.length === uniqueKnowledgeIds.size, "no duplicate knowledge rows after double-initialize");
+
+  const allDecisions = await store2.getDecisions({ agent_id: agentId, status: "all" });
+  const decisionIds = allDecisions.map((d) => d.id);
+  const uniqueDecisionIds = new Set(decisionIds);
+  assert(decisionIds.length === uniqueDecisionIds.size, "no duplicate decision rows after double-initialize");
+
+  await store2.close();
+  rmSync(dbPath, { force: true });
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -3283,6 +3394,8 @@ async function run() {
   testGovernedActionProfiles();
   testAunGateEvidenceRefs();
   testMemorySafetyGovernance();
+  await testSqliteSupersedeKnowledgeAgentIsolation();
+  await testSqliteMigrationIdempotency();
 
   await cleanup();
 
