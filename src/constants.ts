@@ -1,4 +1,5 @@
 import type { RecoveryConfig, Decision, TaskState, Knowledge, AgentMessage } from "./stores/types.js";
+import { redactText } from "./redact.js";
 
 /**
  * Default recovery config used when no recovery_config record exists in DB.
@@ -161,5 +162,10 @@ export function buildRecoveryOutput(params: {
   const bodyBudget = maxTokens - estimateTokens(headerText) - estimateTokens(footer);
   const bodyParts = truncateByPriority(sections, Math.max(bodyBudget, 100));
 
-  return [headerText, ...bodyParts, "", footer].join("\n");
+  // Output-boundary redaction: structured memory is not redacted at
+  // ingest, and this output is shared by the recover_context tool and
+  // the boot.ts fallback path. Single pass over the assembled string,
+  // after truncation, so cross-section adjacency cannot reassemble a
+  // secret. Spec: docs/impl/IMPL-2026-06-12-recovery-output-redaction.md
+  return redactText([headerText, ...bodyParts, "", footer].join("\n")).text;
 }
