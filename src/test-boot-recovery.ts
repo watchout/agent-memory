@@ -249,6 +249,25 @@ async function cleanup() {
   if (existsSync(TEST_DB_PATH)) rmSync(TEST_DB_PATH);
 }
 
+// P2-CS1: boot must not auto-install the retired memory-tags.md rule
+// file (FEAT-029 installer removed). Spec:
+// docs/impl/IMPL-2026-06-12-remove-tag-rule-installer.md
+async function verifyNoTagRuleInstall() {
+  console.log("\n── boot does not install memory-tags.md (P2-CS1) ──");
+  const freshHome = join(tmpdir(), `agent-memory-boot-home-${Date.now()}`);
+  const result = await runBoot(undefined, { HOME: freshHome });
+  assert(result.code === 0, "boot exits cleanly with fresh HOME");
+  assert(
+    !result.stderr.includes("Installed memory-tags.md"),
+    "boot stderr has no memory-tags install line"
+  );
+  assert(
+    !existsSync(join(freshHome, ".claude", "rules", "memory-tags.md")),
+    "no memory-tags.md created under fresh HOME"
+  );
+  rmSync(freshHome, { recursive: true, force: true });
+}
+
 async function run() {
   console.log("agent-memory boot recovery E2E test (AM-002)\n");
   console.log(`DB path: ${TEST_DB_PATH}`);
@@ -268,6 +287,7 @@ async function run() {
     await verify(result);
     await verifyRestartPackBoot();
     await verifySelectedRestartPackBoot();
+    await verifyNoTagRuleInstall();
   } finally {
     await cleanup();
   }
