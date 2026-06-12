@@ -15,6 +15,12 @@
  * stdin: JSON { tool_name, tool_input: {...}, tool_result: ... }
  * Tags : [TASK:start], [TASK:done], [TASK:block], [DECISION], [KNOWLEDGE]
  * No tag → exit 0 (no-op).
+ *
+ * P2-CS1: tag capture is LEGACY and disabled by default. The raw
+ * capture daemon is the successor ingestion path. Hosts that still
+ * rely on tag detection must opt back in via
+ * AGENT_MEMORY_LEGACY_TAG_CAPTURE=1 (env) or
+ * "legacy_tag_capture": "1" (~/.agent-memory/config.json).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -53,6 +59,13 @@ const PROJECT = process.env.AGENT_MEMORY_PROJECT || config.default_project || un
 if (!process.env.AGENT_MEMORY_AGENT_ID && !config.agent_id) {
   console.error("[agent-memory hook] AGENT_MEMORY_AGENT_ID is not set, using default: 'default'");
 }
+
+// P2-CS1: tag capture is legacy and off by default; the raw capture
+// daemon supersedes it. Explicit opt-in keeps old fleets working
+// while new installs get no tag-detection side effects.
+const LEGACY_TAG_CAPTURE = /^(1|true)$/i.test(
+  process.env.AGENT_MEMORY_LEGACY_TAG_CAPTURE ?? config.legacy_tag_capture ?? ""
+);
 
 // ─── Tag patterns ────────────────────────────────────────────────
 const TAG_PATTERN = /\[(TASK:(start|done|block)|DECISION|KNOWLEDGE)\]/i;
@@ -242,6 +255,10 @@ async function processContent(
 }
 
 async function main() {
+  // P2-CS1: this hook's only job is legacy tag capture. Without the
+  // explicit opt-in it must be a complete no-op.
+  if (!LEGACY_TAG_CAPTURE) process.exit(0);
+
   // Read hook input from stdin
   let raw = "";
   for await (const chunk of process.stdin) {

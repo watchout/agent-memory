@@ -152,7 +152,10 @@ function testSplitTaskFromContent() {
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-hook-e2e-${Date.now()}.db`);
 const AGENT_ID = `test-hook-${Date.now()}`;
 
-function runHook(payload: object): Promise<{ code: number; stderr: string }> {
+function runHook(
+  payload: object,
+  envOverrides: Record<string, string> = {}
+): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("npx", ["tsx", "src/post-tool-hook.ts"], {
       env: {
@@ -160,9 +163,13 @@ function runHook(payload: object): Promise<{ code: number; stderr: string }> {
         AGENT_MEMORY_DB_TYPE: "sqlite",
         AGENT_MEMORY_DB_PATH: TEST_DB_PATH,
         AGENT_MEMORY_AGENT_ID: AGENT_ID,
+        // P2-CS1: tag capture is legacy opt-in; these tests exercise
+        // the capture paths, so opt in explicitly.
+        AGENT_MEMORY_LEGACY_TAG_CAPTURE: "1",
         // Avoid loading config.json
         DATABASE_URL: "",
         AGENT_MEMORY_DATABASE_URL: "",
+        ...envOverrides,
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -402,6 +409,56 @@ async function testE2EMcpSendDeprecatedToolsIgnored() {
   );
 }
 
+async function testE2ETagCaptureDefaultOff() {
+  console.log("\n── post-tool-hook E2E (P2-CS1 legacy opt-in default off) ──");
+
+  const countRows = async () => {
+    const store = new SqliteStore(TEST_DB_PATH);
+    await store.initialize();
+    try {
+      return (await store.getTaskStates({ agent_id: AGENT_ID, status: "all" }))
+        .length;
+    } finally {
+      await store.close();
+    }
+  };
+  const countBefore = await countRows();
+
+  // A payload that WOULD insert when opted in — sent without the flag.
+  const taggedPayload = {
+    tool_name: "mcp__agent-comms__send",
+    tool_input: {
+      content: "[TASK:start] P2-CS1 must not be captured by default",
+      chat_id: "1490958446885863524",
+    },
+    tool_result: {},
+  };
+
+  for (const flagValue of ["", "0", "false"]) {
+    const result = await runHook(taggedPayload, {
+      AGENT_MEMORY_LEGACY_TAG_CAPTURE: flagValue,
+    });
+    assert(
+      result.code === 0,
+      `default-off hook exits cleanly (flag=${JSON.stringify(flagValue)})`
+    );
+  }
+
+  assert(
+    (await countRows()) === countBefore,
+    "no rows inserted while legacy tag capture is off"
+  );
+
+  // Sanity: the same payload DOES insert when opted in, proving the
+  // default-off result above is the flag and not a broken payload.
+  const optedIn = await runHook(taggedPayload);
+  assert(optedIn.code === 0, "opted-in hook exits cleanly");
+  assert(
+    (await countRows()) === countBefore + 1,
+    "same payload inserts once opted in"
+  );
+}
+
 async function cleanup() {
   if (existsSync(TEST_DB_PATH)) rmSync(TEST_DB_PATH);
 }
@@ -419,6 +476,7 @@ async function run() {
     await testE2EUnrelatedToolIgnored();
     await testE2EMcpSendPath();
     await testE2EMcpSendDeprecatedToolsIgnored();
+    await testE2ETagCaptureDefaultOff();
   } finally {
     await cleanup();
   }

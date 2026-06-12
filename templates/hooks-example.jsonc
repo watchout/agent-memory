@@ -1,11 +1,13 @@
 {
   "// INSTRUCTIONS": "Add this PostToolUse hook to your project's .claude/settings.json",
+  "// STATUS": "LEGACY (P2-CS1): tag auto-detection is disabled by default. The raw capture daemon is the successor ingestion path. Only install this hook if you still rely on [TASK:]/[DECISION]/[KNOWLEDGE] tags, and opt in explicitly.",
   "// NOTE": "The hook fires after agent-comms send and auto-detects memory tags",
   "// TOOL_INPUT": "agent-comms send carries the message body in tool_input.content",
   "//": "--- Environment Variables ---",
   "// DATABASE_URL": "PostgreSQL connection string for agent-memory DB (REQUIRED)",
   "// AGENT_MEMORY_AGENT_ID": "Bot identifier used as agent_id in DB records (e.g. 'cto', 'arc')",
   "// AGENT_MEMORY_PROJECT": "Project name for scoping task/decision/knowledge records",
+  "// AGENT_MEMORY_LEGACY_TAG_CAPTURE": "Set to '1' to opt back in to legacy tag capture (REQUIRED for this hook to do anything; without it the hook is a no-op)",
   "//  ": "Because PostToolUse hooks run as child processes of the Claude SDK,",
   "//   ": "they do NOT inherit .mcp.json env vars. You must inline them in the command.",
 
@@ -16,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DATABASE_URL='<REPLACE:PostgreSQL接続文字列>' AGENT_MEMORY_AGENT_ID='<REPLACE:Bot識別子>' AGENT_MEMORY_PROJECT='<REPLACE:プロジェクト名>' node <REPLACE:agent-memoryパス>/dist/post-tool-hook.js",
+            "command": "DATABASE_URL='<REPLACE:PostgreSQL接続文字列>' AGENT_MEMORY_AGENT_ID='<REPLACE:Bot識別子>' AGENT_MEMORY_PROJECT='<REPLACE:プロジェクト名>' AGENT_MEMORY_LEGACY_TAG_CAPTURE='1' node <REPLACE:agent-memoryパス>/dist/post-tool-hook.js",
             "timeout": 10000
           }
         ]
