@@ -66,6 +66,14 @@ Wasurezu owns memory/recovery artifacts, confidence, missing context, and
 provenance. AUN, Shirube, or another installed runner owns lifecycle policy,
 CLI execution, queue behavior, and final close/requeue decisions.
 
+Company Dev OS phase-goal and runner-policy workflow is defined in
+`docs/operations/COMPANY_DEV_OS_PHASE_CONVEYOR.md`. Host adapter work must
+declare one of those runner policies before implementation and must write
+direct memory/recovery evidence back to the GitHub issue or PR. AUN ACKs,
+queue ids, Discord projection, TUI visibility, and green CI are not sufficient
+startup/recovery evidence without Wasurezu pack, recovery, binding, or runtime
+evidence refs.
+
 Host invocation profiles:
 
 | Target runtime | Structured delivery profile | Boundary |
@@ -117,6 +125,16 @@ must not be treated as the primary restart mechanism or policy engine.
 | AUN or external supervisor | AUN/supervisor | Provides restart pack, recovery confidence, missing context, provenance, and continuity signals. Does not mutate AUN queue state, claim/requeue lifecycle, delivery, finalization, reply, or close. |
 | Standalone supervisor or host hook | wasurezu runner/supervisor, if pre-authorized | May run local `auto_restart`: pre-exit prepare, pack selection, local host refresh/restart, post-start pack load, and lifecycle record with confidence/provenance. |
 | Pure MCP-only | User or host | Manual recovery only. Wasurezu can prepare packs and emit restart recommendations, but cannot force restart. |
+
+## Company Dev OS Runner Policy Mapping
+
+| Policy | Valid host/adapter shape | Host evidence requirement |
+|--------|--------------------------|---------------------------|
+| `codex_native_fast_lane` | Codex-safe R0-R2 work that does not claim live restart/recovery or protected semantic changes. | Local checks plus any direct Wasurezu evidence needed for the claim. |
+| `claude_code_autonomous_lane` | Claude Code is the active runtime and existing hook/runner paths preserve recovery evidence. | SessionStart/runner evidence when startup or recovery behavior is claimed. |
+| `headless_runtime_adapter_lane` | A headless adapter preserves structured pack/ref/result evidence. | `host-invocation-context/v1`, delivery mode, feature detection, runtime result, and recovery result evidence. |
+| `governed_manual_lane` | Manual recovery, ambiguous host capability, or human/gate controlled operation. | Manual steps, gate reference, direct Wasurezu evidence, and missing evidence labels. |
+| `stop_lane` | Unsafe or undelegated protected host/runtime work. | Stop reason and required owner/gate. |
 
 ## Continuity Guard Modes
 
