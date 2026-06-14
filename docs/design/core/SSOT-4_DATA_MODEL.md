@@ -54,6 +54,17 @@ Structured artifact schemas:
 | `host-invocation-context/v1` | `docs/design/schemas/host-invocation-context-v1.schema.json` |
 | `wasurezu-aun-gate-evidence-refs/v1` | `docs/design/schemas/aun-gate-evidence-refs-v1.schema.json` |
 
+Common DB alignment:
+
+- #147 Phase 0 contract lives in
+  `docs/operations/COMMON_DB_ALIGNMENT.md`.
+- Current implementation has no live `IYASAKA_MCP_DATABASE_URL` discovery path,
+  no `common_*` registry adapter, and no `kusabi_*` migration.
+- Future common DB work must keep common identity/runtime tables
+  common-owned, keep Wasurezu memory/recovery product tables Wasurezu-owned,
+  and preserve existing local SQLite / legacy PostgreSQL behavior unless a
+  protected implementation PR explicitly changes it.
+
 Memory safety policy:
 
 - `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md` defines the
@@ -519,6 +530,25 @@ async function detectAgentComms(client: pg.Client): Promise<boolean> {
 - `false` → 連携機能を無効化、agent-memory 単体動作
 
 → 実装は MVP 公開後で OK。AM-017 として将来起票予定。
+
+### 4.5 Common DB registry alignment (#147 planned)
+
+The next-generation common DB contract is broader than agent-comms table
+coexistence. Common identity/runtime registry tables remain common-owned, while
+Kusabi/Wasurezu owns memory and recovery product state.
+
+Current state:
+
+- Store selection uses `AGENT_MEMORY_DB_TYPE`, `AGENT_MEMORY_DATABASE_URL`,
+  legacy `DATABASE_URL`, then SQLite fallback.
+- There is no live `IYASAKA_MCP_DATABASE_URL` discovery path.
+- There is no `common_*` registry adapter or `kusabi_*` migration in the
+  current implementation.
+
+Future implementation must be additive and protected. See
+`docs/operations/COMMON_DB_ALIGNMENT.md` for discovery precedence, adapter
+outputs, migration evidence, drift-verifier evidence, and the CTO-gated review
+path.
 
 ---
 
