@@ -22,6 +22,7 @@ independent source of truth.
 | Memory safety taxonomy, promotion boundary, redaction/retention evidence | `docs/design/governance/WASUREZU_MEMORY_SAFETY_GOVERNANCE.md` |
 | Governed action profile inventory and schema | `docs/design/governance/WASUREZU_GOVERNED_ACTION_PROFILES.md`, `docs/design/governance/wasurezu-governed-action-profiles.v1.json`, `docs/design/governance/governed-action-surface-profile.schema.json` |
 | AUN gate evidence reference contract | `docs/design/governance/WASUREZU_AUN_GATE_EVIDENCE_REFS.md`, `docs/design/schemas/aun-gate-evidence-refs-v1.schema.json` |
+| Company Dev OS phase-goal, runner-policy, and GitHub evidence workflow | `docs/operations/COMPANY_DEV_OS_PHASE_CONVEYOR.md` |
 | Product naming and compatibility transition | `docs/brand/kusabi-naming-decision.md` |
 | Host-specific runbooks, rollout evidence, local audit packets | `docs/operations/*` |
 | Legacy v0.2 startup/recovery design | `docs/SSOT.md` and `docs/strategy/agent-memory-ssot-v0.2.0.md` |
@@ -245,6 +246,13 @@ Every restart or recovery attempt must record:
 
 This evidence can later form an Agent Continuity Record for enterprise audit.
 
+When continuity, memory, or recovery work is executed as a Company Dev OS
+phase, the same evidence must be written back to the durable GitHub issue or
+PR. AUN ACKs, queue ids, Discord projection, TUI visibility, and green CI may
+support an audit trail, but they are not sufficient to prove Wasurezu
+memory/recovery success without direct Wasurezu evidence refs or explicit
+`missing_evidence` / `missing_context`.
+
 ---
 
 ## 12. Related Work Mapping
@@ -255,3 +263,9 @@ This evidence can later form an Agent Continuity Record for enterprise audit.
 - #108 maps to this SSOT hierarchy and fallback-vs-primary boundary.
 - #110 maps to `recovery-pack/v1`, `host-invocation-context/v1`, and structured host adapter delivery.
 - #117 maps to `WASUREZU_MEMORY_SAFETY_GOVERNANCE.md`, memory safety taxonomy, candidate-vs-approved promotion boundaries, and redaction/retention evidence requirements.
+- #147 maps to common DB identity/runtime alignment. Wasurezu binds to common
+  registry IDs when available and reports drift; it does not own the common
+  registry.
+- #177 maps to the Company Dev OS phase-goal conveyor, runner-policy selection,
+  protected gate stops, and GitHub evidence write-back for memory/recovery
+  work.
