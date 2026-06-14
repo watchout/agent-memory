@@ -25,6 +25,7 @@ mirror this file.
 | Runtime source | `source` (`codex`, `claude_code`, `manual`, etc.) | Transcript/runtime origin | Changes by tool/runtime | Provenance, not isolation |
 | Execution session | `session_id` | One concrete runtime session | Changes every restart | Observability and lifecycle trace only |
 | AUN identity | `aun_agent_id`, queue claim metadata, or adapter metadata | Suite-mode orchestration identity | Stable while AUN owns a worker/claim | External lifecycle mapping |
+| Common registry identity | future common agent/workspace/runtime refs | Cross-product canonical identity refs | Stable while registry ownership remains common | Evidence/binding refs, not Wasurezu-owned namespace policy |
 
 ---
 
@@ -38,6 +39,11 @@ memory boundary = agent_id + optional project
 
 `session_id` must not become the memory namespace. A restarted agent must keep
 the same `AGENT_MEMORY_AGENT_ID` to continue work.
+
+When a common DB registry is available, Wasurezu may attach canonical
+agent/workspace/runtime refs to memory and recovery evidence. Those refs do not
+make Wasurezu the owner of common identity/runtime registry policy, and their
+absence must be represented as missing evidence rather than silently inferred.
 
 Runtime swaps are provenance changes, not memory-boundary changes:
 
@@ -89,7 +95,36 @@ namespace.
 
 ---
 
-## 6. Handoff Rule
+## 6. Common Registry Binding (#147 planned)
+
+Common DB alignment is defined in
+`docs/operations/COMMON_DB_ALIGNMENT.md`.
+
+Future common registry consumption should preserve the current memory boundary:
+
+```text
+memory boundary = agent_id + optional project
+canonical refs = evidence/binding metadata when available
+```
+
+Required rules:
+
+- Common registry rows are cross-product identity/runtime evidence, not
+  Wasurezu-owned memory semantics.
+- Wasurezu may resolve `agent_id` / `project` to canonical
+  agent/workspace/binding refs when the common registry is available.
+- Wasurezu must preserve local fallback behavior when the common registry is
+  unavailable, unless an explicit protected implementation PR changes that
+  behavior.
+- Missing common registry tables, rows, permissions, or runtime-session refs
+  must be emitted as `missing_evidence` in protected flows.
+- Launchers must keep `AGENT_MEMORY_AGENT_ID` and `AGENT_MEMORY_PROJECT`
+  stable while adding canonical refs as evidence, not replacing the namespace
+  with transient session or queue ids.
+
+---
+
+## 7. Handoff Rule
 
 If a different role needs to inherit work:
 
