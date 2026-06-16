@@ -1021,6 +1021,69 @@ function testRedaction() {
   const standalone = redactText("aws AKIAIOSFODNN7EXAMPLE openai sk-abcdefghijklmnopqrstuvwxyz123456");
   assert(!standalone.text.includes("AKIAIOSFODNN7EXAMPLE"), "standalone AWS key redacted");
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
+
+  // ── AM-034 §4.2 suite expansion (am034-redaction-v2) ──
+
+  const stripe = redactText(
+    "live sk_live_FAKEabcdef123456 test sk_test_FAKEabcdef123456 restricted rk_live_FAKEabcdef123456 webhook whsec_FAKEabcdef123456"
+  );
+  assert(!stripe.text.includes("sk_live_FAKE"), "Stripe live secret key redacted");
+  assert(!stripe.text.includes("sk_test_FAKE"), "Stripe test secret key redacted");
+  assert(!stripe.text.includes("rk_live_FAKE"), "Stripe restricted key redacted");
+  assert(!stripe.text.includes("whsec_FAKE"), "Stripe webhook signing secret redacted");
+
+  const stripeCompound = redactText("compound sk_test_AKIAIOSFODNN7EXAMPLE9999");
+  assert(!stripeCompound.text.includes("sk_test_"), "compound Stripe+AKIA fixture leaves no sk_test_ prefix");
+  assert(!stripeCompound.text.includes("AKIAIOSFODNN7EXAMPLE"), "compound Stripe+AKIA fixture leaves no AKIA suffix");
+
+  const github = redactText(
+    "pat ghp_FAKE0123456789abcdefABCDEF oauth gho_FAKE0123456789abcdefABCDEF s2s ghs_FAKE0123456789abcdefABCDEF refresh ghr_FAKE0123456789abcdefABCDEF"
+  );
+  for (const prefix of ["ghp_", "gho_", "ghs_", "ghr_"]) {
+    assert(!github.text.includes(`${prefix}FAKE`), `GitHub ${prefix} token redacted`);
+  }
+
+  const pem = redactText(
+    "before\n-----BEGIN RSA PRIVATE KEY-----\nMIIEFAKEFAKEFAKE\nMIIEFAKELINE2\n-----END RSA PRIVATE KEY-----\nafter"
+  );
+  assert(!pem.text.includes("MIIEFAKE"), "PEM private key body redacted");
+  assert(!pem.text.includes("BEGIN RSA PRIVATE KEY"), "PEM header redacted as one unit");
+  assert(pem.text.includes("before") && pem.text.includes("after"), "PEM redaction preserves surrounding text");
+
+  const query = redactText(
+    "https://api.example.com/v1/items?apikey=FAKEQUERYKEY123&page=2 and https://cdn.example.com/file?sig=FAKESIG456"
+  );
+  assert(!query.text.includes("FAKEQUERYKEY123"), "URL query apikey value redacted");
+  assert(!query.text.includes("FAKESIG456"), "URL query sig value redacted");
+  assert(query.text.includes("page=2"), "benign query params survive");
+
+  const fenced = redactText(
+    "```bash\nexport STRIPE_KEY=sk_live_FAKEfenced12345\ncurl -H 'Authorization: Bearer FAKEBEARERTOKEN.abc'\n```"
+  );
+  assert(!fenced.text.includes("sk_live_FAKEfenced12345"), "secret inside markdown code fence redacted");
+  assert(!fenced.text.includes("FAKEBEARERTOKEN"), "Bearer token inside code fence redacted");
+
+  const sql = redactText(
+    "INSERT INTO creds (v) VALUES ('sk-sqlembedded0123456789abcdefgh'); SELECT 'AKIAIOSFODNN7EXAMPLE';"
+  );
+  assert(!sql.text.includes("sk-sqlembedded"), "secret inside SQL string literal redacted");
+  assert(!sql.text.includes("AKIAIOSFODNN7EXAMPLE"), "AWS key inside SQL string literal redacted");
+
+  const adjacent = redactText(
+    "sk-adjacentAAA0123456789abcdef AKIAIOSFODNN7EXAMPLE xoxb-1234567890-FAKESLACK"
+  );
+  assert(!adjacent.text.includes("sk-adjacent"), "adjacent secret 1/3 redacted");
+  assert(!adjacent.text.includes("AKIAIOSFODNN7EXAMPLE"), "adjacent secret 2/3 redacted");
+  assert(!adjacent.text.includes("xoxb-"), "adjacent secret 3/3 redacted");
+
+  const jwt = redactText(
+    "header eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.FAKESIGNATUREpart123 trailing"
+  );
+  assert(!jwt.text.includes("eyJhbGciOiJIUzI1NiJ9"), "JWT redacted");
+
+  const counted = redactText("clean text with no secrets at all");
+  assert(counted.redaction_count === 0, "clean text yields zero redaction count");
+  assert(counted.redaction_version === "am034-redaction-v2", "redaction version is am034-redaction-v2");
 }
 
 async function testExplicitPostgresStoreFailsClosed() {
@@ -1303,7 +1366,7 @@ async function testClaudeConversationIngest() {
   assert(!combined.includes("hooks.slack.com/services"), "webhook URL redacted before persistence");
   assert(!combined.includes("dev@example.com"), "email redacted before persistence");
   assert(combined.includes("~/Developer/agent-memory"), "home path normalized to ~");
-  assert(events.some((e) => e.metadata.redaction_version === "am031-redaction-v1"), "redaction version recorded");
+  assert(events.some((e) => e.metadata.redaction_version === "am034-redaction-v2"), "redaction version recorded");
 
   rmSync(root, { recursive: true, force: true });
   await store.close();
