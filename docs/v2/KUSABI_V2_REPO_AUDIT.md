@@ -47,6 +47,8 @@ The current repository uses `wasurezu` as package/runtime identity while `Kusabi
 
 The active source set lists many documents. Several contain overlapping authority for continuity, recovery, governance, release readiness, and naming. V2 should reduce the canonical source set and classify old docs as supporting evidence, legacy, superseded, or archive-only.
 
+This is a duplicated-SSOT risk until repository owner/domain-designer review identifies the V2 canonical sources.
+
 ### 5.3 Some docs appear stale relative to implementation
 
 Examples observed during initial review:
