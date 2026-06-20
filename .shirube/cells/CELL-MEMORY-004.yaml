@@ -1,0 +1,32 @@
+cell_id: CELL-MEMORY-004
+title: retention TTL deletion
+status: draft
+risk_tier: R3
+goal: >-
+  Define retention, TTL, deletion, archive, export, and supersession boundaries
+  for kusabi memory records before any behavior-changing implementation.
+covers:
+  - retention policy
+  - deletion policy
+  - archive policy
+  - supersession history
+  - selected restart pack expiry
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms retention and deletion expectations
+post_merge_tests:
+  - verify no migration or deletion behavior changed
+  - verify docs distinguish supersession from deletion
+notes:
+  - Replacement is not deletion.
+  - Actual deletion or TTL enforcement requires a separate approved runtime PR.
