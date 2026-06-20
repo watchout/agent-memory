@@ -1,7 +1,7 @@
 # Kusabi V2 Migration Boundary Draft
 
-Status: draft  
-Scope: migration planning only  
+Status: draft
+Scope: migration planning only
 Runtime impact: none in this branch
 
 ## 1. Purpose

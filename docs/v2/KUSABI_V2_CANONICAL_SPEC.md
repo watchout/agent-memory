@@ -1,8 +1,8 @@
 # Kusabi V2 Canonical Spec Draft
 
-Status: draft  
-Scope: product/design reset only  
-Runtime impact: none in this branch  
+Status: draft
+Scope: product/design reset only
+Runtime impact: none in this branch
 Related: watchout/agent-memory#181
 
 ## 1. Canonical name

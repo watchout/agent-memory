@@ -1,7 +1,7 @@
 # Kusabi V2 Repository Audit Draft
 
-Status: draft  
-Scope: repository read-through and cleanup planning  
+Status: draft
+Scope: repository read-through and cleanup planning
 Runtime impact: none
 
 ## 1. Audit position
