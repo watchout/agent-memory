@@ -1,8 +1,8 @@
 # Kusabi V2 Source Classification Draft
 
-Status: draft  
-Scope: source classification only  
-Base dependency: PR #182 (`v2/kusabi-reset`)  
+Status: draft
+Scope: source classification only
+Base dependency: PR #182 (`v2/kusabi-reset`)
 Runtime impact: none
 
 ## 1. Purpose
@@ -28,7 +28,7 @@ It is intentionally additive. It does not modify the classified files. It gives 
 
 | Path | Classification | V2 authority area | Notes |
 | --- | --- | --- | --- |
-| `.shirube/repo-spec.yaml` | `v2-governance-draft` | Repository governance, memory/data boundary, allowed scope | Owner confirmed as the draft governance base for PR #182. |
+| `.shirube/repo-spec.yaml` | `v2-governance-draft` | Repository governance, memory/data boundary, allowed scope | Included as the draft governance base in PR #182; pending owner/domain-designer confirmation. |
 | `.shirube/agent-policy.yaml` | `v2-governance-draft` | Agent path/command/memory policy | Warn-only; not enforcement. |
 | `.shirube/cells/CELL-MEMORY-001.yaml` | `v2-governance-draft` | Memory data classification | Draft Cell candidate. |
 | `.shirube/cells/CELL-MEMORY-002.yaml` | `v2-governance-draft` | Memory read/write policy | Draft Cell candidate. |
