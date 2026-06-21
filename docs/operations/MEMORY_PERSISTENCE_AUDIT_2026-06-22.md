@@ -24,7 +24,7 @@ stored memory text.
 
 ## Summary
 
-Observed on 2026-06-22 JST:
+Initial observation on 2026-06-22 JST:
 
 ```json
 {
@@ -46,6 +46,43 @@ Observed on 2026-06-22 JST:
 }
 ```
 
+After local MCP remediation on 2026-06-22 JST:
+
+```json
+{
+  "binding_count": 27,
+  "backend_counts": {
+    "postgres-explicit": 19,
+    "sqlite-explicit": 8
+  },
+  "warning_counts": {
+    "missing_project_env": 1,
+    "sqlite_explicit_local_store": 8,
+    "database_url_ignored_by_sqlite_mode": 3
+  },
+  "sqlite_file_count": 10,
+  "sqlite_files_with_rows": 5,
+  "postgres_included": true
+}
+```
+
+Local `.mcp.json` backups were created next to each changed config with suffix
+`.bak-memory-persistence-20260621T204212Z`. The remediation changed only local
+operator configs, not repository runtime code or schemas.
+
+Remediation applied:
+
+- replaced `~/Developer/agent-memory/dist/index.js` MCP entrypoints with
+  `~/Developer/wasurezu-main/dist/index.js`;
+- set `AGENT_MEMORY_DB_TYPE=postgres` wherever a PostgreSQL URL was configured
+  without an explicit DB type.
+
+Remaining warnings:
+
+- 1 binding still lacks `AGENT_MEMORY_PROJECT`;
+- 8 bindings intentionally or accidentally remain on explicit SQLite;
+- 3 SQLite-mode bindings still contain ignored `DATABASE_URL` values.
+
 ## Findings
 
 ### F1: MCP entrypoints are split across local checkouts
@@ -57,6 +94,9 @@ Observed on 2026-06-22 JST:
 This can make local behavior diverge from the branch under review and can hide
 fixes, aliases, or diagnostics that exist only in one checkout.
 
+Post-remediation status: resolved in local `.mcp.json` files for the 27 detected
+bindings.
+
 ### F2: PostgreSQL mode is mostly fail-open
 
 19 bindings set a PostgreSQL URL without `AGENT_MEMORY_DB_TYPE=postgres`.
@@ -64,6 +104,9 @@ fixes, aliases, or diagnostics that exist only in one checkout.
 Current store selection treats this as PostgreSQL preferred, but if connection
 fails it can fall back to SQLite. That means an agent can appear to save memory
 while writing to a local fallback DB outside the shared common DB.
+
+Post-remediation status: resolved in local `.mcp.json` files for the 19 detected
+PostgreSQL bindings by adding `AGENT_MEMORY_DB_TYPE=postgres`.
 
 ### F3: Several agents are intentionally or accidentally isolated in SQLite
 
