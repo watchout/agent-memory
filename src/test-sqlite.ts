@@ -12,6 +12,7 @@ import { homedir, tmpdir } from "os";
 import { stripOrphanSurrogates } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import initSqlJs from "sql.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
 const AGENT = "test-sqlite";
@@ -1134,6 +1135,139 @@ async function testMigrationIdempotency() {
   }
 }
 
+async function testLegacyEventTablesMigration() {
+  console.log("\n── Legacy event tables Migration ──");
+
+  const legacyPath = join(tmpdir(), `agent-memory-legacy-raw-events-${Date.now()}.db`);
+  let legacyStore: SqliteStore | null = null;
+  try {
+    const SQL = await initSqlJs();
+    const legacyDb = new SQL.Database();
+    legacyDb.run(`
+      CREATE TABLE conversation_events (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        project TEXT,
+        source TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+    legacyDb.run(
+      `INSERT INTO conversation_events
+        (id, agent_id, project, source, content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        "legacy-conversation-1",
+        "legacy-agent",
+        "legacy-project",
+        "manual",
+        "legacy conversation content",
+        "2026-06-01T00:00:00.000Z",
+      ]
+    );
+    legacyDb.run(`
+      CREATE TABLE raw_events (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        project TEXT,
+        session_id TEXT,
+        host TEXT NOT NULL,
+        source TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        role TEXT NOT NULL,
+        source_ref TEXT NOT NULL,
+        source_ref_hash TEXT NOT NULL,
+        event_at TEXT NOT NULL,
+        ingested_at TEXT NOT NULL,
+        content_text TEXT,
+        content_json TEXT,
+        redaction_level TEXT NOT NULL,
+        private_reasoning INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    legacyDb.run(
+      `INSERT INTO raw_events
+        (id, agent_id, project, session_id, host, source, event_type, role,
+         source_ref, source_ref_hash, event_at, ingested_at, content_text,
+         content_json, redaction_level, private_reasoning)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        "legacy-raw-1",
+        "legacy-agent",
+        "legacy-project",
+        "legacy-session",
+        "codex",
+        "manual",
+        "host_event",
+        "event",
+        "{}",
+        "legacy-source-ref-hash",
+        "2026-06-01T00:00:00.000Z",
+        "2026-06-01T00:00:01.000Z",
+        "legacy raw content",
+        null,
+        "basic",
+        0,
+      ]
+    );
+    writeFileSync(legacyPath, Buffer.from(legacyDb.export()));
+    legacyDb.close();
+
+    legacyStore = new SqliteStore(legacyPath);
+    await legacyStore.initialize();
+
+    const conversationEvents = await legacyStore.getConversationEvents({
+      agent_id: "legacy-agent",
+      project: "legacy-project",
+      source: "manual",
+      limit: 10,
+    });
+    assert(
+      conversationEvents.some((event) => event.id === "legacy-conversation-1"),
+      "legacy conversation event remains readable after migration"
+    );
+
+    const raw = await legacyStore.saveRawEvent({
+      agent_id: "legacy-agent",
+      project: "legacy-project",
+      host: "codex",
+      source: "manual",
+      event_type: "host_event",
+      content: "new raw event after legacy migration",
+      source_event_id: "legacy-source-event-1",
+      metadata: { fixture: true },
+    });
+    assert(raw.source_event_id === "legacy-source-event-1", "legacy raw_events DB accepts source_event_id writes");
+
+    const rawEvents = await legacyStore.getRawEvents({
+      agent_id: "legacy-agent",
+      project: "legacy-project",
+      source: "manual",
+      limit: 10,
+    });
+    assert(rawEvents.some((event) => event.id === "legacy-raw-1"), "legacy raw event remains readable after migration");
+    assert(rawEvents.some((event) => event.id === raw.id), "new raw event is readable after migration");
+
+    const conversation = await legacyStore.saveConversationEvent({
+      agent_id: "legacy-agent",
+      project: "legacy-project",
+      source: "manual",
+      source_event_id: "legacy-conversation-event-1",
+      role: "user",
+      content: "conversation event after legacy migration",
+      metadata: { fixture: true },
+    });
+    assert(
+      conversation.source_event_id === "legacy-conversation-event-1",
+      "legacy conversation_events DB accepts source_event_id writes"
+    );
+  } finally {
+    if (legacyStore) await legacyStore.close();
+    if (existsSync(legacyPath)) rmSync(legacyPath);
+  }
+}
+
 async function testPersistence() {
   console.log("\n── SqliteStore Persistence ──");
 
@@ -1187,6 +1321,7 @@ async function run() {
     await testStripOrphanSurrogates();
     await testSupersedeKnowledgeAgentIsolation();
     await testMigrationIdempotency();
+    await testLegacyEventTablesMigration();
     await testPersistence();
   } finally {
     await cleanup();

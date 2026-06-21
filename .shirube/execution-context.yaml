@@ -6,7 +6,7 @@ primary:
   product: kusabi
   work_order: watchout/agent-memory#203
   pr: watchout/agent-memory#<PR_NUMBER_PENDING>
-active_role: lead
+active_role: dev
 roles:
   lead:
     allowed:
