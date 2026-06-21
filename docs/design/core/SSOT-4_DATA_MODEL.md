@@ -13,11 +13,11 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 
 | モード | 用途 | バックエンド | 環境変数 |
 |--------|------|-------------|---------|
-| **PostgreSQL** | 本番 / multi-bot / agent-comms 連携 | `pg` (node-postgres) + pgvector | `DATABASE_URL` or `AGENT_MEMORY_DB_TYPE=postgres` |
+| **PostgreSQL** | 本番 / multi-bot / agent-comms 連携 | `pg` (node-postgres) + pgvector | `AGENT_MEMORY_DATABASE_URL` or legacy `DATABASE_URL`; `AGENT_MEMORY_DB_TYPE=postgres` requires one of these URLs |
 | **SQLite** | OSS default / 単体 user / Docker 不要 | `sql.js` (WASM) | `AGENT_MEMORY_DB_TYPE=sqlite` (default) |
-| **JSON** | fallback (PG 失敗時) | file system | `AGENT_MEMORY_DB_TYPE=json` |
+| **JSON** | explicit local file store / legacy compatibility | file system | `AGENT_MEMORY_DB_TYPE=json` |
 
-両モードは **同一の Store interface** (`src/stores/types.ts`) に準拠し、PostgreSQL 専用機能 (pgvector) はモード切替で透過的に無効化される。
+各モードは **同一の Store interface** (`src/stores/types.ts`) に準拠し、PostgreSQL 専用機能 (pgvector) はモード切替で透過的に無効化される。明示 `AGENT_MEMORY_DB_TYPE=sqlite|json` は local store intent として優先される。明示 local store type がない状態で PostgreSQL URL が設定されている場合、その URL は共有 DB intent として扱い、接続失敗時に SQLite/JSON へ silent fallback してはならない。
 
 ---
 
@@ -540,7 +540,10 @@ Kusabi/Wasurezu owns memory and recovery product state.
 Current state:
 
 - Store selection uses `AGENT_MEMORY_DB_TYPE`, `AGENT_MEMORY_DATABASE_URL`,
-  legacy `DATABASE_URL`, then SQLite fallback.
+  legacy `DATABASE_URL`, then SQLite default only when no PostgreSQL URL is
+  configured. Explicit local store types win over inherited PostgreSQL URLs, but
+  a PostgreSQL URL without an explicit local override must fail closed if
+  unreachable.
 - There is no live `IYASAKA_MCP_DATABASE_URL` discovery path.
 - There is no `common_*` registry adapter or `kusabi_*` migration in the
   current implementation.

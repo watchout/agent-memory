@@ -458,7 +458,7 @@ discord_history取得をスキップ（エラーにならない）。既存のme
 | 3 | project="tech-lead" | in_progressタスクなし | "No in-progress tasks" + decisions + messages | タスクなしでも他の情報は復元 |
 | 4 | project="hotel" | Hotel Dev, タスク1件のみ | task 1件 + knowledge 3件 | 少量復元(decisions=0設定) |
 | 5 | project=undefined | agent_id全体 | 全プロジェクト横断で復元 | プロジェクト指定なし |
-| 6 | DB接続エラー | PostgreSQL停止 | エラーメッセージ、JSON fallback試行 | 障害時 |
+| 6 | DB接続エラー | 明示 local store type なし + PostgreSQL URL 設定あり + PostgreSQL停止 | エラーメッセージ、fail closed | 共有 memory の SQLite/JSON 分岐は禁止 |
 | 7 | agent_messagesなし | comがインストールされていない | messages空、他は正常復元 | mem単体動作 |
 
 ## §3-F: Boundary Values
@@ -477,7 +477,7 @@ discord_history取得をスキップ（エラーにならない）。既存のme
 
 | # | Condition | Response | Recovery |
 |---|-----------|----------|----------|
-| 1 | DB接続不可 | エラーテキスト返却 | JSON store fallback |
+| 1 | DB接続不可 | エラーテキスト返却 | 明示 local store type なしで PostgreSQL URL がある場合は fail closed。SQLite/JSON は URL 未設定または明示設定時のみ |
 | 2 | agent_messagesテーブル未作成 | messages空配列 | スキップして他を返す（mem単体動作） |
 | 3 | recovery_configレコードなし | デフォルト値使用 | 正常動作（設定なし=デフォルト） |
 | 4 | Voyage AI APIエラー | semantic search無効化 | keyword searchにfallback |

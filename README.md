@@ -206,6 +206,19 @@ evidence. PostgreSQL adds vector similarity search via
 [pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings when
 configured.
 
+Storage fallback policy:
+
+- SQLite is the default only when no PostgreSQL URL is configured, or when
+  `AGENT_MEMORY_DB_TYPE=sqlite` is set explicitly.
+- `AGENT_MEMORY_DATABASE_URL` and legacy `DATABASE_URL` both mean PostgreSQL
+  intent when no explicit local store type is selected. If that database cannot
+  be reached, startup fails closed instead of writing to a separate SQLite file.
+- Explicit `AGENT_MEMORY_DB_TYPE=sqlite` or `AGENT_MEMORY_DB_TYPE=json` wins over
+  inherited PostgreSQL URLs, but mixed settings should be treated as config
+  drift in shared-agent environments.
+- Use PostgreSQL for shared agent memory. Use explicit SQLite only for local,
+  single-user, or intentionally isolated stores.
+
 Conversation memory is redacted full-text event storage, not an unfiltered
 transcript dump. The ingest adapters keep visible user/assistant/tool context
 after redaction and source filtering, exclude hidden reasoning and developer

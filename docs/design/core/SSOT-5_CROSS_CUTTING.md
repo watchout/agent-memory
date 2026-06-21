@@ -57,12 +57,18 @@ embedding 生成時に外部 API を呼ぶ。`VOYAGE_API_KEY` 環境変数で認
 
 bot 起動時の `boot.ts` は **絶対に process を kill しない**:
 
-- DB 接続失敗 → JSON store fallback
+- PostgreSQL URL 未設定 → SQLite local default を使用
+- `AGENT_MEMORY_DB_TYPE=json` → 明示 JSON store を使用
+- 明示 local store type なし + PostgreSQL URL 設定あり + DB 接続失敗 →
+  Wasurezu store selection は fail closed。
+  Host adapter が memory なしで bot 起動を継続することは許可されるが、
+  Wasurezu は別 SQLite/JSON store へ silent fallback して書き込んではならない。
 - Voyage API 失敗 → embedding なしで続行
 - recovery_quality_log INSERT 失敗 → warn ログだけ、recovery 自体は完了
 - recover_context 自体が失敗 → 空の recovery summary を返して bot は起動を続行
 
-理由: bot の起動を agent-memory のバグでブロックしない。bot は agent-memory なしでも動く設計。
+理由: bot の起動を agent-memory のバグでブロックしない一方で、共有 memory の
+書き込み先を SQLite/JSON に分岐させない。bot は agent-memory なしでも動く設計。
 
 ---
 

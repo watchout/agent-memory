@@ -8,16 +8,22 @@ import { SqliteStore } from "./sqlite-store.js";
  *
  * Resolution order (matches AM-001 spec):
  *   1. AGENT_MEMORY_DB_TYPE = sqlite | postgres | json  → explicit choice
- *   2. AGENT_MEMORY_DATABASE_URL → postgres (preferred env name)
- *   3. DATABASE_URL → postgres (legacy env name, kept for backward compat)
- *   4. fallback → sqlite (OSS default)
+ *   2. AGENT_MEMORY_DATABASE_URL → postgres intent; fail closed on connection failure
+ *   3. DATABASE_URL → postgres intent; fail closed on connection failure
+ *   4. no configured PostgreSQL URL → sqlite (OSS default)
  */
 export async function createStore(): Promise<Store> {
   const dbType = (process.env.AGENT_MEMORY_DB_TYPE || "").toLowerCase();
   const dbUrl =
     process.env.AGENT_MEMORY_DATABASE_URL || process.env.DATABASE_URL || "";
+  const hasPostgresUrl = dbUrl.startsWith("postgres");
 
   if (dbType === "json") {
+    if (hasPostgresUrl) {
+      console.error(
+        "[agent-memory] AGENT_MEMORY_DB_TYPE=json ignores configured PostgreSQL URL; using JSON storage by explicit request"
+      );
+    }
     const store = new JsonStore();
     await store.initialize();
     console.error("[agent-memory] Using JSON file storage (~/.agent-memory/)");
@@ -25,13 +31,18 @@ export async function createStore(): Promise<Store> {
   }
 
   if (dbType === "sqlite") {
+    if (hasPostgresUrl) {
+      console.error(
+        "[agent-memory] AGENT_MEMORY_DB_TYPE=sqlite ignores configured PostgreSQL URL; using SQLite storage by explicit request"
+      );
+    }
     const store = new SqliteStore();
     await store.initialize();
     console.error(`[agent-memory] Using SQLite storage`);
     return store;
   }
 
-  if (dbType === "postgres" || dbUrl.startsWith("postgres")) {
+  if (dbType === "postgres" || hasPostgresUrl) {
     if (!dbUrl) {
       throw new Error(
         "AGENT_MEMORY_DB_TYPE=postgres requires AGENT_MEMORY_DATABASE_URL or DATABASE_URL"
@@ -43,18 +54,10 @@ export async function createStore(): Promise<Store> {
       console.error("[agent-memory] Connected to PostgreSQL");
       return store;
     } catch (err) {
-      if (dbType === "postgres") {
-        console.error(
-          `[agent-memory] PostgreSQL connection failed in explicit postgres mode; refusing SQLite fallback: ${err}`
-        );
-        throw err;
-      }
       console.error(
-        `[agent-memory] PostgreSQL connection failed, falling back to SQLite: ${err}`
+        `[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured: ${err}`
       );
-      const store = new SqliteStore();
-      await store.initialize();
-      return store;
+      throw err;
     }
   }
 
