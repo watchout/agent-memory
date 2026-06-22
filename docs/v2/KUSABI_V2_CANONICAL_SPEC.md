@@ -13,7 +13,9 @@ The V2 product name is **kusabi**.
 
 ## 2. Product definition
 
-Kusabi is a local-first memory, recovery, and continuity substrate for AI coding agents.
+Kusabi is a local-first memory, recovery, and evidence substrate for long-running AI agents.
+
+Its first reference workload is AI coding agents, because coding workflows expose clear task state, artifacts, decisions, tests, and recovery outcomes. The broader category is agent continuity: preserving work, context, decisions, provenance, and recovery evidence across sessions, runtimes, tools, teams, and eventually domains.
 
 It preserves bounded, source-bearing working context across session restarts, compaction, and host changes. It must separate source data, candidate memory, approved memory, and trusted control-plane instructions.
 
@@ -22,12 +24,14 @@ V2 is a quality and trust uplift, not a feature reduction. Existing Wasurezu / a
 ## 3. V2 goals
 
 1. Use `kusabi` as the single product name in new canonical docs.
-2. Reduce the active design source set to a small number of owner-confirmed documents.
-3. Preserve existing V1 implementation capabilities while removing stale design claims.
-4. Make memory boundaries explicit before runtime changes.
-5. Keep stored external text as data-only unless a separate trusted control-plane path is approved.
-6. Provide clear evidence for recovery confidence, missing context, redaction, provenance, retention gaps, and lifecycle ownership.
-7. Define a release claim ladder strong enough for serious enterprise and major-technology-company evaluation.
+2. Define the product category as agent continuity substrate, with coding agents as the first reference workload rather than the final product boundary.
+3. Reduce the active design source set to a small number of owner-confirmed documents.
+4. Preserve existing V1 implementation capabilities while removing stale design claims.
+5. Make memory boundaries explicit before runtime changes.
+6. Keep stored external text as data-only unless a separate trusted control-plane path is approved.
+7. Provide clear evidence for recovery confidence, missing context, redaction, provenance, retention gaps, and lifecycle ownership.
+8. Define a release claim ladder strong enough for serious enterprise and major-technology-company evaluation.
+9. Close the remaining design gaps before runtime, protocol, package, or migration work begins.
 
 ## 4. Non-goals for this draft
 
@@ -40,6 +44,7 @@ V2 is a quality and trust uplift, not a feature reduction. Existing Wasurezu / a
 - No branch protection change.
 - No public-alpha or enterprise-readiness claim.
 - No removal, deprecation, or default switch of existing compatibility names.
+- No claim that sales, marketing, support, research, ops, legal, finance, or other non-coding agent domains are currently implemented.
 
 ## 5. V2 canonical source set proposal
 
@@ -48,6 +53,9 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Area | Proposed source |
 | --- | --- |
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
+| Product category and positioning | `docs/v2/KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` |
+| Implementation readiness | `docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` |
+| Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
@@ -155,7 +163,23 @@ Retention, deletion, archive, export, and reveal behavior must be explicit. Supe
 
 The controlling boundary is `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md`.
 
-## 13. Design cleanup rule
+## 13. Product-category rule
+
+Kusabi's product category is agent continuity substrate.
+
+Coding agents are the first reference workload because they provide clear proof signals. Future domains such as sales, marketing, support, research, ops, legal, and finance are expansion targets and must not be claimed as currently supported until their adapters, source boundaries, retention profiles, and evaluation fixtures exist.
+
+The controlling positioning record is `KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md`.
+
+## 14. Implementation-readiness rule
+
+Detailed implementation should not begin from the category or adoption strategy alone.
+
+The controlling readiness record is `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md`. Runtime, protocol, package, MCP, environment, storage, schema, or migration work requires a work-package design, compatibility promise, tests, rollback/no-op behavior, and owner-approved scope.
+
+The first P0 readiness blocker is the suite interop boundary in `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md`. UAMP, AUN/A2A, Kodama, Shirube, MCP, and host-adapter ownership must be accepted before UAMP schemas or runtime integration work begins.
+
+## 15. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
 
@@ -169,17 +193,21 @@ Do not delete older documents merely because they mention `wasurezu`. First clas
 
 Deletion is allowed only after owner/domain-designer review and a replacement source or explicit archive decision.
 
-## 14. Initial V2 acceptance criteria
+## 16. Initial V2 acceptance criteria
 
 The V2 planning slice is acceptable when:
 
 - `.shirube/` scaffold exists in warn-only mode;
 - product name is `kusabi` in V2 draft docs;
+- product category is agent continuity substrate;
+- coding agents are first reference workload, not the final product boundary;
 - runtime behavior remains unchanged;
 - old docs are not deleted in the first slice;
 - feature preservation matrix exists and covers current major surfaces;
 - API/data boundary separates compatibility APIs from V2 concepts;
 - release claim ladder prevents overclaiming;
 - security/retention boundary documents redaction limits and data lifecycle;
+- implementation-readiness gates are explicit before runtime work;
+- suite interop boundary prevents UAMP/AUN/Kodama/Shirube ownership overlap;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.
