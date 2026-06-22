@@ -60,6 +60,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | UAMP conformance plan | `docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` |
 | Scale and identity model | `docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` |
 | Compliance attestation boundary | `docs/v2/KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` |
+| Recovery score contract | `docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
@@ -208,6 +209,13 @@ workflow later. It does not certify legal or regulatory compliance, implement
 deletion/export/reveal behavior, create schema or fixture files, implement hash
 chains or signing, or authorize runtime behavior.
 
+The controlling recovery score planning record is
+`KUSABI_V2_RECOVERY_SCORE_CONTRACT.md`. It defines the recovery score formula,
+automatic failures, caps, restatement incident rule, and score report evidence
+needed before measured recovery claims. It does not implement a score runner,
+create schema or fixture files, add CI gates, change startup behavior, or
+authorize release claims without matching evidence.
+
 ## 15. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
@@ -242,5 +250,6 @@ The V2 planning slice is acceptable when:
 - UAMP conformance plan exists without fixture, runner, runtime, or conformance claims;
 - scale and identity model exists without tenant/user/federation claims;
 - compliance attestation boundary exists without legal certification or runtime claims;
+- recovery score contract exists without score runner, schema, fixture, CI, or release-claim implementation;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.
