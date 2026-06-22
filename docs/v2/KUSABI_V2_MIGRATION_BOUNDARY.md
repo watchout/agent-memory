@@ -126,10 +126,13 @@ Default decision for this branch: keep work in `watchout/agent-memory` on `v2/ku
 ## 6. First cleanup backlog
 
 - Create owner-confirmed V2 source set.
+- Confirm V1 design intent traceability before treating V1 docs as legacy only.
 - Mark PRD and feature catalog stale where implementation has moved on.
 - Split catch-up preview, ingest, extraction, and promotion semantics.
+- Define V2 control-plane state and evidence contract.
 - Decide schema IDs for `kusabi-recovery-pack/v1` and compatibility aliases.
 - Decide if `conversation_events` remains compatibility table or view.
 - Decide if `raw_events` becomes the only canonical source ledger.
+- Reconcile SQLite/PostgreSQL fallback and common DB binding policy before runtime rollout.
 - Define retention and deletion semantics before runtime changes.
 - Define package/repo rename strategy after compatibility inventory.
