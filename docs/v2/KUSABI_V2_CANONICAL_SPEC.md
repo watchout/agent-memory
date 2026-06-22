@@ -17,14 +17,17 @@ Kusabi is a local-first memory, recovery, and continuity substrate for AI coding
 
 It preserves bounded, source-bearing working context across session restarts, compaction, and host changes. It must separate source data, candidate memory, approved memory, and trusted control-plane instructions.
 
+V2 is a quality and trust uplift, not a feature reduction. Existing Wasurezu / agent-memory runtime capabilities remain compatibility commitments unless a separate owner-approved implementation PR changes a specific surface with tests, migration notes, and rollback.
+
 ## 3. V2 goals
 
 1. Use `kusabi` as the single product name in new canonical docs.
 2. Reduce the active design source set to a small number of owner-confirmed documents.
-3. Preserve useful V1 implementation assets while removing stale design claims.
+3. Preserve existing V1 implementation capabilities while removing stale design claims.
 4. Make memory boundaries explicit before runtime changes.
 5. Keep stored external text as data-only unless a separate trusted control-plane path is approved.
-6. Provide clear evidence for recovery confidence, missing context, redaction, provenance, and retention gaps.
+6. Provide clear evidence for recovery confidence, missing context, redaction, provenance, retention gaps, and lifecycle ownership.
+7. Define a release claim ladder strong enough for serious enterprise and major-technology-company evaluation.
 
 ## 4. Non-goals for this draft
 
@@ -36,6 +39,7 @@ It preserves bounded, source-bearing working context across session restarts, co
 - No workflow enforcement.
 - No branch protection change.
 - No public-alpha or enterprise-readiness claim.
+- No removal, deprecation, or default switch of existing compatibility names.
 
 ## 5. V2 canonical source set proposal
 
@@ -46,7 +50,14 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
+| Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
 | V1 intent traceability | `docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md` |
+| Naming inventory | `docs/v2/KUSABI_V2_NAMING_SURFACE_INVENTORY.md` |
+| Fast-lane policy | `docs/v2/KUSABI_V2_FAST_LANE_POLICY.md` |
+| Feature preservation | `docs/v2/KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md` |
+| API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
+| Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
+| Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
 | Governance scaffold | `.shirube/repo-spec.yaml` |
 | Agent policy | `.shirube/agent-policy.yaml` |
 | Memory governance cells | `.shirube/cells/*.yaml` |
@@ -77,20 +88,36 @@ V2 must not treat `session_id` as the memory namespace. Session IDs are provenan
 
 Future tenant/user identity can be added only through an explicit approved design and migration.
 
-## 8. Core surfaces to preserve or redesign
+## 8. Feature preservation rule
+
+The V2 reset preserves existing compatibility surfaces by default.
+
+The controlling preservation record is `KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md`.
+A feature can be preserved, boundary-hardened, redesigned additively, split before stronger claims, or evidence-gated. It cannot be removed by docs-only V2 reset work.
+
+Any future runtime/package/MCP/env/storage migration must update the matrix and include compatibility tests for old surfaces.
+
+## 9. Core surfaces to preserve or redesign
 
 | Surface | V2 direction |
 | --- | --- |
 | `log_decision` / decisions | Preserve as candidate or approved decision memory; require provenance and supersession clarity. |
 | `save_task_state` / task_states | Preserve as current-work state; clarify lifecycle and retention. |
 | `knowledge` | Preserve but separate candidate, archived, superseded, merged, and approved states. |
+| `search_memory` | Preserve all scopes; require output redaction parity before stronger release claims. |
+| `recover_context` | Preserve as compatibility/manual recovery. |
 | `conversation_events` | Treat as compatibility ingest/source table. |
 | `raw_events` | Prefer as canonical source evidence over time. |
-| `restart_pack` | Preserve concept; rename schema/policy IDs only after migration plan. |
+| `restart_pack` | Preserve text and structured concepts; rename schema/policy IDs only after migration plan. |
 | `restart_prepare` | Preserve fail-closed boundary; must not own external queue/runtime lifecycle. |
-| `catch_up` | Split preview, source ingest, candidate extraction, and approved promotion. |
+| `restart_pack_fetch` / selected packs | Preserve selected handoff semantics. |
+| `ingest_conversation_events` | Preserve redacted visible-context ingest; broad ingest remains high risk. |
+| `catch_up` | Split preview, source ingest, candidate extraction, and approved promotion before stronger claims. |
+| SQLite default | Preserve local-first zero-config path. |
+| PostgreSQL optional | Preserve advanced/team path; claim exact parity only where tested. |
+| JSON fallback | Preserve compatibility/dev fallback unless later scoped differently. |
 
-## 9. Recovery and host boundary
+## 10. Recovery and host boundary
 
 Kusabi may prepare recovery packs and selected handoff references. Host adapters may deliver bounded recovery context to a host. External orchestrators such as AUN own their own queue, claim, finalization, close, and runtime lifecycle.
 
@@ -102,7 +129,7 @@ Standalone local restart or refresh requires all of:
 
 Pure MCP-only mode can prepare packs and recommend manual recovery; it must not claim host lifecycle control.
 
-## 10. V2 evidence requirements
+## 11. V2 evidence requirements
 
 Recovery and memory outputs should identify or explicitly mark as missing:
 
@@ -117,20 +144,31 @@ Recovery and memory outputs should identify or explicitly mark as missing:
 - promotion evidence for approved memory;
 - external lifecycle owner when applicable.
 
-## 11. Design cleanup rule
+The release and enterprise claim gates are defined in `KUSABI_V2_RELEASE_CLAIM_LADDER.md`. Strong claims require evidence packets, not implementation presence alone.
+
+## 12. Security and retention rule
+
+Kusabi is not a DLP system and not a secret manager. It must provide documented, probe-backed redaction and output-boundary controls for known patterns, while honestly stating limitations.
+
+Retention, deletion, archive, export, and reveal behavior must be explicit. Supersession, merge, archive, and expiration preserve history unless a separate owner-approved deletion policy says otherwise.
+
+The controlling boundary is `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md`.
+
+## 13. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
 
-- `v2-canonical`;
+- `v2-canonical-draft`;
 - `v2-supporting-evidence`;
 - `legacy-v1`;
-- `superseded`;
-- `archive-only`;
-- `remove-after-migration`.
+- `superseded-for-v2`;
+- `archive-only-candidate`;
+- `pending-review`;
+- `do-not-edit-in-v2-planning`.
 
 Deletion is allowed only after owner/domain-designer review and a replacement source or explicit archive decision.
 
-## 12. Initial V2 acceptance criteria
+## 14. Initial V2 acceptance criteria
 
 The V2 planning slice is acceptable when:
 
@@ -138,5 +176,9 @@ The V2 planning slice is acceptable when:
 - product name is `kusabi` in V2 draft docs;
 - runtime behavior remains unchanged;
 - old docs are not deleted in the first slice;
+- feature preservation matrix exists and covers current major surfaces;
+- API/data boundary separates compatibility APIs from V2 concepts;
+- release claim ladder prevents overclaiming;
+- security/retention boundary documents redaction limits and data lifecycle;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.
