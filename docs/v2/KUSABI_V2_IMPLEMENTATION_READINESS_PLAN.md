@@ -29,7 +29,8 @@ The merged V2 docs now provide:
 - product category and positioning: agent continuity substrate, with coding
   agents as the first reference workload;
 - suite interop boundary for UAMP, AUN/A2A, Kodama, Shirube, MCP, and host
-  adapters.
+  adapters;
+- UAMP draft artifact set and current Kusabi/Wasurezu artifact mapping.
 
 This is a strong planning floor. It is not yet an implementation spec.
 
@@ -63,7 +64,7 @@ These are blockers before broad runtime work.
 | Gap | Why it matters | Required artifact | Implementation allowed after |
 | --- | --- | --- | --- |
 | Suite interop boundary | UAMP, AUN/A2A, Kodama, Shirube responsibilities can conflict. | `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` | Owner/domain-designer accepts ownership boundaries. |
-| UAMP draft spec | Strategy is not implementable without schemas and mapping. | `KUSABI_V2_UAMP_DRAFT_SPEC.md` plus schema plan. | Memory/recovery mapping and schema versioning accepted. |
+| UAMP draft spec | Strategy is not implementable without schemas and mapping. | `KUSABI_V2_UAMP_DRAFT_SPEC.md` plus future schema plan. | Memory/recovery mapping and schema versioning accepted. |
 | UAMP conformance plan | Adopt-vs-build proof needs executable tests. | `KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` | Fixture layout and pass/fail criteria accepted. |
 | Scale and identity model | Tenant/user/federation cannot be inferred from current `agent_id`. | `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` | Migration path and default-forbidden federation rules accepted. |
 | Compliance attestation boundary | Compliance must be evidence support, not legal overclaim. | `KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` | Attestation packet and claim boundaries accepted. |
@@ -145,14 +146,13 @@ Do not start implementation if:
 
 ## 11. Recommended next docs-only PRs
 
-Priority order:
+Priority order after the UAMP draft spec:
 
-1. `docs(v2): add UAMP draft spec and current artifact mapping`
-2. `docs(v2): add UAMP conformance plan`
-3. `docs(v2): add scale and identity model`
-4. `docs(v2): add compliance attestation boundary`
-5. `docs(v2): add recovery score contract`
-6. `docs(v2): add backend parity matrix`
+1. `docs(v2): add UAMP conformance plan`
+2. `docs(v2): add scale and identity model`
+3. `docs(v2): add compliance attestation boundary`
+4. `docs(v2): add recovery score contract`
+5. `docs(v2): add backend parity matrix`
 
 ## 12. Readiness definition
 
