@@ -105,6 +105,9 @@ Do not change these until full read-through and owner/domain-designer confirmati
 - Confirm compatibility treatment for `wasurezu` operational surfaces.
 - Confirm memory data classes.
 - Confirm agent/session/project/tenant boundary.
+- Confirm V1 control-plane intent is preserved in V2.
+- Confirm V2 evidence contract before runtime work.
 - Confirm retention, deletion, and supersession expectations.
+- Confirm SQLite/PostgreSQL fallback and common DB binding policy.
 - Confirm data-only handling of stored external text.
 - Confirm whether V2 stays in this repository or moves to a new repository.

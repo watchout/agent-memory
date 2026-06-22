@@ -46,6 +46,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
+| V1 intent traceability | `docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md` |
 | Governance scaffold | `.shirube/repo-spec.yaml` |
 | Agent policy | `.shirube/agent-policy.yaml` |
 | Memory governance cells | `.shirube/cells/*.yaml` |

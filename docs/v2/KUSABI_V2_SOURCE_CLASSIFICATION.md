@@ -41,6 +41,7 @@ It is intentionally additive. It does not modify the classified files. It gives 
 | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` | `v2-canonical-draft` | Compatibility and migration boundary | Keeps runtime/package/MCP/env/DB rename out of initial slice. |
 | `docs/v2/KUSABI_V2_REPO_AUDIT.md` | `v2-canonical-draft` | Audit caveats and cleanup backlog | Records incomplete read coverage and known drift. |
 | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` | `v2-canonical-draft` | Source classification | This file. |
+| `docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md` | `v2-canonical-draft` | V1 intent preservation | Maps V1 design intent to V2 decisions and pre-runtime gaps. |
 
 ## 4. Reviewed V1 / transitional sources
 
@@ -98,6 +99,7 @@ These areas must be read before classification-dependent edits or deletion:
 
 | Candidate PR | Scope | Preconditions |
 | --- | --- | --- |
+| `docs: add kusabi v2 v1-intent traceability` | Add V1 intent to V2 decision matrix. | Classification accepted or stacked on classification review. |
 | `docs: mark legacy v1 source docs for kusabi v2 reset` | Add short notices to reviewed legacy docs. | Classification accepted. |
 | `docs: inventory kusabi v2 naming surfaces` | Add docs-only reference inventory. | Classification accepted; no runtime edits. |
 | `docs: draft kusabi v2 api and data model boundary` | Add new V2 API/data docs. | Naming inventory and schema review complete. |
