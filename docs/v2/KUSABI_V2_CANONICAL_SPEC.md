@@ -58,6 +58,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
 | UAMP draft spec | `docs/v2/KUSABI_V2_UAMP_DRAFT_SPEC.md` |
 | UAMP conformance plan | `docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` |
+| Scale and identity model | `docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
@@ -192,6 +193,13 @@ evidence-packet, reference-implementation, and second-adapter requirements. It
 does not create fixtures, implement a runner, prove Kusabi conformance, or
 authorize runtime behavior.
 
+The controlling scale and identity planning record is
+`KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md`. It preserves the current
+`agent_id + optional project` compatibility boundary and does not implement
+tenant/user identity, cross-agent reads, cross-tenant reads, federation, env var
+changes, DB schema changes, package changes, MCP namespace changes, or runtime
+behavior changes.
+
 ## 15. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
@@ -224,5 +232,6 @@ The V2 planning slice is acceptable when:
 - suite interop boundary prevents UAMP/AUN/Kodama/Shirube ownership overlap;
 - UAMP draft mapping exists without runtime or conformance claims;
 - UAMP conformance plan exists without fixture, runner, runtime, or conformance claims;
+- scale and identity model exists without tenant/user/federation claims;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.

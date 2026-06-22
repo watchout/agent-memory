@@ -23,6 +23,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` — suite-level ownership and artifact boundary for UAMP, AUN/A2A, Kodama, Shirube, MCP, and host adapters.
 - `KUSABI_V2_UAMP_DRAFT_SPEC.md` — draft UAMP artifact set and current Kusabi/Wasurezu artifact mapping; no conformance claim.
 - `KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` — draft UAMP fixture, runner, evidence, and second-adapter conformance plan; no conformance claim.
+- `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` — draft scale, identity, and federation boundary model; no tenant/user/federation claim.
 
 ## Rules for this branch
 
@@ -38,6 +39,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - V2 runtime work should not start until the readiness gates are accepted for the relevant work package.
 - UAMP remains a draft protocol track until schemas, fixtures, runner, reference implementation evidence, and second-adapter evidence exist.
 - UAMP conformance remains unclaimed until the conformance plan is implemented by separate owner-approved fixture, runner, reference-evidence, and second-adapter work.
+- Scale and identity work remains design-only until separate owner-approved implementation, migration, and compatibility evidence exist.
 
 ## Relationship to #181
 
