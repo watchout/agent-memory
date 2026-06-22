@@ -17,6 +17,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_API_AND_DATA_BOUNDARY.md` — V2 API/data model boundary that separates compatibility APIs, V2 concepts, future aliases, and evidence requirements.
 - `KUSABI_V2_RELEASE_CLAIM_LADDER.md` — claim levels and quality gates from docs reset through major-tech/world-class evaluation readiness.
 - `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` — security, privacy, redaction, retention, deletion, export, and reveal boundaries.
+- `KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` — strategy consolidation for UAMP, safety, compliance, scale, and adopt-vs-build evaluation.
 
 ## Rules for this branch
 

@@ -58,6 +58,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
+| Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |
 | Governance scaffold | `.shirube/repo-spec.yaml` |
 | Agent policy | `.shirube/agent-policy.yaml` |
 | Memory governance cells | `.shirube/cells/*.yaml` |
