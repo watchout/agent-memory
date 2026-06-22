@@ -21,6 +21,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` — product category strategy: agent continuity substrate, with coding agents as the first reference workload.
 - `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` — gap-closure plan before V2 runtime, protocol, package, or migration work begins.
 - `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` — suite-level ownership and artifact boundary for UAMP, AUN/A2A, Kodama, Shirube, MCP, and host adapters.
+- `KUSABI_V2_UAMP_DRAFT_SPEC.md` — draft UAMP artifact set and current Kusabi/Wasurezu artifact mapping; no conformance claim.
 
 ## Rules for this branch
 
@@ -34,6 +35,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - Lane A docs/source-reset work may proceed while Shirube remains warn-only; enforcement or governance claims wait for Shirube-backed implementation and review evidence.
 - Release and enterprise claims must follow the V2 claim ladder and cite evidence, not implementation presence alone.
 - V2 runtime work should not start until the readiness gates are accepted for the relevant work package.
+- UAMP remains a draft protocol track until schemas, fixtures, runner, reference implementation evidence, and second-adapter evidence exist.
 
 ## Relationship to #181
 
