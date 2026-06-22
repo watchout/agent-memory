@@ -124,6 +124,8 @@ Required:
 - Promotion evidence is required before `approved_memory` claims.
 - Retention, deletion, archive, export, and supersession expectations are
   documented.
+- Compliance and attestation boundaries are documented as evidence support, not
+  legal certification.
 - Output redaction probes cover all release surfaces:
   - `restart_pack` text;
   - `recovery-pack/v1` JSON;

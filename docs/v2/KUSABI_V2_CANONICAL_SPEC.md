@@ -59,6 +59,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | UAMP draft spec | `docs/v2/KUSABI_V2_UAMP_DRAFT_SPEC.md` |
 | UAMP conformance plan | `docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` |
 | Scale and identity model | `docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` |
+| Compliance attestation boundary | `docs/v2/KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
@@ -200,6 +201,13 @@ tenant/user identity, cross-agent reads, cross-tenant reads, federation, env var
 changes, DB schema changes, package changes, MCP namespace changes, or runtime
 behavior changes.
 
+The controlling compliance and attestation planning record is
+`KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md`. It defines evidence surfaces and
+draft attestation packet boundaries that may support an operator compliance
+workflow later. It does not certify legal or regulatory compliance, implement
+deletion/export/reveal behavior, create schema or fixture files, implement hash
+chains or signing, or authorize runtime behavior.
+
 ## 15. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
@@ -233,5 +241,6 @@ The V2 planning slice is acceptable when:
 - UAMP draft mapping exists without runtime or conformance claims;
 - UAMP conformance plan exists without fixture, runner, runtime, or conformance claims;
 - scale and identity model exists without tenant/user/federation claims;
+- compliance attestation boundary exists without legal certification or runtime claims;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.

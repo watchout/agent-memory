@@ -34,7 +34,9 @@ The merged V2 docs now provide:
 - UAMP conformance plan for future fixtures, runner, evidence packets, reference
   implementation evidence, and second-adapter evidence;
 - scale and identity model preserving the current `agent_id + optional project`
-  boundary while blocking tenant/user/federation claims.
+  boundary while blocking tenant/user/federation claims;
+- compliance attestation boundary defining evidence-support posture without
+  legal certification, deletion/export/reveal, hash-chain, or signing claims.
 
 This is a strong planning floor. It is not yet an implementation spec.
 
@@ -150,13 +152,12 @@ Do not start implementation if:
 
 ## 11. Recommended next docs-only PRs
 
-Priority order after the scale and identity model:
+Priority order after the compliance attestation boundary:
 
 1. `docs(v2): add UAMP fixture catalog`
 2. `docs(v2): add UAMP runner contract examples`
-3. `docs(v2): add compliance attestation boundary`
-4. `docs(v2): add recovery score contract`
-5. `docs(v2): add backend parity matrix`
+3. `docs(v2): add recovery score contract`
+4. `docs(v2): add backend parity matrix`
 
 ## 12. Readiness definition
 

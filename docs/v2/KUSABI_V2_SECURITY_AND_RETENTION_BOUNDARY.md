@@ -164,6 +164,11 @@ Replacement is not deletion. Supersession, merge, archive, and expire preserve
 history unless an explicit deletion policy says otherwise.
 ```
 
+Compliance and attestation evidence for retention, deletion, export, reveal,
+and audit support is defined in `KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md`.
+That boundary is evidence-support design only; it does not implement
+deletion/export/reveal behavior or certify legal/regulatory compliance.
+
 ## 8. Retention policy requirements
 
 Before any L3+ enterprise-pilot claim, docs must define:
