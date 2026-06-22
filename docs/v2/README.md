@@ -20,6 +20,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` — strategy consolidation for UAMP, safety, compliance, scale, and adopt-vs-build evaluation.
 - `KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` — product category strategy: agent continuity substrate, with coding agents as the first reference workload.
 - `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` — gap-closure plan before V2 runtime, protocol, package, or migration work begins.
+- `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` — suite-level ownership and artifact boundary for UAMP, AUN/A2A, Kodama, Shirube, MCP, and host adapters.
 
 ## Rules for this branch
 
