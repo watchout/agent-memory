@@ -361,7 +361,7 @@ Safe docs-only follow-ups after this plan:
 2. `docs(v2): add UAMP runner contract examples`
 3. `docs(v2): add compliance attestation boundary`
 4. `docs(v2): add recovery score contract`
-5. `docs(v2): add backend parity matrix`
+5. `docs(v2): add backend parity fixture plan`
 
 Implementation remains blocked until the relevant owner-approved design,
 compatibility promise, tests, rollback/no-op behavior, and claim boundary exist.

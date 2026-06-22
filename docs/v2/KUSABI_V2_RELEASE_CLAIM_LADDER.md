@@ -142,8 +142,8 @@ Required:
   `set_recovery_config` and broad transcript ingest.
 - Observability examples show how to inspect recovery quality, missing evidence,
   and failed/degraded recovery.
-- Backend support matrix is honest about SQLite, PostgreSQL, JSON, and optional
-  vector search.
+- Backend support matrix follows `KUSABI_V2_BACKEND_PARITY_MATRIX.md` and is
+  honest about SQLite, PostgreSQL, JSON, common DB, and optional vector search.
 
 Allowed claim:
 
@@ -221,7 +221,7 @@ Every Level 2+ release or pilot claim should have an evidence packet containing:
 | --- | --- | --- |
 | commit SHA / branch / package version | L1 | Exact tested artifact. |
 | install path and OS / Node version | L1 | Reproducibility. |
-| DB backend and migration state | L1 | SQLite/PG/JSON distinction. |
+| DB backend and migration state | L1 | SQLite/PG/JSON distinction and claim boundary per `KUSABI_V2_BACKEND_PARITY_MATRIX.md`. |
 | recovery run report | L2 | Probe answers, scores, gaps, automatic failures, caps, and claim eligibility per `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md`. |
 | host adapter evidence | L2 | Claude/Codex path and delivery mode. |
 | redaction probe results | L3 | Fixture families and output surfaces. |

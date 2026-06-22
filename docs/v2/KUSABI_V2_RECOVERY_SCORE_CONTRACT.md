@@ -363,7 +363,8 @@ regulatory compliance by itself.
 
 ## 16. Backend and host boundary
 
-Recovery scoring must identify the exact backend and host path used. A passing
+Recovery scoring must identify the exact backend and host path used. Backend
+claim boundaries are defined in `KUSABI_V2_BACKEND_PARITY_MATRIX.md`. A passing
 SQLite run does not prove PostgreSQL parity. A passing Claude Code run does not
 prove Codex startup recovery. A manual MCP run does not prove automatic startup
 recovery.

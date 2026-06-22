@@ -26,6 +26,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` — draft scale, identity, and federation boundary model; no tenant/user/federation claim.
 - `KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` — draft compliance evidence and attestation boundary; no legal certification claim.
 - `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` — draft recovery score formula, evidence report, and release-claim boundary; no runner or schema implementation.
+- `KUSABI_V2_BACKEND_PARITY_MATRIX.md` — draft SQLite/PostgreSQL/JSON backend claim matrix; no backend parity claim.
 
 ## Rules for this branch
 
@@ -44,6 +45,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - Scale and identity work remains design-only until separate owner-approved implementation, migration, and compatibility evidence exist.
 - Compliance and attestation work remains evidence-support design only; Kusabi does not certify legal or regulatory compliance by itself.
 - Recovery score work remains contract-only until separate owner-approved schema, fixture, runner, host-adapter evidence, and release-claim review exist.
+- Backend parity work remains claim-boundary design only until separate owner-approved fixture, smoke, migration, and backend-specific evidence exists.
 
 ## Relationship to #181
 
