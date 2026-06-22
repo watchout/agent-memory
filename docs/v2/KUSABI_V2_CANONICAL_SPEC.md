@@ -58,6 +58,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
 | UAMP draft spec | `docs/v2/KUSABI_V2_UAMP_DRAFT_SPEC.md` |
 | UAMP conformance plan | `docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` |
+| UAMP fixture catalog | `docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md` |
 | Scale and identity model | `docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` |
 | Compliance attestation boundary | `docs/v2/KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` |
 | Recovery score contract | `docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` |
@@ -196,6 +197,12 @@ evidence-packet, reference-implementation, and second-adapter requirements. It
 does not create fixtures, implement a runner, prove Kusabi conformance, or
 authorize runtime behavior.
 
+The controlling UAMP fixture catalog record is
+`KUSABI_V2_UAMP_FIXTURE_CATALOG.md`. It defines future positive, negative,
+mapping, security, backend, suite interop, recovery-quality, and enterprise
+pilot fixture coverage. It does not create fixture directories or files,
+implement a runner, create schema files, or claim UAMP conformance.
+
 The controlling scale and identity planning record is
 `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md`. It preserves the current
 `agent_id + optional project` compatibility boundary and does not implement
@@ -255,6 +262,7 @@ The V2 planning slice is acceptable when:
 - suite interop boundary prevents UAMP/AUN/Kodama/Shirube ownership overlap;
 - UAMP draft mapping exists without runtime or conformance claims;
 - UAMP conformance plan exists without fixture, runner, runtime, or conformance claims;
+- UAMP fixture catalog exists without fixture files, runner, schema files, runtime, or conformance claims;
 - scale and identity model exists without tenant/user/federation claims;
 - compliance attestation boundary exists without legal certification or runtime claims;
 - recovery score contract exists without score runner, schema, fixture, CI, or release-claim implementation;

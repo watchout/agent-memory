@@ -241,6 +241,12 @@ cover:
 17. migration from legacy rows;
 18. no secret or private reasoning exposure in test output.
 
+The UAMP-level backend fixture catalog is defined in
+`KUSABI_V2_UAMP_FIXTURE_CATALOG.md`. It is planning evidence only. Backend
+parity claims still require backend-specific fixture files, smoke reports,
+selection evidence, migration-state evidence, and owner-reviewed pass/fail
+results.
+
 ## 13. Positive examples
 
 ### SQLite local default claim
