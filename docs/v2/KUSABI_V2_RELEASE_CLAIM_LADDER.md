@@ -129,7 +129,8 @@ Required:
   documented.
 - Compliance and attestation boundaries are documented as evidence support, not
   legal certification.
-- Output redaction probes cover all release surfaces:
+- Output redaction probes follow `KUSABI_V2_REDACTION_PARITY_GATE.md` and cover
+  all release surfaces:
   - `restart_pack` text;
   - `recovery-pack/v1` JSON;
   - `host-invocation-context/v1` JSON;
@@ -224,7 +225,7 @@ Every Level 2+ release or pilot claim should have an evidence packet containing:
 | DB backend and migration state | L1 | SQLite/PG/JSON distinction and claim boundary per `KUSABI_V2_BACKEND_PARITY_MATRIX.md`. |
 | recovery run report | L2 | Probe answers, scores, gaps, automatic failures, caps, and claim eligibility per `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md`. |
 | host adapter evidence | L2 | Claude/Codex path and delivery mode. |
-| redaction probe results | L3 | Fixture families and output surfaces. |
+| redaction probe results | L3 | Fixture families, output surfaces, and missing-evidence status per `KUSABI_V2_REDACTION_PARITY_GATE.md`. |
 | retention/deletion boundary review | L3 | Operator responsibilities and no-delete defaults. |
 | observability sample | L3 | How to inspect recovery quality. |
 | compatibility matrix | L3 | MCP-only, Claude, Codex, other clients. |

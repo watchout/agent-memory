@@ -66,7 +66,7 @@ evidence must be explicit and must not be converted into a stronger claim.
 | --- | --- | --- | --- | --- |
 | memory evidence | Kusabi | memory item, decision, task state, knowledge item | memory id, memory class, agent/project, source refs, provenance, promotion refs where applicable | add `missing_evidence`; downgrade claim level |
 | recovery evidence | Kusabi | `recovery-pack/v1`, future UAMP recovery pack, selected pack ref | pack id, generated time, source refs, missing context, confidence, lifecycle owner | mark recovery claim partial or unsupported |
-| redaction evidence | Kusabi/operator | redaction report, probe output, omitted fields | redaction version, surfaces tested, fixture families, omitted fields, known limitations | block L3+ redaction claims |
+| redaction evidence | Kusabi/operator | redaction report, probe output, omitted fields, `KUSABI_V2_REDACTION_PARITY_GATE.md` refs | redaction version, surfaces tested, fixture families, omitted fields, known limitations | block L3+ redaction claims |
 | retention evidence | Kusabi/operator | retention policy ref, TTL/legal hold/purge report | policy ref, TTL, legal hold, purge eligibility, archive/deletion refs | block retention enforcement claim |
 | deletion/export evidence | operator/Kusabi future | deletion preview, deletion report, export/reveal report | request id, scope, operator intent, preview, redaction, audit refs, backup/rollback note | deny or mark not implemented |
 | promotion evidence | human/operator/Shirube | approval ref, policy promotion ref, review note | approver/ref, scope, source refs, time, memory ids | keep as candidate memory |
@@ -274,6 +274,9 @@ Rules:
 - UAMP artifacts can reference retention, redaction, provenance, lifecycle, and
   promotion evidence.
 - UAMP must not launder missing compliance evidence into "compliant" status.
+- Redaction parity gates are defined in `KUSABI_V2_REDACTION_PARITY_GATE.md`;
+  passing redaction probes supports review evidence only and does not certify
+  legal or regulatory compliance.
 - A UAMP artifact with evidence refs is still only evidence-bearing; access
   control and legal compliance remain outside the artifact alone.
 

@@ -219,6 +219,11 @@ Fixture expectations:
 This catalog does not implement redaction tests; it defines future fixture
 coverage.
 
+Release-blocking redaction output-surface parity is defined in
+`KUSABI_V2_REDACTION_PARITY_GATE.md`. That gate remains docs-only until fixture
+files, probes, runner evidence, and CI/release-blocking behavior are separately
+approved and implemented.
+
 ## 9. Backend fixture catalog
 
 Future backend fixtures must align with `KUSABI_V2_BACKEND_PARITY_MATRIX.md`.

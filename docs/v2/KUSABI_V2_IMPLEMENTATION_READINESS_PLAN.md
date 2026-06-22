@@ -36,6 +36,10 @@ The merged V2 docs now provide:
 - UAMP fixture catalog defining future positive, negative, mapping, security,
   backend, suite interop, recovery-quality, and enterprise-pilot fixture
   coverage without fixture files, schema files, runner, or conformance claims;
+- redaction parity gate defining output-surface parity expectations, sensitive
+  pattern families, and release-blocking gate maturity without fixture files,
+  runner/probe implementation, CI gates, DLP, zero-leakage, or compliance
+  claims;
 - scale and identity model preserving the current `agent_id + optional project`
   boundary while blocking tenant/user/federation claims;
 - compliance attestation boundary defining evidence-support posture without
@@ -83,7 +87,7 @@ These are blockers before broad runtime work.
 | Scale and identity model | Tenant/user/federation cannot be inferred from current `agent_id`. | `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` | Migration path and default-forbidden federation rules accepted. |
 | Compliance attestation boundary | Compliance must be evidence support, not legal overclaim. | `KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` | Attestation packet and claim boundaries accepted. |
 | Backend parity matrix | SQLite/PG/JSON claims must be exact. | `KUSABI_V2_BACKEND_PARITY_MATRIX.md` | Unsupported gaps are either implemented or excluded from claims. |
-| Redaction parity gate | Enterprise claims require all output surfaces covered. | Redaction fixture/probe plan. | Release-blocking surfaces identified and tested. |
+| Redaction parity gate | Enterprise claims require all output surfaces covered. | `KUSABI_V2_REDACTION_PARITY_GATE.md` | Release-blocking surfaces identified; fixture/probe implementation still separate. |
 | Recovery score contract | Pilot/guarantee needs measurable score. | `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` | Score formula, restatement incident, and evidence report accepted. |
 
 ## 6. P1 gaps before migration work
@@ -160,12 +164,12 @@ Do not start implementation if:
 
 ## 11. Recommended next docs-only PRs
 
-Priority order after the backend parity matrix:
+Priority order after the redaction parity gate:
 
-1. `docs(v2): add redaction parity gate`
-2. `docs(v2): add UAMP runner contract examples`
-3. `docs(v2): add backend parity fixture plan`
-4. `docs(v2): add recovery score example reports`
+1. `docs(v2): add UAMP runner contract examples`
+2. `docs(v2): add backend parity fixture plan`
+3. `docs(v2): add recovery score example reports`
+4. `docs(v2): add redaction fixture implementation plan`
 
 ## 12. Readiness definition
 
@@ -176,6 +180,7 @@ Kusabi V2 is ready to start runtime implementation when:
 - suite interop boundary is accepted;
 - UAMP draft spec and conformance plan are accepted;
 - UAMP fixture catalog is accepted;
+- redaction parity gate is accepted;
 - scale/identity model is accepted;
 - compliance/attestation boundary is accepted;
 - recovery score contract is accepted;
