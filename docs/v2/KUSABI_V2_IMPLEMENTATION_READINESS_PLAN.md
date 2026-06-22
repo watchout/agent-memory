@@ -25,7 +25,11 @@ The merged V2 docs now provide:
 - API/data boundary;
 - release claim ladder;
 - security and retention boundary;
-- UAMP / safety / scale / compliance / adopt-vs-build strategy.
+- UAMP / safety / scale / compliance / adopt-vs-build strategy;
+- product category and positioning: agent continuity substrate, with coding
+  agents as the first reference workload;
+- suite interop boundary for UAMP, AUN/A2A, Kodama, Shirube, MCP, and host
+  adapters.
 
 This is a strong planning floor. It is not yet an implementation spec.
 
@@ -143,13 +147,12 @@ Do not start implementation if:
 
 Priority order:
 
-1. `docs(v2): add suite interop boundary for UAMP AUN Kodama Shirube`
-2. `docs(v2): add UAMP draft spec and current artifact mapping`
-3. `docs(v2): add UAMP conformance plan`
-4. `docs(v2): add scale and identity model`
-5. `docs(v2): add compliance attestation boundary`
-6. `docs(v2): add recovery score contract`
-7. `docs(v2): add backend parity matrix`
+1. `docs(v2): add UAMP draft spec and current artifact mapping`
+2. `docs(v2): add UAMP conformance plan`
+3. `docs(v2): add scale and identity model`
+4. `docs(v2): add compliance attestation boundary`
+5. `docs(v2): add recovery score contract`
+6. `docs(v2): add backend parity matrix`
 
 ## 12. Readiness definition
 
