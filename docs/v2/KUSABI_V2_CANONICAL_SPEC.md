@@ -73,6 +73,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
+| Redaction parity gate | `docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md` |
 | Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |
 | Governance scaffold | `.shirube/repo-spec.yaml` |
 | Agent policy | `.shirube/agent-policy.yaml` |
@@ -203,6 +204,13 @@ mapping, security, backend, suite interop, recovery-quality, and enterprise
 pilot fixture coverage. It does not create fixture directories or files,
 implement a runner, create schema files, or claim UAMP conformance.
 
+The controlling redaction parity planning record is
+`KUSABI_V2_REDACTION_PARITY_GATE.md`. It defines required sensitive pattern
+families, output-surface parity expectations, redaction result states, and
+release-claim gates. It does not create fixture files, implement probes or
+runners, add CI gates, change runtime output, claim DLP, claim zero secret
+leakage, or certify legal/regulatory compliance.
+
 The controlling scale and identity planning record is
 `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md`. It preserves the current
 `agent_id + optional project` compatibility boundary and does not implement
@@ -258,6 +266,7 @@ The V2 planning slice is acceptable when:
 - API/data boundary separates compatibility APIs from V2 concepts;
 - release claim ladder prevents overclaiming;
 - security/retention boundary documents redaction limits and data lifecycle;
+- redaction parity gate exists without fixture files, probes, runner, CI gate, DLP, zero-leakage, or compliance claims;
 - implementation-readiness gates are explicit before runtime work;
 - suite interop boundary prevents UAMP/AUN/Kodama/Shirube ownership overlap;
 - UAMP draft mapping exists without runtime or conformance claims;

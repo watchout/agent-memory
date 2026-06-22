@@ -17,6 +17,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_API_AND_DATA_BOUNDARY.md` — V2 API/data model boundary that separates compatibility APIs, V2 concepts, future aliases, and evidence requirements.
 - `KUSABI_V2_RELEASE_CLAIM_LADDER.md` — claim levels and quality gates from docs reset through major-tech/world-class evaluation readiness.
 - `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` — security, privacy, redaction, retention, deletion, export, and reveal boundaries.
+- `KUSABI_V2_REDACTION_PARITY_GATE.md` — draft redaction output-surface parity gate; no fixture files, runner, CI gate, DLP, or zero-leakage claim.
 - `KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` — strategy consolidation for UAMP, safety, compliance, scale, and adopt-vs-build evaluation.
 - `KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` — product category strategy: agent continuity substrate, with coding agents as the first reference workload.
 - `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` — gap-closure plan before V2 runtime, protocol, package, or migration work begins.
@@ -48,6 +49,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - Compliance and attestation work remains evidence-support design only; Kusabi does not certify legal or regulatory compliance by itself.
 - Recovery score work remains contract-only until separate owner-approved schema, fixture, runner, host-adapter evidence, and release-claim review exist.
 - Backend parity work remains claim-boundary design only until separate owner-approved fixture, smoke, migration, and backend-specific evidence exists.
+- Redaction parity work remains gate-planning only until separate owner-approved fixture files, runner/probe implementation, CI or release gate, and evidence packets exist.
 
 ## Relationship to #181
 

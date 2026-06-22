@@ -131,6 +131,11 @@ The UAMP-level fixture catalog is defined in
 families only; release-blocking redaction parity gates still require separate
 fixture files, runner evidence, and owner-approved release criteria.
 
+The controlling redaction parity gate is
+`KUSABI_V2_REDACTION_PARITY_GATE.md`. It defines output-surface parity and
+claim-blocking behavior for known sensitive patterns without implementing
+fixtures, probes, runner code, CI gates, or DLP/zero-leakage claims.
+
 ## 6. Redaction evidence
 
 A release or pilot evidence packet should record:
