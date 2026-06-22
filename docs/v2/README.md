@@ -18,10 +18,13 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - `KUSABI_V2_RELEASE_CLAIM_LADDER.md` — claim levels and quality gates from docs reset through major-tech/world-class evaluation readiness.
 - `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` — security, privacy, redaction, retention, deletion, export, and reveal boundaries.
 - `KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` — strategy consolidation for UAMP, safety, compliance, scale, and adopt-vs-build evaluation.
+- `KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` — product category strategy: agent continuity substrate, with coding agents as the first reference workload.
+- `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` — gap-closure plan before V2 runtime, protocol, package, or migration work begins.
 
 ## Rules for this branch
 
 - Product name for V2 planning is `kusabi`.
+- Product category for V2 planning is agent continuity substrate; AI coding agents are the first reference workload, not the final product boundary.
 - Existing `wasurezu` and `agent-memory` runtime surfaces remain compatibility surfaces until a separate approved runtime migration changes them.
 - Existing design documents are not deleted in this branch.
 - Existing runtime capabilities are not reduced by this V2 docs reset; feature changes require separate owner-approved implementation work with tests.
@@ -29,6 +32,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 - Runtime code, package identity, MCP namespace, environment variables, storage paths, workflows, and deployments are out of scope for this draft.
 - Lane A docs/source-reset work may proceed while Shirube remains warn-only; enforcement or governance claims wait for Shirube-backed implementation and review evidence.
 - Release and enterprise claims must follow the V2 claim ladder and cite evidence, not implementation presence alone.
+- V2 runtime work should not start until the readiness gates are accepted for the relevant work package.
 
 ## Relationship to #181
 
