@@ -23,6 +23,7 @@ presence alone is not enough.
 Implemented surface != release-ready claim
 Policy contract != live enforcement
 Recovery pack generated != successful startup recovery
+High recovery score != broader claim than the recorded host/backend evidence
 Redaction patterns != guaranteed DLP
 MCP tool availability != host lifecycle automation
 ```
@@ -91,6 +92,8 @@ Required:
 
 - At least three fresh recovery evaluations at or above the accepted public-alpha
   score threshold.
+- Recovery scoring follows `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md`, including
+  automatic failures, caps, and restatement incident rules.
 - At least one Claude Code SessionStart / runner path evaluation.
 - At least one Codex bridge startup evaluation.
 - No automatic failure.
@@ -173,6 +176,7 @@ Required:
 - Clean install, upgrade, rollback, and uninstall docs exist.
 - Redaction and output-surface parity gates are in CI or release-blocking checks.
 - Recovery evidence includes:
+  - recovery score report and claim eligibility;
   - recovered token count or pack budget;
   - confidence and missing context;
   - source refs;
@@ -218,7 +222,7 @@ Every Level 2+ release or pilot claim should have an evidence packet containing:
 | commit SHA / branch / package version | L1 | Exact tested artifact. |
 | install path and OS / Node version | L1 | Reproducibility. |
 | DB backend and migration state | L1 | SQLite/PG/JSON distinction. |
-| recovery run report | L2 | Probe answers, scores, gaps. |
+| recovery run report | L2 | Probe answers, scores, gaps, automatic failures, caps, and claim eligibility per `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md`. |
 | host adapter evidence | L2 | Claude/Codex path and delivery mode. |
 | redaction probe results | L3 | Fixture families and output surfaces. |
 | retention/deletion boundary review | L3 | Operator responsibilities and no-delete defaults. |
@@ -256,7 +260,7 @@ To reach the user's stated target, prioritize:
 2. API/data boundary — clarify current compatibility vs V2 concepts.
 3. Security/retention boundary — make privacy limits honest and reviewable.
 4. Release claim ladder — prevent overclaiming and define the major-tech bar.
-5. Recovery evaluation reports — convert claims into evidence.
+5. Recovery score contract and reports — convert claims into evidence.
 6. Redaction parity gates — make leaks release-blocking.
 7. Backend parity matrix — avoid unsupported PG/JSON claims.
 8. Compatibility alias migration plan — rename only after inventory and tests.

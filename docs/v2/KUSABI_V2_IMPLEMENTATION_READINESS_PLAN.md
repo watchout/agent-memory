@@ -36,7 +36,9 @@ The merged V2 docs now provide:
 - scale and identity model preserving the current `agent_id + optional project`
   boundary while blocking tenant/user/federation claims;
 - compliance attestation boundary defining evidence-support posture without
-  legal certification, deletion/export/reveal, hash-chain, or signing claims.
+  legal certification, deletion/export/reveal, hash-chain, or signing claims;
+- recovery score contract defining score formula, caps, restatement incidents,
+  and score report evidence without runner, schema, fixture, or CI claims.
 
 This is a strong planning floor. It is not yet an implementation spec.
 
@@ -112,7 +114,7 @@ The first implementation packages should be small and evidence-oriented.
 | --- | --- | --- |
 | WP-1 UAMP mapping | Map current `recovery-pack/v1` to `uamp/v1`. | Pure conversion library + fixtures. |
 | WP-2 Conformance fixtures | Define pass/fail corpus. | JSON fixtures and runner skeleton. |
-| WP-3 Recovery score reports | Turn recovery evaluations into versioned reports. | Report schema + sample report. |
+| WP-3 Recovery score reports | Turn recovery evaluations into versioned reports. | `KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` followed by report schema + sample report. |
 | WP-4 Redaction parity gates | Make output-surface leaks release-blocking. | Gate 0 fixture expansion. |
 | WP-5 Backend parity closure | Close or document SQLite/PG/JSON gaps. | PG catch-up log parity or explicit exclusion. |
 | WP-6 Suite interop evidence | Define consumed/produced artifacts between Kusabi, AUN, Kodama, Shirube. | Docs + schema refs; no runtime yet. |
@@ -152,12 +154,12 @@ Do not start implementation if:
 
 ## 11. Recommended next docs-only PRs
 
-Priority order after the compliance attestation boundary:
+Priority order after the recovery score contract:
 
 1. `docs(v2): add UAMP fixture catalog`
 2. `docs(v2): add UAMP runner contract examples`
-3. `docs(v2): add recovery score contract`
-4. `docs(v2): add backend parity matrix`
+3. `docs(v2): add backend parity matrix`
+4. `docs(v2): add recovery score example reports`
 
 ## 12. Readiness definition
 
@@ -169,6 +171,7 @@ Kusabi V2 is ready to start runtime implementation when:
 - UAMP draft spec and conformance plan are accepted;
 - scale/identity model is accepted;
 - compliance/attestation boundary is accepted;
+- recovery score contract is accepted;
 - feature preservation and compatibility promises remain intact;
 - each implementation package has tests and rollback/no-op behavior.
 

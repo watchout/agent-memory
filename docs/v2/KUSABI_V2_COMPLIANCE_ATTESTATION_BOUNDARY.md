@@ -465,7 +465,7 @@ Safe docs-only follow-ups:
 1. `docs(v2): add attestation example catalog`
 2. `docs(v2): add compliance fixture plan`
 3. `docs(v2): add backend parity matrix`
-4. `docs(v2): add recovery score contract`
+4. `docs(v2): add recovery score example reports`
 
 Implementation remains blocked until the relevant owner-approved design,
 compatibility promise, tests, rollback/no-op behavior, legal/compliance review
