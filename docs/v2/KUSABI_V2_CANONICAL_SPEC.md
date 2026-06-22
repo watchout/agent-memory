@@ -55,6 +55,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
 | Product category and positioning | `docs/v2/KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` |
 | Implementation readiness | `docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` |
+| Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
@@ -176,6 +177,8 @@ Detailed implementation should not begin from the category or adoption strategy 
 
 The controlling readiness record is `KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md`. Runtime, protocol, package, MCP, environment, storage, schema, or migration work requires a work-package design, compatibility promise, tests, rollback/no-op behavior, and owner-approved scope.
 
+The first P0 readiness blocker is the suite interop boundary in `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md`. UAMP, AUN/A2A, Kodama, Shirube, MCP, and host-adapter ownership must be accepted before UAMP schemas or runtime integration work begins.
+
 ## 15. Design cleanup rule
 
 Do not delete older documents merely because they mention `wasurezu`. First classify each document as one of:
@@ -205,5 +208,6 @@ The V2 planning slice is acceptable when:
 - release claim ladder prevents overclaiming;
 - security/retention boundary documents redaction limits and data lifecycle;
 - implementation-readiness gates are explicit before runtime work;
+- suite interop boundary prevents UAMP/AUN/Kodama/Shirube ownership overlap;
 - known read-coverage gaps and stale documents are documented;
 - repository owner/domain-designer confirms or revises this source set.
