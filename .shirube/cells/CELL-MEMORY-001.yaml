@@ -1,0 +1,34 @@
+cell_id: CELL-MEMORY-001
+title: memory data classification
+status: draft
+risk_tier: R3
+goal: >-
+  Classify kusabi memory data into source data, candidate memory, approved memory,
+  trusted instruction, and untrusted context before runtime behavior changes.
+covers:
+  - decisions
+  - task_states
+  - knowledge
+  - conversation_events
+  - raw_events
+  - recovery_packs
+  - selected_restart_packs
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms memory class definitions
+post_merge_tests:
+  - verify no runtime code changed
+  - verify V2 docs reference memory classes consistently
+notes:
+  - Raw transcript and external text are data-only by default.
+  - Approved memory requires explicit promotion evidence.

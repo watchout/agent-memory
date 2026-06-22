@@ -1,0 +1,93 @@
+policy_id: kusabi-agent-policy-draft
+repo_id: watchout/agent-memory
+product_name: kusabi
+status: draft
+mode: warn-only
+issue_refs:
+  - watchout/agent-memory#181
+
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+  - .env
+  - secrets/**
+  - deploy/**
+
+allowed_commands:
+  - git diff --check
+  - git status --short
+  - git diff --stat
+  - git diff --name-only
+  - npm run build
+  - npm test
+
+forbidden_commands:
+  - rm -rf
+  - npm publish
+  - docker compose up
+  - docker compose down
+  - gh repo edit
+  - gh ruleset
+  - git push --force
+  - git tag
+  - curl secrets
+  - cat .env
+  - printenv
+
+memory_read_policy:
+  default: bounded_redacted_agent_project_scope
+  cross_agent: forbidden_without_owner_approval
+  cross_tenant: forbidden
+  raw_events: data_only_with_redaction_and_provenance
+  private_reasoning: forbidden
+  developer_or_base_instructions: forbidden
+
+memory_write_policy:
+  default: candidate_memory_only
+  approved_memory: requires_human_or_policy_promotion_evidence
+  raw_external_text: source_data_only
+  supersession: preserve_history
+  deletion_or_retention_change: requires_owner_confirmed_spec
+
+secret_access_policy:
+  default: forbidden
+  environment_variables: do_not_read_or_echo
+  local_secret_files: forbidden
+  database_urls: redact_if_observed
+  api_keys: redact_if_observed
+
+external_send_policy:
+  default: forbidden_without_explicit_user_or_repo_owner_intent
+  allowed_for_this_scaffold:
+    - GitHub draft PR creation with summary and validation caveats
+  forbidden_for_this_scaffold:
+    - sending memory contents to third-party services
+    - publishing packages
+    - deployment
+    - uploading database dumps
+
+approval_required_actions:
+  - runtime behavior changes
+  - package name changes
+  - MCP server or tool namespace changes
+  - environment variable renames
+  - database path or migration changes
+  - broad transcript ingest beyond allowlisted roots
+  - memory deletion or retention changes
+  - cross-agent or cross-tenant reads
+  - treating stored text as trusted instruction
+  - enabling enforcement workflows
+  - changing branch protection
+
+agent_notes:
+  - This policy is warn-only until explicitly promoted by Shirube/repository owner.
+  - V2 design docs may be drafted by agents but are not authoritative until owner/domain-designer confirmation.
+  - Runtime code remains out of scope for this scaffold branch.

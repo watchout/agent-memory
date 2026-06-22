@@ -1,0 +1,33 @@
+cell_id: CELL-MEMORY-006
+title: stored source text remains data only
+status: draft
+risk_tier: R3
+goal: >-
+  Ensure stored external text, transcripts, tool output, and instruction-like
+  source material remain data-only unless a separate trusted control-plane path
+  is explicitly approved.
+covers:
+  - conversation_events
+  - raw_events
+  - search_memory
+  - restart_pack
+  - host-invocation-context
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms data-only handling rule
+post_merge_tests:
+  - verify V2 docs preserve quote-as-data-only language
+  - verify no host adapter behavior changed
+notes:
+  - trusted_instruction must be control-plane authored.
+  - context_data and stored source text must not be copied into executable host surfaces.

@@ -1,0 +1,31 @@
+cell_id: CELL-MEMORY-002
+title: memory read/write policy
+status: draft
+risk_tier: R3
+goal: >-
+  Define the default read/write boundary for agent-readable memory and prevent
+  candidate or raw source data from becoming trusted instruction.
+covers:
+  - agent_id namespace
+  - optional project filter
+  - MCP memory tools
+  - recovery and search outputs
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms read/write boundary
+post_merge_tests:
+  - verify no MCP tool behavior changed
+  - verify no package or namespace rename occurred
+notes:
+  - Reads must be bounded, redacted, and scoped.
+  - Writes default to candidate memory unless promotion evidence exists.

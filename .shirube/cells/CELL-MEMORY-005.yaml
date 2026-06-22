@@ -1,0 +1,32 @@
+cell_id: CELL-MEMORY-005
+title: memory audit log
+status: draft
+risk_tier: R3
+goal: >-
+  Define audit expectations for memory writes, recovery pack generation, selected
+  pack fetch/consume, promotion evidence, and future V2 lifecycle records.
+covers:
+  - recovery_quality_log
+  - raw_events
+  - selected_restart_packs
+  - future lifecycle events
+  - promotion evidence
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms required evidence fields
+post_merge_tests:
+  - verify no runtime audit writer changed
+  - verify V2 docs identify missing audit evidence explicitly
+notes:
+  - Green CI or queue ACKs are not enough to prove memory/recovery success.
+  - V2 should record direct kusabi evidence refs or explicit missing_evidence.

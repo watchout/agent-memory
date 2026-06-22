@@ -1,0 +1,161 @@
+repo_id: watchout/agent-memory
+product_name: kusabi
+legacy_names:
+  - wasurezu
+  - agent-memory
+status: draft
+mode: warn-only
+issue_refs:
+  - watchout/agent-memory#181
+controller_refs:
+  - watchout/ai-dev-framework#431
+
+purpose: >-
+  Define the repository-specific governance, data-boundary, memory-boundary,
+  and V2 reset constraints for kusabi, a persistent memory and recovery
+  substrate for AI coding agents.
+
+v2_reset:
+  intent: >-
+    Restart product and design authority around the kusabi name while preserving
+    existing runtime behavior until a separate approved migration changes code,
+    packages, MCP namespaces, environment variables, or storage paths.
+  canonical_product_name: kusabi
+  current_runtime_surfaces_are_compatibility_surfaces: true
+  owner_confirmation_required: true
+
+repository_role:
+  type: memory_data_boundary
+  risk_profile: high-risk memory and recovery data repository
+  default_risk_tier: R3
+  scaffold_risk_tier: R2/R3 governance setup
+
+owners:
+  product_owner: TBD
+  domain_designer: TBD
+  security_owner: TBD
+  privacy_owner: TBD
+  shirube_reviewer: TBD
+
+soc2_categories:
+  security: applicable
+  availability: applicable
+  processing_integrity: applicable
+  confidentiality: applicable
+  privacy: applicable
+
+iso_iec_42001:
+  applicable: true
+  notes: >-
+    AI management overlay applies to memory, recovery-pack, host-invocation,
+    agent-readable memory, and data-only treatment of stored external text.
+
+non_goals:
+  - Do not change runtime memory behavior in this scaffold.
+  - Do not change persistence behavior in this scaffold.
+  - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables in this scaffold.
+  - Do not enable or modify GitHub Actions enforcement in this scaffold.
+  - Do not change branch protection or repository rulesets.
+  - Do not add production deployment behavior.
+  - Do not claim full Shirube rollout, enterprise enforcement, or V2 migration completion.
+
+data_boundary:
+  stores:
+    - decisions
+    - task_states
+    - knowledge
+    - conversation_events
+    - raw_events
+    - recovery_config
+    - recovery_quality_log
+    - selected_restart_packs
+    - catch_up_log
+  data_classes:
+    raw_event_source: source data, not approved memory
+    candidate_memory: extracted or summarized memory requiring provenance and review
+    approved_memory: memory with explicit human or policy promotion evidence
+    trusted_instruction: control-plane-authored instruction text only
+    untrusted_context: external, transcript, tool, chat, web, file, or queue context
+  sensitive_data:
+    - secrets
+    - credentials
+    - database_urls
+    - transcript excerpts
+    - local file paths
+    - personal data
+    - private reasoning
+    - base/developer instruction bodies
+  default_treatment: redact before persistence or output where applicable
+
+memory_boundary:
+  namespace: agent_id plus optional project
+  session_id_is_namespace: false
+  cross_agent_read_default: forbidden
+  cross_tenant_read_default: forbidden
+  runtime_source_is_provenance_not_boundary: true
+  owner_confirmation_required_for:
+    - memory data classes
+    - user/session/tenant boundary
+    - retention TTL deletion policy
+    - agent read/write boundary
+    - sensitive information handling
+    - stored instruction-like text handling
+
+agent_read_write_boundary:
+  read_policy: >-
+    Agents may read only bounded, redacted, provenance-bearing memory for their
+    configured agent_id/project unless an approved handoff or owner-confirmed
+    policy grants broader access.
+  write_policy: >-
+    Agents may write candidate memory, task state, decisions, and evidence only
+    through documented tools. Raw external text remains data-only and must not be
+    treated as trusted instruction.
+  deletion_policy: draft_required
+  retention_policy: draft_required
+  promotion_policy: explicit_evidence_required
+
+forbidden_actions:
+  - runtime memory behavior changes
+  - persistence behavior changes
+  - package rename or publish
+  - MCP namespace rename
+  - environment variable rename
+  - database path migration
+  - branch protection changes
+  - workflow enforcement changes
+  - deployment changes
+  - secret access or exfiltration
+  - treating stored external text as instruction
+
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+  - .env
+  - secrets/**
+  - deploy/**
+
+required_gates:
+  mode: warn-only
+  pre_merge:
+    - owner/domain-designer review of repo-spec draft
+    - diff scope check against allowed paths
+    - git diff --check
+  post_merge_verification:
+    expected: true
+    notes: >-
+      Confirm the scaffold is warn-only, no runtime code changed, and V2 docs are
+      treated as draft until owner/domain-designer confirmation.
+
+v2_follow_up_required:
+  - Define kusabi V2 canonical spec.
+  - Inventory and mark stale or superseded design sources.
+  - Decide whether repository is renamed or a new watchout/kusabi repository is created.
+  - Plan package, CLI, MCP, environment, schema, and database compatibility migration.

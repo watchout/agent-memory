@@ -1,0 +1,32 @@
+cell_id: CELL-MEMORY-003
+title: user/session/tenant boundary
+status: draft
+risk_tier: R3
+goal: >-
+  Define the V2 boundary between user or tenant identity, agent memory namespace,
+  project scope, runtime source, and session provenance.
+covers:
+  - agent_id
+  - project
+  - session_id
+  - runtime source
+  - future tenant/user identity
+allowed_paths:
+  - .shirube/**
+  - docs/**
+  - README.md
+forbidden_paths:
+  - src/**
+  - lib/**
+  - bin/**
+  - dist/**
+  - .github/workflows/**
+required_tests:
+  - git diff --check
+  - owner/domain-designer confirms boundary model
+post_merge_tests:
+  - verify session_id is not documented as memory namespace
+  - verify cross-agent/cross-tenant reads remain non-default
+notes:
+  - Current boundary is agent_id plus optional project.
+  - session_id is provenance only and must not become the memory namespace.
