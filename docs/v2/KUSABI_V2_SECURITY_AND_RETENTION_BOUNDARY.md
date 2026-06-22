@@ -126,6 +126,11 @@ Required fixture families for release-blocking probes:
 - emails and unnecessary personal data;
 - home paths and local file paths where normalization is expected.
 
+The UAMP-level fixture catalog is defined in
+`KUSABI_V2_UAMP_FIXTURE_CATALOG.md`. That catalog records required fixture
+families only; release-blocking redaction parity gates still require separate
+fixture files, runner evidence, and owner-approved release criteria.
+
 ## 6. Redaction evidence
 
 A release or pilot evidence packet should record:

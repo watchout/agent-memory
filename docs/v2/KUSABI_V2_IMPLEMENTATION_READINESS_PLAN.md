@@ -33,6 +33,9 @@ The merged V2 docs now provide:
 - UAMP draft artifact set and current Kusabi/Wasurezu artifact mapping;
 - UAMP conformance plan for future fixtures, runner, evidence packets, reference
   implementation evidence, and second-adapter evidence;
+- UAMP fixture catalog defining future positive, negative, mapping, security,
+  backend, suite interop, recovery-quality, and enterprise-pilot fixture
+  coverage without fixture files, schema files, runner, or conformance claims;
 - scale and identity model preserving the current `agent_id + optional project`
   boundary while blocking tenant/user/federation claims;
 - compliance attestation boundary defining evidence-support posture without
@@ -76,6 +79,7 @@ These are blockers before broad runtime work.
 | Suite interop boundary | UAMP, AUN/A2A, Kodama, Shirube responsibilities can conflict. | `KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` | Owner/domain-designer accepts ownership boundaries. |
 | UAMP draft spec | Strategy is not implementable without schemas and mapping. | `KUSABI_V2_UAMP_DRAFT_SPEC.md` plus future schema plan. | Memory/recovery mapping and schema versioning accepted. |
 | UAMP conformance plan | Adopt-vs-build proof needs executable tests. | `KUSABI_V2_UAMP_CONFORMANCE_PLAN.md` | Fixture layout and pass/fail criteria accepted. |
+| UAMP fixture catalog | Future conformance needs stable positive/negative/mapping coverage. | `KUSABI_V2_UAMP_FIXTURE_CATALOG.md` | Fixture catalog accepted; fixture files and runner still separate. |
 | Scale and identity model | Tenant/user/federation cannot be inferred from current `agent_id`. | `KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md` | Migration path and default-forbidden federation rules accepted. |
 | Compliance attestation boundary | Compliance must be evidence support, not legal overclaim. | `KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` | Attestation packet and claim boundaries accepted. |
 | Backend parity matrix | SQLite/PG/JSON claims must be exact. | `KUSABI_V2_BACKEND_PARITY_MATRIX.md` | Unsupported gaps are either implemented or excluded from claims. |
@@ -158,7 +162,7 @@ Do not start implementation if:
 
 Priority order after the backend parity matrix:
 
-1. `docs(v2): add UAMP fixture catalog`
+1. `docs(v2): add redaction parity gate`
 2. `docs(v2): add UAMP runner contract examples`
 3. `docs(v2): add backend parity fixture plan`
 4. `docs(v2): add recovery score example reports`
@@ -171,6 +175,7 @@ Kusabi V2 is ready to start runtime implementation when:
 - coding agents are confirmed as first reference workload, not final boundary;
 - suite interop boundary is accepted;
 - UAMP draft spec and conformance plan are accepted;
+- UAMP fixture catalog is accepted;
 - scale/identity model is accepted;
 - compliance/attestation boundary is accepted;
 - recovery score contract is accepted;

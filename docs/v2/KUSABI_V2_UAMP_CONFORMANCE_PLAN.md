@@ -89,6 +89,10 @@ This plan does not authorize:
 
 Future fixtures must cover every draft UAMP artifact.
 
+The detailed fixture catalog is defined in
+`KUSABI_V2_UAMP_FIXTURE_CATALOG.md`. That catalog is planning-only; it does not
+create fixture files, schema files, a runner, or a conformance claim.
+
 | Artifact | Required fixture coverage | Negative coverage |
 | --- | --- | --- |
 | `uamp/v1#MemoryItem` | decision, task state, working memory, knowledge, raw event source, conversation event source. | missing provenance, missing source refs, invalid memory class, trust escalation. |
@@ -101,8 +105,8 @@ Future fixtures must cover every draft UAMP artifact.
 
 ## 6. Future fixture layout
 
-The future suite should use an explicit, reviewable fixture layout. This document
-does not create these files.
+The future suite should use an explicit, reviewable fixture layout. This
+document and `KUSABI_V2_UAMP_FIXTURE_CATALOG.md` do not create these files.
 
 Proposed layout:
 
@@ -357,11 +361,10 @@ would:
 
 Safe docs-only follow-ups after this plan:
 
-1. `docs(v2): add UAMP fixture catalog`
+1. `docs(v2): add redaction parity gate`
 2. `docs(v2): add UAMP runner contract examples`
-3. `docs(v2): add compliance attestation boundary`
-4. `docs(v2): add recovery score contract`
-5. `docs(v2): add backend parity fixture plan`
+3. `docs(v2): add backend parity fixture plan`
+4. `docs(v2): add recovery score example reports`
 
 Implementation remains blocked until the relevant owner-approved design,
 compatibility promise, tests, rollback/no-op behavior, and claim boundary exist.
