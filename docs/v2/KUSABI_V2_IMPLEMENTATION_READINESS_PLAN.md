@@ -47,6 +47,10 @@ The merged V2 docs now provide:
 
 This is a strong planning floor. It is not yet an implementation spec.
 
+The broad V2 documents are future guardrails. They are not implementation
+blockers for Kusabi Core MVP unless a proposed change directly touches that
+boundary.
+
 ## 3. Readiness principle
 
 Implementation may begin only when the relevant work package has:
@@ -69,6 +73,61 @@ Implementation may begin only when the relevant work package has:
 | Lane B | Governance / Shirube enforcement | Design only | Shirube owner approval and enforcement model. |
 | Lane C | Runtime/package/MCP/env/DB/schema migration | No | Work package spec, tests, rollback, owner approval. |
 | Lane D | Product proof / pilot evidence | Docs/templates now, execution later | Recovery score contract, evidence packet template, pilot scope. |
+
+## Core MVP implementation slice
+
+Kusabi Core MVP is a lightweight MCP memory/recovery server.
+
+The broad V2 docs are future guardrails, not implementation blockers for Core
+MVP unless the change directly touches that boundary. Do not expand UAMP,
+conformance, compliance, federation, tenant identity, suite integration,
+enterprise, or fixture planning before the Core MVP is stable.
+
+Core MVP in scope:
+
+- preserve existing `wasurezu` / `agent-memory` compatibility;
+- keep SQLite default stable;
+- preserve current MCP tools;
+- preserve current package, CLI, MCP namespace, env vars, and DB path;
+- harden current output redaction for `search_memory`, `recover_context`,
+  `restart_pack`, and current recovery outputs;
+- preserve `restart_prepare` and `restart_pack_fetch` semantics;
+- keep Claude / Codex current recovery paths from regressing;
+- keep Node 18 / 20 / 22 CI green;
+- keep Gate 0 tests green.
+
+Core MVP out of scope:
+
+- UAMP runtime emitters;
+- UAMP conformance claim;
+- fixture files;
+- fixture runner;
+- schema files;
+- tenant/user identity;
+- cross-agent federation;
+- enterprise compliance;
+- attestation packet implementation;
+- tamper-evident audit chain;
+- AUN / Kodama / Shirube live integration;
+- package rename;
+- MCP namespace rename;
+- env var rename;
+- DB path migration;
+- backend parity claim.
+
+Core MVP implementation PR order:
+
+1. current output redaction hardening;
+2. SQLite clean install and migration idempotency hardening;
+3. core MCP tool regression coverage;
+4. restart/recovery smoke evidence;
+5. README/current capability cleanup.
+
+Stop condition:
+
+If an implementation PR tries to solve UAMP, conformance, compliance,
+federation, tenant identity, or suite integration before Core MVP is stable,
+split it out unless it is directly required for the Core MVP change.
 
 ## 5. P0 gaps before implementation
 
@@ -112,9 +171,10 @@ legal, finance, or other non-coding domain support.
 | CRM/ticket/docs adapter policy | Adapter risk and approval model | No domain adapter without scoped ingest/reveal rules. |
 | Domain evaluation fixtures | Evaluation plan | Recovery success differs by domain. |
 
-## 8. Implementation work packages
+## 8. Future V2 implementation work packages
 
-The first implementation packages should be small and evidence-oriented.
+After the Core MVP slice is stable, broader V2 implementation packages should be
+small and evidence-oriented.
 
 | Package | Goal | Suggested first output |
 | --- | --- | --- |
@@ -155,19 +215,27 @@ Do not start implementation if:
 - it claims UAMP conformance without schemas and fixtures;
 - it claims compliance without attestation boundary and legal review;
 - it changes host lifecycle behavior without owner-specific boundary tests;
+- it tries to solve UAMP, conformance, compliance, federation, tenant identity,
+  or suite integration before Core MVP is stable, unless that work is directly
+  required for the Core MVP change;
 - it removes or deprecates any Wasurezu compatibility surface without explicit
   owner-approved breaking-change decision.
 
-## 11. Recommended next docs-only PRs
+## 11. Recommended next work
 
-Priority order after the backend parity matrix:
+Future V2 scope expansion is frozen until the Core MVP is stable. The next work
+should follow the Core MVP implementation order:
 
-1. `docs(v2): add redaction parity gate`
-2. `docs(v2): add UAMP runner contract examples`
-3. `docs(v2): add backend parity fixture plan`
-4. `docs(v2): add recovery score example reports`
+1. current output redaction hardening;
+2. SQLite clean install and migration idempotency hardening;
+3. core MCP tool regression coverage;
+4. restart/recovery smoke evidence;
+5. README/current capability cleanup.
 
 ## 12. Readiness definition
+
+This readiness definition applies to broad V2 implementation. Core MVP
+compatibility hardening is scoped by the Core MVP implementation slice above.
 
 Kusabi V2 is ready to start runtime implementation when:
 
