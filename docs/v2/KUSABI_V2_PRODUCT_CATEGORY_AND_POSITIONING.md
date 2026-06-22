@@ -148,7 +148,7 @@ Auditable continuity, recovery, and memory evidence for AI agent fleets.
 
 ```text
 UAMP is the open protocol for agent memory, recovery, provenance, and continuity.
-Kusabi is the reference implementation.
+Kusabi is designed to become the reference implementation candidate.
 ```
 
 ## 8. Terms to prefer
