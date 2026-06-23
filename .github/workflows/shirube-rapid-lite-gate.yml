@@ -28,7 +28,8 @@ jobs:
             pr_json="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}")"
             printf '%s\n' "$pr_json" > "$RUNNER_TEMP/shirube-pr-raw.json"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            jq '.pull_request' "$GITHUB_EVENT_PATH" > "$RUNNER_TEMP/shirube-pr-raw.json"
+            pr_json="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}")"
+            printf '%s\n' "$pr_json" > "$RUNNER_TEMP/shirube-pr-raw.json"
           else
             gh pr view --json number,headRefOid,baseRefName,body > "$RUNNER_TEMP/shirube-pr-raw.json"
           fi
@@ -83,6 +84,7 @@ jobs:
             --output "$RUNNER_TEMP/shirube-rapid-lite-gate.json"
 
       - name: Upload Shirube report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: shirube-rapid-lite-gate
