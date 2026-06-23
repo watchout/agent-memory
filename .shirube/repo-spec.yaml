@@ -8,26 +8,26 @@ legacy_names:
 status: active
 mode: rapid-lite-required-check
 shirube_adoption:
-  status: SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
+  status: SHIRUBE_V3_RAPID_LITE_CELL_AUDIT_BRIDGE_CONTROLLED
   mode: gate-pack-bridge / required-check-enforced / cell-audit-required
-  current_control_level: L5_CELL_AUDIT_BRIDGE_REQUIRED
-  next_control_level: L6_STANDARD_OVERLAY_AND_MULTI_REPO_CONTROL
+  current_control_state: RAPID_LITE_REQUIRED_CHECK_WITH_CELL_AUDIT_BRIDGE
+  next_control_state: STANDARD_OVERLAY_AND_MULTI_REPO_CONTROL_PENDING
   control_source: https://github.com/watchout/agent-memory/issues/203
   local_ledger_ref: .shirube/adoption-ledger.yaml
   allowed_claims:
-    - Shirube V3 L4 required-check control active
     - Rapid/Lite CI hard-block control metadata
     - Rapid/Lite required-check PR gate
     - main branch protection active
     - required checks active for rapid-lite-gate and build-and-test 18/20/22
     - CELL audit record required for Shirube-controlled PRs
-    - full Rapid/Lite repository control active for watchout/agent-memory
+    - repo-local Rapid/Lite required-check and CELL audit bridge active for watchout/agent-memory
     - owner-observed exact-head evidence flow
   forbidden_claims:
     - organization-wide Shirube V3導入済み
     - V3 complete across all repositories
     - Standard/Enterprise full overlay installed
     - organization-wide Shirube control
+    - numbered adoption-level claim using Shirube audit/authority layer labels
   minimum_pr_gate_pack:
     - control_source
     - scope_and_non_scope

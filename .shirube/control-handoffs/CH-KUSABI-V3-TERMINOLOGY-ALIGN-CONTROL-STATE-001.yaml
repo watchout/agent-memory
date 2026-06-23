@@ -1,0 +1,127 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V3-TERMINOLOGY-ALIGN-CONTROL-STATE-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/203
+spec_review_state: ready_for_owner_review
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+
+rps_scope:
+  shirube_owns:
+    - Repo-local Shirube terminology alignment.
+    - Required-check, branch-protection, and CELL audit bridge metadata.
+    - PR diff-scope, validation evidence, exact-head evidence, audit record evidence, and owner-decision evidence.
+  shirube_does_not_own:
+    - Runtime behavior.
+    - Package, MCP namespace, environment variable, or DB path migration.
+    - Workflow, branch-protection, or ruleset mutation.
+    - UAMP conformance, backend parity, compliance, federation, or suite integration claims.
+    - Organization-wide Shirube rollout.
+
+acceptance_criteria:
+  - Repo-local control-state labels no longer use Shirube audit-layer labels as adoption levels.
+  - Shirube layer labels remain reserved for audit/authority layers.
+  - Current repo state is described as Rapid/Lite required-check with CELL audit bridge.
+  - Historical handoff filenames and IDs no longer encode adoption levels.
+  - Changed files remain under .shirube/**.
+  - No runtime, package, MCP, env, DB, workflow, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
+
+validation:
+  required_commands:
+    - git diff --name-only main...HEAD
+    - git diff --check main...HEAD
+    - git diff --check
+    - node -e 'const fs=require("fs"); const cp=require("child_process"); const files=cp.execSync("find .shirube -type f",{encoding:"utf8"}).trim().split(/\n/).filter(Boolean); const textTerms=["current_control"+"_"+"level","next_control"+"_"+"level","SHIRUBE_V3_"+"L"]; const refTerms=["CH-KUSABI-V3-"+"L","CELL-KUSABI-V3-"+"L"]; const hits=[]; for (const f of files){const text=fs.readFileSync(f,"utf8"); for (const term of [...textTerms,...refTerms]) if (text.includes(term)) hits.push(`${f}: ${term}`);} if (hits.length){console.error(hits.join("\n")); process.exit(1);}'
+  test_expectations:
+    - No numbered adoption-level terminology remains in .shirube.
+    - The only changed paths are .shirube/**.
+    - Rapid/Lite required-check and CELL audit bridge claims remain explicit.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - exact_pr_head_sha
+    - inline_audit_record
+    - owner_decision_before_merge
+
+cell:
+  CELL-ID: CELL-KUSABI-V3-TERMINOLOGY-ALIGN-CONTROL-STATE-001
+  cell_type: governance_lite
+  risk_class: R2
+  goal: >-
+    Remove repo-local numbered adoption-level terminology so agent-memory does
+    not conflict with Shirube canonical audit/authority layer terminology.
+  non_scope:
+    - Runtime code changes.
+    - Package or lockfile changes.
+    - Workflow edits.
+    - Branch protection or ruleset mutation.
+    - Deployment or production changes.
+    - MCP namespace, env var, DB path, or schema migration.
+    - UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - Organization-wide Shirube rollout.
+  allowed_paths:
+    - .shirube/**
+  forbidden_paths:
+    - .github/workflows/**
+    - src/**
+    - lib/**
+    - bin/**
+    - dist/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+  stop_conditions:
+    - Runtime/package/MCP/env/DB/deployment behavior would change.
+    - Workflow, branch protection, or rulesets would change.
+    - The work claims V3 complete, Standard/Enterprise full overlay, UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - The terminology still treats Shirube audit/authority layer labels as repo adoption levels.
+
+implementation_boundary:
+  summary: >-
+    This cell changes repo-local Shirube control terminology only. It preserves
+    current required-check and CELL audit bridge behavior.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - merge without a matching CELL audit record
+    - runtime or deployment mutation
+    - secret read or write
+    - workflow, branch-protection, or ruleset mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_gate_check
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

@@ -1,7 +1,7 @@
 schema_version: shirube-control-handoff/rapid-lite/v1
 mode: rapid-lite
 profile: hotel-lite
-control_handoff_id: CH-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001
+control_handoff_id: CH-KUSABI-V3-CI-HARD-BLOCK-GATE-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/203
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
@@ -40,7 +40,7 @@ validation:
     - git diff --name-only main...HEAD
     - git diff --check main...HEAD
     - git diff --check
-    - node scripts/shirube/rapid-lite-gate.mjs --event /tmp/shirube-event.json --comments /tmp/shirube-comments.json --base main --head "$(git rev-parse HEAD)" --handoff .shirube/control-handoffs/CH-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001.yaml --enforce true --output /tmp/shirube-rapid-lite-gate.json
+    - node scripts/shirube/rapid-lite-gate.mjs --event /tmp/shirube-event.json --comments /tmp/shirube-comments.json --base main --head "$(git rev-parse HEAD)" --handoff .shirube/control-handoffs/CH-KUSABI-V3-CI-HARD-BLOCK-GATE-001.yaml --enforce true --output /tmp/shirube-rapid-lite-gate.json
   test_expectations:
     - This PR's own gate exits non-zero and reports BLOCKED only by owner_decision_missing before owner exact-head approval.
     - The same gate exits zero only after an APPROVED_EXACT_HEAD owner decision for the current head exists.
@@ -54,7 +54,7 @@ validation:
     - owner_decision_before_merge
 
 cell:
-  CELL-ID: CELL-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001
+  CELL-ID: CELL-KUSABI-V3-CI-HARD-BLOCK-GATE-001
   cell_type: integration_lite
   risk_class: R2
   goal: >-
