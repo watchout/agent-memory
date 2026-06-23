@@ -1,0 +1,64 @@
+schema_version: shirube-partial-adoption-ledger/v1
+ledger_scope: repository_entry
+repo: watchout/agent-memory
+updated_at: "2026-06-23T00:00:00+09:00"
+updated_by: Codex
+
+status_entry:
+  shirube_status: PARTIAL_SHIRUBE_PILOT
+  current_mode: gate-pack-bridge / owner-observed
+  control_source: https://github.com/watchout/agent-memory/issues/203
+  owner: watchout
+  current_pr: https://github.com/watchout/agent-memory/pull/204
+  current_head: pending_after_latest_commit
+  last_exact_head_decision:
+    status: pending
+    reason: PR #204 exact head must be confirmed by owner before merge.
+  next_step: >-
+    Merge PR #204 after owner exact-head confirmation, then open
+    core(mvp): harden current output redaction surfaces under L2 report-only
+    machine gate evidence.
+
+classification:
+  allowed:
+    - PARTIAL_SHIRUBE_PILOT
+    - rapid-lite-report-only
+    - gate-pack-bridge
+    - owner-observed
+  forbidden:
+    - FULL_SHIRUBE_CONTROLLED
+    - V3_COMPLETE
+    - ENFORCED
+    - REQUIRED_CHECK_ACTIVE
+    - BRANCH_PROTECTION_CONTROLLED
+
+minimum_pr_controls:
+  - control_source
+  - scope
+  - non_scope
+  - allowed_paths
+  - forbidden_paths
+  - protected_surface_declaration
+  - exact_head_sha
+  - validation_evidence
+  - owner_decision
+  - post_merge_evidence
+
+protected_surfaces:
+  must_declare:
+    - auth
+    - database_migration
+    - workflow
+    - deployment
+    - secrets
+    - required_check_activation
+    - branch_protection
+    - ruleset
+  lightweight_allowed: false
+
+operating_rules:
+  - LLM judgment alone must not be treated as merge-ready.
+  - Owner approval without exact head is invalid.
+  - Adoption PRs and runtime PRs must remain separate.
+  - BLOCKED or would_block findings require owner exception or rework before merge.
+  - Repositories without .shirube overlay must use Gate Pack Bridge and must not claim Shirube adoption.

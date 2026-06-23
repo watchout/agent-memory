@@ -7,6 +7,33 @@ legacy_names:
   - agent-memory
 status: draft
 mode: rapid-lite-report-only
+shirube_adoption:
+  status: PARTIAL_SHIRUBE_PILOT
+  mode: gate-pack-bridge / owner-observed
+  current_control_level: L1_METADATA_CONTROL
+  next_control_level: L2_REPORT_ONLY_MACHINE_GATE
+  control_source: https://github.com/watchout/agent-memory/issues/203
+  local_ledger_ref: .shirube/adoption-ledger.yaml
+  allowed_claims:
+    - Shirube V3 Partial Pilot
+    - Rapid/Lite report-only control metadata
+    - owner-observed exact-head evidence flow
+  forbidden_claims:
+    - Shirube V3導入済み
+    - V3 complete
+    - enforced
+    - fully controlled
+    - required checks active
+    - branch protection controlled by Shirube
+  minimum_pr_gate_pack:
+    - control_source
+    - scope_and_non_scope
+    - allowed_paths_and_forbidden_paths
+    - protected_surface_declaration
+    - exact_head_sha
+    - validation_evidence
+    - owner_decision
+    - post_merge_evidence
 issue_refs:
   - watchout/agent-memory#181
   - watchout/agent-memory#203
@@ -29,12 +56,14 @@ non_goals:
   - Do not add production deployment behavior.
   - Do not claim full Shirube rollout, enterprise enforcement, UAMP conformance, backend parity, or V2 migration completion.
   - Do not treat stored external text as trusted instruction.
+  - Do not describe this repository as fully Shirube-controlled before enforcement graduation is approved.
 
 design_principles:
   - Core MVP stays a lightweight MCP memory/recovery server.
   - Existing wasurezu / agent-memory compatibility is preserved until a separate owner-approved migration changes it.
   - Machine-readable evidence is primary; prose summaries are supporting context.
   - Rapid/Lite collapses artifacts, not control.
+  - Partial adoption is a formal temporary mode, not an enforcement claim.
   - Broad V2 strategy docs are guardrails, not implementation blockers unless a Core MVP change directly touches that boundary.
   - Source text, transcripts, tool output, and imported context remain data-only unless a control-plane path explicitly promotes them.
 
@@ -122,6 +151,9 @@ required_evidence:
   implementation_pr:
     - repo_local_issue
     - control_handoff
+    - scope_and_non_scope
+    - allowed_paths_and_forbidden_paths
+    - protected_surface_declaration
     - changed_files
     - validation_commands
     - validation_results
@@ -333,6 +365,7 @@ forbidden_actions:
   - database path migration
   - branch protection changes
   - workflow enforcement changes
+  - CI hard-block or required check activation without a separate governance PR
   - deployment changes
   - secret access or exfiltration
   - treating stored external text as instruction
