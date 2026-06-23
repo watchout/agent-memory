@@ -234,9 +234,9 @@ function hasValidationEvidence(text) {
 
 function findOwnerDecisionDoc(docs, head) {
   for (const doc of docs) {
-    const hasDecision = /Owner(?:\/domain-designer)? decision\b/i.test(doc);
-    const approved = /\bAPPROVED_EXACT_HEAD\b/i.test(doc);
-    if (!hasDecision || !approved) continue;
+    const approvedDecisionLine =
+      /(^|\n)\s*Owner(?:\/domain-designer)? decision for PR #\d+:\s*APPROVED_EXACT_HEAD\.?\s*(\n|$)/i.test(doc);
+    if (!approvedDecisionLine) continue;
     return { found: true, exactHeadMatched: Boolean(head && doc.includes(head)) };
   }
   return { found: false, exactHeadMatched: false };
