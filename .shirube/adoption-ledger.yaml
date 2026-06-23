@@ -9,26 +9,26 @@ status_entry:
   current_mode: gate-pack-bridge / owner-observed
   control_source: https://github.com/watchout/agent-memory/issues/203
   owner: watchout
-  current_pr: pending_l2_report_only_gate_pr
+  current_pr: pending_l3_ci_hard_block_gate_pr
   current_head: pending_after_latest_commit
   last_exact_head_decision:
     status: pending
-    reason: L2 report-only gate PR exact head must be confirmed by owner before merge.
+    reason: L3 CI hard-block gate PR exact head must be confirmed by owner before merge.
   next_step: >-
-    Merge the L2 report-only visible gate PR after owner exact-head
+    Merge the L3 CI hard-block gate PR after owner exact-head
     confirmation, then re-run PR #205 under the visible Shirube machine gate
     before owner approval.
 
 classification:
   allowed:
     - PARTIAL_SHIRUBE_PILOT
-    - rapid-lite-report-only
+    - rapid-lite-ci-hard-block
     - gate-pack-bridge
     - owner-observed
   forbidden:
     - FULL_SHIRUBE_CONTROLLED
     - V3_COMPLETE
-    - ENFORCED
+    - FULLY_ENFORCED
     - REQUIRED_CHECK_ACTIVE
     - BRANCH_PROTECTION_CONTROLLED
 

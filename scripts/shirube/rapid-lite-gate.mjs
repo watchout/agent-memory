@@ -2,13 +2,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const SCHEMA = "shirube-rapid-lite-report-only/v1";
+const SCHEMA = "shirube-rapid-lite-ci-hard-block/v1";
 const DEFAULT_BASE = "origin/main";
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const event = readJsonOption(options.event);
   const comments = readJsonOption(options.comments) ?? [];
+  const enforce = options.enforce === true || options.enforce === "true";
   const actualHead =
     stringOption(options.head) ??
     event?.pull_request?.head?.sha ??
@@ -85,7 +86,7 @@ function main() {
   }
 
   if (changedFiles.length > 12) {
-    warnings.push(finding("RL-PR-W001", "PR_size_large", "Changed file count exceeds Rapid/Lite report-only threshold.", "changed_files"));
+    warnings.push(finding("RL-PR-W001", "PR_size_large", "Changed file count exceeds Rapid/Lite gate threshold.", "changed_files"));
   }
 
   const hardBlocks = uniqueFindings(findings);
@@ -93,7 +94,8 @@ function main() {
   const verdict = hardBlocks.length > 0 ? "BLOCKED" : uniqueWarnings.length > 0 ? "PASS_WITH_WARN" : "PASS";
   const report = {
     schema: SCHEMA,
-    report_only: true,
+    report_only: !enforce,
+    enforcement: enforce ? "ci_hard_block" : "report_only",
     mode: handoff?.mode ?? "unknown",
     profile: handoff?.profile ?? "unknown",
     verdict,
@@ -110,7 +112,8 @@ function main() {
     boundary: {
       required_check_active: false,
       branch_protection_changed: false,
-      report_only: true,
+      ci_hard_block_active: enforce,
+      report_only: !enforce,
     },
   };
 
@@ -118,6 +121,7 @@ function main() {
   if (output) writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`);
   appendStepSummary(renderMarkdown(report));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  if (enforce && hardBlocks.length > 0) process.exitCode = 1;
 }
 
 function parseArgs(args) {
@@ -172,7 +176,8 @@ function discoverHandoffPath(docs, changedFiles) {
   const combined = docs.join("\n");
   const matches = Array.from(combined.matchAll(/\.shirube\/control-handoffs\/[A-Za-z0-9_.\/-]+\.ya?ml/g)).map((match) => match[0]);
   const changed = changedFiles.filter((file) => /^\.shirube\/control-handoffs\/.+\.ya?ml$/.test(file));
-  return Array.from(new Set([...matches, ...changed]))[0] ?? null;
+  const candidates = Array.from(new Set([...matches, ...changed]));
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
 }
 
 function parseHandoff(text, filePath) {
@@ -299,12 +304,13 @@ function renderMarkdown(report) {
     : "| - | - | - | none |";
   const changed = report.changed_files.length ? report.changed_files.map((file) => `- \`${file}\``).join("\n") : "- none";
   return [
-    "## Shirube Rapid/Lite Report-Only Gate",
+    "## Shirube Rapid/Lite Gate",
     "",
     `- Verdict: \`${report.verdict}\``,
     `- Would block: \`${report.would_block}\``,
     `- Owner must not merge: \`${report.owner_must_not_merge}\``,
     `- Report-only: \`${report.report_only}\``,
+    `- Enforcement: \`${report.enforcement ?? "report_only"}\``,
     `- Head: \`${report.head_sha}\``,
     `- Handoff: \`${report.handoff_ref ?? "missing"}\``,
     `- Cell: \`${report.cell_id ?? "missing"}\``,
@@ -327,7 +333,9 @@ function renderMarkdown(report) {
     "",
     "### Boundary",
     "",
-    "This check is visible/report-only. It does not activate a required check, mutate branch protection, or enforce merge blocking by exit code.",
+    report.enforcement === "ci_hard_block"
+      ? "This check fails the CI job when would_block=true. It does not mutate branch protection or repository rulesets."
+      : "This check is visible/report-only. It does not activate a required check, mutate branch protection, or enforce merge blocking by exit code.",
     "",
   ].join("\n");
 }
@@ -337,7 +345,8 @@ try {
 } catch (error) {
   const report = {
     schema: SCHEMA,
-    report_only: true,
+    report_only: false,
+    enforcement: "ci_hard_block",
     verdict: "FAILURE",
     would_block: true,
     owner_must_not_merge: true,
@@ -345,4 +354,5 @@ try {
   };
   appendStepSummary(renderMarkdown({ ...report, warnings: [], changed_files: [], head_sha: "unknown", handoff_ref: null, cell_id: null }));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  process.exitCode = 1;
 }

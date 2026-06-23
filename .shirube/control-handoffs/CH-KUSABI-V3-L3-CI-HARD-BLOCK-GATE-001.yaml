@@ -1,7 +1,7 @@
 schema_version: shirube-control-handoff/rapid-lite/v1
 mode: rapid-lite
 profile: hotel-lite
-control_handoff_id: CH-KUSABI-V3-L2-REPORT-ONLY-GATE-001
+control_handoff_id: CH-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/203
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
@@ -18,9 +18,9 @@ next_role: implementation
 
 rps_scope:
   shirube_owns:
-    - Visible Rapid/Lite report-only machine gate for pull requests.
+    - Visible Rapid/Lite CI hard-block machine gate for pull requests.
     - PR diff-scope, handoff discovery, exact-head evidence, validation evidence, and owner-decision evidence reporting.
-    - Job summary and JSON artifact that make would_block visible to owners before merge.
+    - CI failure, job summary, and JSON artifact when would_block findings are present.
   shirube_does_not_own:
     - Required check activation.
     - Branch protection or ruleset mutation.
@@ -29,20 +29,21 @@ rps_scope:
     - UAMP conformance, backend parity, compliance, federation, or suite integration claims.
 
 acceptance_criteria:
-  - A GitHub Actions workflow runs a report-only Shirube Rapid/Lite gate on pull_request.
-  - The workflow exits successfully in report-only mode while surfacing would_block and owner_must_not_merge in the summary.
+  - A GitHub Actions workflow runs a Shirube Rapid/Lite CI hard-block gate on pull_request.
+  - The workflow exits non-zero in enforce mode when would_block or owner_must_not_merge is true.
   - The workflow uploads machine-readable JSON evidence.
   - The gate checks the PR's referenced control handoff, changed files, exact head evidence, validation evidence, and owner exact-head decision evidence.
-  - No branch protection, ruleset, required-check, runtime, package, MCP, env, DB, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
+  - No branch protection, ruleset, required-check activation, runtime, package, MCP, env, DB, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
 
 validation:
   required_commands:
     - git diff --name-only main...HEAD
     - git diff --check main...HEAD
     - git diff --check
-    - node scripts/shirube/rapid-lite-report-only.mjs --event /tmp/shirube-event.json --comments /tmp/shirube-comments.json --base main --head "$(git rev-parse HEAD)" --handoff .shirube/control-handoffs/CH-KUSABI-V3-L2-REPORT-ONLY-GATE-001.yaml
+    - node scripts/shirube/rapid-lite-gate.mjs --event /tmp/shirube-event.json --comments /tmp/shirube-comments.json --base main --head "$(git rev-parse HEAD)" --handoff .shirube/control-handoffs/CH-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001.yaml --enforce true --output /tmp/shirube-rapid-lite-gate.json
   test_expectations:
-    - This PR's own gate report is BLOCKED only by owner_decision_missing before owner exact-head approval.
+    - This PR's own gate exits non-zero and reports BLOCKED only by owner_decision_missing before owner exact-head approval.
+    - The same gate exits zero only after an APPROVED_EXACT_HEAD owner decision for the current head exists.
     - Changed files stay inside this cell's allowed paths.
     - Forbidden runtime/package/MCP/env/DB/deployment paths are not touched.
   required_evidence:
@@ -53,12 +54,13 @@ validation:
     - owner_decision_before_merge
 
 cell:
-  CELL-ID: CELL-KUSABI-V3-L2-REPORT-ONLY-GATE-001
+  CELL-ID: CELL-KUSABI-V3-L3-CI-HARD-BLOCK-GATE-001
   cell_type: integration_lite
   risk_class: R2
   goal: >-
-    Add a visible report-only Shirube Rapid/Lite machine gate so PR owners can
-    see PASS/BLOCKED/would_block criteria before exact-head approval and merge.
+    Add a visible Shirube Rapid/Lite CI hard-block gate so PR owners cannot
+    accidentally pass PRs with missing handoff, diff-scope, validation,
+    exact-head, or owner-decision evidence.
   non_scope:
     - Runtime code changes.
     - Package or lockfile changes.
@@ -69,7 +71,9 @@ cell:
     - UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
   allowed_paths:
     - .github/workflows/shirube-rapid-lite-report-only.yml
+    - .github/workflows/shirube-rapid-lite-gate.yml
     - scripts/shirube/rapid-lite-report-only.mjs
+    - scripts/shirube/rapid-lite-gate.mjs
     - .shirube/**
   forbidden_paths:
     - src/**
@@ -89,16 +93,17 @@ cell:
     - "**/ruleset/**"
   stop_conditions:
     - The workflow is made required or branch protection is changed.
-    - The gate exits non-zero for ordinary would_block findings before owner-approved enforcement graduation.
+    - The gate is downgraded to report-only for PRs without a separate owner-approved governance decision.
+    - The gate passes would_block findings without an explicit owner-approved exception mechanism.
     - Runtime/package/MCP/env/DB/deployment behavior is changed.
     - The work claims full Shirube control, required check activation, UAMP conformance, backend parity, compliance, federation, or suite integration.
     - The workflow requires access to secrets or external live systems.
 
 implementation_boundary:
   summary: >-
-    This cell adds a self-contained report-only PR gate. It makes Shirube
-    evidence visible as machine output but does not enforce branch protection or
-    required checks.
+    This cell adds a self-contained CI hard-block PR gate. It fails the workflow
+    when Shirube Rapid/Lite hard blocks are present, while deliberately avoiding
+    branch protection mutation, ruleset mutation, and required-check activation.
   expected_pr_count: 1
   forbidden_operations:
     - merge without owner exact-head decision

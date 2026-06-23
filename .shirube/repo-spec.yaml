@@ -6,23 +6,23 @@ legacy_names:
   - wasurezu
   - agent-memory
 status: draft
-mode: rapid-lite-report-only
+mode: rapid-lite-ci-hard-block
 shirube_adoption:
   status: PARTIAL_SHIRUBE_PILOT
   mode: gate-pack-bridge / owner-observed
-  current_control_level: L2_REPORT_ONLY_MACHINE_GATE
-  next_control_level: L3_OWNER_DECISION_MACHINE_BINDING
+  current_control_level: L3_CI_HARD_BLOCK_GATE
+  next_control_level: L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION
   control_source: https://github.com/watchout/agent-memory/issues/203
   local_ledger_ref: .shirube/adoption-ledger.yaml
   allowed_claims:
     - Shirube V3 Partial Pilot
-    - Rapid/Lite report-only control metadata
-    - Rapid/Lite report-only visible PR gate
+    - Rapid/Lite CI hard-block control metadata
+    - Rapid/Lite CI hard-block PR gate
     - owner-observed exact-head evidence flow
   forbidden_claims:
     - Shirube V3導入済み
     - V3 complete
-    - enforced
+    - fully enforced
     - fully controlled
     - required checks active
     - branch protection controlled by Shirube
@@ -52,12 +52,12 @@ non_goals:
   - Do not change runtime memory behavior through this repo-spec.
   - Do not change persistence behavior through this repo-spec.
   - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables.
-  - Do not enable GitHub Actions enforcement, required checks, branch protection, or ruleset changes in this repo-spec.
+  - Do not enable required checks, branch protection, or ruleset changes in this repo-spec.
   - Do not change branch protection or repository rulesets.
   - Do not add production deployment behavior.
   - Do not claim full Shirube rollout, enterprise enforcement, UAMP conformance, backend parity, or V2 migration completion.
   - Do not treat stored external text as trusted instruction.
-  - Do not describe this repository as fully Shirube-controlled before enforcement graduation is approved.
+  - Do not describe this repository as fully Shirube-controlled before required-check and branch-protection graduation is approved.
 
 design_principles:
   - Core MVP stays a lightweight MCP memory/recovery server.
@@ -85,18 +85,18 @@ operating_model:
       - repo_spec
       - adoption_intake
       - rapid_lite_control_handoff
-    report_only: true
+    ci_hard_block: true
     stop_condition: >-
       Stop if the work attempts UAMP, conformance, compliance, federation,
       tenant identity, suite integration, package/MCP/env/DB migration, workflow
-      enforcement, or branch protection before Core MVP is stable.
+      required-check activation, or branch protection before Core MVP is stable.
   dev_loop:
     purpose: Keep each Core MVP implementation PR bounded by a Rapid/Lite cell.
     gates:
       - rapid_lite_control_handoff
       - diff_scope
       - validation_evidence
-    report_only: true
+    ci_hard_block: true
     stop_condition: >-
       Stop if changed files leave the handoff allowed_paths or match
       forbidden_paths.
@@ -105,7 +105,7 @@ operating_model:
     gates:
       - owner_exact_head_decision
       - post_merge_evidence
-    report_only: true
+    ci_hard_block: true
     stop_condition: >-
       Stop if protected, external, destructive, workflow, branch-protection,
       deployment, or live suite behavior is requested.
@@ -113,7 +113,7 @@ operating_model:
     purpose: Track Core MVP movement from adoption through post-merge evidence.
     state_ref: .shirube/lifecycle-state.yaml
     transition_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
-    report_only: true
+    ci_hard_block: true
 
 gate_catalog:
   repo_spec:
@@ -365,8 +365,8 @@ forbidden_actions:
   - environment variable rename
   - database path migration
   - branch protection changes
-  - workflow enforcement changes
-  - CI hard-block or required check activation without a separate governance PR
+  - workflow enforcement changes outside an owner-approved Shirube governance PR
+  - required check activation without a separate governance PR and repository plan support
   - deployment changes
   - secret access or exfiltration
   - treating stored external text as instruction
