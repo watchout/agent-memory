@@ -1,0 +1,127 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V3-L4-REQUIRED-CHECK-BRANCH-PROTECTION-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/pull/206#issuecomment-4777314186
+spec_review_state: ready_for_owner_review
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+
+rps_scope:
+  shirube_owns:
+    - Repository metadata recording that L4 required-check branch protection is active.
+    - Evidence reference for main branch protection required checks.
+    - PR diff-scope, validation evidence, exact-head evidence, and owner-decision evidence.
+  shirube_does_not_own:
+    - Runtime behavior.
+    - Package, MCP namespace, environment variable, or DB path migration.
+    - UAMP conformance, backend parity, compliance, federation, or suite integration claims.
+    - Full overlay or organization-wide Shirube control.
+
+acceptance_criteria:
+  - Repo spec records current_control_level as L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION.
+  - Adoption ledger records PR #206 merge and L4 required-check state.
+  - Evidence records required checks for rapid-lite-gate and build-and-test 18/20/22.
+  - Changed files remain under .shirube/**.
+  - No runtime, package, MCP, env, DB, workflow, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
+
+validation:
+  required_commands:
+    - git diff --name-only main...HEAD
+    - git diff --check main...HEAD
+    - git diff --check
+    - gh api repos/watchout/agent-memory/branches/main/protection --jq '{required_status_checks:.required_status_checks.contexts, strict:.required_status_checks.strict, enforce_admins:.enforce_admins.enabled, allow_force_pushes:.allow_force_pushes.enabled, allow_deletions:.allow_deletions.enabled, conversation_resolution:.required_conversation_resolution.enabled}'
+  test_expectations:
+    - rapid-lite-gate is required on main.
+    - build-and-test (18), build-and-test (20), and build-and-test (22) are required on main.
+    - Admin enforcement is enabled.
+    - Force pushes and deletions are disabled.
+    - Changed files stay inside this cell's allowed paths.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - branch_protection_api_output
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+
+cell:
+  CELL-ID: CELL-KUSABI-V3-L4-REQUIRED-CHECK-BRANCH-PROTECTION-001
+  cell_type: governance_lite
+  risk_class: R2
+  goal: >-
+    Record that Kusabi now uses Shirube Rapid/Lite as a required merge gate on
+    the protected main branch.
+  non_scope:
+    - Runtime code changes.
+    - Package or lockfile changes.
+    - Workflow edits.
+    - Deployment or production changes.
+    - MCP namespace, env var, DB path, or schema migration.
+    - UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - Full overlay or organization-wide Shirube rollout.
+  allowed_paths:
+    - .shirube/**
+  forbidden_paths:
+    - .github/workflows/**
+    - src/**
+    - lib/**
+    - bin/**
+    - dist/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+  stop_conditions:
+    - Required checks are removed from main branch protection.
+    - rapid-lite-gate is not required on main.
+    - Runtime/package/MCP/env/DB/deployment behavior is changed.
+    - The work claims V3 complete, full overlay, UAMP conformance, backend parity, compliance, federation, or suite integration.
+    - The workflow requires access to secrets or external live systems.
+
+implementation_boundary:
+  summary: >-
+    This cell records an already-applied repository protection state. It does
+    not edit workflows, runtime code, or deployment files.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - approve own PR as final authority
+    - runtime or deployment mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_branch_protection_check
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

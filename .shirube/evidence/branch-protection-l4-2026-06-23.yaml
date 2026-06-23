@@ -1,0 +1,36 @@
+schema_version: shirube-branch-protection-evidence/v1
+repo: watchout/agent-memory
+branch: main
+recorded_at: "2026-06-23T00:00:00+09:00"
+recorded_by: Codex
+source_command: >-
+  gh api repos/watchout/agent-memory/branches/main/protection --jq
+  '{required_status_checks:.required_status_checks.contexts,
+  strict:.required_status_checks.strict,
+  enforce_admins:.enforce_admins.enabled,
+  allow_force_pushes:.allow_force_pushes.enabled,
+  allow_deletions:.allow_deletions.enabled,
+  conversation_resolution:.required_conversation_resolution.enabled}'
+required_status_checks:
+  strict: true
+  contexts:
+    - rapid-lite-gate
+    - build-and-test (18)
+    - build-and-test (20)
+    - build-and-test (22)
+enforce_admins: true
+allow_force_pushes: false
+allow_deletions: false
+required_conversation_resolution: true
+rulesets:
+  active: false
+  note: Repository branch protection is active; repository rulesets remain unused.
+boundary:
+  runtime_changed: false
+  package_changed: false
+  workflow_changed_by_this_record: false
+  deployment_changed: false
+  required_check_control_active: true
+  branch_protection_active: true
+  full_overlay_claimed: false
+  v3_complete_claimed: false
