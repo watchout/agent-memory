@@ -12,6 +12,7 @@
  *     here so tests can import them without dragging in `src/index.ts`,
  *     which side-effects an MCP server boot at module load.
  */
+import { redactText } from "./redact.js";
 
 /**
  * Strip orphaned UTF-16 surrogate code units from a string.
@@ -53,13 +54,13 @@ export function stripOrphanSurrogates(input: string): string {
 
 /**
  * Build an MCP `{type: "text", text: ...}` content block with the
- * text already sanitized via `stripOrphanSurrogates`.
+ * text already redacted and sanitized via `stripOrphanSurrogates`.
  *
  * **Convention**: every MCP tool handler in `src/index.ts` returns
  * its text content through this helper. There are no exceptions —
- * applying it at every output boundary is what makes the sanitizer
- * effective. New tool handlers must follow the same pattern.
+ * applying it at every output boundary is what makes output redaction and
+ * sanitizer coverage effective. New tool handlers must follow the same pattern.
  */
 export function safeText(text: string): { type: "text"; text: string } {
-  return { type: "text" as const, text: stripOrphanSurrogates(text) };
+  return { type: "text" as const, text: stripOrphanSurrogates(redactText(text).text) };
 }

@@ -206,7 +206,7 @@ export async function logCodexStartupQuality(
       launched_codex: options.launchedCodex === true,
     }),
   }).catch((err: unknown) => {
-    process.stderr.write(`[codex-start] logRecoveryQuality failed (non-fatal): ${err}\n`);
+    process.stderr.write(redactText(`[codex-start] logRecoveryQuality failed (non-fatal): ${err}\n`).text);
   });
 }
 
@@ -354,7 +354,7 @@ export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string):
 
 if (isMainEntrypoint(process.argv[1], import.meta.url)) {
   run().catch((err) => {
-    console.error(`[wasurezu-codex-start] ${err instanceof Error ? err.message : err}`);
+    console.error(redactText(`[wasurezu-codex-start] ${err instanceof Error ? err.message : err}`).text);
     process.exit(1);
   });
 }

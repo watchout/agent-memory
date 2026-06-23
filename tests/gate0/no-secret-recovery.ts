@@ -9,8 +9,10 @@
  * Run: HOME=$(mktemp -d) npx tsx tests/gate0/no-secret-recovery.ts
  */
 import { SqliteStore } from "../../src/stores/sqlite-store.js";
-import { generateRestartPack } from "../../src/restart-pack.js";
+import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "../../src/constants.js";
+import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "../../src/restart-pack.js";
 import { redactText } from "../../src/redact.js";
+import { safeText } from "../../src/sanitize.js";
 import { mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -33,6 +35,10 @@ const PROJECT = "gate0";
 const FAKE_OPENAI_KEY = "sk-ant-fake123abcDEFGHIJKLMNOPQRSTUV";
 const FAKE_GITHUB_TOKEN = "github_pat_faketoken123ABCDEFGHIJKLMNOPQRfake";
 const FAKE_GHO_TOKEN = "gho_fakeGHOtokenABCDEFGHIJKLMNOPQ";
+const FAKE_BEARER_TOKEN = "Bearer abcdefghijklmnopqrstuvwxyz.0123456789._secret";
+const FAKE_DATABASE_URL = "DATABASE_URL=postgres://user:pass@example.test:5432/app";
+const FAKE_PHONE = "415-555-0123";
+const SAMPLE_DATE = "2026-06-23";
 
 async function runTests(): Promise<void> {
   const tmpDir = mkdtempSync(join(tmpdir(), "gate0-secret-"));
@@ -71,6 +77,16 @@ async function runTests(): Promise<void> {
       tags: ["auth"],
     });
 
+    await store.saveTaskState({
+      agent_id: AGENT,
+      project: PROJECT,
+      task: `Rotate deployment token ${FAKE_BEARER_TOKEN}`,
+      status: "in_progress",
+      progress: `Investigating ${FAKE_DATABASE_URL}`,
+      next_steps: `Call ${FAKE_PHONE} only after redaction coverage is verified`,
+      files_modified: [join(tmpDir, "secret-output.ts")],
+    });
+
     console.log("\n── Gate 0: no-secret-recovery ──");
 
     // ── Test 1: redactText removes sk- pattern ──
@@ -78,28 +94,98 @@ async function runTests(): Promise<void> {
     assert(!r1.text.includes(FAKE_OPENAI_KEY), "redactText removes sk- pattern");
     assert(r1.redaction_count > 0, "redactText reports non-zero redaction_count for sk- pattern");
 
-    // ── Test 2: redactText removes ghp_ token ──
+    // ── Test 2: redactText removes GitHub token ──
     const r2 = redactText(FAKE_GITHUB_TOKEN);
-    assert(!r2.text.includes(FAKE_GITHUB_TOKEN), "redactText removes ghp_ token");
+    assert(!r2.text.includes(FAKE_GITHUB_TOKEN), "redactText removes GitHub token");
 
     // ── Test 3: redactText removes gho_ token ──
     const r3 = redactText(FAKE_GHO_TOKEN);
     assert(!r3.text.includes(FAKE_GHO_TOKEN), "redactText removes gho_ token");
 
-    // ── Test 4: restart pack output does not contain raw sk- key ──
+    // ── Test 4: redactText redacts phones without treating ISO dates as phones ──
+    const r4 = redactText(`date ${SAMPLE_DATE} phone ${FAKE_PHONE}`);
+    assert(r4.text.includes(SAMPLE_DATE), "redactText preserves ISO dates");
+    assert(!r4.text.includes(FAKE_PHONE), "redactText removes phone-like PII");
+
+    // ── Test 5: MCP text boundary redacts current output surfaces ──
+    const mcpOutput = safeText(`search_memory result ${FAKE_GITHUB_TOKEN} ${SAMPLE_DATE}`);
+    assert(!mcpOutput.text.includes(FAKE_GITHUB_TOKEN), "safeText redacts MCP text content");
+    assert(mcpOutput.text.includes(SAMPLE_DATE), "safeText preserves ISO dates");
+
+    // ── Test 6: restart pack output does not contain raw sk- key ──
     const pack = await generateRestartPack(store, {
       agent_id: AGENT,
       project: PROJECT,
     });
     assert(!pack.includes(FAKE_OPENAI_KEY), "generateRestartPack output does not contain raw sk- key");
 
-    // ── Test 5: restart pack output does not contain raw ghp_ token ──
-    assert(!pack.includes(FAKE_GITHUB_TOKEN), "generateRestartPack output does not contain raw ghp_ token");
+    // ── Test 7: restart pack output does not contain raw GitHub token ──
+    assert(!pack.includes(FAKE_GITHUB_TOKEN), "generateRestartPack output does not contain raw GitHub token");
 
-    // ── Test 6: restart pack output does not contain raw gho_ token ──
+    // ── Test 8: restart pack output does not contain raw gho_ token ──
     assert(!pack.includes(FAKE_GHO_TOKEN), "generateRestartPack output does not contain raw gho_ token");
+    assert(!pack.includes(FAKE_BEARER_TOKEN), "generateRestartPack output does not contain raw bearer token");
+    assert(!pack.includes(FAKE_DATABASE_URL), "generateRestartPack output does not contain raw database URL");
+    assert(!pack.includes(FAKE_PHONE), "generateRestartPack output does not contain raw phone-like PII");
 
-    // ── Test 7: redacted output contains placeholder string ──
+    // ── Test 9: recover_context / boot output builder redacts current surfaces ──
+    const [inProgressTasks, completedTasks, decisions, knowledgeItems] = await Promise.all([
+      store.getTaskStates({ agent_id: AGENT, project: PROJECT, limit: 1, status: "in_progress" }),
+      store.getTaskStates({ agent_id: AGENT, project: PROJECT, limit: 1, status: "completed" }),
+      store.getDecisions({ agent_id: AGENT, project: PROJECT, limit: 5, status: "active" }),
+      store.getKnowledge({ agent_id: AGENT, project: PROJECT, limit: 5, status: "active" }),
+    ]);
+    const recoveryOutput = buildRecoveryOutput({
+      agentId: AGENT,
+      project: PROJECT,
+      config: DEFAULT_RECOVERY_CONFIG,
+      inProgressTasks,
+      completedTasks,
+      decisions,
+      knowledgeItems,
+      messages: [
+        {
+          id: "msg-1",
+          author_id: "user",
+          content: `Recent output included ${FAKE_OPENAI_KEY}`,
+          source: "manual",
+          role: "user",
+          project: PROJECT,
+          created_at: `${SAMPLE_DATE}T00:00:00.000Z`,
+        },
+      ],
+    });
+    assert(!recoveryOutput.includes(FAKE_OPENAI_KEY), "buildRecoveryOutput redacts message content");
+    assert(!recoveryOutput.includes(FAKE_BEARER_TOKEN), "buildRecoveryOutput redacts task content");
+    assert(!recoveryOutput.includes(FAKE_DATABASE_URL), "buildRecoveryOutput redacts env-style secrets");
+    assert(!recoveryOutput.includes(FAKE_PHONE), "buildRecoveryOutput redacts phone-like PII");
+    assert(recoveryOutput.includes(SAMPLE_DATE), "buildRecoveryOutput preserves ISO dates");
+
+    // ── Test 10: structured recovery artifacts do not contain raw secrets ──
+    const recoveryArtifact = await generateRecoveryPackArtifact(store, {
+      agent_id: AGENT,
+      project: PROJECT,
+    });
+    const recoveryJson = JSON.stringify(recoveryArtifact);
+    assert(!recoveryJson.includes(FAKE_OPENAI_KEY), "recovery-pack/v1 JSON does not contain raw sk- key");
+    assert(!recoveryJson.includes(FAKE_GITHUB_TOKEN), "recovery-pack/v1 JSON does not contain raw GitHub token");
+    assert(!recoveryJson.includes(FAKE_BEARER_TOKEN), "recovery-pack/v1 JSON does not contain raw bearer token");
+    assert(
+      recoveryArtifact.redaction_summary?.mode === "redacted-before-emit",
+      "recovery-pack/v1 records redaction summary when secrets are redacted"
+    );
+
+    const hostContext = await generateHostInvocationContext(store, {
+      agent_id: AGENT,
+      project: PROJECT,
+      target_runtime: "claude",
+    });
+    const hostContextJson = JSON.stringify(hostContext);
+    assert(!hostContextJson.includes(FAKE_OPENAI_KEY), "host-invocation-context/v1 JSON does not contain raw sk- key");
+    assert(!hostContextJson.includes(FAKE_GITHUB_TOKEN), "host-invocation-context/v1 JSON does not contain raw GitHub token");
+    assert(!hostContextJson.includes(FAKE_BEARER_TOKEN), "host-invocation-context/v1 JSON does not contain raw bearer token");
+
+    // ── Test 11: redacted output contains placeholder string ──
     const redacted = redactText(`API key: ${FAKE_OPENAI_KEY}`);
     assert(
       redacted.text.includes("[REDACTED]"),

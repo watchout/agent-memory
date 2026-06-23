@@ -18,6 +18,7 @@ import {
   type PackInjectionMode,
   type RestartPrepareOutput,
 } from "./restart-prepare.js";
+import { redactText } from "./redact.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -261,22 +262,26 @@ async function run(): Promise<void> {
   try {
     const result = await prepareClaudeResession(store, options);
     if (!options.launch) {
-      console.log(JSON.stringify(result, null, 2));
+      console.log(redactedJson(result));
       return;
     }
 
     if (result.launch_blockers.length > 0) {
-      console.log(JSON.stringify(result, null, 2));
+      console.log(redactedJson(result));
       process.exitCode = 2;
       return;
     }
 
-    process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.stderr.write(`${redactedJson(result)}\n`);
     await launchClaude(options, result.prepare);
-    process.stderr.write(`${JSON.stringify(buildClaudeRunnerResult(result.prepare, true, true), null, 2)}\n`);
+    process.stderr.write(`${redactedJson(buildClaudeRunnerResult(result.prepare, true, true))}\n`);
   } finally {
     await store.close();
   }
+}
+
+function redactedJson(value: unknown): string {
+  return redactText(JSON.stringify(value, null, 2)).text;
 }
 
 function launchClaude(options: ClaudeStartCliOptions, prepared: RestartPrepareOutput): Promise<void> {

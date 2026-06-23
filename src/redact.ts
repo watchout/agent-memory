@@ -27,7 +27,8 @@ const URL_CREDENTIAL_RE = /\b(https?:\/\/)([^:\s/@]+):([^@\s/]+)@/gi;
 const WEBHOOK_URL_RE =
   /\bhttps:\/\/(?:hooks\.slack\.com\/services|discord(?:app)?\.com\/api\/webhooks|[^/\s]+\/webhook[s]?\/)[^\s"'<>]+/gi;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-const PHONE_RE = /\b(?:\+?\d[\d .()/-]{8,}\d)\b/g;
+const PHONE_RE =
+  /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?:\s*(?:x|ext\.?)\s*\d{1,5})?\b/g;
 
 function applyRedaction(input: string, pattern: RegExp, replacement: string): { text: string; count: number } {
   let count = 0;
