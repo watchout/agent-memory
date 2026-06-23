@@ -9,15 +9,15 @@ status_entry:
   current_mode: gate-pack-bridge / owner-observed
   control_source: https://github.com/watchout/agent-memory/issues/203
   owner: watchout
-  current_pr: https://github.com/watchout/agent-memory/pull/204
+  current_pr: pending_l2_report_only_gate_pr
   current_head: pending_after_latest_commit
   last_exact_head_decision:
     status: pending
-    reason: PR #204 exact head must be confirmed by owner before merge.
+    reason: L2 report-only gate PR exact head must be confirmed by owner before merge.
   next_step: >-
-    Merge PR #204 after owner exact-head confirmation, then open
-    core(mvp): harden current output redaction surfaces under L2 report-only
-    machine gate evidence.
+    Merge the L2 report-only visible gate PR after owner exact-head
+    confirmation, then re-run PR #205 under the visible Shirube machine gate
+    before owner approval.
 
 classification:
   allowed:

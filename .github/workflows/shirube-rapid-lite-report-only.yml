@@ -1,0 +1,57 @@
+name: Shirube Rapid/Lite Report-Only Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  rapid-lite-report-only:
+    name: rapid-lite-report-only
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fetch base branch
+        if: github.event_name == 'pull_request'
+        run: git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}" --depth=1
+
+      - name: Collect PR comments
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" --paginate > "$RUNNER_TEMP/shirube-pr-comments.json"
+
+      - name: Run Shirube Rapid/Lite report-only gate
+        env:
+          SHIRUBE_REPORT_ONLY: "true"
+        run: |
+          comments_file="$RUNNER_TEMP/shirube-pr-comments.json"
+          if [ ! -f "$comments_file" ]; then
+            printf '[]\n' > "$comments_file"
+          fi
+
+          node scripts/shirube/rapid-lite-report-only.mjs \
+            --event "$GITHUB_EVENT_PATH" \
+            --comments "$comments_file" \
+            --base "origin/${{ github.base_ref || 'main' }}" \
+            --head "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --output "$RUNNER_TEMP/shirube-rapid-lite-report.json"
+
+      - name: Upload Shirube report
+        uses: actions/upload-artifact@v4
+        with:
+          name: shirube-rapid-lite-report
+          path: ${{ runner.temp }}/shirube-rapid-lite-report.json
+          if-no-files-found: error

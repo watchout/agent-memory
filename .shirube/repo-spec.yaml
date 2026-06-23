@@ -10,13 +10,14 @@ mode: rapid-lite-report-only
 shirube_adoption:
   status: PARTIAL_SHIRUBE_PILOT
   mode: gate-pack-bridge / owner-observed
-  current_control_level: L1_METADATA_CONTROL
-  next_control_level: L2_REPORT_ONLY_MACHINE_GATE
+  current_control_level: L2_REPORT_ONLY_MACHINE_GATE
+  next_control_level: L3_OWNER_DECISION_MACHINE_BINDING
   control_source: https://github.com/watchout/agent-memory/issues/203
   local_ledger_ref: .shirube/adoption-ledger.yaml
   allowed_claims:
     - Shirube V3 Partial Pilot
     - Rapid/Lite report-only control metadata
+    - Rapid/Lite report-only visible PR gate
     - owner-observed exact-head evidence flow
   forbidden_claims:
     - Shirube V3導入済み
@@ -51,7 +52,7 @@ non_goals:
   - Do not change runtime memory behavior through this repo-spec.
   - Do not change persistence behavior through this repo-spec.
   - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables.
-  - Do not enable or modify GitHub Actions enforcement in this repo-spec.
+  - Do not enable GitHub Actions enforcement, required checks, branch protection, or ruleset changes in this repo-spec.
   - Do not change branch protection or repository rulesets.
   - Do not add production deployment behavior.
   - Do not claim full Shirube rollout, enterprise enforcement, UAMP conformance, backend parity, or V2 migration completion.
