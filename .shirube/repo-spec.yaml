@@ -8,10 +8,10 @@ legacy_names:
 status: active
 mode: rapid-lite-required-check
 shirube_adoption:
-  status: SHIRUBE_V3_L4_REQUIRED_CHECK_CONTROLLED
-  mode: gate-pack-bridge / required-check-enforced
-  current_control_level: L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION
-  next_control_level: L5_FULL_OVERLAY_AND_MULTI_REPO_CONTROL
+  status: SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
+  mode: gate-pack-bridge / required-check-enforced / cell-audit-required
+  current_control_level: L5_CELL_AUDIT_BRIDGE_REQUIRED
+  next_control_level: L6_STANDARD_OVERLAY_AND_MULTI_REPO_CONTROL
   control_source: https://github.com/watchout/agent-memory/issues/203
   local_ledger_ref: .shirube/adoption-ledger.yaml
   allowed_claims:
@@ -20,17 +20,20 @@ shirube_adoption:
     - Rapid/Lite required-check PR gate
     - main branch protection active
     - required checks active for rapid-lite-gate and build-and-test 18/20/22
+    - CELL audit record required for Shirube-controlled PRs
+    - full Rapid/Lite repository control active for watchout/agent-memory
     - owner-observed exact-head evidence flow
   forbidden_claims:
-    - Shirube V3導入済み
-    - V3 complete
-    - full overlay installed
+    - organization-wide Shirube V3導入済み
+    - V3 complete across all repositories
+    - Standard/Enterprise full overlay installed
     - organization-wide Shirube control
   minimum_pr_gate_pack:
     - control_source
     - scope_and_non_scope
     - allowed_paths_and_forbidden_paths
     - protected_surface_declaration
+    - cell_audit_record
     - exact_head_sha
     - validation_evidence
     - owner_decision
@@ -72,6 +75,7 @@ required_gates:
   - repo_spec
   - adoption_intake
   - rapid_lite_control_handoff
+  - cell_audit_bridge
   - diff_scope
   - validation_evidence
   - owner_exact_head_decision
@@ -97,6 +101,7 @@ operating_model:
       - rapid_lite_control_handoff
       - diff_scope
       - validation_evidence
+      - cell_audit_bridge
     ci_hard_block: true
     required_check_active: true
     stop_condition: >-
@@ -141,6 +146,13 @@ gate_catalog:
     responsible_role: implementation
     required_evidence:
       - .shirube/control-handoffs/*.yaml
+  cell_audit_bridge:
+    purpose: Require a CELL-by-CELL audit record with PASS, FAIL, or WAIVED verdicts before merge.
+    script: scripts/shirube/rapid-lite-gate.mjs
+    responsible_role: reviewer
+    required_evidence:
+      - .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+      - inline shirube-audit-record/v1 block or .shirube/audits/*.json
   lifecycle:
     purpose: Track readiness, implementation, PR, merge, and post-merge phases.
     script: /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-lifecycle.mjs
@@ -164,11 +176,13 @@ required_evidence:
     - changed_files
     - validation_commands
     - validation_results
+    - cell_audit_record
     - exact_pr_head_sha
     - owner_decision
   merge:
     - exact head evidence
     - machine gate output
+    - cell audit bridge output
     - owner exact-head decision
   post_merge:
     - merge commit
@@ -180,22 +194,23 @@ risk_tier_policy:
   R0:
     gates:
       - mechanical gates
+      - cell audit bridge
     merge_authority: owner merge only; auto-merge candidate does not mean active auto-merge.
   R1:
     gates:
       - mechanical gates
-      - semantic audit when requested
+      - cell audit bridge
     merge_authority: owner merge.
   R2:
     gates:
       - mechanical gates
-      - semantic audit
+      - cell audit bridge
       - implementation audit when required
     merge_authority: owner merge.
   R3:
     gates:
       - mechanical gates
-      - semantic audit
+      - cell audit bridge
       - human authority
       - staged rollout when behavior changes
     merge_authority: protected human authority.

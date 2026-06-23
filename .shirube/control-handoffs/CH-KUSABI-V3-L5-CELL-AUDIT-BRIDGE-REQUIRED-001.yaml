@@ -1,0 +1,139 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V3-L5-CELL-AUDIT-BRIDGE-REQUIRED-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/203
+spec_review_state: ready_for_owner_review
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+
+rps_scope:
+  shirube_owns:
+    - Required CI validation that every Shirube-controlled PR has a CELL audit record.
+    - Audit item-set reconciliation for PASS, FAIL, and WAIVED verdicts.
+    - Maker/checker metadata checks for implementation_actor versus reviewer_actor.
+    - Exact-head and target-ref binding for audit records.
+    - PR diff-scope, validation evidence, exact-head evidence, and owner-decision evidence.
+  shirube_does_not_own:
+    - Runtime behavior.
+    - Package, MCP namespace, environment variable, or DB path migration.
+    - UAMP conformance, backend parity, compliance, federation, or suite integration claims.
+    - Organization-wide Shirube rollout outside watchout/agent-memory.
+
+acceptance_criteria:
+  - rapid-lite-gate requires a CELL audit record for Shirube-controlled PRs.
+  - The audit record must target the exact PR head and the active control handoff.
+  - The audit record must cover every item in the Stage-9 Rapid/Lite cell audit item set.
+  - Valid item verdicts are PASS, FAIL, and WAIVED.
+  - FAIL blocks merge.
+  - WAIVED requires a durable waiver_ref.
+  - Missing, duplicate, or extra audit items block merge.
+  - Maker/checker actor and model metadata must be separated.
+  - Changed files remain under .shirube/** or scripts/shirube/rapid-lite-gate.mjs.
+  - No runtime, package, MCP, env, DB, workflow, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
+
+validation:
+  required_commands:
+    - git diff --name-only main...HEAD
+    - git diff --check main...HEAD
+    - git diff --check
+    - node --check scripts/shirube/rapid-lite-gate.mjs
+    - npm run build
+  test_expectations:
+    - Missing audit record produces a hard block.
+    - Invalid audit JSON produces a hard block.
+    - Exact-head mismatch produces a hard block.
+    - Missing required audit item produces a hard block.
+    - FAIL audit item produces a hard block.
+    - WAIVED audit item without waiver_ref produces a hard block.
+    - Valid audit record allows the audit bridge portion to pass.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - exact_pr_head_sha
+    - inline_audit_record
+    - owner_decision_before_merge
+
+cell:
+  CELL-ID: CELL-KUSABI-V3-L5-CELL-AUDIT-BRIDGE-REQUIRED-001
+  cell_type: integration_lite
+  risk_class: R2
+  goal: >-
+    Upgrade the existing required Rapid/Lite gate so Shirube-controlled PRs
+    require CELL-by-CELL audit records before merge.
+  non_scope:
+    - Runtime code changes.
+    - Package or lockfile changes.
+    - Workflow edits.
+    - Deployment or production changes.
+    - MCP namespace, env var, DB path, or schema migration.
+    - UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - Organization-wide Shirube rollout.
+  allowed_paths:
+    - .shirube/**
+    - scripts/shirube/rapid-lite-gate.mjs
+  forbidden_paths:
+    - .github/workflows/**
+    - src/**
+    - lib/**
+    - bin/**
+    - dist/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+  stop_conditions:
+    - The workflow file must be edited.
+    - Runtime/package/MCP/env/DB/deployment behavior would change.
+    - The work claims UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - The work claims organization-wide Shirube rollout.
+    - The gate cannot deterministically hard-block missing or failing CELL audit records.
+
+implementation_boundary:
+  summary: >-
+    This cell upgrades the repo-local required gate only. It does not alter
+    product runtime behavior or protected deployment surfaces.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - merge without a matching CELL audit record
+    - approve own PR as final authority
+    - runtime or deployment mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_gate_check
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

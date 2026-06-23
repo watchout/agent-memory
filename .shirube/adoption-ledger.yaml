@@ -5,36 +5,37 @@ updated_at: "2026-06-23T00:00:00+09:00"
 updated_by: Codex
 
 status_entry:
-  shirube_status: SHIRUBE_V3_L4_REQUIRED_CHECK_CONTROLLED
-  current_mode: gate-pack-bridge / required-check-enforced
+  shirube_status: SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
+  current_mode: gate-pack-bridge / required-check-enforced / cell-audit-required
   control_source: https://github.com/watchout/agent-memory/issues/203
   owner: watchout
-  current_pr: pending_l4_protection_record_pr
+  current_pr: pending_l5_cell_audit_bridge_pr
   current_head: pending_after_latest_commit
   last_exact_head_decision:
     status: recorded
-    ref: https://github.com/watchout/agent-memory/pull/206#issuecomment-4777314186
-    exact_head: 422ff43dced1c2688b939b6479d208a42b88724c
+    ref: https://github.com/watchout/agent-memory/pull/207#issuecomment-4777369687
+    exact_head: cc8b5d88d45dea81fe65a303e9d0f7790a8bcfa4
   last_merge:
-    pr: https://github.com/watchout/agent-memory/pull/206
-    merge_commit: a57dd07cdba46b57fe74d7fd8f31ab6aeb35c8eb
-    merged_at: "2026-06-23T08:38:55Z"
+    pr: https://github.com/watchout/agent-memory/pull/207
+    merge_commit: 2e26487221203dba58700186733fb1195cbb3a5e
+    merged_at: "2026-06-23T08:53:29Z"
   next_step: >-
-    Merge the L4 protection record PR after owner exact-head confirmation,
-    then re-run PR #205 under required Shirube machine gates before owner
-    approval.
+    Merge the L5 CELL audit bridge PR after owner exact-head confirmation,
+    then re-run PR #205 under required Shirube machine gates and CELL audit
+    bridge before owner approval.
 
 classification:
   allowed:
-    - SHIRUBE_V3_L4_REQUIRED_CHECK_CONTROLLED
+    - SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
     - rapid-lite-ci-hard-block
     - rapid-lite-required-check
+    - cell-audit-required
     - branch-protected-main
     - gate-pack-bridge
     - owner-observed
   forbidden:
     - V3_COMPLETE
-    - FULL_OVERLAY_INSTALLED
+    - STANDARD_ENTERPRISE_FULL_OVERLAY_INSTALLED
     - ORG_WIDE_SHIRUBE_CONTROLLED
 
 minimum_pr_controls:
@@ -44,6 +45,7 @@ minimum_pr_controls:
   - allowed_paths
   - forbidden_paths
   - protected_surface_declaration
+  - cell_audit_record
   - exact_head_sha
   - validation_evidence
   - owner_decision
@@ -66,4 +68,8 @@ operating_rules:
   - Owner approval without exact head is invalid.
   - Adoption PRs and runtime PRs must remain separate.
   - BLOCKED or would_block findings fail the required rapid-lite-gate check.
+  - CELL audit record is required for every Shirube-controlled PR before merge.
+  - CELL audit items must be reconciled as PASS, FAIL, or WAIVED.
+  - FAIL audit items block merge.
+  - WAIVED audit items require durable waiver_ref.
   - Repositories without .shirube overlay must use Gate Pack Bridge and must not claim Shirube adoption.

@@ -15,7 +15,7 @@ purpose: >
   is the lightweight goal-mode lane for fast implementation. It may collapse
   Goal, minimal Spec, Cell, and Impl into one control handoff, but it must not
   remove structural evidence, exact-head checks, diff-scope checks, owner
-  decision evidence, or audit admissibility when audit is used.
+  decision evidence, or CELL audit admissibility.
 
 principles:
   - id: RL-PRINCIPLE-001
@@ -28,6 +28,8 @@ principles:
     statement: Protected, production, secret, branch-protection, ruleset, live-dispatch, and irreversible changes do not proceed in Rapid/Lite.
   - id: RL-PRINCIPLE-005
     statement: Legacy docs, comments, chat, and local overlays can be inputs but are never truth unless linked by a repo-local control handoff.
+  - id: RL-PRINCIPLE-006
+    statement: Every Shirube-controlled PR must have a CELL audit record with PASS, FAIL, or WAIVED verdicts before merge.
 
 artifact_policy:
   control_handoff_may_collapse:
@@ -54,6 +56,7 @@ artifact_policy:
     - stop_conditions
     - PR_head_SHA
     - changed_files
+    - cell_audit_record
     - validation_evidence
     - owner_decision
     - next_role
@@ -108,6 +111,7 @@ cell_types:
       - allowed_paths
       - forbidden_paths
       - changed_files
+      - cell_audit_record
       - PR_head_SHA
       - validation_evidence
       - owner_decision
@@ -123,6 +127,7 @@ cell_types:
       - allowed_paths
       - forbidden_paths
       - changed_files
+      - cell_audit_record
       - PR_head_SHA
       - validation_evidence
       - owner_decision
@@ -139,6 +144,7 @@ cell_types:
       - allowed_paths
       - forbidden_paths
       - changed_files
+      - cell_audit_record
       - PR_head_SHA
       - validation_commands
       - validation_results
@@ -156,6 +162,7 @@ cell_types:
       - allowed_paths
       - forbidden_paths
       - changed_files
+      - cell_audit_record
       - PR_head_SHA
       - validation_commands
       - validation_results
