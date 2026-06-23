@@ -1,7 +1,7 @@
 schema_version: shirube-control-handoff/rapid-lite/v1
 mode: rapid-lite
 profile: hotel-lite
-control_handoff_id: CH-KUSABI-V3-L1-CONTROL-001
+control_handoff_id: CH-KUSABI-V3-INITIAL-CONTROL-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/203
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
@@ -35,7 +35,7 @@ rps_scope:
 acceptance_criteria:
   - V3 repo-spec check has no BLOCK findings.
   - Adoption intake classifies this repo as retrofit_accelerate or better.
-  - Lifecycle can reach EXECUTION_READY for L1 metadata control.
+  - Lifecycle can reach EXECUTION_READY for initial metadata control.
   - Changed files stay inside .shirube/** for this scaffold cell.
   - No runtime/package/MCP/env/DB/workflow/deployment behavior changes.
 
@@ -45,22 +45,22 @@ validation:
     - git diff --check main...HEAD
     - git diff --check
     - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-repo-spec.mjs --format json
-    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-adoption.mjs --adoption-plan .shirube/adoption-intake.yaml --existing-state .shirube/existing-state-scan.yaml --repo-spec .shirube/repo-spec.yaml --handoff .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml --format json
-    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-lifecycle.mjs --state .shirube/lifecycle-state.yaml --adoption-report .shirube/reports/adoption.json --repo-spec .shirube/repo-spec.yaml --handoff .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml --format json
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-adoption.mjs --adoption-plan .shirube/adoption-intake.yaml --existing-state .shirube/existing-state-scan.yaml --repo-spec .shirube/repo-spec.yaml --handoff .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml --format json
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-lifecycle.mjs --state .shirube/lifecycle-state.yaml --adoption-report .shirube/reports/adoption.json --repo-spec .shirube/repo-spec.yaml --handoff .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml --format json
   test_expectations:
-    - L1 scaffold remains .shirube/** only.
+    - Initial control scaffold remains .shirube/** only.
     - Gate-contract exact head and owner decision are supplied through PR evidence before merge, not self-referential committed SHA.
   required_evidence:
     - .shirube/repo-spec.yaml
     - .shirube/adoption-intake.yaml
     - .shirube/existing-state-scan.yaml
     - .shirube/lifecycle-state.yaml
-    - .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml
     - changed_files
     - validation_results
 
 cell:
-  CELL-ID: CELL-KUSABI-V3-L1-CONTROL-001
+  CELL-ID: CELL-KUSABI-V3-INITIAL-CONTROL-001
   cell_type: scaffold
   risk_class: R2
   goal: >-

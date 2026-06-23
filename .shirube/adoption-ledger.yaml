@@ -5,28 +5,28 @@ updated_at: "2026-06-23T00:00:00+09:00"
 updated_by: Codex
 
 status_entry:
-  shirube_status: SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
+  shirube_status: SHIRUBE_V3_RAPID_LITE_CELL_AUDIT_BRIDGE_CONTROLLED
   current_mode: gate-pack-bridge / required-check-enforced / cell-audit-required
   control_source: https://github.com/watchout/agent-memory/issues/203
   owner: watchout
-  current_pr: pending_l5_cell_audit_bridge_pr
+  current_pr: pending_terminology_alignment_pr
   current_head: pending_after_latest_commit
   last_exact_head_decision:
     status: recorded
-    ref: https://github.com/watchout/agent-memory/pull/207#issuecomment-4777369687
-    exact_head: cc8b5d88d45dea81fe65a303e9d0f7790a8bcfa4
+    ref: https://github.com/watchout/agent-memory/pull/208#issuecomment-4777710870
+    exact_head: 4342c5fa000e07d128ff340dcf3e42a0220b2a99
   last_merge:
-    pr: https://github.com/watchout/agent-memory/pull/207
-    merge_commit: 2e26487221203dba58700186733fb1195cbb3a5e
-    merged_at: "2026-06-23T08:53:29Z"
+    pr: https://github.com/watchout/agent-memory/pull/208
+    merge_commit: e23bf57bf226d393e6e2fc8df061f1a35b393324
+    merged_at: "2026-06-23T09:24:58Z"
   next_step: >-
-    Merge the L5 CELL audit bridge PR after owner exact-head confirmation,
-    then re-run PR #205 under required Shirube machine gates and CELL audit
-    bridge before owner approval.
+    Align repo-local control terminology with Shirube canonical audit-layer
+    usage, then re-run PR #205 under required Shirube machine gates and CELL
+    audit bridge before owner approval.
 
 classification:
   allowed:
-    - SHIRUBE_V3_L5_CELL_AUDIT_BRIDGE_CONTROLLED
+    - SHIRUBE_V3_RAPID_LITE_CELL_AUDIT_BRIDGE_CONTROLLED
     - rapid-lite-ci-hard-block
     - rapid-lite-required-check
     - cell-audit-required
@@ -37,6 +37,7 @@ classification:
     - V3_COMPLETE
     - STANDARD_ENTERPRISE_FULL_OVERLAY_INSTALLED
     - ORG_WIDE_SHIRUBE_CONTROLLED
+    - NUMBERED_AUDIT_LAYER_ADOPTION_LEVEL_CLAIM
 
 minimum_pr_controls:
   - control_source

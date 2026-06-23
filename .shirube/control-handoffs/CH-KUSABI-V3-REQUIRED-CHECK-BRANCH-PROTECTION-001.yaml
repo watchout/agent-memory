@@ -1,7 +1,7 @@
 schema_version: shirube-control-handoff/rapid-lite/v1
 mode: rapid-lite
 profile: hotel-lite
-control_handoff_id: CH-KUSABI-V3-L4-REQUIRED-CHECK-BRANCH-PROTECTION-001
+control_handoff_id: CH-KUSABI-V3-REQUIRED-CHECK-BRANCH-PROTECTION-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/203
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
@@ -18,7 +18,7 @@ next_role: owner_review
 
 rps_scope:
   shirube_owns:
-    - Repository metadata recording that L4 required-check branch protection is active.
+    - Repository metadata recording that required-check branch protection is active.
     - Evidence reference for main branch protection required checks.
     - PR diff-scope, validation evidence, exact-head evidence, and owner-decision evidence.
   shirube_does_not_own:
@@ -28,8 +28,8 @@ rps_scope:
     - Full overlay or organization-wide Shirube control.
 
 acceptance_criteria:
-  - Repo spec records current_control_level as L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION.
-  - Adoption ledger records PR #206 merge and L4 required-check state.
+  - Repo spec records current_control_state as RAPID_LITE_REQUIRED_CHECK_WITH_BRANCH_PROTECTION.
+  - Adoption ledger records PR #206 merge and required-check branch protection state.
   - Evidence records required checks for rapid-lite-gate and build-and-test 18/20/22.
   - Changed files remain under .shirube/**.
   - No runtime, package, MCP, env, DB, workflow, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
@@ -54,7 +54,7 @@ validation:
     - owner_decision_before_merge
 
 cell:
-  CELL-ID: CELL-KUSABI-V3-L4-REQUIRED-CHECK-BRANCH-PROTECTION-001
+  CELL-ID: CELL-KUSABI-V3-REQUIRED-CHECK-BRANCH-PROTECTION-001
   cell_type: governance_lite
   risk_class: R2
   goal: >-

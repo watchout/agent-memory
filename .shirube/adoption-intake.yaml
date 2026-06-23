@@ -14,10 +14,10 @@ owner:
 existing_state_scan_ref: .shirube/existing-state-scan.yaml
 repo_spec_ref: .shirube/repo-spec.yaml
 owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
-gap_fill_plan_ref: .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml
+gap_fill_plan_ref: .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml
 spec_reconciliation_ref: null
-next_safe_cell_ref: CELL-KUSABI-V3-L1-CONTROL-001
-control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml
+next_safe_cell_ref: CELL-KUSABI-V3-INITIAL-CONTROL-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml
 notes:
   - Existing V2 docs are accepted as planning inputs and guardrails.
   - Existing runtime remains the compatibility surface.
