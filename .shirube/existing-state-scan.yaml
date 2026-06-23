@@ -1,0 +1,56 @@
+schema_version: shirube-existing-state-scan/v1
+scan_id: EXISTING-STATE-KUSABI-CORE-MVP-001
+repo: watchout/agent-memory
+observed_at: "2026-06-23T00:00:00+09:00"
+specs:
+  - path: docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+    status: active
+    authority: owner_confirmed_input
+    notes: Core MVP slice and implementation order are defined here.
+  - path: docs/v2/**
+    status: guardrail
+    authority: input_only
+    notes: Broad V2 docs are future guardrails, not Core MVP blockers unless directly touched.
+  - path: .shirube/repo-spec.yaml
+    status: active
+    authority: current_rps
+    notes: Repository premise and Core MVP control model.
+  - path: .shirube/agent-policy.yaml
+    status: draft
+    authority: input_only
+    notes: Existing warn-only agent policy remains useful input but is not strict enforcement.
+implementation:
+  - path: src/**
+    status: active
+    notes: Runtime implementation exists and may be touched only by explicit Core MVP handoff.
+  - path: package.json
+    status: compatibility_surface
+    notes: Package identity remains unchanged in Core MVP.
+  - path: package-lock.json
+    status: compatibility_surface
+    notes: Lockfile remains unchanged unless ordinary dependency workflow is separately approved.
+tests:
+  - path: test/**
+    status: active
+    notes: Existing tests are current validation surface.
+  - path: src/**/*.test.ts
+    status: active
+    notes: Co-located tests may be updated by implementation handoff when required.
+legacy_sources:
+  - path: docs/design/**
+    status: legacy_or_supporting_evidence
+    authority: input_only
+  - path: docs/requirements/**
+    status: legacy_or_supporting_evidence
+    authority: input_only
+  - path: README.md
+    status: current_user_doc
+    authority: compatibility_surface
+known_drift: []
+material_drift: []
+unsafe_changes: []
+llm_truth_claims: []
+unknowns:
+  - Exact runtime redaction coverage must be inspected before the first Core MVP implementation PR.
+  - SQLite clean-install and migration idempotency evidence must be gathered in a later Core MVP PR.
+  - Current Claude/Codex recovery smoke coverage must be verified in a later Core MVP PR.

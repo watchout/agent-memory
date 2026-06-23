@@ -1,0 +1,19 @@
+schema_version: shirube-lifecycle-state/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+repo: watchout/agent-memory
+current_phase: EXECUTION_READY
+framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+adoption_report_ref: .shirube/reports/adoption.json
+repo_spec_ref: .shirube/repo-spec.yaml
+handoff_ref: .shirube/control-handoffs/CH-KUSABI-V3-L1-CONTROL-001.yaml
+gate_contract_report_ref: null
+design_rule_report_ref: null
+owner_decision_ref: null
+post_merge_ref: null
+last_allowed_phase: EXECUTION_READY
+updated_at: "2026-06-23T00:00:00+09:00"
+updated_by: Codex
+notes:
+  - L1 metadata control is execution-ready after adoption/RPS/handoff checks pass.
+  - Implementation PRs still require their own exact-head evidence and owner decision before merge.

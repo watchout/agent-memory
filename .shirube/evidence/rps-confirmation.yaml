@@ -1,0 +1,18 @@
+schema_version: shirube:rps-confirmation/v1
+record_id: RPS-CONFIRM-KUSABI-CORE-MVP-001
+repo: watchout/agent-memory
+rps_id: .shirube/repo-spec.yaml
+source_pr: https://github.com/watchout/agent-memory/pull/202
+source_issue: https://github.com/watchout/agent-memory/issues/203
+exact_head_sha: f0ad88f9241bd65c3904b51aae9d4f2ed9e14312
+authority_role: CEO
+authority_actor: watchout
+verdict: CONFIRMED
+created_at: "2026-06-23T00:00:00+09:00"
+evidence_refs:
+  - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+  - https://github.com/watchout/agent-memory/issues/203
+notes:
+  - Core MVP is the immediate implementation slice.
+  - Broad V2 strategy remains future guardrails unless directly touched.
+  - This confirmation does not authorize workflow enforcement, branch protection changes, package/MCP/env/DB migration, UAMP conformance, backend parity claims, or compliance claims.
