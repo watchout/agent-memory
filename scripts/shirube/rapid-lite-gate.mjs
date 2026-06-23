@@ -76,13 +76,15 @@ function main() {
     findings.push(finding("RL-EVID-001", "missing_validation_evidence", "PR evidence does not include required validation commands/results.", "validation_evidence"));
   }
 
-  const ownerDecision = findOwnerDecisionDoc(docs, actualHead);
+  const ownerDecision = findOwnerDecisionDoc(comments, actualHead, handoff?.ownerActor);
   if (!ownerDecision.found) {
     findings.push(finding("RL-MERGE-001", "owner_decision_missing", "Owner APPROVED_EXACT_HEAD decision is missing.", "owner_decision"));
+  } else if (!ownerDecision.actorMatched) {
+    findings.push(finding("RL-MERGE-003", "owner_decision_actor_mismatch", `Owner decision author ${ownerDecision.actor ?? "unknown"} does not match expected owner ${handoff?.ownerActor ?? "unknown"}.`, "owner_decision.actor"));
   } else if (!ownerDecision.exactHeadMatched) {
     findings.push(finding("RL-MERGE-002", "merge_head_mismatch", "Owner decision does not match the current exact head.", "owner_decision.exact_head_sha"));
   } else {
-    evidence.push({ code: "owner_decision", source: "pr_comment_or_body", detail: "APPROVED_EXACT_HEAD matched current head" });
+    evidence.push({ code: "owner_decision", source: "pr_comment", detail: `APPROVED_EXACT_HEAD by ${ownerDecision.actor} matched current head` });
   }
 
   if (changedFiles.length > 12) {
@@ -187,6 +189,7 @@ function parseHandoff(text, filePath) {
     profile: scalar(text, "profile"),
     frameworkRef: scalar(text, "framework_ref") ?? scalar(text, "framework_lock_ref"),
     repoLocalIssue: scalar(text, "repo_local_issue"),
+    ownerActor: scalar(text, "actor"),
     cellId: scalar(text, "CELL-ID"),
     cellType: scalar(text, "cell_type"),
     riskClass: scalar(text, "risk_class"),
@@ -237,14 +240,21 @@ function hasValidationEvidence(text) {
   return hasValidationHeading && hasPass && hasCommand;
 }
 
-function findOwnerDecisionDoc(docs, head) {
-  for (const doc of docs) {
+function findOwnerDecisionDoc(comments, head, ownerActor) {
+  for (const comment of comments) {
+    const doc = typeof comment?.body === "string" ? comment.body : "";
     const approvedDecisionLine =
       /(^|\n)\s*Owner(?:\/domain-designer)? decision for PR #\d+:\s*APPROVED_EXACT_HEAD\.?\s*(\n|$)/i.test(doc);
     if (!approvedDecisionLine) continue;
-    return { found: true, exactHeadMatched: Boolean(head && doc.includes(head)) };
+    const actor = typeof comment?.user?.login === "string" ? comment.user.login : null;
+    return {
+      found: true,
+      actor,
+      actorMatched: !ownerActor || actor === ownerActor,
+      exactHeadMatched: Boolean(head && doc.includes(head)),
+    };
   }
-  return { found: false, exactHeadMatched: false };
+  return { found: false, actor: null, actorMatched: false, exactHeadMatched: false };
 }
 
 function requireScalar(value, itemId, code, message, path, findings) {

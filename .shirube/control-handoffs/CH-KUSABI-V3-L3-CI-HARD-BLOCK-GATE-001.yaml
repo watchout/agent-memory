@@ -32,7 +32,7 @@ acceptance_criteria:
   - A GitHub Actions workflow runs a Shirube Rapid/Lite CI hard-block gate on pull_request.
   - The workflow exits non-zero in enforce mode when would_block or owner_must_not_merge is true.
   - The workflow uploads machine-readable JSON evidence.
-  - The gate checks the PR's referenced control handoff, changed files, exact head evidence, validation evidence, and owner exact-head decision evidence.
+  - The gate checks the PR's referenced control handoff, changed files, exact head evidence, validation evidence, and owner exact-head decision evidence from the handoff owner actor.
   - No branch protection, ruleset, required-check activation, runtime, package, MCP, env, DB, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
 
 validation:
