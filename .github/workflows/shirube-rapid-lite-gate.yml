@@ -1,0 +1,92 @@
+name: Shirube Rapid/Lite Gate
+
+on:
+  pull_request:
+    branches: [main]
+  issue_comment:
+    types: [created, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  rapid-lite-gate:
+    name: rapid-lite-gate
+    runs-on: ubuntu-latest
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+
+    steps:
+      - name: Resolve PR context
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            pr_json="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}")"
+            printf '%s\n' "$pr_json" > "$RUNNER_TEMP/shirube-pr-raw.json"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            pr_json="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}")"
+            printf '%s\n' "$pr_json" > "$RUNNER_TEMP/shirube-pr-raw.json"
+          else
+            gh pr view --json number,headRefOid,baseRefName,body > "$RUNNER_TEMP/shirube-pr-raw.json"
+          fi
+
+          number="$(jq -r '.number' "$RUNNER_TEMP/shirube-pr-raw.json")"
+          head_sha="$(jq -r '.head.sha // .headRefOid' "$RUNNER_TEMP/shirube-pr-raw.json")"
+          base_ref="$(jq -r '.base.ref // .baseRefName // "main"' "$RUNNER_TEMP/shirube-pr-raw.json")"
+          body="$(jq -r '.body // ""' "$RUNNER_TEMP/shirube-pr-raw.json")"
+
+          jq -n \
+            --argjson number "$number" \
+            --arg head_sha "$head_sha" \
+            --arg body "$body" \
+            '{pull_request:{number:$number, head:{sha:$head_sha}, body:$body}}' \
+            > "$RUNNER_TEMP/shirube-pr-event.json"
+
+          {
+            echo "number=$number"
+            echo "head_sha=$head_sha"
+            echo "base_ref=$base_ref"
+            echo "event_file=$RUNNER_TEMP/shirube-pr-event.json"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.pr.outputs.head_sha }}
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ steps.pr.outputs.base_ref }}:refs/remotes/origin/${{ steps.pr.outputs.base_ref }}" --depth=1
+
+      - name: Collect PR comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/comments" --paginate > "$RUNNER_TEMP/shirube-pr-comments.json"
+
+      - name: Run Shirube Rapid/Lite gate
+        run: |
+          comments_file="$RUNNER_TEMP/shirube-pr-comments.json"
+          if [ ! -f "$comments_file" ]; then
+            printf '[]\n' > "$comments_file"
+          fi
+
+          node scripts/shirube/rapid-lite-gate.mjs \
+            --event "${{ steps.pr.outputs.event_file }}" \
+            --comments "$comments_file" \
+            --base "origin/${{ steps.pr.outputs.base_ref }}" \
+            --head "${{ steps.pr.outputs.head_sha }}" \
+            --enforce true \
+            --output "$RUNNER_TEMP/shirube-rapid-lite-gate.json"
+
+      - name: Upload Shirube report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shirube-rapid-lite-gate
+          path: ${{ runner.temp }}/shirube-rapid-lite-gate.json
+          if-no-files-found: error
