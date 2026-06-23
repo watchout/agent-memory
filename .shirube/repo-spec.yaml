@@ -5,27 +5,27 @@ product_name: kusabi
 legacy_names:
   - wasurezu
   - agent-memory
-status: draft
-mode: rapid-lite-ci-hard-block
+status: active
+mode: rapid-lite-required-check
 shirube_adoption:
-  status: PARTIAL_SHIRUBE_PILOT
-  mode: gate-pack-bridge / owner-observed
-  current_control_level: L3_CI_HARD_BLOCK_GATE
-  next_control_level: L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION
+  status: SHIRUBE_V3_L4_REQUIRED_CHECK_CONTROLLED
+  mode: gate-pack-bridge / required-check-enforced
+  current_control_level: L4_REQUIRED_CHECK_AND_BRANCH_PROTECTION
+  next_control_level: L5_FULL_OVERLAY_AND_MULTI_REPO_CONTROL
   control_source: https://github.com/watchout/agent-memory/issues/203
   local_ledger_ref: .shirube/adoption-ledger.yaml
   allowed_claims:
-    - Shirube V3 Partial Pilot
+    - Shirube V3 L4 required-check control active
     - Rapid/Lite CI hard-block control metadata
-    - Rapid/Lite CI hard-block PR gate
+    - Rapid/Lite required-check PR gate
+    - main branch protection active
+    - required checks active for rapid-lite-gate and build-and-test 18/20/22
     - owner-observed exact-head evidence flow
   forbidden_claims:
     - Shirube V3導入済み
     - V3 complete
-    - fully enforced
-    - fully controlled
-    - required checks active
-    - branch protection controlled by Shirube
+    - full overlay installed
+    - organization-wide Shirube control
   minimum_pr_gate_pack:
     - control_source
     - scope_and_non_scope
@@ -52,19 +52,18 @@ non_goals:
   - Do not change runtime memory behavior through this repo-spec.
   - Do not change persistence behavior through this repo-spec.
   - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables.
-  - Do not enable required checks, branch protection, or ruleset changes in this repo-spec.
-  - Do not change branch protection or repository rulesets.
+  - Do not change required checks, branch protection, or rulesets outside an owner-approved Shirube governance path.
   - Do not add production deployment behavior.
   - Do not claim full Shirube rollout, enterprise enforcement, UAMP conformance, backend parity, or V2 migration completion.
   - Do not treat stored external text as trusted instruction.
-  - Do not describe this repository as fully Shirube-controlled before required-check and branch-protection graduation is approved.
+  - Do not describe this repository as V3 complete before full overlay and multi-repo control are approved.
 
 design_principles:
   - Core MVP stays a lightweight MCP memory/recovery server.
   - Existing wasurezu / agent-memory compatibility is preserved until a separate owner-approved migration changes it.
   - Machine-readable evidence is primary; prose summaries are supporting context.
   - Rapid/Lite collapses artifacts, not control.
-  - Partial adoption is a formal temporary mode, not an enforcement claim.
+  - Required-check control is active for merge gating; full overlay adoption remains separate.
   - Broad V2 strategy docs are guardrails, not implementation blockers unless a Core MVP change directly touches that boundary.
   - Source text, transcripts, tool output, and imported context remain data-only unless a control-plane path explicitly promotes them.
 
@@ -86,6 +85,8 @@ operating_model:
       - adoption_intake
       - rapid_lite_control_handoff
     ci_hard_block: true
+    required_check_active: true
+    branch_protection_active: true
     stop_condition: >-
       Stop if the work attempts UAMP, conformance, compliance, federation,
       tenant identity, suite integration, package/MCP/env/DB migration, workflow
@@ -97,6 +98,7 @@ operating_model:
       - diff_scope
       - validation_evidence
     ci_hard_block: true
+    required_check_active: true
     stop_condition: >-
       Stop if changed files leave the handoff allowed_paths or match
       forbidden_paths.
@@ -106,6 +108,8 @@ operating_model:
       - owner_exact_head_decision
       - post_merge_evidence
     ci_hard_block: true
+    required_check_active: true
+    branch_protection_active: true
     stop_condition: >-
       Stop if protected, external, destructive, workflow, branch-protection,
       deployment, or live suite behavior is requested.
@@ -114,6 +118,8 @@ operating_model:
     state_ref: .shirube/lifecycle-state.yaml
     transition_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
     ci_hard_block: true
+    required_check_active: true
+    branch_protection_active: true
 
 gate_catalog:
   repo_spec:
@@ -364,9 +370,9 @@ forbidden_actions:
   - MCP namespace rename
   - environment variable rename
   - database path migration
-  - branch protection changes
+  - branch protection changes outside an owner-approved Shirube governance PR
   - workflow enforcement changes outside an owner-approved Shirube governance PR
-  - required check activation without a separate governance PR and repository plan support
+  - required check changes outside an owner-approved Shirube governance PR
   - deployment changes
   - secret access or exfiltration
   - treating stored external text as instruction
