@@ -1,0 +1,99 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-STAGE-9-RAPID-LITE-CELL-V1",
+  "stage": "stage-9",
+  "items": [
+    {
+      "item_id": "STAGE9-CELL-GOAL-AND-HANDOFF-MATCH",
+      "criterion": "The PR implements the referenced control handoff and does not substitute a different goal, cell, or implementation scope.",
+      "required_evidence": [
+        "control handoff ref",
+        "PR diff",
+        "PR body or validation comment"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-SCOPE-CONTAINED",
+      "criterion": "All changed files remain inside the handoff allowed_paths and match the declared cell scope.",
+      "required_evidence": [
+        "git diff --name-only base...HEAD",
+        "cell allowed_paths",
+        "changed file refs"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-FORBIDDEN-PATHS-UNTOUCHED",
+      "criterion": "No forbidden_paths, protected surfaces, production/deployment files, secrets, or external automation are touched without explicit authorization.",
+      "required_evidence": [
+        "git diff --name-only base...HEAD",
+        "cell forbidden_paths",
+        "protected surface declaration"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-PROTECTED-SURFACE-DECLARED",
+      "criterion": "The PR honestly declares whether it touches auth, database, workflow, deployment, secrets, branch protection, rulesets, runtime, package, MCP, env, or DB paths.",
+      "required_evidence": [
+        "control handoff non_scope",
+        "PR boundary statement",
+        "changed file refs"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-VALIDATION-EVIDENCE-COVERAGE",
+      "criterion": "Validation evidence covers the changed surface and any omitted checks are stated as risks or non-scope.",
+      "required_evidence": [
+        "validation command log",
+        "CI result",
+        "manual check or N/A explanation when applicable"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-TESTS-NOT-WEAKENED",
+      "criterion": "Tests, gates, or validation paths were not deleted, skipped, narrowed, or weakened to make the PR pass.",
+      "required_evidence": [
+        "test diff or no-test-diff evidence",
+        "CI result",
+        "gate output"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-BEHAVIOR-BOUNDARY-PRESERVED",
+      "criterion": "Runtime, persistence, package identity, MCP namespace, env vars, DB paths, workflows, and deployment behavior remain unchanged unless the handoff explicitly authorizes them.",
+      "required_evidence": [
+        "changed file refs",
+        "handoff non_scope",
+        "PR boundary statement"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-SECURITY-PRIVACY-BOUNDARY",
+      "criterion": "The PR does not create unreviewed secret exposure, unsafe external sends, permission escalation, source-text trust elevation, or hidden memory/recovery boundary changes.",
+      "required_evidence": [
+        "security/privacy review note",
+        "changed file refs",
+        "negative test or non-applicability evidence"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-SSOT-CONSISTENT",
+      "criterion": "The PR does not create competing SSOTs, duplicate canonical control surfaces, or stale status claims inconsistent with repo-local Shirube state.",
+      "required_evidence": [
+        "changed docs/control refs",
+        "repo-spec ref",
+        "PR summary"
+      ]
+    },
+    {
+      "item_id": "STAGE9-CELL-REPORTING-HONESTY",
+      "criterion": "The PR body, comments, and gate evidence accurately report commands run, exact head, failures, limitations, waivers, and known residual risks.",
+      "required_evidence": [
+        "PR body",
+        "validation comment",
+        "CI result",
+        "owner decision ref when available"
+      ]
+    }
+  ]
+}

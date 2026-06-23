@@ -21,6 +21,7 @@ function main() {
   const findings = [];
   const warnings = [];
   const evidence = [];
+  let auditBridge = { required: false, status: "not_required" };
 
   let handoff = null;
   if (!handoffPath) {
@@ -76,6 +77,13 @@ function main() {
     findings.push(finding("RL-EVID-001", "missing_validation_evidence", "PR evidence does not include required validation commands/results.", "validation_evidence"));
   }
 
+  if (handoff) {
+    auditBridge = checkCellAuditBridge({ docs, changedFiles, actualHead, handoff });
+    findings.push(...auditBridge.findings);
+    warnings.push(...auditBridge.warnings);
+    evidence.push(...auditBridge.evidence);
+  }
+
   const ownerDecision = findOwnerDecisionDoc(comments, actualHead, handoff?.ownerActor);
   if (!ownerDecision.found) {
     findings.push(finding("RL-MERGE-001", "owner_decision_missing", "Owner APPROVED_EXACT_HEAD decision is missing.", "owner_decision"));
@@ -107,6 +115,12 @@ function main() {
     handoff_ref: handoffPath ?? null,
     cell_id: handoff?.cellId ?? null,
     cell_type: handoff?.cellType ?? null,
+    audit_bridge: {
+      required: auditBridge.required,
+      status: auditBridge.status,
+      audit_ref: auditBridge.auditRef ?? null,
+      item_set_ref: auditBridge.itemSetRef ?? null,
+    },
     changed_files: changedFiles,
     hard_blocks: hardBlocks,
     warnings: uniqueWarnings,
@@ -180,6 +194,293 @@ function discoverHandoffPath(docs, changedFiles) {
   const changed = changedFiles.filter((file) => /^\.shirube\/control-handoffs\/.+\.ya?ml$/.test(file));
   const candidates = Array.from(new Set([...matches, ...changed]));
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
+}
+
+function checkCellAuditBridge({ docs, changedFiles, actualHead, handoff }) {
+  const findings = [];
+  const warnings = [];
+  const evidence = [];
+  const required = true;
+  const candidates = discoverAuditRecords(docs, changedFiles);
+
+  if (candidates.length === 0) {
+    findings.push(finding("RL-AUDIT-001", "missing_cell_audit_record", "CELL audit record is required for Shirube-controlled PRs.", "audit_record"));
+    return { required, status: "missing", findings, warnings, evidence };
+  }
+
+  const parsed = candidates.map((candidate) => parseAuditCandidate(candidate));
+  const parseFailures = parsed.filter((candidate) => candidate.error);
+  for (const candidate of parseFailures) {
+    findings.push(finding("RL-AUDIT-002", "invalid_audit_record_json", `${candidate.ref}: ${candidate.error}`, candidate.ref));
+  }
+
+  const validRecords = parsed.filter((candidate) => candidate.record);
+  const matching = validRecords.find((candidate) =>
+    candidate.record.target_head === actualHead &&
+    Array.isArray(candidate.record.target_refs) &&
+    candidate.record.target_refs.includes(handoff.cellId) &&
+    candidate.record.target_refs.includes(handoff.filePath)
+  );
+
+  if (!matching) {
+    const headMatches = validRecords.filter((candidate) => candidate.record.target_head === actualHead);
+    const detail = headMatches.length === 0
+      ? `No audit record targets exact head ${actualHead}.`
+      : `No audit record for exact head ${actualHead} targets both ${handoff.cellId} and ${handoff.filePath}.`;
+    findings.push(finding("RL-AUDIT-003", "audit_record_target_mismatch", detail, "audit_record.target_refs"));
+    return { required, status: "target_mismatch", findings, warnings, evidence };
+  }
+
+  evidence.push({ code: "cell_audit_record", source: matching.source, detail: matching.ref });
+  const validation = validateCellAuditRecord(matching.record, matching.ref, actualHead, handoff);
+  findings.push(...validation.findings);
+  warnings.push(...validation.warnings);
+  evidence.push(...validation.evidence);
+
+  return {
+    required,
+    status: validation.findings.length > 0 ? "blocked" : validation.warnings.length > 0 ? "pass_with_warn" : "pass",
+    auditRef: matching.ref,
+    itemSetRef: validation.itemSetRef,
+    findings,
+    warnings,
+    evidence,
+  };
+}
+
+function discoverAuditRecords(docs, changedFiles) {
+  const candidates = [];
+  const seen = new Set();
+  let inlineIndex = 0;
+
+  for (const doc of docs) {
+    const inlineBlocks = Array.from(doc.matchAll(/<!--\s*shirube-audit-record\/v1\s*-->\s*```json\s*([\s\S]*?)```/g));
+    for (const match of inlineBlocks) {
+      inlineIndex++;
+      const ref = `inline:audit-record:${inlineIndex}`;
+      candidates.push({ ref, source: "pr_comment", jsonText: match[1] });
+    }
+  }
+
+  const combinedDocs = docs.join("\n");
+  const paths = [
+    ...Array.from(combinedDocs.matchAll(/\.shirube\/audits\/[A-Za-z0-9_.\/-]+\.json/g)).map((match) => match[0]),
+    ...changedFiles.filter((file) => /^\.shirube\/audits\/.+\.json$/.test(file)),
+  ];
+
+  for (const path of paths) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+    candidates.push({ ref: path, source: "file", filePath: path });
+  }
+
+  return candidates;
+}
+
+function parseAuditCandidate(candidate) {
+  try {
+    const jsonText = candidate.filePath ? readFileSync(candidate.filePath, "utf8") : candidate.jsonText;
+    const record = JSON.parse(jsonText);
+    return { ...candidate, record };
+  } catch (error) {
+    return { ...candidate, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function validateCellAuditRecord(record, recordRef, actualHead, handoff) {
+  const findings = [];
+  const warnings = [];
+  const evidence = [];
+  const requiredFields = [
+    "schema_version",
+    "document_type",
+    "audit_id",
+    "audit_type",
+    "stage",
+    "reviewer_actor",
+    "reviewer_model",
+    "implementation_actor",
+    "implementation_model",
+    "target_head",
+    "target_refs",
+    "item_set_ref",
+    "items",
+    "aggregate_verdict",
+  ];
+
+  for (const field of requiredFields) {
+    if (!present(record[field])) {
+      findings.push(finding("RL-AUDIT-004", "audit_record_missing_required_field", `Audit record is missing ${field}.`, `${recordRef}.${field}`));
+    }
+  }
+
+  if (record.schema_version !== "shirube-audit/v1") {
+    findings.push(finding("RL-AUDIT-004", "audit_record_schema_mismatch", "Audit record schema_version must be shirube-audit/v1.", `${recordRef}.schema_version`));
+  }
+  if (record.document_type !== "audit_record") {
+    findings.push(finding("RL-AUDIT-004", "audit_record_document_type_mismatch", "Audit record document_type must be audit_record.", `${recordRef}.document_type`));
+  }
+  if (typeof record.target_head !== "string" || !/^[0-9a-f]{40}$/i.test(record.target_head)) {
+    findings.push(finding("RL-AUDIT-004", "audit_record_head_invalid", "Audit record target_head must be a real 40-character SHA.", `${recordRef}.target_head`));
+  } else if (record.target_head !== actualHead) {
+    findings.push(finding("RL-AUDIT-003", "audit_record_head_mismatch", `Audit record target_head ${record.target_head} does not match current head ${actualHead}.`, `${recordRef}.target_head`));
+  }
+
+  if (!Array.isArray(record.target_refs)) {
+    findings.push(finding("RL-AUDIT-004", "audit_record_target_refs_invalid", "Audit record target_refs must be an array.", `${recordRef}.target_refs`));
+  } else {
+    if (!record.target_refs.includes(handoff.cellId)) {
+      findings.push(finding("RL-AUDIT-003", "audit_record_cell_mismatch", `Audit record target_refs must include ${handoff.cellId}.`, `${recordRef}.target_refs`));
+    }
+    if (!record.target_refs.includes(handoff.filePath)) {
+      findings.push(finding("RL-AUDIT-003", "audit_record_handoff_mismatch", `Audit record target_refs must include ${handoff.filePath}.`, `${recordRef}.target_refs`));
+    }
+  }
+
+  if (record.reviewer_actor === record.implementation_actor) {
+    findings.push(finding("RL-AUDIT-005", "maker_checker_actor_not_separated", "Audit reviewer_actor must differ from implementation_actor.", `${recordRef}.reviewer_actor`));
+  }
+  if (record.reviewer_model === record.implementation_model) {
+    findings.push(finding("RL-AUDIT-005", "maker_checker_model_not_separated", "Audit reviewer_model must differ from implementation_model.", `${recordRef}.reviewer_model`));
+  }
+
+  if (!["PASS", "PASS_WITH_WARN"].includes(record.aggregate_verdict)) {
+    findings.push(finding("RL-AUDIT-006", "audit_aggregate_not_pass", "Audit aggregate_verdict must be PASS or PASS_WITH_WARN before merge.", `${recordRef}.aggregate_verdict`));
+  }
+
+  const itemSetRef = typeof record.item_set_ref === "string" ? record.item_set_ref : null;
+  if (!itemSetRef || !existsSync(itemSetRef)) {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_missing", `Audit item set is not readable: ${itemSetRef ?? "missing"}.`, `${recordRef}.item_set_ref`));
+    return { findings, warnings, evidence, itemSetRef };
+  }
+
+  let itemSet = null;
+  try {
+    itemSet = JSON.parse(readFileSync(itemSetRef, "utf8"));
+  } catch (error) {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_invalid_json", `${itemSetRef}: ${error instanceof Error ? error.message : String(error)}`, itemSetRef));
+    return { findings, warnings, evidence, itemSetRef };
+  }
+
+  evidence.push({ code: "cell_audit_item_set", source: "file", detail: itemSetRef });
+  findings.push(...validateAuditItemSet(itemSet, itemSetRef));
+
+  if (itemSet.stage && record.stage && itemSet.stage !== record.stage) {
+    findings.push(finding("RL-AUDIT-008", "audit_stage_mismatch", `Audit record stage ${record.stage} does not match item set stage ${itemSet.stage}.`, `${recordRef}.stage`));
+  }
+
+  if (!Array.isArray(record.items)) {
+    findings.push(finding("RL-AUDIT-004", "audit_items_invalid", "Audit record items must be an array.", `${recordRef}.items`));
+    return { findings, warnings, evidence, itemSetRef };
+  }
+
+  const requiredIds = Array.isArray(itemSet.items)
+    ? itemSet.items.map((item) => item?.item_id).filter((id) => typeof id === "string")
+    : [];
+  const seen = new Map();
+  const validVerdicts = new Set(["PASS", "FAIL", "WAIVED"]);
+
+  record.items.forEach((item, index) => {
+    const path = `${recordRef}.items.${index}`;
+    if (!item || typeof item !== "object") {
+      findings.push(finding("RL-AUDIT-009", "audit_item_invalid", "Audit item must be an object.", path));
+      return;
+    }
+
+    const itemId = item.item_id;
+    if (typeof itemId !== "string" || itemId.length === 0) {
+      findings.push(finding("RL-AUDIT-009", "audit_item_id_missing", "Audit item item_id is required.", `${path}.item_id`));
+      return;
+    }
+    if (seen.has(itemId)) {
+      findings.push(finding("RL-AUDIT-010", "audit_item_duplicate", `${itemId} appears more than once in audit record.`, `${path}.item_id`));
+    }
+    seen.set(itemId, path);
+
+    if (!validVerdicts.has(item.verdict)) {
+      findings.push(finding("RL-AUDIT-011", "audit_item_verdict_invalid", `${itemId} verdict must be PASS, FAIL, or WAIVED.`, `${path}.verdict`));
+    }
+    if (item.verdict === "FAIL") {
+      findings.push(finding("RL-AUDIT-012", "audit_item_failed", `${itemId} is FAIL.`, `${path}.verdict`));
+    }
+    if (item.verdict === "WAIVED") {
+      warnings.push(finding("RL-AUDIT-W001", "audit_item_waived", `${itemId} is WAIVED and requires owner waiver awareness.`, `${path}.verdict`));
+      if (!isDurableEvidenceRef(item.waiver_ref)) {
+        findings.push(finding("RL-AUDIT-013", "audit_waiver_ref_missing", `${itemId} is WAIVED but waiver_ref is missing or non-durable.`, `${path}.waiver_ref`));
+      }
+    }
+    if (typeof item.reason !== "string" || item.reason.trim().length === 0) {
+      findings.push(finding("RL-AUDIT-014", "audit_item_reason_missing", `${itemId} requires a reason.`, `${path}.reason`));
+    }
+    if (!Array.isArray(item.evidence_ref) || item.evidence_ref.length === 0 || !item.evidence_ref.every(isDurableEvidenceRef)) {
+      findings.push(finding("RL-AUDIT-015", "audit_item_evidence_missing", `${itemId} requires durable evidence_ref entries.`, `${path}.evidence_ref`));
+    }
+  });
+
+  for (const itemId of requiredIds) {
+    if (!seen.has(itemId)) {
+      findings.push(finding("RL-AUDIT-016", "audit_item_missing", `Required audit item ${itemId} is missing.`, `${recordRef}.items`));
+    }
+  }
+  for (const [itemId, path] of seen.entries()) {
+    if (!requiredIds.includes(itemId)) {
+      findings.push(finding("RL-AUDIT-017", "audit_item_extra", `Audit item ${itemId} is not in the item set.`, path));
+    }
+  }
+
+  return { findings, warnings, evidence, itemSetRef };
+}
+
+function validateAuditItemSet(itemSet, itemSetRef) {
+  const findings = [];
+  if (itemSet.schema_version !== "shirube-audit/v1") {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_schema_mismatch", "Audit item set schema_version must be shirube-audit/v1.", `${itemSetRef}.schema_version`));
+  }
+  if (itemSet.document_type !== "audit_item_set") {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_document_type_mismatch", "Audit item set document_type must be audit_item_set.", `${itemSetRef}.document_type`));
+  }
+  if (typeof itemSet.item_set_id !== "string" || !/^AUDIT-ITEM-SET-[A-Z0-9-]+$/.test(itemSet.item_set_id)) {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_id_invalid", "Audit item set item_set_id is invalid.", `${itemSetRef}.item_set_id`));
+  }
+  if (!Array.isArray(itemSet.items) || itemSet.items.length === 0) {
+    findings.push(finding("RL-AUDIT-007", "audit_item_set_items_missing", "Audit item set must contain items.", `${itemSetRef}.items`));
+    return findings;
+  }
+  const seen = new Set();
+  for (let index = 0; index < itemSet.items.length; index++) {
+    const item = itemSet.items[index];
+    const path = `${itemSetRef}.items.${index}`;
+    if (!item || typeof item !== "object") {
+      findings.push(finding("RL-AUDIT-007", "audit_item_set_item_invalid", "Audit item set item must be an object.", path));
+      continue;
+    }
+    if (typeof item.item_id !== "string" || item.item_id.length === 0) {
+      findings.push(finding("RL-AUDIT-007", "audit_item_set_item_id_missing", "Audit item set item_id is required.", `${path}.item_id`));
+    } else if (seen.has(item.item_id)) {
+      findings.push(finding("RL-AUDIT-007", "audit_item_set_duplicate_item_id", `${item.item_id} appears more than once in the item set.`, `${path}.item_id`));
+    } else {
+      seen.add(item.item_id);
+    }
+    if (typeof item.criterion !== "string" || item.criterion.trim().length === 0) {
+      findings.push(finding("RL-AUDIT-007", "audit_item_set_criterion_missing", `${item.item_id ?? path} requires criterion.`, `${path}.criterion`));
+    }
+    if (!Array.isArray(item.required_evidence) || item.required_evidence.length === 0) {
+      findings.push(finding("RL-AUDIT-007", "audit_item_set_required_evidence_missing", `${item.item_id ?? path} requires required_evidence.`, `${path}.required_evidence`));
+    }
+  }
+  return findings;
+}
+
+function present(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== null && value !== undefined && !(typeof value === "string" && value.trim().length === 0);
+}
+
+function isDurableEvidenceRef(value) {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return false;
+  return !/^<[^>]+>$|placeholder|pending|\btbd\b|^n\/a$|^none$/i.test(trimmed);
 }
 
 function parseHandoff(text, filePath) {
@@ -324,6 +625,9 @@ function renderMarkdown(report) {
     `- Head: \`${report.head_sha}\``,
     `- Handoff: \`${report.handoff_ref ?? "missing"}\``,
     `- Cell: \`${report.cell_id ?? "missing"}\``,
+    `- Audit bridge required: \`${report.audit_bridge?.required ?? false}\``,
+    `- Audit bridge status: \`${report.audit_bridge?.status ?? "unknown"}\``,
+    `- Audit record: \`${report.audit_bridge?.audit_ref ?? "missing"}\``,
     "",
     "### Hard Blocks",
     "",
