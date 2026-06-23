@@ -21,6 +21,7 @@ import { summarizeRawCaptureCoverage } from "./raw-capture-coverage.js";
 import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "./restart-pack.js";
 import { prepareRestart } from "./restart-prepare.js";
 import { catchUp } from "./catch-up.js";
+import { redactText } from "./redact.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -37,7 +38,7 @@ const LOG_FILE = join(LOG_DIR, "calls.log");
 async function logCall(tool: string, params: string): Promise<void> {
   try {
     await mkdir(LOG_DIR, { recursive: true });
-    const line = `${new Date().toISOString()}  ${tool}  ${params}\n`;
+    const line = `${new Date().toISOString()}  ${tool}  ${redactText(params).text}\n`;
     await appendFile(LOG_FILE, line);
   } catch {
     // Logging failure should never break tool execution

@@ -5,6 +5,7 @@ import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
+import { redactText } from "./redact.js";
 
 interface CliOptions {
   command: "prepare" | "fetch" | "preflight" | "help";
@@ -243,7 +244,7 @@ async function main(): Promise<void> {
       restartPreauthorized,
       new Date().toISOString()
     );
-    console.log(JSON.stringify(result, null, 2));
+    console.log(redactedJson(result));
     if (result.status === "fail") process.exit(1);
     return;
   }
@@ -263,14 +264,18 @@ async function main(): Promise<void> {
             pack_ref: options.pack_ref,
           });
       if (!pack) throw new Error(`selected restart pack not found or already consumed: ${options.pack_ref}`);
-      console.log(JSON.stringify(pack, null, 2));
+      console.log(redactedJson(pack));
       return;
     }
     const output = await prepareRestart(store, options);
-    console.log(JSON.stringify(output, null, 2));
+    console.log(redactedJson(output));
   } finally {
     await store.close();
   }
+}
+
+function redactedJson(value: unknown): string {
+  return redactText(JSON.stringify(value, null, 2)).text;
 }
 
 function guardMode(value: string): ContinuityGuardMode {
@@ -334,7 +339,7 @@ export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string):
 
 if (isMainEntrypoint(process.argv[1], import.meta.url)) {
   main().catch((err) => {
-    console.error(`wasurezu-restart failed: ${err}`);
+    console.error(redactText(`wasurezu-restart failed: ${err}`).text);
     process.exit(1);
   });
 }

@@ -9,6 +9,7 @@ import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./
 import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { generateRestartPack } from "./restart-pack.js";
+import { redactText } from "./redact.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -71,13 +72,14 @@ async function boot() {
               pack_ref: selectedPackRef,
             })
           : null;
-        const output = selectedPack?.content ?? (
+        const rawOutput = selectedPack?.content ?? (
           await generateRestartPack(store, {
             agent_id: AGENT_ID,
             project: PROJECT,
             max_tokens: cfg.max_tokens,
           })
         );
+        const output = redactText(rawOutput).text;
         await store.logRecoveryQuality({
           agent_id: AGENT_ID,
           session_id: SESSION_ID,
@@ -91,13 +93,13 @@ async function boot() {
             selected_pack_consumed: selectedPack ? true : undefined,
           }),
         }).catch((err) => {
-          process.stderr.write(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`);
+          process.stderr.write(redactText(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`).text);
           return "";
         });
         console.log(output);
         return;
       } catch (err) {
-        process.stderr.write(`[boot] restart_pack failed, falling back to recover_context format: ${err}\n`);
+        process.stderr.write(redactText(`[boot] restart_pack failed, falling back to recover_context format: ${err}\n`).text);
       }
     }
 
@@ -145,7 +147,7 @@ async function boot() {
       });
     } catch (err) {
       // Non-fatal — recovery_quality_log is best-effort
-      process.stderr.write(`[boot] logRecoveryQuality failed (non-fatal): ${err}\n`);
+      process.stderr.write(redactText(`[boot] logRecoveryQuality failed (non-fatal): ${err}\n`).text);
     }
 
     // Output to stdout — hook output is injected into session context
@@ -156,6 +158,6 @@ async function boot() {
 }
 
 boot().catch((err) => {
-  console.error("[agent-memory boot] Error:", err);
+  console.error(redactText(`[agent-memory boot] Error: ${err}`).text);
   process.exit(1);
 });

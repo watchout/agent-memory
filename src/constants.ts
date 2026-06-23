@@ -1,4 +1,5 @@
 import type { RecoveryConfig, Decision, TaskState, Knowledge, AgentMessage } from "./stores/types.js";
+import { redactText } from "./redact.js";
 
 /**
  * Default recovery config used when no recovery_config record exists in DB.
@@ -161,5 +162,5 @@ export function buildRecoveryOutput(params: {
   const bodyBudget = maxTokens - estimateTokens(headerText) - estimateTokens(footer);
   const bodyParts = truncateByPriority(sections, Math.max(bodyBudget, 100));
 
-  return [headerText, ...bodyParts, "", footer].join("\n");
+  return redactText([headerText, ...bodyParts, "", footer].join("\n")).text;
 }
