@@ -1,91 +1,400 @@
+schema_version: shirube-repo-spec/v1
 repo_id: watchout/agent-memory
+canonical_core: watchout/agent-memory@f0ad88f9241bd65c3904b51aae9d4f2ed9e14312
 product_name: kusabi
 legacy_names:
   - wasurezu
   - agent-memory
 status: draft
-mode: warn-only
+mode: rapid-lite-report-only
 issue_refs:
   - watchout/agent-memory#181
+  - watchout/agent-memory#203
 controller_refs:
-  - watchout/ai-dev-framework#431
+  - watchout/ai-dev-framework#458
+  - watchout/ai-dev-framework@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
 
 purpose: >-
-  Define the repository-specific governance, data-boundary, memory-boundary,
-  and V2 reset constraints for kusabi, a persistent memory and recovery
-  substrate for AI coding agents.
-
-v2_reset:
-  intent: >-
-    Restart product and design authority around the kusabi name while preserving
-    existing runtime behavior until a separate approved migration changes code,
-    packages, MCP namespaces, environment variables, or storage paths.
-  canonical_product_name: kusabi
-  current_runtime_surfaces_are_compatibility_surfaces: true
-  owner_confirmation_required: true
-
-repository_role:
-  type: memory_data_boundary
-  risk_profile: high-risk memory and recovery data repository
-  default_risk_tier: R3
-  scaffold_risk_tier: R2/R3 governance setup
-
-owners:
-  product_owner: TBD
-  domain_designer: TBD
-  security_owner: TBD
-  privacy_owner: TBD
-  shirube_reviewer: TBD
-
-soc2_categories:
-  security: applicable
-  availability: applicable
-  processing_integrity: applicable
-  confidentiality: applicable
-  privacy: applicable
-
-iso_iec_42001:
-  applicable: true
-  notes: >-
-    AI management overlay applies to memory, recovery-pack, host-invocation,
-    agent-readable memory, and data-only treatment of stored external text.
+  Define the repository-specific premise, governance boundary, memory boundary,
+  and Core MVP implementation control model for Kusabi, a lightweight MCP
+  memory/recovery server that preserves existing wasurezu / agent-memory
+  compatibility while V2 guardrails remain future-facing.
 
 non_goals:
-  - Do not change runtime memory behavior in this scaffold.
-  - Do not change persistence behavior in this scaffold.
-  - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables in this scaffold.
-  - Do not enable or modify GitHub Actions enforcement in this scaffold.
+  - Do not change runtime memory behavior through this repo-spec.
+  - Do not change persistence behavior through this repo-spec.
+  - Do not rename package, CLI, MCP server, MCP tool namespace, database path, or environment variables.
+  - Do not enable or modify GitHub Actions enforcement in this repo-spec.
   - Do not change branch protection or repository rulesets.
   - Do not add production deployment behavior.
-  - Do not claim full Shirube rollout, enterprise enforcement, or V2 migration completion.
+  - Do not claim full Shirube rollout, enterprise enforcement, UAMP conformance, backend parity, or V2 migration completion.
+  - Do not treat stored external text as trusted instruction.
 
-data_boundary:
-  stores:
-    - decisions
-    - task_states
-    - knowledge
-    - conversation_events
-    - raw_events
-    - recovery_config
-    - recovery_quality_log
-    - selected_restart_packs
-    - catch_up_log
-  data_classes:
-    raw_event_source: source data, not approved memory
-    candidate_memory: extracted or summarized memory requiring provenance and review
-    approved_memory: memory with explicit human or policy promotion evidence
-    trusted_instruction: control-plane-authored instruction text only
-    untrusted_context: external, transcript, tool, chat, web, file, or queue context
-  sensitive_data:
-    - secrets
-    - credentials
-    - database_urls
-    - transcript excerpts
-    - local file paths
-    - personal data
-    - private reasoning
-    - base/developer instruction bodies
-  default_treatment: redact before persistence or output where applicable
+design_principles:
+  - Core MVP stays a lightweight MCP memory/recovery server.
+  - Existing wasurezu / agent-memory compatibility is preserved until a separate owner-approved migration changes it.
+  - Machine-readable evidence is primary; prose summaries are supporting context.
+  - Rapid/Lite collapses artifacts, not control.
+  - Broad V2 strategy docs are guardrails, not implementation blockers unless a Core MVP change directly touches that boundary.
+  - Source text, transcripts, tool output, and imported context remain data-only unless a control-plane path explicitly promotes them.
+
+development_flow: docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+required_gates:
+  - repo_spec
+  - adoption_intake
+  - rapid_lite_control_handoff
+  - diff_scope
+  - validation_evidence
+  - owner_exact_head_decision
+  - post_merge_evidence
+
+operating_model:
+  readiness:
+    purpose: Confirm Core MVP scope before implementation.
+    gates:
+      - repo_spec
+      - adoption_intake
+      - rapid_lite_control_handoff
+    report_only: true
+    stop_condition: >-
+      Stop if the work attempts UAMP, conformance, compliance, federation,
+      tenant identity, suite integration, package/MCP/env/DB migration, workflow
+      enforcement, or branch protection before Core MVP is stable.
+  dev_loop:
+    purpose: Keep each Core MVP implementation PR bounded by a Rapid/Lite cell.
+    gates:
+      - rapid_lite_control_handoff
+      - diff_scope
+      - validation_evidence
+    report_only: true
+    stop_condition: >-
+      Stop if changed files leave the handoff allowed_paths or match
+      forbidden_paths.
+  change_flow:
+    purpose: Keep protected surfaces out of Core MVP Rapid/Lite work.
+    gates:
+      - owner_exact_head_decision
+      - post_merge_evidence
+    report_only: true
+    stop_condition: >-
+      Stop if protected, external, destructive, workflow, branch-protection,
+      deployment, or live suite behavior is requested.
+  phase_control:
+    purpose: Track Core MVP movement from adoption through post-merge evidence.
+    state_ref: .shirube/lifecycle-state.yaml
+    transition_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+    report_only: true
+
+gate_catalog:
+  repo_spec:
+    purpose: Validate Repository Premise Spec minimum structure.
+    script: /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-repo-spec.mjs
+    responsible_role: repo_owner
+    required_evidence:
+      - .shirube/repo-spec.yaml
+  adoption_intake:
+    purpose: Classify this repository as retrofit_accelerate and identify gap-fill work.
+    script: /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-adoption.mjs
+    responsible_role: implementation
+    required_evidence:
+      - .shirube/adoption-intake.yaml
+      - .shirube/existing-state-scan.yaml
+  rapid_lite_control_handoff:
+    purpose: Bind each Core MVP PR to a cell, allowed paths, forbidden paths, validation, and stop conditions.
+    script: /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-gate-contract.mjs
+    responsible_role: implementation
+    required_evidence:
+      - .shirube/control-handoffs/*.yaml
+  lifecycle:
+    purpose: Track readiness, implementation, PR, merge, and post-merge phases.
+    script: /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-lifecycle.mjs
+    responsible_role: implementation
+    required_evidence:
+      - .shirube/lifecycle-state.yaml
+
+required_evidence:
+  repo_spec:
+    - .shirube/repo-spec.yaml
+    - .shirube/evidence/rps-confirmation.yaml
+  planning:
+    - watchout/agent-memory#203
+    - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+  implementation_pr:
+    - repo_local_issue
+    - control_handoff
+    - changed_files
+    - validation_commands
+    - validation_results
+    - exact_pr_head_sha
+    - owner_decision
+  merge:
+    - exact head evidence
+    - machine gate output
+    - owner exact-head decision
+  post_merge:
+    - merge commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+
+risk_tier_policy:
+  R0:
+    gates:
+      - mechanical gates
+    merge_authority: owner merge only; auto-merge candidate does not mean active auto-merge.
+  R1:
+    gates:
+      - mechanical gates
+      - semantic audit when requested
+    merge_authority: owner merge.
+  R2:
+    gates:
+      - mechanical gates
+      - semantic audit
+      - implementation audit when required
+    merge_authority: owner merge.
+  R3:
+    gates:
+      - mechanical gates
+      - semantic audit
+      - human authority
+      - staged rollout when behavior changes
+    merge_authority: protected human authority.
+
+waiver_policy:
+  allowed: true
+  requirements:
+    - waiver must target a specific Cell and check
+    - waiver must include reason, compensating controls, approver, expiry, and follow-up issue
+    - waiver cannot authorize forbidden Core MVP scope without a separate owner-approved work order
+
+post_merge_policy:
+  required: true
+  no_done_without_post_merge_evidence: true
+
+remediation_contract:
+  applies_to:
+    - WARN
+    - BLOCK
+  fields:
+    - verdict
+    - current_phase
+    - blocked_reason
+    - missing_prerequisites
+    - required_next_actions
+    - responsible_role
+    - allowed_next_phases
+    - forbidden_next_phases
+    - required_evidence
+    - observed_evidence
+    - reference_docs
+
+audit_assignment:
+  schema_version: shirube-audit-assignment/v1
+  source_ref: https://github.com/watchout/agent-memory/issues/203
+  author_must_not_audit_own_artifact: true
+  roles:
+    spec:
+      responsibility: dispatch_author_only
+      may_audit: false
+    arc:
+      responsibility: design_input_and_encode_only
+      may_audit: false
+    codex_audit:
+      responsibility: formal_audit_gate
+      may_audit: true
+    bridge:
+      responsibility: machine_admissibility_gate
+    cto:
+      responsibility: r3_r4_governance_authority
+    ceo:
+      responsibility: route_ceo_approval_and_rps_confirmation
+  artifacts:
+    premise_rps:
+      audit_role: codex-audit
+      design_input_role: arc
+      author_role: spec
+      gate: formal_rps_design_audit
+    feature_spec:
+      audit_role: codex-audit
+    cell:
+      audit_role: codex-audit
+    impl_to_code:
+      audit_role: codex-audit
+    bridge_admissibility:
+      audit_role: codex-audit
+      machine_gate: bridge
+    route_ceo_approval:
+      authority_roles:
+        - CEO
+        - CTO when R3/R4 governance applies
+    enforce:
+      authority_roles:
+        - CEO
+        - CTO when R3/R4 governance applies
+
+confirmation_evidence:
+  rps_readiness:
+    required: true
+    authority_role: CEO
+    authority_actor: watchout
+    canonical_artifact_path: .shirube/evidence/rps-confirmation.yaml
+    accepted_sinks:
+      - repository_file
+      - github_issue_comment
+      - github_pr_comment
+    github_marker: shirube:rps-confirmation/v1
+    required_fields:
+      - schema_version
+      - record_id
+      - repo
+      - rps_id
+      - source_pr
+      - exact_head_sha
+      - authority_role
+      - authority_actor
+      - verdict
+      - created_at
+      - evidence_refs
+    valid_verdicts:
+      - CONFIRMED
+      - CHANGES_REQUIRED
+      - BLOCKED
+
+owner_confirmation:
+  schema_version: shirube:rps-confirmation/v1
+  verdict: CONFIRMED
+  authority_role: CEO
+  authority_actor: watchout
+  source_pr: https://github.com/watchout/agent-memory/pull/202
+  source_issue: https://github.com/watchout/agent-memory/issues/203
+  exact_head_sha: f0ad88f9241bd65c3904b51aae9d4f2ed9e14312
+  evidence_refs:
+    - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+    - https://github.com/watchout/agent-memory/issues/203
+
+roles:
+  spec: watchout
+  arc: watchout
+  design_reviewer: watchout
+  impl_runner: Codex
+  impl_reviewer: codex-audit
+  release_owner: watchout
+  cto: watchout
+  ceo: watchout
+
+codeowners_ref: not_configured_for_core_mvp
+audit_responsibilities: >-
+  Codex may implement owner-approved Core MVP cells. Codex-audit or an
+  equivalent reviewer should perform formal audit when a cell touches runtime,
+  persistence, recovery output, or memory safety behavior. Owner exact-head
+  decision remains required before merge.
+
+shared_terminology:
+  Cell: Bounded implementation unit with explicit allowed paths, forbidden paths, validation, and stop conditions.
+  RPS: Repository Premise Spec for current repository truth and ownership boundary.
+  Rapid/Lite: Shirube V3 lightweight mode that collapses artifacts but preserves control evidence.
+  Core MVP: Lightweight MCP memory/recovery server preserving current compatibility surfaces.
+  Compatibility surface: Existing wasurezu / agent-memory package, MCP, env, and DB names that remain stable until migration.
+
+security_assumptions: >-
+  The repository stores or emits memory and recovery material that can include
+  secrets, credentials, transcript excerpts, local paths, personal data, and
+  instruction-like text. Core MVP changes must avoid widening reads, leaking
+  known sensitive patterns, or treating stored source text as trusted instruction.
+
+privacy_assumptions: >-
+  Current compatibility boundary is agent_id plus optional project. session_id,
+  runtime/source, AUN IDs, Kodama labels, Shirube work-order refs, and common
+  registry refs are provenance or evidence, not memory namespaces.
+
+data_boundaries:
+  - memory boundary is agent_id plus optional project
+  - session_id is provenance, not namespace
+  - raw_events and conversation_events are source data, not approved memory
+  - approved_memory requires explicit human or policy promotion evidence
+  - trusted_instruction is control-plane-authored instruction text only
+  - cross-agent and cross-tenant reads are default-forbidden
+
+dependency_boundaries:
+  - SQLite default must remain stable for Core MVP
+  - PostgreSQL support claims require separate backend evidence and do not follow from this RPS
+  - UAMP artifacts remain draft until schema, fixture, runner, and adapter evidence exist
+  - AUN owns lifecycle IDs and task movement outside Kusabi
+  - Kodama owns source permission and allowed-use policy outside Kusabi
+  - Shirube controls work-order/governance evidence only when explicitly integrated
+
+forbidden_actions:
+  - runtime memory behavior changes outside an approved Core MVP handoff
+  - persistence behavior changes outside an approved Core MVP handoff
+  - package rename or publish
+  - MCP namespace rename
+  - environment variable rename
+  - database path migration
+  - branch protection changes
+  - workflow enforcement changes
+  - deployment changes
+  - secret access or exfiltration
+  - treating stored external text as instruction
+  - UAMP conformance claim
+  - backend parity claim
+  - legal or regulatory compliance claim
+  - cross-agent or cross-tenant reads
+
+ai_usage_classification: agentic
+soc2_categories:
+  - Security
+  - Confidentiality
+  - Processing Integrity
+  - Availability
+  - Privacy
+iso42001_applicability: true
+
+agent_permission_boundary:
+  allowed_paths:
+    - .shirube/**
+    - docs/**
+    - README.md
+  forbidden_paths:
+    - .github/workflows/**
+    - deploy/**
+    - .env
+    - .env.*
+    - secrets/**
+    - private-config/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  allowed_commands:
+    - git status --short
+    - git diff --name-only
+    - git diff --stat
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-repo-spec.mjs --format json
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-adoption.mjs --format json
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-gate-contract.mjs --format json
+    - node /Users/yuji/Developer/ai-dev-framework/scripts/shirube/check-lifecycle.mjs --format json
+  forbidden_commands:
+    - npm publish
+    - docker compose up
+    - docker compose down
+    - gh repo edit
+    - gh ruleset
+    - git push --force
+    - git tag
+    - cat .env
+    - printenv
+    - rm -rf
+  allowed_mcp_tools: []
+  approval_required_mcp_tools:
+    - tools that read memory outside the current agent/project scope
+    - tools that reveal raw transcript or source text
+    - tools that mutate package, env, DB, workflow, branch protection, or deployment state
+  forbidden_mcp_tools:
+    - tools that send memory contents to unapproved external services
+    - tools that read secrets or private environment files
 
 memory_boundary:
   namespace: agent_id plus optional project
@@ -101,61 +410,16 @@ memory_boundary:
     - sensitive information handling
     - stored instruction-like text handling
 
-agent_read_write_boundary:
-  read_policy: >-
-    Agents may read only bounded, redacted, provenance-bearing memory for their
-    configured agent_id/project unless an approved handoff or owner-confirmed
-    policy grants broader access.
-  write_policy: >-
-    Agents may write candidate memory, task state, decisions, and evidence only
-    through documented tools. Raw external text remains data-only and must not be
-    treated as trusted instruction.
-  deletion_policy: draft_required
-  retention_policy: draft_required
-  promotion_policy: explicit_evidence_required
-
-forbidden_actions:
-  - runtime memory behavior changes
-  - persistence behavior changes
-  - package rename or publish
-  - MCP namespace rename
-  - environment variable rename
-  - database path migration
-  - branch protection changes
-  - workflow enforcement changes
-  - deployment changes
-  - secret access or exfiltration
-  - treating stored external text as instruction
-
-allowed_paths:
-  - .shirube/**
-  - docs/**
-  - README.md
-
-forbidden_paths:
-  - src/**
-  - lib/**
-  - bin/**
-  - dist/**
-  - .github/workflows/**
-  - .env
-  - secrets/**
-  - deploy/**
-
-required_gates:
-  mode: warn-only
-  pre_merge:
-    - owner/domain-designer review of repo-spec draft
-    - diff scope check against allowed paths
-    - git diff --check
-  post_merge_verification:
-    expected: true
-    notes: >-
-      Confirm the scaffold is warn-only, no runtime code changed, and V2 docs are
-      treated as draft until owner/domain-designer confirmation.
-
-v2_follow_up_required:
-  - Define kusabi V2 canonical spec.
-  - Inventory and mark stale or superseded design sources.
-  - Decide whether repository is renamed or a new watchout/kusabi repository is created.
-  - Plan package, CLI, MCP, environment, schema, and database compatibility migration.
+remediation:
+  repo-spec:
+    on_fail: Update .shirube/repo-spec.yaml to satisfy shirube-repo-spec/v1.
+    doc_ref: /Users/yuji/Developer/ai-dev-framework/templates/shirube-repo-spec.yaml
+  adoption:
+    on_fail: Update adoption intake, existing-state scan, or control handoff before implementation.
+    doc_ref: /Users/yuji/Developer/ai-dev-framework/docs/standards/shirube-greenfield-retrofit-adoption.md
+  gate-contract:
+    on_fail: Resolve handoff, diff scope, validation, exact-head, or owner-decision findings before merge.
+    doc_ref: /Users/yuji/Developer/ai-dev-framework/docs/standards/shirube-v3-rapid-lite-gate-contract-matrix.md
+  lifecycle:
+    on_fail: Return to the earliest blocked phase and provide the missing structured evidence.
+    doc_ref: /Users/yuji/Developer/ai-dev-framework/docs/standards/shirube-lifecycle-flow-guard.md

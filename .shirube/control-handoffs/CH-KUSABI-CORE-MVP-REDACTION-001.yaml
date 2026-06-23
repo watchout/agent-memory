@@ -1,0 +1,142 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-REDACTION-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the current output redaction hardening PR.
+    - Diff-scope, validation, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior outside the approved Core MVP redaction hardening slice.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env vars, DB path, or UAMP conformance.
+
+acceptance_criteria:
+  - Existing current output surfaces are inspected before editing.
+  - Existing redaction helpers are reused where practical.
+  - Tests are added or updated for touched current surfaces.
+  - No UAMP fixtures, schema files, fixture runner, CI gate, DLP claim, zero-leakage claim, backend parity claim, or compliance claim is introduced.
+  - Node 18 / 20 / 22 CI-compatible commands remain green or failures are reported with exact scope.
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  test_expectations:
+    - Known sensitive patterns are redacted from touched current output surfaces.
+    - search_memory and recover_context do not regress.
+    - restart_prepare and restart_pack_fetch semantics do not regress.
+    - Claude / Codex current recovery paths do not regress where covered by existing tests or smoke evidence.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-REDACTION-001
+  cell_type: code_lite
+  risk_class: R2
+  goal: >-
+    Harden current output redaction surfaces for Kusabi Core MVP without
+    expanding into future redaction parity, UAMP, compliance, federation, or
+    backend parity work.
+  non_scope:
+    - UAMP runtime emitters.
+    - UAMP conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance.
+    - Attestation packet implementation.
+    - Tamper-evident audit chain.
+    - AUN / Kodama / Shirube live integration.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Backend parity claim.
+    - DLP or zero secret leakage claim.
+  allowed_paths:
+    - src/**
+    - test/**
+    - tests/**
+    - .shirube/**
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+    - docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires UAMP conformance work.
+    - Change creates fixture files, schema files, or a runner.
+    - Change renames package, MCP namespace, env vars, or DB paths.
+    - Change alters tenant/user identity or cross-agent reads.
+    - Change implements deletion/export/reveal behavior.
+    - Change implies legal/regulatory compliance.
+    - Change alters AUN/Kodama/Shirube behavior.
+    - Change requires broad backend parity claims.
+    - Change spans multiple Core MVP work packages.
+
+implementation_boundary:
+  summary: >-
+    Inspect current output surfaces, reuse current redaction helpers where
+    practical, and harden only the existing Core MVP outputs named in issue #203.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
