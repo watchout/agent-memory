@@ -10,6 +10,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, st
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import Ajv2020 from "ajv/dist/2020.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { buildCatchUpSourceADryRunManifest } from "./catch-up.js";
@@ -102,6 +104,19 @@ function normalizeSql(sql: string): string {
 
 function mcpToolNamesFromSource(source: string): string[] {
   return Array.from(source.matchAll(/server\.tool\(\s*\n\s*"([^"]+)"/g), (match) => match[1]);
+}
+
+function toolResultText(result: { content?: Array<{ type: string; text?: string }> }): string {
+  return (result.content ?? [])
+    .filter((item) => item.type === "text")
+    .map((item) => item.text ?? "")
+    .join("\n");
+}
+
+function inheritedEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)
+  );
 }
 
 async function cleanup() {
@@ -3306,6 +3321,202 @@ function testMemorySafetyGovernance() {
   assert(evidenceRefsSchema.properties.approval_note_ref, "Aun Gate evidence refs expose approval-note evidence");
 }
 
+async function testCoreMcpToolRegression() {
+  console.log("\n── Core MCP Tool Regression Tests ──");
+
+  const tmpHome = mkdtempSync(join(tmpdir(), "agent-memory-mcp-core-"));
+  const dbPath = join(tmpHome, "memory.db");
+  const agentId = "mcp-core-agent-a";
+  const otherAgentId = "mcp-core-agent-b";
+  const project = "mcp-core-project";
+  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+  const baseEnv = inheritedEnv();
+  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
+  delete baseEnv.DATABASE_URL;
+
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cli, "src/index.ts"],
+    cwd: process.cwd(),
+    stderr: "pipe",
+    env: {
+      ...baseEnv,
+      HOME: tmpHome,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: dbPath,
+      AGENT_MEMORY_AGENT_ID: agentId,
+      AGENT_MEMORY_PROJECT: project,
+      CLAUDE_SESSION_ID: "mcp-core-regression-session",
+    },
+  });
+  const client = new Client({ name: "agent-memory-core-mcp-test", version: "0.0.0" }, { capabilities: {} });
+
+  try {
+    await client.connect(transport);
+
+    const listed = await client.listTools();
+    const toolNames = listed.tools.map((tool) => tool.name).sort();
+    for (const expected of [
+      "log_decision",
+      "get_decisions",
+      "save_task_state",
+      "search_memory",
+      "recover_context",
+      "restart_pack",
+      "restart_prepare",
+      "restart_pack_fetch",
+      "save_knowledge",
+      "get_knowledge",
+    ]) {
+      assert(toolNames.includes(expected), `MCP listTools exposes ${expected}`);
+    }
+
+    const searchTool = listed.tools.find((tool) => tool.name === "search_memory");
+    assert(Boolean(searchTool?.inputSchema?.properties?.query), "search_memory schema requires query property");
+    assert(Boolean(searchTool?.inputSchema?.properties?.scope), "search_memory schema exposes scope property");
+    const restartPrepareTool = listed.tools.find((tool) => tool.name === "restart_prepare");
+    assert(Boolean(restartPrepareTool?.inputSchema?.properties?.pack_format), "restart_prepare schema exposes pack_format");
+    assert(
+      restartPrepareTool?.description?.includes("does not stop, restart, requeue") === true,
+      "restart_prepare description preserves lifecycle boundary"
+    );
+    const restartFetchTool = listed.tools.find((tool) => tool.name === "restart_pack_fetch");
+    assert(Boolean(restartFetchTool?.inputSchema?.properties?.consume), "restart_pack_fetch schema exposes consume flag");
+
+    const logged = await client.callTool({
+      name: "log_decision",
+      arguments: {
+        project,
+        decision: "Use MCP regression coverage for Core MVP",
+        context: "Protect current wasurezu tool behavior before further implementation.",
+        tags: ["mcp", "core-mvp"],
+      },
+    });
+    assert(toolResultText(logged).includes("Decision logged"), "log_decision returns success text");
+
+    const decisions = await client.callTool({
+      name: "get_decisions",
+      arguments: { project, tags: ["mcp"], status: "active", limit: 5 },
+    });
+    const decisionText = toolResultText(decisions);
+    assert(decisionText.includes("Use MCP regression coverage"), "get_decisions returns logged decision");
+    assert(decisionText.includes("core-mvp"), "get_decisions returns tags");
+
+    const task = await client.callTool({
+      name: "save_task_state",
+      arguments: {
+        project,
+        task: "Core MCP regression coverage",
+        status: "in_progress",
+        progress: "MCP stdio smoke covers core tools",
+        files_modified: ["src/test.ts"],
+        next_steps: "Keep current MCP tool behavior stable",
+      },
+    });
+    assert(toolResultText(task).includes("Task state saved"), "save_task_state returns success text");
+
+    const knowledge = await client.callTool({
+      name: "save_knowledge",
+      arguments: {
+        project,
+        title: "MCP regression coverage shape",
+        content: "Core MVP protects decisions, task state, knowledge, search, recovery, restart prepare, and selected pack fetch.",
+        source_type: "manual",
+        tags: ["mcp", "coverage"],
+      },
+    });
+    assert(toolResultText(knowledge).includes("Knowledge saved"), "save_knowledge returns success text");
+
+    const search = await client.callTool({
+      name: "search_memory",
+      arguments: { project, query: "MCP regression coverage", scope: "all", limit: 10 },
+    });
+    const searchText = toolResultText(search);
+    assert(searchText.includes("DECISIONS"), "search_memory returns decision section");
+    assert(searchText.includes("TASK STATES"), "search_memory returns task section");
+    assert(searchText.includes("KNOWLEDGE"), "search_memory returns knowledge section");
+    assert(searchText.includes("Core MCP regression coverage"), "search_memory returns seeded task");
+
+    const otherTransport = new StdioClientTransport({
+      command: process.execPath,
+      args: [cli, "src/index.ts"],
+      cwd: process.cwd(),
+      stderr: "pipe",
+      env: {
+        ...baseEnv,
+        HOME: tmpHome,
+        AGENT_MEMORY_DB_TYPE: "sqlite",
+        AGENT_MEMORY_DB_PATH: dbPath,
+        AGENT_MEMORY_AGENT_ID: otherAgentId,
+        AGENT_MEMORY_PROJECT: project,
+        CLAUDE_SESSION_ID: "mcp-core-regression-other-session",
+      },
+    });
+    const otherClient = new Client({ name: "agent-memory-core-mcp-other-agent-test", version: "0.0.0" }, { capabilities: {} });
+    try {
+      await otherClient.connect(otherTransport);
+      const isolated = await otherClient.callTool({
+        name: "search_memory",
+        arguments: { project, query: "MCP regression coverage", scope: "all", limit: 10 },
+      });
+      assert(toolResultText(isolated).includes("no results"), "MCP tools preserve agent isolation across same DB path");
+    } finally {
+      await otherClient.close();
+      await otherTransport.close();
+    }
+
+    const recovery = await client.callTool({ name: "recover_context", arguments: { project } });
+    const recoveryText = toolResultText(recovery);
+    assert(recoveryText.includes("Core MCP regression coverage"), "recover_context returns active task");
+    assert(recoveryText.includes("Use MCP regression coverage"), "recover_context returns active decision");
+    assert(recoveryText.includes("MCP regression coverage shape"), "recover_context returns knowledge");
+
+    const pack = await client.callTool({
+      name: "restart_pack",
+      arguments: { project, max_tokens: 1000 },
+    });
+    const packText = toolResultText(pack);
+    assert(packText.includes("CURRENT OBJECTIVE"), "restart_pack returns current objective section");
+    assert(packText.includes("Core MCP regression coverage"), "restart_pack returns seeded task");
+
+    const prepared = await client.callTool({
+      name: "restart_prepare",
+      arguments: {
+        project,
+        context_used_ratio: 0.91,
+        continuity_guard_mode: "recommend",
+        pack_injection_mode: "auto_attach",
+        emit_pack: false,
+      },
+    });
+    const preparedJson = JSON.parse(toolResultText(prepared));
+    assert(preparedJson.action === "restart_recommended", "restart_prepare recommends restart at host metric threshold");
+    assert(
+      typeof preparedJson.pack_ref === "string" && preparedJson.pack_ref.startsWith("selected_restart_pack:"),
+      "restart_prepare returns selected_restart_pack ref"
+    );
+
+    const fetched = await client.callTool({
+      name: "restart_pack_fetch",
+      arguments: { project, pack_ref: preparedJson.pack_ref, consume: true },
+    });
+    const fetchedJson = JSON.parse(toolResultText(fetched));
+    assert(fetchedJson.pack_ref === preparedJson.pack_ref, "restart_pack_fetch returns selected pack by ref");
+    assert(fetchedJson.status === "consumed", "restart_pack_fetch marks pack consumed when consume=true");
+
+    const consumedAgain = await client.callTool({
+      name: "restart_pack_fetch",
+      arguments: { project, pack_ref: preparedJson.pack_ref, consume: true },
+    });
+    assert(consumedAgain.isError === true, "restart_pack_fetch consume is single-use");
+    assert(toolResultText(consumedAgain).includes("not found or already consumed"), "restart_pack_fetch reports consumed pack");
+  } finally {
+    await client.close();
+    await transport.close();
+    rmSync(tmpHome, { recursive: true, force: true });
+  }
+}
+
 async function testSqliteSupersedeKnowledgeAgentIsolation() {
   console.log("\n── supersedeKnowledge agent_id isolation (SqliteStore) ──");
   const dbPath = join(mkdtempSync(join(tmpdir(), "am076-sqlite-iso-")), "test.db");
@@ -3448,6 +3659,7 @@ async function run() {
   testRestartCommandPreflight();
   testSupervisorPreflight();
   await testRestartPrepare();
+  await testCoreMcpToolRegression();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();

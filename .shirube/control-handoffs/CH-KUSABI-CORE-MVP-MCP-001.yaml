@@ -1,0 +1,170 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-MCP-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  MCP regression coverage into runtime behavior changes, package/MCP namespace
+  changes, env var changes, DB path migration, workflow enforcement,
+  deployment, UAMP conformance, backend parity claims, federation, or suite
+  integration.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the Core MVP MCP tool regression coverage PR.
+    - Diff-scope, validation, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior changes.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env vars, DB path, UAMP conformance, backend parity claims, or suite integration.
+
+acceptance_criteria:
+  - MCP server is exercised through stdio using the current MCP SDK client.
+  - listTools exposes current high-value Core MVP tools.
+  - log_decision and get_decisions behavior is covered through MCP calls.
+  - save_task_state behavior is covered through MCP calls.
+  - save_knowledge and get/search coverage is represented through MCP calls.
+  - search_memory covers decisions, tasks, and knowledge through MCP calls.
+  - recover_context returns seeded current task, decision, and knowledge through MCP calls.
+  - restart_pack returns seeded recovery context through MCP calls.
+  - restart_prepare returns a selected_restart_pack reference through MCP calls.
+  - restart_pack_fetch fetches and consumes selected restart packs through MCP calls.
+  - Agent isolation is covered across two MCP clients sharing the same temp DB path.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, schema file, fixture, runner, backend parity claim, or UAMP conformance claim is introduced.
+  - Node 18 / 20 / 22 CI-compatible commands remain green or failures are reported with exact scope.
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  test_expectations:
+    - MCP listTools exposes current Core MVP tool names and selected input schemas.
+    - Representative MCP calls persist and retrieve decisions, task state, and knowledge.
+    - search_memory, recover_context, restart_pack, restart_prepare, and restart_pack_fetch do not regress.
+    - Agent/project isolation remains intact for MCP calls sharing one SQLite DB path.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - owner_decision
+
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    reason: >-
+      src/test.ts already contains test cleanup calls such as rmSync for
+      temporary test directories. This PR does not add runtime deletion,
+      deletion/export/reveal behavior, or destructive data operations.
+    scope:
+      - src/test.ts
+    approved_by: owner-required-before-merge
+    expires_at: 2026-07-31
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-MCP-001
+  cell_type: code_lite
+  risk_class: R2
+  goal: >-
+    Expand Core MVP MCP regression coverage for the current wasurezu-compatible
+    MCP memory/recovery server without changing runtime behavior or future V2
+    protocol/enterprise surfaces.
+  non_scope:
+    - Runtime behavior changes.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Workflow changes.
+    - Deployment changes.
+    - UAMP runtime emitters.
+    - UAMP conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance.
+    - Attestation packet implementation.
+    - AUN / Kodama / Shirube live integration.
+    - Backend parity claim.
+  allowed_paths:
+    - src/test.ts
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MCP-001.yaml
+  forbidden_paths:
+    - src/index.ts
+    - src/stores/**
+    - src/restart-pack.ts
+    - src/restart-prepare.ts
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+    - docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires runtime tool behavior changes.
+    - Change requires package, MCP namespace, env var, or DB path rename.
+    - Change creates schema files, fixtures, or a runner.
+    - Change alters PostgreSQL rollout policy or claims backend parity.
+    - Change enables cross-agent reads, tenant/user identity, or federation.
+    - Change implements UAMP conformance, compliance, or suite integration.
+    - Change requires workflow, required-check, branch-protection, deployment, or ruleset mutation.
+    - Change spans multiple Core MVP work packages.
+
+implementation_boundary:
+  summary: >-
+    Add regression coverage only. Exercise the current MCP server through
+    stdio with temp HOME and temp SQLite DB path, then assert current Core MVP
+    tool behavior remains stable.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
