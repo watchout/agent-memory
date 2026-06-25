@@ -19,13 +19,13 @@ permissions:
 jobs:
   shirube-rapid-lite-gates-report:
     name: Shirube Rapid/Lite Gates Report
-    uses: "watchout/ai-dev-framework/.github/workflows/shirube-rapid-lite-reusable.yml@193d039fac61fc107315dd5504616996c7691b33"
+    uses: "watchout/ai-dev-framework/.github/workflows/shirube-rapid-lite-reusable.yml@d19119c71562d577f5b5f4393068686f55ff4a87"
     permissions:
       contents: read
       pull-requests: write
       issues: write
     with:
-      framework_ref: "watchout/ai-dev-framework@193d039fac61fc107315dd5504616996c7691b33"
+      framework_ref: "watchout/ai-dev-framework@d19119c71562d577f5b5f4393068686f55ff4a87"
       profile: hotel-lite
       report_only: true
       pr_body: "${{ github.event.pull_request.body || '' }}"

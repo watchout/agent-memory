@@ -3,7 +3,7 @@ policy_id: ENFORCEMENT-POLICY-KUSABI-001
 repo: watchout/agent-memory
 mode: report_only
 profile: hotel-lite
-framework_ref: watchout/ai-dev-framework@193d039fac61fc107315dd5504616996c7691b33
+framework_ref: watchout/ai-dev-framework@d19119c71562d577f5b5f4393068686f55ff4a87
 updated_at: 2026-06-25T00:00:00.000Z
 stale_after_days: 90
 owner_observed: true
