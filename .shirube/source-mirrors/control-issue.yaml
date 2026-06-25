@@ -1,0 +1,22 @@
+schema_version: shirube-source-mirror/v1
+source_type: github_issue
+source_repo: watchout/agent-memory
+issue_number: 203
+source_ref: watchout/agent-memory#203
+source_url: https://github.com/watchout/agent-memory/issues/203
+target_repo: watchout/agent-memory
+product: kusabi
+framework_ref: watchout/ai-dev-framework@193d039fac61fc107315dd5504616996c7691b33
+fetched_at: <FETCHED_AT_UTC>
+sha256: abaa92192f4f672af54da45a041a65380e464cb0c4859e260523260589c98c0f
+mirror_is_truth: false
+generated_by: codex-adf
+source_authority:
+  type: github_issue_or_comment
+  remains_authority: true
+  mirror_role: machine_readable_snapshot
+extracted_fields:
+  target_repo: watchout/agent-memory
+  product: kusabi
+  owner_confirmation: .shirube/source-mirrors/control-issue.yaml
+  control_source_status: snapshot

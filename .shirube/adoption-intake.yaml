@@ -1,24 +1,40 @@
 schema_version: shirube-adoption-intake/v1
-adoption_id: ADOPT-KUSABI-CORE-MVP-001
+adoption_id: ADOPT-KUSABI-001
 lane: adoption_intake
 repo: watchout/agent-memory
-framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+framework_ref: watchout/ai-dev-framework@193d039fac61fc107315dd5504616996c7691b33
 profile: hotel-lite
+current_status: PARTIAL_SHIRUBE_PILOT
+target_status_after_merge: RAPID_LITE_REPORT_ONLY
 disposition: retrofit_accelerate
-current_phase: ADOPTION_READY
-stale_after_days: 30
-high_unknown_count_threshold: 5
+source_control_ref: watchout/agent-memory#203
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
 owner:
   role: repo_owner
   actor: watchout
 existing_state_scan_ref: .shirube/existing-state-scan.yaml
+existing_state_scan:
+  specs:
+    - path: https://github.com/watchout/agent-memory/issues/203
+      status: source_mirror_pending_owner_review
+      authority: control_source_snapshot
+  implementation:
+    - path: runtime/product tree
+      status: not_modified_by_adoption_pack
+  tests:
+    - path: repository test suite
+      status: not_modified_by_adoption_pack
+  legacy_sources: []
+  known_drift: []
+  unsafe_changes: []
+  llm_truth_claims: []
+  unknowns:
+    - Full runtime/API/DB/package inventory is not performed by the renderer.
 repo_spec_ref: .shirube/repo-spec.yaml
-owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
-gap_fill_plan_ref: .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml
+owner_confirmation_ref: .shirube/source-mirrors/control-issue.yaml
+gap_fill_plan:
+  - Fill owner confirmation and exact-head evidence before merge readiness.
+  - Keep adoption PR limited to .shirube/** and docs/shirube/** unless a later workflow caller Cell is approved.
 spec_reconciliation_ref: null
-next_safe_cell_ref: CELL-KUSABI-V3-INITIAL-CONTROL-001
-control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-V3-INITIAL-CONTROL-001.yaml
-notes:
-  - Existing V2 docs are accepted as planning inputs and guardrails.
-  - Existing runtime remains the compatibility surface.
-  - Shirube V3 starts as report-only control evidence, not live enforcement.
+next_safe_cell_ref: .shirube/control-handoffs/CH-001.yaml
+control_handoff_ref: .shirube/control-handoffs/CH-001.yaml
