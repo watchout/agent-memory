@@ -274,6 +274,28 @@ function conversationSearchScore(event: ConversationEvent, keywords: string[]): 
   return score;
 }
 
+function scopedStatusWhere(input: {
+  agent_id: string;
+  project?: string;
+  status?: string;
+}): { conditions: string[]; params: unknown[] } {
+  const conditions: string[] = ["agent_id = ?"];
+  const params: unknown[] = [input.agent_id];
+
+  if (input.project) {
+    conditions.push("project = ?");
+    params.push(input.project);
+  }
+  if (input.status && input.status !== "all") {
+    conditions.push("status = ?");
+    params.push(input.status);
+  } else if (!input.status) {
+    conditions.push("status = 'active'");
+  }
+
+  return { conditions, params };
+}
+
 export class SqliteStore implements Store {
   private db!: Database;
   private dbPath: string;
@@ -300,6 +322,12 @@ export class SqliteStore implements Store {
 
     for (const sql of MIGRATIONS) {
       this.db.run(sql);
+      if (sql.includes("CREATE TABLE IF NOT EXISTS conversation_events")) {
+        this.ensureConversationEventsCompatibilityColumns();
+      }
+      if (sql.includes("CREATE TABLE IF NOT EXISTS raw_events")) {
+        this.ensureRawEventsCompatibilityColumns();
+      }
     }
 
     // ─── AM-023: idempotent post-CREATE migration for existing DBs ──
@@ -369,6 +397,31 @@ export class SqliteStore implements Store {
     }
   }
 
+  private ensureConversationEventsCompatibilityColumns(): void {
+    this.alterAddColumnIfMissing("conversation_events", "source_event_id", "TEXT");
+    this.alterAddColumnIfMissing("conversation_events", "source_path", "TEXT");
+    this.alterAddColumnIfMissing("conversation_events", "role", "TEXT");
+    this.alterAddColumnIfMissing("conversation_events", "content", "TEXT NOT NULL DEFAULT ''");
+    this.alterAddColumnIfMissing("conversation_events", "content_hash", "TEXT NOT NULL DEFAULT ''");
+    this.alterAddColumnIfMissing("conversation_events", "metadata", "TEXT NOT NULL DEFAULT '{}'");
+    this.alterAddColumnIfMissing("conversation_events", "occurred_at", "TEXT");
+    this.alterAddColumnIfMissing("conversation_events", "created_at", "TEXT");
+    this.db.run("UPDATE conversation_events SET occurred_at = coalesce(occurred_at, created_at) WHERE occurred_at IS NULL");
+    this.db.run("UPDATE conversation_events SET created_at = coalesce(created_at, occurred_at) WHERE created_at IS NULL");
+  }
+
+  private ensureRawEventsCompatibilityColumns(): void {
+    this.alterAddColumnIfMissing("raw_events", "content", "TEXT");
+    this.alterAddColumnIfMissing("raw_events", "content_hash", "TEXT");
+    this.alterAddColumnIfMissing("raw_events", "source_event_id", "TEXT");
+    this.alterAddColumnIfMissing("raw_events", "source_path", "TEXT");
+    this.alterAddColumnIfMissing("raw_events", "metadata", "TEXT NOT NULL DEFAULT '{}'");
+    this.alterAddColumnIfMissing("raw_events", "occurred_at", "TEXT");
+    this.alterAddColumnIfMissing("raw_events", "created_at", "TEXT");
+    this.db.run("UPDATE raw_events SET occurred_at = coalesce(occurred_at, event_at) WHERE occurred_at IS NULL");
+    this.db.run("UPDATE raw_events SET created_at = coalesce(created_at, ingested_at) WHERE created_at IS NULL");
+  }
+
   private allRows(sql: string, params: unknown[] = []): Record<string, unknown>[] {
     const stmt = this.db.prepare(sql);
     try {
@@ -408,21 +461,7 @@ export class SqliteStore implements Store {
   }
 
   async getDecisions(input: GetDecisionsInput): Promise<Decision[]> {
-    const conditions: string[] = ["agent_id = ?"];
-    const params: unknown[] = [input.agent_id];
-
-    if (input.project) {
-      conditions.push("project = ?");
-      params.push(input.project);
-    }
-
-    if (input.status && input.status !== "all") {
-      conditions.push("status = ?");
-      params.push(input.status);
-    } else if (!input.status) {
-      conditions.push("status = 'active'");
-    }
-
+    const { conditions, params } = scopedStatusWhere(input);
     const limit = input.limit || 10;
     const sql = `SELECT * FROM decisions
                  WHERE ${conditions.join(" AND ")}
@@ -666,20 +705,7 @@ export class SqliteStore implements Store {
   }
 
   async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
-    const conditions: string[] = ["agent_id = ?"];
-    const params: unknown[] = [input.agent_id];
-
-    if (input.project) {
-      conditions.push("project = ?");
-      params.push(input.project);
-    }
-    if (input.status && input.status !== "all") {
-      conditions.push("status = ?");
-      params.push(input.status);
-    } else if (!input.status) {
-      conditions.push("status = 'active'");
-    }
-
+    const { conditions, params } = scopedStatusWhere(input);
     const limit = input.limit || 10;
     const sql = `SELECT * FROM knowledge
                  WHERE ${conditions.join(" AND ")}

@@ -1,0 +1,164 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-SQLITE-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  idempotent SQLite compatibility migration into destructive DB migration,
+  DB path migration, env var changes, PostgreSQL rollout policy, package/MCP
+  identity changes, workflow enforcement, deployment, or external live systems.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the Core MVP SQLite clean install and migration idempotency PR.
+    - Diff-scope, validation, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior outside the approved Core MVP SQLite hardening slice.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env vars, DB path, backend parity claims, or PostgreSQL rollout policy.
+
+acceptance_criteria:
+  - SQLite default remains stable for clean installs.
+  - Existing SQLite DB initialization remains idempotent.
+  - Legacy local SQLite DBs with raw_events or conversation_events schema drift initialize without index-creation failures.
+  - Existing raw_events and conversation_events rows remain readable after compatibility migration.
+  - New raw_events and conversation_events writes work after compatibility migration.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, schema file, fixture, runner, backend parity claim, or UAMP conformance claim is introduced.
+  - Node 18 / 20 / 22 CI-compatible commands remain green or failures are reported with exact scope.
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+    - HOME=$(mktemp -d) npx tsx tests/gate0/migration-idempotency.ts
+    - npx tsx src/test-sqlite.ts
+  test_expectations:
+    - SqliteStore.initialize() can run more than once on the same DB path.
+    - Fresh SQLite installs still create all Core MVP tables.
+    - Legacy raw_events compatibility columns are added before indexes reference them.
+    - Legacy conversation_events compatibility columns are added before indexes reference them.
+    - Compatibility migration does not delete existing rows.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - owner_decision
+
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    reason: >-
+      Existing SqliteStore initialization contains an AM-023 dedup DELETE and
+      an FTS probe DROP TABLE for a temporary probe table. This PR does not add
+      deletion behavior, does not delete user records, and only adds idempotent
+      compatibility columns before current indexes are created.
+    scope:
+      - src/stores/sqlite-store.ts
+    approved_by: owner-required-before-merge
+    expires_at: 2026-07-31
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-SQLITE-001
+  cell_type: code_lite
+  risk_class: R2
+  goal: >-
+    Harden SQLite clean install and migration idempotency for Kusabi Core MVP
+    without expanding into backend parity, DB path migration, PostgreSQL rollout,
+    UAMP, compliance, federation, or suite integration work.
+  non_scope:
+    - UAMP runtime emitters.
+    - UAMP conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance.
+    - Attestation packet implementation.
+    - Tamper-evident audit chain.
+    - AUN / Kodama / Shirube live integration.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Backend parity claim.
+    - PostgreSQL rollout or common DB completion claim.
+  allowed_paths:
+    - .shirube/execution-context.yaml
+    - src/stores/sqlite-store.ts
+    - src/test-sqlite.ts
+    - tests/gate0/migration-idempotency.ts
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-SQLITE-001.yaml
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+    - docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires package, MCP namespace, env var, or DB path rename.
+    - Change creates schema files, fixtures, or a runner.
+    - Change alters PostgreSQL rollout policy or claims backend parity.
+    - Change enables cross-agent reads, tenant/user identity, or federation.
+    - Change implements UAMP conformance, compliance, or suite integration.
+    - Change requires workflow, required-check, branch-protection, deployment, or ruleset mutation.
+    - Change spans multiple Core MVP work packages.
+
+implementation_boundary:
+  summary: >-
+    Preserve SQLite as the stable default and harden only idempotent local
+    initialization/compatibility migration behavior for existing Core MVP
+    tables.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
