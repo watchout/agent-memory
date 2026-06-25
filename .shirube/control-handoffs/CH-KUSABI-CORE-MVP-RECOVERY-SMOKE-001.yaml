@@ -1,0 +1,176 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-RECOVERY-SMOKE-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  restart/recovery smoke evidence into runtime behavior changes, package/MCP
+  namespace changes, env var changes, DB path migration, workflow enforcement,
+  deployment, UAMP conformance, backend parity claims, federation, compliance,
+  or suite integration.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the Core MVP restart/recovery smoke evidence PR.
+    - Diff-scope, validation, exact-head, audit-record, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior changes.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env vars, DB path, UAMP conformance, backend parity claims, compliance, federation, or suite integration.
+
+acceptance_criteria:
+  - Manual MCP recovery path is smoke-tested through current MCP stdio tools.
+  - restart_pack text output is smoke-tested through current MCP stdio tools.
+  - restart_prepare and restart_pack_fetch selected pack flow is smoke-tested without changing semantics.
+  - Codex current startup bridge path is smoke-tested through prompt and dry-run preview helpers.
+  - Claude current SessionStart runner path is smoke-tested through selected pack and next-session environment helpers.
+  - Smoke evidence does not claim universal startup recovery from plain MCP availability.
+  - Smoke evidence does not claim UAMP conformance, backend parity, compliance, federation, or suite integration.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, schema file, fixture, runner, backend parity claim, or UAMP conformance claim is introduced.
+  - Node 18 / 20 / 22 CI-compatible commands remain green or failures are reported with exact scope.
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  test_expectations:
+    - recover_context returns seeded task, decision, and knowledge through MCP.
+    - restart_pack returns bounded restart pack text through MCP.
+    - restart_prepare returns host-invocation-context selected pack evidence for Codex through MCP.
+    - restart_pack_fetch reads the selected pack without consuming it.
+    - Codex startup bridge dry-run does not live-launch Codex or expose restart pack payload in argv preview.
+    - Claude SessionStart runner prepares a selected pack and next-session environment without live-launching Claude.
+    - Smoke output includes no UAMP conformance or universal startup recovery claim.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    reason: >-
+      src/test.ts already contains test cleanup calls such as rmSync for
+      temporary test directories. This PR does not add runtime deletion,
+      deletion/export/reveal behavior, or destructive data operations.
+    scope:
+      - src/test.ts
+    approved_by: owner-required-before-merge
+    expires_at: 2026-07-31
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-RECOVERY-SMOKE-001
+  cell_type: code_lite
+  risk_class: R2
+  goal: >-
+    Add lightweight restart/recovery smoke evidence for the current Core MVP
+    manual MCP, Codex, and Claude recovery paths without changing runtime
+    behavior or expanding into future V2 protocol/enterprise surfaces.
+  non_scope:
+    - Runtime behavior changes.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - DB schema changes.
+    - Workflow changes.
+    - Deployment changes.
+    - UAMP runtime emitters.
+    - UAMP conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance.
+    - Attestation packet implementation.
+    - AUN / Kodama / Shirube live integration.
+    - Backend parity claim.
+    - Universal startup recovery claim.
+  allowed_paths:
+    - src/test.ts
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-RECOVERY-SMOKE-001.yaml
+  forbidden_paths:
+    - src/index.ts
+    - src/stores/**
+    - src/restart-pack.ts
+    - src/restart-prepare.ts
+    - src/codex-start.ts
+    - src/claude-start.ts
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+    - docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires runtime tool behavior changes.
+    - Change requires package, MCP namespace, env var, or DB path rename.
+    - Change creates schema files, fixtures, or a runner.
+    - Change alters PostgreSQL rollout policy or claims backend parity.
+    - Change enables cross-agent reads, tenant/user identity, or federation.
+    - Change implements UAMP conformance, compliance, or suite integration.
+    - Change claims universal startup recovery from plain MCP availability.
+    - Change requires workflow, required-check, branch-protection, deployment, or ruleset mutation.
+    - Change spans multiple Core MVP work packages.
+
+implementation_boundary:
+  summary: >-
+    Add regression smoke evidence only. Exercise the current MCP server through
+    stdio with temp HOME and temp SQLite DB path, then assert current manual
+    MCP recovery, Codex bridge preview, and Claude SessionStart selected-pack
+    paths remain available and bounded.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit and owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, Claude, Codex, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

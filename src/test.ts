@@ -3517,6 +3517,180 @@ async function testCoreMcpToolRegression() {
   }
 }
 
+async function testRestartRecoverySmokeEvidence() {
+  console.log("\n── Restart/Recovery Smoke Evidence Tests ──");
+
+  const tmpHome = mkdtempSync(join(tmpdir(), "agent-memory-recovery-smoke-"));
+  const dbPath = join(tmpHome, "memory.db");
+  const agentId = "recovery-smoke-agent";
+  const project = "recovery-smoke-project";
+  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+  const baseEnv = inheritedEnv();
+  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
+  delete baseEnv.DATABASE_URL;
+
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cli, "src/index.ts"],
+    cwd: process.cwd(),
+    stderr: "pipe",
+    env: {
+      ...baseEnv,
+      HOME: tmpHome,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: dbPath,
+      AGENT_MEMORY_AGENT_ID: agentId,
+      AGENT_MEMORY_PROJECT: project,
+      CLAUDE_SESSION_ID: "recovery-smoke-mcp-session",
+    },
+  });
+  const client = new Client({ name: "agent-memory-recovery-smoke-test", version: "0.0.0" }, { capabilities: {} });
+
+  let codexRestartPackText = "";
+  let codexSmokeOutput = "";
+
+  try {
+    await client.connect(transport);
+
+    await client.callTool({
+      name: "save_task_state",
+      arguments: {
+        project,
+        task: "Core MVP restart recovery smoke",
+        status: "in_progress",
+        progress: "Manual MCP, Codex bridge, and Claude SessionStart paths are under smoke coverage.",
+        files_modified: ["src/test.ts"],
+        next_steps: "Keep restart recovery evidence scoped to current compatibility surfaces.",
+      },
+    });
+    await client.callTool({
+      name: "log_decision",
+      arguments: {
+        project,
+        decision: "Restart recovery smoke evidence must keep manual and startup paths separate.",
+        context: "Manual MCP recovery, Codex prompt preview, and Claude SessionStart selected packs remain distinct current paths.",
+        tags: ["core-mvp", "restart-smoke"],
+      },
+    });
+    await client.callTool({
+      name: "save_knowledge",
+      arguments: {
+        project,
+        title: "Recovery smoke boundary",
+        content: "Core MVP smoke evidence covers current compatibility paths only and does not claim future protocol conformance.",
+        source_type: "manual",
+        tags: ["core-mvp", "recovery"],
+      },
+    });
+
+    const manualRecovery = await client.callTool({ name: "recover_context", arguments: { project } });
+    const manualRecoveryText = toolResultText(manualRecovery);
+    assert(manualRecoveryText.includes("Core MVP restart recovery smoke"), "manual MCP recover_context returns smoke task");
+    assert(manualRecoveryText.includes("Restart recovery smoke evidence"), "manual MCP recover_context returns smoke decision");
+    assert(manualRecoveryText.includes("Recovery smoke boundary"), "manual MCP recover_context returns smoke knowledge");
+
+    const restartPack = await client.callTool({ name: "restart_pack", arguments: { project, max_tokens: 1200 } });
+    codexRestartPackText = toolResultText(restartPack);
+    assert(codexRestartPackText.includes("SESSION RESTART PACK"), "manual MCP restart_pack returns restart pack text");
+    assert(codexRestartPackText.includes("Core MVP restart recovery smoke"), "manual MCP restart_pack includes smoke task");
+
+    const prepared = await client.callTool({
+      name: "restart_prepare",
+      arguments: {
+        project,
+        context_used_ratio: 0.91,
+        continuity_guard_mode: "recommend",
+        pack_format: "host-invocation-context-v1",
+        target_runtime: "codex",
+        delivery_mode: "stdin-json",
+        emit_pack: false,
+      },
+    });
+    const preparedJson = JSON.parse(toolResultText(prepared));
+    assert(preparedJson.action === "restart_recommended", "manual MCP restart_prepare reports restart recommendation");
+    assert(preparedJson.can_auto_restart === false, "manual MCP restart_prepare does not claim automatic restart");
+    assert(preparedJson.restart_pack_format === "host-invocation-context-v1", "manual MCP restart_prepare records Codex host context format");
+    assert(preparedJson.restart_pack_schema_ref === "host-invocation-context/v1", "manual MCP restart_prepare records host context schema ref");
+    assert(typeof preparedJson.pack_ref === "string", "manual MCP restart_prepare returns selected pack ref");
+
+    const selectedCodex = await client.callTool({
+      name: "restart_pack_fetch",
+      arguments: { project, pack_ref: preparedJson.pack_ref, consume: false },
+    });
+    const selectedCodexPack = JSON.parse(toolResultText(selectedCodex));
+    const selectedCodexContent = JSON.parse(selectedCodexPack.content);
+    assert(selectedCodexPack.pack_ref === preparedJson.pack_ref, "manual MCP restart_pack_fetch returns selected pack");
+    assert(validateHostInvocationContextArtifact(selectedCodexContent).valid, "Codex selected restart pack validates as host invocation context");
+    assert(selectedCodexContent.target_runtime === "codex", "Codex selected restart pack targets Codex");
+    assert(selectedCodexContent.delivery_mode === "stdin-json", "Codex selected restart pack records stdin-json delivery");
+
+    codexSmokeOutput = [
+      manualRecoveryText,
+      codexRestartPackText,
+      JSON.stringify(preparedJson),
+      JSON.stringify(selectedCodexContent),
+    ].join("\n");
+  } finally {
+    await client.close();
+    await transport.close();
+  }
+
+  const codexPrompt = buildCodexStartupPrompt({
+    agentId,
+    project,
+    restartPack: codexRestartPackText,
+    extraInstruction: "Treat this as smoke evidence, not release evidence.",
+  });
+  const codexPreview = buildCodexLaunchPreview({ launch: true, dryRun: true, cd: tmpHome, codexBin: "codex-dev" }, codexPrompt);
+  assert(codexPrompt.includes("fresh Codex session"), "Codex startup bridge builds restart prompt");
+  assert(codexPrompt.includes("Layer 1 recovery"), "Codex startup prompt labels recovery layer");
+  assert(codexPreview.live_launch_performed === false, "Codex startup smoke does not launch Codex");
+  assert(codexPreview.args_preview.includes("[restart_pack prompt omitted]"), "Codex startup preview omits restart pack payload");
+
+  const claudeStore = new SqliteStore(dbPath);
+  await claudeStore.initialize();
+  try {
+    const claude = await prepareClaudeResession(claudeStore, {
+      agentId,
+      project,
+      contextUsedRatio: 0.96,
+      launch: true,
+      continuityGuardMode: "auto_restart",
+      aunAbsentConfirmed: true,
+      supervisorAvailable: true,
+      restartPreauthorized: true,
+    });
+    assert(claude.runner === "wasurezu-claude-start", "Claude smoke uses current Claude runner");
+    assert(claude.prepare.action === "restart_required", "Claude smoke maps high context to restart_required");
+    assert(claude.prepare.restart_pack_format === "host-invocation-context-v1", "Claude smoke prepares structured selected pack");
+    assert(claude.prepare.restart_pack_schema_ref === "host-invocation-context/v1", "Claude smoke records host context schema ref");
+    assert(claude.launch_requested === true, "Claude smoke records launch request");
+    assert(claude.launched_claude === false, "Claude smoke does not live-launch Claude");
+    assert(claude.launch_blockers.length === 0, "Claude smoke has no standalone launch blockers when gates pass");
+    assert(claude.next_session_env.AGENT_MEMORY_BOOT_MODE === "restart_pack", "Claude smoke records restart pack boot mode");
+    assert(claude.next_session_env.AGENT_MEMORY_SELECTED_PACK_REF === claude.prepare.pack_ref, "Claude smoke passes selected pack ref to next session env");
+
+    const selectedClaude = await claudeStore.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: claude.prepare.pack_ref! });
+    const selectedClaudeContent = JSON.parse(selectedClaude!.content);
+    assert(validateHostInvocationContextArtifact(selectedClaudeContent).valid, "Claude selected restart pack validates as host invocation context");
+    assert(selectedClaudeContent.target_runtime === "claude", "Claude selected restart pack targets Claude");
+    assert(selectedClaudeContent.delivery_mode === "session-start-hook", "Claude selected restart pack records SessionStart delivery");
+
+    const smokeClaimSurface = [
+      codexSmokeOutput,
+      codexPrompt,
+      JSON.stringify(codexPreview),
+      JSON.stringify(claude),
+      JSON.stringify(selectedClaudeContent),
+    ].join("\n").toLowerCase();
+    assert(!smokeClaimSurface.includes("uamp conformance"), "restart recovery smoke makes no UAMP conformance claim");
+    assert(!smokeClaimSurface.includes("universal startup recovery"), "restart recovery smoke makes no universal startup recovery claim");
+  } finally {
+    await claudeStore.close();
+    rmSync(tmpHome, { recursive: true, force: true });
+  }
+}
+
 async function testSqliteSupersedeKnowledgeAgentIsolation() {
   console.log("\n── supersedeKnowledge agent_id isolation (SqliteStore) ──");
   const dbPath = join(mkdtempSync(join(tmpdir(), "am076-sqlite-iso-")), "test.db");
@@ -3660,6 +3834,7 @@ async function run() {
   testSupervisorPreflight();
   await testRestartPrepare();
   await testCoreMcpToolRegression();
+  await testRestartRecoverySmokeEvidence();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
