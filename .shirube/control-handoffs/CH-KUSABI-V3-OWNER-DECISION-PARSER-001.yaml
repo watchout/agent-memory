@@ -1,0 +1,151 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V3-OWNER-DECISION-PARSER-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+audit_blocker_ref: https://github.com/watchout/agent-memory/pull/213#issuecomment-4797475331
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would change
+  workflows, branch protection, required checks, runtime behavior, package or
+  lockfiles, MCP namespace, env vars, DB paths, deployment, product APIs, or
+  non-Shirube governance behavior.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite owner exact-head decision parsing for the required PR gate.
+    - Distinguishing actual owner decisions from examples, recommendations, quotes, and correction prose.
+    - Local regression evidence for the owner-decision parser.
+  shirube_does_not_own:
+    - Runtime behavior.
+    - Package, lockfile, MCP namespace, environment variable, or DB path changes.
+    - Workflow, branch protection, ruleset, deployment, UAMP, backend parity, compliance, federation, or suite integration changes.
+
+acceptance_criteria:
+  - rapid-lite-gate accepts an owner decision only when the entire owner comment is an unambiguous decision-only record.
+  - The accepted text format is exactly the owner decision line plus exact-head line, allowing blank surrounding whitespace only.
+  - Fenced examples are not accepted as owner decisions.
+  - Recommendation prose is not accepted as an owner decision.
+  - Flow-correction prose is not accepted as an owner decision.
+  - Quoted owner-decision text is not accepted as an owner decision.
+  - Actor matching remains enforced.
+  - Exact-head matching remains enforced.
+  - Replaying PR #213 comments with the fixed gate remains BLOCKED until an actual decision-only owner comment is present.
+  - No workflow, branch protection, runtime, package, MCP, env, DB, deployment, schema, fixture, runner, UAMP, backend parity, or compliance behavior is changed.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - node --check scripts/shirube/rapid-lite-gate.mjs
+    - node scripts/shirube/rapid-lite-gate.mjs --self-test-owner-decision-parser
+    - npm run build
+    - npx tsc --noEmit
+  test_expectations:
+    - Decision-only owner comment is accepted.
+    - Fenced sample owner decision is rejected.
+    - Owner decision embedded in correction prose is rejected.
+    - Quoted owner decision is rejected.
+    - Wrong owner actor remains rejected.
+    - Wrong exact head remains rejected.
+    - PR #213 current comments remain blocked by owner_decision_missing with the fixed parser.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - pr_head_sha
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-V3-OWNER-DECISION-PARSER-001
+  cell_type: integration_lite
+  risk_class: R2
+  goal: >-
+    Harden the required Rapid/Lite gate owner-decision parser so example,
+    recommendation, quoted, or correction prose cannot satisfy owner
+    APPROVED_EXACT_HEAD evidence.
+  non_scope:
+    - Runtime code changes.
+    - Product API behavior changes.
+    - Package or lockfile changes.
+    - Workflow edits.
+    - Required check, branch protection, or ruleset edits.
+    - Deployment or production changes.
+    - MCP namespace, env var, DB path, or schema migration.
+    - UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - Organization-wide Shirube rollout.
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-V3-OWNER-DECISION-PARSER-001.yaml
+    - scripts/shirube/rapid-lite-gate.mjs
+  forbidden_paths:
+    - .github/workflows/**
+    - src/**
+    - lib/**
+    - bin/**
+    - dist/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+  stop_conditions:
+    - The workflow file must be edited.
+    - Branch protection, rulesets, or required checks must be edited.
+    - Runtime/package/MCP/env/DB/deployment behavior would change.
+    - Product API behavior would change.
+    - The work claims UAMP conformance, backend parity, compliance, federation, tenant identity, or suite integration.
+    - The gate cannot deterministically distinguish decision-only owner comments from examples or prose.
+
+implementation_boundary:
+  summary: >-
+    This cell changes only repo-local required gate owner-decision parsing and
+    parser self-test evidence. It does not alter product runtime behavior or
+    protected deployment surfaces.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without owner exact-head decision
+    - approve own PR as final authority
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - workflow mutation
+    - runtime or deployment mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_gate_check
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

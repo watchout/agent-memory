@@ -542,20 +542,109 @@ function hasValidationEvidence(text) {
 }
 
 function findOwnerDecisionDoc(comments, head, ownerActor) {
+  let firstParsedDecision = null;
   for (const comment of comments) {
     const doc = typeof comment?.body === "string" ? comment.body : "";
-    const approvedDecisionLine =
-      /(^|\n)\s*Owner(?:\/domain-designer)? decision for PR #\d+:\s*APPROVED_EXACT_HEAD\.?\s*(\n|$)/i.test(doc);
-    if (!approvedDecisionLine) continue;
+    const parsedDecision = parseOwnerDecisionOnlyComment(doc);
+    if (!parsedDecision) continue;
     const actor = typeof comment?.user?.login === "string" ? comment.user.login : null;
-    return {
+    const decision = {
       found: true,
       actor,
       actorMatched: !ownerActor || actor === ownerActor,
-      exactHeadMatched: Boolean(head && doc.includes(head)),
+      exactHeadMatched: Boolean(head && parsedDecision.exactHead.toLowerCase() === String(head).toLowerCase()),
     };
+    if (decision.actorMatched && decision.exactHeadMatched) return decision;
+    firstParsedDecision ??= decision;
   }
-  return { found: false, actor: null, actorMatched: false, exactHeadMatched: false };
+  return firstParsedDecision ?? { found: false, actor: null, actorMatched: false, exactHeadMatched: false };
+}
+
+function parseOwnerDecisionOnlyComment(doc) {
+  const withoutHtmlComments = doc.replace(/<!--[\s\S]*?-->/g, "").trim();
+  if (!withoutHtmlComments || withoutHtmlComments.includes("```")) return null;
+  const lines = withoutHtmlComments
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length !== 2) return null;
+
+  const decisionMatch = lines[0].match(
+    /^Owner(?:\/domain-designer)? decision for PR #(\d+):\s*APPROVED_EXACT_HEAD\.?$/i
+  );
+  const headMatch = lines[1].match(/^Exact head:\s*([0-9a-f]{40})\.?$/i);
+  if (!decisionMatch || !headMatch) return null;
+  return {
+    prNumber: decisionMatch[1],
+    exactHead: headMatch[1],
+  };
+}
+
+function runOwnerDecisionParserSelfTest() {
+  const head = "eaa6fbf1c40be034147a2d6e11c3beb1e8cdae16";
+  const validDecision = [
+    `Owner decision for PR #213: APPROVED_EXACT_HEAD.`,
+    `Exact head: ${head}`,
+  ].join("\n");
+  const sampleDecision = [
+    "Required owner comment before merge:",
+    "",
+    "```text",
+    `Owner decision for PR #213: APPROVED_EXACT_HEAD.`,
+    `Exact head: ${head}`,
+    "```",
+  ].join("\n");
+  const correctionText = [
+    "Owner must not approve or merge this PR based only on the previous Codex audit comment.",
+    "",
+    `Owner decision for PR #213: APPROVED_EXACT_HEAD.`,
+    `Exact head: ${head}`,
+  ].join("\n");
+  const quotedDecision = [
+    "> Owner decision for PR #213: APPROVED_EXACT_HEAD.",
+    `> Exact head: ${head}`,
+  ].join("\n");
+  const wrongHeadDecision = [
+    `Owner decision for PR #213: APPROVED_EXACT_HEAD.`,
+    `Exact head: ${"f".repeat(40)}`,
+  ].join("\n");
+
+  assertSelfTest(
+    findOwnerDecisionDoc([{ user: { login: "watchout" }, body: validDecision }], head, "watchout").exactHeadMatched,
+    "accepts exact decision-only owner comment"
+  );
+  assertSelfTest(
+    !findOwnerDecisionDoc([{ user: { login: "watchout" }, body: sampleDecision }], head, "watchout").found,
+    "rejects fenced sample owner decision"
+  );
+  assertSelfTest(
+    !findOwnerDecisionDoc([{ user: { login: "watchout" }, body: correctionText }], head, "watchout").found,
+    "rejects owner decision embedded in correction prose"
+  );
+  assertSelfTest(
+    !findOwnerDecisionDoc([{ user: { login: "watchout" }, body: quotedDecision }], head, "watchout").found,
+    "rejects quoted owner decision"
+  );
+  assertSelfTest(
+    !findOwnerDecisionDoc([{ user: { login: "other" }, body: validDecision }], head, "watchout").actorMatched,
+    "preserves owner actor check"
+  );
+  assertSelfTest(
+    !findOwnerDecisionDoc([{ user: { login: "watchout" }, body: wrongHeadDecision }], head, "watchout").exactHeadMatched,
+    "preserves exact head check"
+  );
+  assertSelfTest(
+    findOwnerDecisionDoc([
+      { user: { login: "watchout" }, body: wrongHeadDecision },
+      { user: { login: "watchout" }, body: validDecision },
+    ], head, "watchout").exactHeadMatched,
+    "accepts a later matching decision-only owner comment"
+  );
+  process.stdout.write("owner decision parser self-test: PASS\n");
+}
+
+function assertSelfTest(condition, message) {
+  if (!condition) throw new Error(`owner decision parser self-test failed: ${message}`);
 }
 
 function requireScalar(value, itemId, code, message, path, findings) {
@@ -655,7 +744,11 @@ function renderMarkdown(report) {
 }
 
 try {
-  main();
+  if (process.argv.includes("--self-test-owner-decision-parser")) {
+    runOwnerDecisionParserSelfTest();
+  } else {
+    main();
+  }
 } catch (error) {
   const report = {
     schema: SCHEMA,
