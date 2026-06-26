@@ -1,0 +1,157 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-README-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/203
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  README/current capability cleanup into runtime behavior changes, package/MCP
+  namespace changes, env var changes, DB path migration, workflow enforcement,
+  deployment, UAMP conformance, backend parity claims, federation, compliance,
+  or suite integration.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/203
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the Core MVP README/current capability cleanup PR.
+    - Diff-scope, validation, exact-head, audit-record, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior changes.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env vars, DB path, UAMP conformance, backend parity claims, compliance, federation, or suite integration.
+
+acceptance_criteria:
+  - README quick start describes MCP availability accurately.
+  - README distinguishes manual MCP recovery from startup recovery through a host adapter, hook, runner, or supervisor.
+  - README preserves existing wasurezu / agent-memory compatibility and presents Kusabi as an additive alias only.
+  - README states SQLite remains the default Core MVP storage path.
+  - README describes PostgreSQL and JSON modes without claiming backend parity.
+  - README avoids enterprise, UAMP, compliance, federation, DLP, zero-leakage, universal startup recovery, and public-release overclaims.
+  - No runtime code, package, lockfile, workflow, deployment, env var, MCP namespace, DB path, schema file, fixture, runner, backend parity claim, or UAMP conformance claim is introduced.
+
+validation:
+  required_commands:
+    - git diff --check
+    - git diff --check origin/main...HEAD
+  test_expectations:
+    - Documentation-only diff remains limited to README.md and this control handoff.
+    - README does not claim plain MCP configuration automatically loads restart context.
+    - README does not claim backend parity, UAMP conformance, compliance, federation, DLP, zero-leakage, or public release readiness.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-README-001
+  cell_type: docs_only
+  risk_class: R1
+  goal: >-
+    Align README/current capability claims with verified Core MVP behavior
+    without changing runtime behavior or expanding into future V2 protocol,
+    enterprise, federation, compliance, or backend parity surfaces.
+  non_scope:
+    - Runtime behavior changes.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - DB schema changes.
+    - Workflow changes.
+    - Deployment changes.
+    - UAMP runtime emitters.
+    - UAMP conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance.
+    - Attestation packet implementation.
+    - AUN / Kodama / Shirube live integration.
+    - Backend parity claim.
+    - DLP or zero secret leakage claim.
+    - Universal startup recovery claim.
+    - Public release readiness claim.
+  allowed_paths:
+    - README.md
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-README-001.yaml
+  forbidden_paths:
+    - src/**
+    - test/**
+    - tests/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+    - docs/v2/KUSABI_V2_REDACTION_PARITY_GATE.md
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires runtime tool behavior changes.
+    - Change requires package, MCP namespace, env var, or DB path rename.
+    - Change creates schema files, fixtures, or a runner.
+    - Change alters PostgreSQL rollout policy or claims backend parity.
+    - Change enables cross-agent reads, tenant/user identity, or federation.
+    - Change implements UAMP conformance, compliance, or suite integration.
+    - Change claims universal startup recovery from plain MCP availability.
+    - Change claims DLP, zero secret leakage, legal/regulatory compliance, or public release readiness.
+    - Change requires workflow, required-check, branch-protection, deployment, or ruleset mutation.
+    - Change spans multiple Core MVP work packages.
+
+implementation_boundary:
+  summary: >-
+    Documentation-only README cleanup. Narrow user-facing capability language
+    to the current Core MVP surface: wasurezu-compatible MCP tools, SQLite
+    default storage, optional adapters for startup recovery, and explicit
+    limitations for backend parity and future V2 guardrails.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit and owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, Claude, Codex, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
