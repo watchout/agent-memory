@@ -1,0 +1,98 @@
+schema_version: shirube-cell/v1
+document_type: cell
+cell_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+status: ready_for_implementation_pr
+risk_tier: R1
+risk_class: R1
+cell_type: docs_only
+route: ceo-approval
+mode: report-first
+
+source_spec: .shirube/specs/SPEC-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001.yaml
+control_handoff: .shirube/control-handoffs/CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+owner_authorization: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
+
+goal: >-
+  Materialize the first Kusabi V2 release-readiness and claim-audit governance
+  package, then record an initial report-first assessment of current public
+  claims against the existing Release Claim Ladder.
+
+covers:
+  - Release claim ladder binding.
+  - Claim surface inventory boundary.
+  - Per-claim evidence class and release-level mapping.
+  - Future guardrail overclaim checks.
+  - Initial report-first claim-audit record.
+
+non_scope:
+  - Runtime/API/DB/MCP behavior changes.
+  - Package, CLI, MCP namespace, env var, DB path, or schema migration.
+  - README, package, docs public copy, npm copy, or marketing-copy edits.
+  - Workflow, required-check, branch-protection, ruleset, deployment, or publish changes.
+  - UAMP conformance, schemas, fixtures, runner, or runtime emitters.
+  - Compliance, attestation packet, deletion/export/reveal, hash-chain, or signing implementation.
+  - Cross-agent federation, tenant/user identity, or suite live integration.
+  - Public release, enterprise, backend parity, compliance, or legal claim approval.
+
+allowed_paths:
+  - .shirube/specs/**
+  - .shirube/cells/**
+  - .shirube/impls/**
+  - .shirube/control-handoffs/**
+  - .shirube/audit-item-sets/**
+  - .shirube/reports/**
+  - .shirube/audits/**
+
+forbidden_paths:
+  - README.md
+  - docs/**
+  - src/**
+  - test/**
+  - tests/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - yarn.lock
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - scripts/**
+  - dist/**
+
+read_only_inspection_surfaces:
+  - README.md
+  - package.json
+  - docs/v2/**
+  - docs/operations/**
+  - src/**
+
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - ruby YAML parse for .shirube/**/*.yaml
+  - JSON parse for .shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json
+
+post_merge_tests:
+  - Post-merge check is not required for release behavior because this Cell is governance/report-only.
+  - If merged, record merge commit and confirm changed files remained under authorized .shirube paths.
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+stop_conditions:
+  - Public copy must be edited to resolve blockers.
+  - A runtime or package behavior decision is needed.
+  - A legal/regulatory/compliance decision is needed.
+  - A release, npm publish, public alpha, enterprise, backend parity, UAMP conformance, or federation claim would be approved.
+  - A checker script, fixture, schema, runner, npm script, workflow, required check, or branch protection change is requested.

@@ -1,0 +1,84 @@
+schema_version: shirube-spec/v1
+document_type: spec
+spec_id: SPEC-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001
+status: accepted_for_cell_001a
+route: ceo-approval
+mode: report-first
+repo: watchout/agent-memory
+cell_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+
+source_refs:
+  layer_1_spec: https://github.com/watchout/agent-memory/issues/217
+  arc_design_record: https://github.com/watchout/agent-memory/issues/217#issuecomment-4807389355
+  handoff_proposal: https://github.com/watchout/agent-memory/issues/218
+  owner_authorization: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
+  release_ladder: docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+  implementation_readiness: docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+  canonical_spec: docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+
+purpose: >-
+  Define the repo-local release-readiness and claim-audit package that maps
+  current Kusabi/Wasurezu public surfaces to the existing V2 Release Claim
+  Ladder before any public release, publish, enterprise, UAMP, compliance,
+  backend-parity, or federation claim is approved.
+
+frozen_requirements:
+  - Use the existing Release Claim Ladder only; do not redefine L0-L4.
+  - Treat implementation presence as insufficient for release claims.
+  - Treat future guardrails as not shipped unless direct evidence proves otherwise.
+  - Produce report-first evidence; do not activate CI enforcement or required checks.
+  - Support shipped claims only with verified or documented evidence, not inferred evidence.
+  - If over-level claims are found, record blockers and stop instead of fixing public copy in the same Cell.
+
+minimum_claim_surfaces:
+  - README.md
+  - package.json description, keywords, and bin names
+  - docs/v2/**/*.md planning and claim-boundary documents
+  - docs/operations/**/*.md linked by README or startup/recovery docs
+  - src/** read-only public MCP tool description text
+
+acceptance_criteria:
+  - Existing Release Claim Ladder is referenced, not redefined.
+  - Public claim surfaces are inventoried at least for README.md and package.json.
+  - Planning surfaces under docs/v2 are classified as future guardrails unless they make present-tense shipped claims.
+  - Each recorded claim maps to a ladder level and evidence class.
+  - The report records release_level, would_block, owner_must_not_publish, blockers, warnings, and future guardrail checks.
+  - Any claim above the supported release level is listed as a blocker with surface, text, reason, and required action.
+  - The report confirms that public release, publish, UAMP conformance, enterprise compliance, backend parity, and federation are not authorized.
+
+non_goals:
+  - Runtime code implementation.
+  - API, DB, persistence, MCP tool, package, CLI, env var, or DB path changes.
+  - README, package.json, docs public copy, npm copy, or marketing-copy rework.
+  - Workflow, branch protection, ruleset, required-check, deployment, or release changes.
+  - UAMP schema, fixture, runner, conformance, or runtime emitter implementation.
+  - Compliance, attestation, deletion, export, reveal, hash-chain, or signing implementation.
+  - Federation, tenant/user identity, or suite integration implementation.
+  - Claim ladder amendment.
+
+evidence_policy:
+  allowed_evidence_labels:
+    - verified
+    - documented
+    - inferred
+  shipped_claim_rule: >-
+    Claims used to support the release level must have zero inferred evidence.
+    Inferred evidence may only appear in warnings or unknowns.
+  report_first: true
+  automatic_enforcement: false
+
+output_artifacts:
+  spec: .shirube/specs/SPEC-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001.yaml
+  cell: .shirube/cells/CELL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  impl: .shirube/impls/IMPL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  control_handoff: .shirube/control-handoffs/CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  audit_item_set: .shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json
+  initial_report: .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+
+stop_conditions:
+  - Claim blockers require README, package, docs, or npm copy edits.
+  - A CLI checker, schema, fixture, runner, or npm script would be added.
+  - Runtime, package, MCP, env, DB, workflow, deployment, branch protection, rulesets, or required checks would change.
+  - Legal or regulatory interpretation is needed.
+  - The Release Claim Ladder would need amendment.
+  - Public release or publish approval is requested.
