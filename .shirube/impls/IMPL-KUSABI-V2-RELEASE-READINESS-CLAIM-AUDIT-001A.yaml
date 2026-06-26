@@ -1,0 +1,80 @@
+schema_version: shirube-impl/v1
+document_type: impl
+impl_id: IMPL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+cell_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+status: draft_pr_ready
+mode: report-first
+
+source_spec: .shirube/specs/SPEC-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001.yaml
+cell: .shirube/cells/CELL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+control_handoff: .shirube/control-handoffs/CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+owner_authorization: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
+
+implementation_summary: >-
+  Add the repo-local Shirube governance artifacts for the Kusabi V2
+  release-readiness claim audit and record one initial report-first assessment.
+  The PR intentionally does not repair public copy, approve release claims, or
+  alter runtime/package/workflow behavior.
+
+read_only_inventory_method:
+  - Read the Release Claim Ladder and Implementation Readiness Plan.
+  - Read README.md and package.json public install/package surfaces.
+  - Read docs/v2 planning and claim-boundary documents as future guardrails.
+  - Read README-linked operations docs for host adapter and recovery claim boundaries.
+  - Inspect public MCP tool description surfaces only as read-only context.
+  - Record known blockers and warnings in the initial claim-audit report.
+
+claim_level_policy:
+  supported_release_level: L1
+  rationale: >-
+    Current Core MVP work supports a local-first MCP memory server with SQLite
+    default and preserved Wasurezu compatibility. L2/L3/L4 claims require
+    measured recovery score reports, broader redaction/security probes,
+    backend-specific evidence, and release-blocking proof that are not present
+    in this Cell.
+  publish_status: blocked_until_claim_blockers_resolved
+
+implementation_steps:
+  - Add SPEC artifact under .shirube/specs.
+  - Add Cell artifact under .shirube/cells.
+  - Add implementation plan under .shirube/impls.
+  - Add Rapid/Lite control handoff under .shirube/control-handoffs.
+  - Add claim-audit item set under .shirube/audit-item-sets.
+  - Add initial machine-readable report under .shirube/reports.
+  - Run diff, YAML, and JSON validation.
+  - Open one draft PR and stop before audit, approval, merge, publish, or rework.
+
+validation_commands:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - >-
+    ruby -e 'require "yaml"; Dir[".shirube/**/*.yaml"].each { |f|
+    YAML.safe_load_file(f, permitted_classes: [], aliases: false); puts
+    "YAML_OK #{f}" }'
+  - >-
+    node -e 'const fs=require("fs");
+    JSON.parse(fs.readFileSync(".shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json",
+    "utf8")); console.log("JSON_OK
+    .shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json")'
+
+expected_changed_files:
+  - .shirube/specs/SPEC-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001.yaml
+  - .shirube/cells/CELL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  - .shirube/impls/IMPL-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  - .shirube/control-handoffs/CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A.yaml
+  - .shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json
+  - .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+
+forbidden_operations:
+  - audit this implementation PR as final authority
+  - post owner decision
+  - merge this implementation PR
+  - edit README/package/docs public copy
+  - run npm publish or create release assets
+  - change runtime, package, MCP, env, DB, workflow, branch protection, rulesets, or deployment behavior
+  - claim public alpha, public release, enterprise pilot, UAMP conformance, backend parity, federation, or legal/regulatory compliance
+
+next_step_after_pr_creation: >-
+  Request independent Shirube audit for the exact PR head. Owner exact-head
+  decision may happen only after independent audit reports no blocking finding.

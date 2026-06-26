@@ -1,0 +1,151 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+parent_ssot: https://github.com/watchout/agent-memory/issues/217
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require owner/ARC review if this Cell would move beyond report-first
+  claim audit into public-copy rework, runtime behavior, package/MCP/env/DB
+  changes, release/publish approval, workflow enforcement, branch protection,
+  UAMP conformance, compliance, federation, backend parity, or legal claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/218
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Repo-local governance/process/audit artifacts for the claim-audit Cell.
+    - Diff-scope, validation, exact-head, audit-record, and owner-decision evidence checks for the implementation PR.
+    - Report-first claim-audit evidence under .shirube/reports.
+  shirube_does_not_own:
+    - Runtime behavior, persistence behavior, package identity, MCP namespace, env vars, DB paths, workflows, deployment, branch protection, rulesets, required checks, or release execution.
+    - Public copy rework in README, package.json, docs, npm copy, or marketing copy.
+    - UAMP conformance, backend parity, compliance, federation, tenant/user identity, suite live integration, or legal/regulatory certification.
+    - Kusabi runtime memory promotion or trusted_instruction decisions.
+
+acceptance_criteria:
+  - The SPEC, Cell, IMPL, handoff, audit item set, and initial report are created under authorized .shirube paths.
+  - The Release Claim Ladder is referenced as the only claim basis and is not redefined.
+  - The initial report records current supported release level, would_block, owner_must_not_publish, blockers, warnings, and future guardrail checks.
+  - README.md, package.json, docs public copy, runtime code, workflows, and deployment files are not edited.
+  - Any over-level claim is recorded as a blocker and not fixed in this PR.
+  - This PR does not authorize release, publish, public alpha, enterprise, UAMP, backend parity, federation, compliance, or legal claims.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - ruby YAML parse for .shirube/**/*.yaml
+    - JSON parse for .shirube/audit-item-sets/kusabi-v2-release-readiness-claim-audit.json
+  test_expectations:
+    - Changed files remain limited to the six authorized .shirube artifacts for Cell 001A.
+    - YAML and JSON artifacts parse cleanly.
+    - No runtime/package/public-copy/workflow/deployment files are touched.
+    - Release/publish remains unauthorized and blocked if report blockers exist.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+  cell_type: docs_only
+  risk_class: R1
+  goal: >-
+    Materialize the first report-first Kusabi V2 release-readiness claim-audit
+    package without editing public claim surfaces or changing runtime behavior.
+  non_scope:
+    - Runtime behavior changes.
+    - API, DB, persistence, MCP tool, package, CLI, env var, or DB path changes.
+    - README, package.json, docs, npm copy, or marketing-copy edits.
+    - Workflow, required-check, branch-protection, ruleset, deployment, release, or npm publish changes.
+    - UAMP schemas, fixtures, runner, conformance, or runtime emitters.
+    - Compliance, attestation, deletion/export/reveal, hash-chain, signing, or legal certification.
+    - Cross-agent federation, tenant/user identity, or suite live integration.
+    - Public release, enterprise pilot, backend parity, UAMP conformance, compliance, federation, or legal claim approval.
+  allowed_paths:
+    - .shirube/specs/**
+    - .shirube/cells/**
+    - .shirube/impls/**
+    - .shirube/control-handoffs/**
+    - .shirube/audit-item-sets/**
+    - .shirube/reports/**
+    - .shirube/audits/**
+  forbidden_paths:
+    - README.md
+    - docs/**
+    - src/**
+    - test/**
+    - tests/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - scripts/**
+    - dist/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Claim blockers require public-copy edits.
+    - The implementation would add a checker script, schema, fixture, runner, npm script, workflow, required check, or branch protection change.
+    - Runtime, package, MCP, env, DB, workflow, deployment, branch protection, ruleset, required-check, release, or publish behavior would change.
+    - UAMP conformance, compliance, backend parity, federation, tenant/user identity, suite integration, public alpha, enterprise readiness, or legal/regulatory status would be claimed.
+    - The Release Claim Ladder would need amendment.
+
+implementation_boundary:
+  summary: >-
+    Governance/report-only Shirube package. This Cell produces initial
+    claim-audit evidence and blockers only; it does not repair public copy or
+    approve release/publish.
+  expected_pr_count: 1
+  forbidden_operations:
+    - audit this implementation PR as final authority
+    - approve own PR as final authority
+    - merge without independent audit and owner exact-head decision
+    - edit public claim surfaces
+    - publish packages or release assets
+    - runtime or deployment mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, Claude, Codex, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

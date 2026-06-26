@@ -1,0 +1,281 @@
+schema_version: kusabi-v2-claim-audit/v1
+document_type: claim_audit_report
+report_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-INITIAL-001
+cell_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
+target_repo: watchout/agent-memory
+target_head_sha: c865e3a7950dc8ab4a2b3bdfaba8b29b0a18fb3e
+target_head_context: origin/main after PR #216 README/Core MVP capability cleanup
+report_first: true
+route: ceo-approval
+release_ladder_ref: docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+
+source_refs:
+  layer_1_spec: https://github.com/watchout/agent-memory/issues/217
+  arc_design_record: https://github.com/watchout/agent-memory/issues/217#issuecomment-4807389355
+  owner_authorization: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
+  core_mvp_status: https://github.com/watchout/agent-memory/issues/203#issuecomment-4805647798
+  pr_216_merge: c865e3a7950dc8ab4a2b3bdfaba8b29b0a18fb3e
+
+verdict:
+  release_level: L1
+  release_level_name: Local memory alpha
+  would_block: true
+  owner_must_not_publish: true
+  owner_must_not_merge_report_pr: false
+  blocker_count: 2
+  warning_count: 3
+  release_or_publish_authorized: false
+  next_cell_authorized: false
+
+evidence_policy:
+  shipped_claims_use_inferred_evidence: false
+  inferred_evidence_count_for_shipped_claims: 0
+  evidence_labels_used:
+    - verified
+    - documented
+
+evidence_map:
+  L0:
+    status: supported
+    evidence_label: documented
+    evidence_refs:
+      - docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+      - docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+      - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+  L1:
+    status: supported_for_local_memory_alpha
+    evidence_label: verified
+    evidence_refs:
+      - https://github.com/watchout/agent-memory/issues/203#issuecomment-4805647798
+      - PR #205 current output redaction hardening
+      - PR #185 SQLite clean install and migration idempotency hardening
+      - PR #213 core MCP tool regression coverage
+      - PR #215 restart/recovery smoke evidence
+      - PR #216 README/current capability cleanup
+      - README.md Current Core MVP Capability Boundary
+  L2:
+    status: not_supported_for_public_claim
+    missing_evidence:
+      - Three fresh recovery evaluations at accepted public-alpha threshold.
+      - Claude and Codex startup recovery scorecards with first-context pack evidence.
+      - No-restatement and missing-context reports.
+  L3:
+    status: not_supported_for_public_claim
+    missing_evidence:
+      - Output redaction probes across release surfaces.
+      - Enterprise pilot evidence packet and admin/high-risk boundary evidence.
+      - Backend support matrix evidence beyond docs-only planning.
+  L4:
+    status: not_supported_for_public_claim
+    missing_evidence:
+      - Five consecutive world-class recovery evaluations.
+      - Clean install/fresh DB public release evidence.
+      - Release-blocking redaction parity, rollback/uninstall, public docs, and observability evidence.
+
+claim_surfaces:
+  - surface_id: README
+    path_or_ref: README.md
+    inspected: true
+    surface_class: public_install_surface
+    known_unknowns: []
+    claims:
+      - claim_id: README-CLAIM-001
+        text: Kusabi Core MVP is the current wasurezu-compatible MCP memory/recovery server, with SQLite default and preserved compatibility.
+        ladder_level: L1
+        evidence_class: implemented_verified
+        evidence_refs:
+          - README.md Current Core MVP Capability Boundary
+          - https://github.com/watchout/agent-memory/issues/203#issuecomment-4805647798
+        evidence_label: verified
+        allowed_at_release_level: true
+        blocker: false
+        notes: Matches L1 local-first MCP memory with preserved Wasurezu compatibility.
+      - claim_id: README-CLAIM-002
+        text: Core MVP does not claim UAMP conformance, backend parity, enterprise compliance, cross-agent federation, DLP, zero secret leakage, or public release readiness.
+        ladder_level: L1
+        evidence_class: implemented_verified
+        evidence_refs:
+          - README.md Current Core MVP Capability Boundary
+          - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+        evidence_label: verified
+        allowed_at_release_level: true
+        blocker: false
+        notes: Correctly blocks future guardrails from becoming current claims.
+      - claim_id: README-CLAIM-003
+        text: Claude Code has MCP plus wasurezu-claude-start runner plus native SessionStart load hook; adapter-backed startup recovery can load a bounded restart_pack before the model acts.
+        ladder_level: L2
+        evidence_class: implemented_verified
+        evidence_refs:
+          - README.md Compatibility
+          - README.md Claude Code resession recovery
+          - docs/operations/HOST_ADAPTERS.md
+          - PR #215 restart/recovery smoke evidence
+        evidence_label: verified
+        allowed_at_release_level: false
+        blocker: true
+        notes: Present capability language is more specific than L1. Public/publish claim needs L2 recovery score evidence or copy downgrade.
+      - claim_id: README-CLAIM-004
+        text: agent-com can share the same PostgreSQL database with wasurezu for cross-agent memory linkage.
+        ladder_level: L3
+        evidence_class: unknown
+        evidence_refs:
+          - README.md Related Projects
+          - docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md
+          - docs/v2/KUSABI_V2_BACKEND_PARITY_MATRIX.md
+        evidence_label: documented
+        allowed_at_release_level: false
+        blocker: true
+        notes: Cross-agent/shared PostgreSQL linkage risks implying federation, common DB, or backend parity beyond Core MVP evidence.
+  - surface_id: package_json
+    path_or_ref: package.json
+    inspected: true
+    surface_class: public_install_surface
+    known_unknowns: []
+    claims:
+      - claim_id: PACKAGE-CLAIM-001
+        text: Persistent memory for AI coding agents. Survives compaction. Works across sessions.
+        ladder_level: L1
+        evidence_class: implemented_verified
+        evidence_refs:
+          - package.json description
+          - README.md Current Core MVP Capability Boundary
+          - PR #213 core MCP regression coverage
+        evidence_label: verified
+        allowed_at_release_level: true
+        blocker: false
+        notes: Acceptable as L1 only when scoped to local MCP memory and same agent/project boundary.
+      - claim_id: PACKAGE-CLAIM-002
+        text: Bin aliases include kusabi, wasurezu, agent-memory, wasurezu-codex-start, wasurezu-claude-start, and wasurezu-restart.
+        ladder_level: L1
+        evidence_class: implemented_verified
+        evidence_refs:
+          - package.json bin
+          - docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+        evidence_label: verified
+        allowed_at_release_level: true
+        blocker: false
+        notes: Alias presence is compatible with current naming boundary and does not imply package rename.
+  - surface_id: docs_v2
+    path_or_ref: docs/v2/**/*.md
+    inspected: true
+    surface_class: planning_surface
+    known_unknowns: []
+    claims:
+      - claim_id: DOCS-V2-CLAIM-001
+        text: V2 UAMP, conformance, scale, compliance, backend parity, and fixture documents are future guardrails and not runtime claims.
+        ladder_level: L0
+        evidence_class: planned_guardrail
+        evidence_refs:
+          - docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+          - docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md
+          - docs/v2/KUSABI_V2_BACKEND_PARITY_MATRIX.md
+        evidence_label: documented
+        allowed_at_release_level: true
+        blocker: false
+        notes: Planning docs repeatedly state no runtime impact and no conformance/parity/compliance claims.
+  - surface_id: docs_operations_linked
+    path_or_ref: docs/operations/HOST_ADAPTERS.md and docs/operations/RECOVERY_EVALUATION.md
+    inspected: true
+    surface_class: public_capability_surface
+    known_unknowns: []
+    claims:
+      - claim_id: OPS-CLAIM-001
+        text: Host adapter docs distinguish MCP-only manual recovery from Claude/Codex startup adapter recovery.
+        ladder_level: L2
+        evidence_class: planned_guardrail
+        evidence_refs:
+          - docs/operations/HOST_ADAPTERS.md
+          - docs/operations/RECOVERY_EVALUATION.md
+          - docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md
+        evidence_label: documented
+        allowed_at_release_level: false
+        blocker: false
+        notes: Operational design is useful, but L2 public claims still need score evidence; current docs mostly state that boundary honestly.
+  - surface_id: src_tool_descriptions
+    path_or_ref: src/** read-only public MCP tool descriptions
+    inspected: true
+    surface_class: public_capability_surface
+    known_unknowns:
+      - This initial Cell did not perform independent semantic audit of every tool description string.
+    claims:
+      - claim_id: MCP-CLAIM-001
+        text: Current MCP tools expose memory, search, recovery, restart_prepare, and restart_pack_fetch surfaces without claiming release level or conformance.
+        ladder_level: L1
+        evidence_class: implemented_verified
+        evidence_refs:
+          - src/index.ts public tool registry read-only inspection
+          - src/constants.ts tool description read-only inspection
+          - PR #213 core MCP regression coverage
+        evidence_label: verified
+        allowed_at_release_level: true
+        blocker: false
+        notes: Tool availability itself remains L1 unless used to claim startup automation or L2+ recovery quality.
+
+future_guardrail_checks:
+  uamp_conformance:
+    status: pass
+    reason: README and V2 docs state no UAMP conformance claim.
+  compliance_attestation:
+    status: pass
+    reason: README and V2 docs state no enterprise compliance/legal certification claim.
+  federation:
+    status: block
+    reason: README Related Projects text mentions cross-agent memory linkage through shared PostgreSQL; this must be downgraded or evidenced before publish.
+  tenant_user_identity:
+    status: pass
+    reason: Scale/identity docs keep tenant/user identity future and README does not claim current tenant support.
+  attestation_packet:
+    status: pass
+    reason: Compliance/attestation remains design-only and no runtime packet emission is claimed.
+  backend_parity:
+    status: warn
+    reason: README correctly says backend parity is not claimed, but shared PostgreSQL/cross-agent linkage text can imply broader backend/common DB behavior.
+  legal_regulatory_claims:
+    status: pass
+    reason: No legal/regulatory compliance certification claim was observed in the inspected public surfaces.
+
+blockers:
+  - blocker_id: CLAIM-BLOCK-001
+    surface: README.md Compatibility and startup recovery sections
+    claim_text: Claude Code is listed as MCP plus runner plus native SessionStart load hook, and adapter-backed startup recovery can load restart_pack before the model acts.
+    reason: >-
+      Current supported release level is L1. This public capability language
+      touches L2 startup recovery. Before publish, either provide L2 measured
+      recovery evidence under the Recovery Score Contract or downgrade the copy
+      to an experimental/internal adapter capability.
+    required_action: Create a separate claim-surface rework Cell or attach owner-approved L2 recovery score evidence.
+  - blocker_id: CLAIM-BLOCK-002
+    surface: README.md Related Projects
+    claim_text: agent-com can share the same PostgreSQL database with wasurezu for cross-agent memory linkage.
+    reason: >-
+      Cross-agent/shared PostgreSQL linkage can imply federation, common DB, or
+      backend parity beyond the Core MVP and current L1 evidence boundary.
+    required_action: Create a separate claim-surface rework Cell to downgrade/remove this claim, or attach explicit backend/federation evidence and owner approval.
+
+warnings:
+  - warning_id: CLAIM-WARN-001
+    surface: package.json description
+    text: Survives compaction. Works across sessions.
+    reason: Acceptable for L1 only when scoped to same agent/project local memory; avoid using this as automatic startup recovery or L2 evidence.
+  - warning_id: CLAIM-WARN-002
+    surface: docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md
+    text: Current Position percentages and older dated status are planning estimates.
+    reason: The document states estimates are not marketing claims, but it should be refreshed before public launch.
+  - warning_id: CLAIM-WARN-003
+    surface: src_tool_descriptions
+    text: Tool descriptions were read as public capability surfaces, but this Cell did not create a dedicated string-level checker.
+    reason: Future automation may be useful, but adding a checker script is outside Cell 001A.
+
+required_next_actions:
+  - Do not publish or claim public release while would_block is true.
+  - Run independent Shirube audit on the implementation PR exact head before owner decision.
+  - If owner wants to resolve blockers, create a separate claim-surface rework Cell; do not amend public copy in this Cell.
+
+boundary_statement: >-
+  This report is governance/process/audit evidence only. It changes no runtime,
+  package, MCP namespace, environment variable, DB path, workflow, deployment,
+  branch protection, ruleset, README, package metadata, public docs copy, schema,
+  fixture, runner, UAMP, backend parity, compliance, federation, tenant/user
+  identity, release, publish, or legal/regulatory behavior. It does not
+  authorize public release, npm publish, enterprise readiness, UAMP conformance,
+  backend parity, compliance, federation, or legal/regulatory claims.

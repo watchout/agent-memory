@@ -1,0 +1,101 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001",
+  "stage": "claim-audit-001a",
+  "items": [
+    {
+      "item_id": "CLAIM-AUDIT-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A and does not substitute a different Cell, goal, or implementation scope.",
+      "required_evidence": [
+        "owner authorization ref",
+        "control handoff ref",
+        "changed files"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-SCOPE-CONTAINED",
+      "criterion": "All changed files remain under the Cell allowed paths and no public-copy or runtime surface is edited.",
+      "required_evidence": [
+        "git diff --name-only origin/main...HEAD",
+        "cell allowed_paths",
+        "cell forbidden_paths"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-LADDER-NOT-REDEFINED",
+      "criterion": "The report uses docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md as the only L0-L4 claim basis and does not redefine release levels.",
+      "required_evidence": [
+        "release ladder ref",
+        "SPEC frozen requirements",
+        "initial report release_ladder_ref"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-SURFACE-INVENTORY",
+      "criterion": "The report inventories at least README.md, package.json, docs/v2 planning surfaces, README-linked operations docs, and public MCP/tool text scope or known unknowns.",
+      "required_evidence": [
+        "initial report claim_surfaces",
+        "read-only inspection notes"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-PER-CLAIM-MAPPING",
+      "criterion": "Recorded claims include ladder level, evidence class, evidence refs, evidence label, and allowed/blocker status.",
+      "required_evidence": [
+        "initial report claim_surfaces.claims"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-RELEASE-LEVEL-SUPPORTED",
+      "criterion": "The reported release level is supported by evidence and does not rely on inferred evidence for shipped claims.",
+      "required_evidence": [
+        "initial report verdict.release_level",
+        "initial report evidence_map",
+        "initial report evidence_policy"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-BLOCKERS-HONEST",
+      "criterion": "Any claim above the supported level is recorded as a blocker with surface, text, reason, and required action.",
+      "required_evidence": [
+        "initial report blockers",
+        "initial report verdict.would_block",
+        "initial report verdict.owner_must_not_publish"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-FUTURE-GUARDRAILS",
+      "criterion": "UAMP, compliance, attestation, federation, tenant/user identity, backend parity, and legal/regulatory checks are recorded and do not become current shipped claims.",
+      "required_evidence": [
+        "initial report future_guardrail_checks"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-REPORT-FIRST",
+      "criterion": "The PR creates report-first governance evidence only and does not add enforcement, workflow activation, required checks, branch protection, release, or publish behavior.",
+      "required_evidence": [
+        "control handoff implementation_boundary",
+        "changed files",
+        "PR boundary statement"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-VALIDATION-EVIDENCE",
+      "criterion": "Diff, YAML, and JSON validation evidence is present and accurately reported.",
+      "required_evidence": [
+        "git diff --check results",
+        "YAML parse results",
+        "JSON parse results"
+      ]
+    },
+    {
+      "item_id": "CLAIM-AUDIT-NO-PUBLIC-APPROVAL",
+      "criterion": "The PR does not authorize public release, publish, enterprise readiness, UAMP conformance, backend parity, compliance, federation, or legal claims.",
+      "required_evidence": [
+        "initial report boundary_statement",
+        "PR boundary statement"
+      ]
+    }
+  ]
+}
