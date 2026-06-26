@@ -35,10 +35,29 @@ wasurezu runs as a local MCP server on your machine. Your AI agent calls memory 
 
 - 📋 **Decision Log** — Save important decisions with context and reasoning. They survive compaction.
 - ✅ **Task State** — Track work progress. Know what's done and what's next.
-- 📚 **Cross-Session Memory** — What one session learns, the next session knows.
+- 📚 **Cross-Session Memory** — What one session saves, the next session can retrieve within the same agent / project boundary.
 - 🔄 **Compaction Recovery** — Restore lost context from your database via `recover_context`.
-- 🚀 **Session Boot** — New sessions automatically restore prior context.
-- 🎣 **Auto-tagging** — Write `[TASK:start]` `[DECISION]` `[KNOWLEDGE]` in your messages and they're auto-recorded.
+- 🚀 **Adapter-backed startup recovery** — Host adapters, hooks, runners, or supervisors can load a bounded `restart_pack` before the model acts.
+- 🎣 **Conversation ingest** — Sweep local Claude Code / Codex JSONL logs into redacted, searchable events when explicitly configured.
+
+## Current Core MVP Capability Boundary
+
+Kusabi Core MVP is the current `wasurezu`-compatible MCP memory/recovery
+server. `Kusabi` is an additive product alias; the package identity, MCP server
+name, MCP tool namespace, environment variables, and database paths remain
+`wasurezu` / `agent-memory` compatible.
+
+Plain MCP configuration gives the agent memory tools, but it does not by
+itself force a new LLM session to load prior context before the first response.
+Startup recovery requires a configured host adapter, hook, runner, or
+supervisor that places a bounded `restart_pack` or selected pack into the first
+model context. Without that adapter path, recovery remains manual:
+call `recover_context` or `restart_pack` from the MCP tools after startup.
+
+Core MVP does not claim UAMP conformance, backend parity, enterprise
+compliance, cross-agent federation, DLP, zero secret leakage, or public release
+readiness. Those remain future guardrails until separately implemented and
+verified.
 
 ## Quick Start (3 steps, 2 minutes)
 
@@ -89,12 +108,19 @@ If no startup adapter or hook has already loaded recovery context:
 - When changing a previous decision, use `supersede_decision`
 ```
 
-**Done.** Restart Claude Code. wasurezu now persists your context to a local SQLite database at `~/.agent-memory/memory.db`. No PostgreSQL needed. No native build required. Works on macOS and Linux. Windows support is planned (post-MVP).
+**Done.** Restart Claude Code. wasurezu now exposes MCP tools and persists your
+context to a local SQLite database at `~/.agent-memory/memory.db`. No PostgreSQL
+needed. No native build required. Works on macOS and Linux. Windows support is
+planned (post-MVP).
+
+If no startup adapter or hook is configured, explicitly call `recover_context`
+or `restart_pack` after startup. Automatic first-response recovery is only
+claimed for configured host adapter / hook paths that load a bounded pack.
 
 ## Demo
 
 ```text
-=== Session Boot ===
+=== Manual recovery or adapter-backed boot ===
 Project: hotel-app
 Agent: default
 
@@ -122,15 +148,18 @@ Total items restored: 10
 ## How It Works
 
 ```
-Session Start
-  → Host adapter or hook loads a bounded restart_pack
-  → Current objective + next action + recovery controls injected
-  → AI continues where it left off
+MCP-only session
+  → Agent or user explicitly calls recover_context / restart_pack
+  → Current objective + next action + recovery controls are reviewed
+
+Adapter-backed session start
+  → Host adapter, hook, runner, or supervisor loads a bounded restart_pack
+  → Current objective + next action + recovery controls are injected
+  → AI continues with recovery context available before it acts
 
 During Session
   → log_decision / save_task_state / save_knowledge save context
-  → Or write tags ([TASK:start]/[DECISION]/[KNOWLEDGE]) in Discord/Slack
-    → PostToolUse hook auto-detects and records (no manual call needed)
+  → Optional ingest_conversation_events can import local Claude Code / Codex JSONL logs
   → Conflicting decisions handled via supersede_decision
 
 Compaction (~83% context)
@@ -161,14 +190,19 @@ Compaction (~83% context)
 
 ## Storage
 
-wasurezu supports two storage backends:
+wasurezu supports these current storage modes:
 
 | Backend | Setup | Best for |
 |---------|-------|----------|
-| **SQLite** (default) | Zero config — file at `~/.agent-memory/memory.db` | Single user, OSS users, simple setups |
-| **PostgreSQL + pgvector** | Set `AGENT_MEMORY_DATABASE_URL=postgresql://...` | Multi-agent teams, semantic vector search, large-scale |
+| **SQLite** (default) | Zero config — file at `~/.agent-memory/memory.db` | Core MVP default, single user, OSS users, simple setups |
+| **PostgreSQL + pgvector** | Set `AGENT_MEMORY_DATABASE_URL=postgresql://...` | Optional team/backend mode with semantic vector search when configured |
+| **JSON** | Set `AGENT_MEMORY_DB_TYPE=json` | Development and lightweight local fallback evidence |
 
-Both modes support the same MCP tools. PostgreSQL adds vector similarity search via [pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings.
+SQLite is the default Core MVP path. PostgreSQL and JSON modes are supported
+compatibility surfaces, but backend parity claims require backend-specific
+evidence. PostgreSQL adds vector similarity search via
+[pgvector](https://github.com/pgvector/pgvector) and Voyage AI embeddings when
+configured.
 
 Conversation memory is redacted full-text event storage, not an unfiltered
 transcript dump. The ingest adapters keep visible user/assistant/tool context
