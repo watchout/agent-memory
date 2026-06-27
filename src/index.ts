@@ -15,6 +15,7 @@ import {
 } from "./constants.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
+import { formatSearchMemoryOutput } from "./format-search.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { summarizeRawCaptureCoverage } from "./raw-capture-coverage.js";
@@ -273,80 +274,8 @@ async function main() {
           project: project || PROJECT,
         });
 
-        const total =
-          result.knowledge.length +
-          result.decisions.length +
-          result.task_states.length +
-          result.messages.length +
-          result.conversation_events.length;
-        if (total === 0) {
-          return {
-            content: [safeText(`🔍 search_memory: "${query}" — no results`)],
-          };
-        }
-
-        const parts: string[] = [];
-        parts.push(`🔍 search_memory: "${query}" — ${total} results\n`);
-
-        if (result.knowledge.length > 0) {
-          parts.push("── KNOWLEDGE ──");
-          for (const k of result.knowledge) {
-            parts.push(`• ${k.title}`);
-            parts.push(`  ${k.content}`);
-            if (k.tags.length) parts.push(`  Tags: ${k.tags.join(", ")} | ${k.updated_at.slice(0, 10)}`);
-          }
-          parts.push("");
-        }
-
-        if (result.decisions.length > 0) {
-          parts.push("── DECISIONS ──");
-          for (const d of result.decisions) {
-            parts.push(`• [${d.status}] ${d.decision}`);
-            if (d.context) parts.push(`  ↳ ${d.context}`);
-            if (d.tags.length) parts.push(`  Tags: ${d.tags.join(", ")} | ${d.created_at.slice(0, 10)}`);
-          }
-          parts.push("");
-        }
-
-        if (result.task_states.length > 0) {
-          parts.push("── TASK STATES ──");
-          for (const t of result.task_states) {
-            const emoji =
-              t.status === "completed"
-                ? "✅"
-                : t.status === "blocked"
-                  ? "🚫"
-                  : "🔧";
-            parts.push(`• ${emoji} [${t.status}] ${t.task}`);
-            if (t.progress) parts.push(`  Progress: ${t.progress}`);
-            if (t.files_modified.length)
-              parts.push(`  Files: ${t.files_modified.join(", ")}`);
-            parts.push(`  ${t.created_at.slice(0, 10)}`);
-          }
-          parts.push("");
-        }
-
-        if (result.messages.length > 0) {
-          parts.push("── MESSAGES ──");
-          for (const m of result.messages) {
-            parts.push(`• [${m.source}] ${m.author_id}: ${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`);
-            parts.push(`  ${m.created_at.slice(0, 10)}`);
-          }
-          parts.push("");
-        }
-
-        if (result.conversation_events.length > 0) {
-          parts.push("── CONVERSATION EVENTS ──");
-          for (const event of result.conversation_events) {
-            const source = `${event.source}/${event.role ?? "event"}`;
-            const excerpt = event.content.slice(0, 220);
-            parts.push(`• [${source}] ${excerpt}${event.content.length > 220 ? "..." : ""}`);
-            parts.push(`  ${event.occurred_at.slice(0, 10)}`);
-          }
-        }
-
         return {
-          content: [safeText(parts.join("\n"))],
+          content: [safeText(formatSearchMemoryOutput(query, result))],
         };
       } catch (err) {
         return {
