@@ -1,0 +1,50 @@
+schema_version: kusabi-core-mvp-postgres-fail-closed/v1
+document_type: implementation_report
+report_id: KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001-REPORT
+cell_id: KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/224
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001.yaml
+audit_item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-postgres-fail-closed-001.json
+report_first: true
+
+implementation_summary:
+  - SQLite remains the no-PostgreSQL-URL Core MVP default.
+  - Explicit AGENT_MEMORY_DB_TYPE=sqlite and AGENT_MEMORY_DB_TYPE=json remain local-store overrides.
+  - AGENT_MEMORY_DATABASE_URL and legacy DATABASE_URL are treated as PostgreSQL intent when no explicit local store type is selected.
+  - Configured PostgreSQL connection failure fails closed instead of silently writing to SQLite or JSON.
+  - Current README and storage-policy docs describe the fallback boundary.
+
+claim_boundary:
+  allowed_claims:
+    - Configured PostgreSQL URL fail-closed store selection is covered by regression tests.
+    - SQLite local default remains supported when no PostgreSQL URL is configured.
+    - Explicit local store selection remains supported.
+  not_claimed:
+    - Backend parity.
+    - Common DB completion.
+    - Common registry integration.
+    - Cross-agent memory federation.
+    - UAMP conformance.
+    - Enterprise compliance.
+    - Release readiness or publish authorization.
+
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - npm test
+  - npm run build
+  - npx tsc --noEmit
+  - remote CI Node 18 / 20 / 22
+  - independent audit record
+  - owner exact-head decision before merge
+
+boundary_statement: >-
+  This PR changes configured store selection behavior and directly related
+  regression/docs evidence only. It changes no package metadata, package or
+  lockfiles, MCP namespace, environment variable names, DB paths, PostgreSQL
+  schema or migrations, workflows, deployment files, branch protection,
+  rulesets, schema files, fixtures, runners, UAMP conformance, common DB
+  completion, backend parity, federation, compliance, release, publish, DLP,
+  zero-leakage, or legal/regulatory claims.

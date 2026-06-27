@@ -1,0 +1,65 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001
+title: Core MVP PostgreSQL URL fail-closed store selection
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/224
+goal: >-
+  Preserve SQLite as the no-PostgreSQL-URL default while refusing silent
+  SQLite/JSON fallback when a PostgreSQL URL is configured and unreachable.
+covers:
+  - store backend selection
+  - PostgreSQL configured intent
+  - SQLite local default
+  - explicit JSON/local override
+  - current storage policy docs
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-postgres-fail-closed-001.json
+  - .shirube/reports/kusabi-core-mvp-postgres-fail-closed-001.yaml
+  - src/stores/index.ts
+  - src/test.ts
+  - README.md
+  - docs/design/core/SSOT-3_API_CONTRACT.md
+  - docs/design/core/SSOT-4_DATA_MODEL.md
+  - docs/design/core/SSOT-5_CROSS_CUTTING.md
+  - docs/operations/COMMON_DB_ALIGNMENT.md
+  - docs/requirements/SSOT-0_PRD.md
+forbidden_paths:
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - npm test
+  - npm run build
+  - npx tsc --noEmit
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no package, workflow, deployment, env var, DB path, or MCP namespace changed
+  - verify PR does not claim backend parity, common DB completion, federation, release, or publish readiness
+stop_conditions:
+  - A change requires env var rename or DB path migration.
+  - A change requires package or MCP namespace rename.
+  - A change changes PostgreSQL schema or migration behavior.
+  - A change enables cross-agent reads, tenant/user identity, or federation.
+  - A change claims backend parity, common DB completion, UAMP conformance, compliance, release, or publish readiness.
+  - A change requires workflow, branch protection, ruleset, deployment, or package metadata edits.
+notes:
+  - SQLite remains supported as default when no PostgreSQL URL is configured.
+  - Explicit AGENT_MEMORY_DB_TYPE=sqlite or AGENT_MEMORY_DB_TYPE=json remains a local-store override.
+  - A PostgreSQL URL without explicit local override is shared-memory intent and must fail closed if unreachable.
