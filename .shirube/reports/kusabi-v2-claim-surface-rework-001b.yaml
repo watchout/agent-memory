@@ -1,0 +1,70 @@
+schema_version: kusabi-v2-claim-surface-rework/v1
+document_type: claim_surface_rework_report
+report_id: KUSABI-V2-CLAIM-SURFACE-REWORK-001B-REPORT
+cell_id: KUSABI-V2-CLAIM-SURFACE-REWORK-001B
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/221
+source_claim_audit_report: .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+release_ladder_ref: docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+report_first: true
+route: ceo-approval
+
+verdict:
+  release_level_after_rework: L1
+  claim_surface_rework_would_block: false
+  resolved_blocker_count: 2
+  unresolved_known_blocker_count: 0
+  release_or_publish_authorized_by_this_pr: false
+  owner_release_decision_still_required: true
+  next_cell_authorized: false
+
+resolved_blockers:
+  - blocker_id: CLAIM-BLOCK-001
+    surface: README.md Compatibility and startup recovery sections
+    previous_issue: >-
+      README startup and Claude/Codex adapter language touched L2 startup
+      recovery without accepted L2 recovery score evidence.
+    rework_summary: >-
+      README now describes MCP/manual recovery as the public L1 path and labels
+      adapter, hook, runner, and bridge paths as experimental or
+      operator-configured until L2 recovery evidence is accepted.
+  - blocker_id: CLAIM-BLOCK-002
+    surface: README.md Related Projects
+    previous_issue: >-
+      Related Projects wording implied shared PostgreSQL cross-agent memory
+      linkage, federation, common DB, or backend parity beyond Core MVP.
+    rework_summary: >-
+      README now states agent-com is separate and that shared PostgreSQL,
+      cross-agent memory linkage, federation, and backend parity require
+      separate evidence and are not part of the Kusabi Core MVP claim.
+
+claim_boundary_after_rework:
+  public_l1_claims_preserved:
+    - wasurezu-compatible MCP memory/recovery server.
+    - SQLite default local database path.
+    - Decisions, task state, knowledge, search, recover_context, and restart_pack as current MCP surfaces.
+    - Same agent/project boundary for current memory retrieval.
+  downgraded_or_not_claimed:
+    - Public L2 startup recovery readiness.
+    - Cross-agent memory linkage.
+    - Common DB or backend parity.
+    - UAMP conformance.
+    - Enterprise compliance.
+    - Federation or tenant/user identity.
+
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - YAML parse for changed .shirube YAML
+  - JSON parse for .shirube/audit-item-sets/kusabi-v2-claim-surface-rework-001b.json
+
+boundary_statement: >-
+  This rework changes public README copy and repo-local Shirube governance
+  artifacts only. It changes no runtime, package, MCP namespace, environment
+  variable, DB path, workflow, deployment, branch protection, ruleset, schema,
+  fixture, runner, UAMP, backend parity, compliance, federation, tenant/user
+  identity, release, publish, or legal/regulatory behavior. It resolves
+  identified claim blockers for L1 public copy but does not authorize public
+  release, npm publish, enterprise readiness, UAMP conformance, backend parity,
+  compliance, federation, or legal/regulatory claims.

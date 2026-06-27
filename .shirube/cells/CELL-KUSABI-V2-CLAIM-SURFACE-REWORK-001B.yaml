@@ -1,0 +1,89 @@
+schema_version: shirube-cell/v1
+document_type: cell
+cell_id: KUSABI-V2-CLAIM-SURFACE-REWORK-001B
+status: ready_for_implementation_pr
+risk_tier: R1
+risk_class: R1
+cell_type: docs_only
+route: ceo-approval
+mode: report-first
+
+source_issue: https://github.com/watchout/agent-memory/issues/221
+source_claim_audit_report: .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+control_handoff: .shirube/control-handoffs/CH-KUSABI-V2-CLAIM-SURFACE-REWORK-001B.yaml
+
+goal: >-
+  Resolve the two public claim blockers from the initial Kusabi V2
+  release-readiness claim audit by downgrading README public copy to the current
+  L1 Core MVP boundary, without changing runtime behavior or authorizing
+  release/publish.
+
+covers:
+  - README startup adapter wording downgrade.
+  - README Claude/Codex compatibility wording downgrade.
+  - README Related Projects PostgreSQL/cross-agent wording downgrade.
+  - Claim-audit blocker resolution report.
+
+non_scope:
+  - Runtime/API/DB/MCP behavior changes.
+  - Package, CLI, MCP namespace, env var, DB path, or schema migration.
+  - package.json, docs/v2, npm copy, or marketing-copy edits outside README.
+  - Workflow, required-check, branch-protection, ruleset, deployment, release, or publish changes.
+  - UAMP conformance, schemas, fixtures, runner, or runtime emitters.
+  - Compliance, attestation packet, deletion/export/reveal, hash-chain, or signing implementation.
+  - Cross-agent federation, tenant/user identity, common DB rollout, or suite live integration.
+  - Public release, enterprise, backend parity, compliance, UAMP, federation, or legal claim approval.
+
+allowed_paths:
+  - README.md
+  - .shirube/cells/CELL-KUSABI-V2-CLAIM-SURFACE-REWORK-001B.yaml
+  - .shirube/control-handoffs/CH-KUSABI-V2-CLAIM-SURFACE-REWORK-001B.yaml
+  - .shirube/audit-item-sets/kusabi-v2-claim-surface-rework-001b.json
+  - .shirube/reports/kusabi-v2-claim-surface-rework-001b.yaml
+
+forbidden_paths:
+  - src/**
+  - test/**
+  - tests/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - yarn.lock
+  - .github/workflows/**
+  - docs/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - scripts/**
+  - dist/**
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - YAML parse for changed .shirube YAML
+  - JSON parse for .shirube/audit-item-sets/kusabi-v2-claim-surface-rework-001b.json
+
+post_merge_tests:
+  - Confirm changed files remained limited to README.md and authorized .shirube artifacts.
+  - Confirm no runtime/package/MCP/env/DB/workflow/deployment behavior changed.
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+stop_conditions:
+  - Resolving blockers requires claiming L2 or higher evidence.
+  - package.json, docs/v2, docs/operations, runtime, package, MCP, env, DB, workflow, deployment, branch protection, or ruleset changes are needed.
+  - UAMP conformance, backend parity, federation, tenant/user identity, compliance, release, publish, or legal status would be claimed.
+  - The work needs a checker script, fixture, schema, runner, npm script, or CI gate.
