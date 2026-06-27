@@ -83,12 +83,17 @@ Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
       "args": ["<path-to-agent-memory>/dist/index.js"],
       "env": {
         "AGENT_MEMORY_AGENT_ID": "my-agent",
-        "AGENT_MEMORY_PROJECT": "my-project"
+        "AGENT_MEMORY_PROJECT": "my-project",
+        "AGENT_MEMORY_DB_TYPE": "sqlite"
       }
     }
   }
 }
 ```
+
+> `AGENT_MEMORY_DB_TYPE=sqlite` pins the local SQLite backend. Without it,
+> a `DATABASE_URL` inherited from your shell silently switches the server
+> to PostgreSQL (resolution order in `src/stores/index.ts`).
 
 ### 3. Optional Fallback Instructions
 
