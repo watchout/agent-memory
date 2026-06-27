@@ -56,21 +56,29 @@ canonical refs, and report drift or missing evidence.
 
 Future common DB discovery should be additive and fail-closed:
 
-1. If `IYASAKA_MCP_DATABASE_URL` is set, treat it as the fixed common DB
+1. If `AGENT_MEMORY_DB_TYPE=sqlite` or `AGENT_MEMORY_DB_TYPE=json` is explicit,
+   use that local store by explicit request. If a PostgreSQL URL is also
+   present, report config drift; do not silently treat the local write as shared
+   memory.
+2. If `IYASAKA_MCP_DATABASE_URL` is set, treat it as the fixed common DB
    candidate.
-2. If `AGENT_MEMORY_DATABASE_URL` is set, treat it as the Wasurezu PostgreSQL
-   candidate and detect whether common registry tables are present.
-3. If legacy `DATABASE_URL` is set, keep backward compatibility and detect
-   whether common registry tables are present.
-4. If no PostgreSQL URL is configured, keep the existing SQLite local fallback.
+3. If `AGENT_MEMORY_DATABASE_URL` is set, treat it as the Wasurezu PostgreSQL
+   candidate, fail closed if it cannot be reached, and detect whether common
+   registry tables are present.
+4. If legacy `DATABASE_URL` is set, keep backward compatibility and detect
+   whether common registry tables are present. The legacy name still means
+   PostgreSQL intent and must fail closed if unreachable.
+5. If no PostgreSQL URL is configured, keep the existing SQLite local fallback.
 
 Detection of a PostgreSQL URL must not by itself claim common registry support.
 The registry is available only when required common tables are present and a
 read-only lookup succeeds.
 
-If `AGENT_MEMORY_DB_TYPE=postgres` is explicit and the configured database
-cannot be reached, Wasurezu should continue to fail closed instead of silently
-falling back to SQLite. This preserves the current explicit-postgres behavior.
+If no explicit local store type is selected and a PostgreSQL URL is configured
+through either supported env var, Wasurezu must fail closed when the configured
+database cannot be reached instead of silently falling back to SQLite. SQLite
+fallback is a no-PostgreSQL-URL local default, not a degraded mode for
+shared-memory outages.
 
 ## 4. Common Registry Adapter Contract
 

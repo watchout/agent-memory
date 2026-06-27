@@ -1,0 +1,91 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001",
+  "stage": "postgres-fail-closed-001",
+  "items": [
+    {
+      "item_id": "PG-FAIL-CLOSED-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001 and does not substitute backend parity, common DB, release, or publish work.",
+      "required_evidence": [
+        "issue 224",
+        "control handoff ref",
+        "changed files"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the cell allowed paths, with no package, workflow, deployment, env var rename, DB path migration, docs/v2, schema, fixture, runner, or protected surface edits.",
+      "required_evidence": [
+        "git diff --name-only origin/main...HEAD",
+        "cell allowed_paths",
+        "cell forbidden_paths"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-SQLITE-DEFAULT-PRESERVED",
+      "criterion": "SQLite remains the default store when no PostgreSQL URL is configured.",
+      "required_evidence": [
+        "src/stores/index.ts",
+        "src/test.ts"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-EXPLICIT-LOCAL-PRESERVED",
+      "criterion": "Explicit AGENT_MEMORY_DB_TYPE=sqlite and AGENT_MEMORY_DB_TYPE=json remain local-store overrides even when a PostgreSQL URL is inherited.",
+      "required_evidence": [
+        "src/stores/index.ts",
+        "src/test.ts"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-URL-INTENT",
+      "criterion": "AGENT_MEMORY_DATABASE_URL and legacy DATABASE_URL mean PostgreSQL intent when no explicit local store type is selected.",
+      "required_evidence": [
+        "src/stores/index.ts",
+        "src/test.ts",
+        "README.md"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-NO-SILENT-FALLBACK",
+      "criterion": "Configured PostgreSQL connection failure throws instead of silently writing to SQLite or JSON.",
+      "required_evidence": [
+        "src/stores/index.ts",
+        "src/test.ts"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-DOC-BOUNDARY",
+      "criterion": "Docs describe fallback as explicit local/no-PostgreSQL-URL behavior and do not claim backend parity, common DB completion, federation, release, or publish readiness.",
+      "required_evidence": [
+        "README.md",
+        "docs/design/core/SSOT-3_API_CONTRACT.md",
+        "docs/design/core/SSOT-4_DATA_MODEL.md",
+        "docs/design/core/SSOT-5_CROSS_CUTTING.md",
+        "docs/operations/COMMON_DB_ALIGNMENT.md",
+        "docs/requirements/SSOT-0_PRD.md"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks, npm test, build, typecheck, and remote CI evidence are present and match the reported scope.",
+      "required_evidence": [
+        "git diff --check origin/main...HEAD",
+        "git diff --check",
+        "npm test",
+        "npm run build",
+        "npx tsc --noEmit",
+        "remote CI Node 18/20/22"
+      ]
+    },
+    {
+      "item_id": "PG-FAIL-CLOSED-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": [
+        "PR boundary statement",
+        ".shirube/reports/kusabi-core-mvp-postgres-fail-closed-001.yaml"
+      ]
+    }
+  ]
+}

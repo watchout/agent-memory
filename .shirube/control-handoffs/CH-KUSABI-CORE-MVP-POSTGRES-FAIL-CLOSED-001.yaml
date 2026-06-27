@@ -1,0 +1,173 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/224
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  configured PostgreSQL fail-closed store selection into schema migration,
+  env var rename, DB path migration, backend parity, common DB completion,
+  federation, UAMP conformance, compliance, workflow enforcement, deployment,
+  release, or publish behavior.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/224
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the PostgreSQL URL fail-closed PR.
+    - Diff-scope, validation, exact-head, independent audit, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Backend parity claims.
+    - Common registry implementation or common DB completion claims.
+    - Workflow enforcement, branch protection, deployment, package identity, MCP namespace, env var rename, DB path migration, UAMP conformance, compliance, federation, release, or publish decisions.
+
+acceptance_criteria:
+  - SQLite remains the default when no PostgreSQL URL is configured.
+  - Explicit AGENT_MEMORY_DB_TYPE=sqlite uses SQLite even if a PostgreSQL URL is inherited.
+  - Explicit AGENT_MEMORY_DB_TYPE=json uses JSON even if a PostgreSQL URL is inherited.
+  - AGENT_MEMORY_DB_TYPE=postgres without a PostgreSQL URL fails clearly.
+  - AGENT_MEMORY_DATABASE_URL means PostgreSQL intent when no explicit local store type is selected.
+  - Legacy DATABASE_URL means PostgreSQL intent when no explicit local store type is selected.
+  - Configured PostgreSQL connection failure does not silently write to SQLite or JSON.
+  - Docs describe SQLite fallback as no-PostgreSQL-URL local default, not degraded shared-memory outage behavior.
+  - No package, lockfile, workflow, deployment, env var rename, DB path migration, MCP namespace change, schema file, fixture, runner, backend parity claim, common DB completion claim, UAMP conformance claim, release, or publish claim is introduced.
+  - Node 18 / 20 / 22 CI-compatible commands remain green or failures are reported with exact scope.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  test_expectations:
+    - createStore() returns SQLite by default with no PostgreSQL URL.
+    - createStore() returns SQLite for explicit AGENT_MEMORY_DB_TYPE=sqlite with inherited PostgreSQL URL.
+    - createStore() fails closed for explicit AGENT_MEMORY_DB_TYPE=postgres when PostgreSQL is unreachable.
+    - createStore() fails closed for AGENT_MEMORY_DATABASE_URL when PostgreSQL is unreachable and no explicit local store type is selected.
+    - createStore() fails closed for legacy DATABASE_URL when PostgreSQL is unreachable and no explicit local store type is selected.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - remote_CI_Node_18_20_22
+    - independent_audit_record
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+
+audit:
+  item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-postgres-fail-closed-001.json
+  required_before_owner_decision: true
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001
+  cell_type: code_lite
+  risk_class: R2
+  goal: >-
+    Harden configured PostgreSQL store selection so PostgreSQL intent fails
+    closed instead of silently splitting memory into a separate local store.
+  non_scope:
+    - DB schema migration.
+    - DB path migration.
+    - Env var rename.
+    - Package rename.
+    - MCP namespace rename.
+    - Workflow changes.
+    - Deployment changes.
+    - Backend parity claim.
+    - Common registry implementation or common DB completion claim.
+    - UAMP runtime emitters or conformance claim.
+    - Fixture files or fixture runner.
+    - Schema files.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance or attestation implementation.
+    - AUN / Kodama / Shirube live integration.
+    - Release or publish authorization.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-POSTGRES-FAIL-CLOSED-001.yaml
+    - .shirube/audit-item-sets/kusabi-core-mvp-postgres-fail-closed-001.json
+    - .shirube/reports/kusabi-core-mvp-postgres-fail-closed-001.yaml
+    - src/stores/index.ts
+    - src/test.ts
+    - README.md
+    - docs/design/core/SSOT-3_API_CONTRACT.md
+    - docs/design/core/SSOT-4_DATA_MODEL.md
+    - docs/design/core/SSOT-5_CROSS_CUTTING.md
+    - docs/operations/COMMON_DB_ALIGNMENT.md
+    - docs/requirements/SSOT-0_PRD.md
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - tests/uamp/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires env var rename or DB path migration.
+    - Change requires package or MCP namespace rename.
+    - Change changes PostgreSQL schema or migration behavior.
+    - Change enables cross-agent reads, tenant/user identity, or federation.
+    - Change claims backend parity, common DB completion, UAMP conformance, compliance, release, or publish readiness.
+    - Change requires workflow, required-check, branch-protection, deployment, ruleset, or package metadata mutation.
+    - Change spans beyond configured PostgreSQL fail-closed store selection.
+
+implementation_boundary:
+  summary: >-
+    Update current store selection and regression coverage only. Preserve local
+    SQLite/JSON explicit modes while preventing accidental split-brain memory
+    writes after configured PostgreSQL outages.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit
+    - merge without owner exact-head decision
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - package metadata mutation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_diff_check
+    - post_merge_changed_files
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

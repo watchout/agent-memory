@@ -1038,30 +1038,60 @@ function testRedaction() {
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
 }
 
-async function testExplicitPostgresStoreFailsClosed() {
-  console.log("\n── Explicit PostgreSQL Store Mode Tests ──");
+async function assertCreateStoreFailsClosed(label: string) {
+  let failedClosed = false;
+  try {
+    await createStore();
+  } catch {
+    failedClosed = true;
+  }
+  assert(failedClosed, label);
+}
+
+async function testPostgresStoreIntentFailsClosed() {
+  console.log("\n── PostgreSQL Store Intent Tests ──");
   const originalDbType = process.env.AGENT_MEMORY_DB_TYPE;
   const originalDatabaseUrl = process.env.DATABASE_URL;
   const originalAgentMemoryDatabaseUrl = process.env.AGENT_MEMORY_DATABASE_URL;
+  const originalAgentMemoryDbPath = process.env.AGENT_MEMORY_DB_PATH;
   const originalPgConnectTimeout = process.env.PGCONNECT_TIMEOUT;
+  const sqliteDefaultRoot = mkdtempSync(join(tmpdir(), "am-store-selection-"));
   try {
+    delete process.env.AGENT_MEMORY_DB_TYPE;
+    delete process.env.DATABASE_URL;
+    delete process.env.AGENT_MEMORY_DATABASE_URL;
+    process.env.AGENT_MEMORY_DB_PATH = join(sqliteDefaultRoot, "memory.db");
+    const defaultStore = await createStore();
+    assert(defaultStore instanceof SqliteStore, "no PostgreSQL URL uses SQLite default");
+    await defaultStore.close();
+
+    process.env.AGENT_MEMORY_DB_TYPE = "sqlite";
+    process.env.DATABASE_URL = "postgresql://127.0.0.1:1/agent_memory_explicit_sqlite";
+    const explicitSqliteStore = await createStore();
+    assert(explicitSqliteStore instanceof SqliteStore, "explicit sqlite mode overrides inherited PostgreSQL URL");
+    await explicitSqliteStore.close();
+
     process.env.AGENT_MEMORY_DB_TYPE = "postgres";
     process.env.DATABASE_URL = "postgresql://127.0.0.1:1/agent_memory_fail_closed";
     delete process.env.AGENT_MEMORY_DATABASE_URL;
     process.env.PGCONNECT_TIMEOUT = "1";
+    await assertCreateStoreFailsClosed("explicit postgres mode refuses SQLite fallback on connection failure");
 
-    let failedClosed = false;
-    try {
-      await createStore();
-    } catch {
-      failedClosed = true;
-    }
-    assert(failedClosed, "explicit postgres mode refuses SQLite fallback on connection failure");
+    delete process.env.AGENT_MEMORY_DB_TYPE;
+    delete process.env.DATABASE_URL;
+    process.env.AGENT_MEMORY_DATABASE_URL = "postgresql://127.0.0.1:1/agent_memory_fail_closed";
+    await assertCreateStoreFailsClosed("AGENT_MEMORY_DATABASE_URL refuses SQLite fallback on connection failure");
+
+    delete process.env.AGENT_MEMORY_DATABASE_URL;
+    process.env.DATABASE_URL = "postgresql://127.0.0.1:1/agent_memory_fail_closed";
+    await assertCreateStoreFailsClosed("legacy DATABASE_URL refuses SQLite fallback on connection failure");
   } finally {
     restoreEnv("AGENT_MEMORY_DB_TYPE", originalDbType);
     restoreEnv("DATABASE_URL", originalDatabaseUrl);
     restoreEnv("AGENT_MEMORY_DATABASE_URL", originalAgentMemoryDatabaseUrl);
+    restoreEnv("AGENT_MEMORY_DB_PATH", originalAgentMemoryDbPath);
     restoreEnv("PGCONNECT_TIMEOUT", originalPgConnectTimeout);
+    rmSync(sqliteDefaultRoot, { recursive: true, force: true });
   }
 }
 
@@ -3820,7 +3850,7 @@ async function run() {
   await testKnowledgeSupersedeRollback();
   await testErrorHandling();
   testRedaction();
-  await testExplicitPostgresStoreFailsClosed();
+  await testPostgresStoreIntentFailsClosed();
   testRawCaptureCoverage();
   testCatchUpSourceADryRun();
   await testConversationEvents();
