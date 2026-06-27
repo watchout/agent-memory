@@ -6,7 +6,6 @@
  */
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
-import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
@@ -16,9 +15,10 @@ const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
 const SESSION_ID = process.env.CLAUDE_SESSION_ID || `boot-${Date.now()}`;
 
 async function boot() {
-  // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
-  await ensureMemoryTags();
-
+  // FEAT-029's memory-tags.md auto-installer was removed (P2-CS1):
+  // tags are legacy opt-in, and reinstalling the rule file on every
+  // boot undid operator-side retirement. Boot never deletes an
+  // existing installed file — uninstall stays an operator action.
   const store = await createStore();
 
   try {
