@@ -260,7 +260,7 @@ Minimum acceptance gates for later evidence/live-enforcement cells:
 | Recovery quality 計測の意味不明 | C1-C3 スコア改善せず | AM-002 で実装、AM-018 で算出ロジック確定 |
 | OSS 公開時に組織固有データ流出 | セキュリティ問題 | AM-015 で watchout seed を strategy/ に退避、scripts/seed-watchout.sql |
 | npm 名 wasurezu の commercial 衝突 | 公開不可 | npm namespace 確認 (AM-014 で実施) |
-| MCP notification 配信が unstable | recover_context が UX 悪化 | boot.ts non-fatal fallback、JSON store fallback |
+| MCP notification 配信が unstable | recover_context が UX 悪化 | boot.ts non-fatal host fallback。Configured PostgreSQL outages without an explicit local store type must fail closed instead of writing to JSON/SQLite |
 | Cloud 版の差別化失敗 | OSS だけで完結し収益化不能 | shared memory / dashboard / degradation alert を Cloud 専用機能化 |
 
 ## §11 Dependencies
