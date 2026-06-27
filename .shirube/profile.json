@@ -1,0 +1,21 @@
+{
+  "repo_id": "watchout/agent-memory",
+  "repo_type": "memory",
+  "runtime": true,
+  "protected_surfaces": ["db", "routing", "auth"],
+  "allowed_tier": "all",
+  "ci_gate_0": {
+    "required_checks": ["test", "lint", "typecheck"],
+    "integration_commands": ["npm test -- --testPathPattern=integration"],
+    "exact_head_required": true
+  },
+  "complete_evidence": {
+    "types": ["pr-merged", "deploy-confirmed", "health-check", "runtime-identity"],
+    "health_endpoint": "/health",
+    "smoke_command": "npm run smoke"
+  },
+  "audit_route": "required",
+  "rollback_owner": "codex-cto",
+  "implementation_bot": "agent-mem-dev",
+  "aun_pilot": "watchout/iyasaka-arc#722"
+}
