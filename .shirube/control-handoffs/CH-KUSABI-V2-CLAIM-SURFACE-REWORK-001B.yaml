@@ -1,0 +1,146 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-V2-CLAIM-SURFACE-REWORK-001B
+parent_ssot: https://github.com/watchout/agent-memory/issues/221
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/221
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require owner/ARC review if this Cell would move beyond README
+  public-claim downgrade into runtime behavior, package/MCP/env/DB changes,
+  package metadata, docs/v2, release/publish approval, workflow enforcement,
+  branch protection, UAMP conformance, compliance, federation, backend parity,
+  common DB rollout, or legal claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/221
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Repo-local governance/process/audit evidence for this README claim-surface rework Cell.
+    - Diff-scope, validation, exact-head, audit-record, and owner-decision checks.
+    - Verifying that the two claim-audit blockers were downgraded without creating new overclaims.
+  shirube_does_not_own:
+    - Runtime behavior, persistence behavior, package identity, MCP namespace, env vars, DB paths, workflows, deployment, branch protection, rulesets, required checks, or release execution.
+    - L2/L3/L4 evidence production.
+    - Public release, npm publish, UAMP conformance, backend parity, compliance, federation, tenant/user identity, suite live integration, or legal/regulatory certification.
+
+acceptance_criteria:
+  - README no longer presents Claude/Codex startup adapter paths as public L2 readiness.
+  - README clearly keeps startup adapter, hook, runner, and bridge paths experimental or operator-configured until L2 recovery evidence is accepted.
+  - README no longer implies cross-agent memory linkage, common DB, federation, or backend parity through shared PostgreSQL.
+  - Core MVP L1 boundary remains clear: local MCP memory/recovery, SQLite default, same agent/project boundary, and compatibility surfaces preserved.
+  - No runtime code, package metadata, docs/v2, workflows, deployment, schema, fixture, runner, release, or publish behavior is changed.
+  - No UAMP conformance, backend parity, federation, compliance, public release, or legal claim is introduced.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - YAML parse for changed .shirube YAML
+    - JSON parse for .shirube/audit-item-sets/kusabi-v2-claim-surface-rework-001b.json
+  test_expectations:
+    - Changed files remain limited to README.md and authorized .shirube artifacts.
+    - README contains no public L2 startup-recovery readiness claim.
+    - README contains no shared PostgreSQL cross-agent memory linkage claim.
+    - Release/publish remains unauthorized by this PR.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: KUSABI-V2-CLAIM-SURFACE-REWORK-001B
+  cell_type: docs_only
+  risk_class: R1
+  goal: >-
+    Downgrade README public claims that exceeded the L1 Core MVP evidence
+    boundary, resolving the two blockers from the initial release-readiness
+    claim audit without approving release/publish.
+  non_scope:
+    - Runtime behavior changes.
+    - API, DB, persistence, MCP tool, package, CLI, env var, or DB path changes.
+    - package.json, docs/v2, npm copy, or marketing-copy edits outside README.
+    - Workflow, required-check, branch-protection, ruleset, deployment, release, or npm publish changes.
+    - UAMP schemas, fixtures, runner, conformance, or runtime emitters.
+    - Compliance, attestation, deletion/export/reveal, hash-chain, signing, or legal certification.
+    - Cross-agent federation, tenant/user identity, common DB rollout, or suite live integration.
+    - Public release, enterprise pilot, backend parity, UAMP conformance, compliance, federation, or legal claim approval.
+  allowed_paths:
+    - README.md
+    - .shirube/cells/CELL-KUSABI-V2-CLAIM-SURFACE-REWORK-001B.yaml
+    - .shirube/control-handoffs/CH-KUSABI-V2-CLAIM-SURFACE-REWORK-001B.yaml
+    - .shirube/audit-item-sets/kusabi-v2-claim-surface-rework-001b.json
+    - .shirube/reports/kusabi-v2-claim-surface-rework-001b.yaml
+  forbidden_paths:
+    - src/**
+    - test/**
+    - tests/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - .github/workflows/**
+    - docs/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - scripts/**
+    - dist/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Claim blockers require L2 or higher evidence.
+    - Runtime, package, MCP, env, DB, workflow, deployment, branch protection, ruleset, required-check, release, or publish behavior would change.
+    - UAMP conformance, compliance, backend parity, federation, tenant/user identity, suite integration, public alpha, enterprise readiness, or legal/regulatory status would be claimed.
+
+implementation_boundary:
+  summary: >-
+    Documentation-only public-copy downgrade. This Cell resolves the two
+    identified claim blockers but does not authorize release/publish or create
+    higher-level evidence.
+  expected_pr_count: 1
+  forbidden_operations:
+    - audit this implementation PR as final authority
+    - approve own PR as final authority
+    - merge without independent audit and owner exact-head decision
+    - publish packages or release assets
+    - runtime or deployment mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, Claude, Codex, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

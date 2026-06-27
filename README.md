@@ -36,8 +36,8 @@ wasurezu runs as a local MCP server on your machine. Your AI agent calls memory 
 - 📋 **Decision Log** — Save important decisions with context and reasoning. They survive compaction.
 - ✅ **Task State** — Track work progress. Know what's done and what's next.
 - 📚 **Cross-Session Memory** — What one session saves, the next session can retrieve within the same agent / project boundary.
-- 🔄 **Compaction Recovery** — Restore lost context from your database via `recover_context`.
-- 🚀 **Adapter-backed startup recovery** — Host adapters, hooks, runners, or supervisors can load a bounded `restart_pack` before the model acts.
+- 🔄 **Compaction Recovery** — Restore lost context from your database via `recover_context` or `restart_pack`.
+- 🧪 **Configured adapter paths** — Host adapters, hooks, runners, or supervisors can be evaluated by operators, but public startup-recovery readiness still requires separate L2 recovery evidence.
 - 🎣 **Conversation ingest** — Sweep local Claude Code / Codex JSONL logs into redacted, searchable events when explicitly configured.
 
 ## Current Core MVP Capability Boundary
@@ -49,10 +49,12 @@ name, MCP tool namespace, environment variables, and database paths remain
 
 Plain MCP configuration gives the agent memory tools, but it does not by
 itself force a new LLM session to load prior context before the first response.
-Startup recovery requires a configured host adapter, hook, runner, or
-supervisor that places a bounded `restart_pack` or selected pack into the first
-model context. Without that adapter path, recovery remains manual:
-call `recover_context` or `restart_pack` from the MCP tools after startup.
+Startup recovery is not claimed from MCP configuration alone. Configured host
+adapters, hooks, runners, or supervisors can place a bounded `restart_pack` or
+selected pack into the first model context for operator evaluation. Until L2
+recovery score evidence is accepted, public release copy should describe the
+supported path as manual MCP recovery: call `recover_context` or `restart_pack`
+from the MCP tools after startup.
 
 Core MVP does not claim UAMP conformance, backend parity, enterprise
 compliance, cross-agent federation, DLP, zero secret leakage, or public release
@@ -92,9 +94,9 @@ Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
 
 ### 3. Optional Fallback Instructions
 
-Add this to your project's `CLAUDE.md` only as a soft fallback. Normal startup
-recovery should come from a host adapter, hook, launcher, or supervisor loading
-a bounded restart pack before the model acts.
+Add this to your project's `CLAUDE.md` only as a soft fallback. Configured
+adapter, hook, launcher, or supervisor paths remain operator-controlled and are
+not public startup-recovery readiness claims without L2 recovery evidence.
 
 ```markdown
 ## Fallback Memory Instructions
@@ -114,19 +116,19 @@ needed. No native build required. Works on macOS and Linux. Windows support is
 planned (post-MVP).
 
 If no startup adapter or hook is configured, explicitly call `recover_context`
-or `restart_pack` after startup. Automatic first-response recovery is only
-claimed for configured host adapter / hook paths that load a bounded pack.
+or `restart_pack` after startup. Configured adapter or hook paths are
+experimental/operator capabilities until measured recovery evidence is accepted.
 
 ## Demo
 
 ```text
-=== Manual recovery or adapter-backed boot ===
+=== Manual recovery or configured adapter evaluation ===
 Project: hotel-app
 Agent: default
 
 Active Decisions (3):
 - [architecture] JWT for auth: chose JWT over session cookies for API-first design
-- [database] PostgreSQL: ruled out SQLite for multi-agent access
+- [database] Storage mode: SQLite default; PostgreSQL tracked as optional backend mode
 - [convention] Use Conventional Commits
 
 Pending Tasks (2):
@@ -152,10 +154,10 @@ MCP-only session
   → Agent or user explicitly calls recover_context / restart_pack
   → Current objective + next action + recovery controls are reviewed
 
-Adapter-backed session start
-  → Host adapter, hook, runner, or supervisor loads a bounded restart_pack
-  → Current objective + next action + recovery controls are injected
-  → AI continues with recovery context available before it acts
+Configured adapter session start (operator evaluation, not public L2 claim)
+  → Host adapter, hook, runner, or supervisor may load a bounded restart_pack
+  → Current objective + next action + recovery controls are made available
+  → Public startup-recovery readiness still requires accepted L2 evidence
 
 During Session
   → log_decision / save_task_state / save_knowledge save context
@@ -235,23 +237,25 @@ export AGENT_MEMORY_DATABASE_URL=postgresql://agent_memory:dev@localhost/agent_m
 
 | Tool | Status |
 |------|--------|
-| **Claude Code** | ✅ MCP + `wasurezu-claude-start` runner + native SessionStart load hook |
-| **Codex** | 🧪 MCP tools work; startup recovery requires `wasurezu-codex-start` runtime adapter |
+| **Claude Code** | ✅ MCP tools; 🧪 `wasurezu-claude-start` runner / SessionStart hook path for operator evaluation |
+| **Codex** | ✅ MCP tools; 🧪 `wasurezu-codex-start` bridge for operator evaluation |
 | **Cursor / Gemini CLI** | ⏳ MCP tools work; startup integration in a later release |
 | **Other MCP-compatible tools** | ✅ MCP tools work |
 
 See [`docs/operations/HOST_ADAPTERS.md`](docs/operations/HOST_ADAPTERS.md) for
 the support-level matrix. In short: MCP tools alone are manual recovery.
-Startup recovery requires a host adapter or native startup hook that places
-`restart_pack` in the first model context. The control-plane source of truth is
+Startup recovery claims require accepted L2 recovery evidence. Until then, MCP
+tools are the public L1 recovery path, while adapter and hook paths are
+operator-configured evaluation surfaces. The control-plane source of truth is
 Wasurezu's durable ledger and recovery pack state, not a live TUI transcript.
 TUI text injection is a compatibility fallback only.
 
 ### Claude Code resession recovery
 
-Claude Code has a native SessionStart hook that can load a selected restart
-pack, but the hook is not the restart policy owner. Use the Claude runner when
-you want Wasurezu to deterministically observe host context-health input,
+Claude Code has an operator-configured SessionStart hook path that can load a
+selected restart pack, but the hook is not the restart policy owner and this is
+not a public startup-recovery readiness claim by itself. Use the Claude runner
+when you want Wasurezu to deterministically observe host context-health input,
 prepare a structured selected pack, and then launch a fresh Claude session only
 when standalone restart gates are pre-authorized:
 
@@ -272,12 +276,13 @@ npx wasurezu-claude-start --launch \
   --mcp-config .mcp.json
 ```
 
-The runner always prepares `host-invocation-context/v1` with
+When used, the runner prepares `host-invocation-context/v1` with
 `target_runtime=claude` and `delivery_mode=session-start-hook`. It passes the
 selected pack reference through `AGENT_MEMORY_SELECTED_PACK_REF` and
 `AGENT_MEMORY_BOOT_MODE=restart_pack` so the next SessionStart hook can consume
-the pack. `--launch` fails closed when AUN is installed, AUN absence is
-unknown, no supervisor/host hook is available, restart is not pre-authorized,
+the pack. Treat this as internal/operator evidence until accepted L2 recovery
+score reports exist. `--launch` fails closed when AUN is installed, AUN absence
+is unknown, no supervisor/host hook is available, restart is not pre-authorized,
 or the context signal only requires `prepare`/`warn`.
 
 `wasurezu-claude-start` does not kill or replace existing Claude sessions.
@@ -288,9 +293,9 @@ remain fallback only.
 ### Codex startup recovery
 
 Codex can use wasurezu MCP tools, but plain MCP configuration does not
-automatically call `restart_pack` when a new Codex session starts. Use the
-startup bridge when you want restart recovery to be present in the first Codex
-prompt:
+automatically call `restart_pack` when a new Codex session starts. For
+operator-controlled evaluation, use the startup bridge when you want restart
+context to be present in the first Codex prompt:
 
 ```bash
 export AGENT_MEMORY_AGENT_ID=codex-cto
@@ -306,7 +311,7 @@ npx wasurezu-codex-start --launch --cd ~/Developer/codex
 npx wasurezu-codex-start --doctor
 ```
 
-The intended Codex restart UX is to exit the old session first, then start a
+The experimental Codex bridge UX is to exit the old session first, then start a
 fresh session through the bridge:
 
 ```text
@@ -393,7 +398,7 @@ All contributions to core are MIT licensed and will remain free forever.
 
 ## Related Projects
 
-- [**agent-com**](https://github.com/watchout/agent-comms-mcp) — Push-based multi-agent communication for Claude Code. Can share the same PostgreSQL database with wasurezu for cross-agent memory linkage.
+- [**agent-com**](https://github.com/watchout/agent-comms-mcp) — Push-based multi-agent communication for Claude Code. It is a separate project; shared PostgreSQL/common backend behavior, federation, and backend parity require separate evidence and are not part of the Kusabi Core MVP claim.
 
 ## License
 

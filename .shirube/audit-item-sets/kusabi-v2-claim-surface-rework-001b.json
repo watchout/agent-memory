@@ -1,0 +1,77 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-V2-CLAIM-SURFACE-REWORK-001B",
+  "stage": "claim-surface-rework-001b",
+  "items": [
+    {
+      "item_id": "CLAIM-REWORK-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-V2-CLAIM-SURFACE-REWORK-001B and does not substitute a runtime, package, or release work package.",
+      "required_evidence": [
+        "issue 221",
+        "control handoff ref",
+        "changed files"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within README.md and the authorized .shirube governance/audit artifacts.",
+      "required_evidence": [
+        "git diff --name-only origin/main...HEAD",
+        "cell allowed_paths",
+        "cell forbidden_paths"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-STARTUP-DOWNGRADED",
+      "criterion": "README no longer presents Claude/Codex startup adapter, hook, runner, or bridge paths as public L2 startup-recovery readiness.",
+      "required_evidence": [
+        "README compatibility section",
+        "README Claude Code resession recovery section",
+        "README Codex startup recovery section"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-ADAPTER-BOUNDARY",
+      "criterion": "README clearly labels configured adapter paths as experimental, internal, or operator-controlled until L2 recovery evidence is accepted.",
+      "required_evidence": [
+        "README Current Core MVP Capability Boundary",
+        "README How It Works",
+        "README Compatibility"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-CROSS-AGENT-DOWNGRADED",
+      "criterion": "README no longer implies shared PostgreSQL cross-agent memory linkage, federation, common DB, or backend parity as a Core MVP claim.",
+      "required_evidence": [
+        "README Storage section",
+        "README Related Projects section"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-L1-BOUNDARY-PRESERVED",
+      "criterion": "README preserves the L1 Core MVP boundary: current wasurezu-compatible MCP memory/recovery, SQLite default, same agent/project boundary, and no future-guardrail claims.",
+      "required_evidence": [
+        "README Current Core MVP Capability Boundary",
+        "README Storage section"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-NO-RELEASE-AUTHORIZATION",
+      "criterion": "The PR does not authorize release, npm publish, public alpha, enterprise readiness, UAMP conformance, backend parity, federation, compliance, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": [
+        "PR boundary statement",
+        ".shirube/reports/kusabi-v2-claim-surface-rework-001b.yaml"
+      ]
+    },
+    {
+      "item_id": "CLAIM-REWORK-VALIDATION-EVIDENCE",
+      "criterion": "Diff, YAML, and JSON validation evidence is present and accurately reported.",
+      "required_evidence": [
+        "git diff --check results",
+        "YAML parse results",
+        "JSON parse results"
+      ]
+    }
+  ]
+}
