@@ -1,0 +1,167 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/226
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/domain review if this PR would move beyond
+  docs/control evidence into local config remediation, runtime behavior changes,
+  DB content mutation, package changes, workflow enforcement, deployment, branch
+  protection, backend parity, common DB completion, federation, UAMP conformance,
+  compliance, release, or publish behavior.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/226
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the memory binding remediation runbook PR.
+    - Diff-scope, validation, exact-head, independent audit, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Local MCP config remediation.
+    - Host restart execution.
+    - Runtime behavior, package identity, MCP namespace, env var names, DB paths, DB schemas, stored memory content, workflows, deployment, branch protection, rulesets, backend parity, common DB completion, federation, UAMP conformance, compliance, release, or publish decisions.
+
+acceptance_criteria:
+  - Runbook defines binding decision states for shared PostgreSQL, URL-only fail-closed pending, explicit SQLite local exceptions, missing project, ignored URL, entrypoint drift, inactive, and blocked states.
+  - Runbook separates repository documentation from local operator config edits and host restarts.
+  - Runbook defines safe restart timing and practical memory smoke evidence.
+  - Runbook preserves SQLite default and explicit SQLite local-only exceptions.
+  - Runbook states PostgreSQL URL intent is fail-closed after PR #186 while preferring explicit DB type for operator evidence.
+  - No runtime, src, package, lockfile, workflow, deployment, local config, DB content, env var, DB path, schema, fixture, runner, backend parity, common DB completion, UAMP conformance, compliance, release, or publish change is introduced.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - changed Shirube YAML parse
+    - audit item JSON parse
+  test_expectations:
+    - changed files are docs/operations and .shirube artifacts only
+    - runbook does not authorize local config changes in the repo diff
+    - runbook does not claim backend parity, common DB completion, release, publish, UAMP conformance, compliance, DLP, or zero-leakage
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - independent_audit_record
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+
+audit:
+  item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-remediation-001.json
+  required_before_owner_decision: true
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001
+  cell_type: ops_lite
+  risk_class: R2
+  goal: >-
+    Add the operator remediation runbook and evidence contract needed to turn
+    the read-only memory persistence audit into binding decisions and smoke
+    evidence without modifying runtime behavior or local machine configs.
+  non_scope:
+    - Runtime behavior changes.
+    - Local MCP config edits.
+    - Claude/Codex config edits.
+    - Host restarts executed by the PR.
+    - Stored memory content mutation.
+    - DB schema migration.
+    - DB path migration.
+    - Env var rename.
+    - Package or lockfile changes.
+    - MCP namespace rename.
+    - Workflow changes.
+    - Deployment changes.
+    - Backend parity claim.
+    - Common registry implementation or common DB completion claim.
+    - UAMP runtime emitters or conformance claim.
+    - Fixture files or fixture runner.
+    - Tenant/user identity.
+    - Cross-agent federation.
+    - Enterprise compliance or attestation implementation.
+    - Release or publish authorization.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001.yaml
+    - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-remediation-001.json
+    - .shirube/reports/kusabi-core-mvp-memory-binding-remediation-001.yaml
+    - docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md
+    - docs/operations/MEMORY_PERSISTENCE_AUDIT_2026-06-22.md
+  forbidden_paths:
+    - src/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - tests/uamp/**
+    - "**/.mcp.json"
+    - "**/.claude/settings.json"
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change writes local configs or memory DB content.
+    - Change reads or emits stored memory text instead of smoke metadata.
+    - Change modifies runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+    - Change claims backend parity, common DB completion, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+    - Change spans beyond docs/control remediation planning and evidence contract work.
+
+implementation_boundary:
+  summary: >-
+    Add docs/control guidance for classifying active memory bindings, timing
+    host restarts, and recording smoke evidence. Do not perform remediation or
+    mutate local configs in this PR.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit
+    - merge without owner exact-head decision
+    - local MCP config mutation
+    - host restart execution
+    - DB content mutation
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - package metadata mutation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_diff_check
+    - post_merge_changed_files
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

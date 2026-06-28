@@ -1,0 +1,54 @@
+schema_version: kusabi-core-mvp-memory-binding-remediation/v1
+document_type: implementation_report
+report_id: KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001-REPORT
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/226
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001.yaml
+audit_item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-remediation-001.json
+report_first: true
+
+implementation_summary:
+  - Adds an operator runbook for memory binding remediation after the read-only persistence audit.
+  - Defines binding decision states for shared PostgreSQL, fail-closed URL-only intent, explicit SQLite local exceptions, missing project, ignored URL, entrypoint drift, inactive, and blocked bindings.
+  - Defines safe host restart timing and practical memory smoke evidence.
+  - Keeps actual local config edits, host restarts, and smoke writes outside the repository diff.
+  - Does not modify runtime behavior, DB content, package metadata, workflows, deployment, or local configs.
+
+claim_boundary:
+  allowed_claims:
+    - A memory binding remediation runbook exists.
+    - Active bindings require explicit owner/operator classification before being called remediated.
+    - SQLite local-only bindings need explicit exception evidence.
+    - Host restart and smoke evidence are operator actions outside this PR.
+  not_claimed:
+    - Local MCP configs are remediated by this PR.
+    - Active agents are currently bound correctly.
+    - Hosts were restarted by this PR.
+    - Smoke writes/readbacks were executed by this PR.
+    - Backend parity.
+    - Common DB completion.
+    - Common registry integration.
+    - Cross-agent memory federation.
+    - UAMP conformance.
+    - Enterprise compliance.
+    - Release readiness or publish authorization.
+
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+  - independent audit record
+  - owner exact-head decision before merge
+
+boundary_statement: >-
+  This PR changes operations documentation and repo-local Shirube governance
+  artifacts only. It changes no runtime behavior, src product code, package
+  metadata, package or lockfiles, MCP namespace, environment variable names, DB
+  paths, DB schema or migrations, workflows, deployment files, local
+  MCP/Claude/Codex configs, stored memory content, branch protection, rulesets,
+  schema files, fixtures, runners, UAMP conformance, common DB completion,
+  backend parity, federation, compliance, release, publish, DLP, zero-leakage,
+  or legal/regulatory claims.
