@@ -1,0 +1,55 @@
+schema_version: kusabi-core-mvp-memory-persistence-audit/v1
+document_type: implementation_report
+report_id: KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001-REPORT
+cell_id: KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/225
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001.yaml
+audit_item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-persistence-audit-001.json
+report_first: true
+
+implementation_summary:
+  - Adds a read-only local memory persistence audit script.
+  - Reports MCP binding metadata, backend classification, SQLite row counts, and optional PostgreSQL row counts.
+  - Redacts URL-like and secret-like values before output.
+  - Updates historical ops evidence so post-PR #186 URL-intent fail-closed policy is clear.
+  - Does not modify local configs, runtime behavior, DB content, package metadata, workflows, or deployment.
+
+claim_boundary:
+  allowed_claims:
+    - Read-only audit tooling exists for local memory persistence binding inspection.
+    - Historical 2026-06-22 local evidence is documented with current policy caveats.
+    - PostgreSQL URL-only intent is classified as fail-closed after PR #186.
+  not_claimed:
+    - Local MCP configs are remediated by this PR.
+    - Active agents are currently bound correctly.
+    - Backend parity.
+    - Common DB completion.
+    - Common registry integration.
+    - Cross-agent memory federation.
+    - UAMP conformance.
+    - Enterprise compliance.
+    - Release readiness or publish authorization.
+
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - node --check scripts/audit-memory-persistence.mjs
+  - node scripts/audit-memory-persistence.mjs --json
+  - npm test
+  - npm run build
+  - npx tsc --noEmit
+  - remote CI Node 18 / 20 / 22
+  - independent audit record
+  - owner exact-head decision before merge
+
+boundary_statement: >-
+  This PR changes read-only audit tooling, historical operations evidence, and
+  repo-local Shirube governance artifacts only. It changes no runtime behavior,
+  src product code, package metadata, package or lockfiles, MCP namespace,
+  environment variable names, DB paths, DB schema or migrations, workflows,
+  deployment files, local MCP/Claude/Codex configs, stored memory content,
+  branch protection, rulesets, schema files, fixtures, runners, UAMP
+  conformance, common DB completion, backend parity, federation, compliance,
+  release, publish, DLP, zero-leakage, or legal/regulatory claims.

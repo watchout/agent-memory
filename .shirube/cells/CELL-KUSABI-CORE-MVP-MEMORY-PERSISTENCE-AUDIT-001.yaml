@@ -1,0 +1,64 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001
+title: Core MVP memory persistence audit refresh
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/225
+goal: >-
+  Provide read-only audit tooling and ops evidence for local MCP memory
+  persistence bindings after PR #186, without changing runtime behavior,
+  local configs, DB content, package metadata, workflows, or deployment.
+covers:
+  - local MCP binding inventory
+  - storage backend classification
+  - SQLite row-count evidence
+  - optional PostgreSQL row-count evidence
+  - post-PR #186 fail-closed policy wording
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-PERSISTENCE-AUDIT-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-persistence-audit-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-persistence-audit-001.yaml
+  - scripts/audit-memory-persistence.mjs
+  - docs/operations/MEMORY_PERSISTENCE_AUDIT_2026-06-22.md
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - node --check scripts/audit-memory-persistence.mjs
+  - node scripts/audit-memory-persistence.mjs --json
+  - npm test
+  - npm run build
+  - npx tsc --noEmit
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify audit script remains read-only
+stop_conditions:
+  - A change edits local MCP configs, Claude configs, env files, or secrets.
+  - A change writes, migrates, deletes, exports, reveals, or mutates stored memory content.
+  - A change modifies runtime behavior, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A change claims backend parity, common DB completion, federation, UAMP conformance, release, or publish readiness.
+  - A change requires DB path or env var rename.
+notes:
+  - The audit script may read local config metadata and count rows, but must not inspect stored memory text.
+  - PostgreSQL queries are optional and require explicit --include-postgres.
+  - This Cell does not authorize remediation of local configs; remediation must be a separate owner-approved operation.

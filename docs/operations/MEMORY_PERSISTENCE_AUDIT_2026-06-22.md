@@ -3,6 +3,7 @@
 Status: initial read-only audit
 Scope: local Company Dev OS / Wasurezu memory persistence bindings
 Runtime impact: none
+Current repo policy: post-PR #186 PostgreSQL URL intent is fail-closed
 
 ## Purpose
 
@@ -24,7 +25,8 @@ stored memory text.
 
 ## Summary
 
-Initial observation on 2026-06-22 JST:
+Historical initial observation on 2026-06-22 JST, before PR #186 changed
+PostgreSQL URL intent to fail closed:
 
 ```json
 {
@@ -46,7 +48,7 @@ Initial observation on 2026-06-22 JST:
 }
 ```
 
-After local MCP remediation on 2026-06-22 JST:
+Historical observation after local MCP remediation on 2026-06-22 JST:
 
 ```json
 {
@@ -83,6 +85,20 @@ Remaining warnings:
 - 8 bindings intentionally or accidentally remain on explicit SQLite;
 - 3 SQLite-mode bindings still contain ignored `DATABASE_URL` values.
 
+Post-PR #186 interpretation:
+
+- `AGENT_MEMORY_DATABASE_URL` and legacy `DATABASE_URL` now mean PostgreSQL
+  intent and fail closed on connection failure unless an explicit local store
+  type is selected.
+- A binding with a PostgreSQL URL but no `AGENT_MEMORY_DB_TYPE=postgres` is no
+  longer fail-open by runtime behavior. It remains weaker operator evidence than
+  explicit `AGENT_MEMORY_DB_TYPE=postgres`.
+- Fresh audits should classify this as `postgres_url_without_explicit_db_type`,
+  not `postgres_not_fail_closed`.
+- This document records historical local evidence and required remediation
+  categories. It does not prove current local configs are still in the same
+  state; rerun the script for current machine evidence.
+
 ## Findings
 
 ### F1: MCP entrypoints are split across local checkouts
@@ -97,13 +113,15 @@ fixes, aliases, or diagnostics that exist only in one checkout.
 Post-remediation status: resolved in local `.mcp.json` files for the 27 detected
 bindings.
 
-### F2: PostgreSQL mode is mostly fail-open
+### F2: PostgreSQL mode lacked explicit DB type in many bindings
 
 19 bindings set a PostgreSQL URL without `AGENT_MEMORY_DB_TYPE=postgres`.
 
-Current store selection treats this as PostgreSQL preferred, but if connection
-fails it can fall back to SQLite. That means an agent can appear to save memory
-while writing to a local fallback DB outside the shared common DB.
+At the time of the initial 2026-06-22 observation, store selection could fall
+back to SQLite on connection failure. Since PR #186, configured PostgreSQL URL
+intent fails closed instead of writing to a separate local store. The remaining
+concern is operator clarity and evidence: explicit
+`AGENT_MEMORY_DB_TYPE=postgres` is still easier to audit than URL-only intent.
 
 Post-remediation status: resolved in local `.mcp.json` files for the 19 detected
 PostgreSQL bindings by adding `AGENT_MEMORY_DB_TYPE=postgres`.
@@ -173,6 +191,10 @@ PostgreSQL and SQLite. The practical failure mode is more likely:
    AGENT_MEMORY_AGENT_ID=<agent>
    AGENT_MEMORY_PROJECT=<project>
    ```
+
+   Post-PR #186, omitting `AGENT_MEMORY_DB_TYPE=postgres` no longer enables
+   SQLite fallback when a PostgreSQL URL is configured, but explicit DB type
+   remains the preferred operator evidence.
 
 3. For agents intentionally using SQLite, record an explicit exception with:
 

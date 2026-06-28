@@ -141,7 +141,7 @@ function classifyBackend(env) {
   if (dbType === "postgres") return { backend: "postgres-explicit", dbPath: "" };
   if (dbType === "sqlite") return { backend: "sqlite-explicit", dbPath: dbPath || "~/.agent-memory/memory.db" };
   if (dbType === "json") return { backend: "json-explicit", dbPath: "~/.agent-memory/*.json" };
-  if (explicitUrl) return { backend: "postgres-implicit-fallback-enabled", dbPath: "" };
+  if (explicitUrl) return { backend: "postgres-url-fail-closed", dbPath: "" };
   return { backend: "sqlite-default", dbPath: dbPath || "~/.agent-memory/memory.db" };
 }
 
@@ -153,7 +153,7 @@ function auditBinding(file, name, server, repoRoot) {
 
   if (!env.AGENT_MEMORY_AGENT_ID) warnings.push("missing_agent_id_env_uses_default");
   if (!env.AGENT_MEMORY_PROJECT) warnings.push("missing_project_env");
-  if (backend === "postgres-implicit-fallback-enabled") warnings.push("postgres_not_fail_closed");
+  if (backend === "postgres-url-fail-closed") warnings.push("postgres_url_without_explicit_db_type");
   if (backend === "sqlite-default") warnings.push("sqlite_default_local_store");
   if (backend === "sqlite-explicit") warnings.push("sqlite_explicit_local_store");
   if (env.DATABASE_URL && String(env.AGENT_MEMORY_DB_TYPE || "").toLowerCase() === "sqlite") {
@@ -436,7 +436,7 @@ function renderMarkdown(report) {
   lines.push("## Warning Glossary");
   lines.push("");
   lines.push("- `entrypoint_targets_other_checkout`: MCP config executes another local checkout, so runtime behavior may not match this branch.");
-  lines.push("- `postgres_not_fail_closed`: PostgreSQL URL is set without `AGENT_MEMORY_DB_TYPE=postgres`; current store code can fall back to SQLite on connection failure.");
+  lines.push("- `postgres_url_without_explicit_db_type`: PostgreSQL URL is set without `AGENT_MEMORY_DB_TYPE=postgres`. Since PR #186 the runtime still fails closed on connection failure, but explicit DB type is clearer operator evidence.");
   lines.push("- `missing_project_env`: writes can land under `project = null`, reducing recovery targeting.");
   lines.push("- `missing_agent_id_env_uses_default`: writes can land under `agent_id = default`.");
   lines.push("- `sqlite_default_local_store` / `sqlite_explicit_local_store`: local DB is not the shared common DB unless explicitly accepted.");
