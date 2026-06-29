@@ -1,0 +1,63 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001
+title: Core MVP memory binding remediation plan
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/226
+goal: >-
+  Define the operator-safe memory binding remediation plan and smoke evidence
+  contract after the read-only persistence audit, without changing runtime
+  behavior, local configs, DB content, package metadata, workflows, deployment,
+  or release claims.
+covers:
+  - active MCP binding decision states
+  - explicit SQLite local-only exception handling
+  - PostgreSQL URL fail-closed operator evidence
+  - missing project remediation boundary
+  - safe host restart timing
+  - practical memory smoke evidence format
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-remediation-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-binding-remediation-001.yaml
+  - docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md
+  - docs/operations/MEMORY_PERSISTENCE_AUDIT_2026-06-22.md
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify remediation remains an operator action outside the repository diff
+stop_conditions:
+  - A change edits local MCP configs, Claude configs, env files, or secrets.
+  - A change writes, migrates, deletes, exports, reveals, or mutates stored memory content.
+  - A change modifies runtime behavior, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A change claims backend parity, common DB completion, federation, UAMP conformance, release, publish, compliance, DLP, or zero-leakage.
+  - A change requires DB path, MCP namespace, package, or env var rename.
+notes:
+  - This Cell creates a runbook and evidence contract only.
+  - Actual host config edits, host restarts, and smoke writes are operator actions outside the repo diff.
+  - SQLite local-only bindings are valid only when explicitly accepted as exceptions.

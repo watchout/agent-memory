@@ -182,6 +182,9 @@ PostgreSQL and SQLite. The practical failure mode is more likely:
 
 ## Required Remediation Before V2 Runtime Work
 
+Use `MEMORY_BINDING_REMEDIATION_RUNBOOK.md` as the operator procedure for
+classifying each binding, timing host restarts, and recording smoke evidence.
+
 1. Pick one canonical runtime entrypoint for active local agents.
 2. For agents intended to use the shared common DB, set:
 

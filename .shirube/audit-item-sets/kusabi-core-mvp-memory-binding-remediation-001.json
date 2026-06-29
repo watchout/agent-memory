@@ -1,0 +1,81 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001",
+  "stage": "memory-binding-remediation-001",
+  "items": [
+    {
+      "item_id": "MB-REMEDIATION-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-MEMORY-BINDING-REMEDIATION-001 and does not substitute runtime remediation, local config mutation, release, or publish work.",
+      "required_evidence": [
+        "issue 226",
+        "control handoff ref",
+        "changed files"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the Cell allowed paths, with no src, package, workflow, deploy, local config, DB content, docs/v2, schema, fixture, runner, branch protection, or ruleset edits.",
+      "required_evidence": [
+        "git diff --name-only origin/main...HEAD",
+        "cell allowed_paths",
+        "cell forbidden_paths"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-DECISION-STATES",
+      "criterion": "The runbook defines explicit decision states for shared PostgreSQL, URL-only fail-closed pending, explicit SQLite exceptions, missing project, ignored URL, entrypoint drift, inactive, and blocked bindings.",
+      "required_evidence": [
+        "docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-OPERATOR-BOUNDARY",
+      "criterion": "The runbook clearly separates repository documentation from local operator config edits, host restarts, and smoke writes.",
+      "required_evidence": [
+        "docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md",
+        "PR boundary statement"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-SQLITE-POSTGRES-POLICY",
+      "criterion": "The runbook preserves SQLite default and explicit SQLite local-only exceptions while stating PostgreSQL URL intent is fail-closed after PR #186.",
+      "required_evidence": [
+        "docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-SMOKE-EVIDENCE",
+      "criterion": "The runbook defines safe host restart timing and a bounded smoke evidence format for active bindings.",
+      "required_evidence": [
+        "docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-NO-LOCAL-CONFIG-DIFF",
+      "criterion": "The PR does not edit local MCP/Claude/Codex configs, env files, secrets, stored memory content, DB schemas, env vars, DB paths, package metadata, workflows, deployment, branch protection, or rulesets.",
+      "required_evidence": [
+        "git diff --name-only origin/main...HEAD",
+        "PR boundary statement"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": [
+        "git diff --check origin/main...HEAD",
+        "git diff --check",
+        "changed Shirube YAML parse",
+        "audit item JSON parse"
+      ]
+    },
+    {
+      "item_id": "MB-REMEDIATION-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": [
+        "PR boundary statement",
+        ".shirube/reports/kusabi-core-mvp-memory-binding-remediation-001.yaml"
+      ]
+    }
+  ]
+}
