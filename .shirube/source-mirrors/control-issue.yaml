@@ -6,7 +6,7 @@ source_ref: watchout/agent-memory#203
 source_url: https://github.com/watchout/agent-memory/issues/203
 target_repo: watchout/agent-memory
 product: kusabi
-framework_ref: watchout/ai-dev-framework@d19119c71562d577f5b5f4393068686f55ff4a87
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 fetched_at: <FETCHED_AT_UTC>
 sha256: abaa92192f4f672af54da45a041a65380e464cb0c4859e260523260589c98c0f
 mirror_is_truth: false
