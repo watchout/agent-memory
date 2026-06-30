@@ -1,0 +1,64 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-POLICY-CORRECTION-001
+title: Core MVP memory binding policy correction
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+goal: >-
+  Apply the owner/operator binding policy correction to the repository
+  docs/control evidence so retained development and coordination agents are
+  directed to shared PostgreSQL, retired/replaced/stale aliases are directed to
+  inactive/archive cleanup, and SQLite exception scope remains FX-only.
+covers:
+  - owner/operator binding policy correction
+  - current non-FX SQLite binding decisions
+  - low/no-count PostgreSQL smoke decisions
+  - retired/replaced/stale alias handling
+  - FX-only SQLite exception boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-POLICY-CORRECTION-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-POLICY-CORRECTION-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-policy-correction-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-binding-policy-correction-001.yaml
+  - docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md
+  - docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify SQLite exception scope remains FX-only
+  - verify next step remains operator execution, not runtime implementation
+stop_conditions:
+  - A change edits local MCP configs, Claude configs, env files, or secrets.
+  - A change writes, migrates, deletes, exports, reveals, or mutates stored memory content.
+  - A change modifies runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A change approves non-FX SQLite exceptions without explicit owner/operator reason.
+  - A change revives deleted, retired, replaced, duplicate, or stale aliases through migration work.
+  - A change claims backend parity, common DB completion, federation, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+notes:
+  - This Cell corrects docs/control classification only.
+  - Current approved SQLite exception remains FX lane only: tsumiage-claude and tsumiage-codex.
+  - Local config migration, archive cleanup, host restart, and smoke execution remain operator actions outside this PR.

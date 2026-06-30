@@ -4,6 +4,8 @@ Status: classification evidence / operator execution input
 Runtime impact: none
 Source issue: https://github.com/watchout/agent-memory/issues/229
 Evidence issue: https://github.com/watchout/agent-memory/issues/228
+Owner/operator correction:
+https://github.com/watchout/agent-memory/issues/228#issuecomment-4841483624
 
 ## Purpose
 
@@ -48,13 +50,23 @@ Important interpretation:
 
 The owner/operator policy is:
 
-- development, org-build, Shirube, audit, QA, and check-coordinated bots use
-  shared PostgreSQL;
+- development, handoff, Shirube, repo-specific implementation, coordinator,
+  audit, QA, check, CTO, and org-build-reachable bots use shared PostgreSQL if
+  retained;
+- deleted, retired, replaced, duplicate, or stale alias agents are
+  inactive/archive targets, not migration targets and not SQLite exceptions;
 - SQLite is limited to local-only, standalone, test-only, migration fixture, or
   offline archive use;
 - SQLite exceptions must not be counted as shared common DB evidence;
 - local config edits and host restarts are operator actions outside repository
   diffs.
+
+Current approved SQLite exception:
+
+- FX lane only: `tsumiage-claude` and `tsumiage-codex`.
+
+The current eight detected non-FX SQLite bindings must not be treated as
+approved SQLite exceptions by default.
 
 ## FX lane exception
 
@@ -125,29 +137,39 @@ inactive.
 
 | Binding | Agent | Project | Classification | Required next action |
 | --- | --- | --- | --- | --- |
-| `dev-001/.mcp.json#agent-memory` | `dev-001` | `dev-001` | `shared_postgres_smoke_needed` | Run smoke if active, otherwise mark inactive. |
-| `dev-bot-001/.mcp.json#agent-memory` | `dev-001` | `dev-001` | `shared_postgres_smoke_needed` | Same target as `dev-001`; decide active binding owner. |
-| `dev-auditor/.mcp.json#wasurezu` | `devauditor` | `dev-auditor` | `shared_postgres_smoke_needed` | Run audit-bot smoke if active. |
-| `marketing-bot/.mcp.json#agent-memory` | `marketing-bot` | `marketing-bot` | `postgres_inactive_or_smoke_needed` | Mark inactive or run smoke. |
-| `research-lead/.mcp.json#agent-memory` | `research-lead` | `research-lead` | `shared_postgres_smoke_needed` | Run smoke if active. |
-| `sales-bot/.mcp.json#agent-memory` | `sales-bot` | `sales-bot` | `postgres_inactive_or_smoke_needed` | Mark inactive or run smoke. |
+| `dev-001/.mcp.json#agent-memory` | `dev-001` | `dev-001` | `shared_postgres_smoke_required` | Run smoke if retained. |
+| `dev-bot-001/.mcp.json#agent-memory` | `dev-001` | `dev-001` | `inactive_if_duplicate_or_not_found` | Same target as `dev-001`; do not double-count duplicate binding. |
+| `dev-auditor/.mcp.json#wasurezu` | `devauditor` | `dev-auditor` | `shared_postgres_smoke_required` | Canonical runtime is `devauditor`; old `auditor` / `dev-auditor` aliases are inactive/replaced. |
+| `marketing-bot/.mcp.json#agent-memory` | `marketing-bot` | `marketing-bot` | `shared_postgres_smoke_required` | Run smoke if retained. |
+| `research-lead/.mcp.json#agent-memory` | `research-lead` | `research-lead` | `shared_postgres_smoke_required` | Run smoke if retained. |
+| `sales-bot/.mcp.json#agent-memory` | `sales-bot` | `sales-bot` | `shared_postgres_smoke_required` | Run smoke if retained. |
 
-### Explicit SQLite bindings requiring owner classification
+### Corrected non-FX SQLite binding decisions
 
-These are the current non-FX SQLite bindings. They remain pending until the
-owner/operator records either `explicit_sqlite_local_exception` or
-`migrate_to_shared_postgres` for each binding.
+The current non-FX SQLite bindings are not approved SQLite exceptions. They are
+either migration targets, if retained, or inactive/archive targets if deleted,
+retired, replaced, duplicate, or stale.
 
-| Binding | Agent | Project | SQLite DB | Classification | Default recommendation |
+| Binding | Agent | Project | SQLite DB | Corrected classification | Required next action |
 | --- | --- | --- | --- | --- | --- |
-| `hotel-lead/.mcp.json#agent-memory` | `hotel-lead` | `hotel-lead` | `hotel-lead.db` | `sqlite_owner_classification_required` | Keep SQLite only if local-only; otherwise migrate. |
-| `hotel-saas-rebuild/.mcp.json#agent-memory` | `hotel-dev` | `hotel-dev` | `hotel-dev.db` | `sqlite_owner_classification_required` | Development-like; prefer PostgreSQL if active. |
-| `lead-ama/.mcp.json#agent-memory` | `lead-ama` | `lead-ama` | `lead-ama.db` | `sqlite_owner_classification_required` | Keep SQLite only if standalone/offline lead lane. |
-| `lead-sus/.mcp.json#agent-memory` | `lead-sus` | `lead-sus` | `lead-sus.db` | `sqlite_owner_classification_required` | Keep SQLite only if standalone/offline lead lane. |
-| `lead-tuk/.mcp.json#agent-memory` | `lead-tuk` | `lead-tuk` | `lead-tuk.db` | `sqlite_owner_classification_required` | Keep SQLite only if standalone/offline lead lane. |
-| `secretary/.mcp.json#agent-memory` | `secretary` | `secretary` | `secretary.db` | `sqlite_owner_classification_required` | Keep SQLite only if local assistant, otherwise migrate. |
-| `upwork-automation/.mcp.json#agent-memory` | `upwork-dev` | `upwork-automation` | `upwork-dev.db` | `sqlite_owner_classification_required` | Automation lane; owner decides standalone vs shared. |
-| `x-marketing-engine/.mcp.json#agent-memory` | `xmarketing-dev` | `x-marketing-engine` | `xmarketing-dev.db` | `sqlite_owner_classification_required` | Marketing lane; owner decides standalone vs shared. |
+| `hotel-lead/.mcp.json#agent-memory` | `hotel-lead` | `hotel-lead` | `hotel-lead.db` | `migrate_to_shared_postgres_if_retained_or_inactive_archive` | If retained as handoff/coordinator, migrate; if no longer used, archive. Not a SQLite exception. |
+| `hotel-saas-rebuild/.mcp.json#agent-memory` | `hotel-dev` | `hotel-dev` | `hotel-dev.db` | `migrate_to_shared_postgres` | Registry/runtime actual agent appears to be `hotel-dev`, a repo-specific implementation bot. Not a SQLite exception. |
+| `lead-ama/.mcp.json#agent-memory` | `lead-ama` | `lead-ama` | `lead-ama.db` | `inactive_archive` | Disabled/retired/replaced_by=`codex-aun`; do not migrate; do not approve as SQLite exception. |
+| `lead-sus/.mcp.json#agent-memory` | `lead-sus` | `lead-sus` | `lead-sus.db` | `inactive_archive` | Treat as deleted/retired unless explicitly reactivated by owner; do not migrate; do not approve as SQLite exception. |
+| `lead-tuk/.mcp.json#agent-memory` | `lead-tuk` | `lead-tuk` | `lead-tuk.db` | `inactive_archive` | Treat as deleted/retired/stale binding unless explicitly reactivated by owner; do not migrate; do not approve as SQLite exception. |
+| `secretary/.mcp.json#agent-memory` | `secretary` | `secretary` | `secretary.db` | `migrate_to_shared_postgres` | Online handoff/coordinator. Not a SQLite exception. |
+| `upwork-automation/.mcp.json#agent-memory` | `upwork-dev` | `upwork-automation` | `upwork-dev.db` | `migrate_to_shared_postgres` | Registry/runtime actual agent appears to be `upwork-dev`, a repo-specific implementation bot. Not a SQLite exception. |
+| `x-marketing-engine/.mcp.json#agent-memory` | `xmarketing-dev` | `x-marketing-engine` | `xmarketing-dev.db` | `migrate_to_shared_postgres` | Registry/runtime actual agent appears to be `xmarketing-dev`, a repo-specific implementation bot. Not a SQLite exception. |
+
+Cleanup instructions:
+
+- Do not revive `lead-ama`, `lead-sus`, or `lead-tuk` through migration work.
+- Do not approve them as SQLite local exceptions.
+- Mark stale DB, workspace, tmux, and binding residue as archive/cleanup
+  targets.
+- Preserve evidence that `lead-ama` was retired and replaced by `codex-aun`.
+- If the owner later explicitly reactivates any lead agent, treat it as a new
+  retained coordinator/implementation lane that must use shared PostgreSQL.
 
 ## Next Cell
 
@@ -158,12 +180,15 @@ runtime repository PR:
 
 Expected work:
 
-1. owner/operator records SQLite decisions for the 8 pending bindings;
-2. active PostgreSQL low/no-count bindings are smoked or marked inactive;
-3. local config edits, if any, happen outside repository diffs;
-4. host restarts happen one at a time;
-5. smoke evidence is recorded using the runbook format;
-6. a follow-up docs/control PR may summarize smoke evidence, but must not
+1. retained non-FX SQLite bindings are migrated to shared PostgreSQL outside
+   repository diffs;
+2. deleted, retired, replaced, duplicate, or stale aliases are marked
+   inactive/archive rather than migrated or approved as SQLite exceptions;
+3. active PostgreSQL low/no-count bindings are smoked or marked inactive;
+4. local config edits, if any, happen outside repository diffs;
+5. host restarts happen one at a time;
+6. smoke evidence is recorded using the runbook format;
+7. a follow-up docs/control PR may summarize smoke evidence, but must not
    include local configs, secrets, or stored memory content.
 
 ## Stop conditions
