@@ -4,7 +4,7 @@ profile: hotel-lite
 control_handoff_id: CH-KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-001A
 parent_ssot: https://github.com/watchout/agent-memory/issues/217
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
-framework_ref: shirube-v3-rapid-lite@d19119c71562d577f5b5f4393068686f55ff4a87
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_spec_ref: .shirube/repo-spec.yaml
 owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/218#issuecomment-4807616664
 spec_review_state: ready_for_implementation

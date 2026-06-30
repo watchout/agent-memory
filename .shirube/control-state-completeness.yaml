@@ -3,7 +3,7 @@ control_state_id: CONTROL-STATE-KUSABI-001
 mode: rapid-lite
 profile: hotel-lite
 repo: watchout/agent-memory
-framework_ref: watchout/ai-dev-framework@d19119c71562d577f5b5f4393068686f55ff4a87
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 required_inventory:
   - execution_context_report
   - repo_spec

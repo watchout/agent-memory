@@ -4,7 +4,7 @@ profile: hotel-lite
 control_handoff_id: CH-KUSABI-V3-INITIAL-CONTROL-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/203
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
-framework_ref: shirube-v3-rapid-lite@c9367c91eeae9df8cfc23ffd8ddbadfdb0df005f
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 framework_lock_ref: null
 repo_spec_ref: .shirube/repo-spec.yaml
 premise_ref: null

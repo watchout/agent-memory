@@ -3,7 +3,7 @@ mode: rapid-lite
 profile: hotel-lite
 repo: watchout/agent-memory
 current_phase: HANDOFF_READY
-framework_ref: watchout/ai-dev-framework@d19119c71562d577f5b5f4393068686f55ff4a87
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 adoption_report_ref: null
 repo_spec_ref: .shirube/repo-spec.yaml
 handoff_ref: .shirube/control-handoffs/CH-001.yaml
