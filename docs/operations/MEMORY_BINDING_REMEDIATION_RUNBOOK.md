@@ -21,6 +21,9 @@ stored memory content.
 
 ## Inputs
 
+The current 2026-06-30 classification artifact is
+`MEMORY_BINDING_CLASSIFICATION_2026-06-30.md`.
+
 Use the current audit command as the source of binding evidence:
 
 ```sh
