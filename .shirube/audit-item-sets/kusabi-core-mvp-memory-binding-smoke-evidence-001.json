@@ -1,0 +1,58 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-BINDING-SMOKE-EVIDENCE-001",
+  "stage": "memory-binding-smoke-evidence-001",
+  "items": [
+    {
+      "item_id": "MB-SMOKE-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-MEMORY-BINDING-SMOKE-EVIDENCE-001 and does not substitute runtime remediation, local config mutation, release, or publish work.",
+      "required_evidence": ["issue 228", "control handoff ref", "changed files"]
+    },
+    {
+      "item_id": "MB-SMOKE-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the Cell allowed paths, with no src, package, workflow, deploy, local config, DB content, docs/v2, schema, fixture, runner, branch protection, or ruleset edits.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "cell allowed_paths", "cell forbidden_paths"]
+    },
+    {
+      "item_id": "MB-SMOKE-POLICY-ANCHOR",
+      "criterion": "The Cell anchors to issue #228 corrected policy: retained connected/development agents use shared PostgreSQL, stale aliases are inactive/archive, and SQLite exceptions remain FX-only.",
+      "required_evidence": ["issue 228 decision comment", "Cell notes", "handoff operator_execution_contract"]
+    },
+    {
+      "item_id": "MB-SMOKE-NO-LOCAL-CONFIG-IN-PR",
+      "criterion": "The PR does not commit .mcp.json, Claude/Codex settings, env files, secrets, local DB files, or stored memory content.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "forbidden_paths"]
+    },
+    {
+      "item_id": "MB-SMOKE-ONE-HOST-RESTART",
+      "criterion": "The handoff requires one-host-at-a-time restart sequencing and rejects broad host restarts.",
+      "required_evidence": ["handoff required_sequence", "cell stop_conditions"]
+    },
+    {
+      "item_id": "MB-SMOKE-EVIDENCE-CONTRACT",
+      "criterion": "The handoff requires smoke evidence with log_decision, save_task_state, save_knowledge, search_memory, recover_context, and restart-pack commands when applicable.",
+      "required_evidence": ["handoff smoke_minimum_commands", "runbook smoke evidence format"]
+    },
+    {
+      "item_id": "MB-SMOKE-STALE-ALIASES",
+      "criterion": "Retired, deleted, replaced, duplicate, or stale aliases remain inactive/archive targets and are not revived through migration work.",
+      "required_evidence": ["issue 228 decision comment", "cell covers", "handoff acceptance criteria"]
+    },
+    {
+      "item_id": "MB-SMOKE-PRIVACY-BOUNDARY",
+      "criterion": "The Cell prohibits stored memory text, secrets, local DB content, export, reveal, deletion, purge, rewrite, and migration from this PR.",
+      "required_evidence": ["cell forbidden_paths", "cell stop_conditions", "handoff non_scope"]
+    },
+    {
+      "item_id": "MB-SMOKE-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": ["git diff --check origin/main...HEAD", "git diff --check", "changed Shirube YAML parse", "audit item JSON parse"]
+    },
+    {
+      "item_id": "MB-SMOKE-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": ["PR boundary statement", ".shirube/reports/kusabi-core-mvp-memory-binding-smoke-evidence-001.yaml"]
+    }
+  ]
+}
