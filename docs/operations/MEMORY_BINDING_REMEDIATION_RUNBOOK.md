@@ -55,6 +55,7 @@ is called remediated.
 | `ignored_database_url_pending` | SQLite mode has `DATABASE_URL`, which is ignored. | Audit warning `database_url_ignored_by_sqlite_mode`. | Remove ignored URL locally or document why it remains. |
 | `entrypoint_drift_pending` | Binding executes another checkout. | Audit warning `entrypoint_targets_other_checkout`. | Point local config to the intended checkout and rebuild before restart. |
 | `retired_or_inactive` | Binding is not active and should not be used as current evidence. | Owner/operator note and no current smoke requirement. | Leave untouched or remove from local config outside repo. |
+| `replaced_or_stale_archive` | Binding belongs to a deleted, retired, replaced, duplicate, or stale alias agent. | Owner/operator replacement or retirement note. | Archive/cleanup the residue outside repo; do not migrate and do not approve as a SQLite exception. |
 | `blocked_missing_evidence` | Binding cannot be classified safely. | Missing config, parse error, unavailable host, or failed smoke. | Do not claim remediated. |
 
 ## Required owner decisions
@@ -68,6 +69,14 @@ record a decision table like this in the relevant issue or PR comment:
 
 Explicit SQLite bindings are allowed for local-only agents, but they must be
 accepted as exceptions. They are not evidence of shared common DB behavior.
+
+Deleted, retired, replaced, duplicate, or stale alias agents are different from
+local-only exceptions. They should be marked inactive/archive targets. Do not
+revive them through PostgreSQL migration work, and do not approve them as
+SQLite exceptions unless the owner explicitly reactivates the lane as a new
+retained agent. Reactivated coordinator, implementation, handoff, audit, QA,
+check, CTO, Shirube, org-build, or connected development agents must use shared
+PostgreSQL.
 
 ## Safe remediation sequence
 
