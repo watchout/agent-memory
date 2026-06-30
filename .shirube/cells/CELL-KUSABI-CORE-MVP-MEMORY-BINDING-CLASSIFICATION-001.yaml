@@ -1,0 +1,63 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-CLASSIFICATION-001
+title: Core MVP memory binding classification execution
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/229
+goal: >-
+  Convert read-only operator audit evidence into a Shirube-controlled memory
+  binding classification artifact, preserving bounded SQLite exceptions and
+  identifying the next smoke-evidence Cell without changing runtime behavior or
+  local machine configs.
+covers:
+  - 2026-06-30 memory binding classification snapshot
+  - FX lane SQLite exception class
+  - shared PostgreSQL binding classification
+  - explicit SQLite pending decision list
+  - low/no-count PostgreSQL smoke-needed list
+  - next operator smoke evidence Cell
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-CLASSIFICATION-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-CLASSIFICATION-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-classification-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-binding-classification-001.yaml
+  - docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md
+  - docs/operations/MEMORY_BINDING_REMEDIATION_RUNBOOK.md
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify next Cell remains operator smoke evidence, not runtime implementation
+stop_conditions:
+  - A change edits local MCP configs, Claude configs, env files, or secrets.
+  - A change writes, migrates, deletes, exports, reveals, or mutates stored memory content.
+  - A change modifies runtime behavior, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A change claims backend parity, common DB completion, federation, UAMP conformance, release, publish, compliance, DLP, or zero-leakage.
+  - A change requires DB path, MCP namespace, package, or env var rename.
+notes:
+  - This Cell is normal Shirube-controlled progression, not an exception bypass.
+  - FX lane SQLite exception is recorded as a bounded classification class.
+  - The 8 currently detected SQLite bindings remain pending until owner/operator classification.

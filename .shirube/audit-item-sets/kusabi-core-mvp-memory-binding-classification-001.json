@@ -1,0 +1,53 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-BINDING-CLASSIFICATION-001",
+  "stage": "memory-binding-classification-001",
+  "items": [
+    {
+      "item_id": "MB-CLASSIFICATION-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-MEMORY-BINDING-CLASSIFICATION-001 and does not substitute runtime remediation, local config mutation, release, or publish work.",
+      "required_evidence": ["issue 229", "control handoff ref", "changed files"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the Cell allowed paths, with no src, package, workflow, deploy, local config, DB content, docs/v2, schema, fixture, runner, branch protection, or ruleset edits.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "cell allowed_paths", "cell forbidden_paths"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-SOURCE-EVIDENCE",
+      "criterion": "The classification artifact cites the #228 operator evidence and records the 2026-06-30 binding snapshot without storing memory text.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md", "issue 228"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-FX-EXCEPTION-BOUNDED",
+      "criterion": "The FX SQLite exception is bounded to tsumiage-claude and tsumiage-codex and does not close unrelated SQLite bindings.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md", "issue 228 FX exception decision"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-SQLITE-PENDING-LIST",
+      "criterion": "The current eight explicit SQLite bindings remain listed as pending owner/operator classification unless explicitly resolved.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-POSTGRES-SMOKE-NEEDED",
+      "criterion": "Low/no-count PostgreSQL bindings are classified as smoke-needed or inactive-needed rather than silently remediated.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-NEXT-CELL",
+      "criterion": "The next step is identified as an operator smoke evidence Cell, not a runtime implementation or release-claim PR.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": ["git diff --check origin/main...HEAD", "git diff --check", "changed Shirube YAML parse", "audit item JSON parse"]
+    },
+    {
+      "item_id": "MB-CLASSIFICATION-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": ["PR boundary statement", ".shirube/reports/kusabi-core-mvp-memory-binding-classification-001.yaml"]
+    }
+  ]
+}
