@@ -1,0 +1,74 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001
+title: Core MVP historical SQLite archive review
+status: active
+risk_tier: R3
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+goal: >-
+  Define the Shirube-controlled review contract for remaining non-binding
+  historical SQLite files after active binding remediation and stale alias
+  archive cleanup, without deleting, migrating, purging, exporting, or
+  inspecting stored memory content.
+covers:
+  - remaining non-binding historical SQLite file classification
+  - zero-row local archive candidates for hotel-dev, upwork-dev, and xmarketing-dev
+  - retained-agent historical DB review candidates for hotel-lead and secretary
+  - high-risk default/global memory.db archive review boundary
+  - emergency-handoff-20260605.db evidence preservation boundary
+  - path, size, timestamp, table-count, and row-count metadata only
+  - no content text inspection, migration, deletion, purge, or claim upgrade
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-historical-sqlite-archive-review-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-historical-sqlite-archive-review-001.yaml
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/.codex/**"
+  - "**/*.db"
+  - "**/*.sqlite"
+  - "**/*.sqlite3"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify actual archive remains issue-authorized operator execution, not PR execution
+  - verify remaining historical SQLite classification is recorded as review-only
+stop_conditions:
+  - A repository diff would include local MCP configs, Claude configs, Codex configs, env files, secrets, DB files, or stored memory content.
+  - A step would inspect, select, export, reveal, rewrite, migrate, delete, purge, or semantically summarize stored memory text.
+  - A step would treat remaining historical SQLite files as active SQLite exceptions.
+  - A step would migrate historical SQLite rows into PostgreSQL, common DB, UAMP, recovery packs, or any other active runtime store.
+  - A step would archive, delete, purge, or move any local DB file without a separate owner/operator authorization after this Cell is merged.
+  - A step would change retained active agent bindings, restart hosts, or alter hotel-lead or secretary runtime state.
+  - A step would touch FX lane agents tsumiage-claude or tsumiage-codex.
+  - A step would change runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A step would rename DB paths, env vars, package identity, or MCP namespace.
+  - A step would create schemas, fixtures, runners, migrations, or CI gates.
+  - A step would claim backend parity, common DB completion, UAMP conformance, federation, compliance, release, publish, DLP, or zero-leakage.
+notes:
+  - This Cell records a historical SQLite archive review contract only.
+  - Actual local archive, deletion, migration, or retained-agent handling is outside this PR.
+  - The current approved SQLite exception remains FX lane only: tsumiage-claude and tsumiage-codex.
+  - Retained development, handoff, implementation, coordinator, audit, QA, check, CTO, Shirube, and org-build reachable agents use shared PostgreSQL when retained.
