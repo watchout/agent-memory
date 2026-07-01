@@ -1,0 +1,19 @@
+Kusabi / wasurezu Notices
+=========================
+
+Kusabi is the public-facing product alias for the wasurezu / agent-memory
+project. The current package identity and compatibility surface remain
+`wasurezu` unless a later owner-approved migration changes them.
+
+Copyright (c) 2026 IYASAKA (Yuji Kaneko)
+
+This project is licensed under the MIT License. See `LICENSE`.
+
+Third-party software used by this project is governed by its own license terms.
+The Phase 0 attribution inventory is recorded in
+`docs/standards/THIRD_PARTY_ATTRIBUTION.md`.
+
+This NOTICE file is public-readiness review support only. It does not authorize
+npm publish, package rename, MCP namespace rename, GitHub release, MCP registry
+submission, legal clearance, trademark clearance, compliance certification, or
+public release-readiness claims.
