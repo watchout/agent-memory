@@ -1,0 +1,44 @@
+schema_version: kusabi-core-mvp-memory-binding-execution-summary/v1
+document_type: implementation_report
+report_id: KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001-REPORT
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/228
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001.yaml
+audit_item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-execution-summary-001.json
+report_first: true
+implementation_summary:
+  - Adds docs/control summary of the audited issue #228 operator execution batch.
+  - Records final audit state as 26 explicit PostgreSQL bindings and 3 explicit SQLite bindings.
+  - Records remaining SQLite bindings as lead-ama, lead-sus, and lead-tuk inactive/archive targets.
+  - Preserves warnings that existing host restarts, historical SQLite migration, and archive cleanup were not performed.
+claim_boundary:
+  allowed_claims:
+    - Operator execution evidence has been summarized in docs/control.
+    - Referenced issue evidence reports spawn-only smoke for selected bindings.
+    - Remaining SQLite bindings are inactive/archive targets by policy.
+  not_claimed:
+    - Repository PR performed local config migration.
+    - Existing hosts were restarted.
+    - Historical SQLite rows were migrated.
+    - Archive cleanup was executed.
+    - Backend parity or common DB completion.
+    - UAMP conformance, compliance, DLP, zero-leakage, release readiness, or publish authorization.
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+  - independent audit record
+  - owner exact-head decision before merge
+boundary_statement: >-
+  This PR changes docs/control and repo-local Shirube governance artifacts only.
+  It changes no runtime behavior, src product code, package metadata, package or
+  lockfiles, MCP namespace, environment variable names, DB paths, DB schema or
+  migrations, workflows, deployment files, local MCP/Claude/Codex configs,
+  stored memory content, branch protection, rulesets, schema files, fixtures,
+  runners, UAMP conformance, common DB completion, backend parity, federation,
+  compliance, release, publish, DLP, zero-leakage, legal/regulatory claims,
+  host restarts, smoke writes, local config remediation, historical SQLite
+  migration, or local archive cleanup.
