@@ -1,0 +1,88 @@
+schema_version: kusabi-core-mvp-memory-historical-sqlite-archive-review/v1
+document_type: implementation_report
+report_id: KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001-REPORT
+cell_id: KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001
+target_repo: watchout/agent-memory
+source_issue: https://github.com/watchout/agent-memory/issues/228
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001.yaml
+audit_item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-historical-sqlite-archive-review-001.json
+report_first: true
+
+implementation_summary:
+  - Adds the repo-local Shirube Cell for historical SQLite archive review.
+  - Limits the review target to the seven remaining non-binding SQLite files visible after stale alias cleanup.
+  - Separates zero-row archive candidates from row-bearing historical sources.
+  - Keeps hotel-lead and secretary retained-agent historical DBs as review-only targets, not host restart, migration, deletion, or binding changes.
+  - Treats memory.db as a high-risk default/global historical DB review candidate.
+  - Treats emergency-handoff-20260605.db as historical handoff evidence to preserve.
+  - Requires path, size, timestamp, table-count, row-count, and classification metadata only.
+  - Requires separate owner/operator authorization before any local archive, deletion, migration, purge, or retained-agent handling.
+
+review_target_summary:
+  read_only_audit_ref: /tmp/kusabi-228-audit-for-historical-sqlite-cell.json
+  audit_generated_at: "2026-07-01T01:45:47.712Z"
+  binding_count: 26
+  postgres_explicit_bindings: 26
+  sqlite_file_count: 7
+  sqlite_files_with_rows: 4
+  targets:
+    - file: ~/.agent-memory/emergency-handoff-20260605.db
+      classification: historical_handoff_evidence_archive_candidate
+      known_rows: true
+    - file: ~/.agent-memory/hotel-dev.db
+      classification: zero_row_archive_candidate
+      known_rows: false
+    - file: ~/.agent-memory/hotel-lead.db
+      classification: retained_agent_historical_db_review_candidate
+      known_rows: true
+    - file: ~/.agent-memory/memory.db
+      classification: high_risk_default_global_historical_db_review_candidate
+      known_rows: true
+    - file: ~/.agent-memory/secretary.db
+      classification: retained_agent_historical_db_review_candidate
+      known_rows: true
+    - file: ~/.agent-memory/upwork-dev.db
+      classification: zero_row_archive_candidate
+      known_rows: false
+    - file: ~/.agent-memory/xmarketing-dev.db
+      classification: zero_row_archive_candidate
+      known_rows: false
+
+claim_boundary:
+  allowed_claims:
+    - The memory historical SQLite archive review Cell is defined in repo-local Shirube control artifacts.
+    - The seven remaining non-binding SQLite files have a review-only classification contract.
+    - Actual local archive, deletion, migration, purge, or retained-agent handling remains separate owner/operator-authorized issue execution after this Cell is merged.
+  not_claimed:
+    - Historical SQLite files were archived, deleted, migrated, purged, or cleaned by this PR.
+    - Stored memory content was selected, inspected, migrated, exported, revealed, deleted, purged, summarized, or rewritten.
+    - Retained agents were restarted, reconfigured, migrated, or rebound.
+    - Historical SQLite residue is approved as an active SQLite exception.
+    - Backend parity.
+    - Common DB completion.
+    - Common registry integration.
+    - Cross-agent memory federation.
+    - UAMP conformance.
+    - Enterprise compliance.
+    - Release readiness or publish authorization.
+
+validation_expected:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+  - independent audit record
+  - owner exact-head decision before merge
+
+boundary_statement: >-
+  This PR changes repo-local Shirube governance artifacts only. It changes no
+  runtime behavior, src product code, package metadata, package or lockfiles,
+  MCP namespace, environment variable names, DB paths, DB schema or migrations,
+  workflows, deployment files, local MCP/Claude/Codex configs, stored memory
+  content, branch protection, rulesets, schema files, fixtures, runners, UAMP
+  conformance, common DB completion, backend parity, federation, compliance,
+  release, publish, DLP, zero-leakage, legal/regulatory claims, host restarts,
+  smoke writes, local config remediation, historical SQLite migration,
+  historical SQLite archive execution, deletion, purge, or retained-agent
+  runtime changes.

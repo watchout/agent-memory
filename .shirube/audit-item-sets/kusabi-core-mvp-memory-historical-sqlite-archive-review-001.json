@@ -1,0 +1,58 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001",
+  "stage": "memory-historical-sqlite-archive-review-001",
+  "items": [
+    {
+      "item_id": "MB-HIST-SQLITE-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-MEMORY-HISTORICAL-SQLITE-ARCHIVE-REVIEW-001 and does not substitute runtime remediation, archive execution, migration, deletion, release, or publish work.",
+      "required_evidence": ["issue 228", "control handoff ref", "changed files"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the Cell allowed paths, with no src, package, workflow, deploy, local config, DB content, docs/v2, schema, fixture, runner, branch protection, or ruleset edits.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "cell allowed_paths", "cell forbidden_paths"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-POLICY-ANCHOR",
+      "criterion": "The Cell anchors to issue #228 corrected policy: retained connected/development agents use shared PostgreSQL, stale aliases are inactive/archive, historical SQLite residue is reviewed separately, and SQLite exceptions remain FX-only.",
+      "required_evidence": ["issue 228 decision comments", "Cell notes", "handoff historical_sqlite_review_contract"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-TARGET-LIST",
+      "criterion": "The review contract lists the seven remaining non-binding SQLite files and separates zero-row candidates, retained-agent historical DBs, global/default memory.db, and emergency handoff evidence.",
+      "required_evidence": ["handoff review_targets", "latest read-only audit summary"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-NOT-ACTIVE-BINDINGS",
+      "criterion": "The listed target files are not treated as active .mcp.json bindings or approved SQLite runtime exceptions.",
+      "required_evidence": ["audit summary binding_count/backend_counts", "handoff stop_conditions", "cell notes"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-CONTENT-BOUNDARY",
+      "criterion": "The Cell permits only path, size, timestamp, table-count, row-count, and classification metadata and prohibits stored memory text inspection, export, reveal, migration, deletion, purge, rewrite, or semantic summarization.",
+      "required_evidence": ["cell stop_conditions", "handoff required_sequence", "handoff required_evidence_fields"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-RETAINED-AGENT-SAFETY",
+      "criterion": "hotel-lead and secretary historical DB review does not imply retained-agent host restart, binding mutation, DB migration, deletion, or active runtime state change.",
+      "required_evidence": ["handoff review_targets", "cell stop_conditions"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-NO-LOCAL-CONFIG-IN-PR",
+      "criterion": "The PR does not commit .mcp.json, Claude/Codex settings, env files, secrets, local DB files, or stored memory content.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "forbidden_paths"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": ["git diff --check origin/main...HEAD", "git diff --check", "changed Shirube YAML parse", "audit item JSON parse"]
+    },
+    {
+      "item_id": "MB-HIST-SQLITE-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": ["PR boundary statement", ".shirube/reports/kusabi-core-mvp-memory-historical-sqlite-archive-review-001.yaml"]
+    }
+  ]
+}
