@@ -1,0 +1,150 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit CEO/legal/operator decision if this PR would move
+  beyond stale public-reference cleanup into npm publish, package rename, MCP
+  namespace migration, GitHub release, MCP registry submission, legal/trademark
+  claims, runtime behavior, package metadata, workflows, deployment, or release
+  readiness claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/238
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for OSS publish Phase 0 public-reference cleanup.
+    - Diff-scope, validation, audit-record, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Legal/trademark decisions.
+    - npm publish, GitHub release, tag, MCP registry submission, package rename, MCP namespace migration, workflow enforcement, deployment, runtime behavior, or release readiness claims.
+
+acceptance_criteria:
+  - README points public OSS readiness to issue #238 rather than stale AM-013 / AM-014 authority.
+  - CHANGELOG.md exists and clearly states that public release is not authorized by this file.
+  - Existing wasurezu / agent-memory compatibility is preserved.
+  - Kusabi remains an additive public-facing alias only.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, runtime code, schema file, fixture, runner, publish, release, or registry change is introduced.
+  - No UAMP conformance, backend parity, federation, enterprise, compliance, DLP, zero-leakage, or public release-readiness claim is introduced.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+  test_expectations:
+    - Documentation/control-only diff remains limited to README.md, CHANGELOG.md, and this Cell/handoff.
+    - README no longer points to closed AM-013 / AM-014 as publish authority.
+    - CHANGELOG preserves no-publish and no-release-readiness boundary.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001
+  cell_type: docs_only
+  risk_class: R1
+  goal: >-
+    Clean stale public publish references and add a minimal changelog baseline
+    while preserving Phase 0 no-publish and no-rename boundaries.
+  non_scope:
+    - npm publish.
+    - GitHub Release or git tag.
+    - MCP registry submission.
+    - Package rename.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Runtime behavior changes.
+    - Package metadata changes.
+    - Workflow changes.
+    - Deployment changes.
+    - Legal/trademark/compliance certification.
+    - UAMP conformance.
+    - Backend parity.
+    - Cross-agent federation.
+    - Enterprise readiness.
+    - DLP or zero secret leakage claim.
+    - Public release-readiness claim.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001.yaml
+    - README.md
+    - CHANGELOG.md
+  forbidden_paths:
+    - src/**
+    - tests/**
+    - test/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires package metadata, package name, or MCP namespace edits.
+    - Change requires npm publish, git tag, GitHub Release, or MCP registry submission.
+    - Change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+    - Change claims public release readiness or legal/trademark/compliance status.
+    - Change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+
+implementation_boundary:
+  summary: >-
+    Documentation/control-only cleanup. Do not change product/runtime surfaces.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit and owner exact-head decision
+    - npm publish
+    - git tag
+    - GitHub Release
+    - MCP registry submission
+    - package metadata mutation
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false

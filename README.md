@@ -13,7 +13,7 @@ during the transition. The compatibility boundary is recorded in
 the active design source set is recorded in
 [`docs/design/SOURCE_ALIGNMENT.md`](docs/design/SOURCE_ALIGNMENT.md).
 
-> ⚠️ **Early Stage (v0.3.0, internal-use snapshot)** — currently used internally by the IYASAKA bot swarm. The public OSS release is in preparation (see AM-013 / AM-014). API may still change before the first public alpha. Feedback welcome via GitHub Issues.
+> ⚠️ **Early Stage (v0.3.0, internal-use snapshot)** — currently used internally by the IYASAKA bot swarm. Public OSS release preparation is tracked through [#238](https://github.com/watchout/agent-memory/issues/238). No npm publish, package rename, MCP namespace rename, or public release-readiness claim is authorized until the Phase 0 naming/legal/package gates are accepted. API may still change before the first public alpha. Feedback welcome via GitHub Issues.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
@@ -71,7 +71,7 @@ cd agent-memory
 npm install && npm run build
 ```
 
-> Note: npm publish is in progress (AM-014). Once published, this will switch back to `npm install -g wasurezu`.
+> Note: npm publish is not authorized yet. The current public-readiness route is [#238](https://github.com/watchout/agent-memory/issues/238), which requires Phase 0 naming/legal/package decisions and publish dry-run evidence before any registry release.
 
 ### 2. Configure Claude Code
 
@@ -423,4 +423,4 @@ All contributions to core are MIT licensed and will remain free forever.
 
 ---
 
-**Built by [IYASAKA](https://github.com/watchout)** — a small team that runs wasurezu daily inside its 16-bot internal AI development swarm to keep agents coherent across compactions and crashes. We are using v0.3.0 internally; the public OSS release is in preparation and the API may still shift before the first public alpha.
+**Built by [IYASAKA](https://github.com/watchout)** — a small team that runs wasurezu daily inside its internal AI development swarm to keep agents coherent across compactions and crashes. We are using v0.3.0 internally; public OSS release preparation is tracked through [#238](https://github.com/watchout/agent-memory/issues/238), and release/publish remains gated by Phase 0 naming, legal, and package decisions.

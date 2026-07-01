@@ -1,0 +1,54 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001
+title: OSS publish Phase 0 public reference cleanup
+status: active
+risk_tier: R1
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+goal: >-
+  Remove stale public publish references and add a minimal changelog for
+  Phase 0 public-readiness hygiene without authorizing release, publish,
+  package rename, MCP namespace rename, or runtime behavior changes.
+covers:
+  - README public-readiness wording
+  - changelog baseline
+  - Phase 0 no-publish boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-PUBLIC-REFERENCE-CLEANUP-001.yaml
+  - README.md
+  - CHANGELOG.md
+forbidden_paths:
+  - src/**
+  - tests/**
+  - test/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify README no longer references stale AM-013 / AM-014 publish authority
+  - verify no package, workflow, deployment, env var, DB path, or MCP namespace changed
+  - verify PR does not claim publish readiness, UAMP conformance, backend parity, federation, compliance, DLP, or zero leakage
+stop_conditions:
+  - A change requires package metadata, package name, or MCP namespace edits.
+  - A change requires npm publish, git tag, GitHub Release, or MCP registry submission.
+  - A change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+  - A change claims public release readiness or legal/trademark/compliance status.
+  - A change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+notes:
+  - This Cell is a preparation cleanup only.
+  - CEO/legal/package decisions remain tracked by issue #238 Phase 0.
