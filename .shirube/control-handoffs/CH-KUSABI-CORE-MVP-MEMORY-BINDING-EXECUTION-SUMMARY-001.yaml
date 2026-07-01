@@ -1,0 +1,100 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/228
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+acceptance_criteria:
+  - The docs/control summary cites the issue #228 execution batch evidence and independent audit.
+  - The summary reports final read-only audit counts as PostgreSQL explicit 26 and SQLite explicit 3.
+  - Remaining SQLite bindings are limited to lead-ama, lead-sus, and lead-tuk inactive/archive targets.
+  - The summary does not claim existing host restart, historical SQLite migration, archive cleanup, backend parity, common DB completion, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+  - The PR changes no local config, runtime, package, workflow, deployment, branch protection, ruleset, DB content, stored memory content, or secret files.
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - changed Shirube YAML parse
+    - audit item JSON parse
+  required_evidence:
+    - changed_files
+    - validation_results
+    - independent_audit_record
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+audit:
+  item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-execution-summary-001.json
+  required_before_owner_decision: true
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001
+  cell_type: ops_lite
+  risk_class: R2
+  goal: Summarize audited operator execution evidence in docs/control.
+  non_scope:
+    - Runtime behavior changes.
+    - Local MCP, Claude, Codex, env, secret, or DB file commits.
+    - Host restart or smoke write execution by this PR.
+    - Stored memory content export, reveal, deletion, rewrite, migration, or purge.
+    - DB schema migration, DB path migration, env var rename, package changes, or MCP namespace rename.
+    - Workflow, deployment, branch protection, or ruleset changes.
+    - Backend parity, common DB completion, UAMP conformance, federation, compliance, release, publish, DLP, or zero-leakage claim.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001.yaml
+    - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-execution-summary-001.json
+    - .shirube/reports/kusabi-core-mvp-memory-binding-execution-summary-001.yaml
+    - docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md
+  forbidden_paths:
+    - src/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - tests/uamp/**
+    - "**/.mcp.json"
+    - "**/.claude/settings.json"
+    - "**/.codex/**"
+    - "**/*.db"
+    - "**/*.sqlite"
+    - "**/*.sqlite3"
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change writes local configs or memory DB content into the repository diff.
+    - Change reads or emits stored memory text instead of count/classification/smoke-status metadata.
+    - Change performs or claims host restart, historical migration, archive cleanup, or release readiness.
+    - Change claims backend parity, common DB completion, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_diff_check
+    - post_merge_changed_files
+    - next_step

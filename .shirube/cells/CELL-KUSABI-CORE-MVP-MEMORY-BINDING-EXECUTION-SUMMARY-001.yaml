@@ -1,0 +1,65 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001
+title: Core MVP memory binding execution summary
+status: active
+risk_tier: R2
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+goal: >-
+  Summarize the audited operator memory binding execution batch in repo-local
+  docs/control without changing runtime behavior, local configs, workflows,
+  package metadata, deployment, stored memory content, or release claims.
+covers:
+  - issue 228 operator execution summary
+  - local config migration evidence references
+  - spawn-only smoke evidence references
+  - final read-only audit count
+  - remaining inactive/archive SQLite binding state
+  - no claim upgrade boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-execution-summary-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-binding-execution-summary-001.yaml
+  - docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/.codex/**"
+  - "**/*.db"
+  - "**/*.sqlite"
+  - "**/*.sqlite3"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify summary preserves no-claim-upgrade boundary
+stop_conditions:
+  - A repository diff would include local MCP configs, Claude configs, Codex configs, env files, secrets, DB files, or stored memory content.
+  - A change would perform host restart, DB mutation, archive cleanup, historical migration, or smoke writes.
+  - A change would modify runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A change would rename DB paths, env vars, package identity, or MCP namespace.
+  - A change would claim backend parity, common DB completion, federation, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+notes:
+  - This Cell summarizes already-audited operator evidence only.
+  - Local config edits and smoke writes remain issue evidence, not repository content.
+  - Remaining SQLite bindings after the execution batch are inactive/archive targets: lead-ama, lead-sus, and lead-tuk.

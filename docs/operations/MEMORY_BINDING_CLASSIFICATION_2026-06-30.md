@@ -46,6 +46,90 @@ Important interpretation:
 - 8 inspected bindings are explicit SQLite and require classification before
   they can be called remediated.
 
+## Operator execution evidence update 2026-07-01
+
+Operator execution evidence was recorded in issue #228 after the smoke evidence
+Cell was merged. The execution batch changed local MCP configs outside the
+repository diff, ran bounded spawn-only smoke checks, and then re-ran the
+read-only audit.
+
+Evidence refs:
+
+- Cell merge evidence: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4848480944>
+- Read-only refresh: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4848488154>
+- Read-only refresh audit: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4848526294>
+- `dev-001` smoke: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4848985909>
+- Remaining PostgreSQL smoke: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4848997737>
+- Inactive-in-scan migration targets: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4849010569>
+- Active/attached migration candidates: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4849021305>
+- Execution batch summary: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4849027238>
+- Execution batch audit: <https://github.com/watchout/agent-memory/issues/228#issuecomment-4849065336>
+
+Final read-only audit summary after the execution batch:
+
+```json
+{
+  "generated_at": "2026-07-01T00:13:05.542Z",
+  "binding_count": 29,
+  "backend_counts": {
+    "postgres-explicit": 26,
+    "sqlite-explicit": 3
+  },
+  "warning_counts": {
+    "entrypoint_targets_other_checkout": 29,
+    "sqlite_explicit_local_store": 3
+  },
+  "sqlite_file_count": 10,
+  "sqlite_files_with_rows": 5,
+  "postgres_included": true
+}
+```
+
+Local config migrations performed outside repository diffs:
+
+| Binding | Agent | Project | Execution result |
+| --- | --- | --- | --- |
+| `hotel-lead/.mcp.json#agent-memory` | `hotel-lead` | `hotel-lead` | Local config migrated to explicit PostgreSQL; spawn-only smoke PASS. Existing attached host was not restarted. |
+| `hotel-saas-rebuild/.mcp.json#agent-memory` | `hotel-dev` | `hotel-dev` | Local config migrated to explicit PostgreSQL; spawn-only smoke PASS. |
+| `secretary/.mcp.json#agent-memory` | `secretary` | `secretary` | Local config migrated to explicit PostgreSQL; spawn-only smoke PASS. Existing active host was not restarted. |
+| `upwork-automation/.mcp.json#agent-memory` | `upwork-dev` | `upwork-automation` | Local config migrated to explicit PostgreSQL; spawn-only smoke PASS. |
+| `x-marketing-engine/.mcp.json#agent-memory` | `xmarketing-dev` | `x-marketing-engine` | Local config migrated to explicit PostgreSQL; spawn-only smoke PASS. |
+
+Additional PostgreSQL bindings with smoke evidence:
+
+| Binding | Agent | Project | Execution result |
+| --- | --- | --- | --- |
+| `dev-001/.mcp.json#agent-memory` | `dev-001` | `dev-001` | Spawn-only smoke PASS. |
+| `dev-auditor/.mcp.json#wasurezu` | `devauditor` | `dev-auditor` | Spawn-only smoke PASS. |
+| `marketing-bot/.mcp.json#agent-memory` | `marketing-bot` | `marketing-bot` | Spawn-only smoke PASS. |
+| `research-lead/.mcp.json#agent-memory` | `research-lead` | `research-lead` | Spawn-only smoke PASS. |
+| `sales-bot/.mcp.json#agent-memory` | `sales-bot` | `sales-bot` | Spawn-only smoke PASS. |
+
+Remaining explicit SQLite bindings after the execution batch:
+
+| Binding | Agent | Project | Policy state |
+| --- | --- | --- | --- |
+| `lead-ama/.mcp.json#agent-memory` | `lead-ama` | `lead-ama` | Inactive/archive target; do not migrate or approve as SQLite exception. |
+| `lead-sus/.mcp.json#agent-memory` | `lead-sus` | `lead-sus` | Inactive/archive target unless explicitly reactivated by owner. |
+| `lead-tuk/.mcp.json#agent-memory` | `lead-tuk` | `lead-tuk` | Inactive/archive target unless explicitly reactivated by owner. |
+
+Not claimed by the execution batch:
+
+- Existing active hosts were not restarted. Already-running `hotel-lead` and
+  `secretary` host processes may lag until separately authorized restart.
+- Historical SQLite rows were not migrated into PostgreSQL.
+- `lead-ama`, `lead-sus`, and `lead-tuk` archive cleanup was not executed.
+- `dev-bot-001` remains duplicate/inactive candidate and is not double-counted
+  as a separate smoke-passed binding.
+- `entrypoint_targets_other_checkout` remains because local MCP bindings point
+  at `/Users/yuji/Developer/wasurezu-main/dist/index.js` while current audit
+  commands are run from a separate updated checkout.
+- `/Users/yuji/Developer/wasurezu-main` remained behind `origin/main` with
+  pre-existing uncommitted local changes during this batch.
+- Backend parity, common DB completion, UAMP conformance, compliance, release,
+  publish, DLP, zero-leakage, historical migration, archive cleanup, and broad
+  host restart are not claimed.
+
 ## Classification policy
 
 The owner/operator policy is:
@@ -65,8 +149,10 @@ Current approved SQLite exception:
 
 - FX lane only: `tsumiage-claude` and `tsumiage-codex`.
 
-The current eight detected non-FX SQLite bindings must not be treated as
-approved SQLite exceptions by default.
+The eight non-FX SQLite bindings detected in the original classification
+snapshot must not be treated as approved SQLite exceptions by default. After the
+2026-07-01 operator execution batch, only three explicit SQLite bindings remain
+in the read-only audit, and all three are inactive/archive targets.
 
 ## FX lane exception
 
@@ -102,7 +188,11 @@ If the FX lane handles paper/live/order/capital risk, it needs an FX-specific
 log, stop conditions, approval boundary, and evidence rules. That should be a
 separate FX control surface, not implicit AUN/shared-queue integration.
 
-## Current binding classification
+## Original binding classification snapshot
+
+The following tables preserve the pre-execution classification snapshot from
+2026-06-30. See the 2026-07-01 operator execution evidence update above for the
+current post-batch counts and remaining SQLite bindings.
 
 ### Shared PostgreSQL bindings
 

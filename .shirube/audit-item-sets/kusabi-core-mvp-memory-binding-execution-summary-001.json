@@ -1,0 +1,43 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-BINDING-EXECUTION-SUMMARY-001",
+  "stage": "memory-binding-execution-summary-001",
+  "items": [
+    {
+      "item_id": "MB-EXEC-SUMMARY-HANDOFF-MATCH",
+      "criterion": "The PR implements the memory binding execution summary Cell and does not substitute runtime remediation or local config mutation.",
+      "required_evidence": ["cell", "control handoff", "changed files"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-SCOPE-CONTAINED",
+      "criterion": "Changed files remain within allowed docs/control paths, with no runtime, package, workflow, deploy, local config, DB content, or secret edits.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "allowed_paths", "forbidden_paths"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-EVIDENCE-REFS",
+      "criterion": "The summary cites the issue #228 execution evidence comments and independent audit comment.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md", "issue 228"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-FINAL-COUNTS",
+      "criterion": "The summary preserves final audit counts of postgres-explicit=26 and sqlite-explicit=3.",
+      "required_evidence": ["execution batch summary", "docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-REMAINING-SQLITE",
+      "criterion": "The remaining SQLite bindings are only lead-ama, lead-sus, and lead-tuk, all inactive/archive targets.",
+      "required_evidence": ["docs/operations/MEMORY_BINDING_CLASSIFICATION_2026-06-30.md"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not claim existing host restart, historical migration, archive cleanup, backend parity, common DB completion, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.",
+      "required_evidence": ["boundary statement", "implementation report"]
+    },
+    {
+      "item_id": "MB-EXEC-SUMMARY-VALIDATION",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": ["git diff --check origin/main...HEAD", "git diff --check", "changed YAML parse", "audit item JSON parse"]
+    }
+  ]
+}
