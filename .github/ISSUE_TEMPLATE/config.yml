@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security reports
+    url: https://github.com/watchout/agent-memory/blob/main/SECURITY.md
+    about: Do not open public issues for secrets, private transcripts, database dumps, or recovery artifacts.
