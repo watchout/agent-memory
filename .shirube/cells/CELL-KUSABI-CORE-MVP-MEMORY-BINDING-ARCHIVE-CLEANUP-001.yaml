@@ -1,0 +1,70 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001
+title: Core MVP memory binding inactive/archive cleanup
+status: active
+risk_tier: R3
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+goal: >-
+  Define the Shirube-controlled cleanup contract for stale SQLite binding
+  residue after the corrected memory binding policy, without reviving retired
+  aliases, migrating stored memory, or changing repository runtime behavior.
+covers:
+  - inactive/archive cleanup contract for stale SQLite binding residue
+  - lead-ama retired/replaced_by codex-aun evidence preservation
+  - lead-sus and lead-tuk stale binding residue handling
+  - no migration and no SQLite exception boundary for retired aliases
+  - read-only audit refresh and issue evidence requirements
+  - no claim upgrade boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001.yaml
+  - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-archive-cleanup-001.json
+  - .shirube/reports/kusabi-core-mvp-memory-binding-archive-cleanup-001.yaml
+forbidden_paths:
+  - src/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - tests/uamp/**
+  - "**/.mcp.json"
+  - "**/.claude/settings.json"
+  - "**/.codex/**"
+  - "**/*.db"
+  - "**/*.sqlite"
+  - "**/*.sqlite3"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - changed Shirube YAML parse
+  - audit item JSON parse
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify no runtime/package/workflow/deploy/local-config/DB-content paths changed
+  - verify actual cleanup remains issue-authorized operator execution, not PR execution
+stop_conditions:
+  - A repository diff would include local MCP configs, Claude configs, Codex configs, env files, secrets, DB files, or stored memory content.
+  - A step would migrate, rewrite, export, reveal, delete, purge, or inspect stored memory content beyond count/path/classification metadata.
+  - A step would revive lead-ama, lead-sus, lead-tuk, or any stale alias through migration work.
+  - A step would approve lead-ama, lead-sus, lead-tuk, or any stale alias as a SQLite exception.
+  - A step would touch retained development, coordinator, implementation, audit, QA, check, CTO, Shirube, org-build, or FX lane bindings.
+  - A step would remove evidence that lead-ama was retired or replaced by codex-aun.
+  - A step would change runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+  - A step would rename DB paths, env vars, package identity, or MCP namespace.
+  - A step would create UAMP schemas, fixtures, runners, or conformance claims.
+  - A step would claim backend parity, common DB completion, federation, compliance, release, publish, DLP, or zero-leakage.
+notes:
+  - This Cell records a cleanup contract only.
+  - Actual local archive cleanup is an operator action under issue 228 and requires explicit owner/operator authorization after this Cell is merged.
+  - Current approved SQLite exception remains FX lane only: tsumiage-claude and tsumiage-codex.
+  - Development, handoff, implementation, coordinator, audit, QA, check, CTO, Shirube, and org-build reachable agents use shared PostgreSQL when retained.
