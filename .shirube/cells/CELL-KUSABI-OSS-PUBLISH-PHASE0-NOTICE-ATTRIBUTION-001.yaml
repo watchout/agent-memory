@@ -1,0 +1,58 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001
+title: OSS publish Phase 0 NOTICE and third-party attribution inventory
+status: active
+risk_tier: R1
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+goal: >-
+  Add a Phase 0 NOTICE baseline and dependency attribution inventory for OSS
+  public-readiness review without changing runtime behavior, package identity,
+  package metadata, MCP namespace, release state, or publish authorization.
+covers:
+  - NOTICE baseline
+  - third-party attribution inventory
+  - dependency license family snapshot
+  - Phase 0 no-publish boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001.yaml
+  - NOTICE
+  - docs/standards/THIRD_PARTY_ATTRIBUTION.md
+forbidden_paths:
+  - src/**
+  - tests/**
+  - test/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - YAML basic field check for Cell/handoff
+  - dependency license inventory check from package-lock.json
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify NOTICE and third-party attribution inventory exist
+  - verify package metadata, lockfile, runtime code, workflows, and deployment files did not change
+  - verify PR does not authorize publish, release, package rename, MCP namespace rename, legal clearance, or public release-readiness
+stop_conditions:
+  - A change requires package metadata, package name, package files list, or MCP namespace edits.
+  - A change requires npm publish, npm pack output mutation, git tag, GitHub Release, or MCP registry submission.
+  - A change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+  - A change claims legal/trademark/compliance certification, public release readiness, or dependency-license legal clearance.
+  - A change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+notes:
+  - This Cell records an attribution baseline only.
+  - Package inclusion of NOTICE remains a separate package dry-run Cell under issue #238.
+  - Legal/trademark/license conclusions remain outside this Cell.

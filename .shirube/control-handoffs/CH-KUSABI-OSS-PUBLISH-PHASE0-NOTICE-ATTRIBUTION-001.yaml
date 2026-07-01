@@ -1,0 +1,157 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/238#issuecomment-4851995624
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit CEO/legal/operator decision if this PR would move
+  beyond NOTICE and attribution inventory into package metadata changes, npm
+  publish, package rename, MCP namespace migration, GitHub release, MCP
+  registry submission, legal/trademark/compliance claims, runtime behavior,
+  workflows, deployment, or release readiness claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/238
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for OSS publish Phase 0 NOTICE and attribution inventory.
+    - Diff-scope, validation, audit-record, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Legal/trademark/license certification.
+    - npm publish, GitHub release, tag, MCP registry submission, package rename, MCP namespace migration, package metadata changes, workflow enforcement, deployment, runtime behavior, or release readiness claims.
+
+acceptance_criteria:
+  - NOTICE exists and points to the project MIT license and third-party attribution inventory.
+  - Third-party attribution inventory records the package-lock snapshot basis, direct dependency licenses, lockfile license-family counts, and non-MIT license families observed.
+  - Inventory makes clear it is review support, not legal certification.
+  - Package inclusion of NOTICE remains deferred to the package dry-run Cell.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, runtime code, schema file, fixture, runner, publish, release, or registry change is introduced.
+  - No UAMP conformance, backend parity, federation, enterprise, compliance, DLP, zero-leakage, public release-readiness, trademark, or legal clearance claim is introduced.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - YAML basic field check for Cell/handoff
+    - dependency license inventory check from package-lock.json
+  test_expectations:
+    - Documentation/control-only diff remains limited to NOTICE, docs/standards attribution inventory, and this Cell/handoff.
+    - package.json and package-lock.json are unchanged.
+    - NOTICE and attribution inventory preserve no-publish and no-legal-certification boundaries.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001
+  cell_type: docs_only
+  risk_class: R1
+  goal: >-
+    Add NOTICE and third-party attribution inventory as Phase 0 review evidence
+    while preserving no-publish, no-rename, no-runtime-change, and no-legal-
+    certification boundaries.
+  non_scope:
+    - npm publish.
+    - npm pack output mutation or package dry-run execution.
+    - GitHub Release or git tag.
+    - MCP registry submission.
+    - Package rename.
+    - Package metadata or package files list change.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Runtime behavior changes.
+    - Workflow changes.
+    - Deployment changes.
+    - Legal/trademark/compliance certification.
+    - UAMP conformance.
+    - Backend parity.
+    - Cross-agent federation.
+    - Enterprise readiness.
+    - DLP or zero secret leakage claim.
+    - Public release-readiness claim.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-NOTICE-ATTRIBUTION-001.yaml
+    - NOTICE
+    - docs/standards/THIRD_PARTY_ATTRIBUTION.md
+  forbidden_paths:
+    - src/**
+    - tests/**
+    - test/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires package metadata, package files list, package name, or MCP namespace edits.
+    - Change requires npm publish, npm pack output mutation, git tag, GitHub Release, or MCP registry submission.
+    - Change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+    - Change claims public release readiness, legal clearance, trademark clearance, license certification, or compliance status.
+    - Change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+
+implementation_boundary:
+  summary: >-
+    Documentation/control-only NOTICE and attribution inventory. Do not change
+    product/runtime/package surfaces.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit and owner exact-head decision
+    - npm publish
+    - npm pack output mutation
+    - git tag
+    - GitHub Release
+    - MCP registry submission
+    - package metadata mutation
+    - package files list mutation
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
