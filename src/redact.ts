@@ -9,21 +9,28 @@ export interface RedactionResult {
 }
 
 const SECRET_PATTERNS: RegExp[] = [
-  /\bgho_[A-Za-z0-9_]{20,}\b/g,
+  /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
-  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+  /\bxox[a-z]-[A-Za-z0-9-]{10,}\b/g,
   /\bsk-[A-Za-z0-9_-]{20,}\b/g,
-  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
   /\bAIza[0-9A-Za-z_-]{20,}\b/g,
+  /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g,
+  /\bwhsec_[A-Za-z0-9]{16,}\b/g,
   /\b(?:anthropic|claude|openai|google|gemini|voyage|slack|discord|aws|azure)[_-]?(?:api[_-]?)?(?:key|token|secret)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s]+)/gi,
   /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g,
 ];
 
 const CREDENTIAL_ENV_RE =
   /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASS|API_KEY|PRIVATE_KEY|DATABASE_URL)[A-Z0-9_]*)\s*=\s*("[^"]*"|'[^']*'|[^\s]+)/gi;
 
-const URL_CREDENTIAL_RE = /\b(https?:\/\/)([^:\s/@]+):([^@\s/]+)@/gi;
+const URL_CREDENTIAL_RE = /\b([a-z][a-z0-9+.-]*:\/\/)([^:\s/@]+):([^@\s/]+)@/gi;
+const DATABASE_URL_RE =
+  /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis):\/\/[^\s"'<>]+/gi;
+const URL_QUERY_SECRET_RE =
+  /([?&](?:access_token|api[_-]?key|auth|key|password|secret|signature|token)=)[^&\s"'<>]+/gi;
 const WEBHOOK_URL_RE =
   /\bhttps:\/\/(?:hooks\.slack\.com\/services|discord(?:app)?\.com\/api\/webhooks|[^/\s]+\/webhook[s]?\/)[^\s"'<>]+/gi;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
@@ -59,6 +66,16 @@ export function redactText(input: string): RedactionResult {
     return `${scheme}[REDACTED]@`;
   });
   text = urlRedacted;
+
+  const databaseUrlRedacted = applyRedaction(text, DATABASE_URL_RE, "[REDACTED_DATABASE_URL]");
+  text = databaseUrlRedacted.text;
+  redactionCount += databaseUrlRedacted.count;
+
+  const querySecretRedacted = text.replace(URL_QUERY_SECRET_RE, (_match, prefix: string) => {
+    redactionCount++;
+    return `${prefix}[REDACTED]`;
+  });
+  text = querySecretRedacted;
 
   const webhookRedacted = applyRedaction(text, WEBHOOK_URL_RE, "[REDACTED_WEBHOOK_URL]");
   text = webhookRedacted.text;
