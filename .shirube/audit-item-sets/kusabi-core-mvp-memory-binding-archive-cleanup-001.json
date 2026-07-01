@@ -1,0 +1,58 @@
+{
+  "schema_version": "shirube-audit/v1",
+  "document_type": "audit_item_set",
+  "item_set_id": "AUDIT-ITEM-SET-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001",
+  "stage": "memory-binding-archive-cleanup-001",
+  "items": [
+    {
+      "item_id": "MB-ARCHIVE-HANDOFF-MATCH",
+      "criterion": "The PR implements KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001 and does not substitute runtime remediation, local cleanup execution, migration, release, or publish work.",
+      "required_evidence": ["issue 228", "control handoff ref", "changed files"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-SCOPE-CONTAINED",
+      "criterion": "All changed files remain within the Cell allowed paths, with no src, package, workflow, deploy, local config, DB content, docs/v2, schema, fixture, runner, branch protection, or ruleset edits.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "cell allowed_paths", "cell forbidden_paths"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-POLICY-ANCHOR",
+      "criterion": "The Cell anchors to issue #228 corrected policy: retained connected/development agents use shared PostgreSQL, stale aliases are inactive/archive, and SQLite exceptions remain FX-only.",
+      "required_evidence": ["issue 228 decision comments", "Cell notes", "handoff operator_execution_contract"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-TARGET-LIMITED",
+      "criterion": "The cleanup contract is limited to lead-ama, lead-sus, and lead-tuk stale SQLite binding residue and does not touch retained active agents or FX exceptions.",
+      "required_evidence": ["handoff target_agents", "cell stop_conditions"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-NO-REVIVAL",
+      "criterion": "Retired, deleted, replaced, duplicate, or stale aliases remain inactive/archive targets and are not revived through migration work or approved as SQLite exceptions.",
+      "required_evidence": ["issue 228 corrected policy", "cell stop_conditions", "handoff acceptance criteria"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-EVIDENCE-PRESERVED",
+      "criterion": "The contract requires preserving evidence that lead-ama was retired/replaced_by codex-aun before any local cleanup can be considered handled.",
+      "required_evidence": ["handoff required_sequence", "cell covers"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-NO-LOCAL-CONFIG-IN-PR",
+      "criterion": "The PR does not commit .mcp.json, Claude/Codex settings, env files, secrets, local DB files, or stored memory content.",
+      "required_evidence": ["git diff --name-only origin/main...HEAD", "forbidden_paths"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-PRIVACY-BOUNDARY",
+      "criterion": "The Cell prohibits stored memory text, secrets, local DB content, export, reveal, deletion, purge, rewrite, migration, and semantic inspection from this PR.",
+      "required_evidence": ["cell forbidden_paths", "cell stop_conditions", "handoff non_scope"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-VALIDATION-EVIDENCE",
+      "criterion": "Diff checks and changed YAML/JSON parse evidence are present and match the reported scope.",
+      "required_evidence": ["git diff --check origin/main...HEAD", "git diff --check", "changed Shirube YAML parse", "audit item JSON parse"]
+    },
+    {
+      "item_id": "MB-ARCHIVE-NO-CLAIM-UPGRADE",
+      "criterion": "The PR does not authorize backend parity, common DB completion, UAMP conformance, compliance, federation, release, publish, DLP, zero-leakage, or legal/regulatory claims.",
+      "required_evidence": ["PR boundary statement", ".shirube/reports/kusabi-core-mvp-memory-binding-archive-cleanup-001.yaml"]
+    }
+  ]
+}

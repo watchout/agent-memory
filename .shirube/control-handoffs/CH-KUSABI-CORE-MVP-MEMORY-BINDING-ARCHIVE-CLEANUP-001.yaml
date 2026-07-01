@@ -1,0 +1,195 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/228
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: shirube-v3-rapid-lite@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit owner/operator review if execution would move
+  beyond stale SQLite binding inactive/archive cleanup planning into stored
+  memory migration, local config commits, runtime behavior changes, package
+  changes, workflow enforcement, deployment, branch protection, backend parity,
+  common DB completion, UAMP conformance, federation, compliance, release, or
+  publish claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/228
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: operator
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the inactive/archive cleanup Cell.
+    - Diff-scope, validation, exact-head, independent audit, and owner-decision evidence checks for this control PR.
+    - Required cleanup evidence fields and stop conditions before stale SQLite residue can be called handled.
+  shirube_does_not_own:
+    - Live local MCP config editing itself.
+    - Stored memory content.
+    - Historical DB migration, export, reveal, rewrite, purge, or deletion decisions.
+    - Operator secrets, env files, local DB files, Claude/Codex local settings, external queues, LaunchAgents, or tmux state.
+    - Runtime behavior, package identity, MCP namespace, env var names, DB paths, DB schemas, workflows, deployment, branch protection, rulesets, backend parity, common DB completion, federation, UAMP conformance, compliance, release, or publish decisions.
+
+acceptance_criteria:
+  - A repo-local Cell exists for KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001.
+  - The Cell preserves the issue #228 owner/operator binding correction as authoritative.
+  - lead-ama, lead-sus, and lead-tuk are treated as inactive/archive cleanup targets, not migration targets and not SQLite exceptions.
+  - lead-ama retired/replaced_by codex-aun evidence must be preserved.
+  - FX lane remains the only current approved SQLite exception class.
+  - Actual local cleanup remains issue-authorized operator execution after this Cell is merged.
+  - Local config files, DB files, secrets, and stored memory content must not enter the repository diff.
+  - Runtime, package, MCP, env, DB schema/path, workflow, deployment, branch protection, ruleset, UAMP, federation, compliance, release, and publish changes remain out of scope.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - changed Shirube YAML parse
+    - audit item JSON parse
+  test_expectations:
+    - changed files are .shirube control artifacts only
+    - no local config or DB content files are changed
+    - no runtime, package, workflow, deployment, branch protection, or ruleset files are changed
+    - no backend parity, common DB completion, release, publish, UAMP conformance, compliance, DLP, or zero-leakage claim is introduced
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - independent_audit_record
+    - exact_pr_head_sha
+    - owner_decision_before_merge
+
+audit:
+  item_set_ref: .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-archive-cleanup-001.json
+  required_before_owner_decision: true
+
+cell:
+  CELL-ID: CELL-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001
+  cell_type: ops_lite
+  risk_class: R3
+  goal: >-
+    Establish the operator execution evidence contract for inactive/archive
+    cleanup of stale SQLite binding residue after active host smoke evidence.
+  non_scope:
+    - Runtime behavior changes.
+    - Repository commits of local MCP configs, Claude/Codex local configs, env files, secrets, or DB files.
+    - Stored memory content export, reveal, deletion, rewrite, migration, purge, or semantic inspection.
+    - Local archive cleanup executed by this PR.
+    - Retained active agent PostgreSQL migration work.
+    - DB schema migration, DB path migration, env var rename, package changes, or MCP namespace rename.
+    - Workflow, deployment, branch protection, or ruleset changes.
+    - Backend parity, common DB completion, UAMP conformance, federation, compliance, release, publish, DLP, or zero-leakage claim.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-CORE-MVP-MEMORY-BINDING-ARCHIVE-CLEANUP-001.yaml
+    - .shirube/audit-item-sets/kusabi-core-mvp-memory-binding-archive-cleanup-001.json
+    - .shirube/reports/kusabi-core-mvp-memory-binding-archive-cleanup-001.yaml
+  forbidden_paths:
+    - src/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - tests/uamp/**
+    - "**/.mcp.json"
+    - "**/.claude/settings.json"
+    - "**/.codex/**"
+    - "**/*.db"
+    - "**/*.sqlite"
+    - "**/*.sqlite3"
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change writes local configs or memory DB content into the repository diff.
+    - Change reads or emits stored memory text instead of count/path/classification/status metadata.
+    - Change modifies runtime behavior, src, package metadata, workflows, deployment, branch protection, or rulesets.
+    - Change claims backend parity, common DB completion, UAMP conformance, compliance, release, publish, DLP, or zero-leakage.
+    - Change approves non-FX SQLite exceptions without explicit owner/operator reason.
+    - Change revives retired/replaced/stale aliases through migration work.
+    - Change treats stale alias cleanup as historical memory migration.
+
+operator_execution_contract:
+  decision_source: https://github.com/watchout/agent-memory/issues/228
+  evidence_issue: https://github.com/watchout/agent-memory/issues/228
+  target_agents:
+    - lead-ama
+    - lead-sus
+    - lead-tuk
+  required_sequence:
+    - Re-run read-only audit from current main.
+    - Confirm target agents remain inactive, retired, deleted, replaced, duplicate, or stale aliases.
+    - Preserve evidence that lead-ama was retired/replaced_by codex-aun.
+    - Record path/count/classification metadata only; do not emit stored memory text or secrets.
+    - If owner/operator authorizes cleanup after this Cell is merged, archive or mark stale local residue without committing local configs or DB files.
+    - Re-run read-only audit after any authorized local cleanup.
+    - Record issue evidence with target agents, action taken, skipped targets, warnings, and missing evidence.
+  required_evidence_fields:
+    - target_agent
+    - prior_state
+    - action
+    - evidence_preserved
+    - stored_memory_content_read
+    - repo_diff_created
+    - audit_before
+    - audit_after
+    - missing_evidence
+  current_sqlite_exception_class:
+    - tsumiage-claude
+    - tsumiage-codex
+
+implementation_boundary:
+  summary: >-
+    Add repo-local Shirube control artifacts for inactive/archive cleanup of
+    stale SQLite binding residue. Do not perform local cleanup, stored memory
+    mutation, migration, deletion, purge, or local config edits in this PR.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit
+    - merge without owner exact-head decision
+    - local MCP config mutation in repository diff
+    - local archive cleanup by this PR
+    - DB content mutation
+    - stored memory migration, export, reveal, deletion, purge, rewrite, or semantic inspection
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - package metadata mutation
+    - production or deploy mutation
+    - secret read or write
+    - live AUN, Discord, DB, queue, LaunchAgent, tmux, or external repository mutation
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_diff_check
+    - post_merge_changed_files
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
