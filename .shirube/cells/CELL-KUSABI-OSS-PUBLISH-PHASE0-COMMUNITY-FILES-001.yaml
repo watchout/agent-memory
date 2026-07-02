@@ -1,0 +1,64 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-OSS-PUBLISH-PHASE0-COMMUNITY-FILES-001
+title: OSS publish Phase 0 community baseline files
+status: active
+risk_tier: R1
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+goal: >-
+  Add Phase 0 community baseline files for public-readiness hygiene without
+  changing runtime behavior, package identity, package metadata, MCP namespace,
+  workflows, deployment, release state, or publish authorization.
+covers:
+  - code of conduct baseline
+  - bug report issue template
+  - feature request issue template
+  - issue template chooser config
+  - pull request template
+  - Phase 0 no-publish boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-COMMUNITY-FILES-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-COMMUNITY-FILES-001.yaml
+  - CODE_OF_CONDUCT.md
+  - .github/ISSUE_TEMPLATE/bug_report.md
+  - .github/ISSUE_TEMPLATE/feature_request.md
+  - .github/ISSUE_TEMPLATE/config.yml
+  - .github/pull_request_template.md
+forbidden_paths:
+  - src/**
+  - tests/**
+  - test/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - YAML basic field check for Cell/handoff
+  - community file boundary scan
+  - forbidden path scan
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify community baseline files exist
+  - verify README, package metadata, lockfile, runtime code, workflows, and deployment files did not change
+  - verify PR does not authorize publish, release, package rename, MCP namespace rename, legal clearance, or public release-readiness
+stop_conditions:
+  - A change requires package metadata, package name, package files list, or MCP namespace edits.
+  - A change requires npm publish, npm pack output mutation, git tag, GitHub Release, or MCP registry submission.
+  - A change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+  - A change claims legal/trademark/compliance certification, public release readiness, or dependency-license legal clearance.
+  - A change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+notes:
+  - CHANGELOG.md already exists from the Phase 0 public-reference cleanup Cell.
+  - This Cell adds community process files only.
+  - DCO/CLA policy remains a separate decision unless owner/legal explicitly changes it.
