@@ -1,0 +1,167 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/238#issuecomment-4851995624
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require explicit CEO/legal/operator decision if this PR would move
+  beyond package dry-run evidence into package metadata changes, package files
+  list changes, npm publish, package rename, MCP namespace migration, GitHub
+  release, MCP registry submission, legal/trademark/compliance claims, runtime
+  behavior, workflows, deployment, or release readiness claims.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/238
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for OSS publish Phase 0 package dry-run evidence.
+    - Diff-scope, validation, audit-record, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Legal/trademark/license certification.
+    - npm publish, GitHub release, tag, MCP registry submission, package rename, MCP namespace migration, package metadata changes, package files-list changes, workflow enforcement, deployment, runtime behavior, or release readiness claims.
+
+acceptance_criteria:
+  - npm ci runs from a clean clone without tracked package or lockfile mutation.
+  - npm pack dry-run runs without creating or committing a package tarball.
+  - Package dry-run output records package name, version, file count, unpacked size, and included public baseline files.
+  - Package dry-run output records missing or excluded public-readiness files without changing package metadata.
+  - Generated build output remains ignored and uncommitted.
+  - No package, lockfile, workflow, deployment, env var, MCP namespace, DB path, runtime code, schema file, fixture, runner, publish, release, registry, package files-list, or package metadata change is introduced.
+  - No UAMP conformance, backend parity, federation, enterprise, compliance, DLP, zero-leakage, public release-readiness, trademark, or legal clearance claim is introduced.
+
+validation:
+  required_commands:
+    - git diff --name-only origin/main...HEAD
+    - git diff --check origin/main...HEAD
+    - git diff --check
+    - YAML basic field check for Cell/handoff
+    - npm ci
+    - npm pack --dry-run --json
+    - package dry-run contents check
+    - forbidden path scan
+  test_expectations:
+    - Documentation/control-only diff remains limited to dry-run evidence and this Cell/handoff.
+    - package.json and package-lock.json are unchanged.
+    - dist artifacts, node_modules, and package tarballs are not committed.
+    - Dry-run evidence preserves no-publish, no-release-readiness, and no-legal-certification boundaries.
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001
+  cell_type: evidence_only
+  risk_class: R1
+  goal: >-
+    Record npm package dry-run evidence as Phase 0 public-readiness support
+    while preserving no-publish, no-rename, no-package-metadata-change, and
+    no-release-readiness boundaries.
+  non_scope:
+    - npm publish.
+    - non-dry-run npm pack artifact creation.
+    - GitHub Release or git tag.
+    - MCP registry submission.
+    - Package rename.
+    - Package metadata or package files-list change.
+    - Lockfile change.
+    - MCP namespace rename.
+    - Env var rename.
+    - DB path migration.
+    - Runtime behavior changes.
+    - Workflow changes.
+    - Deployment changes.
+    - Branch protection or ruleset changes.
+    - Legal/trademark/compliance certification.
+    - UAMP conformance.
+    - Backend parity.
+    - Cross-agent federation.
+    - Enterprise readiness.
+    - DLP or zero secret leakage claim.
+    - Public release-readiness claim.
+  allowed_paths:
+    - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001.yaml
+    - docs/standards/OSS_PUBLISH_PHASE0_PACKAGE_DRY_RUN.md
+  forbidden_paths:
+    - src/**
+    - tests/**
+    - test/**
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - docs/v2/**
+    - dist/**
+    - node_modules/**
+    - "*.tgz"
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - Change requires package metadata, package files list, package name, lockfile, or MCP namespace edits.
+    - Change requires npm publish, non-dry-run npm pack artifact creation, git tag, GitHub Release, or MCP registry submission.
+    - Change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+    - Change claims public release readiness, legal clearance, trademark clearance, license certification, or compliance status.
+    - Change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+
+implementation_boundary:
+  summary: >-
+    Documentation/control-only package dry-run evidence. Do not change
+    product/runtime/package/workflow surfaces.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without independent audit and owner exact-head decision
+    - npm publish
+    - non-dry-run npm pack artifact creation
+    - git tag
+    - GitHub Release
+    - MCP registry submission
+    - package metadata mutation
+    - package files list mutation
+    - package lockfile mutation
+    - branch protection mutation
+    - ruleset mutation
+    - required check activation
+    - production or deploy mutation
+    - secret read or write
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
