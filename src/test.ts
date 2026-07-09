@@ -48,6 +48,8 @@ import {
 } from "./restart-cli.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { runSupervisorPreflight } from "./restart-cli.js";
+import { writeRestartMarker } from "./context-restart-marker.js";
+import { runRestartBridge, type QueueDrainCheckResult } from "./restart-bridge.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_ARGV_VISIBILITY_NOTE,
@@ -120,7 +122,14 @@ function inheritedEnv(): Record<string, string> {
 }
 
 async function cleanup() {
-  const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json", "raw-events.json"];
+  const files = [
+    "decisions.json",
+    "task-states.json",
+    "knowledge.json",
+    "conversation-events.json",
+    "raw-events.json",
+    "restart-events.json",
+  ];
   for (const f of files) {
     const path = join(TEST_DIR, f);
     if (existsSync(path)) rmSync(path);
@@ -2512,6 +2521,7 @@ async function testRestartPrepare() {
   assert(prepared.action === "restart_recommended", "restart_prepare recommends restart at host metrics recommend band");
   assert(prepared.context_signal.source === "host_metrics", "restart_prepare labels host metric source");
   assert(prepared.context_signal.band === "recommend", "restart_prepare maps 91% context to recommend band");
+  assert(prepared.context_signal.thresholds.require === 0.95, "restart_prepare uses out-of-box require threshold by default");
   assert(prepared.recovery_confidence.level === "high", "restart_prepare reports high confidence for coherent pack");
   assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("selected_restart_pack:"), "restart_prepare returns selected pack reference");
   assert(prepared.restart_pack === undefined, "restart_prepare can omit restart_pack text");
@@ -2523,6 +2533,17 @@ async function testRestartPrepare() {
   assert(consumed?.status === "consumed", "selected restart pack can be consumed");
   const afterConsume = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
   assert(afterConsume === null, "consumed selected restart pack is no longer active");
+
+  const overridePrepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    context_used_ratio: 0.91,
+    thresholds: { prepare: 0.6, warn: 0.7, recommend: 0.8, require: 0.9 },
+    emit_pack: false,
+  });
+  assert(overridePrepared.context_signal.band === "require", "restart_prepare applies validated threshold overrides");
+  assert(overridePrepared.action === "restart_required", "restart_prepare can require restart via threshold override");
+  assert(overridePrepared.context_signal.thresholds.require === 0.9, "restart_prepare exposes applied threshold values");
 
   const rawCoverageRoot = mkdtempSync(join(tmpdir(), "am139-prepare-coverage-"));
   writeFileSync(join(rawCoverageRoot, "session-prepare.jsonl"), "{}\n");
@@ -2794,6 +2815,147 @@ async function testRestartPrepare() {
   await store.close();
 }
 
+async function testRestartMarkerBridge() {
+  console.log("\n── Restart Marker/Bridge Tests (CELL-KUSABI-CTX-RESTART-001) ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const root = mkdtempSync(join(tmpdir(), "am250-restart-bridge-"));
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trustedBin = join(binDir, "wasurezu-claude-start");
+  writeFileSync(trustedBin, "#!/usr/bin/env bash\nexit 0\n");
+  chmodSync(trustedBin, 0o755);
+  const env = { ...inheritedEnv(), PATH: `${binDir}:${process.env.PATH ?? ""}` };
+  delete env.AGENT_COMMS_DATABASE_URL;
+  const agentId = "test-restart-bridge-agent";
+  const project = "restart-bridge";
+  const markerPath = join(root, "restart-required.json");
+
+  const written = writeRestartMarker({
+    agent_id: agentId,
+    project,
+    host: "claude",
+    seat_id: "seat-a",
+    session_id: "session-a",
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    thresholds: { prepare: 0.5, warn: 0.7, recommend: 0.8, require: 0.94 },
+    marker_path: markerPath,
+    generated_at: "2026-07-09T00:00:00.000Z",
+  });
+  assert(written.marker.status === "restart_required", "marker writer emits restart_required at require band");
+  assert(written.marker.context_used_ratio === 0.95, "marker writer records measured context ratio");
+  assert(written.marker.thresholds.require === 0.94, "marker writer records applied threshold values");
+  const markerText = readFileSync(markerPath, "utf8");
+  assert(markerText.includes('"seat_id": "seat-a"'), "marker writer records seat id");
+  assert(!markerText.includes("SESSION RESTART PACK"), "marker writer does not expose restart pack or conversation text");
+
+  const standalone = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath,
+    restartCommand: "wasurezu-claude-start --launch",
+    restartPreauthorized: true,
+    execute: false,
+    env,
+  });
+  assert(standalone.action === "restart_dry_run", "restart bridge dry-runs by default when execute=false");
+  assert(standalone.executed_restart === false, "restart bridge dry-run does not execute live restart");
+  assert(standalone.command?.status === "pass", "restart bridge performs trusted-bin preflight");
+  assert(standalone.queue_check?.mode === "standalone_no_agent_comms_detected", "restart bridge allows standalone no-agent-comms mode");
+  assert(standalone.event.queue_check_mode === "standalone_no_agent_comms_detected", "restart event records standalone queue mode");
+  assert(standalone.event.preflight_status === "pass", "restart event records preflight result");
+  assert(standalone.event.executed_restart === false, "restart event records no live restart");
+
+  const blockedQueue: QueueDrainCheckResult = {
+    mode: "agent_comms_configured",
+    result: "blocked",
+    allowed: false,
+    in_flight_count: 1,
+    in_flight_queue_ids: ["124253"],
+    failure_reason: "queue_has_in_flight_work",
+  };
+  const blocked = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath,
+    restartCommand: "wasurezu-claude-start --launch",
+    restartPreauthorized: true,
+    execute: false,
+    env,
+    queueDrainCheck: async () => blockedQueue,
+  });
+  assert(blocked.action === "restart_blocked", "restart bridge blocks configured queue with in-flight work");
+  assert(blocked.failure_reason === "queue_has_in_flight_work", "restart bridge reports queue in-flight blocker");
+  assert(blocked.event.queue_check_result === "blocked", "restart event records queue blocked result");
+
+  const unavailableQueue: QueueDrainCheckResult = {
+    mode: "agent_comms_configured",
+    result: "unavailable",
+    allowed: false,
+    in_flight_count: 0,
+    in_flight_queue_ids: [],
+    failure_reason: "agent_comms_queue_check_failed: connection refused",
+  };
+  const unavailable = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath,
+    restartCommand: "wasurezu-claude-start --launch",
+    restartPreauthorized: true,
+    execute: false,
+    env,
+    queueDrainCheck: async () => unavailableQueue,
+  });
+  assert(unavailable.action === "restart_blocked", "restart bridge fail-closes when configured queue check is unavailable");
+  assert(unavailable.event.queue_check_result === "unavailable", "restart event records unavailable queue check");
+
+  const events = await store.getRestartEvents({ agent_id: agentId, project, limit: 10 });
+  assert(events.length >= 3, "restart_events persistence stores bridge attempts");
+  assert(events.some((event) => event.action === "restart_dry_run"), "restart_events include dry-run evidence");
+  assert(events.some((event) => event.failure_reason === "queue_has_in_flight_work"), "restart_events include queue blocker evidence");
+  assert(events.every((event) => event.executed_restart === false), "restart_events attest no live restart in tests");
+
+  const parsedMarker = parseRestartCliArgs([
+    "marker",
+    "--agent-id",
+    agentId,
+    "--project",
+    project,
+    "--marker-path",
+    markerPath,
+    "--context-used-ratio",
+    "0.95",
+    "--threshold-require",
+    "0.94",
+  ]);
+  assert(parsedMarker.command === "marker", "wasurezu-restart parser reads marker command");
+  assert(parsedMarker.thresholds?.require === 0.94, "wasurezu-restart parser reads threshold override");
+
+  const parsedBridge = parseRestartCliArgs([
+    "bridge",
+    "--agent-id",
+    agentId,
+    "--marker-path",
+    markerPath,
+    "--restart-command",
+    "wasurezu-claude-start --launch",
+    "--restart-preauthorized",
+    "--agent-comms-db-url",
+    "postgres://example.invalid/db",
+    "--dry-run",
+  ]);
+  assert(parsedBridge.command === "bridge", "wasurezu-restart parser reads bridge command");
+  assert(parsedBridge.agent_comms_db_url === "postgres://example.invalid/db", "wasurezu-restart parser reads agent-comms DB URL");
+  assert(parsedBridge.execute === false, "wasurezu-restart bridge defaults can be explicit dry-run");
+
+  await store.close();
+  rmSync(root, { recursive: true, force: true });
+}
+
 function testPgMigrationSourceOfTruth() {
   console.log("\n── PostgreSQL Migration Source-of-Truth Tests ──");
   const migrateSource = readFileSync("src/migrate.ts", "utf8");
@@ -2823,6 +2985,8 @@ function testPgMigrationSourceOfTruth() {
     ["raw event occurred_at not-null enforcement", "alter table raw_events alter column occurred_at set not null"],
     ["raw event source unique index", "create unique index if not exists uq_raw_events_source_event"],
     ["selected restart packs table", "create table if not exists selected_restart_packs"],
+    ["restart events table", "create table if not exists restart_events"],
+    ["restart events agent index", "create index if not exists idx_restart_events_agent"],
   ] as const;
 
   for (const [label, fragment] of requiredFragments) {
@@ -3863,6 +4027,7 @@ async function run() {
   testRestartCommandPreflight();
   testSupervisorPreflight();
   await testRestartPrepare();
+  await testRestartMarkerBridge();
   await testCoreMcpToolRegression();
   await testRestartRecoverySmokeEvidence();
   testPgMigrationSourceOfTruth();

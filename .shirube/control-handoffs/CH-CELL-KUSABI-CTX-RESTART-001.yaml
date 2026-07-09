@@ -1,0 +1,149 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-CELL-KUSABI-CTX-RESTART-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/250
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/250
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation_executor
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for CELL-KUSABI-CTX-RESTART-001.
+    - Diff-scope, validation, exact-head, audit, protected-surface, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - External launchd/cron/watchdog installation or activation.
+    - agent-comms state-daemon/scheduler restart or CP-80 owner-gated refresh.
+    - Fleet single-canonical-checkout rollout under agent-comms-mcp#846.
+    - Live seat restart execution during PR validation.
+
+cell:
+  CELL-ID: CELL-KUSABI-CTX-RESTART-001
+  cell_type: implementation
+  risk_class: R4
+  goal: >-
+    Repair the context-threshold restart chain on origin/main by adding configurable threshold overrides,
+    a context measurement to restart-required marker writer, an agent-memory restart bridge/supervisor command
+    that invokes the existing trusted-bin launch path only after drain checks, and durable restart_events evidence.
+    Do not install external scheduling or restart live seats as part of this PR.
+  accepted_gap_set:
+    - G1 threshold override config over existing out-of-the-box defaults.
+    - G2 context measurement to restart-required marker writer.
+    - G3 marker scanner / restart bridge using the corrected trusted-bin launch path.
+    - G4 drain / queue-idle gate with optional agent-comms integration.
+    - G5 durable restart_events evidence ledger.
+  solved_on_main_not_code_scope:
+    - Existing hardcoded default bands and restart_required action mapping.
+    - Existing trusted-bin launch path: wasurezu-claude-start --launch and Codex host adapter.
+    - Stale deployment process still pointing at scripts/restart-from-context-marker.sh.
+  acceptance_criteria:
+    - Default recommend/require bands work out of the box and can be overridden by validated config without requiring per-seat env setup.
+    - Marker writer records seat/host, measured tokens, threshold values, band, restart_required verdict, reason, and timestamp without reading or exposing conversation content.
+    - Restart bridge scans restart-required markers, performs preflight, performs drain check, and invokes only the corrected trusted-bin launch path or approved host adapter.
+    - Agent-comms queue drain is optional for standalone use, but fail-closed when configured/detected and unavailable; in-flight claimed/processing work blocks restart.
+    - Every attempted automated restart path records durable restart_events evidence, including preflight, queue_check_mode/result, command/preflight result, post-state where available, and failure reason on block/failure.
+    - Tests cover threshold defaults/overrides, marker writing, standalone no-agent-comms mode, configured queue blocked mode, configured queue unavailable fail-closed mode, trusted-bin preflight, and restart_events persistence.
+    - No live seat restart, state-daemon restart, scheduler restart, launchd/cron/watchdog activation, deployment mutation, package identity change, MCP namespace change, env var rename, or release/publish claim is performed.
+  protected_surfaces:
+    - automated restart control path
+    - durable restart_events schema or persistence surface
+    - optional agent-comms queue-read integration
+  allowed_paths:
+    - src/**
+    - test/**
+    - tests/**
+    - scripts/host-adapters/**
+    - .shirube/control-handoffs/CH-CELL-KUSABI-CTX-RESTART-001.yaml
+    - .shirube/cells/**
+    - .shirube/evidence/**
+    - .shirube/reports/**
+    - docs/operations/**
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - .github/workflows/**
+    - .github/branch-protection/**
+    - .github/rulesets/**
+    - docker-compose.yml
+    - deploy/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+  non_scope:
+    - launchd/cron/watchdog installation or activation
+    - agent-comms state-daemon or scheduler restart
+    - live seat restart during PR validation
+    - fleet canonical-checkout refresh / agent-comms-mcp#846 execution
+    - direct writes to agent-comms tables
+    - package identity, MCP namespace, env var rename, DB path rename, workflow, branch-protection, ruleset, deployment, release, or publish changes
+    - UAMP/conformance/compliance/DLP/zero-leakage/backend-parity/common-DB claims
+  stop_conditions:
+    - any changed file outside allowed_paths
+    - forbidden path touched
+    - implementation requires package.json/bin changes
+    - implementation requires launchd/cron/watchdog activation or state-daemon/scheduler restart
+    - implementation would restart a live seat during PR validation
+    - configured agent-comms queue check cannot be performed but restart would proceed anyway
+    - queue has claimed/processing work and restart would proceed anyway
+    - implementation reads, exports, reveals, or summarizes conversation or stored memory content for marker/evidence generation
+    - implementation changes package identity, MCP namespace, env vars, DB paths, workflows, deployment, branch protection, or rulesets
+    - any E1-E5 condition, judgment_required, ambiguous contract interpretation, or design gap
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  required_targeted_tests:
+    - threshold default and override test
+    - marker writer test
+    - restart bridge/preflight dry-run test
+    - queue drain standalone/configured-blocked/configured-unavailable tests
+    - restart_events persistence test
+  required_evidence:
+    - pr_head_sha
+    - changed_files
+    - validation_commands
+    - validation_results
+    - design_judgments
+    - protected_surface_summary
+    - no_live_restart_attestation
+
+owner_decision:
+  required_before_merge: true
+  blocked_until:
+    - evidence_audit_gate_complete
+    - protected_surface_gate_complete
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+
+next_action:
+  blocking: false
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: >-
+    Commit this CH mirror verbatim on a PR branch from origin/main, implement CELL-KUSABI-CTX-RESTART-001
+    within the allowed paths and Q1/Q2 boundaries above, then route the PR to evidence_audit_gate.
+  handoff_method: GitHub PR comment and issue #250 reply
+  input_refs:
+    - https://github.com/watchout/agent-memory/issues/250
+    - https://github.com/watchout/agent-memory/issues/250#issuecomment-4920790241
+  scope: >-
+    origin/main source-level restart chain repair only; no external scheduler activation, no live restart,
+    no state-daemon/scheduler restart, no deployment mutation.
+  deliverable: PR implementing G1-G5 with validation evidence and no live restart.
+  completion_evidence: PR URL, exact head, validation results, evidence_audit_gate verdict, protected_surface_gate verdict, and owner exact-head decision if merge is requested.

@@ -15,6 +15,7 @@ import type {
   ConversationEvent,
   RawEvent,
   SelectedRestartPack,
+  RestartEvent,
   RecoveryConfig,
   CatchUpLog,
   LogDecisionInput,
@@ -34,6 +35,8 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveRestartEventInput,
+  GetRestartEventsInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -47,6 +50,7 @@ const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
 const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
+const RESTART_EVENTS_FILE = join(DATA_DIR, "restart-events.json");
 const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
 const KUSABI_PARTITIONS_FILE = join(DATA_DIR, "kusabi-agent-memory-partitions.json");
 
@@ -73,6 +77,7 @@ export class JsonStore implements Store {
   private conversationEvents: ConversationEvent[] = [];
   private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
+  private restartEvents: RestartEvent[] = [];
   private catchUpLog: CatchUpLog[] = [];
   private kusabiPartitions: KusabiPartition[] = [];
 
@@ -86,6 +91,7 @@ export class JsonStore implements Store {
     this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
     this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
+    this.restartEvents = await this.loadFile<RestartEvent>(RESTART_EVENTS_FILE);
     this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
     this.kusabiPartitions = await this.loadFile<KusabiPartition>(KUSABI_PARTITIONS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
@@ -428,6 +434,10 @@ export class JsonStore implements Store {
     await writeFile(SELECTED_RESTART_PACKS_FILE, JSON.stringify(this.selectedRestartPacks, null, 2));
   }
 
+  private async saveRestartEventsFile(): Promise<void> {
+    await writeFile(RESTART_EVENTS_FILE, JSON.stringify(this.restartEvents, null, 2));
+  }
+
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
@@ -630,6 +640,46 @@ export class JsonStore implements Store {
       return true;
     });
     return pack ?? null;
+  }
+
+  async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    const event: RestartEvent = {
+      id: uuidv4(),
+      agent_id: input.agent_id,
+      project: input.project,
+      seat_id: input.seat_id,
+      host: input.host,
+      session_id: input.session_id,
+      marker_path: input.marker_path,
+      marker_status: input.marker_status,
+      action: input.action,
+      restart_required: input.restart_required ?? false,
+      executed_restart: input.executed_restart ?? false,
+      band: input.band,
+      context_tokens: input.context_tokens,
+      context_window_tokens: input.context_window_tokens,
+      context_used_ratio: input.context_used_ratio,
+      thresholds: input.thresholds,
+      queue_check_mode: input.queue_check_mode,
+      queue_check_result: input.queue_check_result,
+      preflight_status: input.preflight_status,
+      restart_command: input.restart_command,
+      failure_reason: input.failure_reason,
+      pre_state: input.pre_state,
+      post_state: input.post_state,
+      metadata: input.metadata ?? {},
+      created_at: input.created_at ?? new Date().toISOString(),
+    };
+    this.restartEvents.push(event);
+    await this.saveRestartEventsFile();
+    return event;
+  }
+
+  async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
+    let results = this.restartEvents.filter((event) => event.agent_id === input.agent_id);
+    if (input.project) results = results.filter((event) => event.project === input.project);
+    results.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    return results.slice(0, input.limit ?? 20);
   }
 
   async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge> {

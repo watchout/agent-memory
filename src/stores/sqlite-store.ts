@@ -15,6 +15,7 @@ import type {
   ConversationEvent,
   RawEvent,
   SelectedRestartPack,
+  RestartEvent,
   RecoveryConfig,
   CatchUpLog,
   LogDecisionInput,
@@ -35,6 +36,8 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveRestartEventInput,
+  GetRestartEventsInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -196,6 +199,36 @@ const MIGRATIONS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_selected_restart_packs_agent
     ON selected_restart_packs(agent_id, status, created_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_events (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host TEXT,
+    session_id TEXT,
+    marker_path TEXT,
+    marker_status TEXT,
+    action TEXT NOT NULL,
+    restart_required INTEGER NOT NULL DEFAULT 0,
+    executed_restart INTEGER NOT NULL DEFAULT 0,
+    band TEXT,
+    context_tokens INTEGER,
+    context_window_tokens INTEGER,
+    context_used_ratio REAL,
+    thresholds TEXT NOT NULL DEFAULT '{}',
+    queue_check_mode TEXT,
+    queue_check_result TEXT,
+    preflight_status TEXT,
+    restart_command TEXT,
+    failure_reason TEXT,
+    pre_state TEXT NOT NULL DEFAULT '{}',
+    post_state TEXT NOT NULL DEFAULT '{}',
+    metadata TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
+    ON restart_events(agent_id, created_at DESC)`,
 
   // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
   `CREATE TABLE IF NOT EXISTS catch_up_log (
@@ -1354,6 +1387,67 @@ export class SqliteStore implements Store {
     return rows[0] ?? null;
   }
 
+  async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    const id = uuidv4();
+    const createdAt = input.created_at ?? nowIso();
+    this.db.run(
+      `INSERT INTO restart_events
+        (id, agent_id, project, seat_id, host, session_id, marker_path, marker_status,
+         action, restart_required, executed_restart, band, context_tokens,
+         context_window_tokens, context_used_ratio, thresholds, queue_check_mode,
+         queue_check_result, preflight_status, restart_command, failure_reason,
+         pre_state, post_state, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.agent_id,
+        input.project ?? null,
+        input.seat_id ?? null,
+        input.host ?? null,
+        input.session_id ?? null,
+        input.marker_path ?? null,
+        input.marker_status ?? null,
+        input.action,
+        input.restart_required === true ? 1 : 0,
+        input.executed_restart === true ? 1 : 0,
+        input.band ?? null,
+        input.context_tokens ?? null,
+        input.context_window_tokens ?? null,
+        input.context_used_ratio ?? null,
+        JSON.stringify(input.thresholds ?? {}),
+        input.queue_check_mode ?? null,
+        input.queue_check_result ?? null,
+        input.preflight_status ?? null,
+        input.restart_command ?? null,
+        input.failure_reason ?? null,
+        JSON.stringify(input.pre_state ?? {}),
+        JSON.stringify(input.post_state ?? {}),
+        JSON.stringify(input.metadata ?? {}),
+        createdAt,
+      ]
+    );
+    this.persist();
+    const row = this.allRows(`SELECT * FROM restart_events WHERE id = ? LIMIT 1`, [id])[0];
+    return this.rowToRestartEvent(row);
+  }
+
+  async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
+    const conditions = ["agent_id = ?"];
+    const params: unknown[] = [input.agent_id];
+    if (input.project) {
+      conditions.push("project = ?");
+      params.push(input.project);
+    }
+    const rows = this.allRows(
+      `SELECT * FROM restart_events
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC
+        LIMIT ${input.limit ?? 20}`,
+      params
+    );
+    return rows.map((row) => this.rowToRestartEvent(row));
+  }
+
   // ─── Catch-up Log (AM-026) ───────────────────────────────────
 
   async getLastCatchUpLog(
@@ -1689,6 +1783,36 @@ export class SqliteStore implements Store {
       created_at: row.created_at as string,
       consumed_at: (row.consumed_at as string | null) ?? undefined,
       expires_at: (row.expires_at as string | null) ?? undefined,
+    };
+  }
+
+  private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      seat_id: (row.seat_id as string | null) ?? undefined,
+      host: (row.host as string | null) ?? undefined,
+      session_id: (row.session_id as string | null) ?? undefined,
+      marker_path: (row.marker_path as string | null) ?? undefined,
+      marker_status: (row.marker_status as string | null) ?? undefined,
+      action: row.action as string,
+      restart_required: Boolean(row.restart_required),
+      executed_restart: Boolean(row.executed_restart),
+      band: (row.band as string | null) ?? undefined,
+      context_tokens: typeof row.context_tokens === "number" ? row.context_tokens : undefined,
+      context_window_tokens: typeof row.context_window_tokens === "number" ? row.context_window_tokens : undefined,
+      context_used_ratio: typeof row.context_used_ratio === "number" ? row.context_used_ratio : undefined,
+      thresholds: parseJsonObject(row.thresholds),
+      queue_check_mode: (row.queue_check_mode as string | null) ?? undefined,
+      queue_check_result: (row.queue_check_result as string | null) ?? undefined,
+      preflight_status: (row.preflight_status as string | null) ?? undefined,
+      restart_command: (row.restart_command as string | null) ?? undefined,
+      failure_reason: (row.failure_reason as string | null) ?? undefined,
+      pre_state: parseJsonObject(row.pre_state),
+      post_state: parseJsonObject(row.post_state),
+      metadata: parseJsonObject(row.metadata),
+      created_at: row.created_at as string,
     };
   }
 }

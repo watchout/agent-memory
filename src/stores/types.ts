@@ -340,6 +340,67 @@ export interface ConsumeSelectedRestartPackInput extends GetSelectedRestartPackI
   consumed_at?: string;
 }
 
+export interface RestartEvent {
+  id: string;
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host?: string;
+  session_id?: string;
+  marker_path?: string;
+  marker_status?: string;
+  action: string;
+  restart_required: boolean;
+  executed_restart: boolean;
+  band?: string;
+  context_tokens?: number;
+  context_window_tokens?: number;
+  context_used_ratio?: number;
+  thresholds?: Record<string, unknown>;
+  queue_check_mode?: string;
+  queue_check_result?: string;
+  preflight_status?: string;
+  restart_command?: string;
+  failure_reason?: string;
+  pre_state?: Record<string, unknown>;
+  post_state?: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SaveRestartEventInput {
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host?: string;
+  session_id?: string;
+  marker_path?: string;
+  marker_status?: string;
+  action: string;
+  restart_required?: boolean;
+  executed_restart?: boolean;
+  band?: string;
+  context_tokens?: number;
+  context_window_tokens?: number;
+  context_used_ratio?: number;
+  thresholds?: Record<string, unknown>;
+  queue_check_mode?: string;
+  queue_check_result?: string;
+  preflight_status?: string;
+  restart_command?: string;
+  failure_reason?: string;
+  pre_state?: Record<string, unknown>;
+  post_state?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface GetRestartEventsInput {
+  agent_id: string;
+  project?: string;
+  limit?: number;
+}
+
 /**
  * Input for logRecoveryQuality (AM-002, Stage 1).
  *
@@ -496,6 +557,12 @@ export interface Store {
 
   /** Fetch and mark a selected restart pack as consumed (AM-039) */
   consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null>;
+
+  /** Persist durable evidence for automated restart decisions and attempts. */
+  saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent>;
+
+  /** Read restart event evidence in newest-first order. */
+  getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]>;
 
   // ─── AM-026: Catch-up ledger methods ────────────────────────────────────
 

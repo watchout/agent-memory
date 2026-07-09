@@ -334,4 +334,35 @@ export const PG_MIGRATIONS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_kusabi_partitions_agent
      ON kusabi_agent_memory_partitions (agent_id, updated_at DESC)`,
+
+  // CELL-KUSABI-CTX-RESTART-001: durable restart bridge evidence.
+  `CREATE TABLE IF NOT EXISTS restart_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host TEXT,
+    session_id TEXT,
+    marker_path TEXT,
+    marker_status TEXT,
+    action TEXT NOT NULL,
+    restart_required BOOLEAN NOT NULL DEFAULT false,
+    executed_restart BOOLEAN NOT NULL DEFAULT false,
+    band TEXT,
+    context_tokens INT,
+    context_window_tokens INT,
+    context_used_ratio FLOAT,
+    thresholds JSONB NOT NULL DEFAULT '{}'::jsonb,
+    queue_check_mode TEXT,
+    queue_check_result TEXT,
+    preflight_status TEXT,
+    restart_command TEXT,
+    failure_reason TEXT,
+    pre_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    post_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
+     ON restart_events (agent_id, created_at DESC)`,
 ];

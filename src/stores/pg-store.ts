@@ -13,6 +13,7 @@ import type {
   ConversationEvent,
   RawEvent,
   SelectedRestartPack,
+  RestartEvent,
   RecoveryConfig,
   CatchUpLog,
   LogDecisionInput,
@@ -33,6 +34,8 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveRestartEventInput,
+  GetRestartEventsInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -996,6 +999,60 @@ export class PgStore implements Store {
     return result.rows[0] ? this.rowToSelectedRestartPack(result.rows[0]) : null;
   }
 
+  async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    const result = await this.pool.query(
+      `INSERT INTO restart_events
+        (agent_id, project, seat_id, host, session_id, marker_path, marker_status,
+         action, restart_required, executed_restart, band, context_tokens,
+         context_window_tokens, context_used_ratio, thresholds, queue_check_mode,
+         queue_check_result, preflight_status, restart_command, failure_reason,
+         pre_state, post_state, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+               $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+               COALESCE($24::timestamptz, now()))
+       RETURNING *`,
+      [
+        input.agent_id,
+        input.project ?? null,
+        input.seat_id ?? null,
+        input.host ?? null,
+        input.session_id ?? null,
+        input.marker_path ?? null,
+        input.marker_status ?? null,
+        input.action,
+        input.restart_required ?? false,
+        input.executed_restart ?? false,
+        input.band ?? null,
+        input.context_tokens ?? null,
+        input.context_window_tokens ?? null,
+        input.context_used_ratio ?? null,
+        input.thresholds ?? {},
+        input.queue_check_mode ?? null,
+        input.queue_check_result ?? null,
+        input.preflight_status ?? null,
+        input.restart_command ?? null,
+        input.failure_reason ?? null,
+        input.pre_state ?? {},
+        input.post_state ?? {},
+        input.metadata ?? {},
+        input.created_at ?? null,
+      ]
+    );
+    return this.rowToRestartEvent(result.rows[0]);
+  }
+
+  async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_events
+       WHERE agent_id = $1
+         AND ($2::text IS NULL OR project = $2)
+       ORDER BY created_at DESC
+       LIMIT $3`,
+      [input.agent_id, input.project ?? null, input.limit ?? 20]
+    );
+    return result.rows.map(this.rowToRestartEvent);
+  }
+
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
     const id = uuidv4();
     const embeddingText = `${input.title} ${input.content}`.trim();
@@ -1389,4 +1446,41 @@ export class PgStore implements Store {
           : (row.updated_at as string),
     };
   }
+
+  private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
+    return {
+      id: row.id as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      seat_id: (row.seat_id as string | null) ?? undefined,
+      host: (row.host as string | null) ?? undefined,
+      session_id: (row.session_id as string | null) ?? undefined,
+      marker_path: (row.marker_path as string | null) ?? undefined,
+      marker_status: (row.marker_status as string | null) ?? undefined,
+      action: row.action as string,
+      restart_required: row.restart_required === true,
+      executed_restart: row.executed_restart === true,
+      band: (row.band as string | null) ?? undefined,
+      context_tokens: (row.context_tokens as number | null) ?? undefined,
+      context_window_tokens: (row.context_window_tokens as number | null) ?? undefined,
+      context_used_ratio: (row.context_used_ratio as number | null) ?? undefined,
+      thresholds: asRecord(row.thresholds),
+      queue_check_mode: (row.queue_check_mode as string | null) ?? undefined,
+      queue_check_result: (row.queue_check_result as string | null) ?? undefined,
+      preflight_status: (row.preflight_status as string | null) ?? undefined,
+      restart_command: (row.restart_command as string | null) ?? undefined,
+      failure_reason: (row.failure_reason as string | null) ?? undefined,
+      pre_state: asRecord(row.pre_state),
+      post_state: asRecord(row.post_state),
+      metadata: asRecord(row.metadata),
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : (row.created_at as string),
+    };
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
