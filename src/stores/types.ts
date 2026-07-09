@@ -373,6 +373,50 @@ export interface SearchMemoryResult {
   conversation_events: ConversationEvent[];
 }
 
+// ─── CELL-4MCP-KUSABI-001: agent memory partition registry ──────────────────
+//
+// Lane 3 (Kusabi) of SPEC-4MCP-002. `kusabi_agent_memory_partitions` is this
+// MCP's OWN table — the single source of truth for partition + visibility.
+//
+// Frozen invariants (dispatch anchor: watchout/agent-memory#247):
+//   - `agent_id` is the immutable, only identity key.
+//   - Partition / visibility are NEVER inferred from shared identity metadata
+//     held by peer MCPs; they are resolved exclusively from this table.
+//   - Absence of an own-table row fails CLOSED (most restrictive visibility),
+//     never open and never inferred. See `resolvePartition` in
+//     src/kusabi-partitions.ts.
+
+/** Fail-closed default = "private" (most restrictive). */
+export type PartitionVisibility = "private" | "shared";
+
+export interface KusabiPartition {
+  /** Immutable, only identity key (frozen common condition). */
+  agent_id: string;
+  memory_project: string;
+  partition_key: string;
+  default_visibility: PartitionVisibility;
+  retention_policy_ref?: string;
+  recovery_config_ref?: string;
+  source_capture_policy_ref?: string;
+  updated_at: string;
+}
+
+export interface UpsertKusabiPartitionInput {
+  agent_id: string;
+  memory_project: string;
+  partition_key: string;
+  /** Omitted → "private" (fail-closed). Any non-"shared" value → "private". */
+  default_visibility?: PartitionVisibility;
+  retention_policy_ref?: string;
+  recovery_config_ref?: string;
+  source_capture_policy_ref?: string;
+}
+
+export interface GetKusabiPartitionInput {
+  agent_id: string;
+  memory_project: string;
+}
+
 export interface Store {
   /** Initialize the store (create tables/files if needed) */
   initialize(): Promise<void>;
@@ -470,6 +514,21 @@ export interface Store {
 
   /** Return all `status='failed'` rows for an agent+source, ordered by event_at ASC. */
   getFailedCatchUpLogs(agent_id: string, source: "conversation" | "discord"): Promise<CatchUpLog[]>;
+
+  // ─── CELL-4MCP-KUSABI-001: agent memory partition registry ──────────────
+
+  /**
+   * Read this agent's own partition row for a memory_project, or null.
+   * The ONLY sanctioned source for partition/visibility resolution —
+   * see `resolvePartition` (src/kusabi-partitions.ts).
+   */
+  getKusabiPartition(input: GetKusabiPartitionInput): Promise<KusabiPartition | null>;
+
+  /** Upsert (insert or replace) this agent's own partition row, keyed on (agent_id, memory_project). */
+  upsertKusabiPartition(input: UpsertKusabiPartitionInput): Promise<KusabiPartition>;
+
+  /** List all partition rows owned by an agent, newest-updated first. */
+  listKusabiPartitions(agent_id: string): Promise<KusabiPartition[]>;
 
   /** Close connections */
   close(): Promise<void>;

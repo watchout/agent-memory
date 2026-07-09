@@ -35,6 +35,9 @@ import type {
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
   SaveCatchUpLogInput,
+  KusabiPartition,
+  UpsertKusabiPartitionInput,
+  GetKusabiPartitionInput,
 } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".agent-memory");
@@ -45,6 +48,7 @@ const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
 const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
 const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
+const KUSABI_PARTITIONS_FILE = join(DATA_DIR, "kusabi-agent-memory-partitions.json");
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -70,6 +74,7 @@ export class JsonStore implements Store {
   private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
   private catchUpLog: CatchUpLog[] = [];
+  private kusabiPartitions: KusabiPartition[] = [];
 
   async initialize(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
@@ -82,6 +87,7 @@ export class JsonStore implements Store {
     this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
     this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
+    this.kusabiPartitions = await this.loadFile<KusabiPartition>(KUSABI_PARTITIONS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -770,6 +776,63 @@ export class JsonStore implements Store {
           row.status === "failed"
       )
       .sort((a, b) => (a.event_at < b.event_at ? -1 : 1));
+  }
+
+  // ─── Kusabi partition registry (CELL-4MCP-KUSABI-001) ─────────
+
+  private async saveKusabiPartitionsFile(): Promise<void> {
+    await writeFile(KUSABI_PARTITIONS_FILE, JSON.stringify(this.kusabiPartitions, null, 2));
+  }
+
+  async getKusabiPartition(
+    input: GetKusabiPartitionInput
+  ): Promise<KusabiPartition | null> {
+    return (
+      this.kusabiPartitions.find(
+        (p) => p.agent_id === input.agent_id && p.memory_project === input.memory_project
+      ) ?? null
+    );
+  }
+
+  async upsertKusabiPartition(
+    input: UpsertKusabiPartitionInput
+  ): Promise<KusabiPartition> {
+    // Fail-closed: anything other than an explicit "shared" resolves to
+    // "private" (the most restrictive visibility).
+    const visibility = input.default_visibility === "shared" ? "shared" : "private";
+    const now = new Date().toISOString();
+    const existing = this.kusabiPartitions.find(
+      (p) => p.agent_id === input.agent_id && p.memory_project === input.memory_project
+    );
+    if (existing) {
+      existing.partition_key = input.partition_key;
+      existing.default_visibility = visibility;
+      existing.retention_policy_ref = input.retention_policy_ref;
+      existing.recovery_config_ref = input.recovery_config_ref;
+      existing.source_capture_policy_ref = input.source_capture_policy_ref;
+      existing.updated_at = now;
+      await this.saveKusabiPartitionsFile();
+      return existing;
+    }
+    const row: KusabiPartition = {
+      agent_id: input.agent_id,
+      memory_project: input.memory_project,
+      partition_key: input.partition_key,
+      default_visibility: visibility,
+      retention_policy_ref: input.retention_policy_ref,
+      recovery_config_ref: input.recovery_config_ref,
+      source_capture_policy_ref: input.source_capture_policy_ref,
+      updated_at: now,
+    };
+    this.kusabiPartitions.push(row);
+    await this.saveKusabiPartitionsFile();
+    return row;
+  }
+
+  async listKusabiPartitions(agent_id: string): Promise<KusabiPartition[]> {
+    return this.kusabiPartitions
+      .filter((p) => p.agent_id === agent_id)
+      .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   }
 
   async close(): Promise<void> {

@@ -49,6 +49,9 @@ jobs:
       - name: Run SQLite store tests
         run: HOME=$(mktemp -d) npx tsx src/test-sqlite.ts
 
+      - name: Run Kusabi partition lane tests (CELL-4MCP-KUSABI-001)
+        run: HOME=$(mktemp -d) npx tsx src/test-kusabi-partitions.ts
+
       - name: Run boot recovery tests
         run: HOME=$(mktemp -d) npx tsx src/test-boot-recovery.ts
 

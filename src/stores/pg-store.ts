@@ -34,6 +34,9 @@ import type {
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
   SaveCatchUpLogInput,
+  KusabiPartition,
+  UpsertKusabiPartitionInput,
+  GetKusabiPartitionInput,
 } from "./types.js";
 import {
   isVoyageAvailable,
@@ -1162,6 +1165,62 @@ export class PgStore implements Store {
     return [];
   }
 
+  // ─── Kusabi partition registry (CELL-4MCP-KUSABI-001) ─────────
+
+  async getKusabiPartition(
+    input: GetKusabiPartitionInput
+  ): Promise<KusabiPartition | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM kusabi_agent_memory_partitions
+        WHERE agent_id = $1 AND memory_project = $2
+        LIMIT 1`,
+      [input.agent_id, input.memory_project]
+    );
+    return result.rows[0] ? this.rowToKusabiPartition(result.rows[0]) : null;
+  }
+
+  async upsertKusabiPartition(
+    input: UpsertKusabiPartitionInput
+  ): Promise<KusabiPartition> {
+    // Fail-closed: anything other than an explicit "shared" resolves to
+    // "private" (the most restrictive visibility).
+    const visibility = input.default_visibility === "shared" ? "shared" : "private";
+    const result = await this.pool.query(
+      `INSERT INTO kusabi_agent_memory_partitions
+        (agent_id, memory_project, partition_key, default_visibility,
+         retention_policy_ref, recovery_config_ref, source_capture_policy_ref, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+       ON CONFLICT (agent_id, memory_project) DO UPDATE SET
+         partition_key = excluded.partition_key,
+         default_visibility = excluded.default_visibility,
+         retention_policy_ref = excluded.retention_policy_ref,
+         recovery_config_ref = excluded.recovery_config_ref,
+         source_capture_policy_ref = excluded.source_capture_policy_ref,
+         updated_at = now()
+       RETURNING *`,
+      [
+        input.agent_id,
+        input.memory_project,
+        input.partition_key,
+        visibility,
+        input.retention_policy_ref ?? null,
+        input.recovery_config_ref ?? null,
+        input.source_capture_policy_ref ?? null,
+      ]
+    );
+    return this.rowToKusabiPartition(result.rows[0]);
+  }
+
+  async listKusabiPartitions(agent_id: string): Promise<KusabiPartition[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM kusabi_agent_memory_partitions
+        WHERE agent_id = $1
+        ORDER BY updated_at DESC`,
+      [agent_id]
+    );
+    return result.rows.map((row) => this.rowToKusabiPartition(row));
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
@@ -1310,6 +1369,24 @@ export class PgStore implements Store {
         row.expires_at instanceof Date
           ? row.expires_at.toISOString()
           : ((row.expires_at as string | null) ?? undefined),
+    };
+  }
+
+  private rowToKusabiPartition(row: Record<string, unknown>): KusabiPartition {
+    return {
+      agent_id: row.agent_id as string,
+      memory_project: row.memory_project as string,
+      partition_key: row.partition_key as string,
+      default_visibility:
+        (row.default_visibility as string) === "shared" ? "shared" : "private",
+      retention_policy_ref: (row.retention_policy_ref as string | null) ?? undefined,
+      recovery_config_ref: (row.recovery_config_ref as string | null) ?? undefined,
+      source_capture_policy_ref:
+        (row.source_capture_policy_ref as string | null) ?? undefined,
+      updated_at:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : (row.updated_at as string),
     };
   }
 }

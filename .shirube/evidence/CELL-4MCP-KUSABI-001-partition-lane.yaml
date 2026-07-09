@@ -1,0 +1,107 @@
+schema_version: shirube:cell-evidence/v1
+record_id: EVIDENCE-CELL-4MCP-KUSABI-001-PARTITION-LANE
+cell_id: CELL-4MCP-KUSABI-001
+repo: watchout/agent-memory
+dispatch_anchor: https://github.com/watchout/agent-memory/issues/247
+actor_agent_id: agent-mem-dev
+actor_function: implementation_executor
+target_project: agent-memory
+
+authorization_scope: >-
+  planning/control handoff only — NOT schema-migration authorization, NOT
+  runtime-activation authorization. The schema migration in this change set is
+  a protected surface and is submitted for protected_surface_gate review at PR
+  time (schema_migration_authorized: false at handoff).
+
+frozen_conditions_met:
+  - id: own_table_only
+    statement: >-
+      partition/visibility is resolved exclusively from the own
+      kusabi_agent_memory_partitions table; never inferred from shared identity
+      metadata.
+    evidence_ref: src/kusabi-partitions.ts (resolvePartition ignores identity_metadata)
+  - id: fail_closed
+    statement: >-
+      absence of an own-table row fails closed to the most restrictive
+      visibility (private); no partition inferred.
+    evidence_ref: src/test-kusabi-partitions.ts (negative fixture)
+  - id: identity_key
+    statement: agent_id is the immutable, only identity key.
+    evidence_ref: src/stores/pg-migrations.ts + src/stores/sqlite-store.ts (PRIMARY KEY (agent_id, memory_project))
+  - id: standalone
+    statement: partition CRUD + resolution work with zero peer MCPs on the OSS-default backend.
+    evidence_ref: src/test-kusabi-partitions.ts (standalone fixtures, SqliteStore + JsonStore + createStore default)
+  - id: no_cross_mcp_writes
+    statement: no writes to peer MCP repos or peer MCP tables; all changes confined to watchout/agent-memory.
+    evidence_ref: git diff (only agent-memory files touched)
+
+fixtures:
+  standalone:
+    status: green
+    ref: src/test-kusabi-partitions.ts
+    backends: [sqlite, json, createStore-default]
+  negative:
+    status: green
+    ref: src/test-kusabi-partitions.ts
+    assertion: partition inference from identity metadata fails closed (visibility=private, partition_key=null)
+  regression:
+    status: green
+    note: existing suites unaffected — test.ts 1221 passed, test-sqlite.ts 162 passed, tsc --noEmit clean.
+
+# design_judgments[] — required by the lane handoff. Every item carries a
+# basis_ref. An empty list would be an explicit attestation of "none"; this
+# lane required judgments within the "concrete file layout is an implementer
+# open decision within this repo" latitude, all listed below.
+design_judgments:
+  - id: composite_primary_key
+    judgment: >-
+      Primary key is (agent_id, memory_project) rather than agent_id alone, so a
+      single agent can own one partition config per memory_project while agent_id
+      remains the sole identity dimension.
+    basis_ref: >-
+      Lane pack "key = agent_id (immutable, only identity key)" + memory_project
+      being a first-class column; "concrete file layout is an implementer open
+      decision within this repo" (issue #247 handoff terms).
+  - id: visibility_enum
+    judgment: >-
+      default_visibility is a two-value enum {private, shared} with private as
+      the fail-closed default; any non-"shared" input coerces to private.
+    basis_ref: >-
+      Lane pack fail-closed principle ("unknown ... fails closed"); no explicit
+      visibility vocabulary was frozen, so the minimal restrictive-by-default set
+      was chosen.
+  - id: resolver_module_boundary
+    judgment: >-
+      The own-table-only boundary lives in a single standalone resolver
+      (src/kusabi-partitions.ts) that accepts but never reads identity_metadata,
+      keeping the frozen boundary in one auditable place separate from storage.
+    basis_ref: >-
+      Lane pack "partition/visibility NEVER inferred from shared identity
+      metadata — only from own table"; mirrors existing catch-up.ts standalone-
+      function pattern.
+  - id: suite_sync_deferred
+    judgment: >-
+      SuiteEvent/v1 suite-sync ingestion (dedupe by event_id, HOLD orphan profile
+      events, monotonic (occurred_at,row_version) conflict guard, fail-closed on
+      unknown contract_version) is NOT implemented in this PR, and the frozen
+      column list is kept exactly as specified (no row_version / event_id column
+      added). Deferred to a dedicated follow-up PR because the sync surface is a
+      cross-MCP published contract (WS-1 orchestration) beyond the frozen column
+      set, and this PR was scoped by the operator to table + standalone +
+      negative fixtures.
+    basis_ref: >-
+      issue #247 Lane 3 fixtures line ("standalone; negative"); frozen column list
+      (no row_version); operator dispatch scoping the PR to table + standalone +
+      negative. Flagged for suite-lead / protected_surface_gate visibility.
+
+protected_surface:
+  schema_migration_authorized: false
+  gate_required: protected_surface_gate
+  migration_refs:
+    - src/stores/pg-migrations.ts (kusabi_agent_memory_partitions)
+    - src/stores/sqlite-store.ts (MIGRATIONS)
+  new_tables: [kusabi_agent_memory_partitions]
+
+stop_conditions_encountered: none
+escalations: none
+created_at: "2026-07-09T00:00:00+09:00"
