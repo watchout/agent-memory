@@ -36,6 +36,9 @@ import type {
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
   SaveCatchUpLogInput,
+  KusabiPartition,
+  UpsertKusabiPartitionInput,
+  GetKusabiPartitionInput,
 } from "./types.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
@@ -211,6 +214,24 @@ const MIGRATIONS = [
     ON catch_up_log(agent_id, content_hash, event_at)`,
   `CREATE INDEX IF NOT EXISTS idx_catch_up_log_recent
     ON catch_up_log(agent_id, source, event_at DESC)`,
+
+  // ─── CELL-4MCP-KUSABI-001: agent memory partition registry ──────────────
+  // Mirror of the PG schema in pg-migrations.ts. agent_id is the immutable,
+  // only identity key; partition/visibility are resolved ONLY from this table
+  // (never inferred from shared identity metadata). Dispatch anchor: #247.
+  `CREATE TABLE IF NOT EXISTS kusabi_agent_memory_partitions (
+    agent_id TEXT NOT NULL,
+    memory_project TEXT NOT NULL,
+    partition_key TEXT NOT NULL,
+    default_visibility TEXT NOT NULL DEFAULT 'private',
+    retention_policy_ref TEXT,
+    recovery_config_ref TEXT,
+    source_capture_policy_ref TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (agent_id, memory_project)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_partitions_agent
+    ON kusabi_agent_memory_partitions(agent_id, updated_at DESC)`,
 
 ];
 
@@ -1425,6 +1446,93 @@ export class SqliteStore implements Store {
     return rows.map((row) => this.rowToCatchUpLog(row));
   }
 
+  // ─── Kusabi partition registry (CELL-4MCP-KUSABI-001) ─────────
+
+  async getKusabiPartition(
+    input: GetKusabiPartitionInput
+  ): Promise<KusabiPartition | null> {
+    const rows = this.allRows(
+      `SELECT * FROM kusabi_agent_memory_partitions
+        WHERE agent_id = ? AND memory_project = ?
+        LIMIT 1`,
+      [input.agent_id, input.memory_project]
+    );
+    return rows[0] ? this.rowToKusabiPartition(rows[0]) : null;
+  }
+
+  async upsertKusabiPartition(
+    input: UpsertKusabiPartitionInput
+  ): Promise<KusabiPartition> {
+    // Fail-closed: anything other than an explicit "shared" resolves to
+    // "private" (the most restrictive visibility).
+    const visibility = input.default_visibility === "shared" ? "shared" : "private";
+    const now = nowIso();
+    // sql.js default build has no reliable ON CONFLICT...DO UPDATE, so we
+    // mirror saveTaskState's explicit check-then-INSERT/UPDATE dispatch.
+    const existing = this.allRows(
+      `SELECT 1 FROM kusabi_agent_memory_partitions
+        WHERE agent_id = ? AND memory_project = ?`,
+      [input.agent_id, input.memory_project]
+    );
+    if (existing.length > 0) {
+      this.db.run(
+        `UPDATE kusabi_agent_memory_partitions
+            SET partition_key = ?, default_visibility = ?,
+                retention_policy_ref = ?, recovery_config_ref = ?,
+                source_capture_policy_ref = ?, updated_at = ?
+          WHERE agent_id = ? AND memory_project = ?`,
+        [
+          input.partition_key,
+          visibility,
+          input.retention_policy_ref ?? null,
+          input.recovery_config_ref ?? null,
+          input.source_capture_policy_ref ?? null,
+          now,
+          input.agent_id,
+          input.memory_project,
+        ]
+      );
+    } else {
+      this.db.run(
+        `INSERT INTO kusabi_agent_memory_partitions
+          (agent_id, memory_project, partition_key, default_visibility,
+           retention_policy_ref, recovery_config_ref, source_capture_policy_ref, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.agent_id,
+          input.memory_project,
+          input.partition_key,
+          visibility,
+          input.retention_policy_ref ?? null,
+          input.recovery_config_ref ?? null,
+          input.source_capture_policy_ref ?? null,
+          now,
+        ]
+      );
+    }
+    this.persist();
+    return {
+      agent_id: input.agent_id,
+      memory_project: input.memory_project,
+      partition_key: input.partition_key,
+      default_visibility: visibility,
+      retention_policy_ref: input.retention_policy_ref,
+      recovery_config_ref: input.recovery_config_ref,
+      source_capture_policy_ref: input.source_capture_policy_ref,
+      updated_at: now,
+    };
+  }
+
+  async listKusabiPartitions(agent_id: string): Promise<KusabiPartition[]> {
+    const rows = this.allRows(
+      `SELECT * FROM kusabi_agent_memory_partitions
+        WHERE agent_id = ?
+        ORDER BY updated_at DESC`,
+      [agent_id]
+    );
+    return rows.map((row) => this.rowToKusabiPartition(row));
+  }
+
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async close(): Promise<void> {
@@ -1549,6 +1657,21 @@ export class SqliteStore implements Store {
       content_preview: (row.content_preview as string | null) ?? undefined,
       event_at: row.event_at as string,
       created_at: row.created_at as string,
+    };
+  }
+
+  private rowToKusabiPartition(row: Record<string, unknown>): KusabiPartition {
+    return {
+      agent_id: row.agent_id as string,
+      memory_project: row.memory_project as string,
+      partition_key: row.partition_key as string,
+      default_visibility:
+        (row.default_visibility as string) === "shared" ? "shared" : "private",
+      retention_policy_ref: (row.retention_policy_ref as string | null) ?? undefined,
+      recovery_config_ref: (row.recovery_config_ref as string | null) ?? undefined,
+      source_capture_policy_ref:
+        (row.source_capture_policy_ref as string | null) ?? undefined,
+      updated_at: row.updated_at as string,
     };
   }
 

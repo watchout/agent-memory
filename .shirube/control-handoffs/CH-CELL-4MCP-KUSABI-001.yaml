@@ -1,0 +1,108 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-CELL-4MCP-KUSABI-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/247
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop and require suite-lead (coordination_recorder) routing if this PR would
+  move beyond the frozen CELL-4MCP-KUSABI-001 lane pack: any peer-MCP write,
+  partition/visibility inference from shared identity metadata, runtime
+  activation, schema-migration execution claim, package identity, env var,
+  workflow enforcement, or deployment change.
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/247
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: evidence_audit_gate
+
+rps_scope:
+  shirube_owns:
+    - Rapid/Lite evidence contract for the CELL-4MCP-KUSABI-001 partition-lane PR.
+    - Diff-scope, validation, exact-head, and owner-decision evidence checks.
+  shirube_does_not_own:
+    - Runtime behavior beyond the frozen lane pack.
+    - Workflow enforcement, branch protection, deployment, package identity,
+      MCP namespace, env vars, or suite integration.
+
+cell:
+  CELL-ID: CELL-4MCP-KUSABI-001
+  cell_type: implementation
+  risk_class: R3
+  goal: Implement kusabi_agent_memory_partitions per SPEC-4MCP-002 v0.2 frozen
+    lane pack — own-table-only partition/visibility resolution with fail-closed
+    negative fixtures; schema migration remains protected_surface_gate work at PR review.
+  acceptance_criteria:
+    - kusabi_agent_memory_partitions exists across supported stores, keyed on
+      (agent_id, memory_project), agent_id immutable identity key, columns per Contract.
+    - Partition/visibility resolve ONLY from the own table; identity metadata is
+      never read for inference; absent row fails closed to private.
+    - Standalone fixtures pass with zero peer MCPs.
+    - Negative fixture proves identity-metadata inference fails closed.
+    - Evidence bundle carries design_judgments[] (empty = explicit attestation).
+    - Schema migration is flagged protected_surface_gate; no migration execution claimed.
+  protected_surfaces:
+    - schema migration (kusabi_agent_memory_partitions DDL)
+  allowed_paths:
+    - src/**
+    - tests/**
+    - .shirube/control-handoffs/CH-CELL-4MCP-KUSABI-001.yaml
+    - .shirube/cells/**
+    - .shirube/evidence/**
+    - docs/**
+  forbidden_paths:
+    - .github/workflows/**
+    - .github/branch-protection/**
+    - .github/rulesets/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+  non_scope:
+    - peer MCP table writes
+    - partition/visibility inference from shared identity metadata
+    - runtime activation
+    - schema migration execution
+    - MCP namespace / package identity change
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - any E1-E5 condition or judgment_required
+    - partition inference from identity metadata detected
+    - schema migration executed rather than flagged
+    - owner approval claimed before evidence_audit_gate completion
+
+validation:
+  required_commands:
+    - git diff --check
+    - npm test
+    - npm run build
+    - npx tsc --noEmit
+  required_evidence:
+    - pr_head_sha
+    - changed_files
+    - validation_commands
+    - validation_results
+    - design_judgments
+
+owner_decision:
+  required_before_merge: true
+  blocked_until:
+    - evidence_audit_gate_complete
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+
+next_action:
+  blocking: false
+  actor: implementation_executor
+  action: Commit this mirror verbatim on the PR 249 branch, re-run the gate, then
+    route the PR to evidence_audit_gate.
+  deliverable: PR 249 with green rapid-lite-gate and audit routing comment.

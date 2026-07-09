@@ -313,4 +313,25 @@ export const PG_MIGRATIONS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_selected_restart_packs_agent
      ON selected_restart_packs (agent_id, status, created_at DESC)`,
+
+  // ─── CELL-4MCP-KUSABI-001: agent memory partition registry ──────────────
+  // Lane 3 (Kusabi) of SPEC-4MCP-002. This MCP's OWN table — the single
+  // source of truth for partition + visibility. agent_id is the immutable,
+  // only identity key. Partition/visibility are NEVER inferred from shared
+  // identity metadata held by peer MCPs (see src/kusabi-partitions.ts).
+  // Dispatch anchor: watchout/agent-memory#247. Schema migration is a
+  // protected surface — reviewed via protected_surface_gate at PR time.
+  `CREATE TABLE IF NOT EXISTS kusabi_agent_memory_partitions (
+    agent_id TEXT NOT NULL,
+    memory_project TEXT NOT NULL,
+    partition_key TEXT NOT NULL,
+    default_visibility TEXT NOT NULL DEFAULT 'private',
+    retention_policy_ref TEXT,
+    recovery_config_ref TEXT,
+    source_capture_policy_ref TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (agent_id, memory_project)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_partitions_agent
+     ON kusabi_agent_memory_partitions (agent_id, updated_at DESC)`,
 ];
