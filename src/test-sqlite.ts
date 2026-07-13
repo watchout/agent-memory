@@ -917,6 +917,47 @@ async function testRestartEventsParity() {
   const ordered = await store.getRestartEvents({ agent_id: AGENT, project: PROJECT, limit: 2 });
   assert(ordered[0].event_id === "restart-parity:002", "KR-008: SQLite restart events order by created_at DESC, event_id DESC");
   assert(ordered[1].event_id === "restart-parity:001", "KR-008: SQLite restart events expose stable event_id ordering");
+
+  const authority = await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:sqlite-parity",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host_id: "host-a",
+    session_id: "session-a",
+    host_adapter_id: "adapter-a",
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-a",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: createdAt,
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:sqlite-parity",
+  });
+  const fetchedAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(fetchedAuthority?.schema_version === "restart_runtime_authority/v1", "KR-006: SQLite runtime authority schema round-trips");
+  assert(fetchedAuthority?.issued_at === createdAt, "KR-006: SQLite runtime authority issued_at round-trips");
+  assert(fetchedAuthority?.provenance_ref === "owner_decision:sqlite-parity", "KR-006: SQLite runtime authority provenance round-trips");
+
+  const adapter = await store.saveRestartHostAdapter({
+    host_adapter_id: "adapter-a",
+    runtime: "claude",
+    canonical_path: "/tmp/wasurezu-claude-start",
+    executable_sha256: "a".repeat(64),
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "owner_decision:adapter-a",
+    provenance_ref: "owner_decision:adapter-a",
+  });
+  const fetchedAdapter = await store.getRestartHostAdapter({ host_adapter_id: adapter.host_adapter_id });
+  assert(fetchedAdapter?.runtime === "claude", "KR-005: SQLite host adapter runtime round-trips");
+  assert(fetchedAdapter?.state === "active", "KR-005: SQLite host adapter state round-trips");
+  assert(fetchedAdapter?.owner_decision_ref === "owner_decision:adapter-a", "KR-005: SQLite host adapter owner decision round-trips");
 }
 
 async function testClaudeConversationIngest() {

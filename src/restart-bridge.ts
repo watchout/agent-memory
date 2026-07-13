@@ -6,10 +6,9 @@ import pg from "pg";
 import {
   preflightRestartCommand,
   type RestartCommandPreflightResult,
-  type RestartHostAdapterRegistry,
 } from "./restart-command-preflight.js";
 import type { RestartRequiredMarker, RestartRequiredMarkerV2 } from "./context-restart-marker.js";
-import type { RestartEvent, Store } from "./stores/types.js";
+import type { RestartEvent, RestartRuntimeAuthority, Store } from "./stores/types.js";
 
 const { Pool } = pg;
 
@@ -26,24 +25,6 @@ export interface QueueDrainCheckResult {
   failure_reason?: string;
 }
 
-export interface RestartRuntimeAuthority {
-  lifecycle_mode: RestartLifecycleMode;
-  agent_id: string;
-  project?: string;
-  seat_id?: string;
-  host_id: string;
-  session_id: string;
-  host_adapter_id: string;
-  supervisor_id?: string;
-  supervisor_available?: boolean;
-  restart_preauthorized: boolean;
-  authority_ref: string;
-  issued_at?: string;
-  expires_at: string;
-  row_version: number;
-  aun_absent_confirmed?: boolean;
-}
-
 export interface RestartBridgeInput {
   store: Store;
   agentId: string;
@@ -52,14 +33,12 @@ export interface RestartBridgeInput {
   markerDir?: string;
   restartCommand?: string;
   restartArgv?: readonly string[];
-  restartPreauthorized?: boolean;
   execute?: boolean;
   env?: NodeJS.ProcessEnv;
   agentCommsDatabaseUrl?: string;
   queueDrainCheck?: (agentId: string) => Promise<QueueDrainCheckResult>;
-  runtimeAuthority?: RestartRuntimeAuthority;
+  runtimeAuthorityRef?: string;
   hostAdapterId?: string;
-  adapterRegistry?: RestartHostAdapterRegistry;
   now?: string | Date;
   markerMaxAgeSeconds?: number;
   markerFutureSkewSeconds?: number;
@@ -96,10 +75,16 @@ interface LifecycleEvaluation {
   queueCheck: QueueDrainCheckResult | null;
 }
 
+interface RuntimeAuthorityResolution {
+  authority: RestartRuntimeAuthority | null;
+  failure_reason: string | null;
+}
+
 export async function runRestartBridge(input: RestartBridgeInput): Promise<RestartBridgeResult> {
   const now = asDate(input.now);
   const dryRun = input.execute !== true;
-  const loadedResult = loadExecutableMarker(input, now);
+  const runtimeAuthority = await resolveRuntimeAuthority(input, now);
+  const loadedResult = loadExecutableMarker(input, now, runtimeAuthority.authority, runtimeAuthority.failure_reason);
   if (loadedResult.status !== "loaded") {
     const markerStatus = loadedResult.status === "missing" ? "missing" : "invalid";
     const event = await saveRawRestartEvent(input, {
@@ -127,6 +112,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
 
   const loaded = loadedResult.loaded;
   const marker = loaded.marker;
+  const authority = runtimeAuthority.authority!;
   if (marker.status === "restart_not_required" && marker.restart_required === false) {
     const event = await saveBridgeEvent(input, loaded, {
       action: "bridge_marker_not_required",
@@ -136,6 +122,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason: "marker_not_restart_required",
       postState: { skipped: true },
       phase: "not_required",
+      authority,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -151,14 +138,28 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
     };
   }
 
-  const hostAdapterId = input.hostAdapterId ?? input.runtimeAuthority?.host_adapter_id ?? marker.host_adapter_id;
+  const hostAdapterId = input.hostAdapterId ?? authority.host_adapter_id;
+  if (hostAdapterId !== authority.host_adapter_id) {
+    const event = await saveBridgeEvent(input, loaded, {
+      action: "restart_blocked",
+      command: null,
+      queueCheck: null,
+      executedRestart: false,
+      failureReason: "restart_adapter_identity_mismatch",
+      postState: { blocked: true },
+      phase: "preflight_block",
+      authority,
+    });
+    return blockedResult(input, loaded, null, null, event, "restart_adapter_identity_mismatch");
+  }
+  const hostAdapter = await input.store.getRestartHostAdapter({ host_adapter_id: hostAdapterId });
   const command = preflightRestartCommand({
     command: input.restartCommand,
     argv: input.restartArgv,
-    restartPreauthorized: input.runtimeAuthority?.restart_preauthorized ?? input.restartPreauthorized,
+    restartPreauthorized: authority.restart_preauthorized,
     env: input.env,
     hostAdapterId,
-    adapterRegistry: input.adapterRegistry,
+    hostAdapter: hostAdapter ?? undefined,
   });
   if (command.status === "fail") {
     const failureReason = command.reasons[0] ?? "restart_command_preflight_failed";
@@ -170,14 +171,15 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason,
       postState: { blocked: true },
       phase: "preflight_block",
+      authority,
     });
     return blockedResult(input, loaded, command, null, event, failureReason);
   }
 
-  const lifecycle = await evaluateLifecycleAuthority(input, loaded, now);
-  if (!lifecycle.allowed || (input.execute === true && input.runtimeAuthority?.lifecycle_mode === "aun_supervised")) {
+  const lifecycle = await evaluateLifecycleAuthority(input, loaded, authority);
+  if (!lifecycle.allowed || (input.execute === true && authority.lifecycle_mode === "aun_supervised")) {
     const failureReason = lifecycle.failure_reason
-      ?? (input.runtimeAuthority?.lifecycle_mode === "aun_supervised" ? "aun_supervised_local_restart_forbidden" : "lifecycle_authority_unknown_or_blocked");
+      ?? (authority.lifecycle_mode === "aun_supervised" ? "aun_supervised_local_restart_forbidden" : "lifecycle_authority_unknown_or_blocked");
     const event = await saveBridgeEvent(input, loaded, {
       action: "restart_blocked",
       command,
@@ -186,11 +188,12 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason,
       postState: { blocked: true },
       phase: "lifecycle_block",
+      authority,
     });
     return blockedResult(input, loaded, command, lifecycle.queueCheck, event, failureReason);
   }
 
-  const claim = await claimMarker(input, loaded);
+  const claim = await claimMarker(input, loaded, authority);
   if (claim.failure_reason) {
     const event = await saveBridgeEvent(input, loaded, {
       action: "restart_blocked",
@@ -200,6 +203,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason: claim.failure_reason,
       postState: { blocked: true, claim_event_id: claim.event.event_id ?? null },
       phase: "claim_block",
+      authority,
     });
     return blockedResult(input, loaded, command, lifecycle.queueCheck, event, claim.failure_reason);
   }
@@ -213,6 +217,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       postState: { dry_run: true, claim_event_id: claim.event.event_id ?? null },
       phase: "dry_run",
       eventIdPrefix: "restart-marker-dry-run",
+      authority,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -236,15 +241,16 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
     postState: { spawn_intent: true, claim_event_id: claim.event.event_id ?? null },
     phase: "spawn_intent",
     eventIdPrefix: "restart-marker-spawn-intent",
+    authority,
   });
 
   const immediateCommand = preflightRestartCommand({
     command: input.restartCommand,
     argv: input.restartArgv,
-    restartPreauthorized: input.runtimeAuthority?.restart_preauthorized ?? input.restartPreauthorized,
+    restartPreauthorized: authority.restart_preauthorized,
     env: input.env,
     hostAdapterId,
-    adapterRegistry: input.adapterRegistry,
+    hostAdapter: hostAdapter ?? undefined,
   });
   if (immediateCommand.status === "fail") {
     const failureReason = immediateCommand.reasons[0] ?? "restart_adapter_preflight_drift";
@@ -256,6 +262,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason,
       postState: { blocked: true, post_claim: true },
       phase: "pre_spawn_block",
+      authority,
     });
     return blockedResult(input, loaded, immediateCommand, lifecycle.queueCheck, event, failureReason);
   }
@@ -270,6 +277,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       postState: { executed: true },
       phase: "terminal",
       eventIdPrefix: "restart-marker-terminal",
+      authority,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -294,6 +302,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       postState: { executed: false, invocation_unknown: true },
       phase: "terminal",
       eventIdPrefix: "restart-marker-terminal",
+      authority,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -362,12 +371,69 @@ export async function checkAgentCommsQueueDrain(input: {
   }
 }
 
-function loadExecutableMarker(input: RestartBridgeInput, now: Date): MarkerLoadResult {
-  const authority = input.runtimeAuthority;
+async function resolveRuntimeAuthority(input: RestartBridgeInput, now: Date): Promise<RuntimeAuthorityResolution> {
+  const authorityRef = input.runtimeAuthorityRef?.trim();
+  if (!authorityRef) {
+    return { authority: null, failure_reason: "runtime_authority_missing" };
+  }
+  const authority = await input.store.getRestartRuntimeAuthority({
+    agent_id: input.agentId,
+    authority_ref: authorityRef,
+  });
+  if (!authority) {
+    return { authority: null, failure_reason: "runtime_authority_not_found" };
+  }
+  const failure = validateRuntimeAuthorityRecord(authority, input, now);
+  return { authority: failure ? null : authority, failure_reason: failure };
+}
+
+function validateRuntimeAuthorityRecord(
+  authority: RestartRuntimeAuthority,
+  input: RestartBridgeInput,
+  now: Date
+): string | null {
+  if (authority.schema_version !== "restart_runtime_authority/v1") return "runtime_authority_schema_invalid";
+  if (authority.agent_id !== input.agentId) return "runtime_authority_identity_invalid";
+  if (input.project !== undefined && authority.project !== input.project) return "runtime_authority_identity_invalid";
+  const required = [
+    authority.authority_ref,
+    authority.host_id,
+    authority.session_id,
+    authority.host_adapter_id,
+    authority.provenance_ref,
+  ];
+  if (required.some((value) => typeof value !== "string" || value.trim() === "")) {
+    return "runtime_authority_provenance_invalid";
+  }
+  if (!Number.isInteger(authority.row_version) || authority.row_version < 1) {
+    return "runtime_authority_provenance_invalid";
+  }
+  if (!strictUtc(authority.issued_at) || Date.parse(authority.issued_at) > now.getTime()) {
+    return "runtime_authority_issued_at_invalid";
+  }
+  if (!strictUtc(authority.expires_at) || Date.parse(authority.expires_at) <= now.getTime()) {
+    return "runtime_authority_expired_or_invalid";
+  }
+  if (
+    authority.lifecycle_mode !== "aun_supervised" &&
+    authority.lifecycle_mode !== "standalone_supervisor" &&
+    authority.lifecycle_mode !== "pure_mcp"
+  ) {
+    return "runtime_authority_lifecycle_invalid";
+  }
+  return null;
+}
+
+function loadExecutableMarker(
+  input: RestartBridgeInput,
+  now: Date,
+  authority: RestartRuntimeAuthority | null,
+  authorityFailure: string | null
+): MarkerLoadResult {
   if (input.markerPath) {
     const loaded = loadMarkerFile(input.markerPath);
     if (loaded.status !== "loaded") return loaded;
-    const validation = validateMarker(loaded.loaded.marker, authority, now, input);
+    const validation = validateMarker(loaded.loaded.marker, authority, authorityFailure, now, input);
     if (validation) {
       return { status: "invalid", failure_reason: validation, marker_path: loaded.loaded.path, marker: loaded.loaded.marker };
     }
@@ -391,7 +457,7 @@ function loadExecutableMarker(input: RestartBridgeInput, now: Date): MarkerLoadR
     const path = join(dir, file);
     const loaded = loadMarkerFile(path);
     if (loaded.status !== "loaded") return loaded;
-    const validation = validateMarker(loaded.loaded.marker, authority, now, input);
+    const validation = validateMarker(loaded.loaded.marker, authority, authorityFailure, now, input);
     if (validation === "stale_or_missing_marker") {
       sawStale = true;
       continue;
@@ -455,7 +521,8 @@ function loadMarkerFile(path: string): MarkerLoadResult {
 
 function validateMarker(
   marker: Partial<RestartRequiredMarker>,
-  authority: RestartRuntimeAuthority | undefined,
+  authority: RestartRuntimeAuthority | null,
+  authorityFailure: string | null,
   now: Date,
   input: RestartBridgeInput
 ): string | null {
@@ -484,6 +551,7 @@ function validateMarker(
   if (!isUuidV7Like(v2.marker_id!)) return "restart_marker_identity_invalid";
   if (!strictUtc(v2.generated_at!)) return "restart_marker_generated_at_invalid";
 
+  if (authorityFailure) return authorityFailure;
   if (!authority) return "runtime_authority_missing";
   const expectedProject = authority.project ?? input.project;
   const identityMismatch =
@@ -507,10 +575,8 @@ function validateMarker(
 async function evaluateLifecycleAuthority(
   input: RestartBridgeInput,
   loaded: LoadedMarker,
-  now: Date
+  authority: RestartRuntimeAuthority
 ): Promise<LifecycleEvaluation> {
-  const authority = input.runtimeAuthority;
-  if (!authority) return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
   if (authority.agent_id !== input.agentId || authority.agent_id !== loaded.marker.agent_id) {
     return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
   }
@@ -523,10 +589,6 @@ async function evaluateLifecycleAuthority(
   if (!authority.restart_preauthorized || !authority.authority_ref || !Number.isInteger(authority.row_version)) {
     return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
   }
-  if (!strictUtc(authority.expires_at) || Date.parse(authority.expires_at) <= now.getTime()) {
-    return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
-  }
-
   if (authority.lifecycle_mode === "pure_mcp") {
     return {
       allowed: false,
@@ -571,7 +633,11 @@ async function evaluateLifecycleAuthority(
   };
 }
 
-async function claimMarker(input: RestartBridgeInput, loaded: LoadedMarker): Promise<{ event: RestartEvent; failure_reason: string | null }> {
+async function claimMarker(
+  input: RestartBridgeInput,
+  loaded: LoadedMarker,
+  authority: RestartRuntimeAuthority
+): Promise<{ event: RestartEvent; failure_reason: string | null }> {
   const payload = claimPayload(loaded);
   const payloadDigest = sha256(canonicalJson(payload));
   const event = await saveBridgeEvent(input, loaded, {
@@ -583,6 +649,7 @@ async function claimMarker(input: RestartBridgeInput, loaded: LoadedMarker): Pro
     phase: "claim",
     eventIdPrefix: "restart-marker-claim",
     payloadDigest,
+    authority,
   });
   if (event.metadata.inserted === true) return { event, failure_reason: null };
   if (event.metadata.collision === true) return { event, failure_reason: "event_id_collision" };
@@ -633,6 +700,7 @@ async function saveBridgeEvent(
     phase: string;
     eventIdPrefix?: string;
     payloadDigest?: string;
+    authority?: RestartRuntimeAuthority;
   }
 ): Promise<RestartEvent> {
   const marker = loaded.marker;
@@ -687,7 +755,9 @@ async function saveBridgeEvent(
       queue_in_flight_queue_ids: outcome.queueCheck?.in_flight_queue_ids ?? [],
       dry_run: input.execute !== true,
       marker_schema_version: marker.schema_version,
-      runtime_lifecycle_mode: input.runtimeAuthority?.lifecycle_mode ?? null,
+      runtime_authority_ref: outcome.authority?.authority_ref ?? input.runtimeAuthorityRef ?? null,
+      runtime_lifecycle_mode: outcome.authority?.lifecycle_mode ?? null,
+      runtime_authority_provenance_ref: outcome.authority?.provenance_ref ?? null,
     },
   });
 }
@@ -723,7 +793,8 @@ async function saveRawRestartEvent(
     post_state: outcome.postState ?? {},
     metadata: {
       dry_run: input.execute !== true,
-      runtime_lifecycle_mode: input.runtimeAuthority?.lifecycle_mode ?? null,
+      runtime_authority_ref: input.runtimeAuthorityRef ?? null,
+      runtime_lifecycle_mode: null,
     },
   });
 }

@@ -37,6 +37,12 @@ import type {
   ConsumeSelectedRestartPackInput,
   SaveRestartEventInput,
   GetRestartEventsInput,
+  RestartRuntimeAuthority,
+  SaveRestartRuntimeAuthorityInput,
+  GetRestartRuntimeAuthorityInput,
+  RestartHostAdapter,
+  SaveRestartHostAdapterInput,
+  GetRestartHostAdapterInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -51,6 +57,8 @@ const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
 const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
 const RESTART_EVENTS_FILE = join(DATA_DIR, "restart-events.json");
+const RESTART_RUNTIME_AUTHORITIES_FILE = join(DATA_DIR, "restart-runtime-authorities.json");
+const RESTART_HOST_ADAPTERS_FILE = join(DATA_DIR, "restart-host-adapters.json");
 const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
 const KUSABI_PARTITIONS_FILE = join(DATA_DIR, "kusabi-agent-memory-partitions.json");
 
@@ -78,6 +86,8 @@ export class JsonStore implements Store {
   private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
   private restartEvents: RestartEvent[] = [];
+  private restartRuntimeAuthorities: RestartRuntimeAuthority[] = [];
+  private restartHostAdapters: RestartHostAdapter[] = [];
   private catchUpLog: CatchUpLog[] = [];
   private kusabiPartitions: KusabiPartition[] = [];
 
@@ -92,6 +102,8 @@ export class JsonStore implements Store {
     this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
     this.restartEvents = await this.loadFile<RestartEvent>(RESTART_EVENTS_FILE);
+    this.restartRuntimeAuthorities = await this.loadFile<RestartRuntimeAuthority>(RESTART_RUNTIME_AUTHORITIES_FILE);
+    this.restartHostAdapters = await this.loadFile<RestartHostAdapter>(RESTART_HOST_ADAPTERS_FILE);
     this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
     this.kusabiPartitions = await this.loadFile<KusabiPartition>(KUSABI_PARTITIONS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
@@ -438,6 +450,14 @@ export class JsonStore implements Store {
     await writeFile(RESTART_EVENTS_FILE, JSON.stringify(this.restartEvents, null, 2));
   }
 
+  private async saveRestartRuntimeAuthoritiesFile(): Promise<void> {
+    await writeFile(RESTART_RUNTIME_AUTHORITIES_FILE, JSON.stringify(this.restartRuntimeAuthorities, null, 2));
+  }
+
+  private async saveRestartHostAdaptersFile(): Promise<void> {
+    await writeFile(RESTART_HOST_ADAPTERS_FILE, JSON.stringify(this.restartHostAdapters, null, 2));
+  }
+
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
@@ -710,6 +730,80 @@ export class JsonStore implements Store {
       return (b.event_id ?? b.id).localeCompare(a.event_id ?? a.id);
     });
     return results.slice(0, input.limit ?? 20);
+  }
+
+  async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    const now = new Date().toISOString();
+    const existing = this.restartRuntimeAuthorities.find(
+      (authority) => authority.agent_id === input.agent_id && authority.authority_ref === input.authority_ref
+    );
+    const record: RestartRuntimeAuthority = {
+      schema_version: "restart_runtime_authority/v1",
+      authority_ref: input.authority_ref,
+      agent_id: input.agent_id,
+      project: input.project,
+      seat_id: input.seat_id,
+      host_id: input.host_id,
+      session_id: input.session_id,
+      host_adapter_id: input.host_adapter_id,
+      lifecycle_mode: input.lifecycle_mode,
+      supervisor_id: input.supervisor_id,
+      supervisor_available: input.supervisor_available,
+      restart_preauthorized: input.restart_preauthorized,
+      issued_at: input.issued_at,
+      expires_at: input.expires_at,
+      row_version: input.row_version,
+      aun_absent_confirmed: input.aun_absent_confirmed,
+      provenance_ref: input.provenance_ref,
+      created_at: input.created_at ?? existing?.created_at ?? now,
+      updated_at: input.updated_at ?? now,
+    };
+    if (existing) {
+      Object.assign(existing, record);
+    } else {
+      this.restartRuntimeAuthorities.push(record);
+    }
+    await this.saveRestartRuntimeAuthoritiesFile();
+    return record;
+  }
+
+  async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
+    return this.restartRuntimeAuthorities.find(
+      (authority) => authority.agent_id === input.agent_id && authority.authority_ref === input.authority_ref
+    ) ?? null;
+  }
+
+  async saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter> {
+    const now = new Date().toISOString();
+    const existing = this.restartHostAdapters.find(
+      (adapter) => adapter.host_adapter_id === input.host_adapter_id
+    );
+    const record: RestartHostAdapter = {
+      schema_version: "restart_host_adapter/v1",
+      host_adapter_id: input.host_adapter_id,
+      runtime: input.runtime,
+      canonical_path: input.canonical_path,
+      executable_sha256: input.executable_sha256,
+      allowed_argv: input.allowed_argv ?? [],
+      state: input.state,
+      owner_decision_ref: input.owner_decision_ref,
+      provenance_ref: input.provenance_ref,
+      created_at: input.created_at ?? existing?.created_at ?? now,
+      updated_at: input.updated_at ?? now,
+    };
+    if (existing) {
+      Object.assign(existing, record);
+    } else {
+      this.restartHostAdapters.push(record);
+    }
+    await this.saveRestartHostAdaptersFile();
+    return record;
+  }
+
+  async getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null> {
+    return this.restartHostAdapters.find(
+      (adapter) => adapter.host_adapter_id === input.host_adapter_id
+    ) ?? null;
   }
 
   async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge> {

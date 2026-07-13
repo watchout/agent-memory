@@ -36,6 +36,12 @@ import type {
   ConsumeSelectedRestartPackInput,
   SaveRestartEventInput,
   GetRestartEventsInput,
+  RestartRuntimeAuthority,
+  SaveRestartRuntimeAuthorityInput,
+  GetRestartRuntimeAuthorityInput,
+  RestartHostAdapter,
+  SaveRestartHostAdapterInput,
+  GetRestartHostAdapterInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -1086,6 +1092,112 @@ export class PgStore implements Store {
     return result.rows.map(this.rowToRestartEvent);
   }
 
+  async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    const result = await this.pool.query(
+      `INSERT INTO restart_runtime_authorities
+        (authority_ref, agent_id, project, seat_id, host_id, session_id,
+         host_adapter_id, lifecycle_mode, supervisor_id, supervisor_available,
+         restart_preauthorized, issued_at, expires_at, row_version,
+         aun_absent_confirmed, provenance_ref, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+               $12::timestamptz, $13::timestamptz, $14, $15, $16,
+               COALESCE($17::timestamptz, now()), COALESCE($18::timestamptz, now()))
+       ON CONFLICT (agent_id, authority_ref) DO UPDATE SET
+         project = excluded.project,
+         seat_id = excluded.seat_id,
+         host_id = excluded.host_id,
+         session_id = excluded.session_id,
+         host_adapter_id = excluded.host_adapter_id,
+         lifecycle_mode = excluded.lifecycle_mode,
+         supervisor_id = excluded.supervisor_id,
+         supervisor_available = excluded.supervisor_available,
+         restart_preauthorized = excluded.restart_preauthorized,
+         issued_at = excluded.issued_at,
+         expires_at = excluded.expires_at,
+         row_version = excluded.row_version,
+         aun_absent_confirmed = excluded.aun_absent_confirmed,
+         provenance_ref = excluded.provenance_ref,
+         created_at = COALESCE($17::timestamptz, restart_runtime_authorities.created_at),
+         updated_at = COALESCE($18::timestamptz, now())
+       RETURNING *`,
+      [
+        input.authority_ref,
+        input.agent_id,
+        input.project ?? null,
+        input.seat_id ?? null,
+        input.host_id,
+        input.session_id,
+        input.host_adapter_id,
+        input.lifecycle_mode,
+        input.supervisor_id ?? null,
+        input.supervisor_available ?? null,
+        input.restart_preauthorized,
+        input.issued_at,
+        input.expires_at,
+        input.row_version,
+        input.aun_absent_confirmed ?? null,
+        input.provenance_ref,
+        input.created_at ?? null,
+        input.updated_at ?? null,
+      ]
+    );
+    return this.rowToRestartRuntimeAuthority(result.rows[0]);
+  }
+
+  async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = $1 AND authority_ref = $2
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    );
+    return result.rows[0] ? this.rowToRestartRuntimeAuthority(result.rows[0]) : null;
+  }
+
+  async saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter> {
+    const result = await this.pool.query(
+      `INSERT INTO restart_host_adapters
+        (host_adapter_id, runtime, canonical_path, executable_sha256,
+         allowed_argv, state, owner_decision_ref, provenance_ref, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8,
+               COALESCE($9::timestamptz, now()), COALESCE($10::timestamptz, now()))
+       ON CONFLICT (host_adapter_id) DO UPDATE SET
+         runtime = excluded.runtime,
+         canonical_path = excluded.canonical_path,
+         executable_sha256 = excluded.executable_sha256,
+         allowed_argv = excluded.allowed_argv,
+         state = excluded.state,
+         owner_decision_ref = excluded.owner_decision_ref,
+         provenance_ref = excluded.provenance_ref,
+         created_at = COALESCE($9::timestamptz, restart_host_adapters.created_at),
+         updated_at = COALESCE($10::timestamptz, now())
+       RETURNING *`,
+      [
+        input.host_adapter_id,
+        input.runtime,
+        input.canonical_path,
+        input.executable_sha256,
+        JSON.stringify(input.allowed_argv ?? []),
+        input.state,
+        input.owner_decision_ref,
+        input.provenance_ref,
+        input.created_at ?? null,
+        input.updated_at ?? null,
+      ]
+    );
+    return this.rowToRestartHostAdapter(result.rows[0]);
+  }
+
+  async getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_host_adapters
+        WHERE host_adapter_id = $1
+        LIMIT 1`,
+      [input.host_adapter_id]
+    );
+    return result.rows[0] ? this.rowToRestartHostAdapter(result.rows[0]) : null;
+  }
+
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
     const id = uuidv4();
     const embeddingText = `${input.title} ${input.content}`.trim();
@@ -1480,6 +1592,46 @@ export class PgStore implements Store {
     };
   }
 
+  private rowToRestartRuntimeAuthority(row: Record<string, unknown>): RestartRuntimeAuthority {
+    return {
+      schema_version: "restart_runtime_authority/v1",
+      authority_ref: row.authority_ref as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      seat_id: (row.seat_id as string | null) ?? undefined,
+      host_id: row.host_id as string,
+      session_id: row.session_id as string,
+      host_adapter_id: row.host_adapter_id as string,
+      lifecycle_mode: row.lifecycle_mode as RestartRuntimeAuthority["lifecycle_mode"],
+      supervisor_id: (row.supervisor_id as string | null) ?? undefined,
+      supervisor_available: (row.supervisor_available as boolean | null) ?? undefined,
+      restart_preauthorized: row.restart_preauthorized === true,
+      issued_at: isoDate(row.issued_at),
+      expires_at: isoDate(row.expires_at),
+      row_version: row.row_version as number,
+      aun_absent_confirmed: (row.aun_absent_confirmed as boolean | null) ?? undefined,
+      provenance_ref: row.provenance_ref as string,
+      created_at: isoDate(row.created_at),
+      updated_at: isoDate(row.updated_at),
+    };
+  }
+
+  private rowToRestartHostAdapter(row: Record<string, unknown>): RestartHostAdapter {
+    return {
+      schema_version: "restart_host_adapter/v1",
+      host_adapter_id: row.host_adapter_id as string,
+      runtime: row.runtime as string,
+      canonical_path: row.canonical_path as string,
+      executable_sha256: row.executable_sha256 as string,
+      allowed_argv: asStringArray(row.allowed_argv),
+      state: row.state as RestartHostAdapter["state"],
+      owner_decision_ref: row.owner_decision_ref as string,
+      provenance_ref: row.provenance_ref as string,
+      created_at: isoDate(row.created_at),
+      updated_at: isoDate(row.updated_at),
+    };
+  }
+
   private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
     return {
       id: row.id as string,
@@ -1524,4 +1676,21 @@ export class PgStore implements Store {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string");
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function isoDate(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
 }

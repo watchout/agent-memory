@@ -386,4 +386,43 @@ export const PG_MIGRATIONS: string[] = [
      ON restart_events (agent_id, created_at DESC, event_id DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_restart_events_agent_event_id
      ON restart_events (agent_id, created_at DESC, event_id DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_runtime_authorities (
+    authority_ref TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    host_adapter_id TEXT NOT NULL,
+    lifecycle_mode TEXT NOT NULL,
+    supervisor_id TEXT,
+    supervisor_available BOOLEAN,
+    restart_preauthorized BOOLEAN NOT NULL DEFAULT false,
+    issued_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    row_version INT NOT NULL,
+    aun_absent_confirmed BOOLEAN,
+    provenance_ref TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (agent_id, authority_ref)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_runtime_authorities_agent
+     ON restart_runtime_authorities (agent_id, updated_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_host_adapters (
+    host_adapter_id TEXT PRIMARY KEY,
+    runtime TEXT NOT NULL,
+    canonical_path TEXT NOT NULL,
+    executable_sha256 TEXT NOT NULL,
+    allowed_argv JSONB NOT NULL DEFAULT '[]'::jsonb,
+    state TEXT NOT NULL,
+    owner_decision_ref TEXT NOT NULL,
+    provenance_ref TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_host_adapters_state
+     ON restart_host_adapters (state, updated_at DESC)`,
 ];

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-import { readFileSync, realpathSync } from "fs";
+import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { writeRestartMarker } from "./context-restart-marker.js";
-import { runRestartBridge, type RestartLifecycleMode, type RestartRuntimeAuthority } from "./restart-bridge.js";
-import type { RestartHostAdapterRegistry } from "./restart-command-preflight.js";
+import { runRestartBridge, type RestartLifecycleMode } from "./restart-bridge.js";
 import { loadRestartThresholdConfig, type RestartThresholdOverrides } from "./restart-thresholds.js";
 import { redactText } from "./redact.js";
+import type { RestartHostAdapter } from "./stores/types.js";
 
 interface CliOptions {
   command: "prepare" | "fetch" | "preflight" | "marker" | "bridge" | "help";
@@ -198,6 +198,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
         options.supervisor_id = next();
         break;
       case "--authority-ref":
+      case "--runtime-authority-ref":
         options.authority_ref = next();
         break;
       case "--authority-expires-at":
@@ -227,9 +228,9 @@ export function printRestartCliHelp(): string {
     "Usage:",
     "  wasurezu-restart prepare [options]",
     "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
-    "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized]",
+    "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized] --host-adapter-id ID",
     "  wasurezu-restart marker --marker-path PATH --context-used-ratio N [options]",
-    "  wasurezu-restart bridge --marker-path PATH --restart-command CMD --restart-preauthorized [--dry-run|--execute]",
+    "  wasurezu-restart bridge --marker-path PATH --restart-command CMD --authority-ref REF [--dry-run|--execute]",
     "",
     "Options:",
     "  --agent-id ID",
@@ -266,8 +267,8 @@ export function printRestartCliHelp(): string {
     "  --seat-id ID",
     "  --session-id ID",
     "  --agent-comms-db-url URL       optional read-only queue drain check",
-    "  --runtime-authority-file PATH  restart_runtime_authority/v1 JSON",
-    "  --adapter-registry-file PATH   registered host adapter registry JSON",
+    "  --runtime-authority-file PATH  ignored for bridge authorization; use persisted --authority-ref",
+    "  --adapter-registry-file PATH   ignored for restart authorization; adapters are read from store",
     "  --lifecycle-mode aun_supervised|standalone_supervisor|pure_mcp",
     "  --supervisor-id ID",
     "  --authority-ref REF",
@@ -296,7 +297,7 @@ export function runSupervisorPreflight(
   checkedAt: string,
   env: NodeJS.ProcessEnv = process.env,
   hostAdapterId?: string,
-  adapterRegistry?: RestartHostAdapterRegistry
+  hostAdapter?: RestartHostAdapter
 ): SupervisorPreflightResult {
   const effectiveCommand = restartCommand ?? env.WASUREZU_RESTART_COMMAND ?? env.AGENT_MEMORY_RESTART_COMMAND;
   const result = preflightRestartCommand({
@@ -304,7 +305,7 @@ export function runSupervisorPreflight(
     restartPreauthorized,
     env,
     hostAdapterId,
-    adapterRegistry,
+    hostAdapter,
   });
 
   const remediation: string[] = [];
@@ -323,10 +324,10 @@ export function runSupervisorPreflight(
     remediation.push("Set WASUREZU_RESTART_COMMAND=wasurezu-claude-start --launch or pass --restart-command to the preflight check");
   }
   if (result.reasons.includes("restart_adapter_id_missing")) {
-    remediation.push("Pass --host-adapter-id and --adapter-registry-file so restart preflight can verify the registered adapter.");
+    remediation.push("Pass --host-adapter-id for a persisted restart_host_adapter/v1 store record.");
   }
   if (result.reasons.includes("restart_adapter_not_registered")) {
-    remediation.push("Register the host adapter with canonical_path, executable_sha256, allowed_argv, and enabled=true.");
+    remediation.push("Persist the host adapter with runtime, canonical_path, executable_sha256, allowed_argv, active state, owner_decision_ref, and provenance_ref.");
   }
   if (result.reasons.includes("restart_lifecycle_not_preauthorized")) {
     remediation.push("Pass --restart-preauthorized flag or set WASUREZU_RESTART_PREAUTHORIZED=1 to confirm restart lifecycle is authorized");
@@ -358,17 +359,26 @@ async function main(): Promise<void> {
       options.restart_preauthorized === true ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "1" ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "true";
-    const adapterRegistry = loadAdapterRegistry(options.adapter_registry_file);
-    const result = runSupervisorPreflight(
-      options.restart_command,
-      restartPreauthorized,
-      new Date().toISOString(),
-      process.env,
-      options.host_adapter_id,
-      adapterRegistry
-    );
-    console.log(redactedJson(result));
-    if (result.status === "fail") process.exit(1);
+    const store = await createStore();
+    let failed = false;
+    try {
+      const hostAdapter = options.host_adapter_id
+        ? await store.getRestartHostAdapter({ host_adapter_id: options.host_adapter_id })
+        : null;
+      const result = runSupervisorPreflight(
+        options.restart_command,
+        restartPreauthorized,
+        new Date().toISOString(),
+        process.env,
+        options.host_adapter_id,
+        hostAdapter ?? undefined
+      );
+      console.log(redactedJson(result));
+      failed = result.status === "fail";
+    } finally {
+      await store.close();
+    }
+    if (failed) process.exit(1);
     return;
   }
   if (options.command === "marker") {
@@ -411,8 +421,6 @@ async function main(): Promise<void> {
       return;
     }
     if (options.command === "bridge") {
-      const runtimeAuthority = loadRuntimeAuthority(options);
-      const adapterRegistry = loadAdapterRegistry(options.adapter_registry_file);
       const result = await runRestartBridge({
         store,
         agentId: options.agent_id,
@@ -420,12 +428,10 @@ async function main(): Promise<void> {
         markerPath: options.marker_path,
         markerDir: options.marker_dir,
         restartCommand: options.restart_command,
-        restartPreauthorized: options.restart_preauthorized,
         execute: options.execute === true,
         agentCommsDatabaseUrl: options.agent_comms_db_url,
-        runtimeAuthority,
+        runtimeAuthorityRef: options.authority_ref,
         hostAdapterId: options.host_adapter_id,
-        adapterRegistry,
         env: process.env,
       });
       console.log(redactedJson(result));
@@ -504,37 +510,6 @@ function setThreshold(options: CliOptions, key: keyof RestartThresholdOverrides,
 function requiredOption(flag: string, value: string | undefined): string {
   if (!value) throw new Error(`missing required option: ${flag}`);
   return value;
-}
-
-function loadRuntimeAuthority(options: CliOptions): RestartRuntimeAuthority | undefined {
-  if (options.runtime_authority_file) {
-    return JSON.parse(readFileSync(options.runtime_authority_file, "utf8")) as RestartRuntimeAuthority;
-  }
-  if (!options.lifecycle_mode) return undefined;
-  if (!options.host_id || !options.host_adapter_id || !options.session_id || !options.authority_ref || !options.authority_expires_at) {
-    throw new Error("bridge lifecycle authority requires --host-id, --host-adapter-id, --session-id, --authority-ref, and --authority-expires-at");
-  }
-  return {
-    lifecycle_mode: options.lifecycle_mode,
-    agent_id: options.agent_id,
-    project: options.project,
-    seat_id: options.seat_id,
-    host_id: options.host_id,
-    session_id: options.session_id,
-    host_adapter_id: options.host_adapter_id,
-    supervisor_id: options.supervisor_id,
-    supervisor_available: options.supervisor_available,
-    restart_preauthorized: options.restart_preauthorized === true,
-    authority_ref: options.authority_ref,
-    expires_at: options.authority_expires_at,
-    row_version: options.runtime_row_version ?? 1,
-    aun_absent_confirmed: options.aun_absent_confirmed,
-  };
-}
-
-function loadAdapterRegistry(path: string | undefined): RestartHostAdapterRegistry | undefined {
-  if (!path) return undefined;
-  return JSON.parse(readFileSync(path, "utf8")) as RestartHostAdapterRegistry;
 }
 
 export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string): boolean {

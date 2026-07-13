@@ -1014,12 +1014,55 @@ async function testRestartEventsParity() {
   const ordered = await store.getRestartEvents({ agent_id: AGENT, project: PROJECT, limit: 2 });
   assert(ordered[0].event_id === "restart-parity:002", "KR-008: PostgreSQL restart events order by created_at DESC, event_id DESC");
   assert(ordered[1].event_id === "restart-parity:001", "KR-008: PostgreSQL restart events expose stable event_id ordering");
+
+  const authority = await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:pg-parity",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host_id: "host-a",
+    session_id: "session-a",
+    host_adapter_id: `${AGENT}-adapter-a`,
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-a",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: createdAt,
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:pg-parity",
+  });
+  const fetchedAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(fetchedAuthority?.schema_version === "restart_runtime_authority/v1", "KR-006: PostgreSQL runtime authority schema round-trips");
+  assert(fetchedAuthority?.issued_at === createdAt, "KR-006: PostgreSQL runtime authority issued_at round-trips");
+  assert(fetchedAuthority?.provenance_ref === "owner_decision:pg-parity", "KR-006: PostgreSQL runtime authority provenance round-trips");
+
+  const adapter = await store.saveRestartHostAdapter({
+    host_adapter_id: `${AGENT}-adapter-a`,
+    runtime: "claude",
+    canonical_path: "/tmp/wasurezu-claude-start",
+    executable_sha256: "a".repeat(64),
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "owner_decision:adapter-a",
+    provenance_ref: "owner_decision:adapter-a",
+  });
+  const fetchedAdapter = await store.getRestartHostAdapter({ host_adapter_id: adapter.host_adapter_id });
+  assert(fetchedAdapter?.runtime === "claude", "KR-005: PostgreSQL host adapter runtime round-trips");
+  assert(fetchedAdapter?.state === "active", "KR-005: PostgreSQL host adapter state round-trips");
+  assert(fetchedAdapter?.owner_decision_ref === "owner_decision:adapter-a", "KR-005: PostgreSQL host adapter owner decision round-trips");
 }
 
 async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
   const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  await pool.query("DELETE FROM restart_runtime_authorities WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM restart_host_adapters WHERE host_adapter_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM restart_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM raw_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM conversation_events WHERE agent_id LIKE $1", [`${AGENT}%`]);

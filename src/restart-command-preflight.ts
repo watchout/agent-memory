@@ -1,6 +1,7 @@
 import { accessSync, constants, lstatSync, readFileSync, realpathSync, statSync } from "fs";
 import { createHash } from "crypto";
 import { isAbsolute } from "path";
+import type { RestartHostAdapter } from "./stores/types.js";
 
 export type RestartCommandKind = "registered_host_adapter" | "unresolved";
 
@@ -8,6 +9,10 @@ export type RestartCommandPreflightReason =
   | "restart_adapter_id_missing"
   | "restart_adapter_not_registered"
   | "restart_adapter_disabled"
+  | "restart_adapter_runtime_missing"
+  | "restart_adapter_state_invalid"
+  | "restart_adapter_owner_decision_missing"
+  | "restart_adapter_provenance_invalid"
   | "restart_adapter_path_invalid"
   | "restart_adapter_path_writable_rejected"
   | "restart_adapter_digest_mismatch"
@@ -22,21 +27,6 @@ export type RestartCommandPreflightReason =
   | "restart_command_not_found"
   | "restart_command_not_executable";
 
-export interface RestartHostAdapterRegistryEntry {
-  host_adapter_id?: string;
-  runtime?: string;
-  canonical_path: string;
-  executable_sha256: string;
-  allowed_argv?: readonly string[];
-  enabled?: boolean;
-  state?: "active" | "disabled" | "revoked";
-  owner_decision_ref?: string;
-}
-
-export type RestartHostAdapterRegistry =
-  | Record<string, RestartHostAdapterRegistryEntry>
-  | readonly RestartHostAdapterRegistryEntry[];
-
 export interface RestartCommandPreflightInput {
   command?: string;
   argv?: readonly string[];
@@ -45,7 +35,7 @@ export interface RestartCommandPreflightInput {
   requirePreauthorization?: boolean;
   restartPreauthorized?: boolean;
   hostAdapterId?: string;
-  adapterRegistry?: RestartHostAdapterRegistry;
+  hostAdapter?: RestartHostAdapter;
 }
 
 export interface RestartCommandPreflightResult {
@@ -80,7 +70,7 @@ export function preflightRestartCommand(input: RestartCommandPreflightInput): Re
   const reasons: RestartCommandPreflightReason[] = [];
   const diagnostics: string[] = [];
   const hostAdapterId = input.hostAdapterId?.trim() ?? "";
-  const adapter = hostAdapterId ? adapterById(input.adapterRegistry, hostAdapterId) : null;
+  const adapter = hostAdapterId && input.hostAdapter?.host_adapter_id === hostAdapterId ? input.hostAdapter : null;
 
   if (!hostAdapterId) {
     reasons.push("restart_adapter_id_missing");
@@ -88,9 +78,8 @@ export function preflightRestartCommand(input: RestartCommandPreflightInput): Re
   } else if (!adapter) {
     reasons.push("restart_adapter_not_registered");
     diagnostics.push(`host adapter is not registered: ${hostAdapterId}`);
-  } else if (adapter.enabled === false || adapter.state === "disabled" || adapter.state === "revoked") {
-    reasons.push("restart_adapter_disabled");
-    diagnostics.push(`host adapter is not enabled: ${hostAdapterId}`);
+  } else {
+    validateAdapterRecord(adapter, reasons, diagnostics);
   }
 
   if (requirePreauthorization && !restartPreauthorized) {
@@ -114,7 +103,7 @@ export function preflightRestartCommand(input: RestartCommandPreflightInput): Re
   let commandKind: RestartCommandKind = "unresolved";
   let cwdIndependent = false;
 
-  if (adapter && !reasons.includes("restart_adapter_disabled")) {
+  if (adapter && !adapterHasAuthorityRecordFailure(reasons)) {
     const pathCheck = validateAdapterPath(adapter);
     resolvedPath = pathCheck.resolvedPath;
     executable = pathCheck.resolvedPath;
@@ -141,10 +130,10 @@ export function preflightRestartCommand(input: RestartCommandPreflightInput): Re
           }
         }
       } else if (input.argv === undefined) {
-        argv = adapter.allowed_argv ? Array.from(adapter.allowed_argv) : [];
+        argv = Array.isArray(adapter.allowed_argv) ? Array.from(adapter.allowed_argv) : [];
       }
 
-      if (adapter.allowed_argv && !sameArgv(argv, adapter.allowed_argv)) {
+      if (Array.isArray(adapter.allowed_argv) && !sameArgv(argv, adapter.allowed_argv)) {
         reasons.push("restart_command_args_rejected");
         diagnostics.push(`restart argv does not match registered adapter allowlist: ${JSON.stringify(argv)}`);
       }
@@ -176,16 +165,45 @@ export function preflightRestartCommand(input: RestartCommandPreflightInput): Re
   };
 }
 
-function adapterById(registry: RestartHostAdapterRegistry | undefined, id: string): RestartHostAdapterRegistryEntry | null {
-  if (!registry) return null;
-  if (Array.isArray(registry)) {
-    return registry.find((entry) => entry.host_adapter_id === id) ?? null;
+function validateAdapterRecord(
+  adapter: RestartHostAdapter,
+  reasons: RestartCommandPreflightReason[],
+  diagnostics: string[]
+): void {
+  if (typeof adapter.runtime !== "string" || adapter.runtime.trim() === "") {
+    reasons.push("restart_adapter_runtime_missing");
+    diagnostics.push(`host adapter runtime is missing: ${adapter.host_adapter_id}`);
   }
-  const byId = registry as Record<string, RestartHostAdapterRegistryEntry>;
-  return byId[id] ?? null;
+  if (adapter.state !== "active") {
+    if (adapter.state === "disabled" || adapter.state === "revoked") {
+      reasons.push("restart_adapter_disabled");
+      diagnostics.push(`host adapter is not active: ${adapter.host_adapter_id}`);
+    } else {
+      reasons.push("restart_adapter_state_invalid");
+      diagnostics.push(`host adapter state is invalid: ${adapter.host_adapter_id}`);
+    }
+  }
+  if (typeof adapter.owner_decision_ref !== "string" || adapter.owner_decision_ref.trim() === "") {
+    reasons.push("restart_adapter_owner_decision_missing");
+    diagnostics.push(`host adapter owner_decision_ref is missing: ${adapter.host_adapter_id}`);
+  }
+  if (typeof adapter.provenance_ref !== "string" || adapter.provenance_ref.trim() === "") {
+    reasons.push("restart_adapter_provenance_invalid");
+    diagnostics.push(`host adapter provenance_ref is missing: ${adapter.host_adapter_id}`);
+  }
 }
 
-function validateAdapterPath(adapter: RestartHostAdapterRegistryEntry): {
+function adapterHasAuthorityRecordFailure(reasons: readonly RestartCommandPreflightReason[]): boolean {
+  return reasons.some((reason) =>
+    reason === "restart_adapter_disabled" ||
+    reason === "restart_adapter_runtime_missing" ||
+    reason === "restart_adapter_state_invalid" ||
+    reason === "restart_adapter_owner_decision_missing" ||
+    reason === "restart_adapter_provenance_invalid"
+  );
+}
+
+function validateAdapterPath(adapter: RestartHostAdapter): {
   resolvedPath: string | null;
   reasons: RestartCommandPreflightReason[];
   diagnostics: string[];

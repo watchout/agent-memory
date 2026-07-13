@@ -417,6 +417,89 @@ export interface GetRestartEventsInput {
   limit?: number;
 }
 
+export type RestartLifecycleMode = "aun_supervised" | "standalone_supervisor" | "pure_mcp";
+
+export interface RestartRuntimeAuthority {
+  schema_version: "restart_runtime_authority/v1";
+  authority_ref: string;
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host_id: string;
+  session_id: string;
+  host_adapter_id: string;
+  lifecycle_mode: RestartLifecycleMode;
+  supervisor_id?: string;
+  supervisor_available?: boolean;
+  restart_preauthorized: boolean;
+  issued_at: string;
+  expires_at: string;
+  row_version: number;
+  aun_absent_confirmed?: boolean;
+  provenance_ref: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveRestartRuntimeAuthorityInput {
+  schema_version?: "restart_runtime_authority/v1";
+  authority_ref: string;
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host_id: string;
+  session_id: string;
+  host_adapter_id: string;
+  lifecycle_mode: RestartLifecycleMode;
+  supervisor_id?: string;
+  supervisor_available?: boolean;
+  restart_preauthorized: boolean;
+  issued_at: string;
+  expires_at: string;
+  row_version: number;
+  aun_absent_confirmed?: boolean;
+  provenance_ref: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GetRestartRuntimeAuthorityInput {
+  agent_id: string;
+  authority_ref: string;
+}
+
+export interface RestartHostAdapter {
+  schema_version: "restart_host_adapter/v1";
+  host_adapter_id: string;
+  runtime: string;
+  canonical_path: string;
+  executable_sha256: string;
+  allowed_argv: string[];
+  state: "active" | "disabled" | "revoked";
+  owner_decision_ref: string;
+  provenance_ref: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveRestartHostAdapterInput {
+  schema_version?: "restart_host_adapter/v1";
+  host_adapter_id: string;
+  runtime: string;
+  canonical_path: string;
+  executable_sha256: string;
+  allowed_argv?: string[];
+  state: "active" | "disabled" | "revoked";
+  owner_decision_ref: string;
+  provenance_ref: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GetRestartHostAdapterInput {
+  host_adapter_id: string;
+}
+
 /**
  * Input for logRecoveryQuality (AM-002, Stage 1).
  *
@@ -579,6 +662,18 @@ export interface Store {
 
   /** Read restart event evidence in newest-first order. */
   getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]>;
+
+  /** Persist operator-controlled runtime restart authority. */
+  saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority>;
+
+  /** Read persisted runtime restart authority by durable reference. */
+  getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null>;
+
+  /** Persist an operator-controlled restart host adapter registry entry. */
+  saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter>;
+
+  /** Read an operator-controlled restart host adapter registry entry. */
+  getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null>;
 
   // ─── AM-026: Catch-up ledger methods ────────────────────────────────────
 

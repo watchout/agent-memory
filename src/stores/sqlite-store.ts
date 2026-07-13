@@ -38,6 +38,12 @@ import type {
   ConsumeSelectedRestartPackInput,
   SaveRestartEventInput,
   GetRestartEventsInput,
+  RestartRuntimeAuthority,
+  SaveRestartRuntimeAuthorityInput,
+  GetRestartRuntimeAuthorityInput,
+  RestartHostAdapter,
+  SaveRestartHostAdapterInput,
+  GetRestartHostAdapterInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -240,6 +246,45 @@ const MIGRATIONS = [
    WHERE event_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
     ON restart_events(agent_id, created_at DESC, event_id DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_runtime_authorities (
+    authority_ref TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    host_adapter_id TEXT NOT NULL,
+    lifecycle_mode TEXT NOT NULL,
+    supervisor_id TEXT,
+    supervisor_available INTEGER,
+    restart_preauthorized INTEGER NOT NULL DEFAULT 0,
+    issued_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    row_version INTEGER NOT NULL,
+    aun_absent_confirmed INTEGER,
+    provenance_ref TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (agent_id, authority_ref)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_runtime_authorities_agent
+    ON restart_runtime_authorities(agent_id, updated_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_host_adapters (
+    host_adapter_id TEXT PRIMARY KEY,
+    runtime TEXT NOT NULL,
+    canonical_path TEXT NOT NULL,
+    executable_sha256 TEXT NOT NULL,
+    allowed_argv TEXT NOT NULL DEFAULT '[]',
+    state TEXT NOT NULL,
+    owner_decision_ref TEXT NOT NULL,
+    provenance_ref TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_host_adapters_state
+    ON restart_host_adapters(state, updated_at DESC)`,
 
   // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
   `CREATE TABLE IF NOT EXISTS catch_up_log (
@@ -1510,6 +1555,167 @@ export class SqliteStore implements Store {
     return rows.map((row) => this.rowToRestartEvent(row));
   }
 
+  async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    const now = nowIso();
+    const existing = this.allRows(
+      `SELECT created_at FROM restart_runtime_authorities
+        WHERE agent_id = ? AND authority_ref = ?
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    )[0];
+    const createdAt = input.created_at ?? ((existing?.created_at as string | undefined) ?? now);
+    const updatedAt = input.updated_at ?? now;
+    if (existing) {
+      this.db.run(
+        `UPDATE restart_runtime_authorities
+            SET project = ?, seat_id = ?, host_id = ?, session_id = ?,
+                host_adapter_id = ?, lifecycle_mode = ?, supervisor_id = ?,
+                supervisor_available = ?, restart_preauthorized = ?,
+                issued_at = ?, expires_at = ?, row_version = ?,
+                aun_absent_confirmed = ?, provenance_ref = ?, created_at = ?,
+                updated_at = ?
+          WHERE agent_id = ? AND authority_ref = ?`,
+        [
+          input.project ?? null,
+          input.seat_id ?? null,
+          input.host_id,
+          input.session_id,
+          input.host_adapter_id,
+          input.lifecycle_mode,
+          input.supervisor_id ?? null,
+          input.supervisor_available === undefined ? null : input.supervisor_available ? 1 : 0,
+          input.restart_preauthorized ? 1 : 0,
+          input.issued_at,
+          input.expires_at,
+          input.row_version,
+          input.aun_absent_confirmed === undefined ? null : input.aun_absent_confirmed ? 1 : 0,
+          input.provenance_ref,
+          createdAt,
+          updatedAt,
+          input.agent_id,
+          input.authority_ref,
+        ]
+      );
+    } else {
+      this.db.run(
+        `INSERT INTO restart_runtime_authorities
+          (authority_ref, agent_id, project, seat_id, host_id, session_id,
+           host_adapter_id, lifecycle_mode, supervisor_id, supervisor_available,
+           restart_preauthorized, issued_at, expires_at, row_version,
+           aun_absent_confirmed, provenance_ref, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.authority_ref,
+          input.agent_id,
+          input.project ?? null,
+          input.seat_id ?? null,
+          input.host_id,
+          input.session_id,
+          input.host_adapter_id,
+          input.lifecycle_mode,
+          input.supervisor_id ?? null,
+          input.supervisor_available === undefined ? null : input.supervisor_available ? 1 : 0,
+          input.restart_preauthorized ? 1 : 0,
+          input.issued_at,
+          input.expires_at,
+          input.row_version,
+          input.aun_absent_confirmed === undefined ? null : input.aun_absent_confirmed ? 1 : 0,
+          input.provenance_ref,
+          createdAt,
+          updatedAt,
+        ]
+      );
+    }
+    this.persist();
+    const row = this.allRows(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = ? AND authority_ref = ?
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    )[0];
+    return this.rowToRestartRuntimeAuthority(row);
+  }
+
+  async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
+    const rows = this.allRows(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = ? AND authority_ref = ?
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    );
+    return rows[0] ? this.rowToRestartRuntimeAuthority(rows[0]) : null;
+  }
+
+  async saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter> {
+    const now = nowIso();
+    const existing = this.allRows(
+      `SELECT created_at FROM restart_host_adapters
+        WHERE host_adapter_id = ?
+        LIMIT 1`,
+      [input.host_adapter_id]
+    )[0];
+    const createdAt = input.created_at ?? ((existing?.created_at as string | undefined) ?? now);
+    const updatedAt = input.updated_at ?? now;
+    if (existing) {
+      this.db.run(
+        `UPDATE restart_host_adapters
+            SET runtime = ?, canonical_path = ?, executable_sha256 = ?,
+                allowed_argv = ?, state = ?, owner_decision_ref = ?,
+                provenance_ref = ?, created_at = ?, updated_at = ?
+          WHERE host_adapter_id = ?`,
+        [
+          input.runtime,
+          input.canonical_path,
+          input.executable_sha256,
+          JSON.stringify(input.allowed_argv ?? []),
+          input.state,
+          input.owner_decision_ref,
+          input.provenance_ref,
+          createdAt,
+          updatedAt,
+          input.host_adapter_id,
+        ]
+      );
+    } else {
+      this.db.run(
+        `INSERT INTO restart_host_adapters
+          (host_adapter_id, runtime, canonical_path, executable_sha256,
+           allowed_argv, state, owner_decision_ref, provenance_ref, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.host_adapter_id,
+          input.runtime,
+          input.canonical_path,
+          input.executable_sha256,
+          JSON.stringify(input.allowed_argv ?? []),
+          input.state,
+          input.owner_decision_ref,
+          input.provenance_ref,
+          createdAt,
+          updatedAt,
+        ]
+      );
+    }
+    this.persist();
+    const row = this.allRows(
+      `SELECT * FROM restart_host_adapters
+        WHERE host_adapter_id = ?
+        LIMIT 1`,
+      [input.host_adapter_id]
+    )[0];
+    return this.rowToRestartHostAdapter(row);
+  }
+
+  async getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null> {
+    const rows = this.allRows(
+      `SELECT * FROM restart_host_adapters
+        WHERE host_adapter_id = ?
+        LIMIT 1`,
+      [input.host_adapter_id]
+    );
+    return rows[0] ? this.rowToRestartHostAdapter(rows[0]) : null;
+  }
+
   // ─── Catch-up Log (AM-026) ───────────────────────────────────
 
   async getLastCatchUpLog(
@@ -1845,6 +2051,46 @@ export class SqliteStore implements Store {
       created_at: row.created_at as string,
       consumed_at: (row.consumed_at as string | null) ?? undefined,
       expires_at: (row.expires_at as string | null) ?? undefined,
+    };
+  }
+
+  private rowToRestartRuntimeAuthority(row: Record<string, unknown>): RestartRuntimeAuthority {
+    return {
+      schema_version: "restart_runtime_authority/v1",
+      authority_ref: row.authority_ref as string,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      seat_id: (row.seat_id as string | null) ?? undefined,
+      host_id: row.host_id as string,
+      session_id: row.session_id as string,
+      host_adapter_id: row.host_adapter_id as string,
+      lifecycle_mode: row.lifecycle_mode as RestartRuntimeAuthority["lifecycle_mode"],
+      supervisor_id: (row.supervisor_id as string | null) ?? undefined,
+      supervisor_available: row.supervisor_available === null ? undefined : Boolean(row.supervisor_available),
+      restart_preauthorized: Boolean(row.restart_preauthorized),
+      issued_at: row.issued_at as string,
+      expires_at: row.expires_at as string,
+      row_version: row.row_version as number,
+      aun_absent_confirmed: row.aun_absent_confirmed === null ? undefined : Boolean(row.aun_absent_confirmed),
+      provenance_ref: row.provenance_ref as string,
+      created_at: row.created_at as string,
+      updated_at: row.updated_at as string,
+    };
+  }
+
+  private rowToRestartHostAdapter(row: Record<string, unknown>): RestartHostAdapter {
+    return {
+      schema_version: "restart_host_adapter/v1",
+      host_adapter_id: row.host_adapter_id as string,
+      runtime: row.runtime as string,
+      canonical_path: row.canonical_path as string,
+      executable_sha256: row.executable_sha256 as string,
+      allowed_argv: parseJsonArray(row.allowed_argv),
+      state: row.state as RestartHostAdapter["state"],
+      owner_decision_ref: row.owner_decision_ref as string,
+      provenance_ref: row.provenance_ref as string,
+      created_at: row.created_at as string,
+      updated_at: row.updated_at as string,
     };
   }
 

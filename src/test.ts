@@ -76,7 +76,7 @@ import {
   prepareClaudeResession,
 } from "./claude-start.js";
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
-import type { LogRecoveryQualityInput } from "./stores/types.js";
+import type { LogRecoveryQualityInput, SaveRestartHostAdapterInput, SaveRestartRuntimeAuthorityInput } from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -2362,15 +2362,18 @@ function testRestartCommandPreflight() {
   writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
   chmodSync(executable, 0o755);
   const digest = createHash("sha256").update(readFileSync(executable)).digest("hex");
-  const adapterRegistry = {
-    "claude-adapter": {
-      host_adapter_id: "claude-adapter",
-      canonical_path: executable,
-      executable_sha256: digest,
-      allowed_argv: ["--launch"],
-      enabled: true,
-      owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
-    },
+  const hostAdapter = {
+    schema_version: "restart_host_adapter/v1" as const,
+    host_adapter_id: "claude-adapter",
+    runtime: "claude",
+    canonical_path: executable,
+    executable_sha256: digest,
+    allowed_argv: ["--launch"],
+    state: "active" as const,
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+    created_at: "2026-07-09T00:00:00.000Z",
+    updated_at: "2026-07-09T00:00:00.000Z",
   };
 
   const absolute = preflightRestartCommand({
@@ -2386,7 +2389,7 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(registered.status === "pass", "KR-005: restart command preflight accepts only registered host adapters");
   assert(registered.command_kind === "registered_host_adapter", "KR-005: restart command preflight classifies registered adapters");
@@ -2450,7 +2453,7 @@ function testRestartCommandPreflight() {
     command: `${executable} --launch`,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(notPreauthorized.status === "fail", "restart command preflight requires explicit restart preauthorization");
   assert(notPreauthorized.reasons.includes("restart_lifecycle_not_preauthorized"), "restart command preflight reports missing preauthorization");
@@ -2460,7 +2463,7 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(shellControl.status === "fail", "restart command preflight rejects shell control operators");
   assert(shellControl.reasons.includes("restart_command_shell_control_rejected"), "restart command preflight reports shell control rejection");
@@ -2470,7 +2473,7 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(argvDrift.status === "fail", "KR-005: restart command preflight rejects argv outside adapter schema");
   assert(argvDrift.reasons.includes("restart_command_args_rejected"), "KR-005: preflight reports argv drift");
@@ -2482,7 +2485,7 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(digestDrift.status === "fail", "KR-005: restart command preflight rejects digest drift");
   assert(digestDrift.reasons.includes("restart_adapter_digest_mismatch"), "KR-005: preflight reports digest drift");
@@ -2494,7 +2497,7 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: "" },
     hostAdapterId: "claude-adapter",
-    adapterRegistry,
+    hostAdapter,
   });
   assert(permissionDrift.status === "fail", "KR-005: restart command preflight rejects group/world writable adapters");
   assert(permissionDrift.reasons.includes("restart_adapter_path_writable_rejected"), "KR-005: preflight reports permission drift");
@@ -2897,16 +2900,6 @@ async function testRestartMarkerBridge() {
   chmodSync(trustedBin, 0o755);
   const trustedBinDigest = createHash("sha256").update(readFileSync(trustedBin)).digest("hex");
   const hostAdapterId = "claude-adapter";
-  const adapterRegistry = {
-    [hostAdapterId]: {
-      host_adapter_id: hostAdapterId,
-      canonical_path: trustedBin,
-      executable_sha256: trustedBinDigest,
-      allowed_argv: ["--launch"],
-      enabled: true,
-      owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
-    },
-  };
   const env = { ...inheritedEnv(), PATH: `${binDir}:${process.env.PATH ?? ""}` };
   delete env.AGENT_COMMS_DATABASE_URL;
   const agentId = "test-restart-bridge-agent";
@@ -2914,32 +2907,63 @@ async function testRestartMarkerBridge() {
   const hostId = "host-a";
   const seatId = "seat-a";
   const now = "2026-07-09T00:01:00.000Z";
+  const issuedAt = "2026-07-09T00:00:00.000Z";
   const expiresAt = "2026-07-09T00:10:00.000Z";
   const markerPath = join(root, "restart-required.json");
 
-  const authorityFor = (sessionId: string, lifecycle_mode: "standalone_supervisor" | "aun_supervised" | "pure_mcp" = "standalone_supervisor") => ({
-    lifecycle_mode,
-    agent_id: agentId,
-    project,
-    seat_id: seatId,
-    host_id: hostId,
-    session_id: sessionId,
+  const saveAdapter = async (overrides: Partial<SaveRestartHostAdapterInput> = {}) => store.saveRestartHostAdapter({
     host_adapter_id: hostAdapterId,
-    supervisor_id: "supervisor-a",
-    supervisor_available: true,
-    restart_preauthorized: true,
-    authority_ref: "KUSABI-DEC-STANDALONE-DETECTION",
-    expires_at: expiresAt,
-    row_version: 1,
-    aun_absent_confirmed: true,
+    runtime: "claude",
+    canonical_path: trustedBin,
+    executable_sha256: trustedBinDigest,
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+    ...overrides,
   });
 
-  const writeMarker = (path: string, sessionId: string, generated_at = "2026-07-09T00:00:30.000Z") => writeRestartMarker({
+  const saveAuthority = async (
+    sessionId: string,
+    lifecycle_mode: "standalone_supervisor" | "aun_supervised" | "pure_mcp" = "standalone_supervisor",
+    overrides: Partial<SaveRestartRuntimeAuthorityInput> = {}
+  ): Promise<string> => {
+    const authority_ref = overrides.authority_ref ?? `restart-authority:${sessionId}`;
+    await store.saveRestartRuntimeAuthority({
+      authority_ref,
+      lifecycle_mode,
+      agent_id: agentId,
+      project,
+      seat_id: seatId,
+      host_id: hostId,
+      session_id: sessionId,
+      host_adapter_id: hostAdapterId,
+      supervisor_id: "supervisor-a",
+      supervisor_available: true,
+      restart_preauthorized: true,
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      row_version: 1,
+      aun_absent_confirmed: true,
+      provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+      ...overrides,
+    });
+    return authority_ref;
+  };
+
+  await saveAdapter();
+
+  const writeMarker = (
+    path: string,
+    sessionId: string,
+    generated_at = "2026-07-09T00:00:30.000Z",
+    adapterId = hostAdapterId
+  ) => writeRestartMarker({
     agent_id: agentId,
     project,
     host: "claude",
     host_id: hostId,
-    host_adapter_id: hostAdapterId,
+    host_adapter_id: adapterId,
     seat_id: seatId,
     session_id: sessionId,
     context_tokens: 950,
@@ -2967,9 +2991,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-a"),
+    runtimeAuthorityRef: await saveAuthority("session-a"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now,
@@ -2982,6 +3005,122 @@ async function testRestartMarkerBridge() {
   assert(standalone.event.queue_check_mode === "standalone_supervisor", "restart event records standalone supervisor mode");
   assert(standalone.event.preflight_status === "pass", "restart event records preflight result");
   assert(standalone.event.executed_restart === false, "restart event records no live restart");
+
+  const missingAuthorityPath = join(root, "missing-authority.json");
+  writeMarker(missingAuthorityPath, "session-missing-authority");
+  const missingAuthority = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingAuthorityPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: "restart-authority:missing",
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingAuthority.action === "restart_blocked", "KR-006: bridge requires persisted runtime authority");
+  assert(missingAuthority.failure_reason === "runtime_authority_not_found", "KR-006: missing persisted authority fails closed before command preflight");
+  assert(missingAuthority.command === null, "KR-006: missing persisted authority cannot authorize command preflight");
+
+  const invalidIssuedAtPath = join(root, "invalid-issued-at.json");
+  writeMarker(invalidIssuedAtPath, "session-invalid-issued-at");
+  const invalidIssuedAt = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: invalidIssuedAtPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-invalid-issued-at", "standalone_supervisor", {
+      issued_at: "2026-07-09 00:00:00Z",
+    }),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(invalidIssuedAt.action === "restart_blocked", "KR-006: bridge rejects non-strict issued_at authority provenance");
+  assert(invalidIssuedAt.failure_reason === "runtime_authority_issued_at_invalid", "KR-006: invalid issued_at reports typed authority failure");
+
+  const missingProvenancePath = join(root, "missing-provenance.json");
+  writeMarker(missingProvenancePath, "session-missing-provenance");
+  const missingProvenance = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingProvenancePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-provenance", "standalone_supervisor", {
+      provenance_ref: "",
+    }),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingProvenance.action === "restart_blocked", "KR-006: bridge rejects authority without provenance_ref");
+  assert(missingProvenance.failure_reason === "runtime_authority_provenance_invalid", "KR-006: missing provenance reports typed authority failure");
+
+  const missingRuntimeAdapterId = "adapter-missing-runtime";
+  await saveAdapter({ host_adapter_id: missingRuntimeAdapterId, runtime: "" });
+  const missingRuntimePath = join(root, "missing-runtime-adapter.json");
+  writeMarker(missingRuntimePath, "session-missing-runtime-adapter", "2026-07-09T00:00:30.000Z", missingRuntimeAdapterId);
+  const missingRuntime = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingRuntimePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-runtime-adapter", "standalone_supervisor", {
+      host_adapter_id: missingRuntimeAdapterId,
+    }),
+    hostAdapterId: missingRuntimeAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingRuntime.failure_reason === "restart_adapter_runtime_missing", "KR-005: adapter runtime is mandatory");
+
+  const missingStateAdapterId = "adapter-missing-state";
+  await saveAdapter({ host_adapter_id: missingStateAdapterId, state: undefined as unknown as "active" });
+  const missingStatePath = join(root, "missing-state-adapter.json");
+  writeMarker(missingStatePath, "session-missing-state-adapter", "2026-07-09T00:00:30.000Z", missingStateAdapterId);
+  const missingState = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingStatePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-state-adapter", "standalone_supervisor", {
+      host_adapter_id: missingStateAdapterId,
+    }),
+    hostAdapterId: missingStateAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingState.failure_reason === "restart_adapter_state_invalid", "KR-005: adapter active state is mandatory");
+
+  const missingOwnerAdapterId = "adapter-missing-owner";
+  await saveAdapter({ host_adapter_id: missingOwnerAdapterId, owner_decision_ref: "" });
+  const missingOwnerPath = join(root, "missing-owner-adapter.json");
+  writeMarker(missingOwnerPath, "session-missing-owner-adapter", "2026-07-09T00:00:30.000Z", missingOwnerAdapterId);
+  const missingOwner = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingOwnerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-owner-adapter", "standalone_supervisor", {
+      host_adapter_id: missingOwnerAdapterId,
+    }),
+    hostAdapterId: missingOwnerAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingOwner.failure_reason === "restart_adapter_owner_decision_missing", "KR-005: adapter owner_decision_ref is mandatory");
 
   const legacyMarkerPath = join(root, "legacy-v1.json");
   writeFileSync(legacyMarkerPath, JSON.stringify({
@@ -3006,9 +3145,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath: legacyMarkerPath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-legacy"),
+    runtimeAuthorityRef: await saveAuthority("session-legacy"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now,
@@ -3024,9 +3162,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath: stalePath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-stale"),
+    runtimeAuthorityRef: await saveAuthority("session-stale"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now: "2026-07-09T00:06:00.000Z",
@@ -3044,9 +3181,8 @@ async function testRestartMarkerBridge() {
     project,
     markerDir: dirSelect,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-dir"),
+    runtimeAuthorityRef: await saveAuthority("session-dir"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now,
@@ -3065,9 +3201,8 @@ async function testRestartMarkerBridge() {
     project,
     markerDir: dirAmbiguous,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-ambiguous"),
+    runtimeAuthorityRef: await saveAuthority("session-ambiguous"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now,
@@ -3077,6 +3212,7 @@ async function testRestartMarkerBridge() {
 
   const racePath = join(root, "race.json");
   writeMarker(racePath, "session-race");
+  const raceAuthorityRef = await saveAuthority("session-race");
   const raceResults = await Promise.all([
     runRestartBridge({
       store,
@@ -3084,9 +3220,8 @@ async function testRestartMarkerBridge() {
       project,
       markerPath: racePath,
       restartCommand: `${trustedBin} --launch`,
-      runtimeAuthority: authorityFor("session-race"),
+      runtimeAuthorityRef: raceAuthorityRef,
       hostAdapterId,
-      adapterRegistry,
       execute: true,
       env,
       now,
@@ -3097,9 +3232,8 @@ async function testRestartMarkerBridge() {
       project,
       markerPath: racePath,
       restartCommand: `${trustedBin} --launch`,
-      runtimeAuthority: authorityFor("session-race"),
+      runtimeAuthorityRef: raceAuthorityRef,
       hostAdapterId,
-      adapterRegistry,
       execute: true,
       env,
       now,
@@ -3154,9 +3288,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath: unknownPath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-unknown"),
+    runtimeAuthorityRef: await saveAuthority("session-unknown"),
     hostAdapterId,
-    adapterRegistry,
     execute: true,
     env,
     now,
@@ -3180,9 +3313,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath: blockedQueuePath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-blocked-queue", "aun_supervised"),
+    runtimeAuthorityRef: await saveAuthority("session-blocked-queue", "aun_supervised"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     queueDrainCheck: async () => blockedQueue,
@@ -3200,9 +3332,8 @@ async function testRestartMarkerBridge() {
     project,
     markerPath: missingAunPath,
     restartCommand: `${trustedBin} --launch`,
-    runtimeAuthority: authorityFor("session-missing-aun", "aun_supervised"),
+    runtimeAuthorityRef: await saveAuthority("session-missing-aun", "aun_supervised"),
     hostAdapterId,
-    adapterRegistry,
     execute: false,
     env,
     now,
