@@ -1002,23 +1002,34 @@ export class PgStore implements Store {
   async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
     const result = await this.pool.query(
       `INSERT INTO restart_events
-        (agent_id, project, seat_id, host, session_id, marker_path, marker_status,
-         action, restart_required, executed_restart, band, context_tokens,
+        (event_id, agent_id, project, seat_id, host, host_id, host_adapter_id,
+         session_id, marker_id, marker_digest, marker_path, marker_status,
+         attempt_ordinal, phase, payload_digest, action, restart_required, executed_restart, band, context_tokens,
          context_window_tokens, context_used_ratio, thresholds, queue_check_mode,
          queue_check_result, preflight_status, restart_command, failure_reason,
          pre_state, post_state, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
                $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-               COALESCE($24::timestamptz, now()))
+               $24, $25, $26, $27, $28, $29, $30, $31,
+               COALESCE($32::timestamptz, now()))
+       ON CONFLICT (event_id) WHERE event_id IS NOT NULL DO NOTHING
        RETURNING *`,
       [
+        input.event_id ?? null,
         input.agent_id,
         input.project ?? null,
         input.seat_id ?? null,
         input.host ?? null,
+        input.host_id ?? null,
+        input.host_adapter_id ?? null,
         input.session_id ?? null,
+        input.marker_id ?? null,
+        input.marker_digest ?? null,
         input.marker_path ?? null,
         input.marker_status ?? null,
+        input.attempt_ordinal ?? null,
+        input.phase ?? null,
+        input.payload_digest ?? null,
         input.action,
         input.restart_required ?? false,
         input.executed_restart ?? false,
@@ -1034,10 +1045,32 @@ export class PgStore implements Store {
         input.failure_reason ?? null,
         input.pre_state ?? {},
         input.post_state ?? {},
-        input.metadata ?? {},
+        {
+          ...(input.metadata ?? {}),
+          ...(input.event_id ? { persistence_result: "inserted", inserted: true, collision: false } : {}),
+        },
         input.created_at ?? null,
       ]
     );
+    if (!result.rows[0] && input.event_id) {
+      const existing = await this.pool.query(
+        `SELECT * FROM restart_events WHERE event_id = $1 LIMIT 1`,
+        [input.event_id]
+      );
+      if (existing.rows[0]) {
+        const event = this.rowToRestartEvent(existing.rows[0]);
+        const sameDigest = (event.payload_digest ?? "") === (input.payload_digest ?? "");
+        return {
+          ...event,
+          metadata: {
+            ...event.metadata,
+            persistence_result: sameDigest ? "idempotent" : "event_id_collision",
+            inserted: false,
+            collision: !sameDigest,
+          },
+        };
+      }
+    }
     return this.rowToRestartEvent(result.rows[0]);
   }
 
@@ -1046,7 +1079,7 @@ export class PgStore implements Store {
       `SELECT * FROM restart_events
        WHERE agent_id = $1
          AND ($2::text IS NULL OR project = $2)
-       ORDER BY created_at DESC
+       ORDER BY created_at DESC, COALESCE(event_id, id::text) DESC
        LIMIT $3`,
       [input.agent_id, input.project ?? null, input.limit ?? 20]
     );
@@ -1450,13 +1483,21 @@ export class PgStore implements Store {
   private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
     return {
       id: row.id as string,
+      event_id: (row.event_id as string | null) ?? undefined,
       agent_id: row.agent_id as string,
       project: (row.project as string | null) ?? undefined,
       seat_id: (row.seat_id as string | null) ?? undefined,
       host: (row.host as string | null) ?? undefined,
+      host_id: (row.host_id as string | null) ?? undefined,
+      host_adapter_id: (row.host_adapter_id as string | null) ?? undefined,
       session_id: (row.session_id as string | null) ?? undefined,
+      marker_id: (row.marker_id as string | null) ?? undefined,
+      marker_digest: (row.marker_digest as string | null) ?? undefined,
       marker_path: (row.marker_path as string | null) ?? undefined,
       marker_status: (row.marker_status as string | null) ?? undefined,
+      attempt_ordinal: (row.attempt_ordinal as number | null) ?? undefined,
+      phase: (row.phase as string | null) ?? undefined,
+      payload_digest: (row.payload_digest as string | null) ?? undefined,
       action: row.action as string,
       restart_required: row.restart_required === true,
       executed_restart: row.executed_restart === true,

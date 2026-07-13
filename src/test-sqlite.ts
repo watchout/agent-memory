@@ -858,6 +858,67 @@ async function testSelectedRestartPacks() {
   assert(consumedCount === 1, "concurrent selected restart pack consume is single-use");
 }
 
+async function testRestartEventsParity() {
+  console.log("\n── SqliteStore Restart Events Parity ──");
+  const createdAt = "2026-07-09T00:00:00.000Z";
+  const first = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host: "claude",
+    host_id: "host-a",
+    host_adapter_id: "adapter-a",
+    session_id: "session-a",
+    marker_id: "0197f000-0000-7000-8000-000000000001",
+    marker_digest: "marker-digest-a",
+    attempt_ordinal: 1,
+    phase: "claim",
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  assert(first.metadata.inserted === true, "KR-008/KR-009: SQLite first deterministic restart event inserts");
+  assert(first.host_id === "host-a" && first.host_adapter_id === "adapter-a", "KR-008: SQLite restart event identity fields round-trip");
+
+  const second = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+  });
+  assert(second.id === first.id, "KR-009: SQLite idempotent restart event returns original row");
+  assert(second.metadata.inserted === false && second.metadata.persistence_result === "idempotent", "KR-009: SQLite same digest is idempotent read-back");
+
+  const collision = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-b",
+    action: "restart_blocked",
+  });
+  assert(collision.id === first.id, "KR-009: SQLite event_id collision preserves original row");
+  assert(collision.metadata.collision === true && collision.metadata.persistence_result === "event_id_collision", "KR-009: SQLite different digest reports event_id_collision");
+
+  await store.saveRestartEvent({
+    event_id: "restart-parity:002",
+    agent_id: AGENT,
+    project: PROJECT,
+    marker_digest: "marker-digest-b",
+    payload_digest: "payload-digest-c",
+    action: "restart_dry_run",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  const ordered = await store.getRestartEvents({ agent_id: AGENT, project: PROJECT, limit: 2 });
+  assert(ordered[0].event_id === "restart-parity:002", "KR-008: SQLite restart events order by created_at DESC, event_id DESC");
+  assert(ordered[1].event_id === "restart-parity:001", "KR-008: SQLite restart events expose stable event_id ordering");
+}
+
 async function testClaudeConversationIngest() {
   console.log("\n── SqliteStore Claude Conversation Ingest ──");
 
@@ -1316,6 +1377,7 @@ async function run() {
     await testGetRecentMessages();
     await testConversationEvents();
     await testSelectedRestartPacks();
+    await testRestartEventsParity();
     await testClaudeConversationIngest();
     await testCodexConversationIngest();
     await testStripOrphanSurrogates();

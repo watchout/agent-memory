@@ -338,13 +338,21 @@ export const PG_MIGRATIONS: string[] = [
   // CELL-KUSABI-CTX-RESTART-001: durable restart bridge evidence.
   `CREATE TABLE IF NOT EXISTS restart_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id TEXT,
     agent_id TEXT NOT NULL,
     project TEXT,
     seat_id TEXT,
     host TEXT,
+    host_id TEXT,
+    host_adapter_id TEXT,
     session_id TEXT,
+    marker_id TEXT,
+    marker_digest TEXT,
     marker_path TEXT,
     marker_status TEXT,
+    attempt_ordinal INT,
+    phase TEXT,
+    payload_digest TEXT,
     action TEXT NOT NULL,
     restart_required BOOLEAN NOT NULL DEFAULT false,
     executed_restart BOOLEAN NOT NULL DEFAULT false,
@@ -363,6 +371,19 @@ export const PG_MIGRATIONS: string[] = [
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
   )`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS event_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS host_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS host_adapter_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS marker_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS marker_digest TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS attempt_ordinal INT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS phase TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS payload_digest TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_restart_events_event_id
+     ON restart_events (event_id)
+     WHERE event_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
-     ON restart_events (agent_id, created_at DESC)`,
+     ON restart_events (agent_id, created_at DESC, event_id DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_events_agent_event_id
+     ON restart_events (agent_id, created_at DESC, event_id DESC)`,
 ];

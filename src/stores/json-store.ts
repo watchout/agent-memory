@@ -643,15 +643,38 @@ export class JsonStore implements Store {
   }
 
   async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    if (input.event_id) {
+      const existing = this.restartEvents.find((event) => event.event_id === input.event_id);
+      if (existing) {
+        const sameDigest = (existing.payload_digest ?? "") === (input.payload_digest ?? "");
+        return {
+          ...existing,
+          metadata: {
+            ...existing.metadata,
+            persistence_result: sameDigest ? "idempotent" : "event_id_collision",
+            inserted: false,
+            collision: !sameDigest,
+          },
+        };
+      }
+    }
     const event: RestartEvent = {
       id: uuidv4(),
+      event_id: input.event_id,
       agent_id: input.agent_id,
       project: input.project,
       seat_id: input.seat_id,
       host: input.host,
+      host_id: input.host_id,
+      host_adapter_id: input.host_adapter_id,
       session_id: input.session_id,
+      marker_id: input.marker_id,
+      marker_digest: input.marker_digest,
       marker_path: input.marker_path,
       marker_status: input.marker_status,
+      attempt_ordinal: input.attempt_ordinal,
+      phase: input.phase,
+      payload_digest: input.payload_digest,
       action: input.action,
       restart_required: input.restart_required ?? false,
       executed_restart: input.executed_restart ?? false,
@@ -667,7 +690,10 @@ export class JsonStore implements Store {
       failure_reason: input.failure_reason,
       pre_state: input.pre_state,
       post_state: input.post_state,
-      metadata: input.metadata ?? {},
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(input.event_id ? { persistence_result: "inserted", inserted: true, collision: false } : {}),
+      },
       created_at: input.created_at ?? new Date().toISOString(),
     };
     this.restartEvents.push(event);
@@ -678,7 +704,11 @@ export class JsonStore implements Store {
   async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
     let results = this.restartEvents.filter((event) => event.agent_id === input.agent_id);
     if (input.project) results = results.filter((event) => event.project === input.project);
-    results.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    results.sort((a, b) => {
+      const created = b.created_at.localeCompare(a.created_at);
+      if (created !== 0) return created;
+      return (b.event_id ?? b.id).localeCompare(a.event_id ?? a.id);
+    });
     return results.slice(0, input.limit ?? 20);
   }
 

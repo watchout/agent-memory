@@ -6,10 +6,11 @@
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore } from "./stores/index.js";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
+import { createHash } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -102,6 +103,16 @@ function restoreEnv(key: string, value: string | undefined): void {
 
 function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function canonicalJsonForTest(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJsonForTest).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJsonForTest(record[key])}`)
+    .join(",")}}`;
 }
 
 function mcpToolNamesFromSource(source: string): string[] {
@@ -2250,16 +2261,16 @@ async function testClaudeMarkerController() {
   assert(ready.project === project, "Claude marker controller records marker project");
   assert(ready.host === "claude-code", "Claude marker controller records marker host");
   assert(ready.runner === "wasurezu-claude-start", "Claude marker controller delegates to Claude runner");
-  assert(ready.command.status === "pass", "Claude marker controller requires command preflight pass");
-  assert(ready.command.command_kind === "trusted_package_bin", "Claude marker controller accepts trusted package/bin command");
+  assert(ready.command.status === "fail", "Claude marker controller fails closed without registered adapter authority");
+  assert(ready.command.reasons.includes("restart_adapter_id_missing"), "Claude marker controller exposes missing adapter authority");
   assert(ready.prepare.context_signal.source === "host_metrics", "Claude marker controller passes marker metrics to restart preparation");
   assert(ready.prepare.context_signal.band === "require", "Claude marker controller maps high marker metrics to require band");
   assert(ready.prepare.action === "restart_required", "Claude marker controller preserves restart_required action");
   assert(ready.selected_pack_ref?.startsWith("selected_restart_pack:") === true, "Claude marker controller records selected pack ref");
   assert(ready.confidence.level !== "low", "Claude marker controller reports recovery confidence");
-  assert(ready.launch_permitted === true, "Claude marker controller permits standalone launch only after gates pass");
+  assert(ready.launch_permitted === false, "Claude marker controller blocks launch without registered adapter authority");
   assert(ready.executed_restart === false, "Claude marker controller does not execute live restart");
-  assert(ready.outcome === "prepared", "Claude marker controller reports prepared outcome when gates pass");
+  assert(ready.outcome === "blocked", "Claude marker controller reports blocked outcome when adapter authority is missing");
   assert(ready.notes.some((note) => note.includes("does not execute a live restart")), "Claude marker controller documents no-live-restart behavior");
   assert(ready.notes.some((note) => note.includes("SessionStart remains")), "Claude marker controller keeps SessionStart as load hook only");
 
@@ -2280,7 +2291,7 @@ async function testClaudeMarkerController() {
     restartPreauthorized: true,
   });
   assert(metricAbsent.prepare.context_signal.source === "estimated", "Claude marker controller marks metric-absent marker as estimated");
-  assert(metricAbsent.outcome === "degraded", "Claude marker controller reports metric-absent restart as degraded evidence");
+  assert(metricAbsent.outcome === "blocked", "Claude marker controller blocks metric-absent restart without adapter authority");
   assert(metricAbsent.notes.some((note) => note.includes("did not provide host context metrics")), "Claude marker controller explains missing marker metrics");
 
   const aunBlocked = await controlClaudeRestartMarker({
@@ -2321,9 +2332,9 @@ async function testClaudeMarkerController() {
     restartPreauthorized: true,
   });
   assert(relative.command.status === "fail", "Claude marker controller fails closed for relative restart commands");
-  assert(relative.command.reasons.includes("restart_command_relative_rejected"), "Claude marker controller reports relative command blocker");
+  assert(relative.command.reasons.includes("restart_adapter_id_missing"), "Claude marker controller reports missing adapter authority before relative command authorization");
   assert(relative.launch_permitted === false, "Claude marker controller does not permit launch after command preflight failure");
-  assert(relative.failure_class === "restart_command_relative_rejected", "Claude marker controller records command failure class");
+  assert(relative.failure_class === "restart_adapter_id_missing", "Claude marker controller records command failure class");
 
   const ignored = await controlClaudeRestartMarker({
     store,
@@ -2350,16 +2361,38 @@ function testRestartCommandPreflight() {
   const executable = join(root, "restart-controller.sh");
   writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
   chmodSync(executable, 0o755);
+  const digest = createHash("sha256").update(readFileSync(executable)).digest("hex");
+  const adapterRegistry = {
+    "claude-adapter": {
+      host_adapter_id: "claude-adapter",
+      canonical_path: executable,
+      executable_sha256: digest,
+      allowed_argv: ["--launch"],
+      enabled: true,
+      owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    },
+  };
 
   const absolute = preflightRestartCommand({
     command: `${executable} --dry-run`,
     restartPreauthorized: true,
     env: { PATH: "" },
   });
-  assert(absolute.status === "pass", "restart command preflight accepts an absolute executable path");
-  assert(absolute.command_kind === "absolute_path", "restart command preflight classifies absolute path commands");
-  assert(absolute.cwd_independent === true, "restart command preflight marks absolute path commands cwd-independent");
-  assert(absolute.resolved_path === executable, "restart command preflight records resolved absolute command path");
+  assert(absolute.status === "fail", "KR-005: restart command preflight rejects arbitrary absolute executable paths without adapter registration");
+  assert(absolute.reasons.includes("restart_adapter_id_missing"), "KR-005: preflight reports missing adapter id for absolute paths");
+
+  const registered = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
+  });
+  assert(registered.status === "pass", "KR-005: restart command preflight accepts only registered host adapters");
+  assert(registered.command_kind === "registered_host_adapter", "KR-005: restart command preflight classifies registered adapters");
+  assert(registered.cwd_independent === true, "KR-005: registered adapter command is cwd-independent");
+  assert(registered.resolved_path === realpathSync(executable), "KR-005: registered adapter preflight records canonical realpath");
+  assert(registered.argv.join(" ") === "--launch", "KR-005: registered adapter preflight records immutable argv");
 
   const missingAbsolute = preflightRestartCommand({
     command: `${join(root, "missing-controller.sh")} --dry-run`,
@@ -2367,7 +2400,7 @@ function testRestartCommandPreflight() {
     env: { PATH: "" },
   });
   assert(missingAbsolute.status === "fail", "restart command preflight fails closed when an absolute command is missing");
-  assert(missingAbsolute.reasons.includes("restart_command_not_executable"), "restart command preflight reports missing or non-executable absolute commands");
+  assert(missingAbsolute.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id before executable lookup");
 
   const markerRunDir = join(root, "marker-run");
   const relativeScriptsDir = join(markerRunDir, "scripts");
@@ -2381,7 +2414,7 @@ function testRestartCommandPreflight() {
     env: { PATH: "" },
   });
   assert(relative.status === "fail", "restart command preflight rejects relative script commands");
-  assert(relative.reasons.includes("restart_command_relative_rejected"), "restart command preflight reports relative command rejection");
+  assert(relative.reasons.includes("restart_adapter_id_missing"), "restart command preflight requires adapter id before relative command authorization");
   assert(relative.cwd_independent === false, "restart command preflight does not treat marker-run relative commands as cwd-independent");
 
   const binDir = join(root, "bin");
@@ -2394,9 +2427,8 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: binDir },
   });
-  assert(packageBin.status === "pass", "restart command preflight accepts trusted package/bin commands");
-  assert(packageBin.command_kind === "trusted_package_bin", "restart command preflight classifies trusted package/bin commands");
-  assert(packageBin.resolved_path === trustedBin, "restart command preflight resolves trusted package/bin through PATH");
+  assert(packageBin.status === "fail", "KR-005: restart command preflight rejects PATH lookup package/bin commands");
+  assert(packageBin.reasons.includes("restart_adapter_id_missing"), "KR-005: PATH lookup cannot replace adapter registry");
 
   const missingTrustedBin = preflightRestartCommand({
     command: "wasurezu-claude-start --launch",
@@ -2404,7 +2436,7 @@ function testRestartCommandPreflight() {
     env: { PATH: join(root, "empty-bin") },
   });
   assert(missingTrustedBin.status === "fail", "restart command preflight fails closed when trusted bin is missing");
-  assert(missingTrustedBin.reasons.includes("restart_command_not_found"), "restart command preflight reports missing trusted bin");
+  assert(missingTrustedBin.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id for trusted bin lookup");
 
   const disallowedBin = preflightRestartCommand({
     command: "claude --mcp-config .mcp.json",
@@ -2412,11 +2444,13 @@ function testRestartCommandPreflight() {
     env: { PATH: binDir },
   });
   assert(disallowedBin.status === "fail", "restart command preflight rejects non-allowlisted bare commands");
-  assert(disallowedBin.reasons.includes("restart_command_bin_not_allowed"), "restart command preflight reports non-allowlisted commands");
+  assert(disallowedBin.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id for bare commands");
 
   const notPreauthorized = preflightRestartCommand({
-    command: `${executable} --dry-run`,
+    command: `${executable} --launch`,
     env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
   });
   assert(notPreauthorized.status === "fail", "restart command preflight requires explicit restart preauthorization");
   assert(notPreauthorized.reasons.includes("restart_lifecycle_not_preauthorized"), "restart command preflight reports missing preauthorization");
@@ -2425,9 +2459,45 @@ function testRestartCommandPreflight() {
     command: `${executable} && echo unsafe`,
     restartPreauthorized: true,
     env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
   });
   assert(shellControl.status === "fail", "restart command preflight rejects shell control operators");
   assert(shellControl.reasons.includes("restart_command_shell_control_rejected"), "restart command preflight reports shell control rejection");
+
+  const argvDrift = preflightRestartCommand({
+    command: `${executable} --unsafe`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
+  });
+  assert(argvDrift.status === "fail", "KR-005: restart command preflight rejects argv outside adapter schema");
+  assert(argvDrift.reasons.includes("restart_command_args_rejected"), "KR-005: preflight reports argv drift");
+
+  writeFileSync(executable, "#!/usr/bin/env sh\nexit 1\n");
+  chmodSync(executable, 0o755);
+  const digestDrift = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
+  });
+  assert(digestDrift.status === "fail", "KR-005: restart command preflight rejects digest drift");
+  assert(digestDrift.reasons.includes("restart_adapter_digest_mismatch"), "KR-005: preflight reports digest drift");
+
+  writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(executable, 0o777);
+  const permissionDrift = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    adapterRegistry,
+  });
+  assert(permissionDrift.status === "fail", "KR-005: restart command preflight rejects group/world writable adapters");
+  assert(permissionDrift.reasons.includes("restart_adapter_path_writable_rejected"), "KR-005: preflight reports permission drift");
 
   rmSync(root, { recursive: true, force: true });
 }
@@ -2443,12 +2513,11 @@ function testSupervisorPreflight() {
 
   const CHECKED_AT = "2026-01-01T00:00:00.000Z";
 
-  // Correctly configured supervisor: trusted bin on PATH
+  // Registry-less supervisor config is now diagnostic-only and fails closed.
   const pass = runSupervisorPreflight("wasurezu-claude-start --launch", true, CHECKED_AT, { PATH: binDir });
-  assert(pass.status === "pass", "supervisor preflight passes for trusted bin command");
-  assert(pass.command_kind === "trusted_package_bin", "supervisor preflight classifies trusted bin correctly");
-  assert(pass.cwd_independent === true, "supervisor preflight marks trusted bin as cwd-independent");
-  assert(pass.remediation.length === 0, "supervisor preflight has no remediation when configured correctly");
+  assert(pass.status === "fail", "supervisor preflight fails closed without a registered adapter");
+  assert(pass.reasons.includes("restart_adapter_id_missing"), "supervisor preflight reports missing adapter authority");
+  assert(pass.cwd_independent === false, "supervisor preflight does not mark PATH lookup commands cwd-independent");
 
   // Legacy broken config: relative script path (the original bug from issue #138)
   const relativeResult = runSupervisorPreflight(
@@ -2473,7 +2542,7 @@ function testSupervisorPreflight() {
     PATH: binDir,
     WASUREZU_RESTART_COMMAND: "wasurezu-claude-start --launch",
   });
-  assert(fromEnv.status === "pass", "supervisor preflight reads restart command from WASUREZU_RESTART_COMMAND env var");
+  assert(fromEnv.status === "fail", "supervisor preflight reads env command but still requires registered adapter authority");
 
   // Not preauthorized
   const noAuth = runSupervisorPreflight("wasurezu-claude-start --launch", false, CHECKED_AT, { PATH: binDir });
@@ -2823,27 +2892,69 @@ async function testRestartMarkerBridge() {
   const binDir = join(root, "bin");
   mkdirSync(binDir, { recursive: true });
   const trustedBin = join(binDir, "wasurezu-claude-start");
-  writeFileSync(trustedBin, "#!/usr/bin/env bash\nexit 0\n");
+  const invocationLog = join(root, "invocations.log");
+  writeFileSync(trustedBin, `#!/usr/bin/env bash\necho fake-adapter >> "${invocationLog}"\nexit 0\n`);
   chmodSync(trustedBin, 0o755);
+  const trustedBinDigest = createHash("sha256").update(readFileSync(trustedBin)).digest("hex");
+  const hostAdapterId = "claude-adapter";
+  const adapterRegistry = {
+    [hostAdapterId]: {
+      host_adapter_id: hostAdapterId,
+      canonical_path: trustedBin,
+      executable_sha256: trustedBinDigest,
+      allowed_argv: ["--launch"],
+      enabled: true,
+      owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    },
+  };
   const env = { ...inheritedEnv(), PATH: `${binDir}:${process.env.PATH ?? ""}` };
   delete env.AGENT_COMMS_DATABASE_URL;
   const agentId = "test-restart-bridge-agent";
   const project = "restart-bridge";
+  const hostId = "host-a";
+  const seatId = "seat-a";
+  const now = "2026-07-09T00:01:00.000Z";
+  const expiresAt = "2026-07-09T00:10:00.000Z";
   const markerPath = join(root, "restart-required.json");
 
-  const written = writeRestartMarker({
+  const authorityFor = (sessionId: string, lifecycle_mode: "standalone_supervisor" | "aun_supervised" | "pure_mcp" = "standalone_supervisor") => ({
+    lifecycle_mode,
+    agent_id: agentId,
+    project,
+    seat_id: seatId,
+    host_id: hostId,
+    session_id: sessionId,
+    host_adapter_id: hostAdapterId,
+    supervisor_id: "supervisor-a",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    authority_ref: "KUSABI-DEC-STANDALONE-DETECTION",
+    expires_at: expiresAt,
+    row_version: 1,
+    aun_absent_confirmed: true,
+  });
+
+  const writeMarker = (path: string, sessionId: string, generated_at = "2026-07-09T00:00:30.000Z") => writeRestartMarker({
     agent_id: agentId,
     project,
     host: "claude",
-    seat_id: "seat-a",
-    session_id: "session-a",
+    host_id: hostId,
+    host_adapter_id: hostAdapterId,
+    seat_id: seatId,
+    session_id: sessionId,
     context_tokens: 950,
     context_window_tokens: 1000,
     thresholds: { prepare: 0.5, warn: 0.7, recommend: 0.8, require: 0.94 },
-    marker_path: markerPath,
-    generated_at: "2026-07-09T00:00:00.000Z",
+    marker_path: path,
+    generated_at,
   });
+
+  const written = writeMarker(markerPath, "session-a");
   assert(written.marker.status === "restart_required", "marker writer emits restart_required at require band");
+  assert(written.marker.schema_version === "wasurezu-restart-marker/v2", "KR-001: marker writer emits executable v2 schema");
+  assert(/^[-0-9a-f]{36}$/i.test(written.marker.marker_id) && written.marker.marker_id.split("-")[2].startsWith("7"), "KR-001: marker writer mints UUIDv7-like marker id");
+  assert(written.marker.host_id === hostId, "KR-001: marker writer records host id");
+  assert(written.marker.host_adapter_id === hostAdapterId, "KR-001: marker writer records host adapter id");
   assert(written.marker.context_used_ratio === 0.95, "marker writer records measured context ratio");
   assert(written.marker.thresholds.require === 0.94, "marker writer records applied threshold values");
   const markerText = readFileSync(markerPath, "utf8");
@@ -2855,18 +2966,203 @@ async function testRestartMarkerBridge() {
     agentId,
     project,
     markerPath,
-    restartCommand: "wasurezu-claude-start --launch",
-    restartPreauthorized: true,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-a"),
+    hostAdapterId,
+    adapterRegistry,
     execute: false,
     env,
+    now,
   });
   assert(standalone.action === "restart_dry_run", "restart bridge dry-runs by default when execute=false");
   assert(standalone.executed_restart === false, "restart bridge dry-run does not execute live restart");
-  assert(standalone.command?.status === "pass", "restart bridge performs trusted-bin preflight");
-  assert(standalone.queue_check?.mode === "standalone_no_agent_comms_detected", "restart bridge allows standalone no-agent-comms mode");
-  assert(standalone.event.queue_check_mode === "standalone_no_agent_comms_detected", "restart event records standalone queue mode");
+  assert(standalone.command?.status === "pass", "KR-005: restart bridge performs registered adapter preflight");
+  assert(standalone.command?.command_kind === "registered_host_adapter", "KR-005: restart bridge uses registered adapter command record");
+  assert(standalone.queue_check?.mode === "standalone_supervisor", "KR-006: restart bridge allows only explicit standalone supervisor authority");
+  assert(standalone.event.queue_check_mode === "standalone_supervisor", "restart event records standalone supervisor mode");
   assert(standalone.event.preflight_status === "pass", "restart event records preflight result");
   assert(standalone.event.executed_restart === false, "restart event records no live restart");
+
+  const legacyMarkerPath = join(root, "legacy-v1.json");
+  writeFileSync(legacyMarkerPath, JSON.stringify({
+    schema_version: "wasurezu-restart-marker/v1",
+    status: "restart_required",
+    restart_required: true,
+    reason: "legacy",
+    agent_id: agentId,
+    project,
+    host: "claude",
+    seat_id: seatId,
+    session_id: "session-legacy",
+    generated_at: "2026-07-09T00:00:30.000Z",
+    context_used_ratio: 0.95,
+    runtime_context_error: false,
+    band: "require",
+    thresholds: { prepare: 0.5, warn: 0.7, recommend: 0.8, require: 0.94 },
+  }, null, 2));
+  const legacy = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: legacyMarkerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-legacy"),
+    hostAdapterId,
+    adapterRegistry,
+    execute: false,
+    env,
+    now,
+  });
+  assert(legacy.action === "restart_blocked", "KR-001: v1 markers are readable but non-executable");
+  assert(legacy.failure_reason === "legacy_marker_non_executable", "KR-001: bridge reports typed v1 rejection");
+
+  const stalePath = join(root, "stale.json");
+  writeMarker(stalePath, "session-stale", "2026-07-09T00:00:00.000Z");
+  const stale = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: stalePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-stale"),
+    hostAdapterId,
+    adapterRegistry,
+    execute: false,
+    env,
+    now: "2026-07-09T00:06:00.000Z",
+  });
+  assert(stale.action === "restart_blocked", "KR-002: stale marker fails closed");
+  assert(stale.failure_reason === "stale_or_missing_marker", "KR-002: stale marker reports typed stale_or_missing_marker");
+
+  const dirSelect = join(root, "dir-select");
+  mkdirSync(dirSelect, { recursive: true });
+  const older = writeMarker(join(dirSelect, "z-lexical-winner-old.json"), "session-dir", "2026-07-09T00:00:10.000Z");
+  const newer = writeMarker(join(dirSelect, "a-generated-winner-new.json"), "session-dir", "2026-07-09T00:00:50.000Z");
+  const selected = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerDir: dirSelect,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-dir"),
+    hostAdapterId,
+    adapterRegistry,
+    execute: false,
+    env,
+    now,
+  });
+  assert(selected.action === "restart_dry_run", "KR-002: directory mode selects a fresh marker by generated_at");
+  assert(selected.event.marker_id === newer.marker.marker_id, "KR-002: generated_at selection ignores filename ordering");
+  assert(selected.event.marker_id !== older.marker.marker_id, "KR-002: reverse lexical filename does not select authority");
+
+  const dirAmbiguous = join(root, "dir-ambiguous");
+  mkdirSync(dirAmbiguous, { recursive: true });
+  writeMarker(join(dirAmbiguous, "a.json"), "session-ambiguous", "2026-07-09T00:00:50.000Z");
+  writeMarker(join(dirAmbiguous, "b.json"), "session-ambiguous", "2026-07-09T00:00:50.000Z");
+  const ambiguous = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerDir: dirAmbiguous,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-ambiguous"),
+    hostAdapterId,
+    adapterRegistry,
+    execute: false,
+    env,
+    now,
+  });
+  assert(ambiguous.action === "restart_blocked", "KR-002: equal newest generated_at markers fail closed");
+  assert(ambiguous.failure_reason === "ambiguous_fresh_markers", "KR-002: ambiguous markers report typed rejection");
+
+  const racePath = join(root, "race.json");
+  writeMarker(racePath, "session-race");
+  const raceResults = await Promise.all([
+    runRestartBridge({
+      store,
+      agentId,
+      project,
+      markerPath: racePath,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthority: authorityFor("session-race"),
+      hostAdapterId,
+      adapterRegistry,
+      execute: true,
+      env,
+      now,
+    }),
+    runRestartBridge({
+      store,
+      agentId,
+      project,
+      markerPath: racePath,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthority: authorityFor("session-race"),
+      hostAdapterId,
+      adapterRegistry,
+      execute: true,
+      env,
+      now,
+    }),
+  ]);
+  assert(raceResults.filter((result) => result.action === "restart_executed").length === 1, "KR-003: exactly one concurrent consumer wins the marker claim");
+  assert(raceResults.filter((result) => result.failure_reason === "marker_already_claimed").length === 1, "KR-003: losing concurrent consumer reports marker_already_claimed");
+  const fakeInvocations = existsSync(invocationLog) ? readFileSync(invocationLog, "utf8").trim().split("\n").filter(Boolean).length : 0;
+  assert(fakeInvocations === 1, "KR-003/KR-010: exactly one fake adapter invocation occurs and no live runtime is started");
+
+  const unknownPath = join(root, "unknown.json");
+  const unknown = writeMarker(unknownPath, "session-unknown");
+  const unknownDigest = createHash("sha256")
+    .update(canonicalJsonForTest(JSON.parse(readFileSync(unknownPath, "utf8"))))
+    .digest("hex");
+  const unknownClaimPayloadDigest = createHash("sha256")
+    .update(canonicalJsonForTest({
+      domain: "wasurezu-restart-marker-claim/v1",
+      marker_id: unknown.marker.marker_id,
+      marker_digest: unknownDigest,
+      attempt_ordinal: 1,
+      phase: "claim",
+    }))
+    .digest("hex");
+  await store.saveRestartEvent({
+    event_id: `restart-marker-claim:${unknownDigest}`,
+    agent_id: agentId,
+    project,
+    marker_id: unknown.marker.marker_id,
+    marker_digest: unknownDigest,
+    phase: "claim",
+    payload_digest: unknownClaimPayloadDigest,
+    action: "restart_blocked",
+    restart_required: true,
+    executed_restart: false,
+  });
+  await store.saveRestartEvent({
+    event_id: `restart-marker-spawn-intent:${unknownDigest}`,
+    agent_id: agentId,
+    project,
+    marker_id: unknown.marker.marker_id,
+    marker_digest: unknownDigest,
+    phase: "spawn_intent",
+    payload_digest: "spawn-digest",
+    action: "restart_dry_run",
+    restart_required: true,
+    executed_restart: false,
+  });
+  const replayUnknown = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: unknownPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-unknown"),
+    hostAdapterId,
+    adapterRegistry,
+    execute: true,
+    env,
+    now,
+  });
+  assert(replayUnknown.action === "restart_blocked", "KR-004: spawn_intent without terminal evidence blocks replay");
+  assert(replayUnknown.failure_reason === "invocation_unknown", "KR-004: replay reports invocation_unknown");
 
   const blockedQueue: QueueDrainCheckResult = {
     mode: "agent_comms_configured",
@@ -2874,50 +3170,52 @@ async function testRestartMarkerBridge() {
     allowed: false,
     in_flight_count: 1,
     in_flight_queue_ids: ["124253"],
-    failure_reason: "queue_has_in_flight_work",
+    failure_reason: "queue_not_drained",
   };
+  const blockedQueuePath = join(root, "blocked-queue.json");
+  writeMarker(blockedQueuePath, "session-blocked-queue");
   const blocked = await runRestartBridge({
     store,
     agentId,
     project,
-    markerPath,
-    restartCommand: "wasurezu-claude-start --launch",
-    restartPreauthorized: true,
+    markerPath: blockedQueuePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-blocked-queue", "aun_supervised"),
+    hostAdapterId,
+    adapterRegistry,
     execute: false,
     env,
     queueDrainCheck: async () => blockedQueue,
+    now,
   });
   assert(blocked.action === "restart_blocked", "restart bridge blocks configured queue with in-flight work");
-  assert(blocked.failure_reason === "queue_has_in_flight_work", "restart bridge reports queue in-flight blocker");
+  assert(blocked.failure_reason === "queue_not_drained", "KR-007: restart bridge reports queue in-flight blocker");
   assert(blocked.event.queue_check_result === "blocked", "restart event records queue blocked result");
 
-  const unavailableQueue: QueueDrainCheckResult = {
-    mode: "agent_comms_configured",
-    result: "unavailable",
-    allowed: false,
-    in_flight_count: 0,
-    in_flight_queue_ids: [],
-    failure_reason: "agent_comms_queue_check_failed: connection refused",
-  };
+  const missingAunPath = join(root, "missing-aun.json");
+  writeMarker(missingAunPath, "session-missing-aun");
   const unavailable = await runRestartBridge({
     store,
     agentId,
     project,
-    markerPath,
-    restartCommand: "wasurezu-claude-start --launch",
-    restartPreauthorized: true,
+    markerPath: missingAunPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthority: authorityFor("session-missing-aun", "aun_supervised"),
+    hostAdapterId,
+    adapterRegistry,
     execute: false,
     env,
-    queueDrainCheck: async () => unavailableQueue,
+    now,
   });
-  assert(unavailable.action === "restart_blocked", "restart bridge fail-closes when configured queue check is unavailable");
+  assert(unavailable.action === "restart_blocked", "KR-006: restart bridge fail-closes when AUN DB URL is absent");
+  assert(unavailable.failure_reason === "lifecycle_authority_unknown_or_blocked", "KR-006: absent DB URL does not prove standalone authority");
   assert(unavailable.event.queue_check_result === "unavailable", "restart event records unavailable queue check");
 
   const events = await store.getRestartEvents({ agent_id: agentId, project, limit: 10 });
   assert(events.length >= 3, "restart_events persistence stores bridge attempts");
   assert(events.some((event) => event.action === "restart_dry_run"), "restart_events include dry-run evidence");
-  assert(events.some((event) => event.failure_reason === "queue_has_in_flight_work"), "restart_events include queue blocker evidence");
-  assert(events.every((event) => event.executed_restart === false), "restart_events attest no live restart in tests");
+  assert(events.some((event) => event.failure_reason === "queue_not_drained"), "restart_events include queue blocker evidence");
+  assert(events.every((event) => event.metadata.runtime_lifecycle_mode !== "production"), "KR-010: restart_events contain no production runtime activation claim");
 
   const parsedMarker = parseRestartCliArgs([
     "marker",
@@ -2927,6 +3225,10 @@ async function testRestartMarkerBridge() {
     project,
     "--marker-path",
     markerPath,
+    "--host-id",
+    hostId,
+    "--host-adapter-id",
+    hostAdapterId,
     "--context-used-ratio",
     "0.95",
     "--threshold-require",
@@ -2941,8 +3243,23 @@ async function testRestartMarkerBridge() {
     agentId,
     "--marker-path",
     markerPath,
+    "--host-id",
+    hostId,
+    "--host-adapter-id",
+    hostAdapterId,
+    "--session-id",
+    "session-a",
+    "--lifecycle-mode",
+    "standalone_supervisor",
+    "--supervisor-id",
+    "supervisor-a",
+    "--supervisor-available",
+    "--authority-ref",
+    "KUSABI-DEC-STANDALONE-DETECTION",
+    "--authority-expires-at",
+    expiresAt,
     "--restart-command",
-    "wasurezu-claude-start --launch",
+    `${trustedBin} --launch`,
     "--restart-preauthorized",
     "--agent-comms-db-url",
     "postgres://example.invalid/db",
@@ -2950,6 +3267,8 @@ async function testRestartMarkerBridge() {
   ]);
   assert(parsedBridge.command === "bridge", "wasurezu-restart parser reads bridge command");
   assert(parsedBridge.agent_comms_db_url === "postgres://example.invalid/db", "wasurezu-restart parser reads agent-comms DB URL");
+  assert(parsedBridge.host_adapter_id === hostAdapterId, "wasurezu-restart parser reads host adapter id");
+  assert(parsedBridge.lifecycle_mode === "standalone_supervisor", "wasurezu-restart parser reads lifecycle mode");
   assert(parsedBridge.execute === false, "wasurezu-restart bridge defaults can be explicit dry-run");
 
   await store.close();

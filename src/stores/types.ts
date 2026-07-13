@@ -342,13 +342,21 @@ export interface ConsumeSelectedRestartPackInput extends GetSelectedRestartPackI
 
 export interface RestartEvent {
   id: string;
+  event_id?: string;
   agent_id: string;
   project?: string;
   seat_id?: string;
   host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
   session_id?: string;
+  marker_id?: string;
+  marker_digest?: string;
   marker_path?: string;
   marker_status?: string;
+  attempt_ordinal?: number;
+  phase?: string;
+  payload_digest?: string;
   action: string;
   restart_required: boolean;
   executed_restart: boolean;
@@ -369,13 +377,21 @@ export interface RestartEvent {
 }
 
 export interface SaveRestartEventInput {
+  event_id?: string;
   agent_id: string;
   project?: string;
   seat_id?: string;
   host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
   session_id?: string;
+  marker_id?: string;
+  marker_digest?: string;
   marker_path?: string;
   marker_status?: string;
+  attempt_ordinal?: number;
+  phase?: string;
+  payload_digest?: string;
   action: string;
   restart_required?: boolean;
   executed_restart?: boolean;

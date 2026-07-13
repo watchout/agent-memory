@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { realpathSync } from "fs";
+import { readFileSync, realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { writeRestartMarker } from "./context-restart-marker.js";
-import { runRestartBridge } from "./restart-bridge.js";
+import { runRestartBridge, type RestartLifecycleMode, type RestartRuntimeAuthority } from "./restart-bridge.js";
+import type { RestartHostAdapterRegistry } from "./restart-command-preflight.js";
 import { loadRestartThresholdConfig, type RestartThresholdOverrides } from "./restart-thresholds.js";
 import { redactText } from "./redact.js";
 
@@ -38,9 +39,18 @@ interface CliOptions {
   marker_path?: string;
   marker_dir?: string;
   host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
   seat_id?: string;
   session_id?: string;
   agent_comms_db_url?: string;
+  runtime_authority_file?: string;
+  adapter_registry_file?: string;
+  lifecycle_mode?: RestartLifecycleMode;
+  supervisor_id?: string;
+  authority_ref?: string;
+  authority_expires_at?: string;
+  runtime_row_version?: number;
   execute?: boolean;
 }
 
@@ -160,6 +170,12 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--host":
         options.host = next();
         break;
+      case "--host-id":
+        options.host_id = next();
+        break;
+      case "--host-adapter-id":
+        options.host_adapter_id = next();
+        break;
       case "--seat-id":
         options.seat_id = next();
         break;
@@ -168,6 +184,27 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
         break;
       case "--agent-comms-db-url":
         options.agent_comms_db_url = next();
+        break;
+      case "--runtime-authority-file":
+        options.runtime_authority_file = next();
+        break;
+      case "--adapter-registry-file":
+        options.adapter_registry_file = next();
+        break;
+      case "--lifecycle-mode":
+        options.lifecycle_mode = lifecycleMode(next());
+        break;
+      case "--supervisor-id":
+        options.supervisor_id = next();
+        break;
+      case "--authority-ref":
+        options.authority_ref = next();
+        break;
+      case "--authority-expires-at":
+        options.authority_expires_at = next();
+        break;
+      case "--runtime-row-version":
+        options.runtime_row_version = positiveNumber(arg, next());
         break;
       case "--execute":
         options.execute = true;
@@ -224,9 +261,17 @@ export function printRestartCliHelp(): string {
     "  --marker-path PATH",
     "  --marker-dir DIR",
     "  --host HOST",
+    "  --host-id ID",
+    "  --host-adapter-id ID",
     "  --seat-id ID",
     "  --session-id ID",
     "  --agent-comms-db-url URL       optional read-only queue drain check",
+    "  --runtime-authority-file PATH  restart_runtime_authority/v1 JSON",
+    "  --adapter-registry-file PATH   registered host adapter registry JSON",
+    "  --lifecycle-mode aun_supervised|standalone_supervisor|pure_mcp",
+    "  --supervisor-id ID",
+    "  --authority-ref REF",
+    "  --authority-expires-at RFC3339",
     "  --execute                     bridge executes after gates pass; default is dry-run",
   ].join("\n");
 }
@@ -249,13 +294,17 @@ export function runSupervisorPreflight(
   restartCommand: string | undefined,
   restartPreauthorized: boolean,
   checkedAt: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  hostAdapterId?: string,
+  adapterRegistry?: RestartHostAdapterRegistry
 ): SupervisorPreflightResult {
   const effectiveCommand = restartCommand ?? env.WASUREZU_RESTART_COMMAND ?? env.AGENT_MEMORY_RESTART_COMMAND;
   const result = preflightRestartCommand({
     command: effectiveCommand,
     restartPreauthorized,
     env,
+    hostAdapterId,
+    adapterRegistry,
   });
 
   const remediation: string[] = [];
@@ -272,6 +321,12 @@ export function runSupervisorPreflight(
   }
   if (result.reasons.includes("restart_command_missing")) {
     remediation.push("Set WASUREZU_RESTART_COMMAND=wasurezu-claude-start --launch or pass --restart-command to the preflight check");
+  }
+  if (result.reasons.includes("restart_adapter_id_missing")) {
+    remediation.push("Pass --host-adapter-id and --adapter-registry-file so restart preflight can verify the registered adapter.");
+  }
+  if (result.reasons.includes("restart_adapter_not_registered")) {
+    remediation.push("Register the host adapter with canonical_path, executable_sha256, allowed_argv, and enabled=true.");
   }
   if (result.reasons.includes("restart_lifecycle_not_preauthorized")) {
     remediation.push("Pass --restart-preauthorized flag or set WASUREZU_RESTART_PREAUTHORIZED=1 to confirm restart lifecycle is authorized");
@@ -303,10 +358,14 @@ async function main(): Promise<void> {
       options.restart_preauthorized === true ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "1" ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "true";
+    const adapterRegistry = loadAdapterRegistry(options.adapter_registry_file);
     const result = runSupervisorPreflight(
       options.restart_command,
       restartPreauthorized,
-      new Date().toISOString()
+      new Date().toISOString(),
+      process.env,
+      options.host_adapter_id,
+      adapterRegistry
     );
     console.log(redactedJson(result));
     if (result.status === "fail") process.exit(1);
@@ -317,6 +376,8 @@ async function main(): Promise<void> {
       agent_id: options.agent_id,
       project: options.project,
       host: options.host,
+      host_id: requiredOption("--host-id", options.host_id),
+      host_adapter_id: requiredOption("--host-adapter-id", options.host_adapter_id),
       seat_id: options.seat_id,
       session_id: options.session_id,
       context_used_ratio: options.context_used_ratio,
@@ -350,6 +411,8 @@ async function main(): Promise<void> {
       return;
     }
     if (options.command === "bridge") {
+      const runtimeAuthority = loadRuntimeAuthority(options);
+      const adapterRegistry = loadAdapterRegistry(options.adapter_registry_file);
       const result = await runRestartBridge({
         store,
         agentId: options.agent_id,
@@ -360,6 +423,9 @@ async function main(): Promise<void> {
         restartPreauthorized: options.restart_preauthorized,
         execute: options.execute === true,
         agentCommsDatabaseUrl: options.agent_comms_db_url,
+        runtimeAuthority,
+        hostAdapterId: options.host_adapter_id,
+        adapterRegistry,
         env: process.env,
       });
       console.log(redactedJson(result));
@@ -414,6 +480,11 @@ function untrustedContextPolicy(value: string): UntrustedContextPolicy {
   throw new Error(`invalid untrusted context policy: ${value}`);
 }
 
+function lifecycleMode(value: string): RestartLifecycleMode {
+  if (value === "aun_supervised" || value === "standalone_supervisor" || value === "pure_mcp") return value;
+  throw new Error(`invalid lifecycle mode: ${value}`);
+}
+
 function positiveNumber(flag: string, value: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`${flag} must be a non-negative number`);
@@ -428,6 +499,42 @@ function ratioNumber(flag: string, value: string): number {
 
 function setThreshold(options: CliOptions, key: keyof RestartThresholdOverrides, value: number): void {
   options.thresholds = { ...(options.thresholds ?? {}), [key]: value };
+}
+
+function requiredOption(flag: string, value: string | undefined): string {
+  if (!value) throw new Error(`missing required option: ${flag}`);
+  return value;
+}
+
+function loadRuntimeAuthority(options: CliOptions): RestartRuntimeAuthority | undefined {
+  if (options.runtime_authority_file) {
+    return JSON.parse(readFileSync(options.runtime_authority_file, "utf8")) as RestartRuntimeAuthority;
+  }
+  if (!options.lifecycle_mode) return undefined;
+  if (!options.host_id || !options.host_adapter_id || !options.session_id || !options.authority_ref || !options.authority_expires_at) {
+    throw new Error("bridge lifecycle authority requires --host-id, --host-adapter-id, --session-id, --authority-ref, and --authority-expires-at");
+  }
+  return {
+    lifecycle_mode: options.lifecycle_mode,
+    agent_id: options.agent_id,
+    project: options.project,
+    seat_id: options.seat_id,
+    host_id: options.host_id,
+    session_id: options.session_id,
+    host_adapter_id: options.host_adapter_id,
+    supervisor_id: options.supervisor_id,
+    supervisor_available: options.supervisor_available,
+    restart_preauthorized: options.restart_preauthorized === true,
+    authority_ref: options.authority_ref,
+    expires_at: options.authority_expires_at,
+    row_version: options.runtime_row_version ?? 1,
+    aun_absent_confirmed: options.aun_absent_confirmed,
+  };
+}
+
+function loadAdapterRegistry(path: string | undefined): RestartHostAdapterRegistry | undefined {
+  if (!path) return undefined;
+  return JSON.parse(readFileSync(path, "utf8")) as RestartHostAdapterRegistry;
 }
 
 export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string): boolean {

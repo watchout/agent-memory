@@ -202,13 +202,21 @@ const MIGRATIONS = [
 
   `CREATE TABLE IF NOT EXISTS restart_events (
     id TEXT PRIMARY KEY,
+    event_id TEXT,
     agent_id TEXT NOT NULL,
     project TEXT,
     seat_id TEXT,
     host TEXT,
+    host_id TEXT,
+    host_adapter_id TEXT,
     session_id TEXT,
+    marker_id TEXT,
+    marker_digest TEXT,
     marker_path TEXT,
     marker_status TEXT,
+    attempt_ordinal INTEGER,
+    phase TEXT,
+    payload_digest TEXT,
     action TEXT NOT NULL,
     restart_required INTEGER NOT NULL DEFAULT 0,
     executed_restart INTEGER NOT NULL DEFAULT 0,
@@ -227,8 +235,11 @@ const MIGRATIONS = [
     metadata TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_restart_events_event_id
+     ON restart_events(event_id)
+   WHERE event_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
-    ON restart_events(agent_id, created_at DESC)`,
+    ON restart_events(agent_id, created_at DESC, event_id DESC)`,
 
   // ─── AM-026: catch_up_log per-event ledger (#58) ──────────────
   `CREATE TABLE IF NOT EXISTS catch_up_log (
@@ -382,6 +393,9 @@ export class SqliteStore implements Store {
       if (sql.includes("CREATE TABLE IF NOT EXISTS raw_events")) {
         this.ensureRawEventsCompatibilityColumns();
       }
+      if (sql.includes("CREATE TABLE IF NOT EXISTS restart_events")) {
+        this.ensureRestartEventsCompatibilityColumns();
+      }
     }
 
     // ─── AM-023: idempotent post-CREATE migration for existing DBs ──
@@ -474,6 +488,26 @@ export class SqliteStore implements Store {
     this.alterAddColumnIfMissing("raw_events", "created_at", "TEXT");
     this.db.run("UPDATE raw_events SET occurred_at = coalesce(occurred_at, event_at) WHERE occurred_at IS NULL");
     this.db.run("UPDATE raw_events SET created_at = coalesce(created_at, ingested_at) WHERE created_at IS NULL");
+  }
+
+  private ensureRestartEventsCompatibilityColumns(): void {
+    this.alterAddColumnIfMissing("restart_events", "event_id", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "host_id", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "host_adapter_id", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "marker_id", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "marker_digest", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "attempt_ordinal", "INTEGER");
+    this.alterAddColumnIfMissing("restart_events", "phase", "TEXT");
+    this.alterAddColumnIfMissing("restart_events", "payload_digest", "TEXT");
+    this.db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_restart_events_event_id
+         ON restart_events(event_id)
+       WHERE event_id IS NOT NULL`
+    );
+    this.db.run(
+      `CREATE INDEX IF NOT EXISTS idx_restart_events_agent_event_id
+         ON restart_events(agent_id, created_at DESC, event_id DESC)`
+    );
   }
 
   private allRows(sql: string, params: unknown[] = []): Record<string, unknown>[] {
@@ -1388,25 +1422,50 @@ export class SqliteStore implements Store {
   }
 
   async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    if (input.event_id) {
+      const existing = this.allRows(`SELECT * FROM restart_events WHERE event_id = ? LIMIT 1`, [input.event_id])[0];
+      if (existing) {
+        const event = this.rowToRestartEvent(existing);
+        const sameDigest = (event.payload_digest ?? "") === (input.payload_digest ?? "");
+        return {
+          ...event,
+          metadata: {
+            ...event.metadata,
+            persistence_result: sameDigest ? "idempotent" : "event_id_collision",
+            inserted: false,
+            collision: !sameDigest,
+          },
+        };
+      }
+    }
     const id = uuidv4();
     const createdAt = input.created_at ?? nowIso();
     this.db.run(
       `INSERT INTO restart_events
-        (id, agent_id, project, seat_id, host, session_id, marker_path, marker_status,
-         action, restart_required, executed_restart, band, context_tokens,
+        (id, event_id, agent_id, project, seat_id, host, host_id, host_adapter_id,
+         session_id, marker_id, marker_digest, marker_path, marker_status,
+         attempt_ordinal, phase, payload_digest, action, restart_required, executed_restart, band, context_tokens,
          context_window_tokens, context_used_ratio, thresholds, queue_check_mode,
          queue_check_result, preflight_status, restart_command, failure_reason,
          pre_state, post_state, metadata, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
+        input.event_id ?? null,
         input.agent_id,
         input.project ?? null,
         input.seat_id ?? null,
         input.host ?? null,
+        input.host_id ?? null,
+        input.host_adapter_id ?? null,
         input.session_id ?? null,
+        input.marker_id ?? null,
+        input.marker_digest ?? null,
         input.marker_path ?? null,
         input.marker_status ?? null,
+        input.attempt_ordinal ?? null,
+        input.phase ?? null,
+        input.payload_digest ?? null,
         input.action,
         input.restart_required === true ? 1 : 0,
         input.executed_restart === true ? 1 : 0,
@@ -1422,7 +1481,10 @@ export class SqliteStore implements Store {
         input.failure_reason ?? null,
         JSON.stringify(input.pre_state ?? {}),
         JSON.stringify(input.post_state ?? {}),
-        JSON.stringify(input.metadata ?? {}),
+        JSON.stringify({
+          ...(input.metadata ?? {}),
+          ...(input.event_id ? { persistence_result: "inserted", inserted: true, collision: false } : {}),
+        }),
         createdAt,
       ]
     );
@@ -1441,7 +1503,7 @@ export class SqliteStore implements Store {
     const rows = this.allRows(
       `SELECT * FROM restart_events
         WHERE ${conditions.join(" AND ")}
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, coalesce(event_id, id) DESC
         LIMIT ${input.limit ?? 20}`,
       params
     );
@@ -1789,13 +1851,21 @@ export class SqliteStore implements Store {
   private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
     return {
       id: row.id as string,
+      event_id: (row.event_id as string | null) ?? undefined,
       agent_id: row.agent_id as string,
       project: (row.project as string | null) ?? undefined,
       seat_id: (row.seat_id as string | null) ?? undefined,
       host: (row.host as string | null) ?? undefined,
+      host_id: (row.host_id as string | null) ?? undefined,
+      host_adapter_id: (row.host_adapter_id as string | null) ?? undefined,
       session_id: (row.session_id as string | null) ?? undefined,
+      marker_id: (row.marker_id as string | null) ?? undefined,
+      marker_digest: (row.marker_digest as string | null) ?? undefined,
       marker_path: (row.marker_path as string | null) ?? undefined,
       marker_status: (row.marker_status as string | null) ?? undefined,
+      attempt_ordinal: typeof row.attempt_ordinal === "number" ? row.attempt_ordinal : undefined,
+      phase: (row.phase as string | null) ?? undefined,
+      payload_digest: (row.payload_digest as string | null) ?? undefined,
       action: row.action as string,
       restart_required: Boolean(row.restart_required),
       executed_restart: Boolean(row.executed_restart),
