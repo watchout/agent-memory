@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import { PG_MIGRATIONS } from "./pg-migrations.js";
+import { assertRestartRuntimeAuthorityInput } from "./types.js";
 import type {
   Store,
   Decision,
@@ -61,6 +62,7 @@ function contentHash(content: string): string {
 }
 
 export class PgStore implements Store {
+  readonly restartClaimAtomicity = "inter_process_atomic" as const;
   private pool: pg.Pool;
 
   constructor(connectionString: string) {
@@ -1093,6 +1095,7 @@ export class PgStore implements Store {
   }
 
   async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    assertRestartRuntimeAuthorityInput(input);
     const result = await this.pool.query(
       `INSERT INTO restart_runtime_authorities
         (authority_ref, agent_id, project, seat_id, host_id, session_id,
@@ -1119,6 +1122,7 @@ export class PgStore implements Store {
          provenance_ref = excluded.provenance_ref,
          created_at = COALESCE($17::timestamptz, restart_runtime_authorities.created_at),
          updated_at = COALESCE($18::timestamptz, now())
+       WHERE excluded.row_version > restart_runtime_authorities.row_version
        RETURNING *`,
       [
         input.authority_ref,
@@ -1141,7 +1145,14 @@ export class PgStore implements Store {
         input.updated_at ?? null,
       ]
     );
-    return this.rowToRestartRuntimeAuthority(result.rows[0]);
+    if (result.rows[0]) return this.rowToRestartRuntimeAuthority(result.rows[0]);
+    const current = await this.pool.query(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = $1 AND authority_ref = $2
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    );
+    return this.rowToRestartRuntimeAuthority(current.rows[0]);
   }
 
   async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
@@ -1597,8 +1608,8 @@ export class PgStore implements Store {
       schema_version: "restart_runtime_authority/v1",
       authority_ref: row.authority_ref as string,
       agent_id: row.agent_id as string,
-      project: (row.project as string | null) ?? undefined,
-      seat_id: (row.seat_id as string | null) ?? undefined,
+      project: row.project as string,
+      seat_id: row.seat_id as string,
       host_id: row.host_id as string,
       session_id: row.session_id as string,
       host_adapter_id: row.host_adapter_id as string,

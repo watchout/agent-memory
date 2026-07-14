@@ -10,12 +10,12 @@ import {
 
 export interface RestartMarkerInput {
   agent_id: string;
-  project?: string;
+  project: string;
   host?: string;
   host_id: string;
   host_adapter_id: string;
-  seat_id?: string;
-  session_id?: string;
+  seat_id: string;
+  session_id: string;
   marker_id?: string;
   context_used_ratio?: number;
   context_tokens?: number;
@@ -45,9 +45,12 @@ export interface RestartRequiredMarkerV1 {
   thresholds: RestartThresholds;
 }
 
-export interface RestartRequiredMarkerV2 extends Omit<RestartRequiredMarkerV1, "schema_version"> {
+export interface RestartRequiredMarkerV2 extends Omit<RestartRequiredMarkerV1, "schema_version" | "project" | "seat_id" | "session_id"> {
   schema_version: "wasurezu-restart-marker/v2";
   marker_id: string;
+  project: string;
+  seat_id: string;
+  session_id: string;
   host_id: string;
   host_adapter_id: string;
 }
@@ -74,6 +77,10 @@ export function buildRestartMarker(input: RestartMarkerInput): RestartRequiredMa
       ? "context_band_require"
       : `context_band_${signal.band}`;
   const generatedAt = input.generated_at ?? new Date().toISOString();
+  const agentId = requiredNonEmpty("agent_id", input.agent_id);
+  const project = requiredNonEmpty("project", input.project);
+  const seatId = requiredNonEmpty("seat_id", input.seat_id);
+  const sessionId = requiredNonEmpty("session_id", input.session_id);
   const hostId = requiredNonEmpty("host_id", input.host_id);
   const hostAdapterId = requiredNonEmpty("host_adapter_id", input.host_adapter_id);
   return {
@@ -82,13 +89,13 @@ export function buildRestartMarker(input: RestartMarkerInput): RestartRequiredMa
     status: restartRequired ? "restart_required" : "restart_not_required",
     restart_required: restartRequired,
     reason,
-    agent_id: input.agent_id,
-    ...(input.project ? { project: input.project } : {}),
+    agent_id: agentId,
+    project,
     ...(input.host ? { host: input.host } : {}),
     host_id: hostId,
     host_adapter_id: hostAdapterId,
-    ...(input.seat_id ? { seat_id: input.seat_id } : {}),
-    ...(input.session_id ? { session_id: input.session_id } : {}),
+    seat_id: seatId,
+    session_id: sessionId,
     generated_at: generatedAt,
     ...(typeof input.context_tokens === "number" ? { measured_context_tokens: input.context_tokens } : {}),
     ...(typeof input.context_tokens === "number" ? { context_tokens: input.context_tokens } : {}),

@@ -7,6 +7,7 @@
  * Uses transaction rollback for test isolation — no persistent side effects.
  */
 import { readFileSync } from "fs";
+import { execFile } from "child_process";
 import { PgStore } from "./stores/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -27,6 +28,23 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+function runIsolatedNode(script: string, env: NodeJS.ProcessEnv): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { cwd: process.cwd(), env, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`isolated PostgreSQL worker failed: ${error.message}\n${stderr}`));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
 }
 
 // Use a unique agent_id per test run to avoid collisions
@@ -1015,6 +1033,35 @@ async function testRestartEventsParity() {
   assert(ordered[0].event_id === "restart-parity:002", "KR-008: PostgreSQL restart events order by created_at DESC, event_id DESC");
   assert(ordered[1].event_id === "restart-parity:001", "KR-008: PostgreSQL restart events expose stable event_id ordering");
 
+  const interprocessEventId = `restart-marker-claim:${AGENT}:interprocess`;
+  const interprocessWorker = `
+const { PgStore } = await import(${JSON.stringify(new URL("./stores/pg-store.ts", import.meta.url).href)});
+const store = new PgStore(process.env.DATABASE_URL);
+const result = await store.saveRestartEvent({
+  event_id: process.env.TEST_EVENT_ID,
+  agent_id: process.env.TEST_AGENT_ID,
+  project: "test-project",
+  marker_id: "0197f000-0000-7000-8000-000000000099",
+  marker_digest: "interprocess-marker-digest",
+  attempt_ordinal: 1,
+  phase: "claim",
+  payload_digest: "interprocess-payload-digest",
+  action: "restart_marker_claim",
+  restart_required: true,
+  executed_restart: false,
+  created_at: "2026-07-09T00:00:00.000Z",
+});
+console.log(JSON.stringify({ inserted: result.metadata.inserted, collision: result.metadata.collision }));
+await store.close();
+`;
+  const interprocessOutputs = await Promise.all([
+    runIsolatedNode(interprocessWorker, { ...process.env, DATABASE_URL: DATABASE_URL!, TEST_EVENT_ID: interprocessEventId, TEST_AGENT_ID: AGENT }),
+    runIsolatedNode(interprocessWorker, { ...process.env, DATABASE_URL: DATABASE_URL!, TEST_EVENT_ID: interprocessEventId, TEST_AGENT_ID: AGENT }),
+  ]);
+  const interprocessResults = interprocessOutputs.map((output) => JSON.parse(output.trim().split("\n").filter(Boolean).at(-1)!) as Record<string, unknown>);
+  assert(interprocessResults.filter((result) => result.inserted === true).length === 1, "KR-003/KR-008/F1: separate PostgreSQL processes grant exactly one atomic claim");
+  assert(interprocessResults.filter((result) => result.inserted === false && result.collision === false).length === 1, "KR-003/KR-008/F1: PostgreSQL claim loser receives idempotent read-back");
+
   const authority = await store.saveRestartRuntimeAuthority({
     authority_ref: "restart-authority:pg-parity",
     agent_id: AGENT,
@@ -1040,6 +1087,24 @@ async function testRestartEventsParity() {
   assert(fetchedAuthority?.schema_version === "restart_runtime_authority/v1", "KR-006: PostgreSQL runtime authority schema round-trips");
   assert(fetchedAuthority?.issued_at === createdAt, "KR-006: PostgreSQL runtime authority issued_at round-trips");
   assert(fetchedAuthority?.provenance_ref === "owner_decision:pg-parity", "KR-006: PostgreSQL runtime authority provenance round-trips");
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 2,
+    restart_preauthorized: false,
+    supervisor_id: "supervisor-version-2",
+  });
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 1,
+    restart_preauthorized: true,
+    supervisor_id: "stale-supervisor-version-1",
+  });
+  const monotonicAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(monotonicAuthority?.row_version === 2, "KR-006/F3: PostgreSQL greater-version predicate rejects rollback");
+  assert(monotonicAuthority?.restart_preauthorized === false, "KR-006/F3: stale PostgreSQL authority cannot re-enable preauthorization");
 
   const adapter = await store.saveRestartHostAdapter({
     host_adapter_id: `${AGENT}-adapter-a`,

@@ -383,13 +383,13 @@ async function main(): Promise<void> {
   }
   if (options.command === "marker") {
     const result = writeRestartMarker({
-      agent_id: options.agent_id,
-      project: options.project,
+      agent_id: requiredOption("--agent-id", options.agent_id),
+      project: requiredOption("--project", options.project),
       host: options.host,
       host_id: requiredOption("--host-id", options.host_id),
       host_adapter_id: requiredOption("--host-adapter-id", options.host_adapter_id),
-      seat_id: options.seat_id,
-      session_id: options.session_id,
+      seat_id: requiredOption("--seat-id", options.seat_id),
+      session_id: requiredOption("--session-id", options.session_id),
       context_used_ratio: options.context_used_ratio,
       context_tokens: options.context_tokens,
       context_window_tokens: options.context_window_tokens,

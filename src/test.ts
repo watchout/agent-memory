@@ -8,7 +8,7 @@ import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -76,7 +76,13 @@ import {
   prepareClaudeResession,
 } from "./claude-start.js";
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
-import type { LogRecoveryQualityInput, SaveRestartHostAdapterInput, SaveRestartRuntimeAuthorityInput } from "./stores/types.js";
+import type {
+  LogRecoveryQualityInput,
+  RestartRuntimeAuthority,
+  SaveRestartHostAdapterInput,
+  SaveRestartRuntimeAuthorityInput,
+  Store,
+} from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -90,6 +96,71 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+function runIsolatedNode(
+  script: string,
+  env: NodeJS.ProcessEnv,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { cwd: process.cwd(), env, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`isolated node worker failed: ${error.message}\n${stderr}`));
+          return;
+        }
+        resolve({ stdout, stderr });
+      },
+    );
+  });
+}
+
+function parseLastJsonLine(output: string): Record<string, unknown> {
+  const line = output.trim().split("\n").filter(Boolean).at(-1);
+  if (!line) throw new Error("isolated node worker returned no JSON output");
+  return JSON.parse(line) as Record<string, unknown>;
+}
+
+function withAuthorityReadSequence(
+  store: Store,
+  initial: RestartRuntimeAuthority,
+  current: RestartRuntimeAuthority | null,
+): Store {
+  let reads = 0;
+  return new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartRuntimeAuthority") {
+        return async () => (reads++ === 0 ? initial : current);
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+function withHostAdapterBarrier(store: Store, participants: number): Store {
+  let arrived = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartHostAdapter") {
+        return async (input: Parameters<Store["getRestartHostAdapter"]>[0]) => {
+          arrived += 1;
+          if (arrived >= participants) release();
+          await gate;
+          return target.getRestartHostAdapter(input);
+        };
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
 
 function sameStringSet(actual: string[], expected: readonly string[]): boolean {
@@ -2901,8 +2972,11 @@ async function testRestartMarkerBridge() {
   const trustedBinDigest = createHash("sha256").update(readFileSync(trustedBin)).digest("hex");
   const hostAdapterId = "claude-adapter";
   const env = { ...inheritedEnv(), PATH: `${binDir}:${process.env.PATH ?? ""}` };
+  const fakeInvocationCount = () => existsSync(invocationLog)
+    ? readFileSync(invocationLog, "utf8").trim().split("\n").filter(Boolean).length
+    : 0;
   delete env.AGENT_COMMS_DATABASE_URL;
-  const agentId = "test-restart-bridge-agent";
+  const agentId = `test-restart-bridge-agent-${process.pid}-${Date.now()}`;
   const project = "restart-bridge";
   const hostId = "host-a";
   const seatId = "seat-a";
@@ -2985,6 +3059,56 @@ async function testRestartMarkerBridge() {
   assert(markerText.includes('"seat_id": "seat-a"'), "marker writer records seat id");
   assert(!markerText.includes("SESSION RESTART PACK"), "marker writer does not expose restart pack or conversation text");
 
+  const completeMarkerInput: Parameters<typeof writeRestartMarker>[0] = {
+    agent_id: agentId,
+    project,
+    host_id: hostId,
+    host_adapter_id: hostAdapterId,
+    seat_id: seatId,
+    session_id: "writer-completeness",
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    marker_path: join(root, "writer-completeness.json"),
+    generated_at: "2026-07-09T00:00:30.000Z",
+  };
+  for (const field of ["agent_id", "project", "seat_id", "host_id", "session_id", "host_adapter_id"] as const) {
+    const incomplete = { ...completeMarkerInput } as Record<string, unknown>;
+    delete incomplete[field];
+    let rejected = false;
+    try {
+      writeRestartMarker(incomplete as unknown as Parameters<typeof writeRestartMarker>[0]);
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, `KR-001/F2: marker writer rejects missing exact-identity field ${field}`);
+  }
+
+  let extraAuthorityRejected = false;
+  try {
+    await store.saveRestartRuntimeAuthority({
+      authority_ref: "restart-authority:extra-field",
+      lifecycle_mode: "standalone_supervisor",
+      agent_id: agentId,
+      project,
+      seat_id: seatId,
+      host_id: hostId,
+      session_id: "session-extra-authority",
+      host_adapter_id: hostAdapterId,
+      supervisor_id: "supervisor-a",
+      supervisor_available: true,
+      restart_preauthorized: true,
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      row_version: 1,
+      aun_absent_confirmed: true,
+      provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+      unexpected_authority_field: "must-fail",
+    } as SaveRestartRuntimeAuthorityInput);
+  } catch {
+    extraAuthorityRejected = true;
+  }
+  assert(extraAuthorityRejected, "KR-001/F2: persisted runtime authority rejects extra authority-bearing fields");
+
   const standalone = await runRestartBridge({
     store,
     agentId,
@@ -3005,6 +3129,75 @@ async function testRestartMarkerBridge() {
   assert(standalone.event.queue_check_mode === "standalone_supervisor", "restart event records standalone supervisor mode");
   assert(standalone.event.preflight_status === "pass", "restart event records preflight result");
   assert(standalone.event.executed_restart === false, "restart event records no live restart");
+
+  for (const field of ["agent_id", "project", "seat_id", "host_id", "session_id", "host_adapter_id"] as const) {
+    const sessionId = `session-missing-${field}`;
+    const path = join(root, `missing-${field}.json`);
+    writeMarker(path, sessionId);
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    delete parsed[field];
+    writeFileSync(path, JSON.stringify(parsed, null, 2));
+    const invocationsBefore = fakeInvocationCount();
+    const result = await runRestartBridge({
+      store,
+      agentId,
+      project,
+      markerPath: path,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: await saveAuthority(sessionId),
+      hostAdapterId,
+      execute: true,
+      env,
+      now,
+    });
+    assert(result.failure_reason === "restart_marker_identity_invalid", `KR-001/F2: consumer rejects missing exact-identity field ${field}`);
+    assert(fakeInvocationCount() === invocationsBefore, `KR-001/F2: missing ${field} invokes no fake adapter`);
+  }
+
+  const extraMarkerPath = join(root, "extra-marker-authority-field.json");
+  writeMarker(extraMarkerPath, "session-extra-marker-field");
+  const extraMarker = JSON.parse(readFileSync(extraMarkerPath, "utf8")) as Record<string, unknown>;
+  extraMarker.authority_ref = "caller-minted-authority";
+  writeFileSync(extraMarkerPath, JSON.stringify(extraMarker, null, 2));
+  const invocationsBeforeExtraMarker = fakeInvocationCount();
+  const extraMarkerResult = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: extraMarkerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-extra-marker-field"),
+    hostAdapterId,
+    execute: true,
+    env,
+    now,
+  });
+  assert(extraMarkerResult.failure_reason === "restart_marker_extra_fields", "KR-001/F2: consumer rejects extra marker authority fields");
+  assert(fakeInvocationCount() === invocationsBeforeExtraMarker, "KR-001/F2: extra marker authority field invokes no fake adapter");
+
+  const extraAuthorityPath = join(root, "extra-persisted-authority-field.json");
+  writeMarker(extraAuthorityPath, "session-extra-persisted-authority");
+  const extraAuthorityRef = await saveAuthority("session-extra-persisted-authority");
+  const validExtraBase = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: extraAuthorityRef });
+  const invocationsBeforeExtraAuthority = fakeInvocationCount();
+  const extraAuthorityResult = await runRestartBridge({
+    store: withAuthorityReadSequence(
+      store,
+      { ...validExtraBase!, unexpected_authority_field: "must-fail" } as RestartRuntimeAuthority,
+      validExtraBase,
+    ),
+    agentId,
+    project,
+    markerPath: extraAuthorityPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: extraAuthorityRef,
+    hostAdapterId,
+    execute: true,
+    env,
+    now,
+  });
+  assert(extraAuthorityResult.failure_reason === "runtime_authority_extra_fields", "KR-001/F2: consumer rejects extra persisted authority fields");
+  assert(fakeInvocationCount() === invocationsBeforeExtraAuthority, "KR-001/F2: extra persisted authority field invokes no fake adapter");
 
   const missingAuthorityPath = join(root, "missing-authority.json");
   writeMarker(missingAuthorityPath, "session-missing-authority");
@@ -3213,9 +3406,10 @@ async function testRestartMarkerBridge() {
   const racePath = join(root, "race.json");
   writeMarker(racePath, "session-race");
   const raceAuthorityRef = await saveAuthority("session-race");
+  const raceStore = withHostAdapterBarrier(store, 2);
   const raceResults = await Promise.all([
     runRestartBridge({
-      store,
+      store: raceStore,
       agentId,
       project,
       markerPath: racePath,
@@ -3227,7 +3421,7 @@ async function testRestartMarkerBridge() {
       now,
     }),
     runRestartBridge({
-      store,
+      store: raceStore,
       agentId,
       project,
       markerPath: racePath,
@@ -3240,9 +3434,192 @@ async function testRestartMarkerBridge() {
     }),
   ]);
   assert(raceResults.filter((result) => result.action === "restart_executed").length === 1, "KR-003: exactly one concurrent consumer wins the marker claim");
-  assert(raceResults.filter((result) => result.failure_reason === "marker_already_claimed").length === 1, "KR-003: losing concurrent consumer reports marker_already_claimed");
-  const fakeInvocations = existsSync(invocationLog) ? readFileSync(invocationLog, "utf8").trim().split("\n").filter(Boolean).length : 0;
+  assert(
+    raceResults.filter((result) => result.failure_reason === "marker_already_claimed").length === 1,
+    `KR-003: losing concurrent consumer reports marker_already_claimed (${raceResults.map((result) => result.failure_reason ?? result.action).join(",")})`,
+  );
+  const fakeInvocations = fakeInvocationCount();
   assert(fakeInvocations === 1, "KR-003/KR-010: exactly one fake adapter invocation occurs and no live runtime is started");
+
+  const interprocessHome = mkdtempSync(join(tmpdir(), "am250-json-interprocess-home-"));
+  const interprocessRoot = join(root, "json-interprocess");
+  const interprocessBin = join(interprocessRoot, "fake-adapter");
+  const interprocessLog = join(interprocessRoot, "invocations.log");
+  const interprocessMarker = join(interprocessRoot, "restart-required.json");
+  const interprocessBarrier = join(interprocessRoot, "barrier");
+  mkdirSync(interprocessRoot, { recursive: true });
+  mkdirSync(interprocessBarrier, { recursive: true });
+  writeFileSync(interprocessBin, `#!/usr/bin/env bash\necho json-interprocess >> "${interprocessLog}"\nexit 0\n`);
+  chmodSync(interprocessBin, 0o755);
+  const interprocessDigest = createHash("sha256").update(readFileSync(interprocessBin)).digest("hex");
+  const jsonWorkerScript = `
+const { JsonStore } = await import(${JSON.stringify(new URL("./stores/json-store.ts", import.meta.url).href)});
+const { writeRestartMarker } = await import(${JSON.stringify(new URL("./context-restart-marker.ts", import.meta.url).href)});
+const { runRestartBridge } = await import(${JSON.stringify(new URL("./restart-bridge.ts", import.meta.url).href)});
+const { readdirSync, writeFileSync } = await import("node:fs");
+const store = new JsonStore();
+await store.initialize();
+const common = {
+  agent_id: process.env.TEST_AGENT_ID,
+  project: "restart-bridge-interprocess",
+  seat_id: "seat-interprocess",
+  host_id: "host-interprocess",
+  session_id: "session-interprocess",
+  host_adapter_id: "adapter-interprocess",
+};
+if (process.env.TEST_WORKER_MODE === "setup") {
+  await store.saveRestartHostAdapter({
+    host_adapter_id: common.host_adapter_id,
+    runtime: "claude",
+    canonical_path: process.env.TEST_ADAPTER_PATH,
+    executable_sha256: process.env.TEST_ADAPTER_DIGEST,
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+  });
+  await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:interprocess",
+    ...common,
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-interprocess",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: "2026-07-09T00:00:00.000Z",
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+  });
+  writeRestartMarker({
+    ...common,
+    marker_path: process.env.TEST_MARKER_PATH,
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    generated_at: "2026-07-09T00:00:30.000Z",
+  });
+  console.log(JSON.stringify({ ok: true, mode: "setup" }));
+} else {
+  const barrierStore = new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartHostAdapter") {
+        return async (input) => {
+          writeFileSync(process.env.TEST_BARRIER_PATH + "/" + process.pid + ".ready", "ready");
+          while (readdirSync(process.env.TEST_BARRIER_PATH).filter((name) => name.endsWith(".ready")).length < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          }
+          return target.getRestartHostAdapter(input);
+        };
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const result = await runRestartBridge({
+    store: barrierStore,
+    agentId: common.agent_id,
+    project: common.project,
+    markerPath: process.env.TEST_MARKER_PATH,
+    restartCommand: process.env.TEST_ADAPTER_PATH + " --launch",
+    runtimeAuthorityRef: "restart-authority:interprocess",
+    hostAdapterId: common.host_adapter_id,
+    execute: true,
+    env: process.env,
+    now: "2026-07-09T00:01:00.000Z",
+  });
+  console.log(JSON.stringify({ action: result.action, failure_reason: result.failure_reason }));
+}
+await store.close();
+`;
+  const interprocessEnv = {
+    ...inheritedEnv(),
+    HOME: interprocessHome,
+    TEST_AGENT_ID: `${agentId}-interprocess`,
+    TEST_ADAPTER_PATH: interprocessBin,
+    TEST_ADAPTER_DIGEST: interprocessDigest,
+    TEST_MARKER_PATH: interprocessMarker,
+    TEST_BARRIER_PATH: interprocessBarrier,
+  };
+  await runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "setup" });
+  const interprocessResults = await Promise.all([
+    runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "claim" }),
+    runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "claim" }),
+  ]);
+  const interprocessJson = interprocessResults.map((result) => parseLastJsonLine(result.stdout));
+  assert(interprocessJson.filter((result) => result.action === "restart_executed").length === 1, "KR-003/F1: separate JSON-store processes grant exactly one restart claim");
+  assert(
+    interprocessJson.filter((result) => result.failure_reason === "marker_already_claimed").length === 1,
+    `KR-003/F1: separate JSON-store claim loser fails closed (${interprocessJson.map((result) => result.failure_reason ?? result.action).join(",")})`,
+  );
+  const interprocessInvocations = existsSync(interprocessLog)
+    ? readFileSync(interprocessLog, "utf8").trim().split("\n").filter(Boolean).length
+    : 0;
+  assert(interprocessInvocations === 1, "KR-003/KR-010/F1: separate JSON-store processes invoke only one fake adapter");
+  rmSync(interprocessHome, { recursive: true, force: true });
+
+  const monotonicRef = await saveAuthority("session-monotonic-json", "standalone_supervisor", {
+    row_version: 2,
+    restart_preauthorized: false,
+    supervisor_id: "supervisor-version-2",
+  });
+  await saveAuthority("session-monotonic-json", "standalone_supervisor", {
+    authority_ref: monotonicRef,
+    row_version: 1,
+    restart_preauthorized: true,
+    supervisor_id: "stale-supervisor-version-1",
+  });
+  const monotonicAuthority = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: monotonicRef });
+  assert(monotonicAuthority?.row_version === 2, "KR-006/F3: JSON authority rejects stale row_version rollback");
+  assert(monotonicAuthority?.restart_preauthorized === false, "KR-006/F3: stale JSON write cannot re-enable restart preauthorization");
+
+  const runAuthorityEffectNegative = async (
+    label: string,
+    sessionId: string,
+    currentAuthority: (initial: RestartRuntimeAuthority) => RestartRuntimeAuthority | null,
+    expectedFailure: string,
+    effectNow?: string,
+  ) => {
+    const path = join(root, `${label}.json`);
+    writeMarker(path, sessionId);
+    const authorityRef = await saveAuthority(sessionId, "standalone_supervisor", { row_version: 2 });
+    const initial = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: authorityRef });
+    const invocationsBefore = fakeInvocationCount();
+    let timeRead = 0;
+    const result = await runRestartBridge({
+      store: withAuthorityReadSequence(store, initial!, currentAuthority(initial!)),
+      agentId,
+      project,
+      markerPath: path,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: authorityRef,
+      hostAdapterId,
+      execute: true,
+      env,
+      now: effectNow ? () => (timeRead++ === 0 ? now : effectNow) : now,
+    });
+    assert(result.failure_reason === expectedFailure, `KR-006/F3: ${label} fails closed at effect time`);
+    assert(fakeInvocationCount() === invocationsBefore, `KR-006/KR-010/F3: ${label} invokes no fake adapter`);
+  };
+
+  await runAuthorityEffectNegative(
+    "authority-version-rollback-at-effect",
+    "session-authority-version-rollback",
+    (initial) => ({ ...initial, row_version: 1 }),
+    "runtime_authority_version_rollback_at_effect",
+  );
+  await runAuthorityEffectNegative(
+    "authority-revoked-at-effect",
+    "session-authority-revoked",
+    (initial) => ({ ...initial, row_version: 3, restart_preauthorized: false }),
+    "runtime_authority_revoked_at_effect",
+  );
+  await runAuthorityEffectNegative(
+    "authority-expired-at-effect",
+    "session-authority-expired",
+    (initial) => initial,
+    "runtime_authority_expired_or_invalid",
+    "2026-07-09T00:10:01.000Z",
+  );
 
   const unknownPath = join(root, "unknown.json");
   const unknown = writeMarker(unknownPath, "session-unknown");

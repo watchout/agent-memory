@@ -9,6 +9,7 @@ import {
 } from "./restart-command-preflight.js";
 import type { RestartRequiredMarker, RestartRequiredMarkerV2 } from "./context-restart-marker.js";
 import type { RestartEvent, RestartRuntimeAuthority, Store } from "./stores/types.js";
+import { restartRuntimeAuthorityExtraFields } from "./stores/types.js";
 
 const { Pool } = pg;
 
@@ -39,7 +40,7 @@ export interface RestartBridgeInput {
   queueDrainCheck?: (agentId: string) => Promise<QueueDrainCheckResult>;
   runtimeAuthorityRef?: string;
   hostAdapterId?: string;
-  now?: string | Date;
+  now?: string | Date | (() => string | Date);
   markerMaxAgeSeconds?: number;
   markerFutureSkewSeconds?: number;
 }
@@ -80,8 +81,31 @@ interface RuntimeAuthorityResolution {
   failure_reason: string | null;
 }
 
+const RESTART_MARKER_V2_FIELDS = new Set([
+  "schema_version",
+  "marker_id",
+  "status",
+  "restart_required",
+  "reason",
+  "agent_id",
+  "project",
+  "host",
+  "seat_id",
+  "session_id",
+  "host_id",
+  "host_adapter_id",
+  "generated_at",
+  "measured_context_tokens",
+  "context_tokens",
+  "context_window_tokens",
+  "context_used_ratio",
+  "runtime_context_error",
+  "band",
+  "thresholds",
+]);
+
 export async function runRestartBridge(input: RestartBridgeInput): Promise<RestartBridgeResult> {
-  const now = asDate(input.now);
+  const now = currentTime(input.now);
   const dryRun = input.execute !== true;
   const runtimeAuthority = await resolveRuntimeAuthority(input, now);
   const loadedResult = loadExecutableMarker(input, now, runtimeAuthority.authority, runtimeAuthority.failure_reason);
@@ -136,6 +160,21 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       event,
       failure_reason: "marker_not_restart_required",
     };
+  }
+
+  const priorAttemptFailure = await existingAttemptFailure(input, loaded);
+  if (priorAttemptFailure) {
+    const event = await saveBridgeEvent(input, loaded, {
+      action: "restart_blocked",
+      command: null,
+      queueCheck: null,
+      executedRestart: false,
+      failureReason: priorAttemptFailure,
+      postState: { blocked: true, prior_attempt_observed_at_bridge_start: true },
+      phase: "claim_block",
+      authority,
+    });
+    return blockedResult(input, loaded, null, null, event, priorAttemptFailure);
   }
 
   const hostAdapterId = input.hostAdapterId ?? authority.host_adapter_id;
@@ -193,6 +232,21 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
     return blockedResult(input, loaded, command, lifecycle.queueCheck, event, failureReason);
   }
 
+  if (input.execute === true && input.store.restartClaimAtomicity !== "inter_process_atomic") {
+    const failureReason = "restart_claim_backend_not_atomic";
+    const event = await saveBridgeEvent(input, loaded, {
+      action: "restart_blocked",
+      command,
+      queueCheck: lifecycle.queueCheck,
+      executedRestart: false,
+      failureReason,
+      postState: { blocked: true, claim_not_attempted: true },
+      phase: "claim_backend_block",
+      authority,
+    });
+    return blockedResult(input, loaded, command, lifecycle.queueCheck, event, failureReason);
+  }
+
   const claim = await claimMarker(input, loaded, authority);
   if (claim.failure_reason) {
     const event = await saveBridgeEvent(input, loaded, {
@@ -244,13 +298,36 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
     authority,
   });
 
+  const currentAuthorityResolution = await resolveRuntimeAuthority(input, currentTime(input.now));
+  const currentAuthority = currentAuthorityResolution.authority;
+  const authorityFailure = validateAuthorityAtEffect(
+    authority,
+    currentAuthority,
+    currentAuthorityResolution.failure_reason,
+    loaded
+  );
+  if (authorityFailure) {
+    const event = await saveBridgeEvent(input, loaded, {
+      action: "restart_blocked",
+      command,
+      queueCheck: lifecycle.queueCheck,
+      executedRestart: false,
+      failureReason: authorityFailure,
+      postState: { blocked: true, post_claim: true, authority_rechecked: true },
+      phase: "pre_spawn_block",
+      authority: currentAuthority ?? authority,
+    });
+    return blockedResult(input, loaded, command, lifecycle.queueCheck, event, authorityFailure);
+  }
+
+  const currentHostAdapter = await input.store.getRestartHostAdapter({ host_adapter_id: hostAdapterId });
   const immediateCommand = preflightRestartCommand({
     command: input.restartCommand,
     argv: input.restartArgv,
     restartPreauthorized: authority.restart_preauthorized,
     env: input.env,
     hostAdapterId,
-    hostAdapter: hostAdapter ?? undefined,
+    hostAdapter: currentHostAdapter ?? undefined,
   });
   if (immediateCommand.status === "fail") {
     const failureReason = immediateCommand.reasons[0] ?? "restart_adapter_preflight_drift";
@@ -262,7 +339,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       failureReason,
       postState: { blocked: true, post_claim: true },
       phase: "pre_spawn_block",
-      authority,
+      authority: currentAuthority!,
     });
     return blockedResult(input, loaded, immediateCommand, lifecycle.queueCheck, event, failureReason);
   }
@@ -277,7 +354,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       postState: { executed: true },
       phase: "terminal",
       eventIdPrefix: "restart-marker-terminal",
-      authority,
+      authority: currentAuthority!,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -302,7 +379,7 @@ export async function runRestartBridge(input: RestartBridgeInput): Promise<Resta
       postState: { executed: false, invocation_unknown: true },
       phase: "terminal",
       eventIdPrefix: "restart-marker-terminal",
-      authority,
+      authority: currentAuthority!,
     });
     return {
       bridge: "wasurezu-restart bridge",
@@ -393,10 +470,16 @@ function validateRuntimeAuthorityRecord(
   now: Date
 ): string | null {
   if (authority.schema_version !== "restart_runtime_authority/v1") return "runtime_authority_schema_invalid";
+  if (restartRuntimeAuthorityExtraFields(authority).length > 0) return "runtime_authority_extra_fields";
   if (authority.agent_id !== input.agentId) return "runtime_authority_identity_invalid";
-  if (input.project !== undefined && authority.project !== input.project) return "runtime_authority_identity_invalid";
+  if (typeof input.project !== "string" || input.project.trim() === "" || authority.project !== input.project) {
+    return "runtime_authority_identity_invalid";
+  }
   const required = [
     authority.authority_ref,
+    authority.agent_id,
+    authority.project,
+    authority.seat_id,
     authority.host_id,
     authority.session_id,
     authority.host_adapter_id,
@@ -528,23 +611,20 @@ function validateMarker(
 ): string | null {
   if (marker.schema_version === "wasurezu-restart-marker/v1") return "legacy_marker_non_executable";
   if (marker.schema_version !== "wasurezu-restart-marker/v2") return "restart_marker_schema_invalid";
+  if (Object.keys(marker).some((key) => !RESTART_MARKER_V2_FIELDS.has(key))) return "restart_marker_extra_fields";
   const v2 = marker as Partial<RestartRequiredMarkerV2>;
   const required: Array<keyof RestartRequiredMarkerV2> = [
     "marker_id",
     "generated_at",
     "agent_id",
+    "project",
+    "seat_id",
     "host_id",
     "session_id",
     "host_adapter_id",
   ];
   for (const key of required) {
     if (typeof v2[key] !== "string" || (v2[key] as string).trim() === "") return "restart_marker_identity_invalid";
-  }
-  if (authority?.project !== undefined || input.project !== undefined) {
-    if (typeof v2.project !== "string" || v2.project.trim() === "") return "restart_marker_identity_invalid";
-  }
-  if (authority?.seat_id !== undefined) {
-    if (typeof v2.seat_id !== "string" || v2.seat_id.trim() === "") return "restart_marker_identity_invalid";
   }
   if (v2.status !== "restart_required" && v2.status !== "restart_not_required") return "restart_marker_status_invalid";
   if ((v2.status === "restart_required") !== (v2.restart_required === true)) return "restart_marker_status_inconsistent";
@@ -553,11 +633,10 @@ function validateMarker(
 
   if (authorityFailure) return authorityFailure;
   if (!authority) return "runtime_authority_missing";
-  const expectedProject = authority.project ?? input.project;
   const identityMismatch =
     v2.agent_id !== authority.agent_id ||
-    (expectedProject !== undefined && v2.project !== expectedProject) ||
-    (authority.seat_id !== undefined && v2.seat_id !== authority.seat_id) ||
+    v2.project !== authority.project ||
+    v2.seat_id !== authority.seat_id ||
     v2.host_id !== authority.host_id ||
     v2.session_id !== authority.session_id ||
     v2.host_adapter_id !== authority.host_adapter_id;
@@ -580,7 +659,7 @@ async function evaluateLifecycleAuthority(
   if (authority.agent_id !== input.agentId || authority.agent_id !== loaded.marker.agent_id) {
     return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
   }
-  if (authority.project !== undefined && loaded.marker.project !== authority.project) {
+  if (authority.project !== loaded.marker.project || authority.seat_id !== loaded.marker.seat_id) {
     return { allowed: false, failure_reason: "lifecycle_authority_unknown_or_blocked", queueCheck: null };
   }
   if (authority.host_id !== loaded.marker.host_id || authority.session_id !== loaded.marker.session_id || authority.host_adapter_id !== loaded.marker.host_adapter_id) {
@@ -633,6 +712,40 @@ async function evaluateLifecycleAuthority(
   };
 }
 
+function validateAuthorityAtEffect(
+  initial: RestartRuntimeAuthority,
+  current: RestartRuntimeAuthority | null,
+  resolutionFailure: string | null,
+  loaded: LoadedMarker
+): string | null {
+  if (resolutionFailure) return resolutionFailure;
+  if (!current) return "runtime_authority_not_found_at_effect";
+  if (current.authority_ref !== initial.authority_ref) return "runtime_authority_identity_invalid_at_effect";
+  if (current.row_version < initial.row_version) return "runtime_authority_version_rollback_at_effect";
+  if (!current.restart_preauthorized) return "runtime_authority_revoked_at_effect";
+  if (current.row_version !== initial.row_version) return "runtime_authority_version_changed_at_effect";
+  if (
+    current.agent_id !== loaded.marker.agent_id ||
+    current.project !== loaded.marker.project ||
+    current.seat_id !== loaded.marker.seat_id ||
+    current.host_id !== loaded.marker.host_id ||
+    current.session_id !== loaded.marker.session_id ||
+    current.host_adapter_id !== loaded.marker.host_adapter_id
+  ) {
+    return "runtime_authority_identity_invalid_at_effect";
+  }
+  if (
+    current.lifecycle_mode !== "standalone_supervisor" ||
+    current.aun_absent_confirmed !== true ||
+    current.supervisor_available !== true ||
+    typeof current.supervisor_id !== "string" ||
+    current.supervisor_id.trim() === ""
+  ) {
+    return "lifecycle_authority_unknown_or_blocked_at_effect";
+  }
+  return null;
+}
+
 async function claimMarker(
   input: RestartBridgeInput,
   loaded: LoadedMarker,
@@ -653,16 +766,25 @@ async function claimMarker(
   });
   if (event.metadata.inserted === true) return { event, failure_reason: null };
   if (event.metadata.collision === true) return { event, failure_reason: "event_id_collision" };
+  return { event, failure_reason: "marker_already_claimed" };
+}
+
+async function existingAttemptFailure(
+  input: RestartBridgeInput,
+  loaded: LoadedMarker
+): Promise<string | null> {
   const recentEvents = await input.store.getRestartEvents({
     agent_id: input.agentId,
     project: input.project ?? loaded.marker.project,
     limit: 100,
   });
   const markerEvents = recentEvents.filter((item) => item.marker_digest === loaded.marker_digest);
+  const hasClaim = markerEvents.some((item) => item.phase === "claim");
+  if (!hasClaim) return null;
   const hasSpawnIntent = markerEvents.some((item) => item.phase === "spawn_intent");
   const hasTerminal = markerEvents.some((item) => item.phase === "terminal");
-  if (hasSpawnIntent && !hasTerminal) return { event, failure_reason: "invocation_unknown" };
-  return { event, failure_reason: "marker_already_claimed" };
+  if (hasSpawnIntent && !hasTerminal) return "invocation_unknown";
+  return "marker_already_claimed";
 }
 
 function blockedResult(
@@ -831,6 +953,10 @@ function asDate(value: string | Date | undefined): Date {
     if (Number.isFinite(parsed.getTime())) return parsed;
   }
   return new Date();
+}
+
+function currentTime(value: RestartBridgeInput["now"]): Date {
+  return asDate(typeof value === "function" ? value() : value);
 }
 
 function canonicalJson(value: unknown): string {

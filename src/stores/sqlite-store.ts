@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
+import { assertRestartRuntimeAuthorityInput } from "./types.js";
 import type {
   Store,
   Decision,
@@ -407,6 +408,7 @@ function scopedStatusWhere(input: {
 }
 
 export class SqliteStore implements Store {
+  readonly restartClaimAtomicity = "fail_closed" as const;
   private db!: Database;
   private dbPath: string;
   private fts5Available = false;
@@ -1556,6 +1558,7 @@ export class SqliteStore implements Store {
   }
 
   async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    assertRestartRuntimeAuthorityInput(input);
     const now = nowIso();
     const existing = this.allRows(
       `SELECT created_at FROM restart_runtime_authorities
@@ -1574,10 +1577,11 @@ export class SqliteStore implements Store {
                 issued_at = ?, expires_at = ?, row_version = ?,
                 aun_absent_confirmed = ?, provenance_ref = ?, created_at = ?,
                 updated_at = ?
-          WHERE agent_id = ? AND authority_ref = ?`,
+          WHERE agent_id = ? AND authority_ref = ?
+            AND ? > row_version`,
         [
-          input.project ?? null,
-          input.seat_id ?? null,
+          input.project,
+          input.seat_id,
           input.host_id,
           input.session_id,
           input.host_adapter_id,
@@ -1594,6 +1598,7 @@ export class SqliteStore implements Store {
           updatedAt,
           input.agent_id,
           input.authority_ref,
+          input.row_version,
         ]
       );
     } else {
@@ -1607,8 +1612,8 @@ export class SqliteStore implements Store {
         [
           input.authority_ref,
           input.agent_id,
-          input.project ?? null,
-          input.seat_id ?? null,
+          input.project,
+          input.seat_id,
           input.host_id,
           input.session_id,
           input.host_adapter_id,
@@ -1899,7 +1904,6 @@ export class SqliteStore implements Store {
 
   async close(): Promise<void> {
     if (this.db) {
-      this.persist();
       this.db.close();
     }
   }
@@ -2059,8 +2063,8 @@ export class SqliteStore implements Store {
       schema_version: "restart_runtime_authority/v1",
       authority_ref: row.authority_ref as string,
       agent_id: row.agent_id as string,
-      project: (row.project as string | null) ?? undefined,
-      seat_id: (row.seat_id as string | null) ?? undefined,
+      project: row.project as string,
+      seat_id: row.seat_id as string,
       host_id: row.host_id as string,
       session_id: row.session_id as string,
       host_adapter_id: row.host_adapter_id as string,

@@ -423,8 +423,8 @@ export interface RestartRuntimeAuthority {
   schema_version: "restart_runtime_authority/v1";
   authority_ref: string;
   agent_id: string;
-  project?: string;
-  seat_id?: string;
+  project: string;
+  seat_id: string;
   host_id: string;
   session_id: string;
   host_adapter_id: string;
@@ -445,8 +445,8 @@ export interface SaveRestartRuntimeAuthorityInput {
   schema_version?: "restart_runtime_authority/v1";
   authority_ref: string;
   agent_id: string;
-  project?: string;
-  seat_id?: string;
+  project: string;
+  seat_id: string;
   host_id: string;
   session_id: string;
   host_adapter_id: string;
@@ -462,6 +462,58 @@ export interface SaveRestartRuntimeAuthorityInput {
   created_at?: string;
   updated_at?: string;
 }
+
+const RESTART_RUNTIME_AUTHORITY_FIELDS = new Set([
+  "schema_version",
+  "authority_ref",
+  "agent_id",
+  "project",
+  "seat_id",
+  "host_id",
+  "session_id",
+  "host_adapter_id",
+  "lifecycle_mode",
+  "supervisor_id",
+  "supervisor_available",
+  "restart_preauthorized",
+  "issued_at",
+  "expires_at",
+  "row_version",
+  "aun_absent_confirmed",
+  "provenance_ref",
+  "created_at",
+  "updated_at",
+]);
+
+export function restartRuntimeAuthorityExtraFields(value: object): string[] {
+  return Object.keys(value).filter((key) => !RESTART_RUNTIME_AUTHORITY_FIELDS.has(key));
+}
+
+export function assertRestartRuntimeAuthorityInput(input: SaveRestartRuntimeAuthorityInput): void {
+  if (restartRuntimeAuthorityExtraFields(input).length > 0) {
+    throw new Error("restart_runtime_authority_extra_fields");
+  }
+  if (input.schema_version !== undefined && input.schema_version !== "restart_runtime_authority/v1") {
+    throw new Error("restart_runtime_authority_schema_invalid");
+  }
+  const exactIdentity = [
+    input.authority_ref,
+    input.agent_id,
+    input.project,
+    input.seat_id,
+    input.host_id,
+    input.session_id,
+    input.host_adapter_id,
+  ];
+  if (exactIdentity.some((value) => typeof value !== "string" || value.trim() === "")) {
+    throw new Error("restart_runtime_authority_identity_invalid");
+  }
+  if (!Number.isInteger(input.row_version) || input.row_version < 1) {
+    throw new Error("restart_runtime_authority_row_version_invalid");
+  }
+}
+
+export type RestartClaimAtomicity = "inter_process_atomic" | "fail_closed";
 
 export interface GetRestartRuntimeAuthorityInput {
   agent_id: string;
@@ -578,6 +630,8 @@ export interface GetKusabiPartitionInput {
 }
 
 export interface Store {
+  /** Whether this backend can grant executable restart authority from a cross-process claim. */
+  readonly restartClaimAtomicity: RestartClaimAtomicity;
   /** Initialize the store (create tables/files if needed) */
   initialize(): Promise<void>;
 
