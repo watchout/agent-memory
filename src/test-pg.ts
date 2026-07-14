@@ -7,6 +7,7 @@
  * Uses transaction rollback for test isolation — no persistent side effects.
  */
 import { readFileSync } from "fs";
+import { execFile } from "child_process";
 import { PgStore } from "./stores/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -27,6 +28,23 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+function runIsolatedNode(script: string, env: NodeJS.ProcessEnv): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { cwd: process.cwd(), env, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`isolated PostgreSQL worker failed: ${error.message}\n${stderr}`));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
 }
 
 // Use a unique agent_id per test run to avoid collisions
@@ -955,10 +973,162 @@ async function testConversationEvents() {
   assert(codexOnly[0].metadata.tool === "codex", "metadata round-trips");
 }
 
+async function testRestartEventsParity() {
+  console.log("\n── PgStore Restart Events Parity ──");
+  const createdAt = "2026-07-09T00:00:00.000Z";
+  const first = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host: "claude",
+    host_id: "host-a",
+    host_adapter_id: "adapter-a",
+    session_id: "session-a",
+    marker_id: "0197f000-0000-7000-8000-000000000001",
+    marker_digest: "marker-digest-a",
+    attempt_ordinal: 1,
+    phase: "claim",
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  assert(first.metadata.inserted === true, "KR-008/KR-009: PostgreSQL first deterministic restart event inserts");
+  assert(first.host_id === "host-a" && first.host_adapter_id === "adapter-a", "KR-008: PostgreSQL restart event identity fields round-trip");
+
+  const second = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+  });
+  assert(second.id === first.id, "KR-009: PostgreSQL idempotent restart event returns original row");
+  assert(second.metadata.inserted === false && second.metadata.persistence_result === "idempotent", "KR-009: PostgreSQL same digest is idempotent read-back");
+
+  const collision = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-b",
+    action: "restart_blocked",
+  });
+  assert(collision.id === first.id, "KR-009: PostgreSQL event_id collision preserves original row");
+  assert(collision.metadata.collision === true && collision.metadata.persistence_result === "event_id_collision", "KR-009: PostgreSQL different digest reports event_id_collision");
+
+  await store.saveRestartEvent({
+    event_id: "restart-parity:002",
+    agent_id: AGENT,
+    project: PROJECT,
+    marker_digest: "marker-digest-b",
+    payload_digest: "payload-digest-c",
+    action: "restart_dry_run",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  const ordered = await store.getRestartEvents({ agent_id: AGENT, project: PROJECT, limit: 2 });
+  assert(ordered[0].event_id === "restart-parity:002", "KR-008: PostgreSQL restart events order by created_at DESC, event_id DESC");
+  assert(ordered[1].event_id === "restart-parity:001", "KR-008: PostgreSQL restart events expose stable event_id ordering");
+
+  const interprocessEventId = `restart-marker-claim:${AGENT}:interprocess`;
+  const interprocessWorker = `
+const { PgStore } = await import(${JSON.stringify(new URL("./stores/pg-store.ts", import.meta.url).href)});
+const store = new PgStore(process.env.DATABASE_URL);
+const result = await store.saveRestartEvent({
+  event_id: process.env.TEST_EVENT_ID,
+  agent_id: process.env.TEST_AGENT_ID,
+  project: "test-project",
+  marker_id: "0197f000-0000-7000-8000-000000000099",
+  marker_digest: "interprocess-marker-digest",
+  attempt_ordinal: 1,
+  phase: "claim",
+  payload_digest: "interprocess-payload-digest",
+  action: "restart_marker_claim",
+  restart_required: true,
+  executed_restart: false,
+  created_at: "2026-07-09T00:00:00.000Z",
+});
+console.log(JSON.stringify({ inserted: result.metadata.inserted, collision: result.metadata.collision }));
+await store.close();
+`;
+  const interprocessOutputs = await Promise.all([
+    runIsolatedNode(interprocessWorker, { ...process.env, DATABASE_URL: DATABASE_URL!, TEST_EVENT_ID: interprocessEventId, TEST_AGENT_ID: AGENT }),
+    runIsolatedNode(interprocessWorker, { ...process.env, DATABASE_URL: DATABASE_URL!, TEST_EVENT_ID: interprocessEventId, TEST_AGENT_ID: AGENT }),
+  ]);
+  const interprocessResults = interprocessOutputs.map((output) => JSON.parse(output.trim().split("\n").filter(Boolean).at(-1)!) as Record<string, unknown>);
+  assert(interprocessResults.filter((result) => result.inserted === true).length === 1, "KR-003/KR-008/F1: separate PostgreSQL processes grant exactly one atomic claim");
+  assert(interprocessResults.filter((result) => result.inserted === false && result.collision === false).length === 1, "KR-003/KR-008/F1: PostgreSQL claim loser receives idempotent read-back");
+
+  const authority = await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:pg-parity",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host_id: "host-a",
+    session_id: "session-a",
+    host_adapter_id: `${AGENT}-adapter-a`,
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-a",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: createdAt,
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:pg-parity",
+  });
+  const fetchedAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(fetchedAuthority?.schema_version === "restart_runtime_authority/v1", "KR-006: PostgreSQL runtime authority schema round-trips");
+  assert(fetchedAuthority?.issued_at === createdAt, "KR-006: PostgreSQL runtime authority issued_at round-trips");
+  assert(fetchedAuthority?.provenance_ref === "owner_decision:pg-parity", "KR-006: PostgreSQL runtime authority provenance round-trips");
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 2,
+    restart_preauthorized: false,
+    supervisor_id: "supervisor-version-2",
+  });
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 1,
+    restart_preauthorized: true,
+    supervisor_id: "stale-supervisor-version-1",
+  });
+  const monotonicAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(monotonicAuthority?.row_version === 2, "KR-006/F3: PostgreSQL greater-version predicate rejects rollback");
+  assert(monotonicAuthority?.restart_preauthorized === false, "KR-006/F3: stale PostgreSQL authority cannot re-enable preauthorization");
+
+  const adapter = await store.saveRestartHostAdapter({
+    host_adapter_id: `${AGENT}-adapter-a`,
+    runtime: "claude",
+    canonical_path: "/tmp/wasurezu-claude-start",
+    executable_sha256: "a".repeat(64),
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "owner_decision:adapter-a",
+    provenance_ref: "owner_decision:adapter-a",
+  });
+  const fetchedAdapter = await store.getRestartHostAdapter({ host_adapter_id: adapter.host_adapter_id });
+  assert(fetchedAdapter?.runtime === "claude", "KR-005: PostgreSQL host adapter runtime round-trips");
+  assert(fetchedAdapter?.state === "active", "KR-005: PostgreSQL host adapter state round-trips");
+  assert(fetchedAdapter?.owner_decision_ref === "owner_decision:adapter-a", "KR-005: PostgreSQL host adapter owner decision round-trips");
+}
+
 async function cleanup() {
   // Clean up test data
   const pg = await import("pg");
   const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  await pool.query("DELETE FROM restart_runtime_authorities WHERE agent_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM restart_host_adapters WHERE host_adapter_id LIKE $1", [`${AGENT}%`]);
+  await pool.query("DELETE FROM restart_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM raw_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM conversation_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
   await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
@@ -989,6 +1159,7 @@ async function run() {
     testKnowledgeSupersedeUpdateSqlGuard();
     await testKnowledgeSupersede();
     await testConversationEvents();
+    await testRestartEventsParity();
   } finally {
     await cleanup();
     await store.close();

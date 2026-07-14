@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, open, rename, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
+import { assertRestartRuntimeAuthorityInput } from "./types.js";
 import type {
   Store,
   Decision,
@@ -15,6 +16,7 @@ import type {
   ConversationEvent,
   RawEvent,
   SelectedRestartPack,
+  RestartEvent,
   RecoveryConfig,
   CatchUpLog,
   LogDecisionInput,
@@ -34,6 +36,14 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveRestartEventInput,
+  GetRestartEventsInput,
+  RestartRuntimeAuthority,
+  SaveRestartRuntimeAuthorityInput,
+  GetRestartRuntimeAuthorityInput,
+  RestartHostAdapter,
+  SaveRestartHostAdapterInput,
+  GetRestartHostAdapterInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -47,6 +57,12 @@ const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
 const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
 const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
 const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
+const RESTART_EVENTS_FILE = join(DATA_DIR, "restart-events.json");
+const RESTART_EVENTS_LOCK_FILE = join(DATA_DIR, "restart-events.lock");
+const RESTART_RUNTIME_AUTHORITIES_FILE = join(DATA_DIR, "restart-runtime-authorities.json");
+const RESTART_RUNTIME_AUTHORITIES_LOCK_FILE = join(DATA_DIR, "restart-runtime-authorities.lock");
+const RESTART_HOST_ADAPTERS_FILE = join(DATA_DIR, "restart-host-adapters.json");
+const RESTART_HOST_ADAPTERS_LOCK_FILE = join(DATA_DIR, "restart-host-adapters.lock");
 const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
 const KUSABI_PARTITIONS_FILE = join(DATA_DIR, "kusabi-agent-memory-partitions.json");
 
@@ -66,13 +82,49 @@ function conversationSearchScore(event: ConversationEvent, keywords: string[]): 
   return score;
 }
 
+async function writeJsonAtomically(path: string, value: unknown): Promise<void> {
+  const temporaryPath = `${path}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
+  try {
+    await writeFile(temporaryPath, JSON.stringify(value, null, 2));
+    await rename(temporaryPath, path);
+  } catch (error) {
+    await unlink(temporaryPath).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function withExclusiveFileLock<T>(lockPath: string, operation: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + 5_000;
+  let handle;
+  while (!handle) {
+    try {
+      handle = await open(lockPath, "wx", 0o600);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST" || Date.now() >= deadline) {
+        throw new Error("restart_store_interprocess_lock_unavailable");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  try {
+    return await operation();
+  } finally {
+    await handle.close();
+    await unlink(lockPath).catch(() => undefined);
+  }
+}
+
 export class JsonStore implements Store {
+  readonly restartClaimAtomicity = "inter_process_atomic" as const;
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
   private conversationEvents: ConversationEvent[] = [];
   private rawEvents: RawEvent[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
+  private restartEvents: RestartEvent[] = [];
+  private restartRuntimeAuthorities: RestartRuntimeAuthority[] = [];
+  private restartHostAdapters: RestartHostAdapter[] = [];
   private catchUpLog: CatchUpLog[] = [];
   private kusabiPartitions: KusabiPartition[] = [];
 
@@ -86,6 +138,9 @@ export class JsonStore implements Store {
     this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
     this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
+    this.restartEvents = await this.loadFile<RestartEvent>(RESTART_EVENTS_FILE);
+    this.restartRuntimeAuthorities = await this.loadFile<RestartRuntimeAuthority>(RESTART_RUNTIME_AUTHORITIES_FILE);
+    this.restartHostAdapters = await this.loadFile<RestartHostAdapter>(RESTART_HOST_ADAPTERS_FILE);
     this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
     this.kusabiPartitions = await this.loadFile<KusabiPartition>(KUSABI_PARTITIONS_FILE);
     // AM-023: back-fill + dedup legacy task_states from before the
@@ -428,6 +483,18 @@ export class JsonStore implements Store {
     await writeFile(SELECTED_RESTART_PACKS_FILE, JSON.stringify(this.selectedRestartPacks, null, 2));
   }
 
+  private async saveRestartEventsFile(): Promise<void> {
+    await writeJsonAtomically(RESTART_EVENTS_FILE, this.restartEvents);
+  }
+
+  private async saveRestartRuntimeAuthoritiesFile(): Promise<void> {
+    await writeJsonAtomically(RESTART_RUNTIME_AUTHORITIES_FILE, this.restartRuntimeAuthorities);
+  }
+
+  private async saveRestartHostAdaptersFile(): Promise<void> {
+    await writeJsonAtomically(RESTART_HOST_ADAPTERS_FILE, this.restartHostAdapters);
+  }
+
   async getRecentMessages(): Promise<AgentMessage[]> {
     // JSON store has no access to agent_messages — always return empty
     return [];
@@ -630,6 +697,166 @@ export class JsonStore implements Store {
       return true;
     });
     return pack ?? null;
+  }
+
+  async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    return withExclusiveFileLock(RESTART_EVENTS_LOCK_FILE, async () => {
+      this.restartEvents = await this.loadFile<RestartEvent>(RESTART_EVENTS_FILE);
+      if (input.event_id) {
+        const existing = this.restartEvents.find((event) => event.event_id === input.event_id);
+        if (existing) {
+          const sameDigest = (existing.payload_digest ?? "") === (input.payload_digest ?? "");
+          return {
+            ...existing,
+            metadata: {
+              ...existing.metadata,
+              persistence_result: sameDigest ? "idempotent" : "event_id_collision",
+              inserted: false,
+              collision: !sameDigest,
+            },
+          };
+        }
+      }
+      const event: RestartEvent = {
+        id: uuidv4(),
+        event_id: input.event_id,
+        agent_id: input.agent_id,
+        project: input.project,
+        seat_id: input.seat_id,
+        host: input.host,
+        host_id: input.host_id,
+        host_adapter_id: input.host_adapter_id,
+        session_id: input.session_id,
+        marker_id: input.marker_id,
+        marker_digest: input.marker_digest,
+        marker_path: input.marker_path,
+        marker_status: input.marker_status,
+        attempt_ordinal: input.attempt_ordinal,
+        phase: input.phase,
+        payload_digest: input.payload_digest,
+        action: input.action,
+        restart_required: input.restart_required ?? false,
+        executed_restart: input.executed_restart ?? false,
+        band: input.band,
+        context_tokens: input.context_tokens,
+        context_window_tokens: input.context_window_tokens,
+        context_used_ratio: input.context_used_ratio,
+        thresholds: input.thresholds,
+        queue_check_mode: input.queue_check_mode,
+        queue_check_result: input.queue_check_result,
+        preflight_status: input.preflight_status,
+        restart_command: input.restart_command,
+        failure_reason: input.failure_reason,
+        pre_state: input.pre_state,
+        post_state: input.post_state,
+        metadata: {
+          ...(input.metadata ?? {}),
+          ...(input.event_id ? { persistence_result: "inserted", inserted: true, collision: false } : {}),
+        },
+        created_at: input.created_at ?? new Date().toISOString(),
+      };
+      this.restartEvents.push(event);
+      await this.saveRestartEventsFile();
+      return event;
+    });
+  }
+
+  async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
+    return withExclusiveFileLock(RESTART_EVENTS_LOCK_FILE, async () => {
+      this.restartEvents = await this.loadFile<RestartEvent>(RESTART_EVENTS_FILE);
+      let results = this.restartEvents.filter((event) => event.agent_id === input.agent_id);
+      if (input.project) results = results.filter((event) => event.project === input.project);
+      results.sort((a, b) => {
+        const created = b.created_at.localeCompare(a.created_at);
+        if (created !== 0) return created;
+        return (b.event_id ?? b.id).localeCompare(a.event_id ?? a.id);
+      });
+      return results.slice(0, input.limit ?? 20);
+    });
+  }
+
+  async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    assertRestartRuntimeAuthorityInput(input);
+    return withExclusiveFileLock(RESTART_RUNTIME_AUTHORITIES_LOCK_FILE, async () => {
+      this.restartRuntimeAuthorities = await this.loadFile<RestartRuntimeAuthority>(RESTART_RUNTIME_AUTHORITIES_FILE);
+      const now = new Date().toISOString();
+      const existingIndex = this.restartRuntimeAuthorities.findIndex(
+        (authority) => authority.agent_id === input.agent_id && authority.authority_ref === input.authority_ref
+      );
+      const existing = existingIndex >= 0 ? this.restartRuntimeAuthorities[existingIndex] : undefined;
+      if (existing && input.row_version <= existing.row_version) return existing;
+      const record: RestartRuntimeAuthority = {
+        schema_version: "restart_runtime_authority/v1",
+        authority_ref: input.authority_ref,
+        agent_id: input.agent_id,
+        project: input.project,
+        seat_id: input.seat_id,
+        host_id: input.host_id,
+        session_id: input.session_id,
+        host_adapter_id: input.host_adapter_id,
+        lifecycle_mode: input.lifecycle_mode,
+        supervisor_id: input.supervisor_id,
+        supervisor_available: input.supervisor_available,
+        restart_preauthorized: input.restart_preauthorized,
+        issued_at: input.issued_at,
+        expires_at: input.expires_at,
+        row_version: input.row_version,
+        aun_absent_confirmed: input.aun_absent_confirmed,
+        provenance_ref: input.provenance_ref,
+        created_at: input.created_at ?? existing?.created_at ?? now,
+        updated_at: input.updated_at ?? now,
+      };
+      if (existingIndex >= 0) this.restartRuntimeAuthorities[existingIndex] = record;
+      else this.restartRuntimeAuthorities.push(record);
+      await this.saveRestartRuntimeAuthoritiesFile();
+      return record;
+    });
+  }
+
+  async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
+    return withExclusiveFileLock(RESTART_RUNTIME_AUTHORITIES_LOCK_FILE, async () => {
+      this.restartRuntimeAuthorities = await this.loadFile<RestartRuntimeAuthority>(RESTART_RUNTIME_AUTHORITIES_FILE);
+      return this.restartRuntimeAuthorities.find(
+        (authority) => authority.agent_id === input.agent_id && authority.authority_ref === input.authority_ref
+      ) ?? null;
+    });
+  }
+
+  async saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter> {
+    return withExclusiveFileLock(RESTART_HOST_ADAPTERS_LOCK_FILE, async () => {
+      this.restartHostAdapters = await this.loadFile<RestartHostAdapter>(RESTART_HOST_ADAPTERS_FILE);
+      const now = new Date().toISOString();
+      const existingIndex = this.restartHostAdapters.findIndex(
+        (adapter) => adapter.host_adapter_id === input.host_adapter_id
+      );
+      const existing = existingIndex >= 0 ? this.restartHostAdapters[existingIndex] : undefined;
+      const record: RestartHostAdapter = {
+        schema_version: "restart_host_adapter/v1",
+        host_adapter_id: input.host_adapter_id,
+        runtime: input.runtime,
+        canonical_path: input.canonical_path,
+        executable_sha256: input.executable_sha256,
+        allowed_argv: input.allowed_argv ?? [],
+        state: input.state,
+        owner_decision_ref: input.owner_decision_ref,
+        provenance_ref: input.provenance_ref,
+        created_at: input.created_at ?? existing?.created_at ?? now,
+        updated_at: input.updated_at ?? now,
+      };
+      if (existingIndex >= 0) this.restartHostAdapters[existingIndex] = record;
+      else this.restartHostAdapters.push(record);
+      await this.saveRestartHostAdaptersFile();
+      return record;
+    });
+  }
+
+  async getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null> {
+    return withExclusiveFileLock(RESTART_HOST_ADAPTERS_LOCK_FILE, async () => {
+      this.restartHostAdapters = await this.loadFile<RestartHostAdapter>(RESTART_HOST_ADAPTERS_FILE);
+      return this.restartHostAdapters.find(
+        (adapter) => adapter.host_adapter_id === input.host_adapter_id
+      ) ?? null;
+    });
   }
 
   async updateKnowledgeStatus(input: { id: string; agent_id: string; status: "active" | "merged" | "archived" | "superseded"; merged_into?: string }): Promise<Knowledge> {

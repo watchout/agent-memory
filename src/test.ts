@@ -6,10 +6,11 @@
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore } from "./stores/index.js";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
 import { homedir, tmpdir } from "os";
+import { createHash } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -48,6 +49,8 @@ import {
 } from "./restart-cli.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { runSupervisorPreflight } from "./restart-cli.js";
+import { writeRestartMarker } from "./context-restart-marker.js";
+import { runRestartBridge, type QueueDrainCheckResult } from "./restart-bridge.js";
 import { redactText } from "./redact.js";
 import {
   CODEX_ARGV_VISIBILITY_NOTE,
@@ -73,7 +76,13 @@ import {
   prepareClaudeResession,
 } from "./claude-start.js";
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
-import type { LogRecoveryQualityInput } from "./stores/types.js";
+import type {
+  LogRecoveryQualityInput,
+  RestartRuntimeAuthority,
+  SaveRestartHostAdapterInput,
+  SaveRestartRuntimeAuthorityInput,
+  Store,
+} from "./stores/types.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -89,6 +98,71 @@ function assert(condition: boolean, msg: string) {
   }
 }
 
+function runIsolatedNode(
+  script: string,
+  env: NodeJS.ProcessEnv,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { cwd: process.cwd(), env, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`isolated node worker failed: ${error.message}\n${stderr}`));
+          return;
+        }
+        resolve({ stdout, stderr });
+      },
+    );
+  });
+}
+
+function parseLastJsonLine(output: string): Record<string, unknown> {
+  const line = output.trim().split("\n").filter(Boolean).at(-1);
+  if (!line) throw new Error("isolated node worker returned no JSON output");
+  return JSON.parse(line) as Record<string, unknown>;
+}
+
+function withAuthorityReadSequence(
+  store: Store,
+  initial: RestartRuntimeAuthority,
+  current: RestartRuntimeAuthority | null,
+): Store {
+  let reads = 0;
+  return new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartRuntimeAuthority") {
+        return async () => (reads++ === 0 ? initial : current);
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+function withHostAdapterBarrier(store: Store, participants: number): Store {
+  let arrived = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartHostAdapter") {
+        return async (input: Parameters<Store["getRestartHostAdapter"]>[0]) => {
+          arrived += 1;
+          if (arrived >= participants) release();
+          await gate;
+          return target.getRestartHostAdapter(input);
+        };
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 function sameStringSet(actual: string[], expected: readonly string[]): boolean {
   return actual.slice().sort().join("\n") === Array.from(expected).sort().join("\n");
 }
@@ -100,6 +174,16 @@ function restoreEnv(key: string, value: string | undefined): void {
 
 function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function canonicalJsonForTest(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJsonForTest).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJsonForTest(record[key])}`)
+    .join(",")}}`;
 }
 
 function mcpToolNamesFromSource(source: string): string[] {
@@ -120,7 +204,14 @@ function inheritedEnv(): Record<string, string> {
 }
 
 async function cleanup() {
-  const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json", "raw-events.json"];
+  const files = [
+    "decisions.json",
+    "task-states.json",
+    "knowledge.json",
+    "conversation-events.json",
+    "raw-events.json",
+    "restart-events.json",
+  ];
   for (const f of files) {
     const path = join(TEST_DIR, f);
     if (existsSync(path)) rmSync(path);
@@ -2241,16 +2332,16 @@ async function testClaudeMarkerController() {
   assert(ready.project === project, "Claude marker controller records marker project");
   assert(ready.host === "claude-code", "Claude marker controller records marker host");
   assert(ready.runner === "wasurezu-claude-start", "Claude marker controller delegates to Claude runner");
-  assert(ready.command.status === "pass", "Claude marker controller requires command preflight pass");
-  assert(ready.command.command_kind === "trusted_package_bin", "Claude marker controller accepts trusted package/bin command");
+  assert(ready.command.status === "fail", "Claude marker controller fails closed without registered adapter authority");
+  assert(ready.command.reasons.includes("restart_adapter_id_missing"), "Claude marker controller exposes missing adapter authority");
   assert(ready.prepare.context_signal.source === "host_metrics", "Claude marker controller passes marker metrics to restart preparation");
   assert(ready.prepare.context_signal.band === "require", "Claude marker controller maps high marker metrics to require band");
   assert(ready.prepare.action === "restart_required", "Claude marker controller preserves restart_required action");
   assert(ready.selected_pack_ref?.startsWith("selected_restart_pack:") === true, "Claude marker controller records selected pack ref");
   assert(ready.confidence.level !== "low", "Claude marker controller reports recovery confidence");
-  assert(ready.launch_permitted === true, "Claude marker controller permits standalone launch only after gates pass");
+  assert(ready.launch_permitted === false, "Claude marker controller blocks launch without registered adapter authority");
   assert(ready.executed_restart === false, "Claude marker controller does not execute live restart");
-  assert(ready.outcome === "prepared", "Claude marker controller reports prepared outcome when gates pass");
+  assert(ready.outcome === "blocked", "Claude marker controller reports blocked outcome when adapter authority is missing");
   assert(ready.notes.some((note) => note.includes("does not execute a live restart")), "Claude marker controller documents no-live-restart behavior");
   assert(ready.notes.some((note) => note.includes("SessionStart remains")), "Claude marker controller keeps SessionStart as load hook only");
 
@@ -2271,7 +2362,7 @@ async function testClaudeMarkerController() {
     restartPreauthorized: true,
   });
   assert(metricAbsent.prepare.context_signal.source === "estimated", "Claude marker controller marks metric-absent marker as estimated");
-  assert(metricAbsent.outcome === "degraded", "Claude marker controller reports metric-absent restart as degraded evidence");
+  assert(metricAbsent.outcome === "blocked", "Claude marker controller blocks metric-absent restart without adapter authority");
   assert(metricAbsent.notes.some((note) => note.includes("did not provide host context metrics")), "Claude marker controller explains missing marker metrics");
 
   const aunBlocked = await controlClaudeRestartMarker({
@@ -2312,9 +2403,9 @@ async function testClaudeMarkerController() {
     restartPreauthorized: true,
   });
   assert(relative.command.status === "fail", "Claude marker controller fails closed for relative restart commands");
-  assert(relative.command.reasons.includes("restart_command_relative_rejected"), "Claude marker controller reports relative command blocker");
+  assert(relative.command.reasons.includes("restart_adapter_id_missing"), "Claude marker controller reports missing adapter authority before relative command authorization");
   assert(relative.launch_permitted === false, "Claude marker controller does not permit launch after command preflight failure");
-  assert(relative.failure_class === "restart_command_relative_rejected", "Claude marker controller records command failure class");
+  assert(relative.failure_class === "restart_adapter_id_missing", "Claude marker controller records command failure class");
 
   const ignored = await controlClaudeRestartMarker({
     store,
@@ -2341,16 +2432,41 @@ function testRestartCommandPreflight() {
   const executable = join(root, "restart-controller.sh");
   writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
   chmodSync(executable, 0o755);
+  const digest = createHash("sha256").update(readFileSync(executable)).digest("hex");
+  const hostAdapter = {
+    schema_version: "restart_host_adapter/v1" as const,
+    host_adapter_id: "claude-adapter",
+    runtime: "claude",
+    canonical_path: executable,
+    executable_sha256: digest,
+    allowed_argv: ["--launch"],
+    state: "active" as const,
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+    created_at: "2026-07-09T00:00:00.000Z",
+    updated_at: "2026-07-09T00:00:00.000Z",
+  };
 
   const absolute = preflightRestartCommand({
     command: `${executable} --dry-run`,
     restartPreauthorized: true,
     env: { PATH: "" },
   });
-  assert(absolute.status === "pass", "restart command preflight accepts an absolute executable path");
-  assert(absolute.command_kind === "absolute_path", "restart command preflight classifies absolute path commands");
-  assert(absolute.cwd_independent === true, "restart command preflight marks absolute path commands cwd-independent");
-  assert(absolute.resolved_path === executable, "restart command preflight records resolved absolute command path");
+  assert(absolute.status === "fail", "KR-005: restart command preflight rejects arbitrary absolute executable paths without adapter registration");
+  assert(absolute.reasons.includes("restart_adapter_id_missing"), "KR-005: preflight reports missing adapter id for absolute paths");
+
+  const registered = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
+  });
+  assert(registered.status === "pass", "KR-005: restart command preflight accepts only registered host adapters");
+  assert(registered.command_kind === "registered_host_adapter", "KR-005: restart command preflight classifies registered adapters");
+  assert(registered.cwd_independent === true, "KR-005: registered adapter command is cwd-independent");
+  assert(registered.resolved_path === realpathSync(executable), "KR-005: registered adapter preflight records canonical realpath");
+  assert(registered.argv.join(" ") === "--launch", "KR-005: registered adapter preflight records immutable argv");
 
   const missingAbsolute = preflightRestartCommand({
     command: `${join(root, "missing-controller.sh")} --dry-run`,
@@ -2358,7 +2474,7 @@ function testRestartCommandPreflight() {
     env: { PATH: "" },
   });
   assert(missingAbsolute.status === "fail", "restart command preflight fails closed when an absolute command is missing");
-  assert(missingAbsolute.reasons.includes("restart_command_not_executable"), "restart command preflight reports missing or non-executable absolute commands");
+  assert(missingAbsolute.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id before executable lookup");
 
   const markerRunDir = join(root, "marker-run");
   const relativeScriptsDir = join(markerRunDir, "scripts");
@@ -2372,7 +2488,7 @@ function testRestartCommandPreflight() {
     env: { PATH: "" },
   });
   assert(relative.status === "fail", "restart command preflight rejects relative script commands");
-  assert(relative.reasons.includes("restart_command_relative_rejected"), "restart command preflight reports relative command rejection");
+  assert(relative.reasons.includes("restart_adapter_id_missing"), "restart command preflight requires adapter id before relative command authorization");
   assert(relative.cwd_independent === false, "restart command preflight does not treat marker-run relative commands as cwd-independent");
 
   const binDir = join(root, "bin");
@@ -2385,9 +2501,8 @@ function testRestartCommandPreflight() {
     restartPreauthorized: true,
     env: { PATH: binDir },
   });
-  assert(packageBin.status === "pass", "restart command preflight accepts trusted package/bin commands");
-  assert(packageBin.command_kind === "trusted_package_bin", "restart command preflight classifies trusted package/bin commands");
-  assert(packageBin.resolved_path === trustedBin, "restart command preflight resolves trusted package/bin through PATH");
+  assert(packageBin.status === "fail", "KR-005: restart command preflight rejects PATH lookup package/bin commands");
+  assert(packageBin.reasons.includes("restart_adapter_id_missing"), "KR-005: PATH lookup cannot replace adapter registry");
 
   const missingTrustedBin = preflightRestartCommand({
     command: "wasurezu-claude-start --launch",
@@ -2395,7 +2510,7 @@ function testRestartCommandPreflight() {
     env: { PATH: join(root, "empty-bin") },
   });
   assert(missingTrustedBin.status === "fail", "restart command preflight fails closed when trusted bin is missing");
-  assert(missingTrustedBin.reasons.includes("restart_command_not_found"), "restart command preflight reports missing trusted bin");
+  assert(missingTrustedBin.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id for trusted bin lookup");
 
   const disallowedBin = preflightRestartCommand({
     command: "claude --mcp-config .mcp.json",
@@ -2403,11 +2518,13 @@ function testRestartCommandPreflight() {
     env: { PATH: binDir },
   });
   assert(disallowedBin.status === "fail", "restart command preflight rejects non-allowlisted bare commands");
-  assert(disallowedBin.reasons.includes("restart_command_bin_not_allowed"), "restart command preflight reports non-allowlisted commands");
+  assert(disallowedBin.reasons.includes("restart_adapter_id_missing"), "restart command preflight reports missing adapter id for bare commands");
 
   const notPreauthorized = preflightRestartCommand({
-    command: `${executable} --dry-run`,
+    command: `${executable} --launch`,
     env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
   });
   assert(notPreauthorized.status === "fail", "restart command preflight requires explicit restart preauthorization");
   assert(notPreauthorized.reasons.includes("restart_lifecycle_not_preauthorized"), "restart command preflight reports missing preauthorization");
@@ -2416,9 +2533,45 @@ function testRestartCommandPreflight() {
     command: `${executable} && echo unsafe`,
     restartPreauthorized: true,
     env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
   });
   assert(shellControl.status === "fail", "restart command preflight rejects shell control operators");
   assert(shellControl.reasons.includes("restart_command_shell_control_rejected"), "restart command preflight reports shell control rejection");
+
+  const argvDrift = preflightRestartCommand({
+    command: `${executable} --unsafe`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
+  });
+  assert(argvDrift.status === "fail", "KR-005: restart command preflight rejects argv outside adapter schema");
+  assert(argvDrift.reasons.includes("restart_command_args_rejected"), "KR-005: preflight reports argv drift");
+
+  writeFileSync(executable, "#!/usr/bin/env sh\nexit 1\n");
+  chmodSync(executable, 0o755);
+  const digestDrift = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
+  });
+  assert(digestDrift.status === "fail", "KR-005: restart command preflight rejects digest drift");
+  assert(digestDrift.reasons.includes("restart_adapter_digest_mismatch"), "KR-005: preflight reports digest drift");
+
+  writeFileSync(executable, "#!/usr/bin/env sh\nexit 0\n");
+  chmodSync(executable, 0o777);
+  const permissionDrift = preflightRestartCommand({
+    command: `${executable} --launch`,
+    restartPreauthorized: true,
+    env: { PATH: "" },
+    hostAdapterId: "claude-adapter",
+    hostAdapter,
+  });
+  assert(permissionDrift.status === "fail", "KR-005: restart command preflight rejects group/world writable adapters");
+  assert(permissionDrift.reasons.includes("restart_adapter_path_writable_rejected"), "KR-005: preflight reports permission drift");
 
   rmSync(root, { recursive: true, force: true });
 }
@@ -2434,12 +2587,11 @@ function testSupervisorPreflight() {
 
   const CHECKED_AT = "2026-01-01T00:00:00.000Z";
 
-  // Correctly configured supervisor: trusted bin on PATH
+  // Registry-less supervisor config is now diagnostic-only and fails closed.
   const pass = runSupervisorPreflight("wasurezu-claude-start --launch", true, CHECKED_AT, { PATH: binDir });
-  assert(pass.status === "pass", "supervisor preflight passes for trusted bin command");
-  assert(pass.command_kind === "trusted_package_bin", "supervisor preflight classifies trusted bin correctly");
-  assert(pass.cwd_independent === true, "supervisor preflight marks trusted bin as cwd-independent");
-  assert(pass.remediation.length === 0, "supervisor preflight has no remediation when configured correctly");
+  assert(pass.status === "fail", "supervisor preflight fails closed without a registered adapter");
+  assert(pass.reasons.includes("restart_adapter_id_missing"), "supervisor preflight reports missing adapter authority");
+  assert(pass.cwd_independent === false, "supervisor preflight does not mark PATH lookup commands cwd-independent");
 
   // Legacy broken config: relative script path (the original bug from issue #138)
   const relativeResult = runSupervisorPreflight(
@@ -2464,7 +2616,7 @@ function testSupervisorPreflight() {
     PATH: binDir,
     WASUREZU_RESTART_COMMAND: "wasurezu-claude-start --launch",
   });
-  assert(fromEnv.status === "pass", "supervisor preflight reads restart command from WASUREZU_RESTART_COMMAND env var");
+  assert(fromEnv.status === "fail", "supervisor preflight reads env command but still requires registered adapter authority");
 
   // Not preauthorized
   const noAuth = runSupervisorPreflight("wasurezu-claude-start --launch", false, CHECKED_AT, { PATH: binDir });
@@ -2512,6 +2664,7 @@ async function testRestartPrepare() {
   assert(prepared.action === "restart_recommended", "restart_prepare recommends restart at host metrics recommend band");
   assert(prepared.context_signal.source === "host_metrics", "restart_prepare labels host metric source");
   assert(prepared.context_signal.band === "recommend", "restart_prepare maps 91% context to recommend band");
+  assert(prepared.context_signal.thresholds.require === 0.95, "restart_prepare uses out-of-box require threshold by default");
   assert(prepared.recovery_confidence.level === "high", "restart_prepare reports high confidence for coherent pack");
   assert(prepared.pack_ref !== null && prepared.pack_ref.startsWith("selected_restart_pack:"), "restart_prepare returns selected pack reference");
   assert(prepared.restart_pack === undefined, "restart_prepare can omit restart_pack text");
@@ -2523,6 +2676,17 @@ async function testRestartPrepare() {
   assert(consumed?.status === "consumed", "selected restart pack can be consumed");
   const afterConsume = await store.getSelectedRestartPack({ agent_id: agentId, project, pack_ref: prepared.pack_ref! });
   assert(afterConsume === null, "consumed selected restart pack is no longer active");
+
+  const overridePrepared = await prepareRestart(store, {
+    agent_id: agentId,
+    project,
+    context_used_ratio: 0.91,
+    thresholds: { prepare: 0.6, warn: 0.7, recommend: 0.8, require: 0.9 },
+    emit_pack: false,
+  });
+  assert(overridePrepared.context_signal.band === "require", "restart_prepare applies validated threshold overrides");
+  assert(overridePrepared.action === "restart_required", "restart_prepare can require restart via threshold override");
+  assert(overridePrepared.context_signal.thresholds.require === 0.9, "restart_prepare exposes applied threshold values");
 
   const rawCoverageRoot = mkdtempSync(join(tmpdir(), "am139-prepare-coverage-"));
   writeFileSync(join(rawCoverageRoot, "session-prepare.jsonl"), "{}\n");
@@ -2794,6 +2958,831 @@ async function testRestartPrepare() {
   await store.close();
 }
 
+async function testRestartMarkerBridge() {
+  console.log("\n── Restart Marker/Bridge Tests (CELL-KUSABI-CTX-RESTART-001) ──");
+  const store = new JsonStore();
+  await store.initialize();
+  const root = mkdtempSync(join(tmpdir(), "am250-restart-bridge-"));
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trustedBin = join(binDir, "wasurezu-claude-start");
+  const invocationLog = join(root, "invocations.log");
+  writeFileSync(trustedBin, `#!/usr/bin/env bash\necho fake-adapter >> "${invocationLog}"\nexit 0\n`);
+  chmodSync(trustedBin, 0o755);
+  const trustedBinDigest = createHash("sha256").update(readFileSync(trustedBin)).digest("hex");
+  const hostAdapterId = "claude-adapter";
+  const env = { ...inheritedEnv(), PATH: `${binDir}:${process.env.PATH ?? ""}` };
+  const fakeInvocationCount = () => existsSync(invocationLog)
+    ? readFileSync(invocationLog, "utf8").trim().split("\n").filter(Boolean).length
+    : 0;
+  delete env.AGENT_COMMS_DATABASE_URL;
+  const agentId = `test-restart-bridge-agent-${process.pid}-${Date.now()}`;
+  const project = "restart-bridge";
+  const hostId = "host-a";
+  const seatId = "seat-a";
+  const now = "2026-07-09T00:01:00.000Z";
+  const issuedAt = "2026-07-09T00:00:00.000Z";
+  const expiresAt = "2026-07-09T00:10:00.000Z";
+  const markerPath = join(root, "restart-required.json");
+
+  const saveAdapter = async (overrides: Partial<SaveRestartHostAdapterInput> = {}) => store.saveRestartHostAdapter({
+    host_adapter_id: hostAdapterId,
+    runtime: "claude",
+    canonical_path: trustedBin,
+    executable_sha256: trustedBinDigest,
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+    ...overrides,
+  });
+
+  const saveAuthority = async (
+    sessionId: string,
+    lifecycle_mode: "standalone_supervisor" | "aun_supervised" | "pure_mcp" = "standalone_supervisor",
+    overrides: Partial<SaveRestartRuntimeAuthorityInput> = {}
+  ): Promise<string> => {
+    const authority_ref = overrides.authority_ref ?? `restart-authority:${sessionId}`;
+    await store.saveRestartRuntimeAuthority({
+      authority_ref,
+      lifecycle_mode,
+      agent_id: agentId,
+      project,
+      seat_id: seatId,
+      host_id: hostId,
+      session_id: sessionId,
+      host_adapter_id: hostAdapterId,
+      supervisor_id: "supervisor-a",
+      supervisor_available: true,
+      restart_preauthorized: true,
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      row_version: 1,
+      aun_absent_confirmed: true,
+      provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+      ...overrides,
+    });
+    return authority_ref;
+  };
+
+  await saveAdapter();
+
+  const writeMarker = (
+    path: string,
+    sessionId: string,
+    generated_at = "2026-07-09T00:00:30.000Z",
+    adapterId = hostAdapterId
+  ) => writeRestartMarker({
+    agent_id: agentId,
+    project,
+    host: "claude",
+    host_id: hostId,
+    host_adapter_id: adapterId,
+    seat_id: seatId,
+    session_id: sessionId,
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    thresholds: { prepare: 0.5, warn: 0.7, recommend: 0.8, require: 0.94 },
+    marker_path: path,
+    generated_at,
+  });
+
+  const written = writeMarker(markerPath, "session-a");
+  assert(written.marker.status === "restart_required", "marker writer emits restart_required at require band");
+  assert(written.marker.schema_version === "wasurezu-restart-marker/v2", "KR-001: marker writer emits executable v2 schema");
+  assert(/^[-0-9a-f]{36}$/i.test(written.marker.marker_id) && written.marker.marker_id.split("-")[2].startsWith("7"), "KR-001: marker writer mints UUIDv7-like marker id");
+  assert(written.marker.host_id === hostId, "KR-001: marker writer records host id");
+  assert(written.marker.host_adapter_id === hostAdapterId, "KR-001: marker writer records host adapter id");
+  assert(written.marker.context_used_ratio === 0.95, "marker writer records measured context ratio");
+  assert(written.marker.thresholds.require === 0.94, "marker writer records applied threshold values");
+  const markerText = readFileSync(markerPath, "utf8");
+  assert(markerText.includes('"seat_id": "seat-a"'), "marker writer records seat id");
+  assert(!markerText.includes("SESSION RESTART PACK"), "marker writer does not expose restart pack or conversation text");
+
+  const completeMarkerInput: Parameters<typeof writeRestartMarker>[0] = {
+    agent_id: agentId,
+    project,
+    host_id: hostId,
+    host_adapter_id: hostAdapterId,
+    seat_id: seatId,
+    session_id: "writer-completeness",
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    marker_path: join(root, "writer-completeness.json"),
+    generated_at: "2026-07-09T00:00:30.000Z",
+  };
+  for (const field of ["agent_id", "project", "seat_id", "host_id", "session_id", "host_adapter_id"] as const) {
+    const incomplete = { ...completeMarkerInput } as Record<string, unknown>;
+    delete incomplete[field];
+    let rejected = false;
+    try {
+      writeRestartMarker(incomplete as unknown as Parameters<typeof writeRestartMarker>[0]);
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, `KR-001/F2: marker writer rejects missing exact-identity field ${field}`);
+  }
+
+  let extraAuthorityRejected = false;
+  try {
+    await store.saveRestartRuntimeAuthority({
+      authority_ref: "restart-authority:extra-field",
+      lifecycle_mode: "standalone_supervisor",
+      agent_id: agentId,
+      project,
+      seat_id: seatId,
+      host_id: hostId,
+      session_id: "session-extra-authority",
+      host_adapter_id: hostAdapterId,
+      supervisor_id: "supervisor-a",
+      supervisor_available: true,
+      restart_preauthorized: true,
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      row_version: 1,
+      aun_absent_confirmed: true,
+      provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+      unexpected_authority_field: "must-fail",
+    } as SaveRestartRuntimeAuthorityInput);
+  } catch {
+    extraAuthorityRejected = true;
+  }
+  assert(extraAuthorityRejected, "KR-001/F2: persisted runtime authority rejects extra authority-bearing fields");
+
+  const standalone = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-a"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(standalone.action === "restart_dry_run", "restart bridge dry-runs by default when execute=false");
+  assert(standalone.executed_restart === false, "restart bridge dry-run does not execute live restart");
+  assert(standalone.command?.status === "pass", "KR-005: restart bridge performs registered adapter preflight");
+  assert(standalone.command?.command_kind === "registered_host_adapter", "KR-005: restart bridge uses registered adapter command record");
+  assert(standalone.queue_check?.mode === "standalone_supervisor", "KR-006: restart bridge allows only explicit standalone supervisor authority");
+  assert(standalone.event.queue_check_mode === "standalone_supervisor", "restart event records standalone supervisor mode");
+  assert(standalone.event.preflight_status === "pass", "restart event records preflight result");
+  assert(standalone.event.executed_restart === false, "restart event records no live restart");
+
+  for (const field of ["agent_id", "project", "seat_id", "host_id", "session_id", "host_adapter_id"] as const) {
+    const sessionId = `session-missing-${field}`;
+    const path = join(root, `missing-${field}.json`);
+    writeMarker(path, sessionId);
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    delete parsed[field];
+    writeFileSync(path, JSON.stringify(parsed, null, 2));
+    const invocationsBefore = fakeInvocationCount();
+    const result = await runRestartBridge({
+      store,
+      agentId,
+      project,
+      markerPath: path,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: await saveAuthority(sessionId),
+      hostAdapterId,
+      execute: true,
+      env,
+      now,
+    });
+    assert(result.failure_reason === "restart_marker_identity_invalid", `KR-001/F2: consumer rejects missing exact-identity field ${field}`);
+    assert(fakeInvocationCount() === invocationsBefore, `KR-001/F2: missing ${field} invokes no fake adapter`);
+  }
+
+  const extraMarkerPath = join(root, "extra-marker-authority-field.json");
+  writeMarker(extraMarkerPath, "session-extra-marker-field");
+  const extraMarker = JSON.parse(readFileSync(extraMarkerPath, "utf8")) as Record<string, unknown>;
+  extraMarker.authority_ref = "caller-minted-authority";
+  writeFileSync(extraMarkerPath, JSON.stringify(extraMarker, null, 2));
+  const invocationsBeforeExtraMarker = fakeInvocationCount();
+  const extraMarkerResult = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: extraMarkerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-extra-marker-field"),
+    hostAdapterId,
+    execute: true,
+    env,
+    now,
+  });
+  assert(extraMarkerResult.failure_reason === "restart_marker_extra_fields", "KR-001/F2: consumer rejects extra marker authority fields");
+  assert(fakeInvocationCount() === invocationsBeforeExtraMarker, "KR-001/F2: extra marker authority field invokes no fake adapter");
+
+  const extraAuthorityPath = join(root, "extra-persisted-authority-field.json");
+  writeMarker(extraAuthorityPath, "session-extra-persisted-authority");
+  const extraAuthorityRef = await saveAuthority("session-extra-persisted-authority");
+  const validExtraBase = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: extraAuthorityRef });
+  const invocationsBeforeExtraAuthority = fakeInvocationCount();
+  const extraAuthorityResult = await runRestartBridge({
+    store: withAuthorityReadSequence(
+      store,
+      { ...validExtraBase!, unexpected_authority_field: "must-fail" } as RestartRuntimeAuthority,
+      validExtraBase,
+    ),
+    agentId,
+    project,
+    markerPath: extraAuthorityPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: extraAuthorityRef,
+    hostAdapterId,
+    execute: true,
+    env,
+    now,
+  });
+  assert(extraAuthorityResult.failure_reason === "runtime_authority_extra_fields", "KR-001/F2: consumer rejects extra persisted authority fields");
+  assert(fakeInvocationCount() === invocationsBeforeExtraAuthority, "KR-001/F2: extra persisted authority field invokes no fake adapter");
+
+  const missingAuthorityPath = join(root, "missing-authority.json");
+  writeMarker(missingAuthorityPath, "session-missing-authority");
+  const missingAuthority = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingAuthorityPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: "restart-authority:missing",
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingAuthority.action === "restart_blocked", "KR-006: bridge requires persisted runtime authority");
+  assert(missingAuthority.failure_reason === "runtime_authority_not_found", "KR-006: missing persisted authority fails closed before command preflight");
+  assert(missingAuthority.command === null, "KR-006: missing persisted authority cannot authorize command preflight");
+
+  const invalidIssuedAtPath = join(root, "invalid-issued-at.json");
+  writeMarker(invalidIssuedAtPath, "session-invalid-issued-at");
+  const invalidIssuedAt = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: invalidIssuedAtPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-invalid-issued-at", "standalone_supervisor", {
+      issued_at: "2026-07-09 00:00:00Z",
+    }),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(invalidIssuedAt.action === "restart_blocked", "KR-006: bridge rejects non-strict issued_at authority provenance");
+  assert(invalidIssuedAt.failure_reason === "runtime_authority_issued_at_invalid", "KR-006: invalid issued_at reports typed authority failure");
+
+  const missingProvenancePath = join(root, "missing-provenance.json");
+  writeMarker(missingProvenancePath, "session-missing-provenance");
+  const missingProvenance = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingProvenancePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-provenance", "standalone_supervisor", {
+      provenance_ref: "",
+    }),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingProvenance.action === "restart_blocked", "KR-006: bridge rejects authority without provenance_ref");
+  assert(missingProvenance.failure_reason === "runtime_authority_provenance_invalid", "KR-006: missing provenance reports typed authority failure");
+
+  const missingRuntimeAdapterId = "adapter-missing-runtime";
+  await saveAdapter({ host_adapter_id: missingRuntimeAdapterId, runtime: "" });
+  const missingRuntimePath = join(root, "missing-runtime-adapter.json");
+  writeMarker(missingRuntimePath, "session-missing-runtime-adapter", "2026-07-09T00:00:30.000Z", missingRuntimeAdapterId);
+  const missingRuntime = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingRuntimePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-runtime-adapter", "standalone_supervisor", {
+      host_adapter_id: missingRuntimeAdapterId,
+    }),
+    hostAdapterId: missingRuntimeAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingRuntime.failure_reason === "restart_adapter_runtime_missing", "KR-005: adapter runtime is mandatory");
+
+  const missingStateAdapterId = "adapter-missing-state";
+  await saveAdapter({ host_adapter_id: missingStateAdapterId, state: undefined as unknown as "active" });
+  const missingStatePath = join(root, "missing-state-adapter.json");
+  writeMarker(missingStatePath, "session-missing-state-adapter", "2026-07-09T00:00:30.000Z", missingStateAdapterId);
+  const missingState = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingStatePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-state-adapter", "standalone_supervisor", {
+      host_adapter_id: missingStateAdapterId,
+    }),
+    hostAdapterId: missingStateAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingState.failure_reason === "restart_adapter_state_invalid", "KR-005: adapter active state is mandatory");
+
+  const missingOwnerAdapterId = "adapter-missing-owner";
+  await saveAdapter({ host_adapter_id: missingOwnerAdapterId, owner_decision_ref: "" });
+  const missingOwnerPath = join(root, "missing-owner-adapter.json");
+  writeMarker(missingOwnerPath, "session-missing-owner-adapter", "2026-07-09T00:00:30.000Z", missingOwnerAdapterId);
+  const missingOwner = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingOwnerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-owner-adapter", "standalone_supervisor", {
+      host_adapter_id: missingOwnerAdapterId,
+    }),
+    hostAdapterId: missingOwnerAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(missingOwner.failure_reason === "restart_adapter_owner_decision_missing", "KR-005: adapter owner_decision_ref is mandatory");
+
+  const legacyMarkerPath = join(root, "legacy-v1.json");
+  writeFileSync(legacyMarkerPath, JSON.stringify({
+    schema_version: "wasurezu-restart-marker/v1",
+    status: "restart_required",
+    restart_required: true,
+    reason: "legacy",
+    agent_id: agentId,
+    project,
+    host: "claude",
+    seat_id: seatId,
+    session_id: "session-legacy",
+    generated_at: "2026-07-09T00:00:30.000Z",
+    context_used_ratio: 0.95,
+    runtime_context_error: false,
+    band: "require",
+    thresholds: { prepare: 0.5, warn: 0.7, recommend: 0.8, require: 0.94 },
+  }, null, 2));
+  const legacy = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: legacyMarkerPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-legacy"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(legacy.action === "restart_blocked", "KR-001: v1 markers are readable but non-executable");
+  assert(legacy.failure_reason === "legacy_marker_non_executable", "KR-001: bridge reports typed v1 rejection");
+
+  const stalePath = join(root, "stale.json");
+  writeMarker(stalePath, "session-stale", "2026-07-09T00:00:00.000Z");
+  const stale = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: stalePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-stale"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now: "2026-07-09T00:06:00.000Z",
+  });
+  assert(stale.action === "restart_blocked", "KR-002: stale marker fails closed");
+  assert(stale.failure_reason === "stale_or_missing_marker", "KR-002: stale marker reports typed stale_or_missing_marker");
+
+  const dirSelect = join(root, "dir-select");
+  mkdirSync(dirSelect, { recursive: true });
+  const older = writeMarker(join(dirSelect, "z-lexical-winner-old.json"), "session-dir", "2026-07-09T00:00:10.000Z");
+  const newer = writeMarker(join(dirSelect, "a-generated-winner-new.json"), "session-dir", "2026-07-09T00:00:50.000Z");
+  const selected = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerDir: dirSelect,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-dir"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(selected.action === "restart_dry_run", "KR-002: directory mode selects a fresh marker by generated_at");
+  assert(selected.event.marker_id === newer.marker.marker_id, "KR-002: generated_at selection ignores filename ordering");
+  assert(selected.event.marker_id !== older.marker.marker_id, "KR-002: reverse lexical filename does not select authority");
+
+  const dirAmbiguous = join(root, "dir-ambiguous");
+  mkdirSync(dirAmbiguous, { recursive: true });
+  writeMarker(join(dirAmbiguous, "a.json"), "session-ambiguous", "2026-07-09T00:00:50.000Z");
+  writeMarker(join(dirAmbiguous, "b.json"), "session-ambiguous", "2026-07-09T00:00:50.000Z");
+  const ambiguous = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerDir: dirAmbiguous,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-ambiguous"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(ambiguous.action === "restart_blocked", "KR-002: equal newest generated_at markers fail closed");
+  assert(ambiguous.failure_reason === "ambiguous_fresh_markers", "KR-002: ambiguous markers report typed rejection");
+
+  const racePath = join(root, "race.json");
+  writeMarker(racePath, "session-race");
+  const raceAuthorityRef = await saveAuthority("session-race");
+  const raceStore = withHostAdapterBarrier(store, 2);
+  const raceResults = await Promise.all([
+    runRestartBridge({
+      store: raceStore,
+      agentId,
+      project,
+      markerPath: racePath,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: raceAuthorityRef,
+      hostAdapterId,
+      execute: true,
+      env,
+      now,
+    }),
+    runRestartBridge({
+      store: raceStore,
+      agentId,
+      project,
+      markerPath: racePath,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: raceAuthorityRef,
+      hostAdapterId,
+      execute: true,
+      env,
+      now,
+    }),
+  ]);
+  assert(raceResults.filter((result) => result.action === "restart_executed").length === 1, "KR-003: exactly one concurrent consumer wins the marker claim");
+  assert(
+    raceResults.filter((result) => result.failure_reason === "marker_already_claimed").length === 1,
+    `KR-003: losing concurrent consumer reports marker_already_claimed (${raceResults.map((result) => result.failure_reason ?? result.action).join(",")})`,
+  );
+  const fakeInvocations = fakeInvocationCount();
+  assert(fakeInvocations === 1, "KR-003/KR-010: exactly one fake adapter invocation occurs and no live runtime is started");
+
+  const interprocessHome = mkdtempSync(join(tmpdir(), "am250-json-interprocess-home-"));
+  const interprocessRoot = join(root, "json-interprocess");
+  const interprocessBin = join(interprocessRoot, "fake-adapter");
+  const interprocessLog = join(interprocessRoot, "invocations.log");
+  const interprocessMarker = join(interprocessRoot, "restart-required.json");
+  const interprocessBarrier = join(interprocessRoot, "barrier");
+  mkdirSync(interprocessRoot, { recursive: true });
+  mkdirSync(interprocessBarrier, { recursive: true });
+  writeFileSync(interprocessBin, `#!/usr/bin/env bash\necho json-interprocess >> "${interprocessLog}"\nexit 0\n`);
+  chmodSync(interprocessBin, 0o755);
+  const interprocessDigest = createHash("sha256").update(readFileSync(interprocessBin)).digest("hex");
+  const jsonWorkerScript = `
+const { JsonStore } = await import(${JSON.stringify(new URL("./stores/json-store.ts", import.meta.url).href)});
+const { writeRestartMarker } = await import(${JSON.stringify(new URL("./context-restart-marker.ts", import.meta.url).href)});
+const { runRestartBridge } = await import(${JSON.stringify(new URL("./restart-bridge.ts", import.meta.url).href)});
+const { readdirSync, writeFileSync } = await import("node:fs");
+const store = new JsonStore();
+await store.initialize();
+const common = {
+  agent_id: process.env.TEST_AGENT_ID,
+  project: "restart-bridge-interprocess",
+  seat_id: "seat-interprocess",
+  host_id: "host-interprocess",
+  session_id: "session-interprocess",
+  host_adapter_id: "adapter-interprocess",
+};
+if (process.env.TEST_WORKER_MODE === "setup") {
+  await store.saveRestartHostAdapter({
+    host_adapter_id: common.host_adapter_id,
+    runtime: "claude",
+    canonical_path: process.env.TEST_ADAPTER_PATH,
+    executable_sha256: process.env.TEST_ADAPTER_DIGEST,
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+  });
+  await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:interprocess",
+    ...common,
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-interprocess",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: "2026-07-09T00:00:00.000Z",
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+  });
+  writeRestartMarker({
+    ...common,
+    marker_path: process.env.TEST_MARKER_PATH,
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    generated_at: "2026-07-09T00:00:30.000Z",
+  });
+  console.log(JSON.stringify({ ok: true, mode: "setup" }));
+} else {
+  const barrierStore = new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === "getRestartHostAdapter") {
+        return async (input) => {
+          writeFileSync(process.env.TEST_BARRIER_PATH + "/" + process.pid + ".ready", "ready");
+          while (readdirSync(process.env.TEST_BARRIER_PATH).filter((name) => name.endsWith(".ready")).length < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          }
+          return target.getRestartHostAdapter(input);
+        };
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const result = await runRestartBridge({
+    store: barrierStore,
+    agentId: common.agent_id,
+    project: common.project,
+    markerPath: process.env.TEST_MARKER_PATH,
+    restartCommand: process.env.TEST_ADAPTER_PATH + " --launch",
+    runtimeAuthorityRef: "restart-authority:interprocess",
+    hostAdapterId: common.host_adapter_id,
+    execute: true,
+    env: process.env,
+    now: "2026-07-09T00:01:00.000Z",
+  });
+  console.log(JSON.stringify({ action: result.action, failure_reason: result.failure_reason }));
+}
+await store.close();
+`;
+  const interprocessEnv = {
+    ...inheritedEnv(),
+    HOME: interprocessHome,
+    TEST_AGENT_ID: `${agentId}-interprocess`,
+    TEST_ADAPTER_PATH: interprocessBin,
+    TEST_ADAPTER_DIGEST: interprocessDigest,
+    TEST_MARKER_PATH: interprocessMarker,
+    TEST_BARRIER_PATH: interprocessBarrier,
+  };
+  await runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "setup" });
+  const interprocessResults = await Promise.all([
+    runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "claim" }),
+    runIsolatedNode(jsonWorkerScript, { ...interprocessEnv, TEST_WORKER_MODE: "claim" }),
+  ]);
+  const interprocessJson = interprocessResults.map((result) => parseLastJsonLine(result.stdout));
+  assert(interprocessJson.filter((result) => result.action === "restart_executed").length === 1, "KR-003/F1: separate JSON-store processes grant exactly one restart claim");
+  assert(
+    interprocessJson.filter((result) => result.failure_reason === "marker_already_claimed").length === 1,
+    `KR-003/F1: separate JSON-store claim loser fails closed (${interprocessJson.map((result) => result.failure_reason ?? result.action).join(",")})`,
+  );
+  const interprocessInvocations = existsSync(interprocessLog)
+    ? readFileSync(interprocessLog, "utf8").trim().split("\n").filter(Boolean).length
+    : 0;
+  assert(interprocessInvocations === 1, "KR-003/KR-010/F1: separate JSON-store processes invoke only one fake adapter");
+  rmSync(interprocessHome, { recursive: true, force: true });
+
+  const monotonicRef = await saveAuthority("session-monotonic-json", "standalone_supervisor", {
+    row_version: 2,
+    restart_preauthorized: false,
+    supervisor_id: "supervisor-version-2",
+  });
+  await saveAuthority("session-monotonic-json", "standalone_supervisor", {
+    authority_ref: monotonicRef,
+    row_version: 1,
+    restart_preauthorized: true,
+    supervisor_id: "stale-supervisor-version-1",
+  });
+  const monotonicAuthority = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: monotonicRef });
+  assert(monotonicAuthority?.row_version === 2, "KR-006/F3: JSON authority rejects stale row_version rollback");
+  assert(monotonicAuthority?.restart_preauthorized === false, "KR-006/F3: stale JSON write cannot re-enable restart preauthorization");
+
+  const runAuthorityEffectNegative = async (
+    label: string,
+    sessionId: string,
+    currentAuthority: (initial: RestartRuntimeAuthority) => RestartRuntimeAuthority | null,
+    expectedFailure: string,
+    effectNow?: string,
+  ) => {
+    const path = join(root, `${label}.json`);
+    writeMarker(path, sessionId);
+    const authorityRef = await saveAuthority(sessionId, "standalone_supervisor", { row_version: 2 });
+    const initial = await store.getRestartRuntimeAuthority({ agent_id: agentId, authority_ref: authorityRef });
+    const invocationsBefore = fakeInvocationCount();
+    let timeRead = 0;
+    const result = await runRestartBridge({
+      store: withAuthorityReadSequence(store, initial!, currentAuthority(initial!)),
+      agentId,
+      project,
+      markerPath: path,
+      restartCommand: `${trustedBin} --launch`,
+      runtimeAuthorityRef: authorityRef,
+      hostAdapterId,
+      execute: true,
+      env,
+      now: effectNow ? () => (timeRead++ === 0 ? now : effectNow) : now,
+    });
+    assert(result.failure_reason === expectedFailure, `KR-006/F3: ${label} fails closed at effect time`);
+    assert(fakeInvocationCount() === invocationsBefore, `KR-006/KR-010/F3: ${label} invokes no fake adapter`);
+  };
+
+  await runAuthorityEffectNegative(
+    "authority-version-rollback-at-effect",
+    "session-authority-version-rollback",
+    (initial) => ({ ...initial, row_version: 1 }),
+    "runtime_authority_version_rollback_at_effect",
+  );
+  await runAuthorityEffectNegative(
+    "authority-revoked-at-effect",
+    "session-authority-revoked",
+    (initial) => ({ ...initial, row_version: 3, restart_preauthorized: false }),
+    "runtime_authority_revoked_at_effect",
+  );
+  await runAuthorityEffectNegative(
+    "authority-expired-at-effect",
+    "session-authority-expired",
+    (initial) => initial,
+    "runtime_authority_expired_or_invalid",
+    "2026-07-09T00:10:01.000Z",
+  );
+
+  const unknownPath = join(root, "unknown.json");
+  const unknown = writeMarker(unknownPath, "session-unknown");
+  const unknownDigest = createHash("sha256")
+    .update(canonicalJsonForTest(JSON.parse(readFileSync(unknownPath, "utf8"))))
+    .digest("hex");
+  const unknownClaimPayloadDigest = createHash("sha256")
+    .update(canonicalJsonForTest({
+      domain: "wasurezu-restart-marker-claim/v1",
+      marker_id: unknown.marker.marker_id,
+      marker_digest: unknownDigest,
+      attempt_ordinal: 1,
+      phase: "claim",
+    }))
+    .digest("hex");
+  await store.saveRestartEvent({
+    event_id: `restart-marker-claim:${unknownDigest}`,
+    agent_id: agentId,
+    project,
+    marker_id: unknown.marker.marker_id,
+    marker_digest: unknownDigest,
+    phase: "claim",
+    payload_digest: unknownClaimPayloadDigest,
+    action: "restart_blocked",
+    restart_required: true,
+    executed_restart: false,
+  });
+  await store.saveRestartEvent({
+    event_id: `restart-marker-spawn-intent:${unknownDigest}`,
+    agent_id: agentId,
+    project,
+    marker_id: unknown.marker.marker_id,
+    marker_digest: unknownDigest,
+    phase: "spawn_intent",
+    payload_digest: "spawn-digest",
+    action: "restart_dry_run",
+    restart_required: true,
+    executed_restart: false,
+  });
+  const replayUnknown = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: unknownPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-unknown"),
+    hostAdapterId,
+    execute: true,
+    env,
+    now,
+  });
+  assert(replayUnknown.action === "restart_blocked", "KR-004: spawn_intent without terminal evidence blocks replay");
+  assert(replayUnknown.failure_reason === "invocation_unknown", "KR-004: replay reports invocation_unknown");
+
+  const blockedQueue: QueueDrainCheckResult = {
+    mode: "agent_comms_configured",
+    result: "blocked",
+    allowed: false,
+    in_flight_count: 1,
+    in_flight_queue_ids: ["124253"],
+    failure_reason: "queue_not_drained",
+  };
+  const blockedQueuePath = join(root, "blocked-queue.json");
+  writeMarker(blockedQueuePath, "session-blocked-queue");
+  const blocked = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: blockedQueuePath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-blocked-queue", "aun_supervised"),
+    hostAdapterId,
+    execute: false,
+    env,
+    queueDrainCheck: async () => blockedQueue,
+    now,
+  });
+  assert(blocked.action === "restart_blocked", "restart bridge blocks configured queue with in-flight work");
+  assert(blocked.failure_reason === "queue_not_drained", "KR-007: restart bridge reports queue in-flight blocker");
+  assert(blocked.event.queue_check_result === "blocked", "restart event records queue blocked result");
+
+  const missingAunPath = join(root, "missing-aun.json");
+  writeMarker(missingAunPath, "session-missing-aun");
+  const unavailable = await runRestartBridge({
+    store,
+    agentId,
+    project,
+    markerPath: missingAunPath,
+    restartCommand: `${trustedBin} --launch`,
+    runtimeAuthorityRef: await saveAuthority("session-missing-aun", "aun_supervised"),
+    hostAdapterId,
+    execute: false,
+    env,
+    now,
+  });
+  assert(unavailable.action === "restart_blocked", "KR-006: restart bridge fail-closes when AUN DB URL is absent");
+  assert(unavailable.failure_reason === "lifecycle_authority_unknown_or_blocked", "KR-006: absent DB URL does not prove standalone authority");
+  assert(unavailable.event.queue_check_result === "unavailable", "restart event records unavailable queue check");
+
+  const events = await store.getRestartEvents({ agent_id: agentId, project, limit: 10 });
+  assert(events.length >= 3, "restart_events persistence stores bridge attempts");
+  assert(events.some((event) => event.action === "restart_dry_run"), "restart_events include dry-run evidence");
+  assert(events.some((event) => event.failure_reason === "queue_not_drained"), "restart_events include queue blocker evidence");
+  assert(events.every((event) => event.metadata.runtime_lifecycle_mode !== "production"), "KR-010: restart_events contain no production runtime activation claim");
+
+  const parsedMarker = parseRestartCliArgs([
+    "marker",
+    "--agent-id",
+    agentId,
+    "--project",
+    project,
+    "--marker-path",
+    markerPath,
+    "--host-id",
+    hostId,
+    "--host-adapter-id",
+    hostAdapterId,
+    "--context-used-ratio",
+    "0.95",
+    "--threshold-require",
+    "0.94",
+  ]);
+  assert(parsedMarker.command === "marker", "wasurezu-restart parser reads marker command");
+  assert(parsedMarker.thresholds?.require === 0.94, "wasurezu-restart parser reads threshold override");
+
+  const parsedBridge = parseRestartCliArgs([
+    "bridge",
+    "--agent-id",
+    agentId,
+    "--marker-path",
+    markerPath,
+    "--host-id",
+    hostId,
+    "--host-adapter-id",
+    hostAdapterId,
+    "--session-id",
+    "session-a",
+    "--lifecycle-mode",
+    "standalone_supervisor",
+    "--supervisor-id",
+    "supervisor-a",
+    "--supervisor-available",
+    "--authority-ref",
+    "KUSABI-DEC-STANDALONE-DETECTION",
+    "--authority-expires-at",
+    expiresAt,
+    "--restart-command",
+    `${trustedBin} --launch`,
+    "--restart-preauthorized",
+    "--agent-comms-db-url",
+    "postgres://example.invalid/db",
+    "--dry-run",
+  ]);
+  assert(parsedBridge.command === "bridge", "wasurezu-restart parser reads bridge command");
+  assert(parsedBridge.agent_comms_db_url === "postgres://example.invalid/db", "wasurezu-restart parser reads agent-comms DB URL");
+  assert(parsedBridge.host_adapter_id === hostAdapterId, "wasurezu-restart parser reads host adapter id");
+  assert(parsedBridge.lifecycle_mode === "standalone_supervisor", "wasurezu-restart parser reads lifecycle mode");
+  assert(parsedBridge.execute === false, "wasurezu-restart bridge defaults can be explicit dry-run");
+
+  await store.close();
+  rmSync(root, { recursive: true, force: true });
+}
+
 function testPgMigrationSourceOfTruth() {
   console.log("\n── PostgreSQL Migration Source-of-Truth Tests ──");
   const migrateSource = readFileSync("src/migrate.ts", "utf8");
@@ -2823,6 +3812,8 @@ function testPgMigrationSourceOfTruth() {
     ["raw event occurred_at not-null enforcement", "alter table raw_events alter column occurred_at set not null"],
     ["raw event source unique index", "create unique index if not exists uq_raw_events_source_event"],
     ["selected restart packs table", "create table if not exists selected_restart_packs"],
+    ["restart events table", "create table if not exists restart_events"],
+    ["restart events agent index", "create index if not exists idx_restart_events_agent"],
   ] as const;
 
   for (const [label, fragment] of requiredFragments) {
@@ -3863,6 +4854,7 @@ async function run() {
   testRestartCommandPreflight();
   testSupervisorPreflight();
   await testRestartPrepare();
+  await testRestartMarkerBridge();
   await testCoreMcpToolRegression();
   await testRestartRecoverySmokeEvidence();
   testPgMigrationSourceOfTruth();

@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import { PG_MIGRATIONS } from "./pg-migrations.js";
+import { assertRestartRuntimeAuthorityInput } from "./types.js";
 import type {
   Store,
   Decision,
@@ -13,6 +14,7 @@ import type {
   ConversationEvent,
   RawEvent,
   SelectedRestartPack,
+  RestartEvent,
   RecoveryConfig,
   CatchUpLog,
   LogDecisionInput,
@@ -33,6 +35,14 @@ import type {
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
+  SaveRestartEventInput,
+  GetRestartEventsInput,
+  RestartRuntimeAuthority,
+  SaveRestartRuntimeAuthorityInput,
+  GetRestartRuntimeAuthorityInput,
+  RestartHostAdapter,
+  SaveRestartHostAdapterInput,
+  GetRestartHostAdapterInput,
   SaveCatchUpLogInput,
   KusabiPartition,
   UpsertKusabiPartitionInput,
@@ -52,6 +62,7 @@ function contentHash(content: string): string {
 }
 
 export class PgStore implements Store {
+  readonly restartClaimAtomicity = "inter_process_atomic" as const;
   private pool: pg.Pool;
 
   constructor(connectionString: string) {
@@ -996,6 +1007,208 @@ export class PgStore implements Store {
     return result.rows[0] ? this.rowToSelectedRestartPack(result.rows[0]) : null;
   }
 
+  async saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent> {
+    const result = await this.pool.query(
+      `INSERT INTO restart_events
+        (event_id, agent_id, project, seat_id, host, host_id, host_adapter_id,
+         session_id, marker_id, marker_digest, marker_path, marker_status,
+         attempt_ordinal, phase, payload_digest, action, restart_required, executed_restart, band, context_tokens,
+         context_window_tokens, context_used_ratio, thresholds, queue_check_mode,
+         queue_check_result, preflight_status, restart_command, failure_reason,
+         pre_state, post_state, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+               $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+               $24, $25, $26, $27, $28, $29, $30, $31,
+               COALESCE($32::timestamptz, now()))
+       ON CONFLICT (event_id) WHERE event_id IS NOT NULL DO NOTHING
+       RETURNING *`,
+      [
+        input.event_id ?? null,
+        input.agent_id,
+        input.project ?? null,
+        input.seat_id ?? null,
+        input.host ?? null,
+        input.host_id ?? null,
+        input.host_adapter_id ?? null,
+        input.session_id ?? null,
+        input.marker_id ?? null,
+        input.marker_digest ?? null,
+        input.marker_path ?? null,
+        input.marker_status ?? null,
+        input.attempt_ordinal ?? null,
+        input.phase ?? null,
+        input.payload_digest ?? null,
+        input.action,
+        input.restart_required ?? false,
+        input.executed_restart ?? false,
+        input.band ?? null,
+        input.context_tokens ?? null,
+        input.context_window_tokens ?? null,
+        input.context_used_ratio ?? null,
+        input.thresholds ?? {},
+        input.queue_check_mode ?? null,
+        input.queue_check_result ?? null,
+        input.preflight_status ?? null,
+        input.restart_command ?? null,
+        input.failure_reason ?? null,
+        input.pre_state ?? {},
+        input.post_state ?? {},
+        {
+          ...(input.metadata ?? {}),
+          ...(input.event_id ? { persistence_result: "inserted", inserted: true, collision: false } : {}),
+        },
+        input.created_at ?? null,
+      ]
+    );
+    if (!result.rows[0] && input.event_id) {
+      const existing = await this.pool.query(
+        `SELECT * FROM restart_events WHERE event_id = $1 LIMIT 1`,
+        [input.event_id]
+      );
+      if (existing.rows[0]) {
+        const event = this.rowToRestartEvent(existing.rows[0]);
+        const sameDigest = (event.payload_digest ?? "") === (input.payload_digest ?? "");
+        return {
+          ...event,
+          metadata: {
+            ...event.metadata,
+            persistence_result: sameDigest ? "idempotent" : "event_id_collision",
+            inserted: false,
+            collision: !sameDigest,
+          },
+        };
+      }
+    }
+    return this.rowToRestartEvent(result.rows[0]);
+  }
+
+  async getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_events
+       WHERE agent_id = $1
+         AND ($2::text IS NULL OR project = $2)
+       ORDER BY created_at DESC, COALESCE(event_id, id::text) DESC
+       LIMIT $3`,
+      [input.agent_id, input.project ?? null, input.limit ?? 20]
+    );
+    return result.rows.map(this.rowToRestartEvent);
+  }
+
+  async saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority> {
+    assertRestartRuntimeAuthorityInput(input);
+    const result = await this.pool.query(
+      `INSERT INTO restart_runtime_authorities
+        (authority_ref, agent_id, project, seat_id, host_id, session_id,
+         host_adapter_id, lifecycle_mode, supervisor_id, supervisor_available,
+         restart_preauthorized, issued_at, expires_at, row_version,
+         aun_absent_confirmed, provenance_ref, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+               $12::timestamptz, $13::timestamptz, $14, $15, $16,
+               COALESCE($17::timestamptz, now()), COALESCE($18::timestamptz, now()))
+       ON CONFLICT (agent_id, authority_ref) DO UPDATE SET
+         project = excluded.project,
+         seat_id = excluded.seat_id,
+         host_id = excluded.host_id,
+         session_id = excluded.session_id,
+         host_adapter_id = excluded.host_adapter_id,
+         lifecycle_mode = excluded.lifecycle_mode,
+         supervisor_id = excluded.supervisor_id,
+         supervisor_available = excluded.supervisor_available,
+         restart_preauthorized = excluded.restart_preauthorized,
+         issued_at = excluded.issued_at,
+         expires_at = excluded.expires_at,
+         row_version = excluded.row_version,
+         aun_absent_confirmed = excluded.aun_absent_confirmed,
+         provenance_ref = excluded.provenance_ref,
+         created_at = COALESCE($17::timestamptz, restart_runtime_authorities.created_at),
+         updated_at = COALESCE($18::timestamptz, now())
+       WHERE excluded.row_version > restart_runtime_authorities.row_version
+       RETURNING *`,
+      [
+        input.authority_ref,
+        input.agent_id,
+        input.project ?? null,
+        input.seat_id ?? null,
+        input.host_id,
+        input.session_id,
+        input.host_adapter_id,
+        input.lifecycle_mode,
+        input.supervisor_id ?? null,
+        input.supervisor_available ?? null,
+        input.restart_preauthorized,
+        input.issued_at,
+        input.expires_at,
+        input.row_version,
+        input.aun_absent_confirmed ?? null,
+        input.provenance_ref,
+        input.created_at ?? null,
+        input.updated_at ?? null,
+      ]
+    );
+    if (result.rows[0]) return this.rowToRestartRuntimeAuthority(result.rows[0]);
+    const current = await this.pool.query(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = $1 AND authority_ref = $2
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    );
+    return this.rowToRestartRuntimeAuthority(current.rows[0]);
+  }
+
+  async getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_runtime_authorities
+        WHERE agent_id = $1 AND authority_ref = $2
+        LIMIT 1`,
+      [input.agent_id, input.authority_ref]
+    );
+    return result.rows[0] ? this.rowToRestartRuntimeAuthority(result.rows[0]) : null;
+  }
+
+  async saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter> {
+    const result = await this.pool.query(
+      `INSERT INTO restart_host_adapters
+        (host_adapter_id, runtime, canonical_path, executable_sha256,
+         allowed_argv, state, owner_decision_ref, provenance_ref, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8,
+               COALESCE($9::timestamptz, now()), COALESCE($10::timestamptz, now()))
+       ON CONFLICT (host_adapter_id) DO UPDATE SET
+         runtime = excluded.runtime,
+         canonical_path = excluded.canonical_path,
+         executable_sha256 = excluded.executable_sha256,
+         allowed_argv = excluded.allowed_argv,
+         state = excluded.state,
+         owner_decision_ref = excluded.owner_decision_ref,
+         provenance_ref = excluded.provenance_ref,
+         created_at = COALESCE($9::timestamptz, restart_host_adapters.created_at),
+         updated_at = COALESCE($10::timestamptz, now())
+       RETURNING *`,
+      [
+        input.host_adapter_id,
+        input.runtime,
+        input.canonical_path,
+        input.executable_sha256,
+        JSON.stringify(input.allowed_argv ?? []),
+        input.state,
+        input.owner_decision_ref,
+        input.provenance_ref,
+        input.created_at ?? null,
+        input.updated_at ?? null,
+      ]
+    );
+    return this.rowToRestartHostAdapter(result.rows[0]);
+  }
+
+  async getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM restart_host_adapters
+        WHERE host_adapter_id = $1
+        LIMIT 1`,
+      [input.host_adapter_id]
+    );
+    return result.rows[0] ? this.rowToRestartHostAdapter(result.rows[0]) : null;
+  }
+
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
     const id = uuidv4();
     const embeddingText = `${input.title} ${input.content}`.trim();
@@ -1389,4 +1602,106 @@ export class PgStore implements Store {
           : (row.updated_at as string),
     };
   }
+
+  private rowToRestartRuntimeAuthority(row: Record<string, unknown>): RestartRuntimeAuthority {
+    return {
+      schema_version: "restart_runtime_authority/v1",
+      authority_ref: row.authority_ref as string,
+      agent_id: row.agent_id as string,
+      project: row.project as string,
+      seat_id: row.seat_id as string,
+      host_id: row.host_id as string,
+      session_id: row.session_id as string,
+      host_adapter_id: row.host_adapter_id as string,
+      lifecycle_mode: row.lifecycle_mode as RestartRuntimeAuthority["lifecycle_mode"],
+      supervisor_id: (row.supervisor_id as string | null) ?? undefined,
+      supervisor_available: (row.supervisor_available as boolean | null) ?? undefined,
+      restart_preauthorized: row.restart_preauthorized === true,
+      issued_at: isoDate(row.issued_at),
+      expires_at: isoDate(row.expires_at),
+      row_version: row.row_version as number,
+      aun_absent_confirmed: (row.aun_absent_confirmed as boolean | null) ?? undefined,
+      provenance_ref: row.provenance_ref as string,
+      created_at: isoDate(row.created_at),
+      updated_at: isoDate(row.updated_at),
+    };
+  }
+
+  private rowToRestartHostAdapter(row: Record<string, unknown>): RestartHostAdapter {
+    return {
+      schema_version: "restart_host_adapter/v1",
+      host_adapter_id: row.host_adapter_id as string,
+      runtime: row.runtime as string,
+      canonical_path: row.canonical_path as string,
+      executable_sha256: row.executable_sha256 as string,
+      allowed_argv: asStringArray(row.allowed_argv),
+      state: row.state as RestartHostAdapter["state"],
+      owner_decision_ref: row.owner_decision_ref as string,
+      provenance_ref: row.provenance_ref as string,
+      created_at: isoDate(row.created_at),
+      updated_at: isoDate(row.updated_at),
+    };
+  }
+
+  private rowToRestartEvent(row: Record<string, unknown>): RestartEvent {
+    return {
+      id: row.id as string,
+      event_id: (row.event_id as string | null) ?? undefined,
+      agent_id: row.agent_id as string,
+      project: (row.project as string | null) ?? undefined,
+      seat_id: (row.seat_id as string | null) ?? undefined,
+      host: (row.host as string | null) ?? undefined,
+      host_id: (row.host_id as string | null) ?? undefined,
+      host_adapter_id: (row.host_adapter_id as string | null) ?? undefined,
+      session_id: (row.session_id as string | null) ?? undefined,
+      marker_id: (row.marker_id as string | null) ?? undefined,
+      marker_digest: (row.marker_digest as string | null) ?? undefined,
+      marker_path: (row.marker_path as string | null) ?? undefined,
+      marker_status: (row.marker_status as string | null) ?? undefined,
+      attempt_ordinal: (row.attempt_ordinal as number | null) ?? undefined,
+      phase: (row.phase as string | null) ?? undefined,
+      payload_digest: (row.payload_digest as string | null) ?? undefined,
+      action: row.action as string,
+      restart_required: row.restart_required === true,
+      executed_restart: row.executed_restart === true,
+      band: (row.band as string | null) ?? undefined,
+      context_tokens: (row.context_tokens as number | null) ?? undefined,
+      context_window_tokens: (row.context_window_tokens as number | null) ?? undefined,
+      context_used_ratio: (row.context_used_ratio as number | null) ?? undefined,
+      thresholds: asRecord(row.thresholds),
+      queue_check_mode: (row.queue_check_mode as string | null) ?? undefined,
+      queue_check_result: (row.queue_check_result as string | null) ?? undefined,
+      preflight_status: (row.preflight_status as string | null) ?? undefined,
+      restart_command: (row.restart_command as string | null) ?? undefined,
+      failure_reason: (row.failure_reason as string | null) ?? undefined,
+      pre_state: asRecord(row.pre_state),
+      post_state: asRecord(row.post_state),
+      metadata: asRecord(row.metadata),
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : (row.created_at as string),
+    };
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string");
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function isoDate(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
 }

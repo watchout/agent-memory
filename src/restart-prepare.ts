@@ -16,6 +16,10 @@ import {
   type RestartPackData,
   type UntrustedContextPolicy,
 } from "./restart-pack.js";
+import {
+  classifyContextSignal,
+  type RestartThresholdOverrides,
+} from "./restart-thresholds.js";
 
 export type ContinuityGuardMode = "auto_restart" | "recommend" | "pack_only" | "off";
 export type PackInjectionMode = "auto_attach" | "on_demand" | "off";
@@ -39,6 +43,7 @@ export interface RestartPrepareInput {
   context_used_ratio?: number;
   context_tokens?: number;
   context_window_tokens?: number;
+  thresholds?: RestartThresholdOverrides;
   runtime_context_error?: boolean;
   emit_pack?: boolean;
   pack_format?: RestartPackFormat;
@@ -69,6 +74,12 @@ export interface RestartPrepareOutput {
     source: "host_metrics" | "estimated";
     usage_ratio: number | null;
     band: "unknown" | "ok" | "prepare" | "warn" | "recommend" | "require";
+    thresholds: {
+      prepare: number;
+      warn: number;
+      recommend: number;
+      require: number;
+    };
   };
   provenance: {
     generated_at: string;
@@ -288,29 +299,7 @@ function confidenceScore(missingContext: string[]): number {
 }
 
 function contextSignalFor(input: RestartPrepareInput): RestartPrepareOutput["context_signal"] {
-  let ratio: number | null = null;
-  if (typeof input.context_used_ratio === "number") {
-    ratio = input.context_used_ratio;
-  } else if (
-    typeof input.context_tokens === "number" &&
-    typeof input.context_window_tokens === "number" &&
-    input.context_window_tokens > 0
-  ) {
-    ratio = input.context_tokens / input.context_window_tokens;
-  }
-
-  if (ratio === null || Number.isNaN(ratio)) {
-    return { source: "estimated", usage_ratio: null, band: "unknown" };
-  }
-
-  const bounded = Math.max(0, Math.min(1, ratio));
-  const band =
-    bounded >= 0.95 ? "require" :
-    bounded >= 0.90 ? "recommend" :
-    bounded >= 0.80 ? "warn" :
-    bounded >= 0.70 ? "prepare" :
-    "ok";
-  return { source: "host_metrics", usage_ratio: Number(bounded.toFixed(4)), band };
+  return classifyContextSignal(input, input.thresholds);
 }
 
 function actionFor(input: {

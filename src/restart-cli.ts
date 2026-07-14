@@ -5,10 +5,14 @@ import { createStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
+import { writeRestartMarker } from "./context-restart-marker.js";
+import { runRestartBridge, type RestartLifecycleMode } from "./restart-bridge.js";
+import { loadRestartThresholdConfig, type RestartThresholdOverrides } from "./restart-thresholds.js";
 import { redactText } from "./redact.js";
+import type { RestartHostAdapter } from "./stores/types.js";
 
 interface CliOptions {
-  command: "prepare" | "fetch" | "preflight" | "help";
+  command: "prepare" | "fetch" | "preflight" | "marker" | "bridge" | "help";
   agent_id: string;
   project?: string;
   pack_ref?: string;
@@ -23,6 +27,7 @@ interface CliOptions {
   context_used_ratio?: number;
   context_tokens?: number;
   context_window_tokens?: number;
+  thresholds?: RestartThresholdOverrides;
   runtime_context_error?: boolean;
   emit_pack?: boolean;
   pack_format?: RestartPackFormat;
@@ -31,6 +36,22 @@ interface CliOptions {
   trusted_instruction?: string;
   untrusted_context_policy?: UntrustedContextPolicy;
   restart_command?: string;
+  marker_path?: string;
+  marker_dir?: string;
+  host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
+  seat_id?: string;
+  session_id?: string;
+  agent_comms_db_url?: string;
+  runtime_authority_file?: string;
+  adapter_registry_file?: string;
+  lifecycle_mode?: RestartLifecycleMode;
+  supervisor_id?: string;
+  authority_ref?: string;
+  authority_expires_at?: string;
+  runtime_row_version?: number;
+  execute?: boolean;
 }
 
 export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = process.env): CliOptions {
@@ -38,7 +59,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
   if (command === "help" || command === "--help" || command === "-h") {
     return { command: "help", agent_id: env.AGENT_MEMORY_AGENT_ID || "default" };
   }
-  if (command !== "prepare" && command !== "fetch" && command !== "preflight") {
+  if (command !== "prepare" && command !== "fetch" && command !== "preflight" && command !== "marker" && command !== "bridge") {
     throw new Error(`unknown command: ${command}`);
   }
 
@@ -88,6 +109,21 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--context-window-tokens":
         options.context_window_tokens = positiveNumber(arg, next());
         break;
+      case "--threshold-config":
+        options.thresholds = { ...(options.thresholds ?? {}), ...loadRestartThresholdConfig(next()) };
+        break;
+      case "--threshold-prepare":
+        setThreshold(options, "prepare", ratioNumber(arg, next()));
+        break;
+      case "--threshold-warn":
+        setThreshold(options, "warn", ratioNumber(arg, next()));
+        break;
+      case "--threshold-recommend":
+        setThreshold(options, "recommend", ratioNumber(arg, next()));
+        break;
+      case "--threshold-require":
+        setThreshold(options, "require", ratioNumber(arg, next()));
+        break;
       case "--aun-installed":
         options.aun_installed = true;
         break;
@@ -125,6 +161,58 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
       case "--restart-command":
         options.restart_command = next();
         break;
+      case "--marker-path":
+        options.marker_path = next();
+        break;
+      case "--marker-dir":
+        options.marker_dir = next();
+        break;
+      case "--host":
+        options.host = next();
+        break;
+      case "--host-id":
+        options.host_id = next();
+        break;
+      case "--host-adapter-id":
+        options.host_adapter_id = next();
+        break;
+      case "--seat-id":
+        options.seat_id = next();
+        break;
+      case "--session-id":
+        options.session_id = next();
+        break;
+      case "--agent-comms-db-url":
+        options.agent_comms_db_url = next();
+        break;
+      case "--runtime-authority-file":
+        options.runtime_authority_file = next();
+        break;
+      case "--adapter-registry-file":
+        options.adapter_registry_file = next();
+        break;
+      case "--lifecycle-mode":
+        options.lifecycle_mode = lifecycleMode(next());
+        break;
+      case "--supervisor-id":
+        options.supervisor_id = next();
+        break;
+      case "--authority-ref":
+      case "--runtime-authority-ref":
+        options.authority_ref = next();
+        break;
+      case "--authority-expires-at":
+        options.authority_expires_at = next();
+        break;
+      case "--runtime-row-version":
+        options.runtime_row_version = positiveNumber(arg, next());
+        break;
+      case "--execute":
+        options.execute = true;
+        break;
+      case "--dry-run":
+        options.execute = false;
+        break;
       default:
         throw new Error(`unknown option: ${arg}`);
     }
@@ -140,7 +228,9 @@ export function printRestartCliHelp(): string {
     "Usage:",
     "  wasurezu-restart prepare [options]",
     "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
-    "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized]",
+    "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized] --host-adapter-id ID",
+    "  wasurezu-restart marker --marker-path PATH --context-used-ratio N [options]",
+    "  wasurezu-restart bridge --marker-path PATH --restart-command CMD --authority-ref REF [--dry-run|--execute]",
     "",
     "Options:",
     "  --agent-id ID",
@@ -153,6 +243,11 @@ export function printRestartCliHelp(): string {
     "  --context-used-ratio N        host-provided ratio, 0.0-1.0",
     "  --context-tokens N            host-provided used tokens",
     "  --context-window-tokens N     host-provided window size",
+    "  --threshold-config PATH       JSON override for prepare/warn/recommend/require ratios",
+    "  --threshold-prepare N",
+    "  --threshold-warn N",
+    "  --threshold-recommend N",
+    "  --threshold-require N",
     "  --aun-installed",
     "  --aun-absent                 explicitly confirm AUN is absent for auto_restart",
     "  --supervisor-available",
@@ -164,6 +259,21 @@ export function printRestartCliHelp(): string {
     "  --delivery-mode stdin-json|system-prompt-fragment|append-system-prompt-fragment|session-start-hook|tui-fallback",
     "  --trusted-instruction TEXT    trusted wrapper instruction; must not embed raw shell commands",
     "  --untrusted-context-policy quote-as-data-only|omit|summarize-only",
+    "  --marker-path PATH",
+    "  --marker-dir DIR",
+    "  --host HOST",
+    "  --host-id ID",
+    "  --host-adapter-id ID",
+    "  --seat-id ID",
+    "  --session-id ID",
+    "  --agent-comms-db-url URL       optional read-only queue drain check",
+    "  --runtime-authority-file PATH  ignored for bridge authorization; use persisted --authority-ref",
+    "  --adapter-registry-file PATH   ignored for restart authorization; adapters are read from store",
+    "  --lifecycle-mode aun_supervised|standalone_supervisor|pure_mcp",
+    "  --supervisor-id ID",
+    "  --authority-ref REF",
+    "  --authority-expires-at RFC3339",
+    "  --execute                     bridge executes after gates pass; default is dry-run",
   ].join("\n");
 }
 
@@ -185,13 +295,17 @@ export function runSupervisorPreflight(
   restartCommand: string | undefined,
   restartPreauthorized: boolean,
   checkedAt: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  hostAdapterId?: string,
+  hostAdapter?: RestartHostAdapter
 ): SupervisorPreflightResult {
   const effectiveCommand = restartCommand ?? env.WASUREZU_RESTART_COMMAND ?? env.AGENT_MEMORY_RESTART_COMMAND;
   const result = preflightRestartCommand({
     command: effectiveCommand,
     restartPreauthorized,
     env,
+    hostAdapterId,
+    hostAdapter,
   });
 
   const remediation: string[] = [];
@@ -208,6 +322,12 @@ export function runSupervisorPreflight(
   }
   if (result.reasons.includes("restart_command_missing")) {
     remediation.push("Set WASUREZU_RESTART_COMMAND=wasurezu-claude-start --launch or pass --restart-command to the preflight check");
+  }
+  if (result.reasons.includes("restart_adapter_id_missing")) {
+    remediation.push("Pass --host-adapter-id for a persisted restart_host_adapter/v1 store record.");
+  }
+  if (result.reasons.includes("restart_adapter_not_registered")) {
+    remediation.push("Persist the host adapter with runtime, canonical_path, executable_sha256, allowed_argv, active state, owner_decision_ref, and provenance_ref.");
   }
   if (result.reasons.includes("restart_lifecycle_not_preauthorized")) {
     remediation.push("Pass --restart-preauthorized flag or set WASUREZU_RESTART_PREAUTHORIZED=1 to confirm restart lifecycle is authorized");
@@ -239,13 +359,46 @@ async function main(): Promise<void> {
       options.restart_preauthorized === true ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "1" ||
       process.env.WASUREZU_RESTART_PREAUTHORIZED === "true";
-    const result = runSupervisorPreflight(
-      options.restart_command,
-      restartPreauthorized,
-      new Date().toISOString()
-    );
+    const store = await createStore();
+    let failed = false;
+    try {
+      const hostAdapter = options.host_adapter_id
+        ? await store.getRestartHostAdapter({ host_adapter_id: options.host_adapter_id })
+        : null;
+      const result = runSupervisorPreflight(
+        options.restart_command,
+        restartPreauthorized,
+        new Date().toISOString(),
+        process.env,
+        options.host_adapter_id,
+        hostAdapter ?? undefined
+      );
+      console.log(redactedJson(result));
+      failed = result.status === "fail";
+    } finally {
+      await store.close();
+    }
+    if (failed) process.exit(1);
+    return;
+  }
+  if (options.command === "marker") {
+    const result = writeRestartMarker({
+      agent_id: requiredOption("--agent-id", options.agent_id),
+      project: requiredOption("--project", options.project),
+      host: options.host,
+      host_id: requiredOption("--host-id", options.host_id),
+      host_adapter_id: requiredOption("--host-adapter-id", options.host_adapter_id),
+      seat_id: requiredOption("--seat-id", options.seat_id),
+      session_id: requiredOption("--session-id", options.session_id),
+      context_used_ratio: options.context_used_ratio,
+      context_tokens: options.context_tokens,
+      context_window_tokens: options.context_window_tokens,
+      runtime_context_error: options.runtime_context_error,
+      thresholds: options.thresholds,
+      marker_path: options.marker_path,
+      marker_dir: options.marker_dir,
+    });
     console.log(redactedJson(result));
-    if (result.status === "fail") process.exit(1);
     return;
   }
   const store = await createStore();
@@ -265,6 +418,23 @@ async function main(): Promise<void> {
           });
       if (!pack) throw new Error(`selected restart pack not found or already consumed: ${options.pack_ref}`);
       console.log(redactedJson(pack));
+      return;
+    }
+    if (options.command === "bridge") {
+      const result = await runRestartBridge({
+        store,
+        agentId: options.agent_id,
+        project: options.project,
+        markerPath: options.marker_path,
+        markerDir: options.marker_dir,
+        restartCommand: options.restart_command,
+        execute: options.execute === true,
+        agentCommsDatabaseUrl: options.agent_comms_db_url,
+        runtimeAuthorityRef: options.authority_ref,
+        hostAdapterId: options.host_adapter_id,
+        env: process.env,
+      });
+      console.log(redactedJson(result));
       return;
     }
     const output = await prepareRestart(store, options);
@@ -316,6 +486,11 @@ function untrustedContextPolicy(value: string): UntrustedContextPolicy {
   throw new Error(`invalid untrusted context policy: ${value}`);
 }
 
+function lifecycleMode(value: string): RestartLifecycleMode {
+  if (value === "aun_supervised" || value === "standalone_supervisor" || value === "pure_mcp") return value;
+  throw new Error(`invalid lifecycle mode: ${value}`);
+}
+
 function positiveNumber(flag: string, value: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`${flag} must be a non-negative number`);
@@ -326,6 +501,15 @@ function ratioNumber(flag: string, value: string): number {
   const parsed = positiveNumber(flag, value);
   if (parsed > 1) throw new Error(`${flag} must be between 0 and 1`);
   return parsed;
+}
+
+function setThreshold(options: CliOptions, key: keyof RestartThresholdOverrides, value: number): void {
+  options.thresholds = { ...(options.thresholds ?? {}), [key]: value };
+}
+
+function requiredOption(flag: string, value: string | undefined): string {
+  if (!value) throw new Error(`missing required option: ${flag}`);
+  return value;
 }
 
 export function isMainEntrypoint(argvPath: string | undefined, metaUrl: string): boolean {

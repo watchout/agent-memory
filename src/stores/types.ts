@@ -340,6 +340,218 @@ export interface ConsumeSelectedRestartPackInput extends GetSelectedRestartPackI
   consumed_at?: string;
 }
 
+export interface RestartEvent {
+  id: string;
+  event_id?: string;
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
+  session_id?: string;
+  marker_id?: string;
+  marker_digest?: string;
+  marker_path?: string;
+  marker_status?: string;
+  attempt_ordinal?: number;
+  phase?: string;
+  payload_digest?: string;
+  action: string;
+  restart_required: boolean;
+  executed_restart: boolean;
+  band?: string;
+  context_tokens?: number;
+  context_window_tokens?: number;
+  context_used_ratio?: number;
+  thresholds?: Record<string, unknown>;
+  queue_check_mode?: string;
+  queue_check_result?: string;
+  preflight_status?: string;
+  restart_command?: string;
+  failure_reason?: string;
+  pre_state?: Record<string, unknown>;
+  post_state?: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SaveRestartEventInput {
+  event_id?: string;
+  agent_id: string;
+  project?: string;
+  seat_id?: string;
+  host?: string;
+  host_id?: string;
+  host_adapter_id?: string;
+  session_id?: string;
+  marker_id?: string;
+  marker_digest?: string;
+  marker_path?: string;
+  marker_status?: string;
+  attempt_ordinal?: number;
+  phase?: string;
+  payload_digest?: string;
+  action: string;
+  restart_required?: boolean;
+  executed_restart?: boolean;
+  band?: string;
+  context_tokens?: number;
+  context_window_tokens?: number;
+  context_used_ratio?: number;
+  thresholds?: Record<string, unknown>;
+  queue_check_mode?: string;
+  queue_check_result?: string;
+  preflight_status?: string;
+  restart_command?: string;
+  failure_reason?: string;
+  pre_state?: Record<string, unknown>;
+  post_state?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface GetRestartEventsInput {
+  agent_id: string;
+  project?: string;
+  limit?: number;
+}
+
+export type RestartLifecycleMode = "aun_supervised" | "standalone_supervisor" | "pure_mcp";
+
+export interface RestartRuntimeAuthority {
+  schema_version: "restart_runtime_authority/v1";
+  authority_ref: string;
+  agent_id: string;
+  project: string;
+  seat_id: string;
+  host_id: string;
+  session_id: string;
+  host_adapter_id: string;
+  lifecycle_mode: RestartLifecycleMode;
+  supervisor_id?: string;
+  supervisor_available?: boolean;
+  restart_preauthorized: boolean;
+  issued_at: string;
+  expires_at: string;
+  row_version: number;
+  aun_absent_confirmed?: boolean;
+  provenance_ref: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveRestartRuntimeAuthorityInput {
+  schema_version?: "restart_runtime_authority/v1";
+  authority_ref: string;
+  agent_id: string;
+  project: string;
+  seat_id: string;
+  host_id: string;
+  session_id: string;
+  host_adapter_id: string;
+  lifecycle_mode: RestartLifecycleMode;
+  supervisor_id?: string;
+  supervisor_available?: boolean;
+  restart_preauthorized: boolean;
+  issued_at: string;
+  expires_at: string;
+  row_version: number;
+  aun_absent_confirmed?: boolean;
+  provenance_ref: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const RESTART_RUNTIME_AUTHORITY_FIELDS = new Set([
+  "schema_version",
+  "authority_ref",
+  "agent_id",
+  "project",
+  "seat_id",
+  "host_id",
+  "session_id",
+  "host_adapter_id",
+  "lifecycle_mode",
+  "supervisor_id",
+  "supervisor_available",
+  "restart_preauthorized",
+  "issued_at",
+  "expires_at",
+  "row_version",
+  "aun_absent_confirmed",
+  "provenance_ref",
+  "created_at",
+  "updated_at",
+]);
+
+export function restartRuntimeAuthorityExtraFields(value: object): string[] {
+  return Object.keys(value).filter((key) => !RESTART_RUNTIME_AUTHORITY_FIELDS.has(key));
+}
+
+export function assertRestartRuntimeAuthorityInput(input: SaveRestartRuntimeAuthorityInput): void {
+  if (restartRuntimeAuthorityExtraFields(input).length > 0) {
+    throw new Error("restart_runtime_authority_extra_fields");
+  }
+  if (input.schema_version !== undefined && input.schema_version !== "restart_runtime_authority/v1") {
+    throw new Error("restart_runtime_authority_schema_invalid");
+  }
+  const exactIdentity = [
+    input.authority_ref,
+    input.agent_id,
+    input.project,
+    input.seat_id,
+    input.host_id,
+    input.session_id,
+    input.host_adapter_id,
+  ];
+  if (exactIdentity.some((value) => typeof value !== "string" || value.trim() === "")) {
+    throw new Error("restart_runtime_authority_identity_invalid");
+  }
+  if (!Number.isInteger(input.row_version) || input.row_version < 1) {
+    throw new Error("restart_runtime_authority_row_version_invalid");
+  }
+}
+
+export type RestartClaimAtomicity = "inter_process_atomic" | "fail_closed";
+
+export interface GetRestartRuntimeAuthorityInput {
+  agent_id: string;
+  authority_ref: string;
+}
+
+export interface RestartHostAdapter {
+  schema_version: "restart_host_adapter/v1";
+  host_adapter_id: string;
+  runtime: string;
+  canonical_path: string;
+  executable_sha256: string;
+  allowed_argv: string[];
+  state: "active" | "disabled" | "revoked";
+  owner_decision_ref: string;
+  provenance_ref: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveRestartHostAdapterInput {
+  schema_version?: "restart_host_adapter/v1";
+  host_adapter_id: string;
+  runtime: string;
+  canonical_path: string;
+  executable_sha256: string;
+  allowed_argv?: string[];
+  state: "active" | "disabled" | "revoked";
+  owner_decision_ref: string;
+  provenance_ref: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GetRestartHostAdapterInput {
+  host_adapter_id: string;
+}
+
 /**
  * Input for logRecoveryQuality (AM-002, Stage 1).
  *
@@ -418,6 +630,8 @@ export interface GetKusabiPartitionInput {
 }
 
 export interface Store {
+  /** Whether this backend can grant executable restart authority from a cross-process claim. */
+  readonly restartClaimAtomicity: RestartClaimAtomicity;
   /** Initialize the store (create tables/files if needed) */
   initialize(): Promise<void>;
 
@@ -496,6 +710,24 @@ export interface Store {
 
   /** Fetch and mark a selected restart pack as consumed (AM-039) */
   consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null>;
+
+  /** Persist durable evidence for automated restart decisions and attempts. */
+  saveRestartEvent(input: SaveRestartEventInput): Promise<RestartEvent>;
+
+  /** Read restart event evidence in newest-first order. */
+  getRestartEvents(input: GetRestartEventsInput): Promise<RestartEvent[]>;
+
+  /** Persist operator-controlled runtime restart authority. */
+  saveRestartRuntimeAuthority(input: SaveRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority>;
+
+  /** Read persisted runtime restart authority by durable reference. */
+  getRestartRuntimeAuthority(input: GetRestartRuntimeAuthorityInput): Promise<RestartRuntimeAuthority | null>;
+
+  /** Persist an operator-controlled restart host adapter registry entry. */
+  saveRestartHostAdapter(input: SaveRestartHostAdapterInput): Promise<RestartHostAdapter>;
+
+  /** Read an operator-controlled restart host adapter registry entry. */
+  getRestartHostAdapter(input: GetRestartHostAdapterInput): Promise<RestartHostAdapter | null>;
 
   // ─── AM-026: Catch-up ledger methods ────────────────────────────────────
 

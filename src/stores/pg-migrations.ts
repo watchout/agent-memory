@@ -334,4 +334,95 @@ export const PG_MIGRATIONS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_kusabi_partitions_agent
      ON kusabi_agent_memory_partitions (agent_id, updated_at DESC)`,
+
+  // CELL-KUSABI-CTX-RESTART-001: durable restart bridge evidence.
+  `CREATE TABLE IF NOT EXISTS restart_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id TEXT,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host TEXT,
+    host_id TEXT,
+    host_adapter_id TEXT,
+    session_id TEXT,
+    marker_id TEXT,
+    marker_digest TEXT,
+    marker_path TEXT,
+    marker_status TEXT,
+    attempt_ordinal INT,
+    phase TEXT,
+    payload_digest TEXT,
+    action TEXT NOT NULL,
+    restart_required BOOLEAN NOT NULL DEFAULT false,
+    executed_restart BOOLEAN NOT NULL DEFAULT false,
+    band TEXT,
+    context_tokens INT,
+    context_window_tokens INT,
+    context_used_ratio FLOAT,
+    thresholds JSONB NOT NULL DEFAULT '{}'::jsonb,
+    queue_check_mode TEXT,
+    queue_check_result TEXT,
+    preflight_status TEXT,
+    restart_command TEXT,
+    failure_reason TEXT,
+    pre_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    post_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS event_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS host_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS host_adapter_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS marker_id TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS marker_digest TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS attempt_ordinal INT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS phase TEXT`,
+  `ALTER TABLE restart_events ADD COLUMN IF NOT EXISTS payload_digest TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_restart_events_event_id
+     ON restart_events (event_id)
+     WHERE event_id IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_events_agent
+     ON restart_events (agent_id, created_at DESC, event_id DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_events_agent_event_id
+     ON restart_events (agent_id, created_at DESC, event_id DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_runtime_authorities (
+    authority_ref TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    project TEXT,
+    seat_id TEXT,
+    host_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    host_adapter_id TEXT NOT NULL,
+    lifecycle_mode TEXT NOT NULL,
+    supervisor_id TEXT,
+    supervisor_available BOOLEAN,
+    restart_preauthorized BOOLEAN NOT NULL DEFAULT false,
+    issued_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    row_version INT NOT NULL,
+    aun_absent_confirmed BOOLEAN,
+    provenance_ref TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (agent_id, authority_ref)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_runtime_authorities_agent
+     ON restart_runtime_authorities (agent_id, updated_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS restart_host_adapters (
+    host_adapter_id TEXT PRIMARY KEY,
+    runtime TEXT NOT NULL,
+    canonical_path TEXT NOT NULL,
+    executable_sha256 TEXT NOT NULL,
+    allowed_argv JSONB NOT NULL DEFAULT '[]'::jsonb,
+    state TEXT NOT NULL,
+    owner_decision_ref TEXT NOT NULL,
+    provenance_ref TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_restart_host_adapters_state
+     ON restart_host_adapters (state, updated_at DESC)`,
 ];

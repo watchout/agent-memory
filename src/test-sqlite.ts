@@ -6,12 +6,15 @@
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
 import { SqliteStore } from "./stores/sqlite-store.js";
-import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
+import { createHash } from "crypto";
+import { execFile } from "child_process";
 import { stripOrphanSurrogates } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import { writeRestartMarker } from "./context-restart-marker.js";
 import initSqlJs from "sql.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
@@ -29,6 +32,23 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+function runIsolatedNode(script: string, env: NodeJS.ProcessEnv): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { cwd: process.cwd(), env, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`isolated SQLite worker failed: ${error.message}\n${stderr}`));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
 }
 
 let store: SqliteStore;
@@ -858,6 +878,225 @@ async function testSelectedRestartPacks() {
   assert(consumedCount === 1, "concurrent selected restart pack consume is single-use");
 }
 
+async function testRestartEventsParity() {
+  console.log("\n── SqliteStore Restart Events Parity ──");
+  const createdAt = "2026-07-09T00:00:00.000Z";
+  const first = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host: "claude",
+    host_id: "host-a",
+    host_adapter_id: "adapter-a",
+    session_id: "session-a",
+    marker_id: "0197f000-0000-7000-8000-000000000001",
+    marker_digest: "marker-digest-a",
+    attempt_ordinal: 1,
+    phase: "claim",
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  assert(first.metadata.inserted === true, "KR-008/KR-009: SQLite first deterministic restart event inserts");
+  assert(first.host_id === "host-a" && first.host_adapter_id === "adapter-a", "KR-008: SQLite restart event identity fields round-trip");
+
+  const second = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-a",
+    action: "restart_blocked",
+  });
+  assert(second.id === first.id, "KR-009: SQLite idempotent restart event returns original row");
+  assert(second.metadata.inserted === false && second.metadata.persistence_result === "idempotent", "KR-009: SQLite same digest is idempotent read-back");
+
+  const collision = await store.saveRestartEvent({
+    event_id: "restart-parity:001",
+    agent_id: AGENT,
+    project: PROJECT,
+    payload_digest: "payload-digest-b",
+    action: "restart_blocked",
+  });
+  assert(collision.id === first.id, "KR-009: SQLite event_id collision preserves original row");
+  assert(collision.metadata.collision === true && collision.metadata.persistence_result === "event_id_collision", "KR-009: SQLite different digest reports event_id_collision");
+
+  await store.saveRestartEvent({
+    event_id: "restart-parity:002",
+    agent_id: AGENT,
+    project: PROJECT,
+    marker_digest: "marker-digest-b",
+    payload_digest: "payload-digest-c",
+    action: "restart_dry_run",
+    restart_required: true,
+    executed_restart: false,
+    created_at: createdAt,
+  });
+  const ordered = await store.getRestartEvents({ agent_id: AGENT, project: PROJECT, limit: 2 });
+  assert(ordered[0].event_id === "restart-parity:002", "KR-008: SQLite restart events order by created_at DESC, event_id DESC");
+  assert(ordered[1].event_id === "restart-parity:001", "KR-008: SQLite restart events expose stable event_id ordering");
+
+  const authority = await store.saveRestartRuntimeAuthority({
+    authority_ref: "restart-authority:sqlite-parity",
+    agent_id: AGENT,
+    project: PROJECT,
+    seat_id: "seat-a",
+    host_id: "host-a",
+    session_id: "session-a",
+    host_adapter_id: "adapter-a",
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-a",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: createdAt,
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:sqlite-parity",
+  });
+  const fetchedAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(fetchedAuthority?.schema_version === "restart_runtime_authority/v1", "KR-006: SQLite runtime authority schema round-trips");
+  assert(fetchedAuthority?.issued_at === createdAt, "KR-006: SQLite runtime authority issued_at round-trips");
+  assert(fetchedAuthority?.provenance_ref === "owner_decision:sqlite-parity", "KR-006: SQLite runtime authority provenance round-trips");
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 2,
+    restart_preauthorized: false,
+    supervisor_id: "supervisor-version-2",
+  });
+  await store.saveRestartRuntimeAuthority({
+    ...authority,
+    row_version: 1,
+    restart_preauthorized: true,
+    supervisor_id: "stale-supervisor-version-1",
+  });
+  const monotonicAuthority = await store.getRestartRuntimeAuthority({
+    agent_id: AGENT,
+    authority_ref: authority.authority_ref,
+  });
+  assert(monotonicAuthority?.row_version === 2, "KR-006/F3: SQLite authority greater-version predicate rejects rollback");
+  assert(monotonicAuthority?.restart_preauthorized === false, "KR-006/F3: stale SQLite authority cannot re-enable preauthorization");
+
+  const adapter = await store.saveRestartHostAdapter({
+    host_adapter_id: "adapter-a",
+    runtime: "claude",
+    canonical_path: "/tmp/wasurezu-claude-start",
+    executable_sha256: "a".repeat(64),
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "owner_decision:adapter-a",
+    provenance_ref: "owner_decision:adapter-a",
+  });
+  const fetchedAdapter = await store.getRestartHostAdapter({ host_adapter_id: adapter.host_adapter_id });
+  assert(fetchedAdapter?.runtime === "claude", "KR-005: SQLite host adapter runtime round-trips");
+  assert(fetchedAdapter?.state === "active", "KR-005: SQLite host adapter state round-trips");
+  assert(fetchedAdapter?.owner_decision_ref === "owner_decision:adapter-a", "KR-005: SQLite host adapter owner decision round-trips");
+}
+
+async function testRestartClaimFailClosedAcrossProcesses() {
+  console.log("\n── SqliteStore Inter-process Restart Claim Fence ──");
+  const root = mkdtempSync(join(tmpdir(), "agent-memory-sqlite-restart-claim-"));
+  const dbPath = join(root, "restart-claim.db");
+  const markerPath = join(root, "restart-required.json");
+  const adapterPath = join(root, "fake-adapter");
+  const invocationLog = join(root, "invocations.log");
+  const agentId = `${AGENT}-restart-claim`;
+  const project = "sqlite-restart-claim";
+  const authorityRef = "restart-authority:sqlite-interprocess";
+  writeFileSync(adapterPath, `#!/usr/bin/env bash\necho sqlite-interprocess >> "${invocationLog}"\nexit 0\n`);
+  chmodSync(adapterPath, 0o755);
+  const adapterDigest = createHash("sha256").update(readFileSync(adapterPath)).digest("hex");
+  const setupStore = new SqliteStore(dbPath);
+  await setupStore.initialize();
+  await setupStore.saveRestartHostAdapter({
+    host_adapter_id: "adapter-sqlite-interprocess",
+    runtime: "claude",
+    canonical_path: adapterPath,
+    executable_sha256: adapterDigest,
+    allowed_argv: ["--launch"],
+    state: "active",
+    owner_decision_ref: "KUSABI-DEC-ADAPTER-ALLOWLIST",
+    provenance_ref: "owner_decision:KUSABI-DEC-ADAPTER-ALLOWLIST",
+  });
+  await setupStore.saveRestartRuntimeAuthority({
+    authority_ref: authorityRef,
+    agent_id: agentId,
+    project,
+    seat_id: "seat-sqlite-interprocess",
+    host_id: "host-sqlite-interprocess",
+    session_id: "session-sqlite-interprocess",
+    host_adapter_id: "adapter-sqlite-interprocess",
+    lifecycle_mode: "standalone_supervisor",
+    supervisor_id: "supervisor-sqlite-interprocess",
+    supervisor_available: true,
+    restart_preauthorized: true,
+    issued_at: "2026-07-09T00:00:00.000Z",
+    expires_at: "2026-07-09T00:10:00.000Z",
+    row_version: 1,
+    aun_absent_confirmed: true,
+    provenance_ref: "owner_decision:KUSABI-DEC-STANDALONE-DETECTION",
+  });
+  writeRestartMarker({
+    agent_id: agentId,
+    project,
+    seat_id: "seat-sqlite-interprocess",
+    host_id: "host-sqlite-interprocess",
+    session_id: "session-sqlite-interprocess",
+    host_adapter_id: "adapter-sqlite-interprocess",
+    marker_path: markerPath,
+    context_tokens: 950,
+    context_window_tokens: 1000,
+    generated_at: "2026-07-09T00:00:30.000Z",
+  });
+  await setupStore.close();
+
+  const workerScript = `
+const { SqliteStore } = await import(${JSON.stringify(new URL("./stores/sqlite-store.ts", import.meta.url).href)});
+const { runRestartBridge } = await import(${JSON.stringify(new URL("./restart-bridge.ts", import.meta.url).href)});
+const store = new SqliteStore(process.env.TEST_DB_PATH);
+await store.initialize();
+const result = await runRestartBridge({
+  store,
+  agentId: process.env.TEST_AGENT_ID,
+  project: process.env.TEST_PROJECT,
+  markerPath: process.env.TEST_MARKER_PATH,
+  restartCommand: process.env.TEST_ADAPTER_PATH + " --launch",
+  runtimeAuthorityRef: process.env.TEST_AUTHORITY_REF,
+  hostAdapterId: "adapter-sqlite-interprocess",
+  execute: true,
+  env: process.env,
+  now: "2026-07-09T00:01:00.000Z",
+});
+console.log(JSON.stringify({ action: result.action, failure_reason: result.failure_reason }));
+await store.close();
+`;
+  const workerEnv = {
+    ...process.env,
+    TEST_DB_PATH: dbPath,
+    TEST_AGENT_ID: agentId,
+    TEST_PROJECT: project,
+    TEST_MARKER_PATH: markerPath,
+    TEST_ADAPTER_PATH: adapterPath,
+    TEST_AUTHORITY_REF: authorityRef,
+  };
+  const results = [
+    await runIsolatedNode(workerScript, workerEnv),
+    await runIsolatedNode(workerScript, workerEnv),
+  ].map((output) => JSON.parse(output.trim().split("\n").filter(Boolean).at(-1)!) as Record<string, unknown>);
+  assert(results.every((result) => result.action === "restart_blocked"), "KR-003/F1: separate SQLite processes fail closed before restart claim");
+  assert(results.every((result) => result.failure_reason === "restart_claim_backend_not_atomic"), "KR-003/F1: SQLite reports typed non-atomic-backend fence");
+  const invocationCount = existsSync(invocationLog)
+    ? readFileSync(invocationLog, "utf8").trim().split("\n").filter(Boolean).length
+    : 0;
+  assert(invocationCount === 0, "KR-003/KR-010/F1: separate SQLite processes invoke no fake adapter");
+  rmSync(root, { recursive: true, force: true });
+}
+
 async function testClaudeConversationIngest() {
   console.log("\n── SqliteStore Claude Conversation Ingest ──");
 
@@ -1316,6 +1555,8 @@ async function run() {
     await testGetRecentMessages();
     await testConversationEvents();
     await testSelectedRestartPacks();
+    await testRestartEventsParity();
+    await testRestartClaimFailClosedAcrossProcesses();
     await testClaudeConversationIngest();
     await testCodexConversationIngest();
     await testStripOrphanSurrogates();
