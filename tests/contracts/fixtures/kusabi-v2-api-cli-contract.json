@@ -1,0 +1,259 @@
+{
+  "schema_version": "kusabi-v2-api-cli-contract-fixtures/v1",
+  "control_source": "https://github.com/watchout/agent-memory/issues/180",
+  "spec_freeze": "https://github.com/watchout/agent-memory/issues/180#issuecomment-4975595110",
+  "control_handoff": "https://github.com/watchout/agent-memory/issues/180#issuecomment-4975612002",
+  "exact_base_sha": "6e85144e4ec22f24d51cf1975c7d0448485df4b7",
+  "canonical_commands": [
+    {
+      "id": "KCLI-001",
+      "command": "kusabi context build",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical context-build command parser and versioned request/response adapter"
+    },
+    {
+      "id": "KCLI-002",
+      "command": "kusabi context recover",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical context-recover adapter with provenance, redaction and expiry result fields"
+    },
+    {
+      "id": "KCLI-003",
+      "command": "kusabi context search",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical context-search adapter with versioned envelopes and source identity"
+    },
+    {
+      "id": "KCLI-004",
+      "command": "kusabi evidence attach",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "typed immutable evidence attachment API and persistence identity"
+    },
+    {
+      "id": "KCLI-005",
+      "command": "kusabi decision record",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical decision-record adapter with operation id and provenance binding"
+    },
+    {
+      "id": "KCLI-006",
+      "command": "kusabi state snapshot",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "typed agent-state snapshot API and immutable snapshot identity"
+    },
+    {
+      "id": "KCLI-007",
+      "command": "kusabi continuity pack",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical continuity-pack adapter distinct from the v1 restart_pack tool"
+    },
+    {
+      "id": "KCLI-008",
+      "command": "kusabi redact",
+      "classification": "not_implemented",
+      "exact_missing_primitive": "canonical redact command/API with typed denial and redaction evidence output"
+    }
+  ],
+  "legacy_aliases": [
+    {
+      "legacy_name": "recover_context",
+      "canonical_command": "kusabi context recover",
+      "current_surface": "implemented_v1_mcp_tool",
+      "adapter_classification": "not_implemented",
+      "duplicate_domain_logic_count": null,
+      "exact_blocker": "no canonical context-recover adapter exists for recover_context to delegate to"
+    },
+    {
+      "legacy_name": "search_memory",
+      "canonical_command": "kusabi context search",
+      "current_surface": "implemented_v1_mcp_tool",
+      "adapter_classification": "not_implemented",
+      "duplicate_domain_logic_count": null,
+      "exact_blocker": "no canonical context-search adapter exists for search_memory to delegate to"
+    },
+    {
+      "legacy_name": "restart_pack",
+      "canonical_command": "kusabi continuity pack",
+      "current_surface": "implemented_v1_mcp_tool",
+      "adapter_classification": "not_implemented",
+      "duplicate_domain_logic_count": null,
+      "exact_blocker": "no canonical continuity-pack adapter exists for restart_pack to delegate to"
+    }
+  ],
+  "fixture_registries": {
+    "canonical": ["KAPI-001", "KAPI-002", "KAPI-003", "KAPI-004", "KAPI-005", "KAPI-008", "KAPI-009"],
+    "alias_layer": ["KAPI-006", "KAPI-007"]
+  },
+  "fixtures": [
+    {
+      "id": "KAPI-001",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v2",
+        "command": "kusabi decision record",
+        "operation_id": "op-decision-0001",
+        "identity": {
+          "project_id": "project-fixture",
+          "agent_id": "agent-fixture",
+          "source_identity": "source:issue-180"
+        },
+        "provenance": {
+          "source_ref": "fixture://decision/1",
+          "source_digest": "sha256:7d16f581c997f97069bffb4d3b4f2a63d8a8c85d893b7c52dbb7ef0cfd9ef1c5"
+        },
+        "payload": {
+          "decision": "Preserve the canonical boundary",
+          "rationale": "Contract fixture"
+        }
+      },
+      "expected": "one typed decision identity or truthful BLOCK naming the absent canonical adapter",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "canonical decision-record adapter with operation id and provenance binding"
+      }
+    },
+    {
+      "id": "KAPI-002",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v2",
+        "command": "kusabi evidence attach",
+        "operation_id": "op-evidence-0001",
+        "identity": {
+          "project_id": "project-fixture",
+          "agent_id": "agent-fixture",
+          "source_identity": "source:issue-180"
+        },
+        "provenance": {
+          "source_ref": "fixture://evidence/1",
+          "source_digest": "sha256:9e1ec934c06f3b78e6a5928ad2c46b98b655c74fc4229138e962ef858183694a"
+        },
+        "payload": {
+          "evidence_type": "contract_probe",
+          "content_digest": "sha256:6b9c9d7a65a4f6ef7e8d60cdeec4a4ac4bbdf5ba2c49b226b799cf0953780c61"
+        }
+      },
+      "expected": "immutable evidence reference or truthful BLOCK; no storage as generic memory",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "typed immutable evidence attachment API and persistence identity"
+      }
+    },
+    {
+      "id": "KAPI-003",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v2",
+        "command": "kusabi context recover",
+        "operation_id": "op-recover-0001",
+        "identity": {
+          "project_id": "project-fixture",
+          "agent_id": "agent-fixture",
+          "source_identity": "source:redaction-expiry-fixture"
+        },
+        "payload": {
+          "candidate_items": [
+            {"id": "safe", "redaction_state": "safe", "expiry_state": "active"},
+            {"id": "redacted", "redaction_state": "denied", "expiry_state": "active"},
+            {"id": "expired", "redaction_state": "safe", "expiry_state": "expired"}
+          ]
+        }
+      },
+      "expected": "redacted_or_expired_item_count_returned=0",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "canonical context-recover result fields for redaction and expiry omissions"
+      }
+    },
+    {
+      "id": "KAPI-004",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v2",
+        "command": "kusabi decision record",
+        "operation_id": "op-idempotent-0001",
+        "repetitions": 2,
+        "payload_digest_sequence": ["sha256:same", "sha256:same"]
+      },
+      "expected": "one effective result",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "canonical operation-id idempotency ledger and stable replay identity"
+      }
+    },
+    {
+      "id": "KAPI-005",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v2",
+        "command": "kusabi decision record",
+        "operation_id": "op-conflict-0001",
+        "payload_digest_sequence": ["sha256:original", "sha256:different"]
+      },
+      "expected": "typed conflict and original unchanged",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "typed IDEMPOTENCY_CONFLICT response backed by an immutable original operation result"
+      }
+    },
+    {
+      "id": "KAPI-006",
+      "registry": "alias_layer",
+      "input": {
+        "legacy_aliases": ["recover_context", "search_memory", "restart_pack"]
+      },
+      "expected": "mapped contract identity explicit and duplicate_domain_logic_count=0",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "canonical adapters that make the three v1 tools delegation-only compatibility surfaces"
+      }
+    },
+    {
+      "id": "KAPI-007",
+      "registry": "alias_layer",
+      "input": {
+        "operation": "remove alias_layer fixture registry"
+      },
+      "expected": "canonical fixture registry and digest unchanged",
+      "result": {
+        "status": "PASS",
+        "proof": "probe computes canonical registry digest before and after alias-layer removal"
+      }
+    },
+    {
+      "id": "KAPI-008",
+      "registry": "canonical",
+      "input": {
+        "schema_version": "kusabi.command.request/v999",
+        "command": "kusabi unknown action",
+        "unknown_field": true
+      },
+      "expected": "nonzero or typed BLOCK before state mutation",
+      "result": {
+        "status": "BLOCK",
+        "exact_missing_primitive": "canonical fail-closed command parser with UNKNOWN_COMMAND, UNKNOWN_FIELD and UNSUPPORTED_SCHEMA_VERSION errors"
+      }
+    },
+    {
+      "id": "KAPI-009",
+      "registry": "canonical",
+      "input": {
+        "inventory_ref": "canonical_commands"
+      },
+      "expected": "every canonical command classified implemented, compatibility_only or not_implemented with no unknowns",
+      "result": {
+        "status": "PASS",
+        "proof": "probe validates eight unique canonical commands and the closed classification enum"
+      }
+    }
+  ],
+  "design_flow": {
+    "G1": "PASS",
+    "G2": "PASS",
+    "G3": "PASS",
+    "G4": "PASS",
+    "G5": "PASS",
+    "G6": "PASS_WITH_STOP",
+    "G7": "PASS"
+  }
+}
