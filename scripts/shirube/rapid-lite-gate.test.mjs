@@ -159,12 +159,16 @@ function itemIds(report) {
   return report.hard_blocks.map((item) => item.item_id);
 }
 
+function codes(report) {
+  return report.hard_blocks.map((item) => item.code);
+}
+
 const fx = fixture();
 try {
   const valid = [
     comment(1, canonicalHandoff()),
     comment(2, implementationEvidence({ head: fx.head })),
-    comment(3, structuredAudit({ head: fx.head })),
+    comment(3, structuredAudit({ head: fx.head }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
   ];
 
   const terminal = runGate(fx, valid);
@@ -182,21 +186,21 @@ try {
 
   const wrongChecklist = runGate(fx, [
     ...valid.slice(0, 2),
-    comment(3, structuredAudit({ head: fx.head, checklistId: "WRONG-CHECKLIST-ID" })),
+    comment(3, structuredAudit({ head: fx.head, checklistId: "WRONG-CHECKLIST-ID" }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
   ]);
-  assert(itemIds(wrongChecklist).includes("RL-AUDIT-004"), "wrong checklist ID must fail closed");
+  assert(codes(wrongChecklist).includes("audit_checklist_id_mismatch"), "wrong checklist ID must fail closed");
 
   const untrustedReviewer = runGate(fx, [
     ...valid.slice(0, 2),
-    comment(3, structuredAudit({ head: fx.head, reviewerActor: "fake-auditor" })),
+    comment(3, structuredAudit({ head: fx.head, reviewerActor: "fake-auditor" }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
   ]);
-  assert(itemIds(untrustedReviewer).includes("RL-AUDIT-004"), "untrusted reviewer actor must fail closed");
+  assert(codes(untrustedReviewer).includes("audit_reviewer_provenance_untrusted"), "untrusted reviewer actor must fail closed");
 
   const selfAuthoredAudit = runGate(fx, [
     ...valid.slice(0, 2),
-    comment(3, structuredAudit({ head: fx.head }), { login: "kusabi", authorAssociation: "CONTRIBUTOR" }),
+    comment(3, structuredAudit({ head: fx.head }), { login: "watchout", authorAssociation: "OWNER" }),
   ]);
-  assert(itemIds(selfAuthoredAudit).includes("RL-AUDIT-004"), "implementation-seat comment provenance must fail closed");
+  assert(codes(selfAuthoredAudit).includes("audit_reviewer_provenance_untrusted"), "implementation-seat GitHub author must fail closed");
 
   const wrongCell = runGate(fx, [
     comment(1, canonicalHandoff()),

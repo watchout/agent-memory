@@ -7,7 +7,10 @@ const DEFAULT_BASE = "origin/main";
 const CANONICAL_HANDOFF_SCHEMA = "shirube-v3/control_handoff/v1";
 const IMPLEMENTATION_EVIDENCE_SCHEMA = "shirube-v3/implementation_evidence/v1";
 const STRUCTURED_AUDIT_SCHEMA = "shirube-structured-audit/v1";
-const TRUSTED_AUDIT_REVIEWERS = new Set(["codex-audit"]);
+const TRUSTED_AUDIT_GITHUB_ACTORS = new Map([
+  ["codex-audit", "iyasaka-ai"],
+]);
+const TRUSTED_AUDIT_AUTHOR_ASSOCIATIONS = new Set(["MEMBER", "COLLABORATOR"]);
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -368,7 +371,7 @@ function checkStructuredAuditBridge({ comments, actualHead, handoff, expectedRep
   if (yamlScalarPath(matching.yaml, ["audit_checklist_id"]) !== handoff.auditChecklistId) {
     findings.push(finding("RL-AUDIT-004", "audit_checklist_id_mismatch", `Structured audit must bind canonical checklist ${handoff.auditChecklistId}.`, "audit_record.audit_checklist_id"));
   }
-  if (!hasTrustedReviewerProvenance(matching, { handoff, actualHead, expectedPr, reviewerActor })) {
+  if (!hasTrustedReviewerProvenance(matching, { actualHead, expectedPr, reviewerActor })) {
     findings.push(finding("RL-AUDIT-004", "audit_reviewer_provenance_untrusted", "Structured audit reviewer must be a trusted audit seat bound to the canonical owner-authenticated PR comment and exact-head marker.", "audit_record.reviewer_actor"));
   }
 
@@ -427,16 +430,21 @@ function structuredCommentCandidates(comments, schema) {
   return candidates;
 }
 
-function hasTrustedReviewerProvenance(candidate, { handoff, actualHead, expectedPr, reviewerActor }) {
+function hasTrustedReviewerProvenance(candidate, { actualHead, expectedPr, reviewerActor }) {
   const expectedMarker = new RegExp(
     `<!--\\s*shirube-v3:evidence-audit-gate-result:PR${Number(expectedPr)}-${normalizeSha(actualHead).slice(0, 7).toUpperCase()}\\s*-->`
   );
-  return TRUSTED_AUDIT_REVIEWERS.has(reviewerActor) &&
+  const trustedGithubActor = TRUSTED_AUDIT_GITHUB_ACTORS.get(reviewerActor);
+  return Boolean(trustedGithubActor) &&
     yamlScalarPath(candidate.yaml, ["execution_context", "agent_id"]) === reviewerActor &&
-    candidate.comment?.user?.login === handoff.ownerActor &&
-    candidate.comment?.author_association === "OWNER" &&
+    normalizeGithubActor(candidate.comment?.user?.login) === normalizeGithubActor(trustedGithubActor) &&
+    TRUSTED_AUDIT_AUTHOR_ASSOCIATIONS.has(candidate.comment?.author_association) &&
     expectedMarker.test(candidate.body) &&
     parsePrCommentUrl(candidate.ref)?.pr === String(expectedPr);
+}
+
+function normalizeGithubActor(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function evidenceSignature(yaml) {
