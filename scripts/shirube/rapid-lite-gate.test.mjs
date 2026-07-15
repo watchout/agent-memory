@@ -22,7 +22,13 @@ function git(cwd, ...args) {
   }).trim();
 }
 
-function canonicalHandoff({ repository = "watchout/agent-memory", pullRequest = 252, cellId = "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RECONCILIATION-001" } = {}) {
+function canonicalHandoff({
+  repository = "watchout/agent-memory",
+  pullRequest = 252,
+  cellId = "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RECONCILIATION-001",
+  auditItems = requiredItems,
+  inlineAuditItems = false,
+} = {}) {
   return [
     "<!-- shirube-v3:control-handoff:TEST -->",
     "```yaml",
@@ -51,8 +57,9 @@ function canonicalHandoff({ repository = "watchout/agent-memory", pullRequest = 
     "  - exact head",
     "audit_checklist:",
     "  audit_checklist_id: AUDIT-CHECKLIST-KUSABI-PR252-RL-RECON-001",
-    "  required_item_ids:",
-    ...requiredItems.map((item) => `    - ${item}`),
+    ...(inlineAuditItems
+      ? [`  required_item_ids: [${auditItems.join(", ")}]`]
+      : ["  required_item_ids:", ...auditItems.map((item) => `    - ${item}`)]),
     "next_action:",
     "  blocking: true",
     "```",
@@ -176,6 +183,19 @@ try {
   assert.equal(terminal.handoff_ref, "https://github.com/watchout/agent-memory/pull/252#issuecomment-1");
   assert.equal(terminal.cell_id, "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RECONCILIATION-001");
   assert.equal(terminal.audit_bridge.status, "pass");
+
+  const inlineTerminal = runGate(fx, [
+    comment(1, canonicalHandoff({ inlineAuditItems: true })),
+    ...valid.slice(1),
+  ]);
+  assert.deepEqual(itemIds(inlineTerminal), ["RL-MERGE-001"], "inline canonical checklist items must be parsed");
+  assert.equal(inlineTerminal.audit_bridge.status, "pass");
+
+  const emptyInlineChecklist = runGate(fx, [
+    comment(1, canonicalHandoff({ inlineAuditItems: true, auditItems: [] })),
+    ...valid.slice(1),
+  ]);
+  assert(codes(emptyInlineChecklist).includes("missing_audit_checklist_items"), "empty inline checklist must fail closed");
 
   assert(itemIds(runGate(fx, valid.slice(1))).includes("RL-GOAL-001"), "missing handoff must fail closed");
   assert(itemIds(runGate(fx, [comment(1, canonicalHandoff()), comment(4, canonicalHandoff({ cellId: "CELL-CONFLICT" })), ...valid.slice(1)])).includes("RL-GOAL-001"), "conflicting handoffs must fail closed");
