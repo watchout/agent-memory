@@ -788,9 +788,19 @@ function yamlScalarPath(text, wantedPath) {
 }
 
 function yamlListPath(text, wantedPath) {
-  return yamlEntries(text)
+  const entries = yamlEntries(text);
+  const blockValues = entries
     .filter((entry) => entry.type === "list" && pathsEqual(entry.path, wantedPath))
     .map((entry) => entry.value);
+  if (blockValues.length > 0) return blockValues;
+
+  const inlineValue = entries.find((entry) =>
+    entry.type === "scalar" && pathsEqual(entry.path, wantedPath)
+  )?.value;
+  if (!inlineValue?.startsWith("[") || !inlineValue.endsWith("]")) return [];
+  const body = inlineValue.slice(1, -1).trim();
+  if (!body) return [];
+  return body.split(",").map((entry) => cleanYamlValue(entry)).filter(Boolean);
 }
 
 function yamlSectionText(text, wantedPath) {
