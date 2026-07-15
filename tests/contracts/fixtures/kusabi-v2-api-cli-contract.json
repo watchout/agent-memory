@@ -4,6 +4,47 @@
   "spec_freeze": "https://github.com/watchout/agent-memory/issues/180#issuecomment-4975595110",
   "control_handoff": "https://github.com/watchout/agent-memory/issues/180#issuecomment-4975612002",
   "exact_base_sha": "6e85144e4ec22f24d51cf1975c7d0448485df4b7",
+  "baseline_evidence": {
+    "exact_base_tree": "1987debb8c04aafde3437c213c0351ba6752c2de",
+    "sources": [
+      {
+        "path": "package.json",
+        "sha256": "6264173ce7b176d25445e853c78fe9bb0cdbcfb44bc2a7420900e9c9e16a07a7",
+        "purpose": "exact-base package identity and CLI bin inventory"
+      },
+      {
+        "path": "src/index.ts",
+        "sha256": "789cda64ab9f326026bcf815012f063920fa66ca8054ece9b1ce82a055db6347",
+        "purpose": "exact-base MCP tool, canonical command literal and subcommand parser inventory"
+      }
+    ],
+    "expected_cli_bins": {
+      "kusabi": "dist/index.js",
+      "wasurezu": "dist/index.js",
+      "agent-memory": "dist/index.js",
+      "wasurezu-codex-start": "dist/codex-start.js",
+      "wasurezu-claude-start": "dist/claude-start.js",
+      "wasurezu-restart": "dist/restart-cli.js"
+    },
+    "expected_mcp_tools": [
+      "log_decision",
+      "get_decisions",
+      "supersede_decision",
+      "save_task_state",
+      "search_memory",
+      "recover_context",
+      "restart_pack",
+      "restart_pack_fetch",
+      "restart_prepare",
+      "set_recovery_config",
+      "save_knowledge",
+      "get_knowledge",
+      "supersede_knowledge",
+      "update_knowledge_status",
+      "ingest_conversation_events",
+      "catch_up"
+    ]
+  },
   "canonical_commands": [
     {
       "id": "KCLI-001",
@@ -245,6 +286,26 @@
         "status": "PASS",
         "proof": "probe validates eight unique canonical commands and the closed classification enum"
       }
+    }
+  ],
+  "negative_fixtures": [
+    {
+      "id": "KAPI-NEG-001",
+      "mutation": {
+        "type": "canonical_classification",
+        "command_id": "KCLI-005",
+        "claimed": "implemented"
+      },
+      "expected_rejection": "BASELINE_CLASSIFICATION_DRIFT"
+    },
+    {
+      "id": "KAPI-NEG-002",
+      "mutation": {
+        "type": "fixture_result",
+        "fixture_id": "KAPI-001",
+        "claimed": "PASS"
+      },
+      "expected_rejection": "BASELINE_RESULT_DRIFT"
     }
   ],
   "design_flow": {

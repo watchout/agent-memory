@@ -16,7 +16,10 @@ This document freezes the canonical Kusabi V2 command names, envelopes,
 identity, provenance, idempotency, errors and legacy mappings. The adjacent
 fixture and executable probe describe the exact baseline without opening a
 store, importing production runtime code, or making a network or provider
-call.
+call. Baseline classifications are not accepted from the authored fixture.
+The probe reads the exact-base `package.json` and `src/index.ts`, verifies their
+frozen SHA-256 digests, extracts the CLI bin and MCP tool inventories, and then
+derives the nine fixture dispositions from those observations.
 
 Documentation and fixture presence do not mean a command ships. At the exact
 baseline, all eight canonical commands are `not_implemented`. Existing V1 MCP
@@ -200,11 +203,32 @@ Run:
 npx tsx tests/contracts/kusabi-v2-api-cli-contract.test.ts
 ```
 
-The probe reads only this document, its own source and the JSON fixture. It
-imports no production module, store, database, child process, socket, HTTP
-client or provider SDK. Its capability import allowlist is enforced by the
-probe itself. Results are limited to `PASS` and `BLOCK`; a pass requires a
-deterministic assertion, while every block names the exact missing primitive.
+The probe reads this document, its own source, the JSON fixture, and two
+content-addressed exact-base evidence files. It imports no production module,
+store, database, child process, socket, HTTP client or provider SDK. Reading a
+production source file as UTF-8 evidence is not importing or executing it.
+Its capability import allowlist is enforced by the probe itself. Results are
+limited to `PASS` and `BLOCK`; a pass requires a deterministic assertion,
+while every block names the exact missing primitive.
+
+| Exact-base evidence | SHA-256 | Deterministic observation |
+|---|---|---|
+| `package.json` | `6264173ce7b176d25445e853c78fe9bb0cdbcfb44bc2a7420900e9c9e16a07a7` | six bin names, including the `kusabi` binary alias |
+| `src/index.ts` | `789cda64ab9f326026bcf815012f063920fa66ca8054ece9b1ce82a055db6347` | sixteen V1 MCP tools; no canonical subcommand parser or canonical command literal |
+
+The frozen exact-base tree is
+`1987debb8c04aafde3437c213c0351ba6752c2de`. The presence of a `kusabi` bin
+alias alone does not implement a subcommand. A canonical command is classified
+`implemented` only when the observed baseline has the bin, a subcommand parser,
+and the exact canonical command registration. The baseline has the bin but
+lacks the latter two observations, so all eight commands derive as
+`not_implemented`.
+
+The JSON's authored classifications and PASS/BLOCK values are expectations,
+not authority. The probe independently derives them and rejects mismatches.
+`KAPI-NEG-001` injects a false `implemented` classification and must fail with
+`BASELINE_CLASSIFICATION_DRIFT`. `KAPI-NEG-002` injects a fixture-only false
+PASS and must fail with `BASELINE_RESULT_DRIFT`.
 
 Baseline matrix:
 
@@ -218,7 +242,7 @@ Baseline matrix:
 | KAPI-006 V1 aliases | BLOCK | canonical delegation targets absent |
 | KAPI-007 alias fixture removal | PASS | canonical registry digest remains identical |
 | KAPI-008 unknown input | BLOCK | canonical fail-closed parser absent |
-| KAPI-009 baseline inventory | PASS | eight commands have closed, explicit classifications |
+| KAPI-009 baseline inventory | PASS | content-addressed evidence yields a closed classification for all eight commands |
 
 Fixture count is 9 and result count is 9. Baseline conformance is
 `2 / 9 = 22.22%`; blocks are not counted as passes. Expected counters are:
@@ -237,7 +261,8 @@ Fixture count is 9 and result count is 9. Baseline conformance is
 |---|---|---|
 | Canonical primitive absent | matching KAPI result is deterministic BLOCK with exact interface/persistence identity | retain BLOCK and request a separate runtime handoff |
 | Alias logic diverges | KAPI-006 cannot prove delegation-only behavior | record blocker; do not remove aliases or edit runtime |
-| Hidden mutation or external access | a capability is imported or a counter is nonzero | fail the probe and keep only isolated read-only fixtures |
+| Fixture self-attests a result | derived exact-base classification or fixture status differs | fail with `BASELINE_CLASSIFICATION_DRIFT` or `BASELINE_RESULT_DRIFT` |
+| Hidden mutation or external access | capability scan finds a production, write, database, network or provider import and a derived counter is nonzero | fail the probe and keep only isolated read-only evidence |
 | Unknown input could reach mutation | KAPI-008 lacks typed pre-execution rejection | retain BLOCK; request parser implementation separately |
 | Placed but not delivered | exact recipient read-back is absent | redeliver the exact handoff without changing this contract |
 
