@@ -7,6 +7,7 @@ const DEFAULT_BASE = "origin/main";
 const CANONICAL_HANDOFF_SCHEMA = "shirube-v3/control_handoff/v1";
 const IMPLEMENTATION_EVIDENCE_SCHEMA = "shirube-v3/implementation_evidence/v1";
 const STRUCTURED_AUDIT_SCHEMA = "shirube-structured-audit/v1";
+const TRUSTED_AUDIT_REVIEWERS = new Set(["codex-audit"]);
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -60,6 +61,12 @@ function main() {
     requireScalar(handoff.cellId, "RL-CELL-001", "missing_cell_id", "CELL-ID is required.", "cell.CELL-ID", findings);
     requireScalar(handoff.cellType, "RL-SPEC-004", "missing_minimal_spec_boundary", "cell_type is required.", "cell.cell_type", findings);
     requireScalar(handoff.riskClass, "RL-SPEC-004", "missing_minimal_spec_boundary", "risk_class is required.", "cell.risk_class", findings);
+    if (handoff.source === "pr_comment") {
+      requireScalar(handoff.auditChecklistId, "RL-AUDIT-004", "missing_audit_checklist_id", "Canonical audit_checklist_id is required.", "audit_checklist.audit_checklist_id", findings);
+      if (handoff.auditItemIds.length === 0) {
+        findings.push(finding("RL-AUDIT-007", "missing_audit_checklist_items", "Canonical required_item_ids must contain at least one item.", "audit_checklist.required_item_ids"));
+      }
+    }
     if (handoff.allowedPaths.length === 0) {
       findings.push(finding("RL-CELL-002", "missing_allowed_paths", "cell.allowed_paths must contain at least one path glob.", "cell.allowed_paths"));
     }
@@ -276,6 +283,7 @@ function stableHandoffSignature(handoff) {
     forbiddenPaths: handoff.forbiddenPaths,
     stopConditions: handoff.stopConditions,
     auditItemIds: handoff.auditItemIds,
+    auditChecklistId: handoff.auditChecklistId,
   });
 }
 
@@ -357,6 +365,12 @@ function checkStructuredAuditBridge({ comments, actualHead, handoff, expectedRep
   if (!reviewerActor || !implementationActor || reviewerActor === implementationActor || implementationActor !== handoff.implementationActor) {
     findings.push(finding("RL-AUDIT-004", "audit_maker_checker_mismatch", "Structured audit must identify a reviewer distinct from the canonical implementation actor.", "audit_record.reviewer_actor"));
   }
+  if (yamlScalarPath(matching.yaml, ["audit_checklist_id"]) !== handoff.auditChecklistId) {
+    findings.push(finding("RL-AUDIT-004", "audit_checklist_id_mismatch", `Structured audit must bind canonical checklist ${handoff.auditChecklistId}.`, "audit_record.audit_checklist_id"));
+  }
+  if (!hasTrustedReviewerProvenance(matching, { handoff, actualHead, expectedPr, reviewerActor })) {
+    findings.push(finding("RL-AUDIT-004", "audit_reviewer_provenance_untrusted", "Structured audit reviewer must be a trusted audit seat bound to the canonical owner-authenticated PR comment and exact-head marker.", "audit_record.reviewer_actor"));
+  }
 
   const items = extractAuditItems(matching.yaml);
   const requiredIds = handoff.auditItemIds;
@@ -406,11 +420,23 @@ function structuredCommentCandidates(comments, schema) {
   for (const comment of comments) {
     for (const yaml of fencedYamlBlocks(commentBody(comment))) {
       if (yamlScalarPath(yaml, ["schema_version"]) === schema) {
-        candidates.push({ yaml, ref: commentUrl(comment) });
+        candidates.push({ yaml, ref: commentUrl(comment), comment, body: commentBody(comment) });
       }
     }
   }
   return candidates;
+}
+
+function hasTrustedReviewerProvenance(candidate, { handoff, actualHead, expectedPr, reviewerActor }) {
+  const expectedMarker = new RegExp(
+    `<!--\\s*shirube-v3:evidence-audit-gate-result:PR${Number(expectedPr)}-${normalizeSha(actualHead).slice(0, 7).toUpperCase()}\\s*-->`
+  );
+  return TRUSTED_AUDIT_REVIEWERS.has(reviewerActor) &&
+    yamlScalarPath(candidate.yaml, ["execution_context", "agent_id"]) === reviewerActor &&
+    candidate.comment?.user?.login === handoff.ownerActor &&
+    candidate.comment?.author_association === "OWNER" &&
+    expectedMarker.test(candidate.body) &&
+    parsePrCommentUrl(candidate.ref)?.pr === String(expectedPr);
 }
 
 function evidenceSignature(yaml) {
@@ -737,6 +763,7 @@ function parseHandoff(text, filePath) {
     forbiddenPaths: canonical ? yamlListPath(text, ["forbidden_paths"]) : list(text, "forbidden_paths"),
     stopConditions: canonical ? yamlListPath(text, ["stop_conditions"]) : list(text, "stop_conditions"),
     auditItemIds: canonical ? yamlListPath(text, ["audit_checklist", "required_item_ids"]) : [],
+    auditChecklistId: canonical ? yamlScalarPath(text, ["audit_checklist", "audit_checklist_id"]) : null,
   };
 }
 
