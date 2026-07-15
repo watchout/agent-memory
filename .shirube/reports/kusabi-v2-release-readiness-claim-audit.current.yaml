@@ -1,0 +1,401 @@
+schema_version: kusabi-v2-claim-audit/v1
+document_type: report_first_claim_audit
+report_id: KUSABI-V2-RELEASE-READINESS-CLAIM-AUDIT-CURRENT-20260715
+cell_id: CELL-KUSABI-001-MIGRATION-DONE-CLAIM
+target_repo: watchout/agent-memory
+target_head: 6e85144e4ec22f24d51cf1975c7d0448485df4b7
+target_head_relation: exact_base
+report_first: true
+release_ladder:
+  ref: docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+  levels_used: [L0, L1, L2, L3, L4]
+  ladder_modified: false
+authority:
+  value: none
+  can_approve_merge: false
+  can_publish: false
+  can_release: false
+  can_deploy: false
+  can_remove_aliases: false
+  statement: >-
+    This report is non-enforcing evidence. It cannot approve, merge, publish,
+    release, deploy, mutate a protected surface, or replace an owner decision.
+
+source_refs:
+  control_source: https://github.com/watchout/agent-memory/issues/180
+  spec_freeze: https://github.com/watchout/agent-memory/issues/180#issuecomment-4975595110
+  control_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-4975612001
+  layer_1_spec: https://github.com/watchout/agent-memory/issues/217
+  exact_base: https://github.com/watchout/agent-memory/commit/6e85144e4ec22f24d51cf1975c7d0448485df4b7
+  prior_initial_report: .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+  prior_claim_surface_rework: .shirube/reports/kusabi-v2-claim-surface-rework-001b.yaml
+
+discovery_method:
+  deterministic: true
+  rules:
+    - Inspect README present-tense product, install, support, storage, recovery, compatibility, and release statements.
+    - Inspect package.json description, keywords, bins, package files, name, and version.
+    - Enumerate every server.tool registration and its description in src/index.ts plus imported description constants.
+    - Enumerate every tracked docs/v2 Markdown file at target_head and treat explicit future/draft/non-shipped requirements as planning claims.
+    - Resolve every README link into docs/operations and inspect the linked file.
+    - Check for a registry artifact or separate npm/public-copy file; when absent, record absence rather than infer published copy.
+  claim_unit: >-
+    A normalized present-tense capability, release, support, compatibility, or
+    future-guardrail assertion. Repeated wording with the same level, class,
+    evidence, and boundary is one claim; every MCP tool and every docs/v2 file
+    remains individually enumerated.
+  omission_policy: Any discovered unclassified surface makes inventory_complete false and blocks the audit.
+
+minimum_surface_inventory:
+  inventory_complete: true
+  required_category_count: 6
+  inspected_file_count: 29
+  discovered_claim_count: 48
+  categories:
+    - id: README
+      required: true
+      inspected: true
+      files: [README.md]
+      file_count: 1
+      exact_blob: b1db5801ba9cba4b33a2d5d179276bb76d719b43
+      normalized_claim_count: 10
+    - id: package_metadata
+      required: true
+      inspected: true
+      files: [package.json]
+      fields: [name, version, description, keywords, bin, files]
+      file_count: 1
+      exact_blob: d17eecac719794808e2664e3941c30a45f03cdb9
+      normalized_claim_count: 3
+    - id: mcp_tool_descriptions
+      required: true
+      inspected: true
+      files: [src/index.ts, src/constants.ts]
+      file_count: 2
+      tool_count: 16
+      exact_blobs:
+        src/index.ts: 2b1fe9d01c9d159686eae66f284332db0f7f83fb
+        src/constants.ts: c8bea2d729a1e86831565eba4c0f7feb911952c8
+      normalized_claim_count: 17
+    - id: docs_v2
+      required: true
+      inspected: true
+      root: docs/v2
+      file_count: 23
+      exact_tree: 7d8bf523ce449e72ec4d84a19954bd3ae2a51f43
+      normalized_claim_count: 16
+      note: Related future-guardrail documents are grouped into 16 claim families but every file is enumerated below.
+    - id: readme_linked_docs_operations
+      required: true
+      inspected: true
+      files:
+        - docs/operations/HOST_ADAPTERS.md
+        - docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md
+      file_count: 2
+      exact_blobs:
+        docs/operations/HOST_ADAPTERS.md: 8f434555f2cd40e8cbd461a1547de0c6d477b348
+        docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md: ecc5cb292c0c742c4361d5de605fbb90ca37e30a
+      normalized_claim_count: 2
+    - id: npm_or_public_copy
+      required_when_present: true
+      inspected: true
+      registry_artifact_present: false
+      separate_public_copy_file_present: false
+      package_manifest_public_copy_present: true
+      source: package.json files plus README.md early-stage notice
+      normalized_claim_count: 0
+      known_unknown: No built registry tarball exists at target_head; package payload claims cannot be verified from a published artifact.
+
+verdict:
+  release_level: L0
+  release_level_name: V2 design reset
+  would_block: true
+  owner_must_not_publish: true
+  inventory_complete: true
+  stale_report: false
+  blocker_count: 3
+  warning_count: 3
+  known_unknown_count: 4
+  shipped_claim_inferred_count: 0
+  public_claim_surface_diff_count: 0
+  dependency_count: 0
+  release_or_publish_authorized: false
+  rationale: >-
+    L0 is supported by the exact docs/v2 tree. No exact-head clean-install and
+    complete L1 evidence packet was found for target_head after its storage
+    changes; GitHub check readback exposes no successful build-and-test check
+    for this SHA. Public L1 statements therefore remain implementation claims,
+    not an authorized L1 release claim. The recover_context MCP description
+    also contains an L2-like automatic SessionStart assertion without accepted
+    L2 recovery evidence. README and package metadata explicitly state that
+    npm/public release remains unauthorized.
+
+evidence_policy:
+  claim_classes: [implemented_verified, planned_guardrail, not_built, unknown]
+  evidence_labels: [verified, documented, inferred]
+  shipped_claims_may_use_inferred: false
+  shipped_claim_inferred_count: 0
+  inferred_entries: []
+  exact_head_rule: An ancestor result may document history but cannot by itself verify a shipped claim after relevant target-head changes.
+
+evidence_map:
+  L0:
+    status: verified
+    evidence_label: verified
+    refs:
+      - 6e85144e4ec22f24d51cf1975c7d0448485df4b7:docs/v2
+      - docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+      - docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+      - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+  L1:
+    status: incomplete_for_exact_head_release_claim
+    evidence_label: documented
+    historical_refs:
+      - .shirube/reports/kusabi-v2-release-readiness-claim-audit.initial.yaml
+      - .shirube/reports/kusabi-v2-claim-surface-rework-001b.yaml
+      - README.md Current Core MVP Capability Boundary
+    missing_exact_evidence:
+      - clean install and core tool result bound to target_head
+      - complete SQLite default smoke after target-head storage changes
+      - exact-head public package payload/dry-run evidence
+      - successful exact-head build-and-test check readback
+  L2:
+    status: not_built_as_release_evidence
+    evidence_label: documented
+    missing_exact_evidence:
+      - three fresh recovery evaluations at the accepted public-alpha threshold
+      - Claude and Codex startup recovery scorecards with first-context pack evidence
+      - zero project-restatement and complete missing-context reports
+  L3:
+    status: not_built_as_release_evidence
+    evidence_label: documented
+    missing_exact_evidence:
+      - all-surface output redaction probe packet
+      - promotion, retention, admin, observability, and pilot acceptance evidence
+      - backend-specific parity and enterprise boundary evidence
+  L4:
+    status: not_built_as_release_evidence
+    evidence_label: documented
+    missing_exact_evidence:
+      - five consecutive world-class recovery evaluations
+      - clean install, rollback, uninstall, reliability, observability, and public docs packet
+      - release-blocking redaction parity and owner exact-head release decision
+
+claim_inventory:
+  README:
+    source: 6e85144e4ec22f24d51cf1975c7d0448485df4b7:README.md
+    claims:
+      - {id: README-001, summary: persistent structured MCP memory survives compaction and session crashes, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L3-L6, src/index.ts], allowed_at_release_level: false, blocker: true}
+      - {id: README-002, summary: Kusabi is additive while wasurezu and agent-memory identities remain authoritative aliases, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L8-L14, package.json], allowed_at_release_level: false, blocker: true}
+      - {id: README-003, summary: internal early-stage snapshot with npm and public readiness unauthorized, level: L0, class: planned_guardrail, evidence_label: documented, evidence_refs: [README.md#L16, README.md#L74], allowed_at_release_level: true, blocker: false}
+      - {id: README-004, summary: decision task knowledge search recovery and explicit conversation-ingest tool surfaces exist, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L32-L41, README.md#L173-L191, src/index.ts], allowed_at_release_level: false, blocker: true}
+      - {id: README-005, summary: public recovery boundary is manual MCP and adapter paths remain experimental pending L2 evidence, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L43-L61, README.md#L95-L120], allowed_at_release_level: false, blocker: true}
+      - {id: README-006, summary: SQLite default plus PostgreSQL and JSON compatibility without backend parity claim, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L193-L233, src/stores/index.ts], allowed_at_release_level: false, blocker: true}
+      - {id: README-007, summary: macOS and Linux work without native build while Windows is planned, level: L1, class: unknown, evidence_label: documented, evidence_refs: [README.md#L112-L116], allowed_at_release_level: false, blocker: true}
+      - {id: README-008, summary: configured Claude and Codex adapter behavior is internal operator evidence not public L2 readiness, level: L2, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L249-L390, docs/operations/HOST_ADAPTERS.md], allowed_at_release_level: false, blocker: false}
+      - {id: README-009, summary: Kusabi does not own AUN queue or runtime lifecycle, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [README.md#L362-L375, src/index.ts], allowed_at_release_level: false, blocker: true}
+      - {id: README-010, summary: agent-com is separate and shared backend federation/parity is not a Core MVP claim, level: L1, class: planned_guardrail, evidence_label: documented, evidence_refs: [README.md#L412-L414], allowed_at_release_level: true, blocker: false}
+  package_metadata:
+    source: 6e85144e4ec22f24d51cf1975c7d0448485df4b7:package.json
+    claims:
+      - {id: PACKAGE-001, summary: persistent memory survives compaction and works across sessions, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [package.json#description, src/index.ts], allowed_at_release_level: false, blocker: true}
+      - {id: PACKAGE-002, summary: keywords position the package as MCP AI agent persistent context recovery memory, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [package.json#keywords], allowed_at_release_level: false, blocker: true}
+      - {id: PACKAGE-003, summary: kusabi wasurezu agent-memory and host/restart bin aliases are shipped entries, level: L1, class: implemented_verified, evidence_label: verified, evidence_refs: [package.json#bin], allowed_at_release_level: false, blocker: true}
+  mcp_tool_descriptions:
+    source_refs:
+      - 6e85144e4ec22f24d51cf1975c7d0448485df4b7:src/index.ts
+      - 6e85144e4ec22f24d51cf1975c7d0448485df4b7:src/constants.ts
+    claims:
+      - {id: MCP-001, tool: log_decision, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-002, tool: get_decisions, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-003, tool: supersede_decision, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-004, tool: save_task_state, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-005, tool: search_memory, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-006, tool: recover_context, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - id: MCP-006-AUTOSTART
+        tool: recover_context
+        summary: Called automatically by SessionStart hook.
+        level: L2
+        class: unknown
+        evidence_label: documented
+        evidence_refs: [src/index.ts#recover_context_description]
+        blocker: true
+        reason: Tool-description presence and hook implementation do not supply accepted L2 recovery score evidence.
+      - {id: MCP-007, tool: restart_pack, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-008, tool: restart_pack_fetch, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-009, tool: restart_prepare, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-010, tool: set_recovery_config, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-011, tool: save_knowledge, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-012, tool: get_knowledge, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-013, tool: supersede_knowledge, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-014, tool: update_knowledge_status, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-015, tool: ingest_conversation_events, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+      - {id: MCP-016, tool: catch_up, level: L1, class: implemented_verified, evidence_label: verified, blocker: true}
+  docs_v2:
+    classification: planning_only_when_explicit_future_draft_or_non_shipped_label_is_present
+    default_level: L0
+    default_class: planned_guardrail
+    default_evidence_label: documented
+    default_blocker: false
+    files:
+      - docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md
+      - docs/v2/KUSABI_V2_BACKEND_PARITY_MATRIX.md
+      - docs/v2/KUSABI_V2_CANONICAL_SPEC.md
+      - docs/v2/KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md
+      - docs/v2/KUSABI_V2_FAST_LANE_POLICY.md
+      - docs/v2/KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md
+      - docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md
+      - docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md
+      - docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md
+      - docs/v2/KUSABI_V2_NAMING_SURFACE_INVENTORY.md
+      - docs/v2/KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md
+      - docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md
+      - docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md
+      - docs/v2/KUSABI_V2_REPO_AUDIT.md
+      - docs/v2/KUSABI_V2_SCALE_AND_IDENTITY_MODEL.md
+      - docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md
+      - docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md
+      - docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md
+      - docs/v2/KUSABI_V2_UAMP_CONFORMANCE_PLAN.md
+      - docs/v2/KUSABI_V2_UAMP_DRAFT_SPEC.md
+      - docs/v2/KUSABI_V2_UAMP_FIXTURE_CATALOG.md
+      - docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md
+      - docs/v2/README.md
+    claim_families:
+      - {id: V2-001, summary: canonical design and docs-only reset, class: planned_guardrail}
+      - {id: V2-002, summary: API and data boundary, class: planned_guardrail}
+      - {id: V2-003, summary: backend parity requirements but no current parity, class: planned_guardrail}
+      - {id: V2-004, summary: compliance and attestation evidence boundary but no certification, class: planned_guardrail}
+      - {id: V2-005, summary: feature preservation and migration requirements, class: planned_guardrail}
+      - {id: V2-006, summary: implementation readiness lanes and non-authority, class: planned_guardrail}
+      - {id: V2-007, summary: product category and adoption strategy, class: planned_guardrail}
+      - {id: V2-008, summary: naming inventory and alias preservation, class: planned_guardrail}
+      - {id: V2-009, summary: recovery score contract but no accepted runner evidence, class: planned_guardrail}
+      - {id: V2-010, summary: existing L0-L4 release ladder, class: planned_guardrail}
+      - {id: V2-011, summary: repo/source/V1 intent audits, class: planned_guardrail}
+      - {id: V2-012, summary: scale identity federation model but no current federation claim, class: planned_guardrail}
+      - {id: V2-013, summary: security retention boundary but no DLP or zero-leakage claim, class: planned_guardrail}
+      - {id: V2-014, summary: suite ownership and interop boundary, class: planned_guardrail}
+      - {id: V2-015, summary: UAMP draft conformance plan and fixtures but no conformance claim, class: planned_guardrail}
+      - {id: V2-016, summary: V2 index explicitly labels future and non-shipped work, class: planned_guardrail}
+  readme_linked_docs_operations:
+    claims:
+      - id: OPS-001
+        source: docs/operations/HOST_ADAPTERS.md
+        summary: Current host matrix documents Claude level 2 and Codex level 1 adapter paths but limits them to operator evidence pending release evidence.
+        level: L2
+        class: unknown
+        evidence_label: documented
+        blocker: true
+      - id: OPS-002
+        source: docs/operations/WORLD_CLASS_RELEASE_CRITERIA.md
+        summary: Release stages and world-class requirements are planning criteria, not a current release claim.
+        level: L0
+        class: planned_guardrail
+        evidence_label: documented
+        blocker: false
+
+future_guardrail_checks:
+  uamp_conformance: {status: pass, shipped_claim_found: false, evidence: docs/v2 documents explicitly say draft/no conformance}
+  compliance: {status: pass, shipped_claim_found: false, evidence: README and docs/v2 deny current compliance/certification}
+  federation: {status: pass, shipped_claim_found: false, evidence: README says separate evidence is required}
+  backend_parity: {status: pass_with_warning, shipped_claim_found: false, evidence: README denies parity while claiming backend-specific compatibility}
+  L2_L4_release: {status: block, shipped_claim_found: true, evidence: recover_context automatic SessionStart description and host matrix lack accepted exact evidence}
+  enterprise: {status: pass, shipped_claim_found: false, evidence: future/controlled boundary only}
+  attestation_tamper_evidence: {status: pass, shipped_claim_found: false, evidence: planning-only docs; no current attestation emission claim}
+
+blockers:
+  - id: BLOCK-EXACT-L1-EVIDENCE
+    surfaces: [README.md, package.json, src/index.ts, src/constants.ts]
+    reason: >-
+      Present L1 capability claims exist, but a complete clean-install, core
+      tool, SQLite/default, and package-payload evidence packet bound to this
+      exact target head was not found. The exact head includes later storage
+      changes, so ancestor evidence is not promoted by inference.
+    recovery: Run a separately authorized exact-head L1 evidence Cell and independent audit; do not change public copy in this Cell.
+  - id: BLOCK-L2-AUTOSTART-CLAIM
+    surfaces: [src/index.ts, docs/operations/HOST_ADAPTERS.md]
+    reason: >-
+      The recover_context MCP description says it is called automatically by a
+      SessionStart hook and the host matrix assigns startup levels, but the L2
+      recovery score packet required by the ladder is absent.
+    recovery: Provide accepted exact-head L2 evidence or use a separate owner-authorized claim-surface rework Cell.
+  - id: BLOCK-PUBLISH-AUTHORITY
+    surfaces: [README.md, package.json]
+    reason: >-
+      README explicitly says npm publish and public readiness are unauthorized;
+      no registry artifact, publish dry run, complete Phase 0 gate packet, or
+      owner exact-head publish decision is present.
+    recovery: Complete the separately controlled publish gates and owner decision; this report grants none.
+
+warnings:
+  - id: WARN-PLATFORM
+    surface: README.md
+    reason: macOS/Linux and no-native-build wording lacks a current exact-head platform matrix in this report.
+  - id: WARN-PACKAGE-COPY
+    surface: package.json
+    reason: Survives compaction and works across sessions is safe only inside the L1 local same-agent/project boundary.
+  - id: WARN-BACKEND
+    surface: README.md
+    reason: PostgreSQL and JSON compatibility claims must remain backend-specific and must not be reused as parity evidence.
+
+known_unknowns:
+  - id: UNKNOWN-NPM-ARTIFACT
+    value: No published or dry-run registry artifact exists at target_head, so actual packaged public copy was not read back.
+  - id: UNKNOWN-EXACT-L1-SMOKE
+    value: No complete exact-head L1 clean-install/core-tool result was identified by this report-first inventory.
+  - id: UNKNOWN-L2-ACCEPTANCE
+    value: No accepted exact-head Claude/Codex L2 recovery packet was identified.
+  - id: UNKNOWN-PLATFORM-MATRIX
+    value: No exact-head macOS/Linux/Windows clean-install matrix was identified.
+
+acceptance_fixture_results:
+  - {id: KMDC-001, result: pass, observed: {v2_done: false}, reason: docs-only proof cannot satisfy persistence/API gates}
+  - {id: KMDC-002, result: pass, observed: {migration_allowed: false}, reason: pre-sunset alias removal is blocked}
+  - {id: KMDC-003, result: pass, observed: {recovered_count: 0}, reason: redacted/expired items are ineligible by definition; any nonzero result fails}
+  - {id: KMDC-004, result: pass, observed: {would_block: true, owner_must_not_publish: true}, reason: current unsupported L2 assertion is blocked}
+  - {id: KMDC-005, result: pass, observed: {counted_as_shipped: false}, reason: docs/v2 future/draft labels are explicit}
+  - {id: KMDC-006, result: pass, observed: {shipped_claim_inferred_count: 0, claim_blocked: true}, reason: inference is forbidden for shipped claims}
+  - {id: KMDC-007, result: pass, observed: {inventory_complete_if_omitted: false, audit_blocked: true}, reason: omission policy fails closed}
+  - {id: KMDC-008, result: pass, observed: {inventory_complete: true, all_claims_classified_or_known_unknown: true}, reason: six required categories and every enumerated file/tool are classified}
+  - {id: KMDC-009, result: pass, observed: {stale_report_on_mismatch: true, authority: none}, reason: exact target mismatch invalidates the report}
+  - {id: KMDC-010, result: pass, observed: {dependency_count: 0}, reason: PR 251 is explicitly parallel and does not affect this result}
+
+g1_g7_conformance:
+  G1: {result: pass, evidence: control source freeze handoff and exact base are explicit}
+  G2: {result: pass, evidence: fixed inventory classification fixture and zero predicates; no LLM-created evidence qualifies}
+  G3: {result: pass, evidence: control docs report runtime public surfaces and suite ownership remain separated}
+  G4: {result: pass, evidence: ten fixtures exact target and public surface diff zero predicate}
+  G5: {result: pass, evidence: omission overclaim protected mutation stale report and delivery loss fail closed}
+  G6: {result: pass_with_stop, evidence: only report and control-doc paths; publish merge protected and self-audit authority excluded}
+  G7: {result: pass, evidence: exact readback content tuples and distinct-seat audit required for closure}
+
+checks:
+  three_allowed_paths_only: pass
+  public_claim_surface_diff_count: 0
+  git_diff_check: pass
+  fenced_yaml_parse: pass
+  report_yaml_parse: pass
+  minimum_surface_inventory_readback: pass
+  fixture_result_count: 10
+  fixture_results_all_pass: true
+  per_file_content_tuples_required: true
+  exact_remote_pr_head_readback_required: true
+  note: Content tuples and remote PR-head readback are completion evidence outside this target-head report because adding them here would change the implementation head.
+
+next_action:
+  blocking: true
+  owner_agent: independent_registered_seat
+  owner_function: evidence_audit_gate
+  action: Audit the frozen implementation PR head, three content digests, exact-base relation, parsed report, inventory, fixtures, and public-surface diff.
+  handoff_method: exact-head audit request linked from the PR and source issue; implementer self-audit is forbidden
+  input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-4975612001
+    - 6e85144e4ec22f24d51cf1975c7d0448485df4b7
+    - docs/KUSABI_V2_MIGRATION_PLAN.md
+    - docs/KUSABI_V2_DONE_DEFINITION.md
+    - .shirube/reports/kusabi-v2-release-readiness-claim-audit.current.yaml
+  scope: evidence audit only; no implementation approval merge publish release or protected mutation
+  deliverable: exact-head gate result with findings and next_action
+  completion_evidence: audit URL bound to frozen head and all three SHA-256 digests
+  stop_reason: DISTINCT_SEAT_EXACT_HEAD_AUDIT_REQUIRED
