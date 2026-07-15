@@ -4,6 +4,9 @@ import { spawnSync } from "node:child_process";
 
 const SCHEMA = "shirube-rapid-lite-ci-hard-block/v1";
 const DEFAULT_BASE = "origin/main";
+const CANONICAL_HANDOFF_SCHEMA = "shirube-v3/control_handoff/v1";
+const IMPLEMENTATION_EVIDENCE_SCHEMA = "shirube-v3/implementation_evidence/v1";
+const STRUCTURED_AUDIT_SCHEMA = "shirube-structured-audit/v1";
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -17,21 +20,32 @@ function main() {
   const baseRef = stringOption(options.base) ?? DEFAULT_BASE;
   const changedFiles = readChangedFiles(baseRef);
   const docs = collectDocs(event, comments);
-  const handoffPath = stringOption(options.handoff) ?? discoverHandoffPath(docs, changedFiles);
+  const expectedRepo = stringOption(options.repo) ?? event?.repository?.full_name ?? process.env.GITHUB_REPOSITORY ?? null;
+  const expectedPr = event?.pull_request?.number ?? null;
+  const handoffResolution = resolveControlHandoff({
+    explicitPath: stringOption(options.handoff),
+    docs,
+    comments,
+    changedFiles,
+    expectedRepo,
+    expectedPr,
+  });
+  const handoffRef = handoffResolution.ref ?? null;
   const findings = [];
   const warnings = [];
   const evidence = [];
   let auditBridge = { required: false, status: "not_required" };
 
   let handoff = null;
-  if (!handoffPath) {
-    findings.push(finding("RL-GOAL-001", "missing_control_handoff", "No .shirube control handoff reference found in PR body/comments or changed files.", "handoff"));
-  } else if (!existsSync(handoffPath)) {
-    findings.push(finding("RL-GOAL-001", "missing_control_handoff", `Control handoff file is not readable: ${handoffPath}`, "handoff"));
+  if (handoffResolution.error) {
+    findings.push(finding("RL-GOAL-001", handoffResolution.code, handoffResolution.message, "handoff"));
+  } else if (!handoffRef) {
+    findings.push(finding("RL-GOAL-001", "missing_control_handoff", "No canonical control handoff comment or repo-local handoff reference was found.", "handoff"));
+  } else if (handoffResolution.source === "file" && !existsSync(handoffRef)) {
+    findings.push(finding("RL-GOAL-001", "missing_control_handoff", `Control handoff file is not readable: ${handoffRef}`, "handoff"));
   } else {
-    const text = readFileSync(handoffPath, "utf8");
-    handoff = parseHandoff(text, handoffPath);
-    evidence.push({ code: "control_handoff", source: "file", detail: handoffPath });
+    handoff = handoffResolution.handoff ?? parseHandoff(readFileSync(handoffRef, "utf8"), handoffRef);
+    evidence.push({ code: "control_handoff", source: handoffResolution.source, detail: handoffRef });
   }
 
   if (existsSync(".shirube/repo-spec.yaml")) evidence.push({ code: "repo_spec", source: "file", detail: ".shirube/repo-spec.yaml" });
@@ -78,7 +92,14 @@ function main() {
   }
 
   if (handoff) {
-    auditBridge = checkCellAuditBridge({ docs, changedFiles, actualHead, handoff });
+    if (handoff.source === "pr_comment") {
+      const implementationBridge = checkImplementationEvidence({ comments, actualHead, handoff, expectedRepo, expectedPr });
+      findings.push(...implementationBridge.findings);
+      evidence.push(...implementationBridge.evidence);
+      auditBridge = checkStructuredAuditBridge({ comments, actualHead, handoff, expectedRepo, expectedPr });
+    } else {
+      auditBridge = checkCellAuditBridge({ docs, changedFiles, actualHead, handoff });
+    }
     findings.push(...auditBridge.findings);
     warnings.push(...auditBridge.warnings);
     evidence.push(...auditBridge.evidence);
@@ -112,7 +133,7 @@ function main() {
     would_block: hardBlocks.length > 0,
     owner_must_not_merge: hardBlocks.length > 0,
     head_sha: actualHead,
-    handoff_ref: handoffPath ?? null,
+    handoff_ref: handoffRef,
     cell_id: handoff?.cellId ?? null,
     cell_type: handoff?.cellType ?? null,
     audit_bridge: {
@@ -188,12 +209,225 @@ function collectDocs(event, comments) {
   return docs;
 }
 
+function resolveControlHandoff({ explicitPath, docs, comments, changedFiles, expectedRepo, expectedPr }) {
+  if (explicitPath) {
+    return { source: "file", ref: explicitPath };
+  }
+
+  const canonical = discoverCanonicalHandoff(comments, expectedRepo, expectedPr);
+  if (canonical.found || canonical.error) return canonical;
+
+  const legacyPath = discoverHandoffPath(docs, changedFiles);
+  return legacyPath ? { source: "file", ref: legacyPath } : { source: null, ref: null };
+}
+
+function discoverCanonicalHandoff(comments, expectedRepo, expectedPr) {
+  const candidates = [];
+  for (const comment of comments) {
+    const body = commentBody(comment);
+    if (!/<!--\s*shirube-v3:control-handoff(?::[^\s>]+)?\s*-->/.test(body)) continue;
+    const blocks = fencedYamlBlocks(body).filter((block) => yamlScalarPath(block, ["schema_version"]) === CANONICAL_HANDOFF_SCHEMA);
+    if (blocks.length !== 1) {
+      return {
+        error: true,
+        code: blocks.length === 0 ? "canonical_handoff_block_missing" : "conflicting_control_handoff_blocks",
+        message: blocks.length === 0
+          ? "A marked control handoff comment does not contain one canonical handoff YAML block."
+          : "A marked control handoff comment contains multiple canonical handoff YAML blocks.",
+      };
+    }
+    const ref = commentUrl(comment);
+    const handoff = parseHandoff(blocks[0], ref);
+    const observedRepo = handoff.repository;
+    const observedPr = handoff.pullRequest;
+    const urlIdentity = parsePrCommentUrl(ref);
+    if (!ref || !urlIdentity) {
+      return { error: true, code: "canonical_handoff_comment_identity_missing", message: "Canonical handoff comment identity is missing or malformed." };
+    }
+    if (expectedRepo && normalizeRepo(observedRepo) !== normalizeRepo(expectedRepo)) {
+      return { error: true, code: "canonical_handoff_repo_mismatch", message: `Canonical handoff targets ${observedRepo ?? "unknown"}, expected ${expectedRepo}.` };
+    }
+    if (expectedRepo && normalizeRepo(urlIdentity.repo) !== normalizeRepo(expectedRepo)) {
+      return { error: true, code: "canonical_handoff_source_repo_mismatch", message: `Canonical handoff comment belongs to ${urlIdentity.repo}, expected ${expectedRepo}.` };
+    }
+    if (expectedPr && Number(observedPr) !== Number(expectedPr)) {
+      return { error: true, code: "canonical_handoff_pr_mismatch", message: `Canonical handoff targets PR ${observedPr ?? "unknown"}, expected PR ${expectedPr}.` };
+    }
+    if (expectedPr && Number(urlIdentity.pr) !== Number(expectedPr)) {
+      return { error: true, code: "canonical_handoff_source_pr_mismatch", message: `Canonical handoff comment belongs to PR ${urlIdentity.pr}, expected PR ${expectedPr}.` };
+    }
+    candidates.push({ ref, handoff, signature: stableHandoffSignature(handoff) });
+  }
+
+  if (candidates.length === 0) return { found: false };
+  if (new Set(candidates.map((candidate) => candidate.signature)).size !== 1) {
+    return { error: true, code: "conflicting_control_handoffs", message: "Conflicting canonical control handoff comments were found on the PR." };
+  }
+  const selected = candidates[0];
+  return { found: true, source: "pr_comment", ref: selected.ref, handoff: selected.handoff };
+}
+
+function stableHandoffSignature(handoff) {
+  return JSON.stringify({
+    repository: handoff.repository,
+    pullRequest: handoff.pullRequest,
+    cellId: handoff.cellId,
+    allowedPaths: handoff.allowedPaths,
+    forbiddenPaths: handoff.forbiddenPaths,
+    stopConditions: handoff.stopConditions,
+    auditItemIds: handoff.auditItemIds,
+  });
+}
+
 function discoverHandoffPath(docs, changedFiles) {
   const combined = docs.join("\n");
   const matches = Array.from(combined.matchAll(/\.shirube\/control-handoffs\/[A-Za-z0-9_.\/-]+\.ya?ml/g)).map((match) => match[0]);
   const changed = changedFiles.filter((file) => /^\.shirube\/control-handoffs\/.+\.ya?ml$/.test(file));
   const candidates = Array.from(new Set([...matches, ...changed]));
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
+}
+
+function checkImplementationEvidence({ comments, actualHead, handoff, expectedRepo, expectedPr }) {
+  const findings = [];
+  const evidence = [];
+  const candidates = structuredCommentCandidates(comments, IMPLEMENTATION_EVIDENCE_SCHEMA);
+  const headCandidates = candidates.filter((candidate) =>
+    normalizeSha(yamlScalarPath(candidate.yaml, ["exact_head"])) === normalizeSha(actualHead)
+  );
+  if (headCandidates.length === 0) {
+    findings.push(finding("RL-EVID-001", "missing_exact_head_implementation_evidence", `No implementation evidence targets exact head ${actualHead}.`, "implementation_evidence.exact_head"));
+    return { findings, evidence };
+  }
+  if (new Set(headCandidates.map((candidate) => evidenceSignature(candidate.yaml))).size !== 1) {
+    findings.push(finding("RL-EVID-001", "conflicting_exact_head_implementation_evidence", `Conflicting implementation evidence targets exact head ${actualHead}.`, "implementation_evidence"));
+    return { findings, evidence };
+  }
+  const matching = headCandidates.find((candidate) =>
+    identityMatches(candidate.yaml, {
+      expectedRepo,
+      expectedPr,
+      cellId: handoff.cellId,
+      handoffRef: handoff.filePath,
+    }) &&
+    yamlScalarPath(candidate.yaml, ["implementation_actor"]) === handoff.implementationActor &&
+    /^PASS$/i.test(yamlScalarPath(candidate.yaml, ["validation_status"]) ?? "") &&
+    /^true$/i.test(yamlScalarPath(candidate.yaml, ["no_shirube_changes"]) ?? "")
+  );
+  if (!matching) {
+    findings.push(finding("RL-EVID-001", "implementation_evidence_identity_mismatch", "Exact-head implementation evidence does not match the canonical repo, PR, cell, handoff, actor, validation, and no-.shirube contract.", "implementation_evidence"));
+    return { findings, evidence };
+  }
+  evidence.push({ code: "implementation_evidence", source: "pr_comment", detail: matching.ref });
+  return { findings, evidence };
+}
+
+function checkStructuredAuditBridge({ comments, actualHead, handoff, expectedRepo, expectedPr }) {
+  const findings = [];
+  const warnings = [];
+  const evidence = [];
+  const candidates = structuredCommentCandidates(comments, STRUCTURED_AUDIT_SCHEMA);
+  const headCandidates = candidates.filter((candidate) =>
+    normalizeSha(yamlScalarPath(candidate.yaml, ["target", "exact_head"])) === normalizeSha(actualHead)
+  );
+  if (headCandidates.length === 0) {
+    findings.push(finding("RL-AUDIT-001", "missing_cell_audit_record", `No structured audit targets exact head ${actualHead}.`, "audit_record.target.exact_head"));
+    return { required: true, status: "missing", findings, warnings, evidence };
+  }
+  if (new Set(headCandidates.map((candidate) => evidenceSignature(candidate.yaml))).size !== 1) {
+    findings.push(finding("RL-AUDIT-003", "conflicting_exact_head_audit_records", `Conflicting structured audits target exact head ${actualHead}.`, "audit_record"));
+    return { required: true, status: "target_mismatch", findings, warnings, evidence };
+  }
+
+  const matching = headCandidates.find((candidate) =>
+    identityMatches(candidate.yaml, {
+      expectedRepo,
+      expectedPr,
+      cellId: handoff.cellId,
+      handoffRef: handoff.filePath,
+      prefix: ["target"],
+    })
+  );
+  if (!matching) {
+    findings.push(finding("RL-AUDIT-003", "audit_record_target_mismatch", "Exact-head structured audit does not target the canonical repo, PR, cell, and handoff.", "audit_record.target"));
+    return { required: true, status: "target_mismatch", findings, warnings, evidence };
+  }
+
+  const reviewerActor = yamlScalarPath(matching.yaml, ["reviewer_actor"]);
+  const implementationActor = yamlScalarPath(matching.yaml, ["implementation_actor"]);
+  if (!reviewerActor || !implementationActor || reviewerActor === implementationActor || implementationActor !== handoff.implementationActor) {
+    findings.push(finding("RL-AUDIT-004", "audit_maker_checker_mismatch", "Structured audit must identify a reviewer distinct from the canonical implementation actor.", "audit_record.reviewer_actor"));
+  }
+
+  const items = extractAuditItems(matching.yaml);
+  const requiredIds = handoff.auditItemIds;
+  const observedIds = items.map((item) => item.itemId);
+  for (const itemId of requiredIds) {
+    const matches = items.filter((item) => item.itemId === itemId);
+    if (matches.length !== 1) {
+      findings.push(finding("RL-AUDIT-007", "audit_item_cardinality_mismatch", `${itemId} must appear exactly once in the structured audit.`, `audit_record.items.${itemId}`));
+    } else if (matches[0].verdict !== "PASS") {
+      findings.push(finding("RL-AUDIT-006", "audit_item_not_pass", `${itemId} must have verdict PASS.`, `audit_record.items.${itemId}.verdict`));
+    }
+  }
+  for (const itemId of observedIds) {
+    if (!requiredIds.includes(itemId)) {
+      findings.push(finding("RL-AUDIT-007", "unexpected_audit_item", `${itemId} is not in the canonical audit checklist.`, `audit_record.items.${itemId}`));
+    }
+  }
+  if (yamlScalarPath(matching.yaml, ["aggregate_verdict"]) !== "PASS") {
+    findings.push(finding("RL-AUDIT-005", "audit_aggregate_not_pass", "Structured audit aggregate_verdict must be PASS.", "audit_record.aggregate_verdict"));
+  }
+  if (yamlScalarPath(matching.yaml, ["next_action"]) !== "none") {
+    findings.push(finding("RL-AUDIT-004", "audit_next_action_invalid", "A passing structured audit must close with next_action: none.", "audit_record.next_action"));
+  }
+
+  evidence.push({ code: "cell_audit_record", source: "pr_comment", detail: matching.ref });
+  return {
+    required: true,
+    status: findings.length > 0 ? "blocked" : "pass",
+    auditRef: matching.ref,
+    itemSetRef: yamlScalarPath(matching.yaml, ["audit_checklist_id"]),
+    findings,
+    warnings,
+    evidence,
+  };
+}
+
+function identityMatches(yaml, { expectedRepo, expectedPr, cellId, handoffRef, prefix = [] }) {
+  const path = (key) => [...prefix, key];
+  return (!expectedRepo || normalizeRepo(yamlScalarPath(yaml, path("repository"))) === normalizeRepo(expectedRepo)) &&
+    (!expectedPr || Number(yamlScalarPath(yaml, path("pull_request"))) === Number(expectedPr)) &&
+    yamlScalarPath(yaml, path("cell_id")) === cellId &&
+    yamlScalarPath(yaml, path("control_handoff")) === handoffRef;
+}
+
+function structuredCommentCandidates(comments, schema) {
+  const candidates = [];
+  for (const comment of comments) {
+    for (const yaml of fencedYamlBlocks(commentBody(comment))) {
+      if (yamlScalarPath(yaml, ["schema_version"]) === schema) {
+        candidates.push({ yaml, ref: commentUrl(comment) });
+      }
+    }
+  }
+  return candidates;
+}
+
+function evidenceSignature(yaml) {
+  return String(yaml ?? "").trim().replace(/\r\n/g, "\n");
+}
+
+function extractAuditItems(yaml) {
+  const section = yamlSectionText(yaml, ["items"]);
+  if (!section) return [];
+  const starts = [...section.matchAll(/^\s*-\s+item_id:\s*['"]?([^'"\s]+)['"]?\s*$/gm)];
+  return starts.map((match, index) => {
+    const body = section.slice(match.index, starts[index + 1]?.index ?? section.length);
+    return {
+      itemId: cleanYamlValue(match[1]),
+      verdict: (body.match(/^\s+verdict:\s*['"]?([^'"\s]+)['"]?\s*$/m)?.[1] ?? "").toUpperCase(),
+    };
+  });
 }
 
 function checkCellAuditBridge({ docs, changedFiles, actualHead, handoff }) {
@@ -484,20 +718,123 @@ function isDurableEvidenceRef(value) {
 }
 
 function parseHandoff(text, filePath) {
+  const canonical = yamlScalarPath(text, ["schema_version"]) === CANONICAL_HANDOFF_SCHEMA;
   return {
     filePath,
-    mode: scalar(text, "mode"),
-    profile: scalar(text, "profile"),
+    source: canonical ? "pr_comment" : "file",
+    mode: scalar(text, "mode") ?? (canonical ? "rapid-lite" : null),
+    profile: scalar(text, "profile") ?? (canonical ? "hotel-lite" : null),
     frameworkRef: scalar(text, "framework_ref") ?? scalar(text, "framework_lock_ref"),
-    repoLocalIssue: scalar(text, "repo_local_issue"),
-    ownerActor: scalar(text, "actor"),
-    cellId: scalar(text, "CELL-ID"),
-    cellType: scalar(text, "cell_type"),
-    riskClass: scalar(text, "risk_class"),
-    allowedPaths: list(text, "allowed_paths"),
-    forbiddenPaths: list(text, "forbidden_paths"),
-    stopConditions: list(text, "stop_conditions"),
+    repoLocalIssue: scalar(text, "repo_local_issue") ?? (canonical ? yamlScalarPath(text, ["control_source"]) : null),
+    ownerActor: canonical ? yamlScalarPath(text, ["owner", "actor"]) : scalar(text, "actor"),
+    implementationActor: canonical ? yamlScalarPath(text, ["execution_context", "to", "agent_id"]) : null,
+    repository: canonical ? yamlScalarPath(text, ["repository", "name"]) : null,
+    pullRequest: canonical ? yamlScalarPath(text, ["repository", "pull_request"]) : null,
+    cellId: canonical ? yamlScalarPath(text, ["cell", "id"]) : scalar(text, "CELL-ID"),
+    cellType: canonical ? yamlScalarPath(text, ["cell", "cell_type"]) : scalar(text, "cell_type"),
+    riskClass: canonical ? yamlScalarPath(text, ["cell", "risk_class"]) : scalar(text, "risk_class"),
+    allowedPaths: canonical ? yamlListPath(text, ["allowed_paths"]) : list(text, "allowed_paths"),
+    forbiddenPaths: canonical ? yamlListPath(text, ["forbidden_paths"]) : list(text, "forbidden_paths"),
+    stopConditions: canonical ? yamlListPath(text, ["stop_conditions"]) : list(text, "stop_conditions"),
+    auditItemIds: canonical ? yamlListPath(text, ["audit_checklist", "required_item_ids"]) : [],
   };
+}
+
+function fencedYamlBlocks(text) {
+  return [...String(text ?? "").matchAll(/```(?:ya?ml)[ \t]*\r?\n([\s\S]*?)\r?\n```/gi)].map((match) => match[1]);
+}
+
+function yamlScalarPath(text, wantedPath) {
+  const entries = yamlEntries(text);
+  const match = entries.find((entry) =>
+    entry.type === "scalar" && pathsEqual(entry.path, wantedPath)
+  );
+  return match?.value ?? null;
+}
+
+function yamlListPath(text, wantedPath) {
+  return yamlEntries(text)
+    .filter((entry) => entry.type === "list" && pathsEqual(entry.path, wantedPath))
+    .map((entry) => entry.value);
+}
+
+function yamlSectionText(text, wantedPath) {
+  const lines = String(text ?? "").split(/\r?\n/);
+  const stack = [];
+  for (let index = 0; index < lines.length; index++) {
+    const match = lines[index].match(/^(\s*)([A-Za-z0-9_-]+):\s*$/);
+    if (!match) continue;
+    const indent = match[1].length;
+    while (stack.length && stack.at(-1).indent >= indent) stack.pop();
+    const path = [...stack.map((entry) => entry.key), match[2]];
+    if (pathsEqual(path, wantedPath)) {
+      let end = index + 1;
+      while (end < lines.length) {
+        const next = lines[end];
+        if (next.trim()) {
+          const nextIndent = next.match(/^(\s*)/)?.[1].length ?? 0;
+          if (nextIndent <= indent) break;
+        }
+        end++;
+      }
+      return lines.slice(index + 1, end).join("\n");
+    }
+    stack.push({ indent, key: match[2] });
+  }
+  return null;
+}
+
+function yamlEntries(text) {
+  const entries = [];
+  const stack = [];
+  for (const line of String(text ?? "").split(/\r?\n/)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const map = line.match(/^(\s*)([A-Za-z0-9_-]+):(?:\s*(.*?))?\s*$/);
+    if (map) {
+      const indent = map[1].length;
+      while (stack.length && stack.at(-1).indent >= indent) stack.pop();
+      const path = [...stack.map((entry) => entry.key), map[2]];
+      if (map[3]) {
+        entries.push({ type: "scalar", path, value: cleanYamlValue(map[3]) });
+      } else {
+        stack.push({ indent, key: map[2] });
+      }
+      continue;
+    }
+    const item = line.match(/^(\s*)-\s+(.+?)\s*$/);
+    if (item) {
+      const indent = item[1].length;
+      while (stack.length && stack.at(-1).indent >= indent) stack.pop();
+      entries.push({ type: "list", path: stack.map((entry) => entry.key), value: cleanYamlValue(item[2]) });
+    }
+  }
+  return entries;
+}
+
+function pathsEqual(left, right) {
+  return left.length === right.length && left.every((entry, index) => entry === right[index]);
+}
+
+function commentBody(comment) {
+  const body = typeof comment?.body === "string" ? comment.body : "";
+  return !body.includes("\n") && body.includes("\\n") ? body.replace(/\\n/g, "\n") : body;
+}
+
+function commentUrl(comment) {
+  return typeof comment?.html_url === "string" ? comment.html_url : null;
+}
+
+function parsePrCommentUrl(value) {
+  const match = String(value ?? "").match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)#issuecomment-(\d+)$/);
+  return match ? { repo: match[1], pr: match[2], commentId: match[3] } : null;
+}
+
+function normalizeRepo(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeSha(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function scalar(text, key) {

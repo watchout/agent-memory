@@ -19,13 +19,13 @@ permissions:
 jobs:
   shirube-rapid-lite-gates-report:
     name: Shirube Rapid/Lite Gates Report
-    uses: "watchout/ai-dev-framework/.github/workflows/shirube-rapid-lite-reusable.yml@6917720d0ea02fe96f3b7752aa802bc135ec1b19"
+    uses: "watchout/ai-dev-framework/.github/workflows/shirube-rapid-lite-reusable.yml@5eb57d483947d279c6feb8f2f0eed58aed8b20d2"
     permissions:
       contents: read
       pull-requests: write
       issues: write
     with:
-      framework_ref: "watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19"
+      framework_ref: "watchout/ai-dev-framework@5eb57d483947d279c6feb8f2f0eed58aed8b20d2"
       profile: hotel-lite
       report_only: true
       pr_body: "${{ github.event.pull_request.body || '' }}"
@@ -33,7 +33,8 @@ jobs:
       execution_context_ref: .shirube/execution-context.yaml
       adoption_plan_ref: .shirube/adoption-intake.yaml
       lifecycle_state_ref: .shirube/lifecycle-state.yaml
-      handoff_ref: .shirube/control-handoffs/CH-001.yaml
+      handoff_ref: ""
+      control_handoff_comment_ref: "https://github.com/watchout/agent-memory/pull/254#issuecomment-4977629453"
       validation_evidence_ref: ""
       owner_decision_ref: ""
       enforcement_policy_ref: .shirube/enforcement-policy.yaml
