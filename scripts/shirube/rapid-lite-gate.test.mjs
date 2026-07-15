@@ -50,6 +50,7 @@ function canonicalHandoff({ repository = "watchout/agent-memory", pullRequest = 
     "required_evidence:",
     "  - exact head",
     "audit_checklist:",
+    "  audit_checklist_id: AUDIT-CHECKLIST-KUSABI-PR252-RL-RECON-001",
     "  required_item_ids:",
     ...requiredItems.map((item) => `    - ${item}`),
     "next_action:",
@@ -80,14 +81,22 @@ function implementationEvidence({ head, cellId = "CELL-KUSABI-PR252-RAPID-LITE-R
   ].join("\n");
 }
 
-function structuredAudit({ head, cellId = "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RECONCILIATION-001" }) {
+function structuredAudit({
+  head,
+  cellId = "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RECONCILIATION-001",
+  checklistId = "AUDIT-CHECKLIST-KUSABI-PR252-RL-RECON-001",
+  reviewerActor = "codex-audit",
+} = {}) {
   return [
-    "<!-- shirube-v3:evidence-audit-gate-result:TEST -->",
+    `<!-- shirube-v3:evidence-audit-gate-result:PR252-${head.slice(0, 7).toUpperCase()} -->`,
     "```yaml",
     "schema_version: shirube-structured-audit/v1",
-    "audit_checklist_id: AUDIT-CHECKLIST-KUSABI-PR252-RL-RECON-001",
-    "reviewer_actor: codex-audit",
+    `audit_checklist_id: ${checklistId}`,
+    `reviewer_actor: ${reviewerActor}`,
     "implementation_actor: kusabi",
+    "execution_context:",
+    `  agent_id: ${reviewerActor}`,
+    "  active_function: evidence_audit_gate",
     "target:",
     "  repository: watchout/agent-memory",
     "  pull_request: 252",
@@ -102,11 +111,12 @@ function structuredAudit({ head, cellId = "CELL-KUSABI-PR252-RAPID-LITE-ROUTE-RE
   ].join("\n");
 }
 
-function comment(id, body) {
+function comment(id, body, { login = "watchout", authorAssociation = "OWNER" } = {}) {
   return {
     id,
     html_url: `https://github.com/watchout/agent-memory/pull/252#issuecomment-${id}`,
-    user: { login: id === 1 ? "watchout" : "codex-audit" },
+    user: { login },
+    author_association: authorAssociation,
     body,
   };
 }
@@ -149,12 +159,16 @@ function itemIds(report) {
   return report.hard_blocks.map((item) => item.item_id);
 }
 
+function codes(report) {
+  return report.hard_blocks.map((item) => item.code);
+}
+
 const fx = fixture();
 try {
   const valid = [
     comment(1, canonicalHandoff()),
     comment(2, implementationEvidence({ head: fx.head })),
-    comment(3, structuredAudit({ head: fx.head })),
+    comment(3, structuredAudit({ head: fx.head }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
   ];
 
   const terminal = runGate(fx, valid);
@@ -169,6 +183,24 @@ try {
   assert(itemIds(runGate(fx, [comment(1, canonicalHandoff({ pullRequest: 999 })), ...valid.slice(1)])).includes("RL-GOAL-001"), "wrong PR must fail closed");
   assert(itemIds(runGate(fx, [...valid, comment(4, implementationEvidence({ head: fx.head, cellId: "CELL-CONFLICT" }))])).includes("RL-EVID-001"), "conflicting implementation evidence must fail closed");
   assert(itemIds(runGate(fx, [...valid, comment(4, structuredAudit({ head: fx.head, cellId: "CELL-CONFLICT" }))])).includes("RL-AUDIT-003"), "conflicting audit evidence must fail closed");
+
+  const wrongChecklist = runGate(fx, [
+    ...valid.slice(0, 2),
+    comment(3, structuredAudit({ head: fx.head, checklistId: "WRONG-CHECKLIST-ID" }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
+  ]);
+  assert(codes(wrongChecklist).includes("audit_checklist_id_mismatch"), "wrong checklist ID must fail closed");
+
+  const untrustedReviewer = runGate(fx, [
+    ...valid.slice(0, 2),
+    comment(3, structuredAudit({ head: fx.head, reviewerActor: "fake-auditor" }), { login: "iyasaka-ai", authorAssociation: "COLLABORATOR" }),
+  ]);
+  assert(codes(untrustedReviewer).includes("audit_reviewer_provenance_untrusted"), "untrusted reviewer actor must fail closed");
+
+  const selfAuthoredAudit = runGate(fx, [
+    ...valid.slice(0, 2),
+    comment(3, structuredAudit({ head: fx.head }), { login: "watchout", authorAssociation: "OWNER" }),
+  ]);
+  assert(codes(selfAuthoredAudit).includes("audit_reviewer_provenance_untrusted"), "implementation-seat GitHub author must fail closed");
 
   const wrongCell = runGate(fx, [
     comment(1, canonicalHandoff()),
