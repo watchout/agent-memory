@@ -10,6 +10,10 @@ import { ensureMemoryTags } from "./ensure-tags.js";
 import { fetchDiscordHistory } from "./discord-history.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
+import {
+  consumeVerifiedContinuationPack,
+  isContinuationRecoveryPack,
+} from "./kusabi-checkpoint-recovery.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -63,22 +67,45 @@ async function boot() {
     }
 
     if (process.env.AGENT_MEMORY_BOOT_MODE === "restart_pack") {
+      const selectedPackRef = process.env.AGENT_MEMORY_SELECTED_PACK_REF;
       try {
-        const selectedPackRef = process.env.AGENT_MEMORY_SELECTED_PACK_REF;
-        const selectedPack = selectedPackRef
-          ? await store.consumeSelectedRestartPack({
+        const selectedCandidate = selectedPackRef
+          ? await store.getSelectedRestartPack({
               agent_id: AGENT_ID,
               project: PROJECT,
               pack_ref: selectedPackRef,
             })
           : null;
-        const rawOutput = selectedPack?.content ?? (
-          await generateRestartPack(store, {
+        let selectedPack = null;
+        let continuationCheckpointDigest: string | undefined;
+        let rawOutput: string;
+        if (selectedCandidate && isContinuationRecoveryPack(selectedCandidate.content)) {
+          const consumed = await consumeVerifiedContinuationPack(store, {
+            agent_id: AGENT_ID,
+            project: PROJECT,
+            pack_ref: selectedPackRef!,
+          });
+          if (consumed.outcome !== "full" || consumed.payload === undefined) {
+            throw new Error(`CONTINUATION_RECOVERY_BLOCKED:${consumed.error ?? "verification_failed"}`);
+          }
+          selectedPack = selectedCandidate;
+          continuationCheckpointDigest = consumed.checkpoint_digest;
+          rawOutput = consumed.payload;
+        } else if (selectedPackRef) {
+          selectedPack = await store.consumeSelectedRestartPack({
+            agent_id: AGENT_ID,
+            project: PROJECT,
+            pack_ref: selectedPackRef,
+          });
+          if (!selectedPack) throw new Error("SELECTED_RESTART_PACK_MISSING_OR_CONSUMED");
+          rawOutput = selectedPack.content;
+        } else {
+          rawOutput = await generateRestartPack(store, {
             agent_id: AGENT_ID,
             project: PROJECT,
             max_tokens: cfg.max_tokens,
-          })
-        );
+          });
+        }
         const output = redactText(rawOutput).text;
         await store.logRecoveryQuality({
           agent_id: AGENT_ID,
@@ -91,6 +118,7 @@ async function boot() {
             host_adapter_level: 2,
             selected_pack_ref: selectedPack?.pack_ref,
             selected_pack_consumed: selectedPack ? true : undefined,
+            continuation_checkpoint_digest: continuationCheckpointDigest,
           }),
         }).catch((err) => {
           process.stderr.write(redactText(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`).text);
@@ -99,6 +127,19 @@ async function boot() {
         console.log(output);
         return;
       } catch (err) {
+        if (selectedPackRef) {
+          process.stderr.write(redactText(`[boot] continuation recovery blocked: ${err}\n`).text);
+          console.log(JSON.stringify({
+            schema_version: "kusabi-continuation-recovery-readback/v1",
+            recovery_outcome: "blocked",
+            continuity_pass_claimed: false,
+            selected_pack_ref: selectedPackRef,
+            automatic_effect_count: 0,
+            queue_mutation_count: 0,
+            runtime_restart_count: 0,
+          }));
+          return;
+        }
         process.stderr.write(redactText(`[boot] restart_pack failed, falling back to recover_context format: ${err}\n`).text);
       }
     }

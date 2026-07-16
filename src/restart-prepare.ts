@@ -1,4 +1,5 @@
 import type { ConversationEvent, Decision, Knowledge, Store, TaskState } from "./stores/types.js";
+import { createHash } from "node:crypto";
 import { estimateTokens } from "./constants.js";
 import { detectContinuityRisks, type ContinuityRisk } from "./continuity-analysis.js";
 import {
@@ -16,6 +17,13 @@ import {
   type RestartPackData,
   type UntrustedContextPolicy,
 } from "./restart-pack.js";
+import {
+  buildContinuationCheckpoint,
+  buildContinuationRecoveryPack,
+  type ContinuationCheckpointInput,
+  type ContinuationEffectInput,
+  type ContinuationIdentity,
+} from "./kusabi-checkpoint-recovery.js";
 
 export type ContinuityGuardMode = "auto_restart" | "recommend" | "pack_only" | "off";
 export type PackInjectionMode = "auto_attach" | "on_demand" | "off";
@@ -47,6 +55,19 @@ export interface RestartPrepareInput {
   trusted_instruction?: string;
   untrusted_context_policy?: UntrustedContextPolicy;
   raw_capture_coverage?: RawCaptureCoverageReport;
+  continuation_checkpoint?: {
+    identity: ContinuationIdentity;
+    repo: ContinuationCheckpointInput["repo"];
+    effects: ContinuationEffectInput[];
+    prior_session_id: string;
+    saved_source_cursor?: string;
+    source_sync: {
+      supported_source_backlog_after_sync: number;
+      duplicate_raw_events: number;
+    };
+    suite: ContinuationCheckpointInput["suite"];
+    artifact_refs?: string[];
+  };
 }
 
 export interface RestartPrepareOutput {
@@ -82,6 +103,13 @@ export interface RestartPrepareOutput {
     conversation_event_ids: string[];
   };
   notes: string[];
+  continuation_checkpoint?: {
+    checkpoint_id: string;
+    pack_id: string;
+    checkpoint_digest: string;
+    source_cursor: string;
+    source_event_ids: string[];
+  };
 }
 
 interface Snapshot {
@@ -108,6 +136,9 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     requestedMode === "auto_restart" && autoRestartBlockers.length > 0 ? "recommend" : requestedMode;
   const packInjectionMode = input.pack_injection_mode ?? "auto_attach";
   const packFormat = input.pack_format ?? "text";
+  if (input.continuation_checkpoint && packInjectionMode === "off") {
+    throw new Error("CONTINUATION_CHECKPOINT_REQUIRES_SELECTED_PACK_PERSISTENCE");
+  }
 
   const [snapshot, restartPackData] = await Promise.all([
     loadSnapshot(store, input),
@@ -131,12 +162,49 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
     runtimeContextError: input.runtime_context_error === true,
   });
   const generatedAt = new Date().toISOString();
+  const continuationPack = input.continuation_checkpoint
+    ? buildContinuationRecoveryPack(
+        buildContinuationCheckpoint({
+          identity: input.continuation_checkpoint.identity,
+          tasks: restartPackData.activeTasks.concat(
+            restartPackData.blockedTasks,
+            restartPackData.completedTasks,
+          ),
+          decisions: restartPackData.decisions,
+          knowledge: restartPackData.knowledge,
+          artifact_refs: [
+            ...(input.continuation_checkpoint.artifact_refs ?? []),
+            ...restartPackData.activeTasks.flatMap((item) => item.files_modified),
+            ...restartPackData.blockedTasks.flatMap((item) => item.files_modified),
+          ],
+          visible_events: restartPackData.conversationEvents.map((event) => ({
+            id: event.id,
+            content_digest: event.content_hash,
+            occurred_at: event.occurred_at,
+          })),
+          repo: input.continuation_checkpoint.repo,
+          effects: input.continuation_checkpoint.effects,
+          recovery: {
+            prior_session_id: input.continuation_checkpoint.prior_session_id,
+            saved_source_cursor: input.continuation_checkpoint.saved_source_cursor,
+            supported_source_backlog_after_sync:
+              input.continuation_checkpoint.source_sync.supported_source_backlog_after_sync,
+            duplicate_raw_events: input.continuation_checkpoint.source_sync.duplicate_raw_events,
+            confidence: score,
+            missing_context: missingContext,
+            pack_content_digest: contentDigest(preparedPack.content),
+          },
+          suite: input.continuation_checkpoint.suite,
+        }),
+        preparedPack.content,
+      )
+    : null;
   const selectedPack = packInjectionMode === "off"
     ? null
     : await store.saveSelectedRestartPack({
         agent_id: input.agent_id,
         project: input.project,
-        content: preparedPack.content,
+        content: continuationPack?.canonical_json ?? preparedPack.content,
         source: "restart_prepare",
         metadata: {
           generated_at: generatedAt,
@@ -151,6 +219,7 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
           context_signal: contextSignal,
           recovery_confidence: { score, missing_context: missingContext },
           raw_capture_coverage: input.raw_capture_coverage,
+          ...(continuationPack?.metadata ?? {}),
         },
       });
 
@@ -191,6 +260,15 @@ export async function prepareRestart(store: Store, input: RestartPrepareInput): 
       continuityRisks: snapshot.continuityRisks,
       rawCaptureCoverage: input.raw_capture_coverage,
     }),
+    ...(continuationPack ? {
+      continuation_checkpoint: {
+        checkpoint_id: continuationPack.pack.checkpoint.recovery.checkpoint_id,
+        pack_id: continuationPack.pack.checkpoint.recovery.pack_id,
+        checkpoint_digest: continuationPack.pack.checkpoint_digest,
+        source_cursor: continuationPack.pack.checkpoint.recovery.source_cursor,
+        source_event_ids: continuationPack.pack.checkpoint.recovery.source_event_ids,
+      },
+    } : {}),
   };
 }
 
@@ -361,4 +439,8 @@ function notesFor(input: {
 
 function ids(items: Array<{ id: string }>): string[] {
   return items.map((item) => item.id);
+}
+
+function contentDigest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
