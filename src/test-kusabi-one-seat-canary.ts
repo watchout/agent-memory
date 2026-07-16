@@ -145,6 +145,50 @@ for (const tamper of tamperCases) {
   assert.equal(verifyOneSeatCanaryEvidence(copy).ok, false);
 }
 
+// Independent audit regression: all protected counters are an exact, numeric, zero-valued schema.
+const missingCounters = structuredClone(evidence);
+missingCounters.plan.counters = {} as typeof missingCounters.plan.counters;
+missingCounters.counters = {} as typeof missingCounters.counters;
+missingCounters.plan_digest = canonicalOneSeatCanaryPlanDigest(missingCounters.plan);
+assert.equal(verifyOneSeatCanaryEvidence(missingCounters).ok, false);
+
+const extraCounter = structuredClone(evidence);
+(extraCounter.plan.counters as Record<string, number>).unapproved_effect_count = 0;
+(extraCounter.counters as Record<string, number>).unapproved_effect_count = 0;
+extraCounter.plan_digest = canonicalOneSeatCanaryPlanDigest(extraCounter.plan);
+assert.equal(verifyOneSeatCanaryEvidence(extraCounter).ok, false);
+
+const nonnumericCounter = structuredClone(evidence);
+(nonnumericCounter.plan.counters as unknown as Record<string, unknown>).queue_mutation_count = "0";
+(nonnumericCounter.counters as unknown as Record<string, unknown>).queue_mutation_count = "0";
+nonnumericCounter.plan_digest = canonicalOneSeatCanaryPlanDigest(nonnumericCounter.plan);
+assert.equal(verifyOneSeatCanaryEvidence(nonnumericCounter).ok, false);
+
+// Independent audit regression: nested live/protected flags cannot contradict dry-run evidence.
+const protectedFlags = structuredClone(evidence);
+const mutableProtectedPlan = protectedFlags.plan as unknown as Record<string, unknown>;
+mutableProtectedPlan.live_execution_authorized = true;
+mutableProtectedPlan.live_execution_performed = true;
+mutableProtectedPlan.protected_effect_boundary_reached = true;
+protectedFlags.plan_digest = canonicalOneSeatCanaryPlanDigest(protectedFlags.plan);
+assert.equal(verifyOneSeatCanaryEvidence(protectedFlags).ok, false);
+
+// Independent audit regression: exact gate identities and fixture memberships cannot collapse.
+const collapsedGates = structuredClone(evidence);
+const mutableGate = collapsedGates.plan.gate_separation as unknown as Record<string, unknown>;
+mutableGate.one_seat_gate_id = collapsedGates.plan.gate_separation.fleet_gate_id;
+mutableGate.one_seat_fixture_ids = [];
+collapsedGates.plan_digest = canonicalOneSeatCanaryPlanDigest(collapsedGates.plan);
+assert.equal(verifyOneSeatCanaryEvidence(collapsedGates).ok, false);
+
+// Independent audit regression: the root Goal stays bound to its exact durable active tuple.
+const terminalRoot = structuredClone(evidence);
+terminalRoot.plan.bindings.root_goal.lifecycle_state = "TERMINAL";
+terminalRoot.plan.bindings.root_goal.terminal = true;
+terminalRoot.plan.bindings.root_goal.durable_readback_url = "https://github.com/forged/ref";
+terminalRoot.plan_digest = canonicalOneSeatCanaryPlanDigest(terminalRoot.plan);
+assert.equal(verifyOneSeatCanaryEvidence(terminalRoot).ok, false);
+
 // The exact wrapper defaults to dry-run and stops live modes before invoking TypeScript.
 const shellDryRun = spawnSync("bash", [
   "scripts/kusabi-one-seat-canary.sh",
@@ -183,5 +227,9 @@ console.log("KUI-015 PASS two-cycle score/restatement/identity thresholds");
 console.log("KUI-017 PASS exact Kusabi root Goal binding with zero Goal API mutation");
 console.log("KUI-018 PASS child terminal returns to active parent without fake progress");
 console.log("KUI-019 PASS session/provider-switch root tuple preservation contract");
+console.log("KUI-EVIDENCE-COUNTER-COMPLETENESS-001 BLOCK missing/extra/nonnumeric counters");
+console.log("KUI-PROTECTED-PLAN-FLAGS-001 BLOCK contradictory protected plan flags");
+console.log("KUI-GATE-SEPARATION-VERIFIER-001 BLOCK collapsed gate identities and fixture set");
+console.log("KUI-ROOT-GOAL-LIFECYCLE-001 BLOCK terminal/substituted root tuple");
 console.log("PROTECTED STOP PASS live modes exit before every effect");
 console.log("kusabi one-seat canary tests passed");

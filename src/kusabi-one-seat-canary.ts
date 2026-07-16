@@ -38,6 +38,12 @@ export const ONE_SEAT_ROOT_GOAL = Object.freeze({
   objective_sha256: "a48b4fbf1192c5e5f288bab61020f2ad0d605fab642d8b58e144cadab9a33682",
 } as const);
 
+const ONE_SEAT_ROOT_GOAL_DURABLE_READBACK_URL =
+  "https://github.com/watchout/agent-memory/issues/180#issuecomment-4978795231";
+const ONE_SEAT_ROOT_GOAL_LIFECYCLE_STATE = "ACTIVE_WAITING_FOR_EXACT_HANDOFF";
+const ONE_SEAT_GATE_ID = "KUSABI-ONE-SEAT-INTERNAL-OPT-IN-GATE-001";
+const FLEET_GATE_ID = "KUSABI-ENABLED-FLEET-COMPLETION-GATE-001";
+
 export const ONE_SEAT_PRIOR_AUDITS = Object.freeze({
   cell_1: "https://github.com/watchout/agent-memory/pull/255#issuecomment-4989935147",
   cell_2: "https://github.com/watchout/agent-memory/pull/256#issuecomment-4996642810",
@@ -79,6 +85,8 @@ export const ONE_SEAT_ZERO_EFFECTS: Readonly<OneSeatEffectCounters> = Object.fre
   child_goal_overwrite_count: 0,
   sent_queued_pending_progress_increment: 0,
 });
+
+const ONE_SEAT_EFFECT_COUNTER_KEYS = Object.freeze(Object.keys(ONE_SEAT_ZERO_EFFECTS).sort());
 
 export type OneSeatCanaryMode = "dry-run" | "normal-exit" | "planned-crash";
 
@@ -248,8 +256,8 @@ export function exactOneSeatCanaryInput(mode: OneSeatCanaryMode = "dry-run"): On
     manifest: structuredClone(ONE_SEAT_MANIFEST),
     root_goal: {
       ...ONE_SEAT_ROOT_GOAL,
-      durable_readback_url: "https://github.com/watchout/agent-memory/issues/180#issuecomment-4978795231",
-      lifecycle_state: "ACTIVE_WAITING_FOR_EXACT_HANDOFF",
+      durable_readback_url: ONE_SEAT_ROOT_GOAL_DURABLE_READBACK_URL,
+      lifecycle_state: ONE_SEAT_ROOT_GOAL_LIFECYCLE_STATE,
       terminal: false,
     },
     prior_audits: {
@@ -303,9 +311,9 @@ export function buildOneSeatCanaryPlan(input: OneSeatCanaryInput): OneSeatCanary
       cycleContract(2, "planned_crash_safe_boundary"),
     ],
     gate_separation: {
-      one_seat_gate_id: "KUSABI-ONE-SEAT-INTERNAL-OPT-IN-GATE-001",
+      one_seat_gate_id: ONE_SEAT_GATE_ID,
       one_seat_fixture_ids: [...ONE_SEAT_FIXTURE_IDS],
-      fleet_gate_id: "KUSABI-ENABLED-FLEET-COMPLETION-GATE-001",
+      fleet_gate_id: FLEET_GATE_ID,
       fleet_fixture_ids: ["KUI-020"],
       kui_020_inferred: false,
       parent_goal_completion_effect: "none",
@@ -412,9 +420,7 @@ export function verifyOneSeatCanaryEvidence(evidence: OneSeatCanaryEvidence): On
   if (!evidence.root_goal.parent_goal_reloaded) errors.push("parent_goal_not_reloaded");
   if (!evidence.root_goal.next_unmet_acceptance_selected) errors.push("next_unmet_acceptance_not_selected");
   if (evidence.live_execution_performed || evidence.live_acceptance_claimed) errors.push("dry_run_claimed_live_acceptance");
-  for (const [counter, value] of Object.entries(evidence.counters)) {
-    if (value !== 0) errors.push(`protected_effect_nonzero:${counter}`);
-  }
+  errors.push(...validateZeroEffectCounters(evidence.counters, "evidence"));
   const minScore = cycles.length > 0 ? Math.min(...cycles.map((cycle) => cycle.score)) : 0;
   const restatements = cycles.reduce((sum, cycle) => sum + cycle.user_context_restatement_count, 0);
   const fieldMatch = cycles.length === 2 && cycles.every((cycle) => cycle.required_manifest_field_match_rate === 1) ? 1 : 0;
@@ -445,8 +451,10 @@ function validateCanaryInput(input: OneSeatCanaryInput): string[] {
   if (input.root_goal.objective_sha256 !== ONE_SEAT_ROOT_GOAL.objective_sha256) {
     errors.push("root_objective_digest_mismatch");
   }
-  if (!input.root_goal.durable_readback_url.startsWith("https://github.com/")) errors.push("root_goal_readback_missing");
-  if (!input.root_goal.lifecycle_state.startsWith("ACTIVE")) errors.push("root_goal_not_active");
+  if (input.root_goal.durable_readback_url !== ONE_SEAT_ROOT_GOAL_DURABLE_READBACK_URL) {
+    errors.push("root_goal_readback_mismatch");
+  }
+  if (input.root_goal.lifecycle_state !== ONE_SEAT_ROOT_GOAL_LIFECYCLE_STATE) errors.push("root_goal_not_active");
   if (input.root_goal.terminal) errors.push("root_goal_terminal_forbidden");
   if (input.prior_audits.cell_1_verdict !== "PASS" || input.prior_audits.cell_1_url !== ONE_SEAT_PRIOR_AUDITS.cell_1) {
     errors.push("cell_1_independent_pass_mismatch");
@@ -467,17 +475,60 @@ function validatePlanBindings(plan: OneSeatCanaryPlan): string[] {
   if (plan.bindings.root_goal.objective_sha256 !== ONE_SEAT_ROOT_GOAL.objective_sha256) {
     errors.push("plan_root_objective_mismatch");
   }
+  if (plan.bindings.root_goal.durable_readback_url !== ONE_SEAT_ROOT_GOAL_DURABLE_READBACK_URL) {
+    errors.push("plan_root_goal_readback_mismatch");
+  }
+  if (plan.bindings.root_goal.lifecycle_state !== ONE_SEAT_ROOT_GOAL_LIFECYCLE_STATE) {
+    errors.push("plan_root_goal_lifecycle_mismatch");
+  }
+  if (plan.bindings.root_goal.terminal !== false) errors.push("plan_root_goal_terminal_forbidden");
   if (plan.bindings.prior_audits.cell_1_url !== ONE_SEAT_PRIOR_AUDITS.cell_1 ||
       plan.bindings.prior_audits.cell_1_verdict !== "PASS") errors.push("plan_cell_1_pass_mismatch");
   if (plan.bindings.prior_audits.cell_2_url !== ONE_SEAT_PRIOR_AUDITS.cell_2 ||
       plan.bindings.prior_audits.cell_2_verdict !== "PASS") errors.push("plan_cell_2_pass_mismatch");
-  if (plan.gate_separation.one_seat_fixture_ids.includes("KUI-020") || plan.gate_separation.kui_020_inferred) {
-    errors.push("fleet_fixture_inferred_into_one_seat_gate");
+  if (plan.live_execution_authorized !== false) errors.push("plan_live_execution_authorized_forbidden");
+  if (plan.live_execution_performed !== false) errors.push("plan_live_execution_performed_forbidden");
+  if (plan.live_acceptance_claimed !== false) errors.push("plan_live_acceptance_claimed_forbidden");
+  if (plan.protected_effect_boundary_reached !== false) errors.push("plan_protected_effect_boundary_reached_forbidden");
+  if (plan.gate_separation.one_seat_gate_id !== ONE_SEAT_GATE_ID) errors.push("one_seat_gate_id_mismatch");
+  if (!sameStrings(plan.gate_separation.one_seat_fixture_ids, [...ONE_SEAT_FIXTURE_IDS])) {
+    errors.push("one_seat_gate_fixture_mismatch");
   }
+  if (plan.gate_separation.fleet_gate_id !== FLEET_GATE_ID) errors.push("fleet_gate_id_mismatch");
   if (!sameStrings(plan.gate_separation.fleet_fixture_ids, ["KUI-020"])) errors.push("fleet_gate_fixture_mismatch");
+  if (String(plan.gate_separation.one_seat_gate_id) === String(plan.gate_separation.fleet_gate_id)) {
+    errors.push("one_seat_fleet_gate_identity_collapsed");
+  }
+  if (plan.gate_separation.kui_020_inferred !== false) errors.push("fleet_fixture_inferred_into_one_seat_gate");
   if (plan.gate_separation.parent_goal_completion_effect !== "none") errors.push("parent_goal_completion_effect_forbidden");
-  for (const [counter, value] of Object.entries(plan.counters)) {
-    if (value !== 0) errors.push(`plan_protected_effect_nonzero:${counter}`);
+  if (!sameStrings(
+    plan.fixture_contracts.map((contract) => contract.fixture_id),
+    [...ONE_SEAT_FIXTURE_IDS],
+  ) || plan.fixture_contracts.some((contract) => contract.disposition !== "deterministic_dry_run_contract")) {
+    errors.push("plan_fixture_contract_mismatch");
+  }
+  if (plan.next_action.blocking !== true ||
+      plan.next_action.action !== "independent_exact_head_audit_before_any_live_go") {
+    errors.push("plan_next_action_mismatch");
+  }
+  errors.push(...validateZeroEffectCounters(plan.counters, "plan"));
+  return errors;
+}
+
+function validateZeroEffectCounters(value: unknown, prefix: "plan" | "evidence"): string[] {
+  if (!isRecord(value)) return [`${prefix}_counter_object_invalid`];
+  const errors: string[] = [];
+  const observedKeys = Object.keys(value).sort();
+  if (!sameStrings(observedKeys, [...ONE_SEAT_EFFECT_COUNTER_KEYS])) {
+    errors.push(`${prefix}_counter_key_set_mismatch`);
+  }
+  for (const counter of ONE_SEAT_EFFECT_COUNTER_KEYS) {
+    const observed = value[counter];
+    if (typeof observed !== "number" || !Number.isFinite(observed)) {
+      errors.push(`${prefix}_counter_nonnumeric:${counter}`);
+    } else if (observed !== 0) {
+      errors.push(`${prefix}_protected_effect_nonzero:${counter}`);
+    }
   }
   return errors;
 }
@@ -548,7 +599,12 @@ function hasEvidenceShape(value: unknown): value is OneSeatCanaryEvidence {
   if (!isRecord(value.plan.bindings.manifest) || !isRecord(value.plan.bindings.root_goal) ||
       !isRecord(value.plan.bindings.prior_audits) || !isRecord(value.plan.bindings.requested_target) ||
       !isRecord(value.plan.counters)) return false;
-  return isRecord(value.fixture_receipts) && Array.isArray(value.cycles) &&
+  if (!Array.isArray(value.plan.errors) || !Array.isArray(value.plan.fixture_contracts) ||
+      !value.plan.fixture_contracts.every(isRecord) || !Array.isArray(value.plan.planned_cycles) ||
+      !value.plan.planned_cycles.every(isRecord) || !isRecord(value.plan.next_action) ||
+      !Array.isArray(value.plan.gate_separation.one_seat_fixture_ids) ||
+      !Array.isArray(value.plan.gate_separation.fleet_fixture_ids)) return false;
+  return isRecord(value.fixture_receipts) && Array.isArray(value.cycles) && value.cycles.every(isRecord) &&
     isRecord(value.root_goal) && isRecord(value.counters);
 }
 
