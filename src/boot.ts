@@ -79,7 +79,7 @@ async function boot() {
         let selectedPack = null;
         let continuationCheckpointDigest: string | undefined;
         let rawOutput: string;
-        if (selectedCandidate && isContinuationRecoveryPack(selectedCandidate.content)) {
+        if (selectedCandidate && isContinuationRecoveryPack(selectedCandidate.content, selectedCandidate.metadata)) {
           const consumed = await consumeVerifiedContinuationPack(store, {
             agent_id: AGENT_ID,
             project: PROJECT,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +14,50 @@ import {
 } from "./kusabi-checkpoint-recovery.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { prepareRestart } from "./restart-prepare.js";
+
+interface BootResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+function runSelectedPackBoot(input: {
+  dbPath: string;
+  agentId: string;
+  packRef: string;
+  home: string;
+}): Promise<BootResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("npx", ["tsx", "src/boot.ts"], {
+      env: {
+        ...process.env,
+        HOME: input.home,
+        AGENT_MEMORY_DB_TYPE: "sqlite",
+        AGENT_MEMORY_DB_PATH: input.dbPath,
+        AGENT_MEMORY_AGENT_ID: input.agentId,
+        AGENT_MEMORY_PROJECT: "agent-memory",
+        AGENT_MEMORY_BOOT_MODE: "restart_pack",
+        AGENT_MEMORY_SELECTED_PACK_REF: input.packRef,
+        CLAUDE_SESSION_ID: `boot-${input.agentId}`,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("exit", (code) => resolve({ code: code ?? -1, stdout, stderr }));
+  });
+}
+
+function blockedBootReadback(result: BootResult): Record<string, unknown> {
+  assert.equal(result.code, 0, result.stderr);
+  const line = result.stdout.trim().split("\n")
+    .find((candidate) => candidate.includes('"kusabi-continuation-recovery-readback/v1"'));
+  assert(line, `missing blocked boot readback: ${result.stdout}`);
+  return JSON.parse(line) as Record<string, unknown>;
+}
 
 const priorSessionId = "session-prior-001";
 const baseInput: ContinuationCheckpointInput = {
@@ -117,6 +162,23 @@ async function run(): Promise<void> {
   const backlogVerification = verifyContinuationCheckpoint(backlogCheckpoint);
   assert.equal(backlogVerification.ok, false);
   assert.equal(backlogVerification.supported_source_backlog_after_sync, 1);
+  const regressedCheckpoint = buildContinuationCheckpoint({
+    ...baseInput,
+    recovery: {
+      ...baseInput.recovery,
+      saved_source_cursor: "2026-07-16T01:00:00.000Z",
+    },
+  });
+  const regressedVerification = verifyContinuationCheckpoint(regressedCheckpoint);
+  assert.equal(regressedVerification.ok, false);
+  assert.equal(regressedVerification.status, "blocked");
+  assert(regressedVerification.errors.includes("source_cursor_regressed"));
+  assert.equal(regressedVerification.counters.automatic_effect_count, 0);
+  const nonCanonicalCursor = structuredClone(buildContinuationCheckpoint(baseInput));
+  nonCanonicalCursor.recovery.source_cursor = "2026-07-16T00:02:00Z";
+  const nonCanonicalVerification = verifyContinuationCheckpoint(nonCanonicalCursor);
+  assert.equal(nonCanonicalVerification.ok, false);
+  assert(nonCanonicalVerification.errors.includes("source_cursor_invalid"));
 
   // KUI-004: every required continuation field is present and digest-stable.
   const checkpoint = buildContinuationCheckpoint(baseInput);
@@ -300,9 +362,86 @@ async function run(): Promise<void> {
     assert.equal(results.filter((item) => item.outcome === "full").length, 1);
     assert.equal(results.filter((item) => item.outcome === "blocked").length, 1);
     assert.equal(results.reduce((sum, item) => sum + item.counters.duplicate_launch_effect_count, 0), 0);
+
+    const regressedPack = JSON.parse(recoveryPack.canonical_json) as {
+      checkpoint: { recovery: { source_cursor_before: string } };
+    };
+    regressedPack.checkpoint.recovery.source_cursor_before = "2026-07-16T01:00:00.000Z";
+    const regressedSelected = await store.saveSelectedRestartPack({
+      agent_id: "kusabi",
+      project: "agent-memory",
+      content: JSON.stringify(regressedPack),
+      metadata: recoveryPack.metadata,
+    });
+    const regressedConsume = await consumeVerifiedContinuationPack(store, {
+      agent_id: "kusabi",
+      project: "agent-memory",
+      pack_ref: regressedSelected.pack_ref,
+    });
+    assert.equal(regressedConsume.outcome, "blocked");
+    assert.equal(regressedConsume.continuity_pass_claimed, false);
+    assert.match(regressedConsume.error ?? "", /source_cursor_regressed/);
+    assert.deepEqual(regressedConsume.counters, {
+      duplicate_raw_events: 0,
+      automatic_replay_count: 0,
+      duplicate_launch_effect_count: 0,
+      automatic_effect_count: 0,
+      db_schema_mutation_count: 0,
+      kusabi_queue_mutation_count: 0,
+      kusabi_runtime_restart_count: 0,
+      provider_dispatch_count: 0,
+      aun_mutation_count: 0,
+      external_effect_count: 0,
+    });
   } finally {
     await store.close();
     rmSync(dbRoot, { recursive: true, force: true });
+  }
+
+  // BLOCK regressions: invalid continuation identity can never fall back to legacy output.
+  const bootRoot = mkdtempSync(join(tmpdir(), "kusabi-checkpoint-boot-"));
+  try {
+    const bootDbPath = join(bootRoot, "memory.db");
+    const bootStore = new SqliteStore(bootDbPath);
+    await bootStore.initialize();
+    const recoveryPack = buildContinuationRecoveryPack(checkpoint, "must never escape verification");
+    const corruptSchema = JSON.parse(recoveryPack.canonical_json) as Record<string, unknown>;
+    corruptSchema.schema_version = "kusabi-continuation-recovery-pack/corrupt";
+    const corruptSelected = await bootStore.saveSelectedRestartPack({
+      agent_id: "kusabi-corrupt-schema",
+      project: "agent-memory",
+      content: JSON.stringify(corruptSchema),
+      metadata: recoveryPack.metadata,
+    });
+    const metadataDisagreement = await bootStore.saveSelectedRestartPack({
+      agent_id: "kusabi-metadata-disagreement",
+      project: "agent-memory",
+      content: "# legacy-looking content must not bypass continuation metadata",
+      metadata: recoveryPack.metadata,
+    });
+    await bootStore.close();
+
+    for (const fixture of [
+      { agentId: "kusabi-corrupt-schema", packRef: corruptSelected.pack_ref },
+      { agentId: "kusabi-metadata-disagreement", packRef: metadataDisagreement.pack_ref },
+    ]) {
+      const result = await runSelectedPackBoot({
+        dbPath: bootDbPath,
+        agentId: fixture.agentId,
+        packRef: fixture.packRef,
+        home: bootRoot,
+      });
+      const readback = blockedBootReadback(result);
+      assert.equal(readback.recovery_outcome, "blocked");
+      assert.equal(readback.continuity_pass_claimed, false);
+      assert.equal(readback.automatic_effect_count, 0);
+      assert.equal(readback.queue_mutation_count, 0);
+      assert.equal(readback.runtime_restart_count, 0);
+      assert.equal(result.stdout.includes("must never escape verification"), false);
+      assert.equal(result.stdout.includes("legacy-looking content"), false);
+    }
+  } finally {
+    rmSync(bootRoot, { recursive: true, force: true });
   }
 
   // KUI-012: database failure is blocked/degraded and never claims continuity PASS.
@@ -335,6 +474,7 @@ async function run(): Promise<void> {
   assert.equal(aunVerification.counters.kusabi_runtime_restart_count, 0);
 
   console.log("KUI-003 PASS incremental source sync");
+  console.log("KUI-003 NEGATIVE PASS cursor regression/non-canonical cursor blocked with zero effects");
   console.log("KUI-004 PASS checkpoint completeness");
   console.log("KUI-007 PASS stale and superseded suppression");
   console.log("KUI-008 PASS dirty worktree digest-only recovery");
@@ -342,6 +482,7 @@ async function run(): Promise<void> {
   console.log("KUI-010 PASS selected pack single consume CAS");
   console.log("KUI-012 PASS database unavailable blocks continuity claim");
   console.log("KUI-013 PASS AUN supervision boundary is mutation-free");
+  console.log("BOOT NEGATIVE PASS corrupt wrapper and metadata/content disagreement fail closed");
   console.log("kusabi checkpoint recovery tests passed");
 }
 

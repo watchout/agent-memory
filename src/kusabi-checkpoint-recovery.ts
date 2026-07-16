@@ -410,6 +410,20 @@ export function verifyContinuationCheckpoint(
   if (new Set(checkpoint.recovery.source_event_ids).size !== checkpoint.recovery.source_event_ids.length) {
     errors.push("duplicate_source_event_ids");
   }
+  const sourceCursorBefore = canonicalTimestampMillis(checkpoint.recovery.source_cursor_before);
+  const sourceCursor = canonicalTimestampMillis(checkpoint.recovery.source_cursor);
+  if (sourceCursorBefore === null) {
+    errors.push("source_cursor_before_invalid");
+    mismatchedFields.push("recovery.source_cursor_before");
+  }
+  if (sourceCursor === null) {
+    errors.push("source_cursor_invalid");
+    mismatchedFields.push("recovery.source_cursor");
+  }
+  if (sourceCursorBefore !== null && sourceCursor !== null && sourceCursor < sourceCursorBefore) {
+    errors.push("source_cursor_regressed");
+    mismatchedFields.push("recovery.source_cursor");
+  }
   if (checkpoint.recovery.supported_source_backlog_after_sync !== 0) {
     errors.push("supported_source_backlog_remaining");
   }
@@ -569,9 +583,32 @@ export function verifyContinuationRecoveryPack(
   return { ok: errors.length === 0, errors, pack, verification };
 }
 
-export function isContinuationRecoveryPack(content: string): boolean {
+export function isContinuationRecoveryPack(
+  content: string,
+  metadata: Record<string, unknown> = {},
+): boolean {
+  const continuationMetadataFields = [
+    "continuation_schema_ref",
+    "continuation_pack_schema",
+    "checkpoint_id",
+    "continuation_pack_id",
+    "checkpoint_digest",
+    "continuation_payload_sha256",
+    "continuation_wrapper_sha256",
+    "source_cursor",
+    "source_cursor_before",
+    "source_event_ids",
+  ];
+  if (continuationMetadataFields.some((field) => Object.hasOwn(metadata, field))) return true;
   try {
-    return (JSON.parse(content) as { schema_version?: unknown }).schema_version === CONTINUATION_RECOVERY_PACK_SCHEMA;
+    const parsed = JSON.parse(content) as unknown;
+    if (!isRecord(parsed)) return false;
+    if (parsed.schema_version === CONTINUATION_RECOVERY_PACK_SCHEMA) return true;
+    if (typeof parsed.schema_version === "string" && parsed.schema_version.startsWith("kusabi-continuation-recovery-pack/")) {
+      return true;
+    }
+    return ["checkpoint", "checkpoint_digest", "payload_sha256"]
+      .some((field) => Object.hasOwn(parsed, field));
   } catch {
     return false;
   }
@@ -718,6 +755,15 @@ function requireCanonicalString(value: string, field: string): string {
     throw new Error(`${field} must be a non-empty canonical string`);
   }
   return value;
+}
+
+function canonicalTimestampMillis(value: unknown): number | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return null;
+  }
+  const millis = Date.parse(value);
+  if (!Number.isFinite(millis) || new Date(millis).toISOString() !== value) return null;
+  return millis;
 }
 
 function validateDigestField(value: string, field: string, errors: string[]): void {
