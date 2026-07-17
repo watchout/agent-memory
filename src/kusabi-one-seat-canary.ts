@@ -265,6 +265,11 @@ export interface OneSeatRecoveryExpectation {
     memory_project: string;
     workspace_ref: string;
   };
+  selected_restart_pack: {
+    pack_ref: string;
+    content_sha256: string;
+    readback_source_ref: string;
+  };
 }
 
 export interface OneSeatRecoveryContextReadback {
@@ -285,6 +290,7 @@ export interface OneSeatRecoveryContextReadback {
   selected_restart_pack: {
     pack_ref: string;
     content_sha256: string;
+    readback_source_ref: string;
   };
   source_refs: string[];
 }
@@ -339,6 +345,7 @@ const ACTIVE_NEXT_ACTION_DIGEST = sha256("CELL-ONE-SEAT-CANARY:independent_exact
 export function exactOneSeatRecoveryExpectation(
   exactHeadSha: string,
   exactHeadTree: string,
+  selectedRestartPack: OneSeatRecoveryExpectation["selected_restart_pack"],
 ): OneSeatRecoveryExpectation {
   return {
     cell_id: ONE_SEAT_CELL_ID,
@@ -355,6 +362,7 @@ export function exactOneSeatRecoveryExpectation(
       memory_project: ONE_SEAT_MANIFEST.row.memory_project,
       workspace_ref: ONE_SEAT_MANIFEST.row.workspace_ref,
     },
+    selected_restart_pack: structuredClone(selectedRestartPack),
   };
 }
 
@@ -402,15 +410,24 @@ export function verifyOneSeatRecoveryContext(
   if (!isRecord(pack)) {
     errors.push("selected_restart_pack_missing");
   } else {
-    if (!hasExactKeys(pack, ["pack_ref", "content_sha256"])) errors.push("selected_restart_pack_field_set_mismatch");
-    if (typeof pack.pack_ref !== "string" || !pack.pack_ref.startsWith("selected_restart_pack:")) {
+    if (!hasExactKeys(pack, ["pack_ref", "content_sha256", "readback_source_ref"])) {
+      errors.push("selected_restart_pack_field_set_mismatch");
+    }
+    if (typeof pack.pack_ref !== "string" || !isSelectedRestartPackRef(pack.pack_ref)) {
       errors.push("selected_restart_pack_ref_invalid");
     }
-    if (typeof pack.content_sha256 !== "string" || !isSha256(pack.content_sha256)) {
+    if (typeof pack.content_sha256 !== "string" || !isNonZeroSha256(pack.content_sha256)) {
       errors.push("selected_restart_pack_hash_invalid");
     }
+    if (typeof pack.readback_source_ref !== "string" ||
+        !isSelectedPackReadbackRef(pack.readback_source_ref, pack.pack_ref, pack.content_sha256)) {
+      errors.push("selected_restart_pack_readback_ref_invalid");
+    }
+    if (canonicalJson(pack) !== canonicalJson(expected.selected_restart_pack)) {
+      errors.push("selected_restart_pack_tuple_mismatch");
+    }
   }
-  if (!isNonEmptyStringArray(value.source_refs)) errors.push("recovery_context_source_refs_missing");
+  errors.push(...validateRecoveryContextSourceRefs(value.source_refs, expected.selected_restart_pack));
   return { ok: errors.length === 0, status: errors.length === 0 ? "pass" : "blocked", errors: uniqueStrings(errors) };
 }
 
@@ -441,7 +458,10 @@ export function verifyOneSeatProbeReceipt(
     errors.push("fresh_session_id_missing");
   }
 
-  const probeResult = validateProbeAnswers(value.probe_answers);
+  const probeResult = validateProbeAnswers(
+    value.probe_answers,
+    typeof value.fresh_session_id === "string" ? value.fresh_session_id : "",
+  );
   errors.push(...probeResult.errors);
   if (value.reported_total_score !== probeResult.totalScore) errors.push("reported_total_score_mismatch");
   if (probeResult.totalScore < 26) errors.push("total_score_below_26");
@@ -851,7 +871,7 @@ function blockedMachineReceipt(errors: string[]): OneSeatMachineReceiptVerificat
   };
 }
 
-function validateProbeAnswers(value: unknown): { errors: string[]; totalScore: number } {
+function validateProbeAnswers(value: unknown, freshSessionId: string): { errors: string[]; totalScore: number } {
   if (!Array.isArray(value)) return { errors: ["probe_answers_missing"], totalScore: 0 };
   const errors: string[] = [];
   const observedIds: string[] = [];
@@ -875,7 +895,7 @@ function validateProbeAnswers(value: unknown): { errors: string[]; totalScore: n
     if (typeof answer.rationale !== "string" || answer.rationale.trim().length === 0) {
       errors.push(`probe_rationale_missing:${id || "missing"}`);
     }
-    if (!isNonEmptyStringArray(answer.source_refs)) errors.push(`probe_source_refs_missing:${id || "missing"}`);
+    errors.push(...validateProbeSourceRefs(answer.source_refs, freshSessionId, id));
   }
   const expectedIds = [...ONE_SEAT_PROBE_DIMENSION_IDS].sort();
   if (!sameStrings(observedIds.sort(), expectedIds)) errors.push("probe_dimension_set_mismatch");
@@ -920,6 +940,62 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isSha256(value: string): boolean {
   return /^[a-f0-9]{64}$/.test(value);
+}
+
+function isNonZeroSha256(value: string): boolean {
+  return isSha256(value) && !/^0{64}$/.test(value);
+}
+
+function isUuidV4(value: string): boolean {
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+}
+
+function isSelectedRestartPackRef(value: string): boolean {
+  const match = /^selected_restart_pack:(.+)$/.exec(value);
+  return Boolean(match && isUuidV4(match[1]));
+}
+
+function selectedPackReadbackRef(packRef: string, contentSha256: string): string {
+  return `wasurezu.restart_pack_fetch:${packRef}@sha256:${contentSha256}`;
+}
+
+function isSelectedPackReadbackRef(value: string, packRef: unknown, contentSha256: unknown): boolean {
+  return typeof packRef === "string" && isSelectedRestartPackRef(packRef) &&
+    typeof contentSha256 === "string" && isNonZeroSha256(contentSha256) &&
+    value === selectedPackReadbackRef(packRef, contentSha256);
+}
+
+function validateRecoveryContextSourceRefs(
+  value: unknown,
+  expectedPack: OneSeatRecoveryExpectation["selected_restart_pack"],
+): string[] {
+  if (!isNonEmptyStringArray(value)) return ["recovery_context_source_refs_missing"];
+  const errors: string[] = [];
+  if (new Set(value).size !== value.length) errors.push("recovery_context_source_refs_duplicate");
+  if (!value.every((ref) => ref === expectedPack.readback_source_ref ||
+      /^https:\/\/github\.com\/watchout\/agent-memory\/(?:issues\/180|pull\/257)#issuecomment-[0-9]+$/.test(ref))) {
+    errors.push("recovery_context_source_ref_untrusted");
+  }
+  if (!value.includes(expectedPack.readback_source_ref)) {
+    errors.push("selected_restart_pack_readback_source_missing");
+  }
+  return errors;
+}
+
+function validateProbeSourceRefs(value: unknown, freshSessionId: string, dimensionId: string): string[] {
+  const suffix = dimensionId || "missing";
+  if (!isNonEmptyStringArray(value)) return [`probe_source_refs_missing:${suffix}`];
+  const errors: string[] = [];
+  const receiptRef = `machine_probe_receipt:${freshSessionId}:${dimensionId}`;
+  if (new Set(value).size !== value.length) errors.push(`probe_source_refs_duplicate:${suffix}`);
+  if (!value.every((ref) => ref === receiptRef || /^recovery_quality_log:[a-f0-9-]+$/.test(ref))) {
+    errors.push(`probe_source_ref_untrusted:${suffix}`);
+  }
+  if (!value.some((ref) => ref.startsWith("recovery_quality_log:") && isUuidV4(ref.slice("recovery_quality_log:".length)))) {
+    errors.push(`probe_quality_log_ref_missing:${suffix}`);
+  }
+  if (!value.includes(receiptRef)) errors.push(`probe_receipt_source_binding_missing:${suffix}`);
+  return errors;
 }
 
 function isGitObjectId(value: string): boolean {

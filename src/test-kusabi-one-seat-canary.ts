@@ -236,7 +236,20 @@ assert.equal(shellStopOutput.cycle_2_authorized, false);
 assert.deepEqual(shellStopOutput.counters, ONE_SEAT_ZERO_EFFECTS);
 
 // R2 post-run correction: machine context read-back must bind every current tuple field.
-const recoveryExpectation = exactOneSeatRecoveryExpectation("1".repeat(40), "2".repeat(40));
+const selectedPackId = "123e4567-e89b-42d3-a456-426614174000";
+const selectedPackRef = `selected_restart_pack:${selectedPackId}`;
+const selectedPackHash = "3".repeat(64);
+const selectedPackReadbackRef = `wasurezu.restart_pack_fetch:${selectedPackRef}@sha256:${selectedPackHash}`;
+const selectedPackExpectation = {
+  pack_ref: selectedPackRef,
+  content_sha256: selectedPackHash,
+  readback_source_ref: selectedPackReadbackRef,
+};
+const recoveryExpectation = exactOneSeatRecoveryExpectation(
+  "1".repeat(40),
+  "2".repeat(40),
+  selectedPackExpectation,
+);
 const exactContext = (): OneSeatRecoveryContextReadback => ({
   schema_version: "kusabi-one-seat-recovery-context/v1",
   evidence_kind: "machine_readback",
@@ -250,12 +263,12 @@ const exactContext = (): OneSeatRecoveryContextReadback => ({
   root_goal: structuredClone(recoveryExpectation.root_goal),
   target: structuredClone(recoveryExpectation.target),
   selected_restart_pack: {
-    pack_ref: "selected_restart_pack:machine-receipt-vector",
-    content_sha256: "3".repeat(64),
+    ...selectedPackExpectation,
   },
   source_refs: [
-    "https://github.com/watchout/agent-memory/issues/180",
-    "https://github.com/watchout/agent-memory/pull/257",
+    selectedPackReadbackRef,
+    "https://github.com/watchout/agent-memory/issues/180#issuecomment-4989725991",
+    "https://github.com/watchout/agent-memory/pull/257#issuecomment-4997891805",
   ],
 });
 assert.equal(verifyOneSeatRecoveryContext(exactContext(), recoveryExpectation).ok, true);
@@ -272,7 +285,12 @@ const contextDriftCases: Array<[string, (copy: OneSeatRecoveryContextReadback) =
   ["wrong-project", (copy) => { copy.target.memory_project = "other"; }],
   ["wrong-workspace", (copy) => { copy.target.workspace_ref = "watchout/other"; }],
   ["missing-pack-ref", (copy) => { copy.selected_restart_pack.pack_ref = ""; }],
+  ["empty-pack-id", (copy) => { copy.selected_restart_pack.pack_ref = "selected_restart_pack:"; }],
+  ["invalid-pack-id", (copy) => { copy.selected_restart_pack.pack_ref = "selected_restart_pack:not-a-uuid"; }],
   ["wrong-pack-hash", (copy) => { copy.selected_restart_pack.content_sha256 = "invalid"; }],
+  ["zero-pack-hash", (copy) => { copy.selected_restart_pack.content_sha256 = "0".repeat(64); }],
+  ["wrong-pack-readback", (copy) => { copy.selected_restart_pack.readback_source_ref += "-tampered"; }],
+  ["arbitrary-source-ref", (copy) => { copy.source_refs = ["not-a-provenance-ref"]; }],
   ["missing-source-refs", (copy) => { copy.source_refs = []; }],
 ];
 for (const [label, mutate] of contextDriftCases) {
@@ -281,7 +299,10 @@ for (const [label, mutate] of contextDriftCases) {
   assert.equal(verifyOneSeatRecoveryContext(copy, recoveryExpectation).ok, false, label);
 }
 assert.equal(verifyOneSeatRecoveryContext(undefined, recoveryExpectation).ok, false);
-assert.equal(verifyOneSeatRecoveryContext(exactContext(), exactOneSeatRecoveryExpectation("short", "2".repeat(40))).ok, false);
+assert.equal(verifyOneSeatRecoveryContext(
+  exactContext(),
+  exactOneSeatRecoveryExpectation("short", "2".repeat(40), selectedPackExpectation),
+).ok, false);
 const extraContextField = exactContext() as unknown as Record<string, unknown>;
 extraContextField.untrusted_extra = true;
 assert.equal(verifyOneSeatRecoveryContext(extraContextField, recoveryExpectation).ok, false);
@@ -298,7 +319,10 @@ const exactReceipt = (ordinal: 1 | 2 = 1): OneSeatProbeReceipt => ({
     dimension_id,
     score: index < 3 ? 5 : 4,
     rationale: `machine rationale ${dimension_id}`,
-    source_refs: [`recovery_quality_log:vector-${dimension_id}`],
+    source_refs: [
+      `recovery_quality_log:123e4567-e89b-42d3-a456-42661417400${index}`,
+      `machine_probe_receipt:machine-session-${ordinal}:${dimension_id}`,
+    ],
   })),
   reported_total_score: 27,
   first_recovery_outcome: "full",
@@ -346,6 +370,10 @@ const receiptNegativeCases: Array<[string, (copy: OneSeatProbeReceipt) => void]>
   ["fractional-score", (copy) => { copy.probe_answers[0].score = 4.5; }],
   ["missing-rationale", (copy) => { copy.probe_answers[0].rationale = ""; }],
   ["missing-probe-source", (copy) => { copy.probe_answers[0].source_refs = []; }],
+  ["untrusted-probe-source", (copy) => { copy.probe_answers[0].source_refs = ["not-a-machine-receipt-ref"]; }],
+  ["wrong-probe-session-binding", (copy) => {
+    copy.probe_answers[0].source_refs[1] = `machine_probe_receipt:other-session:${copy.probe_answers[0].dimension_id}`;
+  }],
   ["task-not-continued", (copy) => { copy.task_continued = false; }],
   ["automatic-failure", (copy) => { copy.automatic_failure_count = 1; }],
   ["context-restatement", (copy) => { copy.user_context_restatement_count = 1; }],
@@ -359,6 +387,27 @@ for (const [label, mutate] of receiptNegativeCases) {
   const copy = exactReceipt(1);
   mutate(copy);
   assert.equal(verifyOneSeatProbeReceipt(copy, recoveryExpectation).ok, false, label);
+}
+
+const cycleTwoProvenanceBlockCases: Array<[string, (copy: OneSeatProbeReceipt) => void]> = [
+  ["empty-pack-id-blocks-cycle-two", (copy) => {
+    copy.context.selected_restart_pack.pack_ref = "selected_restart_pack:";
+  }],
+  ["pack-hash-readback-mismatch-blocks-cycle-two", (copy) => {
+    copy.context.selected_restart_pack.content_sha256 = "4".repeat(64);
+  }],
+  ["irrelevant-context-provenance-blocks-cycle-two", (copy) => {
+    copy.context.source_refs = ["not-a-provenance-ref"];
+  }],
+  ["irrelevant-probe-provenance-blocks-cycle-two", (copy) => {
+    copy.probe_answers[0].source_refs = ["not-a-machine-receipt-ref"];
+  }],
+];
+for (const [label, mutate] of cycleTwoProvenanceBlockCases) {
+  const copy = exactReceipt(1);
+  mutate(copy);
+  assert.equal(verifyOneSeatProbeReceipt(copy, recoveryExpectation).ok, false, label);
+  assert.equal(evaluateOneSeatCycleTwoGate(copy, recoveryExpectation).authorized_by_cycle_one_receipt, false, label);
 }
 assert.equal(verifyOneSeatProbeReceipt(undefined, recoveryExpectation).ok, false);
 assert.equal(verifyOneSeatProbeReceipt(evidence, recoveryExpectation).ok, false, "fixture cannot become live receipt");
