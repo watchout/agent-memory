@@ -38,6 +38,9 @@ export const ONE_SEAT_ROOT_GOAL = Object.freeze({
   objective_sha256: "a48b4fbf1192c5e5f288bab61020f2ad0d605fab642d8b58e144cadab9a33682",
 } as const);
 
+export const ONE_SEAT_CELL_ID = "CELL-ONE-SEAT-CANARY" as const;
+export const ONE_SEAT_PROBE_DIMENSION_IDS = Object.freeze(["S1", "S2", "S3", "S4", "S5", "S6"] as const);
+
 const ONE_SEAT_ROOT_GOAL_DURABLE_READBACK_URL =
   "https://github.com/watchout/agent-memory/issues/180#issuecomment-4978795231";
 const ONE_SEAT_ROOT_GOAL_LIFECYCLE_STATE = "ACTIVE_WAITING_FOR_EXACT_HANDOFF";
@@ -247,8 +250,250 @@ export interface OneSeatEvidenceVerification {
   counters: Readonly<OneSeatEffectCounters>;
 }
 
+export interface OneSeatRecoveryExpectation {
+  cell_id: typeof ONE_SEAT_CELL_ID;
+  exact_head_sha: string;
+  exact_head_tree: string;
+  manifest: {
+    manifest_id: string;
+    generation: number;
+    canonical_sha256: string;
+  };
+  root_goal: typeof ONE_SEAT_ROOT_GOAL;
+  target: {
+    agent_id: string;
+    memory_project: string;
+    workspace_ref: string;
+  };
+}
+
+export interface OneSeatRecoveryContextReadback {
+  schema_version: "kusabi-one-seat-recovery-context/v1";
+  evidence_kind: "machine_readback";
+  current_task: {
+    status: "current" | "stale" | "missing";
+    cell_id: string;
+  };
+  exact_head_sha: string;
+  exact_head_tree: string;
+  manifest: OneSeatRecoveryExpectation["manifest"];
+  root_goal: {
+    goal_id: string;
+    objective_sha256: string;
+  };
+  target: OneSeatRecoveryExpectation["target"];
+  selected_restart_pack: {
+    pack_ref: string;
+    content_sha256: string;
+  };
+  source_refs: string[];
+}
+
+export interface OneSeatProbeAnswer {
+  dimension_id: typeof ONE_SEAT_PROBE_DIMENSION_IDS[number];
+  score: number;
+  rationale: string;
+  source_refs: string[];
+}
+
+export interface OneSeatProbeReceipt {
+  schema_version: "kusabi-one-seat-probe-receipt/v1";
+  evidence_kind: "machine_probe_receipt";
+  cycle_ordinal: 1 | 2;
+  cycle_kind: "normal_exit" | "planned_crash_safe_boundary";
+  fresh_session_id: string;
+  context: OneSeatRecoveryContextReadback;
+  probe_answers: OneSeatProbeAnswer[];
+  reported_total_score: number;
+  first_recovery_outcome: "full" | "partial" | "degraded" | "failed" | "invalid";
+  task_continued: boolean;
+  safe_boundary_reached: boolean;
+  automatic_failure_count: number;
+  user_context_restatement_count: number;
+  required_manifest_field_match_rate: number;
+  correct_identity_rate: number;
+  duplicate_effect_count: number;
+  protected_effects: OneSeatEffectCounters;
+}
+
+export interface OneSeatMachineReceiptVerification {
+  ok: boolean;
+  status: "pass" | "blocked";
+  errors: string[];
+  total_score: number;
+  minimum_required_score: 26;
+  receipt_contract_verified: boolean;
+  live_acceptance_verified: false;
+  post_run_audit_required: true;
+}
+
+export interface OneSeatCycleTwoGate {
+  authorized_by_cycle_one_receipt: boolean;
+  errors: string[];
+  live_execution_authorized: false;
+}
+
 const UNMET_ACCEPTANCE_SET_DIGEST = sha256("KUI-005,KUI-006,KUI-015,KUI-017,KUI-018,KUI-019,KUI-020");
 const ACTIVE_NEXT_ACTION_DIGEST = sha256("CELL-ONE-SEAT-CANARY:independent_exact_head_audit_before_any_live_go");
+
+export function exactOneSeatRecoveryExpectation(
+  exactHeadSha: string,
+  exactHeadTree: string,
+): OneSeatRecoveryExpectation {
+  return {
+    cell_id: ONE_SEAT_CELL_ID,
+    exact_head_sha: exactHeadSha,
+    exact_head_tree: exactHeadTree,
+    manifest: {
+      manifest_id: ONE_SEAT_MANIFEST.manifest_id,
+      generation: ONE_SEAT_MANIFEST.generation,
+      canonical_sha256: ONE_SEAT_MANIFEST.canonical_sha256,
+    },
+    root_goal: { ...ONE_SEAT_ROOT_GOAL },
+    target: {
+      agent_id: ONE_SEAT_MANIFEST.row.agent_id,
+      memory_project: ONE_SEAT_MANIFEST.row.memory_project,
+      workspace_ref: ONE_SEAT_MANIFEST.row.workspace_ref,
+    },
+  };
+}
+
+export function verifyOneSeatRecoveryContext(
+  value: unknown,
+  expected: OneSeatRecoveryExpectation,
+): { ok: boolean; status: "pass" | "blocked"; errors: string[] } {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { ok: false, status: "blocked", errors: ["recovery_context_missing"] };
+  if (!hasExactKeys(value, [
+    "schema_version", "evidence_kind", "current_task", "exact_head_sha", "exact_head_tree",
+    "manifest", "root_goal", "target", "selected_restart_pack", "source_refs",
+  ])) errors.push("recovery_context_field_set_mismatch");
+  if (value.schema_version !== "kusabi-one-seat-recovery-context/v1") errors.push("recovery_context_schema_invalid");
+  if (value.evidence_kind !== "machine_readback") errors.push("recovery_context_not_machine_readback");
+
+  const currentTask = value.current_task;
+  if (!isRecord(currentTask)) {
+    errors.push("current_task_missing");
+  } else {
+    if (!hasExactKeys(currentTask, ["status", "cell_id"])) errors.push("current_task_field_set_mismatch");
+    if (currentTask.status !== "current") errors.push(`current_task_${String(currentTask.status || "missing")}`);
+    if (currentTask.cell_id !== expected.cell_id) errors.push("current_task_cell_mismatch");
+  }
+
+  if (!isGitObjectId(expected.exact_head_sha) || !isGitObjectId(expected.exact_head_tree)) {
+    errors.push("expected_exact_head_or_tree_invalid");
+  }
+  if (value.exact_head_sha !== expected.exact_head_sha) errors.push("exact_head_mismatch");
+  if (value.exact_head_tree !== expected.exact_head_tree) errors.push("exact_tree_mismatch");
+  if (!isRecord(value.manifest) || !hasExactKeys(value.manifest, ["manifest_id", "generation", "canonical_sha256"])) {
+    errors.push("manifest_field_set_mismatch");
+  }
+  if (!isRecord(value.root_goal) || !hasExactKeys(value.root_goal, ["goal_id", "objective_sha256"])) {
+    errors.push("root_goal_field_set_mismatch");
+  }
+  if (!isRecord(value.target) || !hasExactKeys(value.target, ["agent_id", "memory_project", "workspace_ref"])) {
+    errors.push("target_field_set_mismatch");
+  }
+  if (canonicalJson(value.manifest) !== canonicalJson(expected.manifest)) errors.push("manifest_tuple_mismatch");
+  if (canonicalJson(value.root_goal) !== canonicalJson(expected.root_goal)) errors.push("root_goal_tuple_mismatch");
+  if (canonicalJson(value.target) !== canonicalJson(expected.target)) errors.push("target_tuple_mismatch");
+
+  const pack = value.selected_restart_pack;
+  if (!isRecord(pack)) {
+    errors.push("selected_restart_pack_missing");
+  } else {
+    if (!hasExactKeys(pack, ["pack_ref", "content_sha256"])) errors.push("selected_restart_pack_field_set_mismatch");
+    if (typeof pack.pack_ref !== "string" || !pack.pack_ref.startsWith("selected_restart_pack:")) {
+      errors.push("selected_restart_pack_ref_invalid");
+    }
+    if (typeof pack.content_sha256 !== "string" || !isSha256(pack.content_sha256)) {
+      errors.push("selected_restart_pack_hash_invalid");
+    }
+  }
+  if (!isNonEmptyStringArray(value.source_refs)) errors.push("recovery_context_source_refs_missing");
+  return { ok: errors.length === 0, status: errors.length === 0 ? "pass" : "blocked", errors: uniqueStrings(errors) };
+}
+
+export function verifyOneSeatProbeReceipt(
+  value: unknown,
+  expected: OneSeatRecoveryExpectation,
+  priorCycleOneReceipt?: unknown,
+): OneSeatMachineReceiptVerification {
+  const errors: string[] = [];
+  if (!isRecord(value)) return blockedMachineReceipt(["probe_receipt_missing"]);
+  if (!hasExactKeys(value, [
+    "schema_version", "evidence_kind", "cycle_ordinal", "cycle_kind", "fresh_session_id", "context",
+    "probe_answers", "reported_total_score", "first_recovery_outcome", "task_continued",
+    "safe_boundary_reached", "automatic_failure_count", "user_context_restatement_count",
+    "required_manifest_field_match_rate", "correct_identity_rate", "duplicate_effect_count", "protected_effects",
+  ])) errors.push("probe_receipt_field_set_mismatch");
+  if (value.schema_version !== "kusabi-one-seat-probe-receipt/v1") errors.push("probe_receipt_schema_invalid");
+  if (value.evidence_kind !== "machine_probe_receipt") errors.push("probe_receipt_not_machine_evidence");
+
+  const contextResult = verifyOneSeatRecoveryContext(value.context, expected);
+  errors.push(...contextResult.errors.map((error) => `context:${error}`));
+  const ordinal = value.cycle_ordinal;
+  const kind = value.cycle_kind;
+  if (ordinal !== 1 && ordinal !== 2) errors.push("cycle_ordinal_invalid");
+  if (ordinal === 1 && kind !== "normal_exit") errors.push("cycle_1_kind_mismatch");
+  if (ordinal === 2 && kind !== "planned_crash_safe_boundary") errors.push("cycle_2_kind_mismatch");
+  if (typeof value.fresh_session_id !== "string" || value.fresh_session_id.trim().length === 0) {
+    errors.push("fresh_session_id_missing");
+  }
+
+  const probeResult = validateProbeAnswers(value.probe_answers);
+  errors.push(...probeResult.errors);
+  if (value.reported_total_score !== probeResult.totalScore) errors.push("reported_total_score_mismatch");
+  if (probeResult.totalScore < 26) errors.push("total_score_below_26");
+  if (value.first_recovery_outcome !== "full") errors.push("recovery_outcome_not_full");
+  if (value.task_continued !== true) errors.push("task_not_continued");
+  if (typeof value.safe_boundary_reached !== "boolean") errors.push("safe_boundary_state_invalid");
+  if (ordinal === 2 && value.safe_boundary_reached !== true) errors.push("cycle_2_safe_boundary_missing");
+  if (value.automatic_failure_count !== 0) errors.push("automatic_failure_present");
+  if (value.user_context_restatement_count !== 0) errors.push("context_restatement_present");
+  if (value.required_manifest_field_match_rate !== 1) errors.push("manifest_field_match_not_exact");
+  if (value.correct_identity_rate !== 1) errors.push("identity_rate_not_exact");
+  if (value.duplicate_effect_count !== 0) errors.push("duplicate_effect_present");
+  errors.push(...validateLiveReceiptEffects(value.protected_effects));
+
+  if (ordinal === 2) {
+    const first = verifyOneSeatProbeReceipt(priorCycleOneReceipt, expected);
+    if (!first.ok) errors.push("cycle_2_blocked_by_cycle_1");
+    if (isRecord(priorCycleOneReceipt) && priorCycleOneReceipt.cycle_ordinal !== 1) {
+      errors.push("cycle_2_prior_receipt_not_cycle_1");
+    }
+    if (isRecord(priorCycleOneReceipt) && priorCycleOneReceipt.fresh_session_id === value.fresh_session_id) {
+      errors.push("cycle_session_id_reused");
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    status: errors.length === 0 ? "pass" : "blocked",
+    errors: uniqueStrings(errors),
+    total_score: probeResult.totalScore,
+    minimum_required_score: 26,
+    receipt_contract_verified: errors.length === 0,
+    live_acceptance_verified: false,
+    post_run_audit_required: true,
+  };
+}
+
+export function evaluateOneSeatCycleTwoGate(
+  cycleOneReceipt: unknown,
+  expected: OneSeatRecoveryExpectation,
+): OneSeatCycleTwoGate {
+  const verification = verifyOneSeatProbeReceipt(cycleOneReceipt, expected);
+  return {
+    authorized_by_cycle_one_receipt: verification.ok,
+    errors: verification.ok ? [] : uniqueStrings(["cycle_2_blocked_by_cycle_1", ...verification.errors]),
+    live_execution_authorized: false,
+  };
+}
+
+export function canonicalOneSeatProbeReceiptDigest(receipt: OneSeatProbeReceipt): string {
+  return sha256(canonicalJson(receipt));
+}
 
 export function exactOneSeatCanaryInput(mode: OneSeatCanaryMode = "dry-run"): OneSeatCanaryInput {
   return {
@@ -593,6 +838,67 @@ function blockedEvidence(errors: string[]): OneSeatEvidenceVerification {
   };
 }
 
+function blockedMachineReceipt(errors: string[]): OneSeatMachineReceiptVerification {
+  return {
+    ok: false,
+    status: "blocked",
+    errors,
+    total_score: 0,
+    minimum_required_score: 26,
+    receipt_contract_verified: false,
+    live_acceptance_verified: false,
+    post_run_audit_required: true,
+  };
+}
+
+function validateProbeAnswers(value: unknown): { errors: string[]; totalScore: number } {
+  if (!Array.isArray(value)) return { errors: ["probe_answers_missing"], totalScore: 0 };
+  const errors: string[] = [];
+  const observedIds: string[] = [];
+  let totalScore = 0;
+  for (const answer of value) {
+    if (!isRecord(answer)) {
+      errors.push("probe_answer_invalid");
+      continue;
+    }
+    const id = typeof answer.dimension_id === "string" ? answer.dimension_id : "";
+    if (!hasExactKeys(answer, ["dimension_id", "score", "rationale", "source_refs"])) {
+      errors.push(`probe_answer_field_set_mismatch:${id || "missing"}`);
+    }
+    observedIds.push(id);
+    if (!(ONE_SEAT_PROBE_DIMENSION_IDS as readonly string[]).includes(id)) errors.push(`probe_dimension_invalid:${id || "missing"}`);
+    if (!Number.isInteger(answer.score) || Number(answer.score) < 0 || Number(answer.score) > 5) {
+      errors.push(`probe_score_invalid:${id || "missing"}`);
+    } else {
+      totalScore += Number(answer.score);
+    }
+    if (typeof answer.rationale !== "string" || answer.rationale.trim().length === 0) {
+      errors.push(`probe_rationale_missing:${id || "missing"}`);
+    }
+    if (!isNonEmptyStringArray(answer.source_refs)) errors.push(`probe_source_refs_missing:${id || "missing"}`);
+  }
+  const expectedIds = [...ONE_SEAT_PROBE_DIMENSION_IDS].sort();
+  if (!sameStrings(observedIds.sort(), expectedIds)) errors.push("probe_dimension_set_mismatch");
+  return { errors: uniqueStrings(errors), totalScore };
+}
+
+function validateLiveReceiptEffects(value: unknown): string[] {
+  if (!isRecord(value)) return ["protected_effect_counters_missing"];
+  const errors: string[] = [];
+  const keys = Object.keys(value).sort();
+  if (!sameStrings(keys, [...ONE_SEAT_EFFECT_COUNTER_KEYS])) errors.push("protected_effect_counter_set_mismatch");
+  for (const key of ONE_SEAT_EFFECT_COUNTER_KEYS) {
+    const observed = value[key];
+    if (!Number.isInteger(observed) || Number(observed) < 0) {
+      errors.push(`protected_effect_counter_invalid:${key}`);
+      continue;
+    }
+    const expected = key === "live_launch_count" ? 1 : 0;
+    if (observed !== expected) errors.push(`protected_effect_counter_mismatch:${key}`);
+  }
+  return errors;
+}
+
 function hasEvidenceShape(value: unknown): value is OneSeatCanaryEvidence {
   if (!isRecord(value) || value.schema_version !== "kusabi-one-seat-canary-evidence/v1") return false;
   if (!isRecord(value.plan) || !isRecord(value.plan.bindings) || !isRecord(value.plan.gate_separation)) return false;
@@ -610,6 +916,24 @@ function hasEvidenceShape(value: unknown): value is OneSeatCanaryEvidence {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSha256(value: string): boolean {
+  return /^[a-f0-9]{64}$/.test(value);
+}
+
+function isGitObjectId(value: string): boolean {
+  return /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
+}
+
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(
+    (item) => typeof item === "string" && item.trim().length > 0,
+  );
+}
+
+function hasExactKeys(value: Record<string, unknown>, expected: string[]): boolean {
+  return sameStrings(Object.keys(value).sort(), [...expected].sort());
 }
 
 function uniqueStrings(values: string[]): string[] {

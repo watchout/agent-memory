@@ -3,13 +3,21 @@ import { spawnSync } from "node:child_process";
 import {
   ONE_SEAT_FIXTURE_IDS,
   ONE_SEAT_MANIFEST,
+  ONE_SEAT_PROBE_DIMENSION_IDS,
   ONE_SEAT_ROOT_GOAL,
   ONE_SEAT_ZERO_EFFECTS,
   buildDeterministicOneSeatCanaryEvidence,
   buildOneSeatCanaryPlan,
   canonicalOneSeatCanaryPlanDigest,
+  canonicalOneSeatProbeReceiptDigest,
+  evaluateOneSeatCycleTwoGate,
   exactOneSeatCanaryInput,
+  exactOneSeatRecoveryExpectation,
   verifyOneSeatCanaryEvidence,
+  verifyOneSeatProbeReceipt,
+  verifyOneSeatRecoveryContext,
+  type OneSeatProbeReceipt,
+  type OneSeatRecoveryContextReadback,
 } from "./kusabi-one-seat-canary.js";
 
 const plan = buildOneSeatCanaryPlan(exactOneSeatCanaryInput());
@@ -215,11 +223,161 @@ assert.equal(shellLiveStop.status, 3);
 const shellStopOutput = JSON.parse(shellLiveStop.stdout) as {
   status: string;
   live_execution_performed: boolean;
+  machine_probe_receipt_required: boolean;
+  deterministic_fixture_eligible_for_live_acceptance: boolean;
+  cycle_2_authorized: boolean;
   counters: typeof ONE_SEAT_ZERO_EFFECTS;
 };
 assert.equal(shellStopOutput.status, "stopped");
 assert.equal(shellStopOutput.live_execution_performed, false);
+assert.equal(shellStopOutput.machine_probe_receipt_required, true);
+assert.equal(shellStopOutput.deterministic_fixture_eligible_for_live_acceptance, false);
+assert.equal(shellStopOutput.cycle_2_authorized, false);
 assert.deepEqual(shellStopOutput.counters, ONE_SEAT_ZERO_EFFECTS);
+
+// R2 post-run correction: machine context read-back must bind every current tuple field.
+const recoveryExpectation = exactOneSeatRecoveryExpectation("1".repeat(40), "2".repeat(40));
+const exactContext = (): OneSeatRecoveryContextReadback => ({
+  schema_version: "kusabi-one-seat-recovery-context/v1",
+  evidence_kind: "machine_readback",
+  current_task: {
+    status: "current",
+    cell_id: recoveryExpectation.cell_id,
+  },
+  exact_head_sha: recoveryExpectation.exact_head_sha,
+  exact_head_tree: recoveryExpectation.exact_head_tree,
+  manifest: structuredClone(recoveryExpectation.manifest),
+  root_goal: structuredClone(recoveryExpectation.root_goal),
+  target: structuredClone(recoveryExpectation.target),
+  selected_restart_pack: {
+    pack_ref: "selected_restart_pack:machine-receipt-vector",
+    content_sha256: "3".repeat(64),
+  },
+  source_refs: [
+    "https://github.com/watchout/agent-memory/issues/180",
+    "https://github.com/watchout/agent-memory/pull/257",
+  ],
+});
+assert.equal(verifyOneSeatRecoveryContext(exactContext(), recoveryExpectation).ok, true);
+
+const contextDriftCases: Array<[string, (copy: OneSeatRecoveryContextReadback) => void]> = [
+  ["stale-task", (copy) => { copy.current_task.status = "stale"; }],
+  ["wrong-cell", (copy) => { copy.current_task.cell_id = "CELL-OLD"; }],
+  ["wrong-head", (copy) => { copy.exact_head_sha = "4".repeat(40); }],
+  ["wrong-tree", (copy) => { copy.exact_head_tree = "5".repeat(40); }],
+  ["wrong-manifest", (copy) => { copy.manifest.canonical_sha256 = "6".repeat(64); }],
+  ["wrong-goal", (copy) => { copy.root_goal.goal_id = "wrong-goal"; }],
+  ["wrong-objective", (copy) => { copy.root_goal.objective_sha256 = "7".repeat(64); }],
+  ["wrong-agent", (copy) => { copy.target.agent_id = "arc"; }],
+  ["wrong-project", (copy) => { copy.target.memory_project = "other"; }],
+  ["wrong-workspace", (copy) => { copy.target.workspace_ref = "watchout/other"; }],
+  ["missing-pack-ref", (copy) => { copy.selected_restart_pack.pack_ref = ""; }],
+  ["wrong-pack-hash", (copy) => { copy.selected_restart_pack.content_sha256 = "invalid"; }],
+  ["missing-source-refs", (copy) => { copy.source_refs = []; }],
+];
+for (const [label, mutate] of contextDriftCases) {
+  const copy = exactContext();
+  mutate(copy);
+  assert.equal(verifyOneSeatRecoveryContext(copy, recoveryExpectation).ok, false, label);
+}
+assert.equal(verifyOneSeatRecoveryContext(undefined, recoveryExpectation).ok, false);
+assert.equal(verifyOneSeatRecoveryContext(exactContext(), exactOneSeatRecoveryExpectation("short", "2".repeat(40))).ok, false);
+const extraContextField = exactContext() as unknown as Record<string, unknown>;
+extraContextField.untrusted_extra = true;
+assert.equal(verifyOneSeatRecoveryContext(extraContextField, recoveryExpectation).ok, false);
+
+const liveEffects = () => ({ ...ONE_SEAT_ZERO_EFFECTS, live_launch_count: 1 });
+const exactReceipt = (ordinal: 1 | 2 = 1): OneSeatProbeReceipt => ({
+  schema_version: "kusabi-one-seat-probe-receipt/v1",
+  evidence_kind: "machine_probe_receipt",
+  cycle_ordinal: ordinal,
+  cycle_kind: ordinal === 1 ? "normal_exit" : "planned_crash_safe_boundary",
+  fresh_session_id: `machine-session-${ordinal}`,
+  context: exactContext(),
+  probe_answers: ONE_SEAT_PROBE_DIMENSION_IDS.map((dimension_id, index) => ({
+    dimension_id,
+    score: index < 3 ? 5 : 4,
+    rationale: `machine rationale ${dimension_id}`,
+    source_refs: [`recovery_quality_log:vector-${dimension_id}`],
+  })),
+  reported_total_score: 27,
+  first_recovery_outcome: "full",
+  task_continued: true,
+  safe_boundary_reached: ordinal === 2,
+  automatic_failure_count: 0,
+  user_context_restatement_count: 0,
+  required_manifest_field_match_rate: 1,
+  correct_identity_rate: 1,
+  duplicate_effect_count: 0,
+  protected_effects: liveEffects(),
+});
+
+const firstReceipt = exactReceipt(1);
+const firstReceiptVerification = verifyOneSeatProbeReceipt(firstReceipt, recoveryExpectation);
+assert.equal(firstReceiptVerification.ok, true);
+assert.equal(firstReceiptVerification.total_score, 27);
+assert.equal(firstReceiptVerification.receipt_contract_verified, true);
+assert.equal(firstReceiptVerification.live_acceptance_verified, false);
+assert.equal(firstReceiptVerification.post_run_audit_required, true);
+assert.equal(evaluateOneSeatCycleTwoGate(firstReceipt, recoveryExpectation).authorized_by_cycle_one_receipt, true);
+assert.equal(evaluateOneSeatCycleTwoGate(firstReceipt, recoveryExpectation).live_execution_authorized, false);
+
+const secondReceipt = exactReceipt(2);
+assert.equal(verifyOneSeatProbeReceipt(secondReceipt, recoveryExpectation, firstReceipt).ok, true);
+const reusedSession = exactReceipt(2);
+reusedSession.fresh_session_id = firstReceipt.fresh_session_id;
+assert.equal(verifyOneSeatProbeReceipt(reusedSession, recoveryExpectation, firstReceipt).ok, false);
+
+const scoreBelowThreshold = exactReceipt(1);
+scoreBelowThreshold.probe_answers[0].score = 3;
+scoreBelowThreshold.reported_total_score = 25;
+const belowThresholdVerification = verifyOneSeatProbeReceipt(scoreBelowThreshold, recoveryExpectation);
+assert.equal(belowThresholdVerification.ok, false);
+assert(belowThresholdVerification.errors.includes("total_score_below_26"));
+const stoppedCycleTwo = evaluateOneSeatCycleTwoGate(scoreBelowThreshold, recoveryExpectation);
+assert.equal(stoppedCycleTwo.authorized_by_cycle_one_receipt, false);
+assert.equal(stoppedCycleTwo.live_execution_authorized, false);
+assert(stoppedCycleTwo.errors.includes("cycle_2_blocked_by_cycle_1"));
+
+const receiptNegativeCases: Array<[string, (copy: OneSeatProbeReceipt) => void]> = [
+  ["stale-context", (copy) => { copy.context.current_task.status = "stale"; }],
+  ["reported-score-mismatch", (copy) => { copy.reported_total_score = 30; }],
+  ["missing-dimension", (copy) => { copy.probe_answers.pop(); }],
+  ["fractional-score", (copy) => { copy.probe_answers[0].score = 4.5; }],
+  ["missing-rationale", (copy) => { copy.probe_answers[0].rationale = ""; }],
+  ["missing-probe-source", (copy) => { copy.probe_answers[0].source_refs = []; }],
+  ["task-not-continued", (copy) => { copy.task_continued = false; }],
+  ["automatic-failure", (copy) => { copy.automatic_failure_count = 1; }],
+  ["context-restatement", (copy) => { copy.user_context_restatement_count = 1; }],
+  ["manifest-rate", (copy) => { copy.required_manifest_field_match_rate = 0.99; }],
+  ["identity-rate", (copy) => { copy.correct_identity_rate = 0; }],
+  ["duplicate-effect", (copy) => { copy.duplicate_effect_count = 1; }],
+  ["protected-effect", (copy) => { copy.protected_effects.queue_mutation_count = 1; }],
+  ["launch-count", (copy) => { copy.protected_effects.live_launch_count = 0; }],
+];
+for (const [label, mutate] of receiptNegativeCases) {
+  const copy = exactReceipt(1);
+  mutate(copy);
+  assert.equal(verifyOneSeatProbeReceipt(copy, recoveryExpectation).ok, false, label);
+}
+assert.equal(verifyOneSeatProbeReceipt(undefined, recoveryExpectation).ok, false);
+assert.equal(verifyOneSeatProbeReceipt(evidence, recoveryExpectation).ok, false, "fixture cannot become live receipt");
+const extraReceiptField = exactReceipt(1) as unknown as Record<string, unknown>;
+extraReceiptField.self_asserted_pass = true;
+assert.equal(verifyOneSeatProbeReceipt(extraReceiptField, recoveryExpectation).ok, false);
+
+const missingPriorForCycleTwo = verifyOneSeatProbeReceipt(exactReceipt(2), recoveryExpectation);
+assert.equal(missingPriorForCycleTwo.ok, false);
+assert(missingPriorForCycleTwo.errors.includes("cycle_2_blocked_by_cycle_1"));
+const missingSafeBoundary = exactReceipt(2);
+missingSafeBoundary.safe_boundary_reached = false;
+assert.equal(verifyOneSeatProbeReceipt(missingSafeBoundary, recoveryExpectation, firstReceipt).ok, false);
+
+const receiptDigest = canonicalOneSeatProbeReceiptDigest(firstReceipt);
+assert.match(receiptDigest, /^[a-f0-9]{64}$/);
+const tamperedReceipt = structuredClone(firstReceipt);
+tamperedReceipt.task_continued = false;
+assert.notEqual(canonicalOneSeatProbeReceiptDigest(tamperedReceipt), receiptDigest);
 
 console.log("KUI-005 PASS normal-exit deterministic fresh-session contract");
 console.log("KUI-006 PASS planned-crash safe-boundary deterministic contract");
@@ -232,4 +390,8 @@ console.log("KUI-PROTECTED-PLAN-FLAGS-001 BLOCK contradictory protected plan fla
 console.log("KUI-GATE-SEPARATION-VERIFIER-001 BLOCK collapsed gate identities and fixture set");
 console.log("KUI-ROOT-GOAL-LIFECYCLE-001 BLOCK terminal/substituted root tuple");
 console.log("PROTECTED STOP PASS live modes exit before every effect");
+console.log("KUI-MACHINE-CONTEXT-001 PASS exact current tuple and selected-pack fail-closed validation");
+console.log("KUI-MACHINE-RECEIPT-001 PASS S1-S6 score/provenance receipt validation");
+console.log("KUI-CYCLE2-STOP-001 PASS stale/missing/below-threshold Cycle 1 blocks Cycle 2");
+console.log("KUI-FIXTURE-LIVE-SEPARATION-001 PASS deterministic fixtures cannot become live receipts");
 console.log("kusabi one-seat canary tests passed");

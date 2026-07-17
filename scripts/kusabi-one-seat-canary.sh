@@ -32,7 +32,7 @@ while (($#)); do
 done
 
 if [[ "$MODE" != "dry-run" ]]; then
-  printf '{"schema_version":"kusabi-one-seat-canary-stop/v1","status":"stopped","stop_reason":"separate_exact_head_protected_owner_go_required","live_execution_performed":false,"protected_effect_boundary_reached":false,"counters":{"live_launch_count":0,"automatic_restart_count":0,"aun_mutation_count":0,"queue_mutation_count":0,"external_send_count":0,"provider_dispatch_count":0,"schema_mutation_count":0,"fleet_rollout_count":0,"other_agent_goal_api_mutation_count":0,"child_goal_overwrite_count":0,"sent_queued_pending_progress_increment":0}}\n'
+  printf '{"schema_version":"kusabi-one-seat-canary-stop/v1","status":"stopped","stop_reason":"separate_exact_head_protected_owner_go_required","live_execution_performed":false,"protected_effect_boundary_reached":false,"machine_probe_receipt_required":true,"deterministic_fixture_eligible_for_live_acceptance":false,"cycle_2_authorized":false,"counters":{"live_launch_count":0,"automatic_restart_count":0,"aun_mutation_count":0,"queue_mutation_count":0,"external_send_count":0,"provider_dispatch_count":0,"schema_mutation_count":0,"fleet_rollout_count":0,"other_agent_goal_api_mutation_count":0,"child_goal_overwrite_count":0,"sent_queued_pending_progress_increment":0}}\n'
   exit 3
 fi
 
