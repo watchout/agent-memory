@@ -7,6 +7,7 @@
  * bridge generates a restart_pack-backed initial prompt and can optionally
  * launch Codex with that prompt.
  */
+import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
@@ -37,9 +38,63 @@ export interface CodexStartCliOptions {
   extraInstruction?: string;
 }
 
+export interface CodexMcpBinding {
+  serverName: "wasurezu";
+  command: "node";
+  args: [string];
+  agentId: "kusabi";
+  project: "agent-memory";
+  databaseUrlSha256: string;
+}
+
+export interface CodexMcpPreflightReport {
+  server_name: "wasurezu";
+  transport: "stdio";
+  command_exact_match: true;
+  args_exact_match: true;
+  agent_id_exact_match: true;
+  project_exact_match: true;
+  backend: "postgresql";
+  database_url_sha256: string;
+  database_url_exact_match: true;
+}
+
+export interface PreparedCodexLaunch {
+  codexBin: string;
+  binding: CodexMcpBinding;
+  overrideArgs: string[];
+  preflight: CodexMcpPreflightReport;
+}
+
+export type CodexMcpBindingErrorCode =
+  | "EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED"
+  | "MCP_COMMAND_OR_ARGS_MISMATCH"
+  | "MCP_AGENT_ID_OR_PROJECT_MISMATCH"
+  | "MCP_BACKEND_OR_DSN_FINGERPRINT_MISMATCH";
+
+export class CodexMcpBindingError extends Error {
+  constructor(public readonly code: CodexMcpBindingErrorCode) {
+    super(code);
+    this.name = "CodexMcpBindingError";
+  }
+}
+
+export interface CodexLaunchDependencies {
+  binding?: CodexMcpBinding;
+  preparedLaunch?: PreparedCodexLaunch;
+  preflightCommand?: (bin: string, args: string[]) => CodexDoctorCommandResult;
+  launchCommand?: (bin: string, args: string[], env: NodeJS.ProcessEnv) => Promise<void>;
+}
+
 export const CODEX_STARTUP_BRIDGE_ENV = "codex_startup_bridge_v1";
 export const CODEX_POSITIONAL_PROMPT_CONTRACT = "codex [OPTIONS] [PROMPT]";
 export const CODEX_PROMPT_DELIVERY_MODE = "positional-prompt-argv";
+export const CODEX_WASUREZU_MCP_COMMAND = "node";
+export const CODEX_WASUREZU_MCP_ARGS = ["/Users/yuji/Developer/agent-memory/dist/index.js"] as const;
+export const CODEX_WASUREZU_AGENT_ID = "kusabi";
+export const CODEX_WASUREZU_PROJECT = "agent-memory";
+export const CODEX_WASUREZU_DATABASE_URL_SHA256 =
+  "a5e8d0958e306e16faa469f94a23b3f30cb316fad82772c79d4dec15d22d8ce4";
 export const CODEX_ARGV_VISIBILITY_NOTE =
   "Codex prompt delivery currently uses a positional prompt argument unless a verified stdin or prompt-file Codex surface is available; this can expose the bounded restart_pack in the Codex process argv.";
 
@@ -153,6 +208,10 @@ async function run() {
     return;
   }
 
+  const preparedLaunch = options.launch && !options.dryRun
+    ? prepareCodexLaunch(options)
+    : undefined;
+
   const store = await createStore();
 
   try {
@@ -181,7 +240,7 @@ async function run() {
       return;
     }
 
-    await launchCodex(options, prompt);
+    await launchCodex(options, prompt, { preparedLaunch });
     await logCodexStartupQuality(store, restartPack, { launchRequested: true, launchedCodex: true });
   } finally {
     await store.close();
@@ -210,11 +269,47 @@ export async function logCodexStartupQuality(
   });
 }
 
-function launchCodex(options: CodexStartCliOptions, prompt: string): Promise<void> {
+export async function launchCodex(
+  options: CodexStartCliOptions,
+  prompt: string,
+  dependencies: CodexLaunchDependencies = {}
+): Promise<void> {
+  const prepared = dependencies.preparedLaunch ?? prepareCodexLaunch(options, dependencies);
+  if (prepared.codexBin !== options.codexBin) {
+    throw new CodexMcpBindingError("MCP_COMMAND_OR_ARGS_MISMATCH");
+  }
+  await (dependencies.launchCommand ?? runCodexLaunchCommand)(
+    options.codexBin,
+    buildCodexLaunchArgs(options, prompt, prepared.overrideArgs),
+    buildCodexLaunchEnv(process.env)
+  );
+}
+
+export function prepareCodexLaunch(
+  options: Pick<CodexStartCliOptions, "codexBin">,
+  dependencies: Pick<CodexLaunchDependencies, "binding" | "preflightCommand"> = {}
+): PreparedCodexLaunch {
+  const binding = dependencies.binding ?? buildApprovedCodexMcpBinding(process.env);
+  const overrideArgs = buildCodexMcpOverrideArgs(binding);
+  const preflight = preflightCodexMcpBinding(
+    options.codexBin,
+    binding,
+    overrideArgs,
+    dependencies.preflightCommand ?? runCodexMcpPreflightCommand
+  );
+  return {
+    codexBin: options.codexBin,
+    binding,
+    overrideArgs,
+    preflight,
+  };
+}
+
+function runCodexLaunchCommand(bin: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(options.codexBin, buildCodexLaunchArgs(options, prompt), {
+    const child = spawn(bin, args, {
       stdio: "inherit",
-      env: buildCodexLaunchEnv(process.env),
+      env,
     });
     child.on("error", reject);
     child.on("exit", (code, signal) => {
@@ -227,8 +322,150 @@ function launchCodex(options: CodexStartCliOptions, prompt: string): Promise<voi
   });
 }
 
-export function buildCodexLaunchArgs(options: Pick<CodexStartCliOptions, "cd">, prompt: string): string[] {
-  return options.cd ? ["--cd", options.cd, prompt] : [prompt];
+export function buildApprovedCodexMcpBinding(env: NodeJS.ProcessEnv): CodexMcpBinding {
+  if (env.AGENT_MEMORY_AGENT_ID !== CODEX_WASUREZU_AGENT_ID || env.AGENT_MEMORY_PROJECT !== CODEX_WASUREZU_PROJECT) {
+    throw new CodexMcpBindingError("MCP_AGENT_ID_OR_PROJECT_MISMATCH");
+  }
+  return {
+    serverName: "wasurezu",
+    command: CODEX_WASUREZU_MCP_COMMAND,
+    args: [CODEX_WASUREZU_MCP_ARGS[0]],
+    agentId: CODEX_WASUREZU_AGENT_ID,
+    project: CODEX_WASUREZU_PROJECT,
+    databaseUrlSha256: CODEX_WASUREZU_DATABASE_URL_SHA256,
+  };
+}
+
+export function buildCodexMcpOverrideArgs(binding: CodexMcpBinding): string[] {
+  return [
+    "-c",
+    `mcp_servers.${binding.serverName}.command=${JSON.stringify(binding.command)}`,
+    "-c",
+    `mcp_servers.${binding.serverName}.args=${JSON.stringify(binding.args)}`,
+    "-c",
+    `mcp_servers.${binding.serverName}.env.AGENT_MEMORY_AGENT_ID=${JSON.stringify(binding.agentId)}`,
+    "-c",
+    `mcp_servers.${binding.serverName}.env.AGENT_MEMORY_PROJECT=${JSON.stringify(binding.project)}`,
+  ];
+}
+
+export function buildCodexMcpPreflightArgs(binding: CodexMcpBinding, overrideArgs: string[]): string[] {
+  return ["mcp", "get", binding.serverName, "--json", ...overrideArgs];
+}
+
+export function preflightCodexMcpBinding(
+  bin: string,
+  binding: CodexMcpBinding,
+  overrideArgs: string[],
+  runCommand: (bin: string, args: string[]) => CodexDoctorCommandResult = runCodexMcpPreflightCommand
+): CodexMcpPreflightReport {
+  if (!sameStringArray(overrideArgs, buildCodexMcpOverrideArgs(binding))) {
+    throw new CodexMcpBindingError("MCP_COMMAND_OR_ARGS_MISMATCH");
+  }
+  const result = runCommand(bin, buildCodexMcpPreflightArgs(binding, overrideArgs));
+  if (result.status !== 0 || result.error) {
+    throw new CodexMcpBindingError("EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    throw new CodexMcpBindingError("EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED");
+  }
+  if (!isRecord(parsed) || hasUnknownKeys(parsed, [
+    "name",
+    "enabled",
+    "disabled_reason",
+    "transport",
+    "enabled_tools",
+    "disabled_tools",
+    "startup_timeout_sec",
+    "tool_timeout_sec",
+  ])) {
+    throw new CodexMcpBindingError("EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED");
+  }
+  if (parsed.name !== binding.serverName || parsed.enabled !== true || !isRecord(parsed.transport)) {
+    throw new CodexMcpBindingError("EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED");
+  }
+
+  const transport = parsed.transport;
+  if (hasUnknownKeys(transport, ["type", "command", "args", "env", "env_vars", "cwd"]) || transport.type !== "stdio") {
+    throw new CodexMcpBindingError("EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED");
+  }
+  if (transport.command !== binding.command || !sameStringArray(transport.args, binding.args)) {
+    throw new CodexMcpBindingError("MCP_COMMAND_OR_ARGS_MISMATCH");
+  }
+  if (!isRecord(transport.env)) {
+    throw new CodexMcpBindingError("MCP_AGENT_ID_OR_PROJECT_MISMATCH");
+  }
+  if (
+    transport.env.AGENT_MEMORY_AGENT_ID !== binding.agentId ||
+    transport.env.AGENT_MEMORY_PROJECT !== binding.project
+  ) {
+    throw new CodexMcpBindingError("MCP_AGENT_ID_OR_PROJECT_MISMATCH");
+  }
+
+  const databaseUrl = transport.env.DATABASE_URL;
+  if (
+    typeof databaseUrl !== "string" ||
+    !databaseUrl.startsWith("postgresql:") ||
+    sha256Utf8(databaseUrl) !== binding.databaseUrlSha256
+  ) {
+    throw new CodexMcpBindingError("MCP_BACKEND_OR_DSN_FINGERPRINT_MISMATCH");
+  }
+
+  return {
+    server_name: binding.serverName,
+    transport: "stdio",
+    command_exact_match: true,
+    args_exact_match: true,
+    agent_id_exact_match: true,
+    project_exact_match: true,
+    backend: "postgresql",
+    database_url_sha256: binding.databaseUrlSha256,
+    database_url_exact_match: true,
+  };
+}
+
+function runCodexMcpPreflightCommand(bin: string, args: string[]): CodexDoctorCommandResult {
+  const result = spawnSync(bin, args, {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+    error: result.error ? String(result.error) : undefined,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasUnknownKeys(value: Record<string, unknown>, allowed: string[]): boolean {
+  const allowedSet = new Set(allowed);
+  return Object.keys(value).some((key) => !allowedSet.has(key));
+}
+
+function sameStringArray(value: unknown, expected: readonly string[]): boolean {
+  return Array.isArray(value) && value.length === expected.length && value.every(
+    (item, index) => typeof item === "string" && item === expected[index]
+  );
+}
+
+function sha256Utf8(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+export function buildCodexLaunchArgs(
+  options: Pick<CodexStartCliOptions, "cd">,
+  prompt: string,
+  overrideArgs: string[] = []
+): string[] {
+  return options.cd ? [...overrideArgs, "--cd", options.cd, prompt] : [...overrideArgs, prompt];
 }
 
 export function buildCodexLaunchPreview(
