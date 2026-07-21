@@ -39,8 +39,12 @@ export interface CodexStartCliOptions {
   launch: boolean;
   dryRun: boolean;
   doctor: boolean;
+  freshSession?: boolean;
   cd?: string;
   codexBin: string;
+  codexGlobalArgs: string[];
+  codexArgs: string[];
+  selectedPackRef?: string;
   maxTokens?: number;
   extraInstruction?: string;
 }
@@ -49,8 +53,9 @@ export interface CodexMcpBinding {
   serverName: "wasurezu";
   command: "node";
   args: [string];
-  agentId: "kusabi";
-  project: "agent-memory";
+  agentId: string;
+  project: string;
+  databaseUrl?: string;
   databaseUrlSha256: string;
 }
 
@@ -91,11 +96,13 @@ export interface CodexLaunchDependencies {
   preparedLaunch?: PreparedCodexLaunch;
   preflightCommand?: (bin: string, args: string[]) => CodexDoctorCommandResult;
   launchCommand?: (bin: string, args: string[], env: NodeJS.ProcessEnv) => Promise<void>;
+  freshLaunchCommand?: (bin: string, args: string[], env: NodeJS.ProcessEnv, prompt: string) => Promise<void>;
 }
 
 export const CODEX_STARTUP_BRIDGE_ENV = "codex_startup_bridge_v1";
 export const CODEX_POSITIONAL_PROMPT_CONTRACT = "codex [OPTIONS] [PROMPT]";
 export const CODEX_PROMPT_DELIVERY_MODE = "positional-prompt-argv";
+export const CODEX_FRESH_PROMPT_DELIVERY_MODE = "stdin";
 export const CODEX_WASUREZU_MCP_COMMAND = "node";
 export const CODEX_WASUREZU_MCP_ARGS = ["/Users/yuji/Developer/agent-memory/dist/index.js"] as const;
 export const CODEX_WASUREZU_AGENT_ID = "kusabi";
@@ -182,11 +189,16 @@ export function parseArgs(args: string[]): CodexStartCliOptions {
     dryRun: false,
     doctor: false,
     codexBin: process.env.AGENT_MEMORY_CODEX_BIN || "codex",
+    codexGlobalArgs: [],
+    codexArgs: [],
   };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--launch") {
+      options.launch = true;
+    } else if (arg === "--fresh-session") {
+      options.freshSession = true;
       options.launch = true;
     } else if (arg === "--print") {
       options.launch = false;
@@ -198,6 +210,12 @@ export function parseArgs(args: string[]): CodexStartCliOptions {
       options.cd = requireValue(args, ++i, "--cd");
     } else if (arg === "--codex-bin") {
       options.codexBin = requireValue(args, ++i, "--codex-bin");
+    } else if (arg === "--codex-arg") {
+      options.codexArgs.push(requireValue(args, ++i, "--codex-arg"));
+    } else if (arg === "--codex-global-arg") {
+      options.codexGlobalArgs.push(requireValue(args, ++i, "--codex-global-arg"));
+    } else if (arg === "--selected-pack-ref") {
+      options.selectedPackRef = requireValue(args, ++i, "--selected-pack-ref");
     } else if (arg === "--max-tokens") {
       const raw = requireValue(args, ++i, "--max-tokens");
       const parsed = Number.parseInt(raw, 10);
@@ -235,17 +253,20 @@ async function run() {
   }
 
   const preparedLaunch = options.launch && !options.dryRun
-    ? prepareCodexLaunch(options)
+    ? options.freshSession
+      ? prepareFleetCodexLaunch(options)
+      : prepareCodexLaunch(options)
     : undefined;
 
   const store = await createStore();
 
   try {
     const cfg = await store.getRecoveryConfig(AGENT_ID);
-    const restartPack = await generateRestartPack(store, {
-      agent_id: AGENT_ID,
+    const restartPack = await loadCodexStartupRecoveryPack(store, {
+      agentId: AGENT_ID,
       project: PROJECT,
-      max_tokens: options.maxTokens ?? cfg?.max_tokens ?? DEFAULT_RECOVERY_CONFIG.max_tokens,
+      selectedPackRef: options.selectedPackRef ?? process.env.AGENT_MEMORY_SELECTED_PACK_REF,
+      maxTokens: options.maxTokens ?? cfg?.max_tokens ?? DEFAULT_RECOVERY_CONFIG.max_tokens,
     });
     const prompt = buildCodexStartupPrompt({
       agentId: AGENT_ID,
@@ -357,6 +378,15 @@ export async function launchCodex(
   if (prepared.codexBin !== options.codexBin) {
     throw new CodexMcpBindingError("MCP_COMMAND_OR_ARGS_MISMATCH");
   }
+  if (options.freshSession) {
+    await (dependencies.freshLaunchCommand ?? runCodexFreshLaunchCommand)(
+      options.codexBin,
+      buildCodexFreshLaunchArgs(options, prepared.overrideArgs),
+      buildCodexLaunchEnv(process.env),
+      prompt,
+    );
+    return;
+  }
   await (dependencies.launchCommand ?? runCodexLaunchCommand)(
     options.codexBin,
     buildCodexLaunchArgs(options, prompt, prepared.overrideArgs),
@@ -384,6 +414,21 @@ export function prepareCodexLaunch(
   };
 }
 
+export function prepareFleetCodexLaunch(
+  options: Pick<CodexStartCliOptions, "codexBin">,
+  dependencies: Pick<CodexLaunchDependencies, "binding" | "preflightCommand"> = {},
+): PreparedCodexLaunch {
+  const binding = dependencies.binding ?? buildFleetCodexMcpBinding(process.env);
+  const overrideArgs = buildCodexMcpOverrideArgs(binding);
+  const preflight = preflightCodexMcpBinding(
+    options.codexBin,
+    binding,
+    overrideArgs,
+    dependencies.preflightCommand ?? runCodexMcpPreflightCommand,
+  );
+  return { codexBin: options.codexBin, binding, overrideArgs, preflight };
+}
+
 function runCodexLaunchCommand(bin: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, {
@@ -401,6 +446,26 @@ function runCodexLaunchCommand(bin: string, args: string[], env: NodeJS.ProcessE
   });
 }
 
+function runCodexFreshLaunchCommand(
+  bin: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  prompt: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, {
+      stdio: ["pipe", "inherit", "inherit"],
+      env,
+    });
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`codex fresh process exited with ${signal ?? code}`));
+    });
+    child.stdin.end(prompt);
+  });
+}
+
 export function buildApprovedCodexMcpBinding(env: NodeJS.ProcessEnv): CodexMcpBinding {
   if (env.AGENT_MEMORY_AGENT_ID !== CODEX_WASUREZU_AGENT_ID || env.AGENT_MEMORY_PROJECT !== CODEX_WASUREZU_PROJECT) {
     throw new CodexMcpBindingError("MCP_AGENT_ID_OR_PROJECT_MISMATCH");
@@ -415,8 +480,27 @@ export function buildApprovedCodexMcpBinding(env: NodeJS.ProcessEnv): CodexMcpBi
   };
 }
 
+export function buildFleetCodexMcpBinding(env: NodeJS.ProcessEnv): CodexMcpBinding {
+  const agentId = env.AGENT_MEMORY_AGENT_ID;
+  const project = env.AGENT_MEMORY_PROJECT;
+  if (!agentId || agentId === "default" || !project || project === "default") {
+    throw new CodexMcpBindingError("MCP_AGENT_ID_OR_PROJECT_MISMATCH");
+  }
+  const databaseUrl = env.AGENT_MEMORY_DATABASE_URL || env.DATABASE_URL || "postgresql:///agent_comms?host=/tmp";
+  const entrypoint = env.AGENT_MEMORY_WASUREZU_ENTRYPOINT || CODEX_WASUREZU_MCP_ARGS[0];
+  return {
+    serverName: "wasurezu",
+    command: "node",
+    args: [entrypoint],
+    agentId,
+    project,
+    databaseUrl,
+    databaseUrlSha256: sha256Utf8(databaseUrl),
+  };
+}
+
 export function buildCodexMcpOverrideArgs(binding: CodexMcpBinding): string[] {
-  return [
+  const args = [
     "-c",
     `mcp_servers.${binding.serverName}.command=${JSON.stringify(binding.command)}`,
     "-c",
@@ -426,6 +510,13 @@ export function buildCodexMcpOverrideArgs(binding: CodexMcpBinding): string[] {
     "-c",
     `mcp_servers.${binding.serverName}.env.AGENT_MEMORY_PROJECT=${JSON.stringify(binding.project)}`,
   ];
+  if (binding.databaseUrl) {
+    args.push(
+      "-c",
+      `mcp_servers.${binding.serverName}.env.DATABASE_URL=${JSON.stringify(binding.databaseUrl)}`,
+    );
+  }
+  return args;
 }
 
 export function buildCodexMcpPreflightArgs(binding: CodexMcpBinding, overrideArgs: string[]): string[] {
@@ -547,6 +638,42 @@ export function buildCodexLaunchArgs(
   return options.cd ? [...overrideArgs, "--cd", options.cd, prompt] : [...overrideArgs, prompt];
 }
 
+export function buildCodexFreshLaunchArgs(
+  options: Pick<CodexStartCliOptions, "cd" | "codexArgs"> &
+    Partial<Pick<CodexStartCliOptions, "codexGlobalArgs">>,
+  overrideArgs: string[] = [],
+): string[] {
+  const args = [...overrideArgs, ...(options.codexGlobalArgs ?? [])];
+  if (options.cd) args.push("-C", options.cd);
+  args.push("exec", "--json", "--skip-git-repo-check", ...options.codexArgs, "-");
+  return args;
+}
+
+export async function loadCodexStartupRecoveryPack(
+  store: Store,
+  input: {
+    agentId: string;
+    project?: string;
+    selectedPackRef?: string;
+    maxTokens: number;
+  },
+): Promise<string> {
+  if (input.selectedPackRef) {
+    const selected = await store.consumeSelectedRestartPack({
+      agent_id: input.agentId,
+      project: input.project,
+      pack_ref: input.selectedPackRef,
+    });
+    if (!selected) throw new Error("SELECTED_RESTART_PACK_MISSING_OR_CONSUMED");
+    return selected.content;
+  }
+  return generateRestartPack(store, {
+    agent_id: input.agentId,
+    project: input.project,
+    max_tokens: input.maxTokens,
+  });
+}
+
 export function buildCodexLaunchPreview(
   options: Pick<CodexStartCliOptions, "launch" | "cd" | "codexBin">,
   prompt: string
@@ -634,14 +761,19 @@ Generate a restart_pack-backed initial prompt for Codex, or launch Codex with it
 Usage:
   wasurezu-codex-start [--print]
   wasurezu-codex-start --launch [--cd DIR]
+  wasurezu-codex-start --fresh-session --selected-pack-ref REF [--cd DIR]
 
 Options:
   --print              Print the generated prompt. This is the default.
   --launch             Launch Codex with the generated prompt.
+  --fresh-session      Launch one new noninteractive process and supply recovery on stdin.
   --dry-run            Print launch preview JSON without writing telemetry or launching Codex.
   --doctor             Check local Codex CLI help/version surfaces without launching Codex.
   --cd DIR             Pass a working directory to codex --cd when launching.
   --codex-bin PATH     Codex executable to run. Default: codex.
+  --codex-arg ARG      Append one argument to the Codex exec subcommand. Repeatable.
+  --codex-global-arg ARG  Append one Codex global argument before the exec subcommand. Repeatable.
+  --selected-pack-ref  Consume one exact Wasurezu selected pack for this fresh process.
   --max-tokens N       restart_pack token budget override.
   --extra TEXT         Add one extra startup instruction to the prompt.
 
@@ -650,6 +782,7 @@ Restart UX:
     /exit
     wasurezu-codex-start --launch --cd <workspace>
   The bridge does not kill or replace existing Codex sessions.
+  --fresh-session uses codex exec --json - and never writes to an existing TUI.
   Current Codex prompt delivery uses the tested contract:
     ${CODEX_POSITIONAL_PROMPT_CONTRACT}
   Until a verified stdin or prompt-file Codex surface exists, the bounded

@@ -36,6 +36,7 @@ export interface CompanyDevOsRecoveryFinding {
     | "launcher_missing"
     | "launcher_not_executable"
     | "registry_identity_differs"
+    | "alias_approval_expired"
     | "company_target_conflict"
     | "company_targets_below_minimum"
     | "registry_targets_below_minimum";
@@ -112,6 +113,7 @@ interface AliasApprovalFile {
   min_company_targets?: number;
   min_registry_targets?: number;
   approvals: AliasApproval[];
+  expired_approvals: AliasApproval[];
 }
 
 interface CaptureTargetsFile {
@@ -317,12 +319,11 @@ function optionalNonNegativeInteger(value: unknown, key: string, file: string): 
 
 async function loadAliasApprovalFile(path?: string): Promise<AliasApprovalFile> {
   const aliasFile = path ?? (existsSync(DEFAULT_ALIAS_FILE) ? DEFAULT_ALIAS_FILE : undefined);
-  if (!aliasFile) return { approvals: [] };
+  if (!aliasFile) return { approvals: [], expired_approvals: [] };
   const parsed = JSON.parse(await readText(aliasFile)) as unknown;
   if (!isRecord(parsed)) throw new Error(`${aliasFile}: alias file must be an object`);
   const rawApprovals = parsed.approvals;
   if (!Array.isArray(rawApprovals)) throw new Error(`${aliasFile}: approvals must be an array`);
-  const now = Date.now();
   const approvals = rawApprovals.map((value, index): AliasApproval => {
     if (!isRecord(value)) throw new Error(`${aliasFile}: approvals[${index}] must be an object`);
     const expiresAt = typeof value.expires_at === "string" && value.expires_at.trim() !== ""
@@ -330,9 +331,6 @@ async function loadAliasApprovalFile(path?: string): Promise<AliasApprovalFile> 
       : undefined;
     if (expiresAt && Number.isNaN(Date.parse(expiresAt))) {
       throw new Error(`${aliasFile}: approvals[${index}] has invalid expires_at`);
-    }
-    if (expiresAt && Date.parse(expiresAt) <= now) {
-      throw new Error(`${aliasFile}: approvals[${index}] is expired`);
     }
     return {
       id: requiredString(value, "id", aliasFile, index),
@@ -346,10 +344,12 @@ async function loadAliasApprovalFile(path?: string): Promise<AliasApprovalFile> 
       expires_at: expiresAt,
     };
   });
+  const now = Date.now();
   return {
     min_company_targets: optionalNonNegativeInteger(parsed.min_company_targets, "min_company_targets", aliasFile),
     min_registry_targets: optionalNonNegativeInteger(parsed.min_registry_targets, "min_registry_targets", aliasFile),
-    approvals,
+    approvals: approvals.filter((approval) => !approval.expires_at || Date.parse(approval.expires_at) > now),
+    expired_approvals: approvals.filter((approval) => approval.expires_at !== undefined && Date.parse(approval.expires_at) <= now),
   };
 }
 
@@ -396,6 +396,21 @@ export async function runCompanyDevOsRecoveryTargetAudit(
   const findings: CompanyDevOsRecoveryFinding[] = [];
   const minCompanyTargets = options.minCompanyTargets ?? aliasApprovals.min_company_targets ?? 1;
   const minRegistryTargets = options.minRegistryTargets ?? aliasApprovals.min_registry_targets ?? 1;
+
+  const companyTargetCwds = new Set(companyTargets.map((target) => resolve(target.cwd)));
+  for (const approval of aliasApprovals.expired_approvals) {
+    if (!companyTargetCwds.has(approval.cwd)) continue;
+    findings.push(warn({
+      code: "alias_approval_expired",
+      message: "Alias approval is expired and is not being used as identity authority",
+      cwd: approval.cwd,
+      expected_agent_id: approval.source_agent_id,
+      actual_agent_id: approval.registry_agent_id,
+      expected_project: approval.source_project,
+      actual_project: approval.registry_project,
+      approval_id: approval.id,
+    }));
+  }
 
   if (companyTargets.length < minCompanyTargets) {
     findings.push(block({

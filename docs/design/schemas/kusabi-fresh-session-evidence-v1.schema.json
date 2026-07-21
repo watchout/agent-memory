@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/kusabi-fresh-session-evidence-v1.schema.json",
+  "title": "Kusabi fresh-session fleet evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "status", "started_at", "finished_at", "timeout_ms",
+    "target_count", "attempted_count", "pass_count", "fail_count", "max_concurrency",
+    "completion_rate", "exact_identity_rate", "exact_recovery_rate", "continuation_started_rate",
+    "preflight", "audit_gate", "targets", "errors", "effects", "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-fresh-session-evidence/v1" },
+    "run_id": { "type": "string", "format": "uuid" },
+    "status": { "enum": ["pass", "failed", "stopped"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "timeout_ms": { "const": 60000 },
+    "target_count": { "const": 12 },
+    "attempted_count": { "type": "integer", "minimum": 0, "maximum": 12 },
+    "pass_count": { "type": "integer", "minimum": 0, "maximum": 12 },
+    "fail_count": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "max_concurrency": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "completion_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "exact_identity_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "exact_recovery_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "continuation_started_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "preflight": { "$ref": "#/$defs/preflight" },
+    "audit_gate": { "$ref": "#/$defs/auditGate" },
+    "targets": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "effects": { "$ref": "#/$defs/effects" },
+    "next_action": { "enum": ["none", "stop_on_first_failure"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "attempted_count": { "const": 12 },
+          "pass_count": { "const": 12 },
+          "fail_count": { "const": 0 },
+          "max_concurrency": { "const": 1 },
+          "completion_rate": { "const": 1 },
+          "exact_identity_rate": { "const": 1 },
+          "exact_recovery_rate": { "const": 1 },
+          "continuation_started_rate": { "const": 1 },
+          "targets": { "minItems": 12, "maxItems": 12 },
+          "errors": { "maxItems": 0 },
+          "effects": { "$ref": "#/$defs/zeroEffects" },
+          "next_action": { "const": "none" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "automatic_restart_count", "disconnect_detection_count", "tui_write_count",
+        "tmux_send_keys_count", "clipboard_write_count", "existing_session_injection_count",
+        "workspace_write_count", "schema_mutation_count", "deploy_count", "merge_count", "activation_count",
+        "aun_queue_mutation_count", "external_send_count", "parallel_target_count"
+      ],
+      "properties": {
+        "automatic_restart_count": { "type": "integer", "minimum": 0 },
+        "disconnect_detection_count": { "type": "integer", "minimum": 0 },
+        "tui_write_count": { "type": "integer", "minimum": 0 },
+        "tmux_send_keys_count": { "type": "integer", "minimum": 0 },
+        "clipboard_write_count": { "type": "integer", "minimum": 0 },
+        "existing_session_injection_count": { "type": "integer", "minimum": 0 },
+        "workspace_write_count": { "type": "integer", "minimum": 0 },
+        "schema_mutation_count": { "type": "integer", "minimum": 0 },
+        "deploy_count": { "type": "integer", "minimum": 0 },
+        "merge_count": { "type": "integer", "minimum": 0 },
+        "activation_count": { "type": "integer", "minimum": 0 },
+        "aun_queue_mutation_count": { "type": "integer", "minimum": 0 },
+        "external_send_count": { "type": "integer", "minimum": 0 },
+        "parallel_target_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "zeroEffects": {
+      "allOf": [
+        { "$ref": "#/$defs/effects" },
+        {
+          "properties": {
+            "automatic_restart_count": { "const": 0 },
+            "disconnect_detection_count": { "const": 0 },
+            "tui_write_count": { "const": 0 },
+            "tmux_send_keys_count": { "const": 0 },
+            "clipboard_write_count": { "const": 0 },
+            "existing_session_injection_count": { "const": 0 },
+            "workspace_write_count": { "const": 0 },
+            "schema_mutation_count": { "const": 0 },
+            "deploy_count": { "const": 0 },
+            "merge_count": { "const": 0 },
+            "activation_count": { "const": 0 },
+            "aun_queue_mutation_count": { "const": 0 },
+            "external_send_count": { "const": 0 },
+            "parallel_target_count": { "const": 0 }
+          }
+        }
+      ]
+    },
+    "auditGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "verdict", "exact_head_sha", "auditor", "independent", "durable_url"],
+      "properties": {
+        "schema_version": { "const": "kusabi-fresh-session-independent-audit/v1" },
+        "verdict": { "const": "PASS" },
+        "exact_head_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "auditor": { "enum": ["devauditor", "codex-audit"] },
+        "independent": { "const": true },
+        "durable_url": { "type": "string", "pattern": "^https://github\\.com/.+#issuecomment-[0-9]+$" }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "status", "target_count", "exact_membership", "sequential_only", "timeout_ms", "errors", "effects"],
+      "properties": {
+        "schema_version": { "const": "kusabi-fresh-session-preflight/v1" },
+        "status": { "enum": ["ready", "stopped"] },
+        "target_count": { "const": 12 },
+        "exact_membership": { "type": "boolean" },
+        "sequential_only": { "const": true },
+        "timeout_ms": { "const": 60000 },
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "effects": { "$ref": "#/$defs/effects" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal", "agent_id", "memory_project", "workspace", "runtime", "profile_revision",
+        "prior_session_id", "fresh_session_id", "started_at", "finished_at", "elapsed_ms",
+        "objective_sha256", "next_action_sha256", "exact_objective_match", "exact_next_action_match",
+        "identity_match", "continuation_started", "user_context_restatement_count", "status", "errors", "effects"
+      ],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "agent_id": { "type": "string", "minLength": 1 },
+        "memory_project": { "type": "string", "minLength": 1 },
+        "workspace": { "type": "string", "pattern": "^/" },
+        "runtime": { "enum": ["codex", "claude-code"] },
+        "profile_revision": { "type": "integer", "minimum": 1 },
+        "prior_session_id": { "type": "string", "minLength": 1 },
+        "fresh_session_id": { "type": "string", "format": "uuid" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "elapsed_ms": { "type": "number", "minimum": 0 },
+        "objective_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "next_action_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "exact_objective_match": { "type": "boolean" },
+        "exact_next_action_match": { "type": "boolean" },
+        "identity_match": { "type": "boolean" },
+        "continuation_started": { "type": "boolean" },
+        "user_context_restatement_count": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["pass", "fail"] },
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "effects": { "$ref": "#/$defs/effects" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "elapsed_ms": { "maximum": 60000 },
+              "exact_objective_match": { "const": true },
+              "exact_next_action_match": { "const": true },
+              "identity_match": { "const": true },
+              "continuation_started": { "const": true },
+              "user_context_restatement_count": { "const": 0 },
+              "errors": { "maxItems": 0 },
+              "effects": { "$ref": "#/$defs/zeroEffects" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

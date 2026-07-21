@@ -13,6 +13,7 @@ import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput } from "../../src/constant
 import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRestartPack } from "../../src/restart-pack.js";
 import { redactText } from "../../src/redact.js";
 import { safeText } from "../../src/sanitize.js";
+import { buildCodexStartupPrompt, loadCodexStartupRecoveryPack } from "../../src/codex-start.js";
 import { mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -226,7 +227,28 @@ async function runTests(): Promise<void> {
     assert(!hostContextJson.includes(FAKE_STRIPE_SECRET), "host-invocation-context/v1 JSON does not contain raw Stripe secret key");
     assert(!hostContextJson.includes(FAKE_STRIPE_WEBHOOK), "host-invocation-context/v1 JSON does not contain raw Stripe webhook secret");
 
-    // ── Test 12: redacted output contains placeholder string ──
+    // ── Test 12: selected-pack fresh Codex stdin prompt is redacted at its final boundary ──
+    const selected = await store.saveSelectedRestartPack({
+      agent_id: AGENT,
+      project: PROJECT,
+      source: "manual",
+      content: `Recovered objective contains ${FAKE_GITHUB_TOKEN} and ${FAKE_DATABASE_URL}`,
+    });
+    const selectedContent = await loadCodexStartupRecoveryPack(store, {
+      agentId: AGENT,
+      project: PROJECT,
+      selectedPackRef: selected.pack_ref,
+      maxTokens: 1000,
+    });
+    const freshCodexPrompt = buildCodexStartupPrompt({
+      agentId: AGENT,
+      project: PROJECT,
+      restartPack: selectedContent,
+    });
+    assert(!freshCodexPrompt.includes(FAKE_GITHUB_TOKEN), "fresh Codex stdin prompt redacts selected-pack GitHub token");
+    assert(!freshCodexPrompt.includes(FAKE_DATABASE_URL), "fresh Codex stdin prompt redacts selected-pack database URL");
+
+    // ── Test 13: redacted output contains placeholder string ──
     const redacted = redactText(`API key: ${FAKE_OPENAI_KEY}`);
     assert(
       redacted.text.includes("[REDACTED]"),

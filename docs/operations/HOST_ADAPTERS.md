@@ -207,8 +207,8 @@ supervisors remain responsible for runtime lifecycle and queue state.
 
 | Host | Level | Startup Path | Notes |
 |------|-------|--------------|-------|
-| Claude Code | 2 | `wasurezu-claude-start` prepares a selected `host-invocation-context/v1` pack; SessionStart runs `boot.js` with `AGENT_MEMORY_BOOT_MODE=restart_pack` to load it. | The Claude runner owns deterministic prepare/launch gating in standalone mode. SessionStart is a load hook, not the restart policy owner. |
-| Codex | 1 | Exit the old session, then start with `wasurezu-codex-start --launch --cd <workspace>`. | Plain Codex MCP config is manual recovery only. The bridge is a runtime adapter, not lifecycle policy owner. |
+| Claude Code | 2 | `wasurezu-claude-start --fresh-session` starts one ordinary new process with a temporary native SessionStart hook that runs `boot.js` in `restart_pack` mode. | The fresh path does not detect disconnects, kill a process, or write to a TUI. SessionStart is only the selected-pack load hook. |
+| Codex | 1 | `wasurezu-codex-start --fresh-session --selected-pack-ref <ref> --cd <workspace>` starts `codex exec --json -` and supplies the bounded recovery prompt on stdin. | The recovery pack is not placed in process argv. Plain Codex MCP config remains manual recovery only. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Other MCP clients | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Do not claim startup recovery until an adapter or native hook is verified. |
@@ -262,12 +262,35 @@ Supervisor restart command preflight:
 - Missing, non-executable, or not-preauthorized restart commands fail closed
   with structured diagnostics.
 
-The current verified Codex CLI startup contract is
-`codex [OPTIONS] [PROMPT]`. `wasurezu-codex-start --doctor` checks local
-Codex help/version surfaces without launching Codex. Until a stdin or
-prompt-file startup surface is verified, the bounded restart pack prompt may be
-visible in the Codex process argv. That is a documented compatibility
-limitation, not public-alpha evidence.
+The legacy interactive Codex contract remains `codex [OPTIONS] [PROMPT]`.
+`wasurezu-codex-start --doctor` checks local Codex help/version surfaces without
+launching Codex. On that legacy path, the bounded prompt can be visible in the
+Codex process argv. The ordinary fresh-session path instead uses the verified
+noninteractive `codex exec --json -` surface and writes the bounded recovery
+prompt to child stdin, so it is not visible in process argv.
+
+## Ordinary Fresh-Session Fleet Path
+
+`scripts/kusabi-fresh-session-fleet.sh` is deliberately separate from
+`auto_restart`. It is used after an agent's prior session has been intentionally
+ended and starts one new process for that same registered profile. It does not:
+
+- monitor or detect a disconnect;
+- stop, kill, restart, or inject text into an existing process;
+- call `tmux send-keys`, use a clipboard, or write to a TUI;
+- mutate AUN queue lifecycle; or
+- run targets in parallel.
+
+The runner first performs a read-only exact-profile preflight. Live mode then
+processes the fixed 12-target manifest sequentially. Each target has a hard
+60,000 ms deadline and must return the same agent, project, workspace, runtime,
+a different fresh session id, the exact recovered objective and next action,
+and a continuation-started signal without asking the user to restate context.
+Any mismatch or forbidden-effect counter stops the fleet before the next
+target. See `KUSABI_FRESH_SESSION_FLEET.md` for the evidence contract and
+operator sequence. Live mode also fails closed unless a durable independent
+`devauditor` or `codex-audit` PASS names the exact current Git HEAD; ARC is not
+an auditor for this gate.
 
 For Claude Code standalone resession:
 
@@ -281,6 +304,10 @@ wasurezu-claude-start --launch \
   --cd /path/to/workspace \
   --mcp-config .mcp.json
 ```
+
+`wasurezu-claude-start` prepares a selected `host-invocation-context/v1` pack
+for both the guarded standalone path and ordinary fresh-session path.
+SessionStart is a load hook, not the restart policy owner.
 
 `wasurezu-claude-start` always calls `restart_prepare` with
 `pack_format=host-invocation-context-v1`, `target_runtime=claude`, and
@@ -323,7 +350,8 @@ A recovery run only counts as startup recovery when the first model context
 already includes `restart_pack`.
 
 - Claude Code: counts when the SessionStart hook emits restart recovery.
-- Codex: counts when started through `wasurezu-codex-start --launch` or an
+- Codex: counts when started through `wasurezu-codex-start --fresh-session`,
+  `wasurezu-codex-start --launch`, or an
   equivalent verified startup prompt adapter. Printed prompts from
   `wasurezu-codex-start --print` are inspection evidence only, not startup
   recovery runs.
