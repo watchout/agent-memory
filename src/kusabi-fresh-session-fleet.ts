@@ -553,9 +553,9 @@ export async function loadFleetRuntimeProfiles(databaseUrl: string): Promise<Fle
 
 export function buildContinuationInstruction(target: FleetTarget, freshSessionId: string): string {
   return [
-    "Use only the recovery context loaded at session start.",
+    "Use only the recovery context loaded at session start; inspecting that injected context is the first safe read-only continuation step for this bounded canary.",
     "Do not ask the user to restate anything.",
-    "Identify the exact current objective and the exact next concrete action, then begin with its first safe read-only step.",
+    "Identify the exact current objective and the exact next concrete action, then return the receipt without invoking tools or waiting for more input.",
     "This is a bounded canary: do not modify files or state, call external services, send messages, deploy, merge, activate, or invoke tools with side effects.",
     `Return one final line beginning KUSABI_CONTINUATION: followed by JSON with agent_id=${target.agent_id}, memory_project=${target.memory_project}, workspace=${target.workspace}, runtime=${target.runtime}, fresh_session_id=${freshSessionId}, recovered_objective, recovered_next_action, continuation_started=true, user_context_restatement_count=0, and effects=${JSON.stringify(FRESH_SESSION_ZERO_EFFECTS)}.`,
   ].join(" ");

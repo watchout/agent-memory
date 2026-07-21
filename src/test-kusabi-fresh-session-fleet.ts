@@ -306,6 +306,8 @@ for (const mutate of [
 const first = FRESH_SESSION_FLEET_TARGETS[0];
 const instruction = buildContinuationInstruction(first, "fresh-id");
 assert(instruction.includes("Do not ask the user to restate anything"));
+assert(instruction.includes("inspecting that injected context is the first safe read-only continuation step"));
+assert(instruction.includes("without invoking tools or waiting for more input"));
 assert(!instruction.includes(specs[0].expected_objective));
 assert(!instruction.includes(specs[0].expected_next_action));
 
