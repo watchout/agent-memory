@@ -5,6 +5,7 @@ control_handoff_id: CH-KUSABI-RECOVERY-QUALITY-OBSERVATION-20260721-001
 parent_ssot: https://github.com/watchout/agent-memory/issues/180
 source_handoff_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5030510367
 source_amendment_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5030593865
+policy_correction_amendment_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5030775904
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_spec_ref: .shirube/repo-spec.yaml
@@ -38,6 +39,9 @@ validation:
     - npx tsc --noEmit
     - npm run build
     - git diff --check
+    - node --check scripts/shirube/rapid-lite-gate.mjs
+    - node scripts/shirube/rapid-lite-gate.mjs --self-test-maker-checker
+    - node scripts/shirube/rapid-lite-gate.mjs --self-test-owner-decision-parser
   required_evidence:
     - changed_files
     - validation_commands
@@ -60,7 +64,9 @@ cell:
     - TUI writes or tmux input.
   allowed_paths:
     - .shirube/control-handoffs/CH-KUSABI-RECOVERY-QUALITY-OBSERVATION-20260721-001.yaml
+    - .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
     - docs/design/core/SSOT-5_CROSS_CUTTING.md
+    - scripts/shirube/rapid-lite-gate.mjs
     - src/boot.ts
     - src/codex-start.ts
     - src/index.ts
