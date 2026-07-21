@@ -51,6 +51,12 @@ import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { runSupervisorPreflight } from "./restart-cli.js";
 import { redactText } from "./redact.js";
 import {
+  OBSERVED_CONTINUATION_QUALITY_SCORE,
+  RECOVERY_CONTINUATION_WINDOW_MS,
+  RecoveryContinuationTracker,
+} from "./recovery-quality.js";
+import type { MarkRecoveryContinuedInput } from "./stores/types.js";
+import {
   CODEX_ARGV_VISIBILITY_NOTE,
   CODEX_POSITIONAL_PROMPT_CONTRACT,
   CODEX_STARTUP_BRIDGE_ENV,
@@ -127,6 +133,56 @@ function assert(condition: boolean, msg: string) {
     console.log(`  ❌ ${msg}`);
     failed++;
   }
+}
+
+async function testRecoveryContinuationTracker() {
+  console.log("\n── Recovery Continuation Observation ──");
+  const updates: MarkRecoveryContinuedInput[] = [];
+  const target = {
+    async markRecoveryContinued(input: MarkRecoveryContinuedInput) {
+      updates.push(input);
+      return true;
+    },
+  };
+  const tracker = new RecoveryContinuationTracker("kusabi", "session-1");
+  tracker.arm("quality-log-1", JSON.stringify({ source: "recover_context" }), 1_000);
+
+  const ignored = await tracker.observe(target, "recover_context", 1_100);
+  assert(ignored.status === "ignored_non_continuation_tool", "repeated recovery is not continuation evidence");
+  assert(updates.length === 0, "repeated recovery writes no continuation update");
+
+  const fallback = await tracker.observe(target, "search_memory", 1_150);
+  assert(fallback.status === "ignored_non_continuation_tool", "fallback reads are not task-continuation evidence");
+  assert(updates.length === 0, "fallback reads keep continuation pending");
+
+  const recorded = await tracker.observe(target, "save_task_state", 1_200);
+  assert(recorded.status === "recorded", "first post-recovery tool call records continuation");
+  assert(updates.length === 1, "continuation writes exactly once");
+  assert(updates[0].id === "quality-log-1", "continuation binds the recovery log id");
+  assert(updates[0].agent_id === "kusabi", "continuation binds the agent id");
+  assert(updates[0].session_id === "session-1", "continuation binds the session id");
+  assert(
+    updates[0].quality_score === OBSERVED_CONTINUATION_QUALITY_SCORE,
+    "continuation uses the named binary observation score"
+  );
+  const notes = JSON.parse(updates[0].notes) as Record<string, unknown>;
+  const observation = notes.task_continued_observation as Record<string, unknown>;
+  assert(observation.source === "mcp_post_recovery_tool_call", "continuation notes record source");
+  assert(observation.tool === "save_task_state", "continuation notes record observed tool");
+  assert(notes.quality_score_model === "binary_observed_continuation_v1", "continuation notes record score model");
+
+  const duplicate = await tracker.observe(target, "get_knowledge", 1_300);
+  assert(duplicate.status === "no_pending_recovery", "tracker clears after first observation");
+  assert(updates.length === 1, "later tool calls do not duplicate the update");
+
+  tracker.arm("quality-log-expired", "legacy notes", 2_000);
+  const expired = await tracker.observe(
+    target,
+    "save_task_state",
+    2_000 + RECOVERY_CONTINUATION_WINDOW_MS + 1
+  );
+  assert(expired.status === "expired", "observations after ten minutes expire");
+  assert(updates.length === 1, "expired observations do not write");
 }
 
 function sameStringSet(actual: string[], expected: readonly string[]): boolean {
@@ -3684,6 +3740,35 @@ async function testCoreMcpToolRegression() {
   });
   const client = new Client({ name: "agent-memory-core-mcp-test", version: "0.0.0" }, { capabilities: {} });
 
+  const readLatestRecoveryQuality = async (): Promise<Record<string, unknown>> => {
+    const verificationStore = new SqliteStore(dbPath);
+    await verificationStore.initialize();
+    try {
+      const sqlitePrivate = verificationStore as unknown as {
+        db: {
+          prepare: (sql: string) => {
+            bind: (values: unknown[]) => void;
+            step: () => boolean;
+            getAsObject: () => Record<string, unknown>;
+            free: () => void;
+          };
+        };
+      };
+      const stmt = sqlitePrivate.db.prepare(
+        `SELECT id, agent_id, session_id, task_continued, quality_score, notes
+           FROM recovery_quality_log
+          WHERE agent_id = ? AND session_id = ?
+          ORDER BY created_at DESC LIMIT 1`
+      );
+      stmt.bind([agentId, "mcp-core-regression-session"]);
+      const row = stmt.step() ? stmt.getAsObject() : {};
+      stmt.free();
+      return row;
+    } finally {
+      await verificationStore.close();
+    }
+  };
+
   try {
     await client.connect(transport);
 
@@ -3803,6 +3888,9 @@ async function testCoreMcpToolRegression() {
     assert(recoveryText.includes("Core MCP regression coverage"), "recover_context returns active task");
     assert(recoveryText.includes("Use MCP regression coverage"), "recover_context returns active decision");
     assert(recoveryText.includes("MCP regression coverage shape"), "recover_context returns knowledge");
+    const pendingQuality = await readLatestRecoveryQuality();
+    assert(pendingQuality.task_continued === null, "recover_context leaves continuation unknown before observation");
+    assert(pendingQuality.quality_score === null, "recover_context leaves quality score unknown before observation");
 
     const pack = await client.callTool({
       name: "restart_pack",
@@ -3811,6 +3899,32 @@ async function testCoreMcpToolRegression() {
     const packText = toolResultText(pack);
     assert(packText.includes("CURRENT OBJECTIVE"), "restart_pack returns current objective section");
     assert(packText.includes("Core MCP regression coverage"), "restart_pack returns seeded task");
+    const fallbackQuality = await readLatestRecoveryQuality();
+    assert(fallbackQuality.task_continued === null, "recovery-only tools do not claim task continuation");
+
+    const continuedTask = await client.callTool({
+      name: "save_task_state",
+      arguments: {
+        project,
+        task: "Core MCP regression coverage",
+        status: "in_progress",
+        progress: "Recovered context and continued the exact task",
+        files_modified: ["src/test.ts"],
+        next_steps: "Finish the MCP continuation telemetry assertions",
+      },
+    });
+    assert(toolResultText(continuedTask).includes("Task state saved"), "post-recovery state action succeeds");
+    const observedQuality = await readLatestRecoveryQuality();
+    assert(observedQuality.id === pendingQuality.id, "post-recovery observation updates the exact recovery row");
+    assert(observedQuality.task_continued === 1, "first post-recovery action marks continuation true");
+    assert(observedQuality.quality_score === 1, "first post-recovery action records the binary observation score");
+    const observedQualityNotes = JSON.parse(String(observedQuality.notes)) as Record<string, unknown>;
+    const observedAction = observedQualityNotes.task_continued_observation as Record<string, unknown>;
+    assert(observedAction.tool === "save_task_state", "quality notes bind the observed post-recovery action");
+    assert(
+      observedQualityNotes.quality_score_model === "binary_observed_continuation_v1",
+      "quality notes identify the score model"
+    );
 
     const prepared = await client.callTool({
       name: "restart_prepare",
@@ -4421,6 +4535,7 @@ async function run() {
   await testTaskStates();
   await testTaskStatesUpsert();
   await testRecoverContext();
+  await testRecoveryContinuationTracker();
   await testSearchMemory();
   await testJapaneseSearchJson();
   await testRecoverContextBoot();

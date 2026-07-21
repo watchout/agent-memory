@@ -357,6 +357,22 @@ export interface LogRecoveryQualityInput {
   search_memory_count_10min?: number;
 }
 
+/**
+ * Exact-bound post-recovery continuation observation.
+ *
+ * The row is updated only when id, agent_id, and session_id all match. This
+ * prevents a later session (or another agent) from relabelling earlier
+ * recovery evidence. `quality_score` is the score produced by the named
+ * observation model recorded in `notes`.
+ */
+export interface MarkRecoveryContinuedInput {
+  id: string;
+  agent_id: string;
+  session_id: string;
+  quality_score: number;
+  notes: string;
+}
+
 export interface SearchMemoryInput {
   agent_id: string;
   query: string;
@@ -484,6 +500,9 @@ export interface Store {
 
   /** Log recovery quality metrics (v0.4.0, FEAT-024 / AM-002 Stage 1) */
   logRecoveryQuality(input: LogRecoveryQualityInput): Promise<string>;
+
+  /** Mark an exact recovery row continued after a machine-observed action. */
+  markRecoveryContinued(input: MarkRecoveryContinuedInput): Promise<boolean>;
 
   /** Update search_memory count on a recovery quality log entry (v0.4.0, FEAT-024) */
   updateSearchMemoryCount(log_id: string, count: number): Promise<void>;

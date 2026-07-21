@@ -446,7 +446,7 @@ stage_contracts:
         reason: UNVERIFIED item is not admissible for Rapid/Lite gate material.
       - item_id: RL-B3-006
         code: maker_checker_violation
-        reason: Reviewer actor/model matches implementation actor/model where separation is required.
+        reason: Reviewer actor matches the implementation actor where separation is required; model identity remains provenance, not an independence boundary.
       - item_id: RL-B3-007
         code: audit_head_mismatch
         reason: Audit target_head does not match PR head.

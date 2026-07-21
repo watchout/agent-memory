@@ -337,12 +337,7 @@ function validateCellAuditRecord(record, recordRef, actualHead, handoff) {
     }
   }
 
-  if (record.reviewer_actor === record.implementation_actor) {
-    findings.push(finding("RL-AUDIT-005", "maker_checker_actor_not_separated", "Audit reviewer_actor must differ from implementation_actor.", `${recordRef}.reviewer_actor`));
-  }
-  if (record.reviewer_model === record.implementation_model) {
-    findings.push(finding("RL-AUDIT-005", "maker_checker_model_not_separated", "Audit reviewer_model must differ from implementation_model.", `${recordRef}.reviewer_model`));
-  }
+  findings.push(...validateMakerCheckerSeparation(record, recordRef));
 
   if (!["PASS", "PASS_WITH_WARN"].includes(record.aggregate_verdict)) {
     findings.push(finding("RL-AUDIT-006", "audit_aggregate_not_pass", "Audit aggregate_verdict must be PASS or PASS_WITH_WARN before merge.", `${recordRef}.aggregate_verdict`));
@@ -429,6 +424,14 @@ function validateCellAuditRecord(record, recordRef, actualHead, handoff) {
   }
 
   return { findings, warnings, evidence, itemSetRef };
+}
+
+function validateMakerCheckerSeparation(record, recordRef) {
+  const findings = [];
+  if (record.reviewer_actor === record.implementation_actor) {
+    findings.push(finding("RL-AUDIT-005", "maker_checker_actor_not_separated", "Audit reviewer_actor must differ from implementation_actor.", `${recordRef}.reviewer_actor`));
+  }
+  return findings;
 }
 
 function validateAuditItemSet(itemSet, itemSetRef) {
@@ -643,8 +646,37 @@ function runOwnerDecisionParserSelfTest() {
   process.stdout.write("owner decision parser self-test: PASS\n");
 }
 
+function runMakerCheckerSelfTest() {
+  const sameModelDifferentActors = validateMakerCheckerSeparation({
+    reviewer_actor: "devauditor",
+    reviewer_model: "GPT-5/Codex",
+    implementation_actor: "kusabi",
+    implementation_model: "GPT-5/Codex",
+  }, "self-test");
+  const sameActor = validateMakerCheckerSeparation({
+    reviewer_actor: "kusabi",
+    reviewer_model: "different-model",
+    implementation_actor: "kusabi",
+    implementation_model: "GPT-5/Codex",
+  }, "self-test");
+
+  assertMakerCheckerSelfTest(
+    sameModelDifferentActors.length === 0,
+    "accepts different actors using the same model"
+  );
+  assertMakerCheckerSelfTest(
+    sameActor.some((item) => item.code === "maker_checker_actor_not_separated"),
+    "rejects the same actor even when model labels differ"
+  );
+  process.stdout.write("maker-checker self-test: PASS\n");
+}
+
 function assertSelfTest(condition, message) {
   if (!condition) throw new Error(`owner decision parser self-test failed: ${message}`);
+}
+
+function assertMakerCheckerSelfTest(condition, message) {
+  if (!condition) throw new Error(`maker-checker self-test failed: ${message}`);
 }
 
 function requireScalar(value, itemId, code, message, path, findings) {
@@ -746,6 +778,8 @@ function renderMarkdown(report) {
 try {
   if (process.argv.includes("--self-test-owner-decision-parser")) {
     runOwnerDecisionParserSelfTest();
+  } else if (process.argv.includes("--self-test-maker-checker")) {
+    runMakerCheckerSelfTest();
   } else {
     main();
   }

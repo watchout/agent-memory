@@ -653,6 +653,89 @@ async function testRecoveryQualityLog() {
   if (stmt2.step()) row2 = stmt2.getAsObject();
   stmt2.free();
   assert(row2?.task_continued === 0, "task_continued=false stored as 0 (not NULL)");
+  assert(
+    !(await store.markRecoveryContinued({
+      id: falseId,
+      agent_id: AGENT,
+      session_id: "test-session-tc-false",
+      quality_score: 1,
+      notes: "{}",
+    })),
+    "markRecoveryContinued does not overwrite an explicit false"
+  );
+
+  const pendingNotes = JSON.stringify({ source: "recover_context" });
+  const pendingId = await store.logRecoveryQuality({
+    agent_id: AGENT,
+    session_id: "test-session-observed",
+    recovered_tokens: 512,
+    notes: pendingNotes,
+  });
+  assert(
+    !(await store.markRecoveryContinued({
+      id: pendingId,
+      agent_id: `${AGENT}-other`,
+      session_id: "test-session-observed",
+      quality_score: 1,
+      notes: "{}",
+    })),
+    "markRecoveryContinued rejects an agent mismatch"
+  );
+  assert(
+    !(await store.markRecoveryContinued({
+      id: pendingId,
+      agent_id: AGENT,
+      session_id: "wrong-session",
+      quality_score: 1,
+      notes: "{}",
+    })),
+    "markRecoveryContinued rejects a session mismatch"
+  );
+  assert(
+    !(await store.markRecoveryContinued({
+      id: "00000000-0000-4000-8000-000000000000",
+      agent_id: AGENT,
+      session_id: "test-session-observed",
+      quality_score: 1,
+      notes: "{}",
+    })),
+    "markRecoveryContinued rejects a log mismatch"
+  );
+  const observedNotes = JSON.stringify({
+    source: "recover_context",
+    task_continued_observation: { source: "mcp_post_recovery_tool_call", tool: "save_task_state" },
+    quality_score_model: "binary_observed_continuation_v1",
+  });
+  assert(
+    await store.markRecoveryContinued({
+      id: pendingId,
+      agent_id: AGENT,
+      session_id: "test-session-observed",
+      quality_score: 1,
+      notes: observedNotes,
+    }),
+    "markRecoveryContinued updates an exact-bound pending row"
+  );
+  assert(
+    !(await store.markRecoveryContinued({
+      id: pendingId,
+      agent_id: AGENT,
+      session_id: "test-session-observed",
+      quality_score: 1,
+      notes: observedNotes,
+    })),
+    "markRecoveryContinued is idempotent"
+  );
+  const observedStmt = sqlitePrivate.db.prepare(
+    "SELECT task_continued, quality_score, notes FROM recovery_quality_log WHERE id = ?"
+  );
+  observedStmt.bind([pendingId]);
+  let observedRow: Record<string, unknown> | null = null;
+  if (observedStmt.step()) observedRow = observedStmt.getAsObject();
+  observedStmt.free();
+  assert(observedRow?.task_continued === 1, "observed continuation persisted");
+  assert(observedRow?.quality_score === 1, "observed continuation score persisted");
+  assert(observedRow?.notes === observedNotes, "observation provenance persisted");
 
   await store.updateSearchMemoryCount(fullId, 12);
   const stmt3 = sqlitePrivate.db.prepare(
