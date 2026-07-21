@@ -59,6 +59,7 @@ import {
   CODEX_WASUREZU_MCP_ARGS,
   CODEX_WASUREZU_MCP_COMMAND,
   CODEX_WASUREZU_PROJECT,
+  KUSABI_CODEX_START_CONFIG,
   CodexMcpBindingError,
   buildApprovedCodexMcpBinding,
   buildCodexDoctorReport,
@@ -76,6 +77,31 @@ import {
   prepareCodexLaunch,
 } from "./codex-start.js";
 import type { CodexMcpBinding } from "./codex-start.js";
+import {
+  KUSABI_ONE_SEAT_IDENTITY,
+  buildKusabiRuntimeIdentityReadback,
+  canonicalConfigDigest,
+  verifyKusabiRuntimeIdentity,
+  workspacePathDigest,
+} from "./kusabi-runtime-identity.js";
+import {
+  buildContinuationCheckpoint,
+  buildContinuationRecoveryPack,
+  canonicalCheckpointDigest,
+  verifyContinuationCheckpoint,
+  verifyContinuationRecoveryPack,
+  type ContinuationIdentity,
+} from "./kusabi-checkpoint-recovery.js";
+import {
+  ONE_SEAT_ZERO_EFFECTS,
+  buildDeterministicOneSeatCanaryEvidence,
+  buildOneSeatCanaryPlan,
+  exactOneSeatCanaryInput,
+  exactOneSeatRecoveryExpectation,
+  verifyOneSeatCanaryEvidence,
+  verifyOneSeatRecoveryContext,
+  type OneSeatRecoveryContextReadback,
+} from "./kusabi-one-seat-canary.js";
 import {
   CLAUDE_RESESSION_RUNNER_ENV,
   buildClaudeLaunchArgs,
@@ -4108,6 +4134,280 @@ async function testSqliteMigrationIdempotency() {
   rmSync(dbPath, { force: true });
 }
 
+async function testKusabiIntegratedCell123() {
+  console.log("\n── KUI-INTEGRATED-CELL123-001 ──");
+
+  const workspacePath = process.cwd();
+  const integratedHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const integratedTree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+  const integratedBranch = execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim();
+  const builtExecution = import.meta.url.endsWith("/dist/test.js");
+  const runtimeArtifactPath = join(workspacePath, builtExecution ? "dist/codex-start.js" : "src/codex-start.ts");
+  const packageReceiptRef = `package_receipt:head:${integratedHead}:tree:${integratedTree}`;
+
+  const identityReadback = buildKusabiRuntimeIdentityReadback({
+    ...KUSABI_ONE_SEAT_IDENTITY,
+    workspacePath,
+    runtimeCommitSha: integratedHead,
+    runtimeArtifactPath,
+    config: KUSABI_CODEX_START_CONFIG,
+  });
+  const identityVerification = verifyKusabiRuntimeIdentity(identityReadback, {
+    ...KUSABI_ONE_SEAT_IDENTITY,
+    workspacePathHash: workspacePathDigest(workspacePath),
+    runtimeCommitSha: integratedHead,
+    runtimeArtifactDigest: identityReadback.tuple.runtime.artifact_digest,
+    configDigest: canonicalConfigDigest(KUSABI_CODEX_START_CONFIG),
+  });
+  assert(identityVerification.ok, "integrated runtime identity verifies against the exact head and artifact");
+
+  const continuationIdentity: ContinuationIdentity = {
+    agent_id: identityReadback.tuple.identity.agent_id,
+    memory_project: identityReadback.tuple.identity.memory_project,
+    workspace_ref: identityReadback.tuple.identity.workspace_ref,
+    workspace_path_hash: identityReadback.tuple.identity.workspace_path_hash,
+    host: identityReadback.tuple.identity.host,
+    adapter: identityReadback.tuple.identity.adapter,
+    lifecycle_owner: identityReadback.tuple.identity.lifecycle_owner,
+    runtime_commit_sha: identityReadback.tuple.runtime.commit_sha,
+    runtime_artifact_digest: identityReadback.tuple.runtime.artifact_digest,
+    config_digest: identityReadback.tuple.config_digest,
+  };
+  const identitySourceValues = [
+    identityReadback.tuple.identity.agent_id,
+    identityReadback.tuple.identity.memory_project,
+    identityReadback.tuple.identity.workspace_ref,
+    identityReadback.tuple.identity.workspace_path_hash,
+    identityReadback.tuple.identity.host,
+    identityReadback.tuple.identity.adapter,
+    identityReadback.tuple.identity.lifecycle_owner,
+    identityReadback.tuple.runtime.commit_sha,
+    identityReadback.tuple.runtime.artifact_digest,
+    identityReadback.tuple.config_digest,
+  ];
+  assert(
+    Object.values(continuationIdentity).every((value, index) => value === identitySourceValues[index]),
+    "all 10 runtime identity fields map losslessly into ContinuationIdentity",
+  );
+
+  const integratedDiff = execFileSync(
+    "git",
+    ["diff", "--binary", "6e85144e4ec22f24d51cf1975c7d0448485df4b7...HEAD"],
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+  );
+  const checkpoint = buildContinuationCheckpoint({
+    identity: continuationIdentity,
+    tasks: [{
+      id: "CELL-KUSABI-INTEGRATED-RECOVERY-SUBJECT-001",
+      status: "in_progress",
+      task: "Verify integrated Kusabi recovery Cells 1-3",
+      next_steps: "Route the exact integrated head and package to independent audit",
+      files_modified: [],
+      updated_at: "2026-07-21T00:00:00.000Z",
+    }],
+    decisions: [{
+      id: "CH-KUSABI-INTEGRATED-CELL123-20260721-001",
+      status: "active",
+      decision: "Integrate frozen Cells 1-3 before live canary",
+      created_at: "2026-07-21T00:00:00.000Z",
+    }],
+    knowledge: [{
+      id: "KUSABI-INTEGRATED-PACKAGE-RECEIPT",
+      status: "active",
+      updated_at: "2026-07-21T00:00:00.000Z",
+    }],
+    artifact_refs: [
+      "https://github.com/watchout/agent-memory/issues/180#issuecomment-5028763554",
+      packageReceiptRef,
+    ],
+    visible_events: [{
+      id: "event-integrated-cell123",
+      content_digest: createHash("sha256").update("integrated Cells 1-3 ready for audit").digest("hex"),
+      occurred_at: "2026-07-21T00:01:00.000Z",
+    }],
+    repo: {
+      repository: "watchout/agent-memory",
+      branch: integratedBranch,
+      head_sha: integratedHead,
+      dirty_paths: [],
+      diff_material: integratedDiff,
+    },
+    effects: [],
+    recovery: {
+      prior_session_id: "session-integrated-cell123-prior",
+      saved_source_cursor: "2026-07-21T00:00:00.000Z",
+      supported_source_backlog_after_sync: 0,
+      duplicate_raw_events: 0,
+      confidence: 1,
+      missing_context: [],
+      pack_content_digest: createHash("sha256").update(packageReceiptRef).digest("hex"),
+    },
+    suite: {
+      aun_supervised: false,
+      queue_refs: [],
+      mutation_allowed: false,
+    },
+  });
+  const checkpointVerification = verifyContinuationCheckpoint(checkpoint, {
+    expected_digest: canonicalCheckpointDigest(checkpoint),
+    expected_dirty_paths: [],
+    expected_diff_digest: checkpoint.repo.diff_digest,
+  });
+  assert(checkpointVerification.ok, "integrated continuation checkpoint verifies on the exact head");
+  assert(checkpointVerification.required_manifest_field_match_rate === 1, "checkpoint manifest is complete");
+  assert(checkpointVerification.source_refs_nonempty, "checkpoint contains the integration package receipt");
+
+  const fixtureRoot = mkdtempSync(join(tmpdir(), "kusabi-integrated-cell123-"));
+  const dbPath = join(fixtureRoot, "memory.db");
+  const selectedPackId = "a23e4567-e89b-42d3-a456-bcdeffedcbaa";
+  const selectedPackRef = `selected_restart_pack:${selectedPackId}`;
+  const selectedPackContentSha256 = createHash("sha256").update(packageReceiptRef).digest("hex");
+  const selectedPackReadbackRef =
+    `wasurezu.restart_pack_fetch:${selectedPackRef}@sha256:${selectedPackContentSha256}`;
+  const recoveryExpectation = exactOneSeatRecoveryExpectation(integratedHead, integratedTree, {
+    pack_ref: selectedPackRef,
+    content_sha256: selectedPackContentSha256,
+    readback_source_ref: selectedPackReadbackRef,
+  });
+  const recoveryContext: OneSeatRecoveryContextReadback = {
+    schema_version: "kusabi-one-seat-recovery-context/v1",
+    evidence_kind: "machine_readback",
+    current_task: { status: "current", cell_id: recoveryExpectation.cell_id },
+    exact_head_sha: integratedHead,
+    exact_head_tree: integratedTree,
+    manifest: structuredClone(recoveryExpectation.manifest),
+    root_goal: structuredClone(recoveryExpectation.root_goal),
+    target: structuredClone(recoveryExpectation.target),
+    selected_restart_pack: structuredClone(recoveryExpectation.selected_restart_pack),
+    source_refs: [selectedPackReadbackRef],
+  };
+  const recoveryPack = buildContinuationRecoveryPack(checkpoint, JSON.stringify(recoveryContext));
+  assert(
+    verifyContinuationRecoveryPack(recoveryPack.canonical_json, recoveryPack.metadata).ok,
+    "integrated continuation recovery pack verifies before persistence",
+  );
+
+  try {
+    const store = new SqliteStore(dbPath);
+    await store.initialize();
+    const generated = await store.saveSelectedRestartPack({
+      agent_id: "kusabi",
+      project: "agent-memory",
+      content: recoveryPack.canonical_json,
+      source: "manual",
+      metadata: recoveryPack.metadata,
+    });
+    const fixtureStore = store as unknown as {
+      db: { run: (sql: string, params?: unknown[]) => void };
+      persist: () => void;
+    };
+    fixtureStore.db.run(
+      "UPDATE selected_restart_packs SET id = ?, pack_ref = ? WHERE id = ?",
+      [selectedPackId, selectedPackRef, generated.id],
+    );
+    fixtureStore.persist();
+    await store.close();
+
+    const childEnv = {
+      ...process.env,
+      HOME: fixtureRoot,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: dbPath,
+      AGENT_MEMORY_AGENT_ID: "kusabi",
+      AGENT_MEMORY_PROJECT: "agent-memory",
+      AGENT_MEMORY_BOOT_MODE: "restart_pack",
+      AGENT_MEMORY_SELECTED_PACK_REF: selectedPackRef,
+      CLAUDE_SESSION_ID: "boot-kusabi-integrated-cell123",
+    };
+    const bootCommand = builtExecution
+      ? { bin: "node", args: ["dist/boot.js"] }
+      : { bin: "npx", args: ["--no-install", "tsx", "src/boot.ts"] };
+    const firstBoot = execFileSync(bootCommand.bin, bootCommand.args, {
+      cwd: workspacePath,
+      env: childEnv,
+      encoding: "utf8",
+    }).trim();
+    const recoveredLine = firstBoot.split("\n").find((line) => line.includes("kusabi-one-seat-recovery-context/v1"));
+    if (!recoveredLine) throw new Error(`integrated recovery payload missing: ${firstBoot}`);
+    const recoveredContext = JSON.parse(recoveredLine) as OneSeatRecoveryContextReadback;
+    const recoveredContextVerification = verifyOneSeatRecoveryContext(recoveredContext, recoveryExpectation);
+    assert(
+      recoveredContextVerification.ok,
+      `fresh child recovers the exact integrated machine context: ${recoveredContextVerification.errors.join(",")}`,
+    );
+
+    const secondBoot = execFileSync(bootCommand.bin, bootCommand.args, {
+      cwd: workspacePath,
+      env: { ...childEnv, CLAUDE_SESSION_ID: "boot-kusabi-integrated-cell123-second" },
+      encoding: "utf8",
+    }).trim();
+    const blockedLine = secondBoot.split("\n")
+      .find((line) => line.includes("kusabi-continuation-recovery-readback/v1"));
+    if (!blockedLine) throw new Error(`second consume readback missing: ${secondBoot}`);
+    const blockedReadback = JSON.parse(blockedLine) as Record<string, unknown>;
+    assert(blockedReadback.recovery_outcome === "blocked", "second fresh child is blocked by consume-once CAS");
+    assert(blockedReadback.continuity_pass_claimed === false, "second consume cannot claim continuity PASS");
+    assert(blockedReadback.automatic_effect_count === 0, "second consume has zero automatic effects");
+    assert(blockedReadback.queue_mutation_count === 0, "second consume has zero queue mutations");
+    assert(blockedReadback.runtime_restart_count === 0, "second consume has zero runtime restarts");
+
+    const dryRunPlan = buildOneSeatCanaryPlan(exactOneSeatCanaryInput());
+    const dryRunEvidence = buildDeterministicOneSeatCanaryEvidence(dryRunPlan);
+    const dryRunVerification = verifyOneSeatCanaryEvidence(dryRunEvidence);
+    assert(dryRunVerification.ok, "one-seat deterministic canary evidence verifies after fresh recovery");
+    assert(dryRunVerification.user_context_restatement_count === 0, "deterministic canary requires zero restatement");
+    assert(dryRunEvidence.live_execution_performed === false, "fixture performs no live canary execution");
+    assert(dryRunEvidence.live_acceptance_claimed === false, "fixture claims no live acceptance or RI0");
+    assert(dryRunPlan.protected_effect_boundary_reached === false, "fixture never reaches a protected effect boundary");
+    assert(
+      Object.values(ONE_SEAT_ZERO_EFFECTS).every((count) => count === 0),
+      "every deterministic canary protected-effect counter is zero",
+    );
+
+    const identityDrift = verifyKusabiRuntimeIdentity(identityReadback, {
+      ...KUSABI_ONE_SEAT_IDENTITY,
+      workspacePathHash: workspacePathDigest(workspacePath),
+      runtimeCommitSha: "0".repeat(40),
+      runtimeArtifactDigest: identityReadback.tuple.runtime.artifact_digest,
+      configDigest: canonicalConfigDigest(KUSABI_CODEX_START_CONFIG),
+    });
+    assert(!identityDrift.ok, "integrated identity drift fails closed");
+    const checkpointDrift = structuredClone(checkpoint);
+    checkpointDrift.recovery.source_cursor = "2026-07-20T23:59:00.000Z";
+    assert(!verifyContinuationCheckpoint(checkpointDrift).ok, "integrated checkpoint cursor drift fails closed");
+    assert(
+      !verifyContinuationRecoveryPack(recoveryPack.canonical_json, {
+        ...recoveryPack.metadata,
+        checkpoint_digest: "0".repeat(64),
+      }).ok,
+      "integrated pack metadata disagreement fails closed",
+    );
+    const staleContext = structuredClone(recoveryContext);
+    staleContext.exact_head_sha = "0".repeat(40);
+    assert(!verifyOneSeatRecoveryContext(staleContext, recoveryExpectation).ok, "stale recovery head fails canary binding");
+    const forgedLiveEvidence = structuredClone(dryRunEvidence);
+    forgedLiveEvidence.live_execution_performed = true as false;
+    assert(!verifyOneSeatCanaryEvidence(forgedLiveEvidence).ok, "fixture evidence cannot be relabeled as live RI0");
+
+    console.log(JSON.stringify({
+      schema_version: "kusabi-integrated-cell123-fixture/v1",
+      status: "PASS",
+      identity_field_match_rate: 1,
+      checkpoint_verification: "pass",
+      fresh_recovery_count: 1,
+      selected_pack_consume_count: 1,
+      second_consume_outcome: "blocked",
+      canary_evidence_kind: "deterministic_fixture",
+      live_execution_performed: false,
+      live_acceptance_claimed: false,
+      protected_effect_count: 0,
+      RI0_claimed: false,
+    }));
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -4142,6 +4442,7 @@ async function run() {
   await testRestartPrepare();
   await testCoreMcpToolRegression();
   await testRestartRecoverySmokeEvidence();
+  await testKusabiIntegratedCell123();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();
