@@ -9,6 +9,7 @@ import { createStore } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
+import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -53,15 +54,28 @@ import {
   CODEX_ARGV_VISIBILITY_NOTE,
   CODEX_POSITIONAL_PROMPT_CONTRACT,
   CODEX_STARTUP_BRIDGE_ENV,
+  CODEX_WASUREZU_AGENT_ID,
+  CODEX_WASUREZU_DATABASE_URL_SHA256,
+  CODEX_WASUREZU_MCP_ARGS,
+  CODEX_WASUREZU_MCP_COMMAND,
+  CODEX_WASUREZU_PROJECT,
+  CodexMcpBindingError,
+  buildApprovedCodexMcpBinding,
   buildCodexDoctorReport,
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
   buildCodexLaunchPreview,
+  buildCodexMcpOverrideArgs,
+  buildCodexMcpPreflightArgs,
   buildCodexStartupPrompt,
   isMainEntrypoint as isCodexMainEntrypoint,
+  launchCodex,
   logCodexStartupQuality,
   parseArgs,
+  preflightCodexMcpBinding,
+  prepareCodexLaunch,
 } from "./codex-start.js";
+import type { CodexMcpBinding } from "./codex-start.js";
 import {
   CLAUDE_RESESSION_RUNNER_ENV,
   buildClaudeLaunchArgs,
@@ -1943,6 +1957,269 @@ async function testCodexStartupBridge() {
   assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
   assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
   assert(CODEX_STARTUP_BRIDGE_ENV === "codex_startup_bridge_v1", "Codex startup bridge env has stable adapter marker");
+
+  const approvedBinding = buildApprovedCodexMcpBinding({
+    AGENT_MEMORY_AGENT_ID: "kusabi",
+    AGENT_MEMORY_PROJECT: "agent-memory",
+  });
+  assert(approvedBinding.command === CODEX_WASUREZU_MCP_COMMAND, "Codex MCP binding pins the approved command");
+  assert(approvedBinding.args[0] === CODEX_WASUREZU_MCP_ARGS[0], "Codex MCP binding pins the complete approved args");
+  assert(approvedBinding.agentId === CODEX_WASUREZU_AGENT_ID, "Codex MCP binding pins the approved agent id");
+  assert(approvedBinding.project === CODEX_WASUREZU_PROJECT, "Codex MCP binding pins the approved project");
+  assert(
+    approvedBinding.databaseUrlSha256 === CODEX_WASUREZU_DATABASE_URL_SHA256,
+    "Codex MCP binding pins the approved database fingerprint"
+  );
+  try {
+    buildApprovedCodexMcpBinding({ AGENT_MEMORY_AGENT_ID: "default", AGENT_MEMORY_PROJECT: "agent-memory" });
+    assert(false, "Codex MCP binding rejects a default agent id");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      "Codex MCP binding rejects a default agent id"
+    );
+  }
+  try {
+    buildApprovedCodexMcpBinding({ AGENT_MEMORY_AGENT_ID: "kusabi", AGENT_MEMORY_PROJECT: "default" });
+    assert(false, "Codex MCP binding rejects a default project");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      "Codex MCP binding rejects a default project"
+    );
+  }
+
+  const fixtureDatabaseUrl = "postgresql://fixture-user:fixture-password@fixture.invalid/fixture-db";
+  const fixtureDatabaseUrlSha256 = createHash("sha256").update(fixtureDatabaseUrl, "utf8").digest("hex");
+  const fixtureBinding: CodexMcpBinding = {
+    serverName: "wasurezu",
+    command: "node",
+    args: ["/Users/yuji/Developer/agent-memory/dist/index.js"],
+    agentId: "kusabi",
+    project: "agent-memory",
+    databaseUrlSha256: fixtureDatabaseUrlSha256,
+  };
+  const overrideArgs = buildCodexMcpOverrideArgs(fixtureBinding);
+  const expectedOverrideArgs = [
+    "-c",
+    'mcp_servers.wasurezu.command="node"',
+    "-c",
+    'mcp_servers.wasurezu.args=["/Users/yuji/Developer/agent-memory/dist/index.js"]',
+    "-c",
+    'mcp_servers.wasurezu.env.AGENT_MEMORY_AGENT_ID="kusabi"',
+    "-c",
+    'mcp_servers.wasurezu.env.AGENT_MEMORY_PROJECT="agent-memory"',
+  ];
+  assert(JSON.stringify(overrideArgs) === JSON.stringify(expectedOverrideArgs), "Codex MCP binding emits the exact ordered override argv");
+  assert(
+    JSON.stringify(buildCodexMcpPreflightArgs(fixtureBinding, overrideArgs)) ===
+      JSON.stringify(["mcp", "get", "wasurezu", "--json", ...expectedOverrideArgs]),
+    "Codex MCP preflight reuses the exact launch override argv"
+  );
+
+  const makeEffectiveConfig = (mutate?: (config: any) => void): string => {
+    const config: any = {
+      name: "wasurezu",
+      enabled: true,
+      disabled_reason: null,
+      transport: {
+        type: "stdio",
+        command: fixtureBinding.command,
+        args: [...fixtureBinding.args],
+        env: {
+          AGENT_MEMORY_AGENT_ID: fixtureBinding.agentId,
+          AGENT_MEMORY_PROJECT: fixtureBinding.project,
+          DATABASE_URL: fixtureDatabaseUrl,
+          SENTINEL_TOKEN: "token-fixture-secret",
+          SENTINEL_CONFIG_VALUE: "config-fixture-secret",
+        },
+        env_vars: [],
+        cwd: null,
+      },
+      enabled_tools: null,
+      disabled_tools: null,
+      startup_timeout_sec: 30,
+      tool_timeout_sec: 120,
+    };
+    mutate?.(config);
+    return JSON.stringify(config);
+  };
+
+  let capturedPreflightArgs: string[] = [];
+  const exactPreflight = (_bin: string, args: string[]) => {
+    capturedPreflightArgs = [...args];
+    return { status: 0, stdout: makeEffectiveConfig(), stderr: "" };
+  };
+  const preflightReport = preflightCodexMcpBinding("codex-dev", fixtureBinding, overrideArgs, exactPreflight);
+  assert(preflightReport.command_exact_match === true, "Codex MCP preflight accepts the exact command");
+  assert(preflightReport.args_exact_match === true, "Codex MCP preflight accepts the exact ordered args");
+  assert(preflightReport.agent_id_exact_match === true, "Codex MCP preflight accepts the exact agent id");
+  assert(preflightReport.project_exact_match === true, "Codex MCP preflight accepts the exact project");
+  assert(preflightReport.backend === "postgresql", "Codex MCP preflight verifies the PostgreSQL backend");
+  assert(preflightReport.database_url_sha256 === fixtureDatabaseUrlSha256, "Codex MCP preflight reports only the database fingerprint");
+  assert(
+    JSON.stringify(capturedPreflightArgs) === JSON.stringify(["mcp", "get", "wasurezu", "--json", ...overrideArgs]),
+    "Codex MCP preflight command uses the shared exact override argv"
+  );
+
+  let launchSpawnCount = 0;
+  let capturedLaunchArgs: string[] = [];
+  await launchCodex(parsed, "bounded restart pack prompt", {
+    binding: fixtureBinding,
+    preflightCommand: exactPreflight,
+    launchCommand: async (_bin, args) => {
+      launchSpawnCount++;
+      capturedLaunchArgs = [...args];
+    },
+  });
+  assert(launchSpawnCount === 1, "Codex MCP exact preflight permits exactly one stubbed launch");
+  assert(
+    JSON.stringify(capturedLaunchArgs.slice(0, overrideArgs.length)) === JSON.stringify(overrideArgs),
+    "Codex launch uses the same exact override argv as preflight"
+  );
+  assert(
+    capturedLaunchArgs[overrideArgs.length] === "--cd" &&
+      capturedLaunchArgs[overrideArgs.length + 1] === "/tmp/work" &&
+      capturedLaunchArgs[overrideArgs.length + 2] === "bounded restart pack prompt",
+    "Codex bound launch preserves --cd and positional prompt ordering"
+  );
+
+  let preparedReadbackCount = 0;
+  let preparedLaunchCount = 0;
+  const preparedLaunch = prepareCodexLaunch(parsed, {
+    binding: fixtureBinding,
+    preflightCommand: (_bin, args) => {
+      preparedReadbackCount++;
+      return exactPreflight(_bin, args);
+    },
+  });
+  await launchCodex(parsed, "bounded restart pack prompt", {
+    preparedLaunch,
+    preflightCommand: () => {
+      throw new Error("preflight must not run twice");
+    },
+    launchCommand: async () => {
+      preparedLaunchCount++;
+    },
+  });
+  assert(preparedReadbackCount === 1, "Codex startup preparation performs exactly one effective-config readback");
+  assert(preparedLaunchCount === 1, "Codex prepared launch spawns exactly once after the single preflight");
+
+  const expectLaunchRejection = async (
+    label: string,
+    code: string,
+    result: { status: number | null; stdout: string; stderr: string; error?: string }
+  ) => {
+    let spawnCount = 0;
+    let thrown = "";
+    try {
+      await launchCodex(parsed, "restart-pack-secret-fixture", {
+        binding: fixtureBinding,
+        preflightCommand: () => result,
+        launchCommand: async () => {
+          spawnCount++;
+        },
+      });
+    } catch (err) {
+      thrown = String(err);
+      assert(err instanceof CodexMcpBindingError && err.code === code, `${label} returns the typed stop reason`);
+    }
+    assert(spawnCount === 0, `${label} fails before launch spawn`);
+    for (const secret of [fixtureDatabaseUrl, "fixture-password", "token-fixture-secret", "config-fixture-secret", "restart-pack-secret-fixture"]) {
+      assert(!thrown.includes(secret), `${label} does not disclose protected input`);
+    }
+  };
+
+  const commandAndArgsCases: Array<[string, (config: any) => void]> = [
+    ["wrong command", (config) => { config.transport.command = "node-wrong"; }],
+    ["missing command", (config) => { delete config.transport.command; }],
+    ["empty command", (config) => { config.transport.command = ""; }],
+    ["prefixed command", (config) => { config.transport.command = "/usr/bin/node"; }],
+    ["missing args", (config) => { delete config.transport.args; }],
+    ["empty args", (config) => { config.transport.args = []; }],
+    ["duplicated args", (config) => { config.transport.args = [...fixtureBinding.args, ...fixtureBinding.args]; }],
+    ["prefixed args", (config) => { config.transport.args = ["prefix", ...fixtureBinding.args]; }],
+    ["appended args", (config) => { config.transport.args = [...fixtureBinding.args, "suffix"]; }],
+    ["reordered args", (config) => { config.transport.args = ["suffix", ...fixtureBinding.args]; }],
+  ];
+  for (const [label, mutate] of commandAndArgsCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_COMMAND_OR_ARGS_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const namespaceCases: Array<[string, (config: any) => void]> = [
+    ["wrong agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = "arc"; }],
+    ["missing agent", (config) => { delete config.transport.env.AGENT_MEMORY_AGENT_ID; }],
+    ["empty agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = ""; }],
+    ["default agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = "default"; }],
+    ["wrong project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = "iyasaka-arc"; }],
+    ["missing project", (config) => { delete config.transport.env.AGENT_MEMORY_PROJECT; }],
+    ["empty project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = ""; }],
+    ["default project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = "default"; }],
+  ];
+  for (const [label, mutate] of namespaceCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const backendCases: Array<[string, (config: any) => void]> = [
+    ["wrong backend", (config) => { config.transport.env.DATABASE_URL = "sqlite:///fixture.db"; }],
+    ["missing database URL", (config) => { delete config.transport.env.DATABASE_URL; }],
+    ["empty database URL", (config) => { config.transport.env.DATABASE_URL = ""; }],
+    ["wrong database fingerprint", (config) => { config.transport.env.DATABASE_URL = `${fixtureDatabaseUrl}-other`; }],
+    ["redacted-looking database mismatch", (config) => { config.transport.env.DATABASE_URL = "postgresql://***:***@fixture.invalid/fixture-db"; }],
+  ];
+  for (const [label, mutate] of backendCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_BACKEND_OR_DSN_FINGERPRINT_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const malformedCases: Array<[string, { status: number | null; stdout: string; stderr: string; error?: string }]> = [
+    ["nonzero preflight", { status: 1, stdout: "", stderr: "config-fixture-secret" }],
+    ["timeout preflight", { status: null, stdout: "", stderr: "", error: "timeout token-fixture-secret" }],
+    ["malformed JSON", { status: 0, stdout: "{config-fixture-secret", stderr: "" }],
+    ["missing server", { status: 0, stdout: JSON.stringify({ enabled: true }), stderr: "" }],
+    ["wrong transport", { status: 0, stdout: makeEffectiveConfig((config) => { config.transport.type = "http"; }), stderr: "" }],
+    ["extra binding data", { status: 0, stdout: makeEffectiveConfig((config) => { config.unrecognized = true; }), stderr: "" }],
+  ];
+  for (const [label, result] of malformedCases) {
+    await expectLaunchRejection(`Codex MCP ${label}`, "EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED", result);
+  }
+
+  try {
+    preflightCodexMcpBinding("codex-dev", fixtureBinding, overrideArgs.slice(0, -2), exactPreflight);
+    assert(false, "Codex MCP preflight rejects incomplete shared override argv");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_COMMAND_OR_ARGS_MISMATCH",
+      "Codex MCP preflight rejects incomplete shared override argv"
+    );
+  }
+
+  const sanitizedPreflightEvidence = JSON.stringify({ preflightReport, overrideArgs });
+  for (const secret of [fixtureDatabaseUrl, "fixture-password", "token-fixture-secret", "config-fixture-secret", "bounded restart pack prompt"]) {
+    assert(!sanitizedPreflightEvidence.includes(secret), "Codex MCP sanitized evidence excludes secrets and restart-pack content");
+  }
+  const protectedEffects = {
+    live_mcp_calls: 0,
+    pack_fetches: 0,
+    pack_consumptions: 0,
+    database_writes: 0,
+    provider_model_calls: 0,
+    goal_mutations: 0,
+    config_writes: 0,
+    cycle_retries: 0,
+  };
+  assert(Object.values(protectedEffects).every((count) => count === 0), "Codex MCP offline fixtures keep all protected-effect counters at zero");
 
   const distEntrypoint = join(process.cwd(), "dist/codex-start.js");
   const symlinkDir = mkdtempSync(join(tmpdir(), "am032-codex-bin-"));
