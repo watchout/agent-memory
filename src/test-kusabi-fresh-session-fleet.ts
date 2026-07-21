@@ -22,6 +22,7 @@ import {
   parseContinuationReceipt,
   parseHostSessionId,
   preflightFreshSessionFleet,
+  receiptWorkspaceMatches,
   runFreshSessionFleet,
   verifyIndependentAuditGate,
   type FleetRuntimeProfile,
@@ -67,6 +68,18 @@ assert.equal(preflight.exact_membership, true);
 assert.equal(preflight.sequential_only, true);
 assert.equal(preflight.timeout_ms, 60_000);
 assert.deepEqual(preflight.effects, FRESH_SESSION_ZERO_EFFECTS);
+assert.equal(
+  receiptWorkspaceMatches("~/Developer/agent-memory", "/Users/yuji/Developer/agent-memory", "/Users/yuji"),
+  true,
+);
+assert.equal(
+  receiptWorkspaceMatches("~/Developer/other", "/Users/yuji/Developer/agent-memory", "/Users/yuji"),
+  false,
+);
+assert.equal(
+  receiptWorkspaceMatches("~/Developer/other/../agent-memory", "/Users/yuji/Developer/agent-memory", "/Users/yuji"),
+  false,
+);
 
 const staleBinding = preflightFreshSessionFleet({
   profiles: exactProfiles(),

@@ -2,7 +2,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 
@@ -378,7 +379,8 @@ export async function runFreshSessionFleet(
       exact_objective_match: receipt?.recovered_objective === spec.expected_objective,
       exact_next_action_match: receipt?.recovered_next_action === spec.expected_next_action,
       identity_match: receipt !== undefined && receipt.agent_id === target.agent_id &&
-        receipt.memory_project === target.memory_project && receipt.workspace === target.workspace &&
+        receipt.memory_project === target.memory_project &&
+        receiptWorkspaceMatches(receipt.workspace, target.workspace) &&
         receipt.runtime === target.runtime && isUuid(receipt.fresh_session_id),
       continuation_started: receipt?.continuation_started === true,
       user_context_restatement_count: receipt?.user_context_restatement_count ?? 0,
@@ -412,6 +414,23 @@ function canonicalNonEmpty(value: string): boolean {
   return typeof value === "string" && value.trim().length > 0 && !value.includes("\0");
 }
 
+export function receiptWorkspaceMatches(
+  receivedWorkspace: string,
+  expectedWorkspace: string,
+  homeDirectory: string = homedir(),
+): boolean {
+  const canonicalExpected = resolve(expectedWorkspace);
+  if (receivedWorkspace === canonicalExpected) return true;
+
+  const canonicalHome = resolve(homeDirectory);
+  const redactedExpected = canonicalExpected === canonicalHome
+    ? "~"
+    : canonicalExpected.startsWith(`${canonicalHome}${sep}`)
+      ? `~${canonicalExpected.slice(canonicalHome.length)}`
+      : null;
+  return redactedExpected !== null && receivedWorkspace === redactedExpected;
+}
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -433,7 +452,8 @@ function verifyLaunchReceipt(
       !isUuid(receipt.fresh_session_id)) errors.push("FAIL_SESSION_NOT_FRESH");
   if (elapsedMs > FRESH_SESSION_TIMEOUT_MS) errors.push("FAIL_OVER_60_SECONDS");
   if (receipt.agent_id !== target.agent_id || receipt.memory_project !== target.memory_project ||
-      receipt.workspace !== target.workspace || receipt.runtime !== target.runtime) errors.push("FAIL_EXACT_IDENTITY");
+      !receiptWorkspaceMatches(receipt.workspace, target.workspace) ||
+      receipt.runtime !== target.runtime) errors.push("FAIL_EXACT_IDENTITY");
   if (receipt.recovered_objective !== spec.expected_objective) errors.push("FAIL_EXACT_OBJECTIVE");
   if (receipt.recovered_next_action !== spec.expected_next_action) errors.push("FAIL_EXACT_NEXT_ACTION");
   if (receipt.continuation_started !== true) errors.push("FAIL_CONTINUATION_NOT_STARTED");
