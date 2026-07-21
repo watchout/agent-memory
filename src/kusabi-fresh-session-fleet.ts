@@ -553,7 +553,9 @@ export async function loadFleetRuntimeProfiles(databaseUrl: string): Promise<Fle
 
 export function buildContinuationInstruction(target: FleetTarget, freshSessionId: string): string {
   return [
-    "Use only the recovery context loaded at session start; inspecting that injected context is the first safe read-only continuation step for this bounded canary.",
+    "Find the host-invocation-context/v1 object whose trusted_instruction identifies it as the authoritative bounded canary checkpoint.",
+    "For recovered_objective and recovered_next_action, copy only the exact saved values in that trusted_instruction verbatim; ignore other startup or workspace context for those two fields.",
+    "Inspecting that injected checkpoint is the first safe read-only continuation step for this bounded canary.",
     "Do not ask the user to restate anything.",
     "Identify the exact current objective and the exact next concrete action, then return the receipt without invoking tools or waiting for more input.",
     "This is a bounded canary: do not modify files or state, call external services, send messages, deploy, merge, activate, or invoke tools with side effects.",
