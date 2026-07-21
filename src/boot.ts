@@ -19,6 +19,20 @@ const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
 const SESSION_ID = process.env.CLAUDE_SESSION_ID || `boot-${Date.now()}`;
 const STARTUP_BRIDGE = process.env.AGENT_MEMORY_STARTUP_BRIDGE;
+const CLAUDE_HOOK_JSON = process.env.AGENT_MEMORY_CLAUDE_HOOK_JSON === "1";
+
+function emitRecoveryOutput(output: string): void {
+  if (CLAUDE_HOOK_JSON) {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: output,
+      },
+    }));
+    return;
+  }
+  console.log(output);
+}
 
 async function boot() {
   // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
@@ -128,12 +142,12 @@ async function boot() {
           process.stderr.write(redactText(`[boot] restart_pack logRecoveryQuality failed (non-fatal): ${err}\n`).text);
           return "";
         });
-        console.log(output);
+        emitRecoveryOutput(output);
         return;
       } catch (err) {
         if (selectedPackRef) {
           process.stderr.write(redactText(`[boot] continuation recovery blocked: ${err}\n`).text);
-          console.log(JSON.stringify({
+          emitRecoveryOutput(JSON.stringify({
             schema_version: "kusabi-continuation-recovery-readback/v1",
             recovery_outcome: "blocked",
             continuity_pass_claimed: false,
@@ -196,7 +210,7 @@ async function boot() {
     }
 
     // Output to stdout — hook output is injected into session context
-    console.log(output);
+    emitRecoveryOutput(output);
   } finally {
     await store.close();
   }

@@ -172,6 +172,11 @@ const selectedRunner = await prepareClaudeResession({
 });
 assert.equal(selectedRunner.prepare.pack_ref, selectedPack.pack_ref);
 assert.deepEqual(selectedRunner.launch_blockers, []);
+assert.equal(selectedRunner.next_session_env.AGENT_MEMORY_CLAUDE_HOOK_JSON, "1");
+const bootSource = readFileSync("src/boot.ts", "utf8");
+assert(bootSource.includes('process.env.AGENT_MEMORY_CLAUDE_HOOK_JSON === "1"'));
+assert(bootSource.includes('hookEventName: "SessionStart"'));
+assert(bootSource.includes("additionalContext: output"));
 
 // Codex fresh sessions receive recovery through stdin, never as prompt/pack argv.
 assert.equal(CODEX_FRESH_PROMPT_DELIVERY_MODE, "stdin");

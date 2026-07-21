@@ -209,6 +209,7 @@ export function buildNextSessionEnv(prepared: RestartPrepareOutput): Record<stri
   const env: Record<string, string> = {
     AGENT_MEMORY_STARTUP_BRIDGE: CLAUDE_RESESSION_RUNNER_ENV,
     AGENT_MEMORY_BOOT_MODE: "restart_pack",
+    AGENT_MEMORY_CLAUDE_HOOK_JSON: "1",
   };
   if (prepared.pack_ref) env.AGENT_MEMORY_SELECTED_PACK_REF = prepared.pack_ref;
   env.AGENT_MEMORY_AGENT_ID = prepared.provenance.agent_id;
