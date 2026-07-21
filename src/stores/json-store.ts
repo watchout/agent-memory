@@ -581,6 +581,14 @@ export class JsonStore implements Store {
     return "";
   }
 
+  async markRecoveryContinued(
+    _input: import("./types.js").MarkRecoveryContinuedInput
+  ): Promise<boolean> {
+    void _input;
+    // JSON store has no recovery_quality_log — no-op
+    return false;
+  }
+
   async updateSearchMemoryCount(): Promise<void> {
     // JSON store has no recovery_quality_log — no-op
   }

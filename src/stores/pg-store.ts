@@ -26,6 +26,7 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  MarkRecoveryContinuedInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
   SaveRawEventInput,
@@ -929,6 +930,26 @@ export class PgStore implements Store {
       );
       return "";
     }
+  }
+
+  async markRecoveryContinued(input: MarkRecoveryContinuedInput): Promise<boolean> {
+    if (!input.id || !input.agent_id || !input.session_id) return false;
+    if (!Number.isFinite(input.quality_score) || input.quality_score < 0 || input.quality_score > 1) {
+      throw new Error("RECOVERY_QUALITY_SCORE_OUT_OF_RANGE");
+    }
+    const result = await this.pool.query(
+      `UPDATE recovery_quality_log
+          SET task_continued = TRUE,
+              quality_score = $4,
+              notes = $5
+        WHERE id = $1
+          AND agent_id = $2
+          AND session_id = $3
+          AND task_continued IS NULL
+      RETURNING id`,
+      [input.id, input.agent_id, input.session_id, input.quality_score, input.notes]
+    );
+    return result.rowCount === 1;
   }
 
   async updateSearchMemoryCount(log_id: string, count: number): Promise<void> {

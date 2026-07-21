@@ -28,6 +28,7 @@ import type {
   GetKnowledgeInput,
   SupersedeKnowledgeInput,
   LogRecoveryQualityInput,
+  MarkRecoveryContinuedInput,
   SaveConversationEventInput,
   GetConversationEventsInput,
   SaveRawEventInput,
@@ -1253,6 +1254,27 @@ export class SqliteStore implements Store {
     );
     this.persist();
     return id;
+  }
+
+  async markRecoveryContinued(input: MarkRecoveryContinuedInput): Promise<boolean> {
+    if (!input.id || !input.agent_id || !input.session_id) return false;
+    if (!Number.isFinite(input.quality_score) || input.quality_score < 0 || input.quality_score > 1) {
+      throw new Error("RECOVERY_QUALITY_SCORE_OUT_OF_RANGE");
+    }
+    this.db.run(
+      `UPDATE recovery_quality_log
+          SET task_continued = 1,
+              quality_score = ?,
+              notes = ?
+        WHERE id = ?
+          AND agent_id = ?
+          AND session_id = ?
+          AND task_continued IS NULL`,
+      [input.quality_score, input.notes, input.id, input.agent_id, input.session_id]
+    );
+    const updated = this.db.getRowsModified() === 1;
+    if (updated) this.persist();
+    return updated;
   }
 
   async updateSearchMemoryCount(log_id: string, count: number): Promise<void> {

@@ -123,7 +123,11 @@ async function verify(result: { stdout: string }) {
 
   assert(row.session_id === SESSION_ID, "session_id matches the env var");
   assert(typeof row.recovered_tokens === "number" && (row.recovered_tokens as number) > 0, "recovered_tokens is positive");
-  assert(row.task_continued === 0, "task_continued is 0 (Stage 1 always false)");
+  assert(
+    row.task_continued === null,
+    "task_continued is NULL until a post-boot action is observed"
+  );
+  assert(row.quality_score === null, "quality_score is NULL until an outcome is observed");
   assert(row.notes !== null && typeof row.notes === "string", "notes JSON is present");
 
   // Parse notes and confirm summary shape
