@@ -336,7 +336,6 @@ export async function logCodexStartupQuality(
     agent_id: AGENT_ID,
     session_id: SESSION_ID,
     recovered_tokens: estimateTokens(restartPack),
-    task_continued: false,
     notes: JSON.stringify({
       source: "codex_startup_bridge",
       host_adapter: "codex_startup_bridge",

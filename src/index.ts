@@ -22,6 +22,7 @@ import { generateHostInvocationContext, generateRecoveryPackArtifact, generateRe
 import { prepareRestart } from "./restart-prepare.js";
 import { catchUp } from "./catch-up.js";
 import { redactText } from "./redact.js";
+import { RecoveryContinuationTracker } from "./recovery-quality.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -47,6 +48,19 @@ async function logCall(tool: string, params: string): Promise<void> {
 
 async function main() {
   const store = await createStore();
+  const continuationTracker = new RecoveryContinuationTracker(AGENT_ID, SESSION_ID);
+
+  const logToolCall = async (tool: string, params: string): Promise<void> => {
+    await logCall(tool, params);
+    if (tool === "recover_context") return;
+    try {
+      await continuationTracker.observe(store, tool);
+    } catch (err) {
+      process.stderr.write(
+        redactText(`[agent-memory] recovery continuation observation failed (non-fatal): ${err}\n`).text
+      );
+    }
+  };
 
   const server = new McpServer({
     name: "wasurezu",
@@ -73,7 +87,7 @@ async function main() {
         .describe("Project identifier (defaults to AGENT_MEMORY_PROJECT env var)"),
     },
     async ({ decision, context, tags, project }) => {
-      await logCall("log_decision", `decision="${decision}"`);
+      await logToolCall("log_decision", `decision="${decision}"`);
       try {
         const result = await store.logDecision({
           agent_id: AGENT_ID,
@@ -116,7 +130,7 @@ async function main() {
         .describe("Filter by status (default: active)"),
     },
     async ({ project, tags, limit, status }) => {
-      await logCall("get_decisions", `project="${project || PROJECT || ""}" status="${status || "active"}"`);
+      await logToolCall("get_decisions", `project="${project || PROJECT || ""}" status="${status || "active"}"`);
       try {
         const decisions = await store.getDecisions({
           agent_id: AGENT_ID,
@@ -166,7 +180,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ old_decision_id, new_decision, context, tags, project }) => {
-      await logCall("supersede_decision", `old_id="${old_decision_id}" new="${new_decision}"`);
+      await logToolCall("supersede_decision", `old_id="${old_decision_id}" new="${new_decision}"`);
       try {
         const result = await store.supersedeDecision({
           agent_id: AGENT_ID,
@@ -214,7 +228,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ task, status, progress, files_modified, next_steps, project }) => {
-      await logCall("save_task_state", `task="${task}" status="${status}"`);
+      await logToolCall("save_task_state", `task="${task}" status="${status}"`);
       try {
         const result = await store.saveTaskState({
           agent_id: AGENT_ID,
@@ -262,7 +276,7 @@ async function main() {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ query, scope, limit, project }) => {
-      await logCall("search_memory", `query="${query}"`);
+      await logToolCall("search_memory", `query="${query}"`);
       searchMemoryCountSinceRecovery++;
       try {
         const result = await store.searchMemory({
@@ -365,7 +379,7 @@ async function main() {
       project: z.string().optional().describe("Filter by project"),
     },
     async ({ project }) => {
-      await logCall("recover_context", `project="${project || PROJECT || ""}"`);
+      await logToolCall("recover_context", `project="${project || PROJECT || ""}"`);
       try {
         const proj = project || PROJECT;
 
@@ -415,9 +429,9 @@ async function main() {
           agent_id: AGENT_ID,
           session_id: SESSION_ID,
           recovered_tokens: recoveredTokens,
-          task_continued: false,
           notes,
         });
+        continuationTracker.arm(recoveryLogId, notes);
 
         // Schedule 10-minute update of search_memory count
         if (recoveryLogId) {
@@ -468,7 +482,7 @@ async function main() {
         .describe("How the host adapter treats contextual content. Default is quote-as-data-only."),
     },
     async ({ project, max_tokens, format, target_runtime, delivery_mode, trusted_instruction, untrusted_context_policy }) => {
-      await logCall("restart_pack", `project="${project || PROJECT || ""}" max_tokens=${max_tokens ?? ""} format=${format ?? "text"}`);
+      await logToolCall("restart_pack", `project="${project || PROJECT || ""}" max_tokens=${max_tokens ?? ""} format=${format ?? "text"}`);
       try {
         if (format === "recovery-pack-v1") {
           const output = await generateRecoveryPackArtifact(store, {
@@ -521,7 +535,7 @@ async function main() {
       consume: z.boolean().optional().describe("Mark the selected pack as consumed after fetching."),
     },
     async ({ pack_ref, project, consume }) => {
-      await logCall("restart_pack_fetch", `pack_ref="${pack_ref}" consume=${consume === true}`);
+      await logToolCall("restart_pack_fetch", `pack_ref="${pack_ref}" consume=${consume === true}`);
       try {
         const pack = consume
           ? await store.consumeSelectedRestartPack({ agent_id: AGENT_ID, project: project || PROJECT, pack_ref })
@@ -590,7 +604,7 @@ async function main() {
         .describe("How the host adapter treats contextual content. Default is quote-as-data-only."),
     },
     async (args) => {
-      await logCall("restart_prepare", `project="${args.project || PROJECT || ""}" mode="${args.continuity_guard_mode ?? "recommend"}"`);
+      await logToolCall("restart_prepare", `project="${args.project || PROJECT || ""}" mode="${args.continuity_guard_mode ?? "recommend"}"`);
       try {
         const output = await prepareRestart(store, {
           agent_id: AGENT_ID,
@@ -638,7 +652,7 @@ async function main() {
       messages_limit: z.number().optional().describe("Number of recent messages to restore"),
     },
     async ({ agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit }) => {
-      await logCall("set_recovery_config", `agent_id="${agent_id}"`);
+      await logToolCall("set_recovery_config", `agent_id="${agent_id}"`);
       try {
         const config = await store.upsertRecoveryConfig({
           agent_id,
@@ -683,7 +697,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ title, content, source_type, tags, project }) => {
-      await logCall("save_knowledge", `title="${title}"`);
+      await logToolCall("save_knowledge", `title="${title}"`);
       try {
         const result = await store.saveKnowledge({
           agent_id: AGENT_ID,
@@ -724,7 +738,7 @@ async function main() {
       limit: z.number().min(1).max(100).optional().describe("Max results (default: 10)"),
     },
     async ({ status, tags, project, limit }) => {
-      await logCall("get_knowledge", `status="${status || "active"}" limit=${limit || 10}`);
+      await logToolCall("get_knowledge", `status="${status || "active"}" limit=${limit || 10}`);
       try {
         const items = await store.getKnowledge({
           agent_id: AGENT_ID,
@@ -775,7 +789,7 @@ async function main() {
       project: z.string().optional().describe("Project identifier"),
     },
     async ({ old_id, new_title, new_content, reason, tags, project }) => {
-      await logCall("supersede_knowledge", `old_id="${old_id}" new_title="${new_title}"`);
+      await logToolCall("supersede_knowledge", `old_id="${old_id}" new_title="${new_title}"`);
       try {
         const result = await store.supersedeKnowledge({
           agent_id: AGENT_ID,
@@ -816,7 +830,7 @@ async function main() {
       merged_into: z.string().uuid().optional().describe("ID of the knowledge entry this was merged into"),
     },
     async ({ id, status, merged_into }) => {
-      await logCall("update_knowledge_status", `id="${id}" status="${status}"`);
+      await logToolCall("update_knowledge_status", `id="${id}" status="${status}"`);
       try {
         const result = await store.updateKnowledgeStatus({
           id,
@@ -860,7 +874,7 @@ async function main() {
     },
     async ({ source, project, since, root, max_files }) => {
       const actualSource = source ?? "claude_code";
-      await logCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
+      await logToolCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
       try {
         const result =
           actualSource === "codex"
@@ -922,7 +936,7 @@ async function main() {
         .describe("True = report counts but do not insert into target tables. Default false."),
     },
     async ({ since, source, dry_run }) => {
-      await logCall("catch_up", `since="${since ?? ""}" source="${source ?? "conversation"}" dry_run=${dry_run ?? false}`);
+      await logToolCall("catch_up", `since="${since ?? ""}" source="${source ?? "conversation"}" dry_run=${dry_run ?? false}`);
       try {
         const result = await catchUp(store, AGENT_ID, { since, source, dry_run });
         return {
