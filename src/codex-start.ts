@@ -15,6 +15,13 @@ import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_LINES, estimateTokens } from "./constants.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
+import {
+  buildKusabiRuntimeIdentityReadback,
+  canonicalConfigDigest,
+  KUSABI_ONE_SEAT_IDENTITY,
+  verifyKusabiRuntimeIdentity,
+  type KusabiRuntimeIdentityReadback,
+} from "./kusabi-runtime-identity.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -42,6 +49,17 @@ export const CODEX_POSITIONAL_PROMPT_CONTRACT = "codex [OPTIONS] [PROMPT]";
 export const CODEX_PROMPT_DELIVERY_MODE = "positional-prompt-argv";
 export const CODEX_ARGV_VISIBILITY_NOTE =
   "Codex prompt delivery currently uses a positional prompt argument unless a verified stdin or prompt-file Codex surface is available; this can expose the bounded restart_pack in the Codex process argv.";
+export const KUSABI_INTERNAL_OPT_IN_ENV = "AGENT_MEMORY_KUSABI_INTERNAL_OPT_IN";
+export const KUSABI_CODEX_START_CONFIG = Object.freeze({
+  startup_bridge: CODEX_STARTUP_BRIDGE_ENV,
+  prompt_delivery_mode: CODEX_PROMPT_DELIVERY_MODE,
+  guard_mode: "pack_only",
+  aun_supervised: false,
+  auto_restart: false,
+  external_send_enabled: false,
+  provider_dispatch_enabled: false,
+  queue_mutation_enabled: false,
+});
 
 export interface CodexDoctorCommandResult {
   status: number | null;
@@ -153,6 +171,14 @@ async function run() {
     return;
   }
 
+  const identityReadback = runKusabiRuntimeIdentityPreflight(process.env, {
+    workspacePath: options.cd ?? process.cwd(),
+    runtimeArtifactPath: fileURLToPath(import.meta.url),
+  });
+  if (identityReadback) {
+    process.stderr.write(`[kusabi-runtime-identity] ${identityReadback.canonical_json}\n`);
+  }
+
   const store = await createStore();
 
   try {
@@ -186,6 +212,60 @@ async function run() {
   } finally {
     await store.close();
   }
+}
+
+export function runKusabiRuntimeIdentityPreflight(
+  env: NodeJS.ProcessEnv,
+  input: {
+    workspacePath: string;
+    runtimeArtifactPath: string;
+    resolveRuntimeCommitSha?: (workspacePath: string) => string;
+  },
+): KusabiRuntimeIdentityReadback | undefined {
+  if (env[KUSABI_INTERNAL_OPT_IN_ENV] !== "1") return undefined;
+
+  const runtimeCommitSha = (input.resolveRuntimeCommitSha ?? resolveRuntimeCommitSha)(input.workspacePath);
+  const readback = buildKusabiRuntimeIdentityReadback({
+    agentId: env.AGENT_MEMORY_AGENT_ID ?? "",
+    memoryProject: env.AGENT_MEMORY_PROJECT ?? "",
+    workspaceRef: env.AGENT_MEMORY_WORKSPACE_REF ?? "",
+    workspacePath: input.workspacePath,
+    host: env.AGENT_MEMORY_HOST ?? "",
+    adapter: env.AGENT_MEMORY_ADAPTER ?? "",
+    lifecycleOwner: env.AGENT_MEMORY_LIFECYCLE_OWNER ?? "",
+    runtimeCommitSha,
+    runtimeArtifactPath: input.runtimeArtifactPath,
+    config: KUSABI_CODEX_START_CONFIG,
+  });
+  const verification = verifyKusabiRuntimeIdentity(readback, {
+    ...KUSABI_ONE_SEAT_IDENTITY,
+    workspacePathHash: env.AGENT_MEMORY_EXPECTED_WORKSPACE_PATH_SHA256 ?? "",
+    runtimeCommitSha: env.AGENT_MEMORY_EXPECTED_RUNTIME_COMMIT_SHA ?? "",
+    runtimeArtifactDigest: env.AGENT_MEMORY_EXPECTED_RUNTIME_ARTIFACT_SHA256 ?? "",
+    configDigest: env.AGENT_MEMORY_EXPECTED_CONFIG_SHA256 ?? "",
+  });
+  if (!verification.ok) {
+    throw new Error(
+      `${verification.code}: ${verification.mismatched_fields.join(",")}; ` +
+        `db_open_count=0 model_invocation_count=0 external_effect_count=0`,
+    );
+  }
+  return verification.readback;
+}
+
+export function expectedKusabiCodexStartConfigDigest(): string {
+  return canonicalConfigDigest(KUSABI_CODEX_START_CONFIG);
+}
+
+function resolveRuntimeCommitSha(workspacePath: string): string {
+  const result = spawnSync("git", ["-C", workspacePath, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  if (result.status !== 0) {
+    throw new Error("KUSABI_RUNTIME_COMMIT_UNAVAILABLE");
+  }
+  return result.stdout.trim();
 }
 
 export async function logCodexStartupQuality(
