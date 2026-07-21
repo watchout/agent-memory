@@ -1,0 +1,154 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-RECOVERY-QUALITY-OBSERVATION-20260721-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/180
+source_handoff_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5030510367
+source_amendment_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5030593865
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+
+owner:
+  role: repo_owner
+  actor: watchout
+
+rps_scope:
+  shirube_owns:
+    - Exact-head, changed-path, validation, independent-audit, owner-decision, and merge-gate evidence for the recovery continuation observation repair.
+    - The repo-local parser bridge for the durable Issue handoff.
+  shirube_does_not_own:
+    - Runtime activation, live fleet rollout, deployment, branch protection, package publication, or historical telemetry mutation.
+
+acceptance_criteria:
+  - New recovery rows represent continuation as unknown before an eligible post-recovery action is observed.
+  - The first eligible action updates only the exact recovery log, agent, and session binding.
+  - Repeated actions are idempotent and explicit prior true or false values are not overwritten.
+  - Recovery-only reads do not claim task continuation.
+  - SQLite, PostgreSQL, MCP stdio, boot E2E, typecheck, build, and the full regression suite pass on one exact head.
+  - No TUI write, database migration, historical-row mutation, runtime activation, deployment, or fleet rollout occurs.
+
+validation:
+  required_commands:
+    - npm test
+    - PostgreSQL contract suite using the configured task-relevant test URL
+    - npx tsx src/test-boot-recovery.ts
+    - npx tsc --noEmit
+    - npm run build
+    - git diff --check
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - exact_pr_head_sha
+    - independent_audit_record
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-RECOVERY-QUALITY-OBSERVATION-20260721-001
+  cell_type: remediation_lite
+  risk_class: R2
+  goal: >-
+    Replace contradictory default-false continuation telemetry with exact-bound,
+    atomic, idempotent observation of an eligible post-recovery action.
+  non_scope:
+    - Database schema or migration changes.
+    - Historical recovery_quality_log row mutation.
+    - Runtime activation, deployment, fleet rollout, or package publication.
+    - TUI writes or tmux input.
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-RECOVERY-QUALITY-OBSERVATION-20260721-001.yaml
+    - docs/design/core/SSOT-5_CROSS_CUTTING.md
+    - src/boot.ts
+    - src/codex-start.ts
+    - src/index.ts
+    - src/recovery-quality.ts
+    - src/stores/json-store.ts
+    - src/stores/pg-store.ts
+    - src/stores/sqlite-store.ts
+    - src/stores/types.ts
+    - src/test-boot-recovery.ts
+    - src/test-pg.ts
+    - src/test-sqlite.ts
+    - src/test.ts
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - dist/**
+    - migrations/**
+    - .shirube/audits/**
+    - .shirube/audit-item-sets/**
+    - .github/**
+    - deploy/**
+    - deployment/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - A changed file appears outside allowed_paths.
+    - A database schema, migration, historical-row mutation, or unrelated subsystem change becomes necessary.
+    - Validation reveals a non-idempotent or cross-agent, cross-session, or cross-log update.
+    - Independent exact-head audit returns a blocking verdict.
+    - Any TUI write, runtime activation, deployment, or fleet rollout becomes necessary.
+
+implementation_boundary:
+  summary: >-
+    Implement and verify recovery continuation observation semantics and materialize
+    this one repo-local handoff bridge; do not expand into rollout or activation.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without fresh independent audit and owner exact-head decision
+    - database schema migration or historical telemetry mutation
+    - runtime activation or fleet rollout
+    - deployment or package publication
+    - branch protection or ruleset mutation
+    - secret read or write
+    - any TUI write
+
+audit:
+  required_before_owner_decision: true
+  item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+  required_record_transport: parser-compatible inline PR audit record
+  maker_checker_separation_required: true
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+next_action:
+  blocking: false
+  who:
+    agent_id: kusabi
+    active_function: implementation_executor
+  what: validate and publish the exact head, obtain an independent parser-compatible audit, bind owner approval, and rerun the hard gate
+  how: use only this handoff's allowed paths and the isolated worktree
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5030510367
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5030593865
+    - https://github.com/watchout/agent-memory/pull/259
+  scope: recovery-quality observation repair and its exact-head control evidence only
+  deliverable: passing PR checks with independent audit and owner exact-head evidence
+  completion_evidence: validation PASS, green CI, audit PASS or PASS_WITH_WARN, owner APPROVED_EXACT_HEAD, and green Rapid/Lite gate
+  blocking_for_current_function: false
+  blocking_for_merge_activation: true
