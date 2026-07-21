@@ -9,6 +9,7 @@ import { createStore } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
+import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -53,15 +54,54 @@ import {
   CODEX_ARGV_VISIBILITY_NOTE,
   CODEX_POSITIONAL_PROMPT_CONTRACT,
   CODEX_STARTUP_BRIDGE_ENV,
+  CODEX_WASUREZU_AGENT_ID,
+  CODEX_WASUREZU_DATABASE_URL_SHA256,
+  CODEX_WASUREZU_MCP_ARGS,
+  CODEX_WASUREZU_MCP_COMMAND,
+  CODEX_WASUREZU_PROJECT,
+  KUSABI_CODEX_START_CONFIG,
+  CodexMcpBindingError,
+  buildApprovedCodexMcpBinding,
   buildCodexDoctorReport,
   buildCodexLaunchArgs,
   buildCodexLaunchEnv,
   buildCodexLaunchPreview,
+  buildCodexMcpOverrideArgs,
+  buildCodexMcpPreflightArgs,
   buildCodexStartupPrompt,
   isMainEntrypoint as isCodexMainEntrypoint,
+  launchCodex,
   logCodexStartupQuality,
   parseArgs,
+  preflightCodexMcpBinding,
+  prepareCodexLaunch,
 } from "./codex-start.js";
+import type { CodexMcpBinding } from "./codex-start.js";
+import {
+  KUSABI_ONE_SEAT_IDENTITY,
+  buildKusabiRuntimeIdentityReadback,
+  canonicalConfigDigest,
+  verifyKusabiRuntimeIdentity,
+  workspacePathDigest,
+} from "./kusabi-runtime-identity.js";
+import {
+  buildContinuationCheckpoint,
+  buildContinuationRecoveryPack,
+  canonicalCheckpointDigest,
+  verifyContinuationCheckpoint,
+  verifyContinuationRecoveryPack,
+  type ContinuationIdentity,
+} from "./kusabi-checkpoint-recovery.js";
+import {
+  ONE_SEAT_ZERO_EFFECTS,
+  buildDeterministicOneSeatCanaryEvidence,
+  buildOneSeatCanaryPlan,
+  exactOneSeatCanaryInput,
+  exactOneSeatRecoveryExpectation,
+  verifyOneSeatCanaryEvidence,
+  verifyOneSeatRecoveryContext,
+  type OneSeatRecoveryContextReadback,
+} from "./kusabi-one-seat-canary.js";
 import {
   CLAUDE_RESESSION_RUNNER_ENV,
   buildClaudeLaunchArgs,
@@ -1943,6 +1983,269 @@ async function testCodexStartupBridge() {
   assert(launchEnv.EXISTING_ENV === "kept", "Codex launch env preserves existing values");
   assert(launchEnv.AGENT_MEMORY_STARTUP_BRIDGE === CODEX_STARTUP_BRIDGE_ENV, "Codex launch env marks bridge usage");
   assert(CODEX_STARTUP_BRIDGE_ENV === "codex_startup_bridge_v1", "Codex startup bridge env has stable adapter marker");
+
+  const approvedBinding = buildApprovedCodexMcpBinding({
+    AGENT_MEMORY_AGENT_ID: "kusabi",
+    AGENT_MEMORY_PROJECT: "agent-memory",
+  });
+  assert(approvedBinding.command === CODEX_WASUREZU_MCP_COMMAND, "Codex MCP binding pins the approved command");
+  assert(approvedBinding.args[0] === CODEX_WASUREZU_MCP_ARGS[0], "Codex MCP binding pins the complete approved args");
+  assert(approvedBinding.agentId === CODEX_WASUREZU_AGENT_ID, "Codex MCP binding pins the approved agent id");
+  assert(approvedBinding.project === CODEX_WASUREZU_PROJECT, "Codex MCP binding pins the approved project");
+  assert(
+    approvedBinding.databaseUrlSha256 === CODEX_WASUREZU_DATABASE_URL_SHA256,
+    "Codex MCP binding pins the approved database fingerprint"
+  );
+  try {
+    buildApprovedCodexMcpBinding({ AGENT_MEMORY_AGENT_ID: "default", AGENT_MEMORY_PROJECT: "agent-memory" });
+    assert(false, "Codex MCP binding rejects a default agent id");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      "Codex MCP binding rejects a default agent id"
+    );
+  }
+  try {
+    buildApprovedCodexMcpBinding({ AGENT_MEMORY_AGENT_ID: "kusabi", AGENT_MEMORY_PROJECT: "default" });
+    assert(false, "Codex MCP binding rejects a default project");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      "Codex MCP binding rejects a default project"
+    );
+  }
+
+  const fixtureDatabaseUrl = "postgresql://fixture-user:fixture-password@fixture.invalid/fixture-db";
+  const fixtureDatabaseUrlSha256 = createHash("sha256").update(fixtureDatabaseUrl, "utf8").digest("hex");
+  const fixtureBinding: CodexMcpBinding = {
+    serverName: "wasurezu",
+    command: "node",
+    args: ["/Users/yuji/Developer/agent-memory/dist/index.js"],
+    agentId: "kusabi",
+    project: "agent-memory",
+    databaseUrlSha256: fixtureDatabaseUrlSha256,
+  };
+  const overrideArgs = buildCodexMcpOverrideArgs(fixtureBinding);
+  const expectedOverrideArgs = [
+    "-c",
+    'mcp_servers.wasurezu.command="node"',
+    "-c",
+    'mcp_servers.wasurezu.args=["/Users/yuji/Developer/agent-memory/dist/index.js"]',
+    "-c",
+    'mcp_servers.wasurezu.env.AGENT_MEMORY_AGENT_ID="kusabi"',
+    "-c",
+    'mcp_servers.wasurezu.env.AGENT_MEMORY_PROJECT="agent-memory"',
+  ];
+  assert(JSON.stringify(overrideArgs) === JSON.stringify(expectedOverrideArgs), "Codex MCP binding emits the exact ordered override argv");
+  assert(
+    JSON.stringify(buildCodexMcpPreflightArgs(fixtureBinding, overrideArgs)) ===
+      JSON.stringify(["mcp", "get", "wasurezu", "--json", ...expectedOverrideArgs]),
+    "Codex MCP preflight reuses the exact launch override argv"
+  );
+
+  const makeEffectiveConfig = (mutate?: (config: any) => void): string => {
+    const config: any = {
+      name: "wasurezu",
+      enabled: true,
+      disabled_reason: null,
+      transport: {
+        type: "stdio",
+        command: fixtureBinding.command,
+        args: [...fixtureBinding.args],
+        env: {
+          AGENT_MEMORY_AGENT_ID: fixtureBinding.agentId,
+          AGENT_MEMORY_PROJECT: fixtureBinding.project,
+          DATABASE_URL: fixtureDatabaseUrl,
+          SENTINEL_TOKEN: "token-fixture-secret",
+          SENTINEL_CONFIG_VALUE: "config-fixture-secret",
+        },
+        env_vars: [],
+        cwd: null,
+      },
+      enabled_tools: null,
+      disabled_tools: null,
+      startup_timeout_sec: 30,
+      tool_timeout_sec: 120,
+    };
+    mutate?.(config);
+    return JSON.stringify(config);
+  };
+
+  let capturedPreflightArgs: string[] = [];
+  const exactPreflight = (_bin: string, args: string[]) => {
+    capturedPreflightArgs = [...args];
+    return { status: 0, stdout: makeEffectiveConfig(), stderr: "" };
+  };
+  const preflightReport = preflightCodexMcpBinding("codex-dev", fixtureBinding, overrideArgs, exactPreflight);
+  assert(preflightReport.command_exact_match === true, "Codex MCP preflight accepts the exact command");
+  assert(preflightReport.args_exact_match === true, "Codex MCP preflight accepts the exact ordered args");
+  assert(preflightReport.agent_id_exact_match === true, "Codex MCP preflight accepts the exact agent id");
+  assert(preflightReport.project_exact_match === true, "Codex MCP preflight accepts the exact project");
+  assert(preflightReport.backend === "postgresql", "Codex MCP preflight verifies the PostgreSQL backend");
+  assert(preflightReport.database_url_sha256 === fixtureDatabaseUrlSha256, "Codex MCP preflight reports only the database fingerprint");
+  assert(
+    JSON.stringify(capturedPreflightArgs) === JSON.stringify(["mcp", "get", "wasurezu", "--json", ...overrideArgs]),
+    "Codex MCP preflight command uses the shared exact override argv"
+  );
+
+  let launchSpawnCount = 0;
+  let capturedLaunchArgs: string[] = [];
+  await launchCodex(parsed, "bounded restart pack prompt", {
+    binding: fixtureBinding,
+    preflightCommand: exactPreflight,
+    launchCommand: async (_bin, args) => {
+      launchSpawnCount++;
+      capturedLaunchArgs = [...args];
+    },
+  });
+  assert(launchSpawnCount === 1, "Codex MCP exact preflight permits exactly one stubbed launch");
+  assert(
+    JSON.stringify(capturedLaunchArgs.slice(0, overrideArgs.length)) === JSON.stringify(overrideArgs),
+    "Codex launch uses the same exact override argv as preflight"
+  );
+  assert(
+    capturedLaunchArgs[overrideArgs.length] === "--cd" &&
+      capturedLaunchArgs[overrideArgs.length + 1] === "/tmp/work" &&
+      capturedLaunchArgs[overrideArgs.length + 2] === "bounded restart pack prompt",
+    "Codex bound launch preserves --cd and positional prompt ordering"
+  );
+
+  let preparedReadbackCount = 0;
+  let preparedLaunchCount = 0;
+  const preparedLaunch = prepareCodexLaunch(parsed, {
+    binding: fixtureBinding,
+    preflightCommand: (_bin, args) => {
+      preparedReadbackCount++;
+      return exactPreflight(_bin, args);
+    },
+  });
+  await launchCodex(parsed, "bounded restart pack prompt", {
+    preparedLaunch,
+    preflightCommand: () => {
+      throw new Error("preflight must not run twice");
+    },
+    launchCommand: async () => {
+      preparedLaunchCount++;
+    },
+  });
+  assert(preparedReadbackCount === 1, "Codex startup preparation performs exactly one effective-config readback");
+  assert(preparedLaunchCount === 1, "Codex prepared launch spawns exactly once after the single preflight");
+
+  const expectLaunchRejection = async (
+    label: string,
+    code: string,
+    result: { status: number | null; stdout: string; stderr: string; error?: string }
+  ) => {
+    let spawnCount = 0;
+    let thrown = "";
+    try {
+      await launchCodex(parsed, "restart-pack-secret-fixture", {
+        binding: fixtureBinding,
+        preflightCommand: () => result,
+        launchCommand: async () => {
+          spawnCount++;
+        },
+      });
+    } catch (err) {
+      thrown = String(err);
+      assert(err instanceof CodexMcpBindingError && err.code === code, `${label} returns the typed stop reason`);
+    }
+    assert(spawnCount === 0, `${label} fails before launch spawn`);
+    for (const secret of [fixtureDatabaseUrl, "fixture-password", "token-fixture-secret", "config-fixture-secret", "restart-pack-secret-fixture"]) {
+      assert(!thrown.includes(secret), `${label} does not disclose protected input`);
+    }
+  };
+
+  const commandAndArgsCases: Array<[string, (config: any) => void]> = [
+    ["wrong command", (config) => { config.transport.command = "node-wrong"; }],
+    ["missing command", (config) => { delete config.transport.command; }],
+    ["empty command", (config) => { config.transport.command = ""; }],
+    ["prefixed command", (config) => { config.transport.command = "/usr/bin/node"; }],
+    ["missing args", (config) => { delete config.transport.args; }],
+    ["empty args", (config) => { config.transport.args = []; }],
+    ["duplicated args", (config) => { config.transport.args = [...fixtureBinding.args, ...fixtureBinding.args]; }],
+    ["prefixed args", (config) => { config.transport.args = ["prefix", ...fixtureBinding.args]; }],
+    ["appended args", (config) => { config.transport.args = [...fixtureBinding.args, "suffix"]; }],
+    ["reordered args", (config) => { config.transport.args = ["suffix", ...fixtureBinding.args]; }],
+  ];
+  for (const [label, mutate] of commandAndArgsCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_COMMAND_OR_ARGS_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const namespaceCases: Array<[string, (config: any) => void]> = [
+    ["wrong agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = "arc"; }],
+    ["missing agent", (config) => { delete config.transport.env.AGENT_MEMORY_AGENT_ID; }],
+    ["empty agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = ""; }],
+    ["default agent", (config) => { config.transport.env.AGENT_MEMORY_AGENT_ID = "default"; }],
+    ["wrong project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = "iyasaka-arc"; }],
+    ["missing project", (config) => { delete config.transport.env.AGENT_MEMORY_PROJECT; }],
+    ["empty project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = ""; }],
+    ["default project", (config) => { config.transport.env.AGENT_MEMORY_PROJECT = "default"; }],
+  ];
+  for (const [label, mutate] of namespaceCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_AGENT_ID_OR_PROJECT_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const backendCases: Array<[string, (config: any) => void]> = [
+    ["wrong backend", (config) => { config.transport.env.DATABASE_URL = "sqlite:///fixture.db"; }],
+    ["missing database URL", (config) => { delete config.transport.env.DATABASE_URL; }],
+    ["empty database URL", (config) => { config.transport.env.DATABASE_URL = ""; }],
+    ["wrong database fingerprint", (config) => { config.transport.env.DATABASE_URL = `${fixtureDatabaseUrl}-other`; }],
+    ["redacted-looking database mismatch", (config) => { config.transport.env.DATABASE_URL = "postgresql://***:***@fixture.invalid/fixture-db"; }],
+  ];
+  for (const [label, mutate] of backendCases) {
+    await expectLaunchRejection(
+      `Codex MCP ${label}`,
+      "MCP_BACKEND_OR_DSN_FINGERPRINT_MISMATCH",
+      { status: 0, stdout: makeEffectiveConfig(mutate), stderr: "" }
+    );
+  }
+
+  const malformedCases: Array<[string, { status: number | null; stdout: string; stderr: string; error?: string }]> = [
+    ["nonzero preflight", { status: 1, stdout: "", stderr: "config-fixture-secret" }],
+    ["timeout preflight", { status: null, stdout: "", stderr: "", error: "timeout token-fixture-secret" }],
+    ["malformed JSON", { status: 0, stdout: "{config-fixture-secret", stderr: "" }],
+    ["missing server", { status: 0, stdout: JSON.stringify({ enabled: true }), stderr: "" }],
+    ["wrong transport", { status: 0, stdout: makeEffectiveConfig((config) => { config.transport.type = "http"; }), stderr: "" }],
+    ["extra binding data", { status: 0, stdout: makeEffectiveConfig((config) => { config.unrecognized = true; }), stderr: "" }],
+  ];
+  for (const [label, result] of malformedCases) {
+    await expectLaunchRejection(`Codex MCP ${label}`, "EFFECTIVE_CONFIG_READBACK_FAILED_OR_MALFORMED", result);
+  }
+
+  try {
+    preflightCodexMcpBinding("codex-dev", fixtureBinding, overrideArgs.slice(0, -2), exactPreflight);
+    assert(false, "Codex MCP preflight rejects incomplete shared override argv");
+  } catch (err) {
+    assert(
+      err instanceof CodexMcpBindingError && err.code === "MCP_COMMAND_OR_ARGS_MISMATCH",
+      "Codex MCP preflight rejects incomplete shared override argv"
+    );
+  }
+
+  const sanitizedPreflightEvidence = JSON.stringify({ preflightReport, overrideArgs });
+  for (const secret of [fixtureDatabaseUrl, "fixture-password", "token-fixture-secret", "config-fixture-secret", "bounded restart pack prompt"]) {
+    assert(!sanitizedPreflightEvidence.includes(secret), "Codex MCP sanitized evidence excludes secrets and restart-pack content");
+  }
+  const protectedEffects = {
+    live_mcp_calls: 0,
+    pack_fetches: 0,
+    pack_consumptions: 0,
+    database_writes: 0,
+    provider_model_calls: 0,
+    goal_mutations: 0,
+    config_writes: 0,
+    cycle_retries: 0,
+  };
+  assert(Object.values(protectedEffects).every((count) => count === 0), "Codex MCP offline fixtures keep all protected-effect counters at zero");
 
   const distEntrypoint = join(process.cwd(), "dist/codex-start.js");
   const symlinkDir = mkdtempSync(join(tmpdir(), "am032-codex-bin-"));
@@ -3831,6 +4134,284 @@ async function testSqliteMigrationIdempotency() {
   rmSync(dbPath, { force: true });
 }
 
+async function testKusabiIntegratedCell123() {
+  console.log("\n── KUI-INTEGRATED-CELL123-001 ──");
+
+  const workspacePath = process.cwd();
+  const integratedHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const integratedTree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+  const integratedBranch = execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim()
+    || process.env.GITHUB_HEAD_REF
+    || "agent/kusabi-integrated-cell123-20260721";
+  const builtExecution = import.meta.url.endsWith("/dist/test.js")
+    || process.env.KUSABI_INTEGRATED_BUILT_EXECUTION === "1";
+  const runtimeArtifactPath = join(workspacePath, builtExecution ? "dist/codex-start.js" : "src/codex-start.ts");
+  const packageReceiptRef = `package_receipt:head:${integratedHead}:tree:${integratedTree}`;
+
+  const identityReadback = buildKusabiRuntimeIdentityReadback({
+    ...KUSABI_ONE_SEAT_IDENTITY,
+    workspacePath,
+    runtimeCommitSha: integratedHead,
+    runtimeArtifactPath,
+    config: KUSABI_CODEX_START_CONFIG,
+  });
+  const identityVerification = verifyKusabiRuntimeIdentity(identityReadback, {
+    ...KUSABI_ONE_SEAT_IDENTITY,
+    workspacePathHash: workspacePathDigest(workspacePath),
+    runtimeCommitSha: integratedHead,
+    runtimeArtifactDigest: identityReadback.tuple.runtime.artifact_digest,
+    configDigest: canonicalConfigDigest(KUSABI_CODEX_START_CONFIG),
+  });
+  assert(identityVerification.ok, "integrated runtime identity verifies against the exact head and artifact");
+
+  const continuationIdentity: ContinuationIdentity = {
+    agent_id: identityReadback.tuple.identity.agent_id,
+    memory_project: identityReadback.tuple.identity.memory_project,
+    workspace_ref: identityReadback.tuple.identity.workspace_ref,
+    workspace_path_hash: identityReadback.tuple.identity.workspace_path_hash,
+    host: identityReadback.tuple.identity.host,
+    adapter: identityReadback.tuple.identity.adapter,
+    lifecycle_owner: identityReadback.tuple.identity.lifecycle_owner,
+    runtime_commit_sha: identityReadback.tuple.runtime.commit_sha,
+    runtime_artifact_digest: identityReadback.tuple.runtime.artifact_digest,
+    config_digest: identityReadback.tuple.config_digest,
+  };
+  const identitySourceValues = [
+    identityReadback.tuple.identity.agent_id,
+    identityReadback.tuple.identity.memory_project,
+    identityReadback.tuple.identity.workspace_ref,
+    identityReadback.tuple.identity.workspace_path_hash,
+    identityReadback.tuple.identity.host,
+    identityReadback.tuple.identity.adapter,
+    identityReadback.tuple.identity.lifecycle_owner,
+    identityReadback.tuple.runtime.commit_sha,
+    identityReadback.tuple.runtime.artifact_digest,
+    identityReadback.tuple.config_digest,
+  ];
+  assert(
+    Object.values(continuationIdentity).every((value, index) => value === identitySourceValues[index]),
+    "all 10 runtime identity fields map losslessly into ContinuationIdentity",
+  );
+
+  const integratedTreeManifest = execFileSync(
+    "git",
+    ["ls-tree", "-r", "--full-tree", "HEAD"],
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+  );
+  const integratedRepoMaterial = `tree ${integratedTree}\n${integratedTreeManifest}`;
+  const checkpoint = buildContinuationCheckpoint({
+    identity: continuationIdentity,
+    tasks: [{
+      id: "CELL-KUSABI-INTEGRATED-RECOVERY-SUBJECT-001",
+      status: "in_progress",
+      task: "Verify integrated Kusabi recovery Cells 1-3",
+      next_steps: "Route the exact integrated head and package to independent audit",
+      files_modified: [],
+      updated_at: "2026-07-21T00:00:00.000Z",
+    }],
+    decisions: [{
+      id: "CH-KUSABI-INTEGRATED-CELL123-20260721-001",
+      status: "active",
+      decision: "Integrate frozen Cells 1-3 before live canary",
+      created_at: "2026-07-21T00:00:00.000Z",
+    }],
+    knowledge: [{
+      id: "KUSABI-INTEGRATED-PACKAGE-RECEIPT",
+      status: "active",
+      updated_at: "2026-07-21T00:00:00.000Z",
+    }],
+    artifact_refs: [
+      "https://github.com/watchout/agent-memory/issues/180#issuecomment-5028763554",
+      packageReceiptRef,
+    ],
+    visible_events: [{
+      id: "event-integrated-cell123",
+      content_digest: createHash("sha256").update("integrated Cells 1-3 ready for audit").digest("hex"),
+      occurred_at: "2026-07-21T00:01:00.000Z",
+    }],
+    repo: {
+      repository: "watchout/agent-memory",
+      branch: integratedBranch,
+      head_sha: integratedHead,
+      dirty_paths: [],
+      diff_material: integratedRepoMaterial,
+    },
+    effects: [],
+    recovery: {
+      prior_session_id: "session-integrated-cell123-prior",
+      saved_source_cursor: "2026-07-21T00:00:00.000Z",
+      supported_source_backlog_after_sync: 0,
+      duplicate_raw_events: 0,
+      confidence: 1,
+      missing_context: [],
+      pack_content_digest: createHash("sha256").update(packageReceiptRef).digest("hex"),
+    },
+    suite: {
+      aun_supervised: false,
+      queue_refs: [],
+      mutation_allowed: false,
+    },
+  });
+  const checkpointVerification = verifyContinuationCheckpoint(checkpoint, {
+    expected_digest: canonicalCheckpointDigest(checkpoint),
+    expected_dirty_paths: [],
+    expected_diff_digest: checkpoint.repo.diff_digest,
+  });
+  assert(checkpointVerification.ok, "integrated continuation checkpoint verifies on the exact head");
+  assert(checkpointVerification.required_manifest_field_match_rate === 1, "checkpoint manifest is complete");
+  assert(checkpointVerification.source_refs_nonempty, "checkpoint contains the integration package receipt");
+
+  const fixtureRoot = mkdtempSync(join(tmpdir(), "kusabi-integrated-cell123-"));
+  const dbPath = join(fixtureRoot, "memory.db");
+  const selectedPackId = "a23e4567-e89b-42d3-a456-bcdeffedcbaa";
+  const selectedPackRef = `selected_restart_pack:${selectedPackId}`;
+  const selectedPackContentSha256 = createHash("sha256").update(packageReceiptRef).digest("hex");
+  const selectedPackReadbackRef =
+    `wasurezu.restart_pack_fetch:${selectedPackRef}@sha256:${selectedPackContentSha256}`;
+  const recoveryExpectation = exactOneSeatRecoveryExpectation(integratedHead, integratedTree, {
+    pack_ref: selectedPackRef,
+    content_sha256: selectedPackContentSha256,
+    readback_source_ref: selectedPackReadbackRef,
+  });
+  const recoveryContext: OneSeatRecoveryContextReadback = {
+    schema_version: "kusabi-one-seat-recovery-context/v1",
+    evidence_kind: "machine_readback",
+    current_task: { status: "current", cell_id: recoveryExpectation.cell_id },
+    exact_head_sha: integratedHead,
+    exact_head_tree: integratedTree,
+    manifest: structuredClone(recoveryExpectation.manifest),
+    root_goal: structuredClone(recoveryExpectation.root_goal),
+    target: structuredClone(recoveryExpectation.target),
+    selected_restart_pack: structuredClone(recoveryExpectation.selected_restart_pack),
+    source_refs: [selectedPackReadbackRef],
+  };
+  const recoveryPack = buildContinuationRecoveryPack(checkpoint, JSON.stringify(recoveryContext));
+  assert(
+    verifyContinuationRecoveryPack(recoveryPack.canonical_json, recoveryPack.metadata).ok,
+    "integrated continuation recovery pack verifies before persistence",
+  );
+
+  try {
+    const store = new SqliteStore(dbPath);
+    await store.initialize();
+    const generated = await store.saveSelectedRestartPack({
+      agent_id: "kusabi",
+      project: "agent-memory",
+      content: recoveryPack.canonical_json,
+      source: "manual",
+      metadata: recoveryPack.metadata,
+    });
+    const fixtureStore = store as unknown as {
+      db: { run: (sql: string, params?: unknown[]) => void };
+      persist: () => void;
+    };
+    fixtureStore.db.run(
+      "UPDATE selected_restart_packs SET id = ?, pack_ref = ? WHERE id = ?",
+      [selectedPackId, selectedPackRef, generated.id],
+    );
+    fixtureStore.persist();
+    await store.close();
+
+    const childEnv = {
+      ...process.env,
+      HOME: fixtureRoot,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: dbPath,
+      AGENT_MEMORY_AGENT_ID: "kusabi",
+      AGENT_MEMORY_PROJECT: "agent-memory",
+      AGENT_MEMORY_BOOT_MODE: "restart_pack",
+      AGENT_MEMORY_SELECTED_PACK_REF: selectedPackRef,
+      CLAUDE_SESSION_ID: "boot-kusabi-integrated-cell123",
+    };
+    const bootCommand = builtExecution
+      ? { bin: "node", args: ["dist/boot.js"] }
+      : { bin: "npx", args: ["--no-install", "tsx", "src/boot.ts"] };
+    const firstBoot = execFileSync(bootCommand.bin, bootCommand.args, {
+      cwd: workspacePath,
+      env: childEnv,
+      encoding: "utf8",
+    }).trim();
+    const recoveredLine = firstBoot.split("\n").find((line) => line.includes("kusabi-one-seat-recovery-context/v1"));
+    if (!recoveredLine) throw new Error(`integrated recovery payload missing: ${firstBoot}`);
+    const recoveredContext = JSON.parse(recoveredLine) as OneSeatRecoveryContextReadback;
+    const recoveredContextVerification = verifyOneSeatRecoveryContext(recoveredContext, recoveryExpectation);
+    assert(
+      recoveredContextVerification.ok,
+      `fresh child recovers the exact integrated machine context: ${recoveredContextVerification.errors.join(",")}`,
+    );
+
+    const secondBoot = execFileSync(bootCommand.bin, bootCommand.args, {
+      cwd: workspacePath,
+      env: { ...childEnv, CLAUDE_SESSION_ID: "boot-kusabi-integrated-cell123-second" },
+      encoding: "utf8",
+    }).trim();
+    const blockedLine = secondBoot.split("\n")
+      .find((line) => line.includes("kusabi-continuation-recovery-readback/v1"));
+    if (!blockedLine) throw new Error(`second consume readback missing: ${secondBoot}`);
+    const blockedReadback = JSON.parse(blockedLine) as Record<string, unknown>;
+    assert(blockedReadback.recovery_outcome === "blocked", "second fresh child is blocked by consume-once CAS");
+    assert(blockedReadback.continuity_pass_claimed === false, "second consume cannot claim continuity PASS");
+    assert(blockedReadback.automatic_effect_count === 0, "second consume has zero automatic effects");
+    assert(blockedReadback.queue_mutation_count === 0, "second consume has zero queue mutations");
+    assert(blockedReadback.runtime_restart_count === 0, "second consume has zero runtime restarts");
+
+    const dryRunPlan = buildOneSeatCanaryPlan(exactOneSeatCanaryInput());
+    const dryRunEvidence = buildDeterministicOneSeatCanaryEvidence(dryRunPlan);
+    const dryRunVerification = verifyOneSeatCanaryEvidence(dryRunEvidence);
+    assert(dryRunVerification.ok, "one-seat deterministic canary evidence verifies after fresh recovery");
+    assert(dryRunVerification.user_context_restatement_count === 0, "deterministic canary requires zero restatement");
+    assert(dryRunEvidence.live_execution_performed === false, "fixture performs no live canary execution");
+    assert(dryRunEvidence.live_acceptance_claimed === false, "fixture claims no live acceptance or RI0");
+    assert(dryRunPlan.protected_effect_boundary_reached === false, "fixture never reaches a protected effect boundary");
+    assert(
+      Object.values(ONE_SEAT_ZERO_EFFECTS).every((count) => count === 0),
+      "every deterministic canary protected-effect counter is zero",
+    );
+
+    const identityDrift = verifyKusabiRuntimeIdentity(identityReadback, {
+      ...KUSABI_ONE_SEAT_IDENTITY,
+      workspacePathHash: workspacePathDigest(workspacePath),
+      runtimeCommitSha: "0".repeat(40),
+      runtimeArtifactDigest: identityReadback.tuple.runtime.artifact_digest,
+      configDigest: canonicalConfigDigest(KUSABI_CODEX_START_CONFIG),
+    });
+    assert(!identityDrift.ok, "integrated identity drift fails closed");
+    const checkpointDrift = structuredClone(checkpoint);
+    checkpointDrift.recovery.source_cursor = "2026-07-20T23:59:00.000Z";
+    assert(!verifyContinuationCheckpoint(checkpointDrift).ok, "integrated checkpoint cursor drift fails closed");
+    assert(
+      !verifyContinuationRecoveryPack(recoveryPack.canonical_json, {
+        ...recoveryPack.metadata,
+        checkpoint_digest: "0".repeat(64),
+      }).ok,
+      "integrated pack metadata disagreement fails closed",
+    );
+    const staleContext = structuredClone(recoveryContext);
+    staleContext.exact_head_sha = "0".repeat(40);
+    assert(!verifyOneSeatRecoveryContext(staleContext, recoveryExpectation).ok, "stale recovery head fails canary binding");
+    const forgedLiveEvidence = structuredClone(dryRunEvidence);
+    forgedLiveEvidence.live_execution_performed = true as false;
+    assert(!verifyOneSeatCanaryEvidence(forgedLiveEvidence).ok, "fixture evidence cannot be relabeled as live RI0");
+
+    console.log(JSON.stringify({
+      schema_version: "kusabi-integrated-cell123-fixture/v1",
+      status: "PASS",
+      identity_field_match_rate: 1,
+      checkpoint_verification: "pass",
+      fresh_recovery_count: 1,
+      selected_pack_consume_count: 1,
+      second_consume_outcome: "blocked",
+      canary_evidence_kind: "deterministic_fixture",
+      live_execution_performed: false,
+      live_acceptance_claimed: false,
+      protected_effect_count: 0,
+      RI0_claimed: false,
+    }));
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -3865,6 +4446,7 @@ async function run() {
   await testRestartPrepare();
   await testCoreMcpToolRegression();
   await testRestartRecoverySmokeEvidence();
+  await testKusabiIntegratedCell123();
   testPgMigrationSourceOfTruth();
   testHostAdapterPackagingBoundary();
   testConversationScopeSchemaRegression();

@@ -41,6 +41,8 @@ jobs:
         run: npm run build
 
       - name: Run core test suite
+        env:
+          KUSABI_INTEGRATED_BUILT_EXECUTION: "1"
         run: npx tsx src/test.ts
 
       - name: Run spec-enforcement tests

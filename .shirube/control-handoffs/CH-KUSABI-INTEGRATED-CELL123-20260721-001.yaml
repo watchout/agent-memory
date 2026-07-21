@@ -1,0 +1,181 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-INTEGRATED-CELL123-20260721-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/180
+source_handoff_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5028763554
+source_amendment_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5029213789
+repo_local_bridge_amendment_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5029677810
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+spec_review_state: ready_for_implementation
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+rps_scope:
+  shirube_owns:
+    - Exact-head, changed-path, validation, audit, owner-decision, and merge-gate evidence for the integrated Cells 1-3 recovery subject.
+    - The repo-local bridge from the durable Issue handoff to the Rapid/Lite parser.
+  shirube_does_not_own:
+    - Product semantics beyond the already-approved Cells 1-3 integration.
+    - Runtime activation, live canary execution, deployment, branch protection, rulesets, package publication, or fleet rollout.
+
+acceptance_criteria:
+  - The exact Cell 1, Cell 2, and Cell 3 heads remain ancestors of the integrated PR head.
+  - Runtime identity preflight remains before launch preparation, store creation, and Codex launch.
+  - The integrated deterministic fixture verifies identity, checkpoint, fresh recovery, second-consume blocking, and one-seat dry-run boundaries.
+  - The fixture works in shallow GitHub Actions checkouts without requiring unavailable base history.
+  - Production build artifacts are exercised without adding test-only files to the npm package.
+  - Node 18, 20, and 22 CI jobs pass on the same exact head.
+  - Two fresh npm pack outputs are byte-identical and required dist module bodies match the verified build.
+  - No TUI write, live canary, runtime activation, merge, deployment, or fleet mutation occurs in this Cell.
+
+validation:
+  required_commands:
+    - npm ci
+    - npx tsc --noEmit
+    - npm run build
+    - KUSABI_INTEGRATED_BUILT_EXECUTION=1 npx tsx src/test.ts
+    - npx tsx src/test-kusabi-runtime-identity.ts
+    - npx tsx src/test-kusabi-checkpoint-recovery.ts
+    - npx tsx src/test-kusabi-one-seat-canary.ts
+    - bash -n scripts/kusabi-one-seat-canary.sh
+    - git diff --check 6e85144e4ec22f24d51cf1975c7d0448485df4b7...HEAD
+    - npm pack --json from two fresh destinations with byte comparison
+  required_evidence:
+    - changed_files
+    - validation_commands
+    - validation_results
+    - exact_pr_head_sha
+    - exact_tree_sha
+    - component_head_ancestry
+    - independent_audit_record
+    - package_reproducibility
+    - owner_decision
+
+cell:
+  CELL-ID: CELL-KUSABI-INTEGRATED-RECOVERY-SUBJECT-001
+  cell_type: integration_lite
+  risk_class: R2
+  goal: >-
+    Preserve one reviewable exact head and one reproducible package in which
+    frozen Cells 1-3 execute the identity to checkpoint to fresh recovery to
+    deterministic one-seat dry-run contract without live protected effects.
+  non_scope:
+    - Component semantic redesign.
+    - Package or lockfile changes.
+    - Database schema or migration changes.
+    - Runtime activation or operational dist replacement.
+    - Live one-seat canary execution.
+    - Deployment, branch protection, ruleset, required-check, or fleet changes.
+    - Merge to main.
+  allowed_paths:
+    - .github/workflows/ci.yml
+    - .shirube/control-handoffs/CH-KUSABI-INTEGRATED-CELL123-20260721-001.yaml
+    - scripts/kusabi-one-seat-canary.sh
+    - src/boot.ts
+    - src/codex-start.ts
+    - src/kusabi-checkpoint-recovery.ts
+    - src/kusabi-one-seat-canary.ts
+    - src/kusabi-runtime-identity.ts
+    - src/restart-prepare.ts
+    - src/test-kusabi-checkpoint-recovery.ts
+    - src/test-kusabi-one-seat-canary.ts
+    - src/test-kusabi-runtime-identity.ts
+    - src/test.ts
+  forbidden_paths:
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - dist/**
+    - docs/**
+    - migrations/**
+    - src/stores/**
+    - .shirube/audits/**
+    - .shirube/audit-item-sets/**
+    - docker-compose.yml
+    - deploy/**
+    - deployment/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - A changed file appears outside allowed_paths.
+    - Product semantics must change to satisfy the control bridge or gate.
+    - A package, lockfile, DB schema, migration, deployment, branch-protection, or ruleset change becomes necessary.
+    - Any live canary, runtime activation, operational dist replacement, TUI write, or merge becomes necessary.
+    - Exact component ancestry, integrated validation, package reproducibility, or protected-effect zero boundary fails.
+
+implementation_boundary:
+  summary: >-
+    Integrate the frozen component heads, retain the two bounded CI remediation
+    changes, and materialize this single repo-local handoff bridge. Do not add
+    further product behavior or control files.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without fresh independent audit and owner exact-head decision
+    - runtime activation
+    - live canary
+    - operational dist replacement
+    - branch protection or ruleset mutation
+    - required check activation
+    - deployment or package publication
+    - secret read or write
+    - any TUI write
+
+audit:
+  required_before_owner_decision: true
+  item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+  required_record_transport: parser-compatible inline PR audit record
+  maker_checker_separation_required: true
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5029677810
+
+next_action:
+  blocking: false
+  who:
+    agent_id: kusabi
+    active_function: implementation_executor
+  what: validate this one-file bridge with the unchanged implementation, then publish a new exact head for CI and independent audit
+  how: prove the delta from the prior approved head is exactly this file, run local boundary and build checks, normal fast-forward push, and request a parser-compatible independent audit record
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5028763554
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5029213789
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5029677810
+    - https://github.com/watchout/agent-memory/pull/258
+  scope: one control artifact plus validation, CI, audit, and owner/gate evidence; no additional code edit, merge, activation, live canary, or TUI write
+  deliverable: fresh exact-head CI and independent audit evidence with a green Rapid/Lite gate
+  completion_evidence: one-file delta, exact head/tree, green CI, parser-compatible audit PASS, owner exact-head comment, and green hard-gate receipt
+  blocking_for_current_function: false
+  blocking_for_merge_activation: true
