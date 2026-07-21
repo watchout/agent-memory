@@ -2,7 +2,7 @@ schema_version: shirube-adoption-intake/v1
 adoption_id: ADOPT-KUSABI-001
 lane: adoption_intake
 repo: watchout/agent-memory
-framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2b
 profile: hotel-lite
 current_status: PARTIAL_SHIRUBE_PILOT
 target_status_after_merge: RAPID_LITE_REPORT_ONLY
