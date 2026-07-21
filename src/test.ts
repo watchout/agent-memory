@@ -4140,8 +4140,11 @@ async function testKusabiIntegratedCell123() {
   const workspacePath = process.cwd();
   const integratedHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   const integratedTree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
-  const integratedBranch = execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim();
-  const builtExecution = import.meta.url.endsWith("/dist/test.js");
+  const integratedBranch = execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim()
+    || process.env.GITHUB_HEAD_REF
+    || "agent/kusabi-integrated-cell123-20260721";
+  const builtExecution = import.meta.url.endsWith("/dist/test.js")
+    || process.env.KUSABI_INTEGRATED_BUILT_EXECUTION === "1";
   const runtimeArtifactPath = join(workspacePath, builtExecution ? "dist/codex-start.js" : "src/codex-start.ts");
   const packageReceiptRef = `package_receipt:head:${integratedHead}:tree:${integratedTree}`;
 
@@ -4190,11 +4193,12 @@ async function testKusabiIntegratedCell123() {
     "all 10 runtime identity fields map losslessly into ContinuationIdentity",
   );
 
-  const integratedDiff = execFileSync(
+  const integratedTreeManifest = execFileSync(
     "git",
-    ["diff", "--binary", "6e85144e4ec22f24d51cf1975c7d0448485df4b7...HEAD"],
+    ["ls-tree", "-r", "--full-tree", "HEAD"],
     { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
   );
+  const integratedRepoMaterial = `tree ${integratedTree}\n${integratedTreeManifest}`;
   const checkpoint = buildContinuationCheckpoint({
     identity: continuationIdentity,
     tasks: [{
@@ -4230,7 +4234,7 @@ async function testKusabiIntegratedCell123() {
       branch: integratedBranch,
       head_sha: integratedHead,
       dirty_paths: [],
-      diff_material: integratedDiff,
+      diff_material: integratedRepoMaterial,
     },
     effects: [],
     recovery: {
