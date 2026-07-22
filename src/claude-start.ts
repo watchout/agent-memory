@@ -11,7 +11,8 @@ import { spawn } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { createStore } from "./stores/index.js";
-import type { Store } from "./stores/types.js";
+import type { SelectedRestartPack, Store } from "./stores/types.js";
+import { estimateTokens } from "./constants.js";
 import {
   prepareRestart,
   type ContinuityGuardMode,
@@ -27,10 +28,14 @@ export const CLAUDE_RESESSION_RUNNER_ENV = "claude_resession_runner_v1";
 
 export interface ClaudeStartCliOptions {
   launch: boolean;
+  freshSession?: boolean;
   agentId: string;
   project?: string;
   cd?: string;
   claudeBin: string;
+  bootJs: string;
+  sessionId?: string;
+  selectedPackRef?: string;
   mcpConfig?: string;
   maxTokens?: number;
   continuityGuardMode?: ContinuityGuardMode;
@@ -76,13 +81,29 @@ export async function prepareClaudeResession(
     | "restartPreauthorized"
     | "emitPack"
     | "launch"
+    | "freshSession"
+    | "selectedPackRef"
   >
 ): Promise<ClaudeResessionRunnerResult> {
+  if (options.freshSession && options.selectedPackRef) {
+    const selected = await store.getSelectedRestartPack({
+      agent_id: options.agentId,
+      project: options.project,
+      pack_ref: options.selectedPackRef,
+    });
+    if (!selected) throw new Error("SELECTED_RESTART_PACK_MISSING_OR_CONSUMED");
+    return buildClaudeRunnerResult(
+      buildClaudeSelectedPackPrepareOutput(selected),
+      options.launch === true,
+      false,
+      true,
+    );
+  }
   const prepared = await prepareRestart(store, {
     agent_id: options.agentId,
     project: options.project,
     max_tokens: options.maxTokens,
-    continuity_guard_mode: options.continuityGuardMode ?? "recommend",
+    continuity_guard_mode: options.freshSession ? "pack_only" : options.continuityGuardMode ?? "recommend",
     pack_injection_mode: options.packInjectionMode ?? "auto_attach",
     aun_installed: options.aunInstalled,
     aun_absent_confirmed: options.aunAbsentConfirmed,
@@ -99,15 +120,58 @@ export async function prepareClaudeResession(
     untrusted_context_policy: "quote-as-data-only",
   });
 
-  return buildClaudeRunnerResult(prepared, options.launch === true);
+  return buildClaudeRunnerResult(prepared, options.launch === true, false, options.freshSession === true);
+}
+
+export function buildClaudeSelectedPackPrepareOutput(selected: SelectedRestartPack): RestartPrepareOutput {
+  const format = selected.metadata.pack_format === "recovery-pack-v1" ||
+    selected.metadata.pack_format === "host-invocation-context-v1"
+    ? selected.metadata.pack_format
+    : "text";
+  return {
+    action: "pack_update_needed",
+    continuity_guard_mode: "pack_only",
+    requested_continuity_guard_mode: "pack_only",
+    pack_injection_mode: "auto_attach",
+    can_auto_restart: false,
+    auto_restart_blockers: [],
+    pack_ref: selected.pack_ref,
+    restart_pack_format: format,
+    ...(format === "text" ? {} : {
+      restart_pack_schema_ref: format === "recovery-pack-v1"
+        ? "recovery-pack/v1" as const
+        : "host-invocation-context/v1" as const,
+    }),
+    recovery_confidence: {
+      score: 0,
+      level: "low",
+      missing_context: ["fresh_session_selected_pack_prepared_externally"],
+    },
+    context_signal: { source: "estimated", usage_ratio: null, band: "unknown" },
+    provenance: {
+      generated_at: selected.created_at,
+      agent_id: selected.agent_id,
+      ...(selected.project ? { project: selected.project } : {}),
+      pack_tokens: estimateTokens(selected.content),
+      active_task_ids: [],
+      blocked_task_ids: [],
+      decision_ids: [],
+      knowledge_ids: [],
+      conversation_event_ids: [],
+    },
+    notes: [
+      "Ordinary fresh-session mode reuses the exact preselected pack; SessionStart performs the single consume.",
+    ],
+  };
 }
 
 export function buildClaudeRunnerResult(
   prepared: RestartPrepareOutput,
   launchRequested: boolean,
-  launchedClaude = false
+  launchedClaude = false,
+  freshSession = false,
 ): ClaudeResessionRunnerResult {
-  const launchBlockers = launchRequested ? launchBlockersFor(prepared) : [];
+  const launchBlockers = launchRequested ? launchBlockersFor(prepared, { freshSession }) : [];
   return {
     runner: "wasurezu-claude-start",
     launch_requested: launchRequested,
@@ -118,12 +182,20 @@ export function buildClaudeRunnerResult(
     notes: [
       "wasurezu-claude-start prepares Claude recovery state but never kills or replaces an existing Claude session.",
       "SessionStart is the selected-pack load hook, not the restart policy owner.",
-      "TUI text injection and SessionStart self-kick remain compatibility fallbacks only.",
+      freshSession
+        ? "Ordinary fresh-session mode launches one new Claude process and injects recovery through a native SessionStart hook without TUI input."
+        : "TUI text injection and SessionStart self-kick remain compatibility fallbacks only.",
     ],
   };
 }
 
-export function launchBlockersFor(prepared: RestartPrepareOutput): string[] {
+export function launchBlockersFor(
+  prepared: RestartPrepareOutput,
+  options: { freshSession?: boolean } = {},
+): string[] {
+  if (options.freshSession === true) {
+    return prepared.pack_ref ? [] : ["selected_pack_ref_missing"];
+  }
   const blockers = [...prepared.auto_restart_blockers];
   if (!prepared.can_auto_restart) blockers.push("restart_prepare_can_auto_restart_false");
   if (!prepared.pack_ref) blockers.push("selected_pack_ref_missing");
@@ -137,6 +209,7 @@ export function buildNextSessionEnv(prepared: RestartPrepareOutput): Record<stri
   const env: Record<string, string> = {
     AGENT_MEMORY_STARTUP_BRIDGE: CLAUDE_RESESSION_RUNNER_ENV,
     AGENT_MEMORY_BOOT_MODE: "restart_pack",
+    AGENT_MEMORY_CLAUDE_HOOK_JSON: "1",
   };
   if (prepared.pack_ref) env.AGENT_MEMORY_SELECTED_PACK_REF = prepared.pack_ref;
   env.AGENT_MEMORY_AGENT_ID = prepared.provenance.agent_id;
@@ -155,12 +228,41 @@ export function buildClaudeLaunchEnv(
 }
 
 export function buildClaudeLaunchArgs(
-  options: Pick<ClaudeStartCliOptions, "mcpConfig" | "claudeArgs">
+  options: Pick<ClaudeStartCliOptions, "mcpConfig" | "claudeArgs"> &
+    Partial<Pick<ClaudeStartCliOptions, "freshSession" | "bootJs" | "sessionId">>
 ): string[] {
   const args: string[] = [];
   if (options.mcpConfig) args.push("--mcp-config", options.mcpConfig);
+  if (options.freshSession) {
+    args.push("--settings", JSON.stringify(buildClaudeSessionStartSettings(
+      options.bootJs ?? "/Users/yuji/Developer/agent-memory/dist/boot.js",
+    )));
+    if (options.sessionId) args.push("--session-id", options.sessionId);
+  }
   args.push(...options.claudeArgs);
   return args;
+}
+
+export function buildClaudeSessionStartSettings(bootJs: string): Record<string, unknown> {
+  if (!bootJs || !bootJs.endsWith("/dist/boot.js")) {
+    throw new Error("Claude fresh-session boot hook must reference dist/boot.js");
+  }
+  return {
+    hooks: {
+      SessionStart: [
+        {
+          matcher: "",
+          hooks: [
+            {
+              type: "command",
+              command: `node ${JSON.stringify(bootJs)}`,
+              timeout: 60_000,
+            },
+          ],
+        },
+      ],
+    },
+  };
 }
 
 export function parseClaudeStartArgs(
@@ -169,9 +271,11 @@ export function parseClaudeStartArgs(
 ): ClaudeStartCliOptions {
   const options: ClaudeStartCliOptions = {
     launch: false,
+    freshSession: false,
     agentId: env.AGENT_MEMORY_AGENT_ID || "default",
     project: env.AGENT_MEMORY_PROJECT || undefined,
     claudeBin: env.AGENT_MEMORY_CLAUDE_BIN || "claude",
+    bootJs: env.AGENT_MEMORY_BOOT_JS || "/Users/yuji/Developer/agent-memory/dist/boot.js",
     claudeArgs: [],
   };
 
@@ -180,6 +284,10 @@ export function parseClaudeStartArgs(
     const next = () => requireValue(args, ++i, arg);
     switch (arg) {
       case "--launch":
+        options.launch = true;
+        break;
+      case "--fresh-session":
+        options.freshSession = true;
         options.launch = true;
         break;
       case "--print":
@@ -196,6 +304,15 @@ export function parseClaudeStartArgs(
         break;
       case "--claude-bin":
         options.claudeBin = next();
+        break;
+      case "--boot-js":
+        options.bootJs = next();
+        break;
+      case "--session-id":
+        options.sessionId = next();
+        break;
+      case "--selected-pack-ref":
+        options.selectedPackRef = next();
         break;
       case "--mcp-config":
         options.mcpConfig = next();
@@ -274,7 +391,7 @@ async function run(): Promise<void> {
 
     process.stderr.write(`${redactedJson(result)}\n`);
     await launchClaude(options, result.prepare);
-    process.stderr.write(`${redactedJson(buildClaudeRunnerResult(result.prepare, true, true))}\n`);
+    process.stderr.write(`${redactedJson(buildClaudeRunnerResult(result.prepare, true, true, options.freshSession))}\n`);
   } finally {
     await store.close();
   }
@@ -350,10 +467,14 @@ Usage:
 Options:
   --print                         Prepare and print runner evidence. Default.
   --launch                        Launch a fresh Claude process only when fail-closed restart gates pass.
+  --fresh-session                 Launch one ordinary new process; no disconnect detection, kill, or auto-restart.
   --agent-id ID                   Memory namespace. Default: AGENT_MEMORY_AGENT_ID or default.
   --project PROJECT               Optional memory project.
   --cd DIR                        Working directory for launched Claude.
   --claude-bin PATH               Claude executable. Default: AGENT_MEMORY_CLAUDE_BIN or claude.
+  --boot-js PATH                  dist/boot.js used by the native SessionStart hook.
+  --session-id UUID               Bind the ordinary fresh process to an explicit new session id.
+  --selected-pack-ref REF         Reuse one exact active pack; SessionStart consumes it once.
   --mcp-config PATH               Pass --mcp-config to launched Claude.
   --claude-arg ARG                Append one argv item to Claude. Repeat for multiple args.
   --max-tokens N                  restart pack token budget override.

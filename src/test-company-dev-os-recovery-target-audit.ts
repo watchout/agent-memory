@@ -162,6 +162,40 @@ async function main(): Promise<void> {
       item.approval_id === "qa-test-alias"
     ));
 
+    const expiredAliasFile = join(root, "expired-aliases.json");
+    await writeFile(
+      expiredAliasFile,
+      JSON.stringify({
+        version: 1,
+        approvals: [
+          {
+            id: "qa-expired-alias",
+            cwd: qa,
+            source_agent_id: "qa",
+            source_project: "qa",
+            registry_agent_id: "qa-runtime",
+            registry_project: "qa",
+            approved_by: "test",
+            reason: "expired approvals must not authorize an identity mismatch",
+            expires_at: "2000-01-01T00:00:00.000Z",
+          },
+        ],
+      }) + "\n"
+    );
+    const expiredMismatch = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      aliasFile: expiredAliasFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(expiredMismatch.status, "fail");
+    assert(expiredMismatch.findings.some((item) =>
+      item.code === "registry_identity_differs" && item.severity === "block" && item.cwd === qa
+    ));
+    assert(expiredMismatch.findings.some((item) =>
+      item.code === "alias_approval_expired" && item.severity === "warn" && item.approval_id === "qa-expired-alias"
+    ));
+
     await writeFile(join(scriptsRoot, "apply-company-dev-os-runtime-overlay.py"), "TARGETS = []\n");
     await writeFile(join(scriptsRoot, "apply-company-dev-os-bot-workspace-overlay.py"), "BOT_WORKSPACES = []\n");
     await writeFile(targetsFile, JSON.stringify({ version: 1, targets: [] }) + "\n");

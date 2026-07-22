@@ -1,0 +1,178 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: kusabi-fresh-session-fleet
+control_handoff_id: CH-KUSABI-STARTUP-RECOVERY-60S-FLEET-20260721-001
+parent_ssot: https://github.com/watchout/agent-memory/issues/180
+source_handoff_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5031883275
+source_live_authorization_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5032437512
+source_scope_expansion_ref: https://github.com/watchout/agent-memory/pull/261#issuecomment-5040323088
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+
+owner:
+  role: repo_owner
+  actor: watchout
+
+rps_scope:
+  shirube_owns:
+    - Exact-head, changed-path, validation, independent-audit, live-canary, owner-decision, and merge-gate evidence for this fresh-session recovery cell.
+    - This repo-local parser bridge for the durable Issue handoff and its bounded owner amendments.
+  shirube_does_not_own:
+    - Agent identity collapse, automatic restart, disconnect detection, AUN queue lifecycle, deployment, package publication, merge, or runtime activation.
+
+acceptance_criteria:
+  - Exactly the registered 12 agent identities launch ordinary fresh sessions sequentially with max concurrency one.
+  - Every target recovers the exact saved objective and next action, begins read-only continuation within 60000 ms, and requires no user restatement.
+  - Every prior session id differs from the host-assigned fresh session id and each agent, project, workspace, runtime, and profile revision matches exactly.
+  - TUI, tmux, clipboard, existing-session injection, disconnect detection, automatic restart, AUN queue, workspace, deploy, merge, and activation effects remain zero.
+  - Claude recovery is delivered through native SessionStart additional context and Codex recovery is delivered through stdin to a new non-interactive process.
+  - Build, typecheck, full tests, focused recovery tests, no-secret checks, preflight, independent exact-head audit, and the sequential 12-of-12 live canary pass on one exact head.
+
+validation:
+  required_commands:
+    - npm run build
+    - npx tsc --noEmit
+    - npm test
+    - npx tsx src/test-boot-recovery.ts
+    - npx tsx src/test-company-dev-os-recovery-target-audit.ts
+    - npx tsx src/test-kusabi-runtime-identity.ts
+    - npx tsx src/test-kusabi-checkpoint-recovery.ts
+    - npx tsx src/test-kusabi-one-seat-canary.ts
+    - npx tsx src/test-kusabi-fresh-session-fleet.ts
+    - npx tsx tests/gate0/no-secret-recovery.ts
+    - bash scripts/kusabi-fresh-session-fleet.sh --preflight-only
+    - git diff --check
+    - node scripts/shirube/rapid-lite-gate.mjs --self-test-maker-checker
+    - node scripts/shirube/rapid-lite-gate.mjs --self-test-owner-decision-parser
+  required_evidence:
+    - exact base, head, tree, parent, changed paths, and patch digest
+    - full validation results and exact-head CI
+    - independent parser-compatible audit record
+    - ordered 12-target live evidence with timings, identities, exact recovery, continuation, and zero-effect counters
+    - owner APPROVED_EXACT_HEAD decision
+
+cell:
+  CELL-ID: CELL-KUSABI-STARTUP-RECOVERY-60S-FLEET-20260721-001
+  cell_type: runtime_recovery_lite
+  risk_class: R2
+  goal: >-
+    After intentional session end, the same registered agent begins the exact prior
+    objective and next action through an ordinary fresh-session launch within 60
+    seconds without user restatement or any TUI write.
+  non_scope:
+    - Detecting disconnects, killing or restarting an existing session, or automatically restarting an agent.
+    - Renaming or collapsing agent_id, memory_project, workspace, runtime, profile, or active_function bindings into kusabi.
+    - AUN queue lifecycle, task, decision, knowledge, raw-event, schema, profile, historical-row, or unrelated database mutation.
+    - Merge, deployment, package publication, branch protection, rulesets, or activation.
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-STARTUP-RECOVERY-60S-FLEET-20260721-001.yaml
+    - docs/design/schemas/kusabi-fresh-session-evidence-v1.schema.json
+    - docs/operations/HOST_ADAPTERS.md
+    - docs/operations/KUSABI_FRESH_SESSION_FLEET.md
+    - scripts/host-adapters/codex-bridge-launch.sh
+    - scripts/kusabi-fresh-session-fleet.sh
+    - src/boot.ts
+    - src/claude-start.ts
+    - src/codex-start.ts
+    - src/company-dev-os-recovery-target-audit.ts
+    - src/kusabi-one-seat-canary.ts
+    - src/test-kusabi-one-seat-canary.ts
+    - src/kusabi-fresh-session-fleet.ts
+    - src/test-company-dev-os-recovery-target-audit.ts
+    - src/test-kusabi-fresh-session-fleet.ts
+    - tests/gate0/no-secret-recovery.ts
+  forbidden_paths:
+    - src/kusabi-runtime-identity.ts
+    - src/kusabi-checkpoint-recovery.ts
+    - src/restart-pack.ts
+    - src/restart-prepare.ts
+    - src/recovery-quality.ts
+    - package.json
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - dist/**
+    - migrations/**
+    - .shirube/audits/**
+    - .shirube/audit-item-sets/**
+    - .github/**
+    - deploy/**
+    - deployment/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
+    - "**/branch-protection/**"
+    - "**/ruleset/**"
+  stop_conditions:
+    - A changed file appears outside allowed_paths or matches forbidden_paths.
+    - Current membership is not exactly the registered 12 or any identity, runtime, workspace, project, or profile binding is unreadable or ambiguous.
+    - Any validation, independent audit, or live target fails, times out, requires restatement, or produces a prohibited effect.
+    - More than one live target is in progress or a later target launches after the first failure.
+    - Evidence cannot be durably read back on the exact head.
+
+implementation_boundary:
+  summary: >-
+    Preserve the already implemented fresh-session recovery cell and materialize
+    this one owner-authorized repo-local handoff bridge; do not expand product scope.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge without fresh independent audit, 12-of-12 live evidence, owner exact-head decision, and green Rapid/Lite gate
+    - activation without a separate owner authorization after merge
+    - automatic restart, disconnect detection, or existing-session termination
+    - TUI, tmux, clipboard, or existing-session input
+    - AUN queue mutation, schema migration, deployment, or package publication
+    - secret read or write
+
+bounded_wasurezu_canary:
+  authorization_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5032437512
+  permitted:
+    - One exact selected restart pack per ordered target and at-most-once consume during each owner-authorized sequential live run.
+    - Recovery quality telemetry emitted by those exact fresh-session boots.
+  prohibited:
+    - Task, decision, knowledge, raw-event, agent-message, AUN queue, schema, profile, runtime, workspace, merge, deploy, or activation mutation.
+
+audit:
+  required_before_owner_decision: true
+  item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+  required_record_transport: parser-compatible inline PR audit record
+  maker_checker_separation_required: true
+
+owner_decision:
+  required_before_merge: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - separately authorized activation decision or explicit not-yet-activated state
+    - next_step
+    - no_unresolved_follow_up_blocker
+
+next_action:
+  blocking: false
+  who:
+    agent_id: kusabi
+    active_function: implementation_executor
+  what: validate and publish the new exact head, obtain an independent parser-compatible audit, rerun the sequential 12-target canary, bind owner approval, and rerun the hard gate
+  how: use only this handoff's allowed paths and the isolated worktree; preserve every no-TUI, no-auto-restart, identity-isolation, and zero-effect boundary
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5031883275
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5032437512
+    - https://github.com/watchout/agent-memory/pull/261#issuecomment-5040323088
+    - https://github.com/watchout/agent-memory/pull/261#issuecomment-5032955727
+  scope: exact fresh-session recovery cell plus its single repo-local handoff mirror
+  deliverable: passing PR checks with independent audit, sequential 12-of-12 live evidence, owner exact-head evidence, and green Rapid/Lite gate
+  completion_evidence: exact-head source and control evidence with durable URLs
+  blocking_for_current_function: false
+  blocking_for_merge_activation: true
