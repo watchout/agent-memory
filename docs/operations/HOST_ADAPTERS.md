@@ -1,6 +1,6 @@
-# Host Adapter Compatibility
+# Host Adapter Contract and Compatibility
 
-> Status: AM-036 operational design
+> Status: AM-036 operational design plus owner-approved ALPHA-00 contract
 > Purpose: define what wasurezu can honestly claim for each LLM host.
 > Authority: `docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md` for continuity policy, `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md` for identity binding.
 
@@ -35,6 +35,84 @@ The public contract is:
 This keeps recovery behavior portable across hosts without overstating what MCP
 alone can do. A host with a native startup hook can be transparent. A host
 without one uses an explicit bridge or remains manual MCP recovery.
+
+## Continuity-Alpha Host Adapter Contract
+
+This section is the normative ALPHA-00 contract. It defines the common port
+that ALPHA-01 through ALPHA-03 must implement; it does not claim that those
+runtime adapters are implemented yet.
+
+The user-facing promise is deliberately narrow: after the operator ends the
+old session and starts a fresh process with the host's ordinary command
+(`codex`, `claude`, or `gemini`), the native start surface supplies bounded
+recovery context before the first model action. No special Wasurezu launcher,
+TUI write, disconnect detector, or automatic process restart is part of this
+promise.
+
+### Symmetric adapter port
+
+Every host adapter must expose the same logical fields. Host-specific code may
+translate the port to a native API, but must not add host-specific policy or
+select behavior through an environment-variable switch.
+
+| Area | Required deterministic fields and behavior |
+|------|--------------------------------------------|
+| Descriptor | `adapter_id`, `contract_version`, `host`, `supported_host_version`, `normal_launch_command`, `native_start_surface`, and canonical config location. |
+| Identity | Resolve `agent_id`, optional `project`, canonical workspace, and runtime. Record binding-source refs and verified values; `session_id` remains provenance, not namespace. A declared label alone is `declared_not_verified`. |
+| Trust and install | State supported host versions, workspace/config trust prerequisites, hook executable/readability checks, one-command per-seat install or validation procedure, and rollback/disable procedure. Never put secrets in the adapter descriptor or recovery payload. |
+| Structured input | Accept a bounded `host-invocation-context/v1` or equivalent selected recovery-pack reference with pack id/ref, source provenance, confidence, missing context, and data-only trust policy. Recovered or external text cannot become executable instruction. |
+| Structured output | Return delivery status (`delivered`, `degraded`, `skipped`, or `error`), first-context confirmation, verified identity, pack ref, missing/degraded reason, T0-T4 timestamps, applied caps, redaction/omission counts, and evidence refs. Config or hook presence alone is `placed_not_delivered`. |
+| Redaction and caps | Apply Wasurezu redaction before host delivery. Declare numeric byte/token caps, record the applied values, and surface truncation or omission; never include secrets, private reasoning, base instructions, full transcript dumps, or an unredacted home path. |
+| Fail-safe | Recovery unavailable, disabled, untrusted, timed out, malformed, or over cap must leave the ordinary bare host launch usable. Emit a visible degraded warning and structured evidence; never fail silently or report startup recovery. |
+| Ownership | The adapter delivers context only. It does not own AUN lifecycle or queue state, restart policy, Shirube gates, merge, deploy, activation, or fleet rollout. |
+
+### Native host bindings for the alpha gate
+
+| Host | Ordinary command | Native start surface | Canonical workspace config | Alpha cell |
+|------|------------------|----------------------|----------------------------|------------|
+| Codex | `codex` | native `SessionStart` hook | `.codex/hooks.json` (or the equivalent native Codex config entry documented by the adapter) | ALPHA-01 |
+| Claude Code | `claude` | native `SessionStart` hook | `.claude/settings.json` | ALPHA-02 parity |
+| Gemini CLI | `gemini` | native `SessionStart`, delivering `hookSpecificOutput.additionalContext` | `.gemini/settings.json` | ALPHA-03 |
+
+The continuity-alpha release gate is exactly Codex, Claude Code, and Gemini
+CLI. Cursor is a later tier and is not an ALPHA-00 through ALPHA-07 gate
+dependency. Kimi, local LLM/Ollama-family hosts, and other community hosts may
+implement this public contract later, but are contract-only for this alpha.
+
+### Alpha identity and rollout matrix
+
+P0 agents (exactly 10): `kusabi`, `spec`, `arc`, `codex-cto`, `codex-audit`,
+`devauditor`, `qa`, `check`, `org-build-dev`, and `dev-001`.
+
+Gemini uses a dedicated canary identity only:
+
+```yaml
+agent_id: kusabi-gemini
+memory_project: agent-memory
+workspace: /Users/yuji/Developer/agent-memory
+runtime: gemini-cli
+use: alpha-canary-only
+normal_work_queue: false
+```
+
+The alpha clocks and thresholds are T0 = fresh host process start, T1 =
+recovery context injection complete, T2 = agent orientation complete, T3 =
+first meaningful safe continuation action begins, and T4 = first useful
+continuation result is produced. Required predicates are T1-T0 <=10 seconds,
+T3-T0 <=30 seconds, and T4-T0 <=60 seconds.
+
+The frozen continuity-alpha score gate is recovery score >=28/30, blind
+operator score >=4.5/5, RI0, and user restatement count 0. The S15 negative
+evaluator fixture must pass before any alpha score is admissible; S15 failure
+invalidates downstream scoring, and a stored-value echo/squelch is an
+automatic failure. Retained 24/26/27-point debugging or maturity markers are
+non-alpha and cannot authorize this gate.
+
+### Claim limits
+
+The contract makes no claim of automatic disconnect detection, automatic
+process restart, injection into a running session, perfect recovery, or zero
+leakage. A native hook is a fresh-process load path, not lifecycle ownership.
 
 ## Control-Plane Runner Boundary
 
@@ -80,6 +158,7 @@ Host invocation profiles:
 |----------------|-----------------------------|----------|
 | `codex` | `stdin-json` or verified prompt-plus-stdin startup surface | Wasurezu emits schema-valid context. The Codex launcher/runner executes the host command. |
 | `claude` | `system-prompt-fragment`, `append-system-prompt-fragment`, or `session-start-hook` where verified | Wasurezu emits schema-valid context. The Claude hook/runner loads it and returns structured evidence. |
+| `gemini` | native `session-start-hook` with `hookSpecificOutput.additionalContext` where verified | Wasurezu emits schema-valid context. The Gemini hook loads it and returns the common structured evidence. |
 | `generic-mcp-host` | MCP `structuredContent` with an `outputSchema` where supported | Wasurezu emits schema-valid context. The host controls invocation and lifecycle. |
 
 ### AUN CP-40D Runtime Invocation Alignment
@@ -113,8 +192,9 @@ references.
 The artifacts must not embed raw shell commands. Host-specific launch commands
 belong in the runner or adapter implementation, not in the recovery pack.
 
-TUI text injection is allowed only as a compatibility fallback for runtimes
-with no proper adapter or hook. It must not be the primary automation path. A
+Legacy TUI text injection is only a degraded compatibility fallback for
+runtimes with no proper adapter or hook; it is prohibited in continuity-alpha
+implementation and can never count as alpha evidence. A
 SessionStart hook may load a precomputed pack, but SessionStart/TUI self-kick
 must not be treated as the primary restart mechanism or policy engine.
 
@@ -203,7 +283,7 @@ supervisors remain responsible for runtime lifecycle and queue state.
 | 2 | Native lifecycle integration | The host has a native startup hook or extension point that runs recovery on session start. | Startup recovery, transparent host integration. |
 | 3 | Managed enterprise integration | Org install, policy, audit, metrics, and rollout controls are available. | Enterprise managed recovery. Future tier. |
 
-## Current Host Matrix
+## Current Host Matrix (Before ALPHA-01 Through ALPHA-03)
 
 | Host | Level | Startup Path | Notes |
 |------|-------|--------------|-------|
@@ -213,7 +293,18 @@ supervisors remain responsible for runtime lifecycle and queue state.
 | Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Other MCP clients | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Do not claim startup recovery until an adapter or native hook is verified. |
 
+This table records the implemented state at exact base
+`bf390764eb559fbfebdc7aae85d68d8d9e5b9650`; it is not the alpha acceptance
+state. The wrapper/launcher paths remain evidence-producing fallbacks until
+native parity is proven, but they cannot satisfy the ordinary-command alpha
+gate.
+
 ## Restart UX
+
+The following launcher flow documents the pre-alpha implementation. The alpha
+target is simpler: the operator exits the old session, then invokes `codex`,
+`claude`, or `gemini`; the native start surface performs the contract above.
+A wrapper command is not alpha acceptance evidence.
 
 For hosts without a native lifecycle hook, the intended UX is re-entry rather
 than unmanaged process replacement:
@@ -356,6 +447,10 @@ already includes `restart_pack`.
   `wasurezu-codex-start --print` are inspection evidence only, not startup
   recovery runs.
 - MCP-only clients: do not count unless the host has a verified adapter or hook.
+- Continuity-alpha runs count only when the ordinary `codex`, `claude`, or
+  `gemini` command starts a fresh process and the corresponding native start
+  surface proves first-context delivery under the common contract.
+- Cursor and community-host runs do not satisfy the frozen alpha host gate.
 
 Manual MCP recovery is still useful evidence, but it must be labeled as manual
 and cannot be used for public-alpha startup recovery claims.

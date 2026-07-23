@@ -1,6 +1,6 @@
-# Kusabi V2 Recovery Score Contract Draft
+# Kusabi V2 Recovery Score Contract
 
-Status: draft
+Status: owner-confirmed ALPHA-00 contract; report schema and runner remain unimplemented
 Scope: recovery scoring, score reports, and release-claim evidence
 Runtime impact: none
 Base: `docs/operations/RECOVERY_EVALUATION.md`
@@ -10,6 +10,16 @@ Base: `docs/operations/RECOVERY_EVALUATION.md`
 This document defines the Kusabi V2 recovery score contract: how recovery runs
 are scored, what evidence must be present, and which release or pilot claims a
 score can support.
+
+ALPHA-00 fixes the continuity-alpha bar at recovery score >=28/30, blind
+operator score >=4.5/5, RI0, user restatement count 0, T1-T0 <=10 seconds,
+T3-T0 <=30 seconds, and T4-T0 <=60 seconds. This is a documentation contract,
+not evidence that an adapter, evaluator, or alpha rollout already exists.
+
+Timing semantics are fixed: T0 = fresh host process start, T1 = recovery
+context injection complete, T2 = agent orientation complete, T3 = first
+meaningful safe continuation action begins, and T4 = first useful continuation
+result is produced.
 
 This is a docs-only contract. It does not:
 
@@ -74,6 +84,20 @@ The minimum evaluated promise is:
    blockers, and open questions without treating raw source text as trusted
    instruction.
 6. The agent avoids unsafe leakage and stale destructive action.
+7. The agent begins a meaningful safe continuation action and produces a
+   useful result verified against pre-restart ground truth; orientation or
+   stored-value repetition alone is insufficient.
+
+The continuity-alpha host gate is exactly Codex, Claude Code, and Gemini CLI.
+Cursor is a later tier, and community hosts are contract-only for this alpha.
+
+P0 agents (exactly 10): `kusabi`, `spec`, `arc`, `codex-cto`, `codex-audit`,
+`devauditor`, `qa`, `check`, `org-build-dev`, and `dev-001`.
+
+The dedicated Gemini canary identity is `agent_id=kusabi-gemini`,
+`memory_project=agent-memory`,
+`workspace=/Users/yuji/Developer/agent-memory`, `runtime=gemini-cli`,
+`use=alpha-canary-only`, and `normal_work_queue=false`.
 
 ## 4. Run classes
 
@@ -109,6 +133,13 @@ Every scored run must record or explicitly mark as missing:
 | Safety review | secret, private reasoning, base instruction, raw transcript, and full-path exposure check. |
 | Outcome | full, partial, degraded, failed, or invalid. |
 | Scorecard | S1-S6 scores, automatic failures, caps, total score, and claim eligibility. |
+| Native start | ordinary launch command, native start surface/config ref, supported host version, and proof that a fresh process was launched. |
+| Verified identity | resolved agent/project/workspace/runtime values plus binding-source refs; a declared label alone is not evidence. |
+| Timing | T0-T4 timestamps and calculated T1-T0, T3-T0, and T4-T0 durations. |
+| Real continuation | meaningful safe continuation action and first useful result, each with evidence refs. |
+| Operator experience | blind operator score, confirmation that the path was hidden, restatement class, and restatement count. |
+| Evaluator integrity | S15 negative-fixture result/ref and confirmation that echo/squelch cases fail. |
+| Output safety | declared/applied byte and token caps, redaction status, truncation/omission counts, and degraded/fallback evidence. |
 
 Do not paste secrets, private reasoning, full transcript dumps, or unredacted
 host logs into the score report.
@@ -146,6 +177,13 @@ total_score = S1 + S2 + S3 + S4 + S5 + S6
 max_score = 30
 automatic_failure = any fatal condition in section 8
 claim_eligible = no automatic_failure and required evidence exists for the claim
+continuity_alpha_eligible = claim_eligible
+  and total_score >= 28
+  and blind_operator_score >= 4.5
+  and restatement_incident == RI0
+  and restatement_count == 0
+  and T1-T0 <= 10s and T3-T0 <= 30s and T4-T0 <= 60s
+  and S15 == pass
 ```
 
 Caps prevent a high numeric score from supporting an overbroad claim:
@@ -160,6 +198,11 @@ Caps prevent a high numeric score from supporting an overbroad claim:
 | Only self-evaluated with no evaluator/reviewer evidence | Can support internal debugging only, not public or pilot claims. |
 | Unsupported DB backend state | Cannot support backend parity claims. |
 | Safety leak or destructive stale action | Automatic failure. |
+| S15 missing or failing | No continuity-alpha score is admissible; stop downstream scoring. |
+| Stored-value echo/squelch prompt | Automatic failure; orientation or repetition cannot substitute for real continuation. |
+| First-context delivery or identity only declared | Cannot support startup or continuity-alpha claims. |
+| Native recovery blocks or silently degrades ordinary host launch | Automatic failure for continuity-alpha. |
+| Missing timing, blind-operator, RI0, or useful-result evidence | Cannot support continuity-alpha claims. |
 
 Caps must be listed in the score report even when they do not change the total
 score.
@@ -180,19 +223,31 @@ A run fails regardless of point total if any of these occur:
 - The report claims startup recovery from plain MCP availability alone.
 - The report claims UAMP conformance, compliance, deletion/export/reveal
   support, hash-chain audit, or legal/regulatory status from the recovery score.
+- S15 has not passed, or its negative fixture accepts a false positive.
+- The prompt contains the stored objective, next action, or expected result and
+  the agent can pass by echoing/squelching it instead of continuing real work.
+- A TUI write or injection into an already-running session is used for a
+  continuity-alpha run.
+- Recovery failure blocks the ordinary host launch or is not visibly reported
+  as degraded.
+- A continuity-alpha timing threshold is exceeded, the blind operator score is
+  below 4.5/5, or the run is not RI0 with restatement count zero.
 
 ## 9. Claim thresholds
 
 | Claim | Minimum score evidence | Additional requirements | Not allowed |
 | --- | --- | --- | --- |
 | Manual recovery evidence | Any scored manual run with required evidence. | Must be labeled `manual_mcp_recovery` or equivalent. | Startup recovery claim. |
-| Minimum pass | 24/30 and no automatic failure. | Required evidence present. | Default or public claim. |
-| Default-ready candidate | Two consecutive fresh runs at 26/30 or higher. | No automatic failures; at least two fresh sessions. | Public-alpha claim without host diversity. |
-| L2 measured restart recovery | Three consecutive fresh runs at 27/30 or higher. | At least one Claude Code SessionStart/runner path and one Codex startup bridge path; no user restatement from scratch; PR/status claims checked externally. | Plain MCP automatic recovery claim. |
+| Minimum pass (non-alpha) | 24/30 and no automatic failure. | Required evidence present. | Default or public-alpha claim. |
+| Legacy default-ready marker (non-alpha) | Two consecutive fresh runs at 26/30 or higher. | No automatic failures; at least two fresh sessions. | Frozen continuity-alpha claim. |
+| L2 measured restart recovery (non-alpha) | Three consecutive fresh runs at 27/30 or higher. | At least one Claude Code SessionStart/runner path and one Codex startup bridge path; no project restatement; PR/status claims checked externally. | Frozen continuity-alpha claim. |
+| Frozen continuity-alpha candidate | Every counted run at 28/30 or higher. | S15 passed; blind operator >=4.5/5; RI0 and restatement count 0; T1-T0 <=10s, T3-T0 <=30s, T4-T0 <=60s; exact native ordinary-command Codex/Claude Code/Gemini gate and approved P0 sequence; no automatic failure. | Wrapper, manual MCP, Cursor/community-host substitution, perfect-recovery, or zero-leak claim. |
 | L4 world-class candidate | Five consecutive fresh runs at 28/30 or higher. | At least two Claude startup/hook runs, two Codex bridge runs, one clean install/fresh DB run, no caps that narrow the claim. | Guaranteed perfect recovery or no-secret-leakage claim. |
 
-The L4 numeric threshold is a draft floor. Owners may raise it before public
-release or major-company evaluation.
+The retained 24/26/27-point markers are debugging or maturity evidence only;
+none can satisfy or authorize the frozen continuity-alpha gate. L4 is a
+separate maturity label and does not replace the alpha host/timing/RI0/S15
+requirements.
 
 ## 10. Restatement incident rule
 
@@ -208,6 +263,8 @@ looks acceptable.
 
 The report must include the incident level and the prompt or event that caused
 it, without copying private or sensitive text.
+Continuity-alpha admits only RI0 with a restatement count of zero; RI1-RI3 are
+non-alpha or failed evidence regardless of the numeric score.
 
 ## 11. Draft report shape
 
@@ -227,9 +284,11 @@ interface KusabiRecoveryScoreReportDraft {
   agent_id: string;
   project?: string;
   session_id?: string;
-  runtime_source: "codex" | "claude_code" | "manual" | "other";
+  runtime_source: "codex" | "claude_code" | "gemini_cli" | "manual" | "other";
   host_adapter:
+    | "codex_native_session_start"
     | "claude_code_session_start"
+    | "gemini_cli_session_start"
     | "codex_startup_bridge"
     | "manual_mcp"
     | "pack_print_only"
@@ -252,6 +311,29 @@ interface KusabiRecoveryScoreReportDraft {
   automatic_failures: string[];
   caps: string[];
   restatement_incident: "RI0" | "RI1" | "RI2" | "RI3";
+  restatement_count: number;
+  blind_operator_score?: number;
+  blind_path_hidden?: boolean;
+  clocks?: {
+    T0: string;
+    T1: string;
+    T2: string;
+    T3: string;
+    T4: string;
+    T1_minus_T0_ms: number;
+    T3_minus_T0_ms: number;
+    T4_minus_T0_ms: number;
+  };
+  meaningful_action_ref?: string;
+  useful_result_ref?: string;
+  s15_result_ref?: string;
+  s15_passed?: boolean;
+  output_caps?: { max_bytes: number; max_tokens: number };
+  redaction_applied?: boolean;
+  truncation_count?: number;
+  omission_count?: number;
+  degraded_reason?: string;
+  ordinary_launch_usable?: boolean;
   missing_context: string[];
   search_queries: KusabiRecoverySearchEvidenceDraft[];
   outcome: "full" | "partial" | "degraded" | "failed" | "invalid";
@@ -310,6 +392,9 @@ pack in the first prompt, identifies the current PR stack, checks GitHub before
 acting, records missing context, and scores 28/30 with no automatic failures.
 This can count toward L2 if the report includes source refs, ground truth,
 scorecard, and reviewer evidence.
+It does not count toward the frozen continuity alpha unless the native ordinary
+command path, S15, blind score, RI0, timing, useful-result, P0, and three-host
+requirements are also satisfied.
 
 ### Manual recovery evidence
 
@@ -337,6 +422,8 @@ missing evidence and `RI1` incident must be recorded.
 - The agent repeats a merged PR or stale task destructively without checking the
   external source of truth.
 - A report has a high score but no source refs, ground truth, or scorecard.
+- A canary prompt includes stored expected values and passes when the model
+  repeats them without a meaningful continuation action or useful result.
 - A recovery score is used to claim UAMP conformance.
 - A recovery score is used to claim GDPR, CCPA, SOC 2, ISO, or other legal or
   regulatory compliance.
@@ -366,8 +453,8 @@ regulatory compliance by itself.
 Recovery scoring must identify the exact backend and host path used. Backend
 claim boundaries are defined in `KUSABI_V2_BACKEND_PARITY_MATRIX.md`. A passing
 SQLite run does not prove PostgreSQL parity. A passing Claude Code run does not
-prove Codex startup recovery. A manual MCP run does not prove automatic startup
-recovery.
+prove Codex or Gemini CLI startup recovery. A manual MCP run does not prove
+automatic startup recovery.
 
 Backend or host claims require their own evidence:
 
@@ -389,7 +476,7 @@ or MCP behavior.
 | R1 - contract accepted | Recovery score formula and caps are owner-confirmed. | Owner/domain-designer confirmation. | Runtime scoring claim. |
 | R2 - example reports accepted | Example score reports and fixture plan exist. | Positive and negative examples, fixture categories. | Implemented runner claim. |
 | R3 - report schema and runner implemented | Recovery reports can be generated and validated. | Separate schema, runner, tests, rollback/no-op behavior. | L2+ release claim without repeated fresh runs. |
-| R4 - host adapter evidence | Claude and Codex startup paths have measured evidence. | Fresh-session reports across host paths. | Universal host recovery claim. |
+| R4 - host adapter evidence | Claude Code, Codex, and Gemini CLI native startup paths have measured evidence. | Fresh-session reports across the exact host paths. | Universal host recovery claim. |
 | R5 - release claim evidence | L2/L4 evidence packets meet claim thresholds. | Consecutive reports, no automatic failures, reviewer evidence. | Guaranteed perfect recovery or no-leak guarantee. |
 | R6 - external pilot evidence | A controlled pilot can review recovery evidence. | Pilot scope, score reports, limitations, operator review. | Legal/regulatory compliance certification. |
 
@@ -416,3 +503,7 @@ would:
 - claim backend parity from an untested backend;
 - claim startup recovery from manual MCP or pack-print-only evidence;
 - enable cross-agent or cross-tenant reads.
+
+The current claim limits remain: no automatic disconnect detection, no
+automatic process restart, no injection into a running session, no perfect
+recovery guarantee, and no zero-leak guarantee.
