@@ -36,6 +36,24 @@ export const CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
 
 const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
 export type CodexSessionStartSource = typeof START_SOURCES[number];
+export const CODEX_SESSION_START_PERMISSION_MODES = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "dontAsk",
+  "bypassPermissions",
+] as const;
+export type CodexSessionStartPermissionMode = typeof CODEX_SESSION_START_PERMISSION_MODES[number];
+
+const CODEX_SESSION_START_INPUT_FIELDS = [
+  "cwd",
+  "hook_event_name",
+  "model",
+  "permission_mode",
+  "session_id",
+  "source",
+  "transcript_path",
+] as const;
 
 export interface CodexSessionStartInput {
   session_id: string;
@@ -43,7 +61,7 @@ export interface CodexSessionStartInput {
   cwd: string;
   hook_event_name: "SessionStart";
   model: string;
-  permission_mode: string;
+  permission_mode: CodexSessionStartPermissionMode;
   source: CodexSessionStartSource;
 }
 
@@ -261,6 +279,13 @@ export function parseCodexSessionStartInput(raw: string): CodexSessionStartInput
     throw new HookDegradedError("MALFORMED_HOOK_INPUT");
   }
   const input = value as Record<string, unknown>;
+  const inputKeys = Object.keys(input);
+  if (
+    inputKeys.length !== CODEX_SESSION_START_INPUT_FIELDS.length ||
+    !CODEX_SESSION_START_INPUT_FIELDS.every((field) => Object.prototype.hasOwnProperty.call(input, field))
+  ) {
+    throw new HookDegradedError("MALFORMED_HOOK_INPUT");
+  }
   if (input.hook_event_name !== "SessionStart") {
     throw new HookDegradedError("UNSUPPORTED_HOOK_EVENT");
   }
@@ -272,6 +297,7 @@ export function parseCodexSessionStartInput(raw: string): CodexSessionStartInput
     typeof input.cwd !== "string" || input.cwd.trim() === "" ||
     typeof input.model !== "string" ||
     typeof input.permission_mode !== "string" ||
+    !CODEX_SESSION_START_PERMISSION_MODES.includes(input.permission_mode as CodexSessionStartPermissionMode) ||
     !(input.transcript_path === null || typeof input.transcript_path === "string")
   ) {
     throw new HookDegradedError("MALFORMED_HOOK_INPUT");
@@ -282,7 +308,7 @@ export function parseCodexSessionStartInput(raw: string): CodexSessionStartInput
     cwd: input.cwd,
     hook_event_name: "SessionStart",
     model: input.model,
-    permission_mode: input.permission_mode,
+    permission_mode: input.permission_mode as CodexSessionStartPermissionMode,
     source: input.source as CodexSessionStartSource,
   };
 }

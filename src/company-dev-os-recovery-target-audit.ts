@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CODEX_HOOK_MATCHER,
+  CODEX_HOOK_STATUS_MESSAGE,
+  parseCodexHookCommand,
   parseHooksFile,
 } from "./codex-hook-installer.js";
 import {
   CODEX_SESSION_START_ADAPTER_ID,
   CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
+  CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
+  CODEX_SESSION_START_MAX_BYTES,
+  CODEX_SESSION_START_MAX_TOKENS,
 } from "./codex-session-start.js";
 
 export type CompanyDevOsRecoveryAuditStatus = "pass" | "fail";
@@ -265,11 +270,6 @@ async function executableStatus(path: string): Promise<"ok" | "missing" | "not_e
   }
 }
 
-function commandHasExactArgument(command: string, flag: string, value: string): boolean {
-  const quoted = `'${value.replace(/'/g, `'"'"'`)}'`;
-  return command.includes(`${flag} ${quoted}`);
-}
-
 async function nativeHookStatus(
   path: string,
   expectedAgentId: string,
@@ -293,25 +293,39 @@ async function nativeHookStatus(
     );
     if (managed.length !== 1) return "invalid";
     const { group, handler } = managed[0];
+    const groupKeys = Object.keys(group).sort();
+    const handlerKeys = Object.keys(handler).sort();
     if (
+      groupKeys.join(",") !== "hooks,matcher" ||
+      group.hooks.length !== 1 ||
+      handlerKeys.join(",") !== "command,statusMessage,timeout,type" ||
       group.matcher !== CODEX_HOOK_MATCHER ||
       handler.type !== "command" ||
       handler.timeout !== CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS ||
+      handler.statusMessage !== CODEX_HOOK_STATUS_MESSAGE ||
       typeof handler.command !== "string" ||
-      !handler.command.includes("--binding-source-ref '") ||
-      !handler.command.includes("--max-tokens 1800") ||
-      !handler.command.includes("--max-bytes 8192") ||
-      !handler.command.includes("--timeout-ms 7000")
+      typeof handler.statusMessage !== "string"
     ) {
       return "invalid";
     }
+    const parsedCommand = parseCodexHookCommand(handler.command);
+    if (!parsedCommand) return "invalid";
     if (
-      !commandHasExactArgument(handler.command, "--agent-id", expectedAgentId) ||
-      !commandHasExactArgument(handler.command, "--project", expectedProject) ||
-      !commandHasExactArgument(handler.command, "--workspace", expectedWorkspace)
+      parsedCommand.binding.agent_id !== expectedAgentId ||
+      parsedCommand.binding.project !== expectedProject ||
+      parsedCommand.binding.workspace !== expectedWorkspace
     ) {
       return "identity_mismatch";
     }
+    if (
+      parsedCommand.binding.max_tokens !== CODEX_SESSION_START_MAX_TOKENS ||
+      parsedCommand.binding.max_bytes !== CODEX_SESSION_START_MAX_BYTES ||
+      parsedCommand.binding.timeout_ms !== CODEX_SESSION_START_INTERNAL_TIMEOUT_MS
+    ) {
+      return "invalid";
+    }
+    const runnerInfo = await lstat(parsedCommand.runner);
+    if (!runnerInfo.isFile() || runnerInfo.isSymbolicLink()) return "invalid";
     return "exact";
   } catch {
     return "invalid";

@@ -8,7 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { chmod, copyFile, lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CODEX_SESSION_START_ADAPTER_ID,
@@ -56,6 +56,13 @@ export interface CodexHookInstallReport {
   next_action: "install" | "review_and_trust_with_codex_hooks_ui" | "verify_first_context_delivery";
 }
 
+export interface ParsedCodexHookCommand {
+  node_executable: string;
+  runner: string;
+  runtime_root: string;
+  binding: CodexSessionStartBinding;
+}
+
 interface HookHandler extends Record<string, unknown> {
   type: "command";
   command: string;
@@ -95,6 +102,42 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
+function parseShellWords(command: string): string[] | null {
+  const words: string[] = [];
+  let word = "";
+  let started = false;
+  let state: "plain" | "single" | "double" = "plain";
+  for (const character of command) {
+    if (state === "single") {
+      if (character === "'") state = "plain";
+      else word += character;
+      continue;
+    }
+    if (state === "double") {
+      if (character === '"') state = "plain";
+      else if (character === "$" || character === "`" || character === "\\" || character === "\n" || character === "\r") return null;
+      else word += character;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      if (started) {
+        words.push(word);
+        word = "";
+        started = false;
+      }
+      continue;
+    }
+    started = true;
+    if (character === "'") state = "single";
+    else if (character === '"') state = "double";
+    else if (";&|<>`$()\\".includes(character)) return null;
+    else word += character;
+  }
+  if (state !== "plain") return null;
+  if (started) words.push(word);
+  return words;
+}
+
 async function assertNotSymlink(path: string, allowMissing: boolean): Promise<void> {
   try {
     const info = await lstat(path);
@@ -130,6 +173,54 @@ export function buildCodexHookCommand(
     "--timeout-ms",
     String(binding.timeout_ms),
   ].join(" ");
+}
+
+/** Parse only the byte-canonical command shape emitted by buildCodexHookCommand. */
+export function parseCodexHookCommand(command: string): ParsedCodexHookCommand | null {
+  const words = parseShellWords(command);
+  if (!words || words.length !== 18) return null;
+  const expectedFlags = [
+    [2, "--adapter-id"],
+    [4, "--agent-id"],
+    [6, "--project"],
+    [8, "--workspace"],
+    [10, "--binding-source-ref"],
+    [12, "--max-tokens"],
+    [14, "--max-bytes"],
+    [16, "--timeout-ms"],
+  ] as const;
+  if (expectedFlags.some(([index, value]) => words[index] !== value)) return null;
+  if (words[0] !== process.execPath || words[3] !== CODEX_SESSION_START_ADAPTER_ID) return null;
+  if (!isAbsolute(words[1]) || !isAbsolute(words[9])) return null;
+  const runtimeRoot = dirname(dirname(words[1]));
+  if (words[1] !== join(runtimeRoot, "dist", "codex-session-start.js")) return null;
+  const binding: CodexSessionStartBinding = {
+    agent_id: words[5],
+    project: words[7],
+    workspace: words[9],
+    binding_source_ref: words[11],
+    max_tokens: Number(words[13]),
+    max_bytes: Number(words[15]),
+    timeout_ms: Number(words[17]),
+  };
+  try {
+    requiredText(binding.agent_id, "agent_id");
+    requiredText(binding.project, "project");
+    requiredText(binding.workspace, "workspace");
+    requiredText(binding.binding_source_ref, "binding_source_ref");
+    boundedInteger(binding.max_tokens, 500, CODEX_SESSION_START_MAX_TOKENS, "max_tokens");
+    boundedInteger(binding.max_bytes, 1_024, CODEX_SESSION_START_MAX_BYTES, "max_bytes");
+    boundedInteger(binding.timeout_ms, 100, CODEX_SESSION_START_INTERNAL_TIMEOUT_MS, "timeout_ms");
+  } catch {
+    return null;
+  }
+  if (command !== buildCodexHookCommand(runtimeRoot, binding)) return null;
+  return {
+    node_executable: words[0],
+    runner: words[1],
+    runtime_root: runtimeRoot,
+    binding,
+  };
 }
 
 export function buildCodexSessionStartHookGroup(

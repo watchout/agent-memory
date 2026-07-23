@@ -138,6 +138,33 @@ async function main(): Promise<void> {
     );
     assert.match(wrongSource.output.systemMessage ?? "", /UNSUPPORTED_START_SOURCE/);
 
+    const unsupportedPermissionMode = await runCodexSessionStart(
+      JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "unsupported-mode" }),
+      binding(workspace),
+    );
+    assert.match(unsupportedPermissionMode.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
+
+    const additionalProperty = await runCodexSessionStart(
+      JSON.stringify({ ...JSON.parse(hookInput(child)), unexpected: true }),
+      binding(workspace),
+    );
+    assert.match(additionalProperty.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
+
+    for (const requiredField of [
+      "cwd",
+      "hook_event_name",
+      "model",
+      "permission_mode",
+      "session_id",
+      "source",
+      "transcript_path",
+    ]) {
+      const missingRequired = JSON.parse(hookInput(child));
+      delete missingRequired[requiredField];
+      const missingRequiredResult = await runCodexSessionStart(JSON.stringify(missingRequired), binding(workspace));
+      assert.match(missingRequiredResult.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
+    }
+
     const cwdEscape = await runCodexSessionStart(hookInput(outside), binding(workspace));
     assert.match(cwdEscape.output.systemMessage ?? "", /WORKSPACE_IDENTITY_MISMATCH/);
     assert.equal(cwdEscape.evidence.identity.verified, false);

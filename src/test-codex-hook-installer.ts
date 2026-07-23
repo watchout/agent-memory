@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -7,6 +7,7 @@ import {
   CODEX_HOOK_MATCHER,
   buildCodexHookCommand,
   installCodexSessionStartHook,
+  parseCodexHookCommand,
   parseCodexHookInstallArgs,
   parseHooksFile,
   type CodexHookInstallOptions,
@@ -83,6 +84,13 @@ async function main(): Promise<void> {
     assert(command.includes("--project 'agent-memory'"));
     assert(command.includes("runtime with spaces"));
     assert(!command.includes("start-with-memory.sh"));
+    const parsedCommand = parseCodexHookCommand(command);
+    assert(parsedCommand);
+    assert.equal(parsedCommand.node_executable, process.execPath);
+    assert.equal(parsedCommand.runner, join(await realpath(runtimeRoot), "dist", "codex-session-start.js"));
+    assert.equal(parsedCommand.binding.agent_id, "kusabi");
+    assert.equal(parseCodexHookCommand(command.replace(process.execPath, "/bin/false")), null);
+    assert.equal(parseCodexHookCommand(`${command} ; touch /tmp/forbidden`), null);
 
     const exactCheck = await installCodexSessionStartHook(options(workspace, runtimeRoot, "check"));
     assert.equal(exactCheck.config_match, "exact");
@@ -200,6 +208,7 @@ async function main(): Promise<void> {
       timeout_ms: 6000,
     } satisfies CodexSessionStartBinding);
     assert(quotedCommand.includes("'agent'\"'\"'quote'"));
+    assert.equal(parseCodexHookCommand(quotedCommand)?.binding.agent_id, "agent'quote");
 
     console.log("codex native hook installer tests passed");
   } finally {
