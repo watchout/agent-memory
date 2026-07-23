@@ -1,7 +1,7 @@
 # Recovery Evaluation Standard
 
 > Project: wasurezu / agent-memory
-> Status: AM-031 operational standard
+> Status: AM-031 operational standard plus owner-approved ALPHA-00 continuity-alpha gate
 > Purpose: Define a repeatable pass/fail and scoring protocol for session restart recovery.
 > Authority: `docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md` for continuity policy and `docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md` for identity binding.
 
@@ -15,6 +15,9 @@ This standard evaluates the minimum user promise:
 2. A restarted session receives `restart_pack` and can continue from the previous state.
 3. If the restart pack is insufficient, the agent uses `search_memory scope=conversation` to recover missing context from stored DB logs.
 4. The agent can reconstruct or update `task_states`, `decisions`, and `knowledge` when the missing context is found.
+5. A continuity-alpha run goes beyond orientation: it begins a meaningful,
+   safe continuation action and produces a useful result inside the frozen
+   timing envelope without project restatement.
 
 This is not a one-time launch checklist. It is the recurring quality gate for every change that affects boot, transcript ingest, search, restart packs, or memory extraction.
 
@@ -29,8 +32,8 @@ evidence only and must not be treated as the memory namespace.
 
 | Term | Meaning |
 |------|---------|
-| Restart cycle | A real new Codex or Claude Code session opened after transcript ingest and `restart_pack` boot are enabled. |
-| Host adapter | The host-specific mechanism that puts `restart_pack` into the first model context. Examples: Claude Code SessionStart hook, Codex startup bridge. |
+| Restart cycle | A real fresh Codex, Claude Code, or Gemini CLI process opened after transcript ingest and `restart_pack` boot are enabled. |
+| Host adapter | The host-specific native mechanism that puts bounded recovery context into the first model context. The frozen alpha surfaces are Codex SessionStart, Claude Code SessionStart, and Gemini CLI SessionStart. |
 | Manual MCP recovery | A run where MCP tools are available but `restart_pack` was not present in the first model context. Useful evidence, but not startup recovery. |
 | Continuity guard mode | The configured restart-continuity behavior: `auto_restart`, `recommend`, `pack_only`, or `off`. |
 | Standalone auto restart | A wasurezu-driven local session refresh. Valid only when AUN is absent, a supported supervisor/host hook exists, and restart lifecycle was pre-authorized at install/config time. |
@@ -40,6 +43,15 @@ evidence only and must not be treated as the memory namespace.
 | Safety fail | Any secret, private reasoning, base instruction, or unsafe raw transcript leakage. This is an automatic failure. |
 | Structured memory | `task_states`, `decisions`, `knowledge`, and recovery logs. |
 | Conversation memory | Redacted `conversation_events` searched through `search_memory scope=conversation`. |
+| T0 | Fresh host process start. |
+| T1 | Recovery context injection complete. |
+| T2 | Agent orientation complete. |
+| T3 | First meaningful safe continuation action begins. |
+| T4 | First useful continuation result is produced. |
+| Meaningful safe continuation action | A task-relevant read, verification, edit, test, or other reversible action selected from recovered state; repeating a stored value is not an action. |
+| Useful continuation result | New task-relevant evidence or output that advances the recovered next action and can be checked by the evaluator. |
+| Blind operator score | The owner's 1-5 experience rating when the recovery path is hidden from the operator. |
+| RI0 | No user restatement or clarification was required. Continuity-alpha requires RI0 and a restatement count of zero. |
 
 ---
 
@@ -88,6 +100,33 @@ Before running a recovery evaluation:
 
 Ground truth must be written before restart so the evaluation does not drift into subjective recall.
 
+### 3.1 Frozen continuity-alpha prerequisites
+
+Before any continuity-alpha score is admissible:
+
+- the S15 negative evaluator fixture from ALPHA-04 must pass; its failure
+  invalidates and stops all downstream scoring;
+- the run must use the ordinary `codex`, `claude`, or `gemini` command and the
+  verified native start surface, not a Wasurezu launcher or typed TUI prompt;
+- first-context delivery and verified identity evidence must exist; config or
+  hook presence alone is `placed_not_delivered`, and an `agent_id` label alone
+  is `declared_not_verified`;
+- recovery output must declare and record redaction plus numeric byte/token
+  caps, including truncation or omission counts; and
+- recovery failure must leave the ordinary bare host launch usable while
+  emitting a visible degraded result.
+
+The continuity-alpha host gate is exactly Codex, Claude Code, and Gemini CLI.
+Cursor is a later tier; community hosts are contract-only for this alpha.
+
+P0 agents (exactly 10): `kusabi`, `spec`, `arc`, `codex-cto`, `codex-audit`,
+`devauditor`, `qa`, `check`, `org-build-dev`, and `dev-001`.
+
+The dedicated Gemini canary identity is `agent_id=kusabi-gemini`,
+`memory_project=agent-memory`,
+`workspace=/Users/yuji/Developer/agent-memory`, `runtime=gemini-cli`,
+`use=alpha-canary-only`, and `normal_work_queue=false`.
+
 ---
 
 ## 4. Test Protocol
@@ -103,6 +142,11 @@ Ground truth must be written before restart so the evaluation does not drift int
 5. Do not manually restate the project status.
 6. Give the probes below in order.
 
+For a continuity-alpha run, steps 3 and 4 instead use the operator-controlled
+old-session end and an ordinary `codex`, `claude`, or `gemini` fresh-process
+start. The adapter path is hidden from the blind operator. No disconnect
+detection, automatic restart, or injection into a running session is allowed.
+
 ### 4.2 Required Probes
 
 Use these prompts exactly unless the target project is not AM-031. If adapted, preserve the intent of each probe.
@@ -115,6 +159,13 @@ Use these prompts exactly unless the target project is not AM-031. If adapted, p
 | R4 | `restart_packだけで足りない情報があれば、wasurezuで検索して補ってください。` | Fallback to conversation search. |
 | R5 | `この復帰で危険な漏えいや不確実な推測がないか確認してください。` | Safety and confidence handling. |
 | R6 | `今後の記憶化で、task/decision/knowledgeに残すべき内容を分類してください。` | Ability to reconstruct structured memory from recovered context. |
+
+The R1-R6 answers remain diagnostic probes; they cannot by themselves satisfy
+continuity-alpha. The evaluator must also let the agent select and begin the
+recovered next action, then verify the first useful result against the
+pre-restart ground truth. A prompt that supplies the expected objective, next
+action, or result for the model to repeat is a stored-value echo/squelch and an
+automatic failure.
 
 ### 4.3 Required Evidence
 
@@ -144,6 +195,15 @@ For each run, record:
 - probe answers
 - search queries used by the agent
 - final scorecard
+- native ordinary launch command and start-surface/config ref
+- verified identity fields and binding-source refs
+- T0, T1, T2, T3, and T4 timestamps plus T1-T0, T3-T0, and T4-T0 durations
+- meaningful continuation action and useful-result evidence refs
+- restatement class and count
+- blind operator score and blinded-path confirmation
+- S15 negative evaluator fixture result/ref
+- configured/applied output byte and token caps, redaction result, and omission/truncation counts
+- degraded/fallback result and proof that the ordinary host launch remained usable
 
 Do not paste secrets or full transcript dumps into the evaluation report.
 
@@ -182,16 +242,29 @@ The run fails regardless of point total if any of these occur:
 - The agent claims merged work is still unimplemented and proceeds to redo it destructively.
 - The user must explain the project from scratch.
 - The agent cannot identify a next action after one conversation search.
+- S15 has not passed, or its negative fixture produces a false pass.
+- The prompt supplies a stored objective, next action, or result that the agent
+  can echo/squelch instead of recovering and continuing real work.
+- A TUI write or injection into an already-running session is used.
+- Recovery failure blocks the ordinary host launch or is silently hidden.
+- First-context delivery or identity is merely declared rather than verified.
+- A continuity-alpha run exceeds T1-T0 <=10 seconds, T3-T0 <=30 seconds, or
+  T4-T0 <=60 seconds.
+- A continuity-alpha run has any restatement incident other than RI0 or a
+  restatement count greater than zero.
 
 ### 5.3 Pass Thresholds
 
 | Level | Requirement | Meaning |
 |-------|-------------|---------|
-| Minimum pass | 24/30 and no automatic failure | Good enough for opt-in internal use. |
-| Default-ready | Two consecutive runs at 26/30 or higher, no automatic failures, across at least two fresh sessions | Safe to consider making `restart_pack` the default boot mode. |
-| Public-alpha ready | Three consecutive runs at 27/30 or higher, no automatic failures, at least one run each on Codex and Claude Code | Safe enough for public release messaging. |
+| Minimum pass (non-alpha) | 24/30 and no automatic failure | Internal diagnostic evidence only. |
+| Legacy default-ready marker (non-alpha) | Two consecutive runs at 26/30 or higher, no automatic failures, across at least two fresh sessions | Preserved for historical AM-031 comparison; it cannot authorize the frozen continuity alpha. |
+| Legacy public-alpha marker (non-alpha) | Three consecutive runs at 27/30 or higher, no automatic failures, at least one run each on Codex and Claude Code | Preserved for historical comparison; it cannot authorize the frozen continuity alpha. |
+| Frozen continuity-alpha gate | Every counted run >=28/30, blind operator >=4.5/5, RI0, restatement count 0, T1-T0 <=10s, T3-T0 <=30s, T4-T0 <=60s, S15 passed, and no automatic failure | Candidate evidence only after the exact Codex/Claude Code/Gemini native-host matrix and the approved P0 sequence pass. |
 
 Scores below 24 require a fix before default promotion.
+A score of 24, 26, or 27 cannot satisfy or authorize the frozen
+continuity-alpha gate, regardless of historical maturity labels.
 
 Startup recovery is host-adapter based:
 
@@ -210,10 +283,15 @@ Startup recovery is host-adapter based:
   only and must be labeled manual recovery unless a verified adapter/hook owns
   the startup path.
 
-Public-alpha evidence must include at least two host paths: one Claude Code
-SessionStart run and one Codex startup bridge run. World-class release evidence
-should include at least three host paths, or explicitly document why a host is
-manual MCP recovery only.
+Frozen continuity-alpha evidence must include all three native ordinary-command
+paths: Codex SessionStart, Claude Code SessionStart, and Gemini CLI
+SessionStart. The P0 canary is sequential and stops on the first failure;
+initial sudden-death coverage is limited to `kusabi` and `spec`. Historical
+two-host or wrapper evidence remains useful non-alpha evidence only.
+
+The current claim limits remain: no automatic disconnect detection, no
+automatic process restart, no injection into a running session, no perfect
+recovery guarantee, and no zero-leak guarantee.
 
 ---
 
@@ -288,6 +366,17 @@ Only ask the user after Levels 1-3 fail or conflict. The question must be narrow
 - session_lifecycle_event:
 - Work state: resumed / requeued / pending
 - Recovery outcome: full / partial / degraded / failed
+- Native ordinary launch / start surface:
+- Verified identity / binding refs:
+- T0 / T1 / T2 / T3 / T4:
+- T1-T0 / T3-T0 / T4-T0:
+- Meaningful continuation action:
+- First useful result / evidence ref:
+- Restatement class / count:
+- Blind operator score / path hidden:
+- S15 prerequisite ref/result:
+- Redaction and output caps / truncation / omissions:
+- Degraded fallback / ordinary launch usable:
 
 ## Ground Truth
 
@@ -322,7 +411,7 @@ Only ask the user after Levels 1-3 fail or conflict. The question must be narrow
 
 ## Verdict
 
-- Pass level: fail / minimum pass / default-ready candidate / public-alpha candidate
+- Pass level: fail / non-alpha diagnostic or maturity evidence / frozen continuity-alpha candidate
 - Automatic failure triggered: yes/no
 - Required fixes:
 - Follow-up issues:

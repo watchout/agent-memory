@@ -1,0 +1,245 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CONTINUITY-ALPHA-00-20260723-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-00-20260723-001.yaml
+parent_ssot: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054411712
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+spec_review_state: ready_for_implementation
+
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+execution_context:
+  author:
+    agent_id: arc
+    active_function: control_artifact_author
+  implementer:
+    agent_id: kusabi
+    active_function: implementation_executor
+  audit:
+    active_function: evidence_audit_gate
+    primary_agent_id: codex-audit
+    alternate_agent_id: devauditor
+    exact_head_required: true
+    self_or_subagent_audit_admissible: false
+
+rps_scope:
+  shirube_owns:
+    - repo-local ALPHA-00 control binding, exact diff scope, validation evidence, independent audit admissibility, and owner exact-head decision admissibility
+    - consistency of the Host Adapter Contract, recovery evaluation, and recovery-score contract
+  shirube_does_not_own:
+    - ALPHA-01+ implementation
+    - runtime, hooks, wrappers, installers, profiles, host config, identity binding, trust-store, secrets, DB, schema, queues, TUI, workflows, deployment, activation, merge, or fleet rollout
+    - AUN lifecycle, Shirube gate state outside this Cell, universal-host claims, compliance, perfect recovery, or zero-leak guarantees
+
+cell:
+  CELL-ID: ALPHA-00
+  cell_type: docs_only
+  risk_class: R2
+  exact_base_sha: bf390764eb559fbfebdc7aae85d68d8d9e5b9650
+  goal: >-
+    Publish one public/community-implementable Host Adapter Contract and align
+    the operational recovery evaluation and Kusabi V2 recovery-score contract
+    to the owner-approved continuity-alpha bar.
+  non_scope:
+    - any ALPHA-01 or later runtime/fixture/canary/rollout implementation
+    - score runner, schema, fixture, CI gate, runtime emitter, package/API/MCP namespace, environment, or DB change
+    - Cursor, local-LLM, Kimi, Ollama, or other community-host implementation
+    - automatic disconnect detection, automatic process restart, or injection into a running session
+    - self-audit, approval, merge, deploy, publication, activation, or release-readiness claim
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-00-20260723-001.yaml
+    - docs/operations/HOST_ADAPTERS.md
+    - docs/operations/RECOVERY_EVALUATION.md
+    - docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md
+  forbidden_paths:
+    - .shirube/cells/**
+    - .shirube/gate-contracts/**
+    - .shirube/reports/**
+    - .shirube/audit-item-sets/**
+    - .shirube/repo-spec.yaml
+    - .shirube/source-mirrors/**
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .cursor/**
+    - .gemini/**
+    - .github/**
+    - bin/**
+    - cli/**
+    - core/**
+    - db/**
+    - dist/**
+    - schemas/**
+    - scripts/**
+    - src/**
+    - test/**
+    - tests/**
+    - fixtures/**
+    - package.json
+    - package-lock.json
+    - .env
+    - .env.*
+    - deploy/**
+    - secrets/**
+  stop_conditions:
+    - origin/main is not exactly bf390764eb559fbfebdc7aae85d68d8d9e5b9650 before branch creation
+    - changed-file equality is not exactly the four allowed_paths
+    - the repo-local handoff file is missing, unreadable, or not selected by Rapid/Lite
+    - the four control-source/owner refs are unavailable, superseded, or contradictory
+    - the three docs disagree on host gate, P0 agents, canary identity, clocks, score, RI0, S15, fallback, or claim limits
+    - a 26/30 or 27/30 rule can still authorize this frozen continuity-alpha gate
+    - ordinary host launch could be blocked or fail silently when recovery is unavailable, untrusted, disabled, timed out, or invalid
+    - stored-value echo/squelch could receive a passing score
+    - S15 is not a prerequisite or its failure does not invalidate downstream scoring
+    - any ALPHA-01+ or protected/runtime operation is required
+    - any validation, independent audit, or exact-head binding fails
+    - owner exact-head decision is missing before merge
+
+acceptance_criteria:
+  - Exactly one common Host Adapter Contract defines adapter_id/version, host/version, ordinary launch command, native start surface, config location, verified identity resolution, trust/install prerequisites, structured input/output, provenance/evidence, redaction, bounded output caps, and visible degraded fallback.
+  - Host-specific variation is isolated behind symmetric adapters; no env-switch or host adapter owns lifecycle, queue, restart policy, gate, merge, deploy, or activation authority.
+  - Placed is not treated as delivered: config/hook presence alone is not first-context delivery evidence.
+  - Declared is not treated as verified: an agent_id label alone is not identity evidence.
+  - The continuity-alpha host gate is exactly Codex, Claude Code, and Gemini CLI; Cursor is later and community hosts are contract-only.
+  - The P0 matrix is exactly 10 agents: kusabi, spec, arc, codex-cto, codex-audit, devauditor, qa, check, org-build-dev, and dev-001.
+  - Gemini uses dedicated canary identity kusabi-gemini with memory_project agent-memory, workspace /Users/yuji/Developer/agent-memory, runtime gemini-cli, alpha-canary-only, and normal_work_queue false.
+  - T0=fresh process start, T1=context injection complete, T2=orientation complete, T3=first meaningful safe continuation action begins, and T4=first useful continuation result.
+  - Thresholds are T1-T0 <=10s, T3-T0 <=30s, and T4-T0 <=60s.
+  - The frozen continuity-alpha gate requires recovery score >=28/30, blind operator >=4.5/5, RI0, and user restatement count 0.
+  - Any retained 24/26/27-point maturity/debug threshold is explicitly non-alpha and cannot satisfy this frozen alpha gate.
+  - S15 negative evaluator fixture is a prerequisite for any admissible alpha score; S15 failure invalidates downstream scoring, and stored-value echo/squelch is an automatic failure.
+  - Current claim limits remain explicit: no disconnect detection, automatic restart, running-session injection, perfect-recovery guarantee, or zero-leak guarantee.
+  - The PR changes only the four allowed paths and remains docs/control-only with no ALPHA-01+ or protected effect.
+  - Merge remains blocked until an independent exact-head audit returns PASS or PASS_WITH_WARN and owner separately approves that exact head.
+
+design_flow_conformance:
+  G1:
+    status: PASS
+    sources:
+      - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+      - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053530003
+      - https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+      - https://github.com/watchout/agent-memory/issues/262
+      - https://github.com/watchout/agent-memory/issues/263
+    new_inventions: []
+  G2:
+    status: PASS
+    deterministic_skeleton: thresholds, identity, score admissibility, S15, stop and authority decisions are script-controlled
+    learning_loop: later score evidence may refine specimens; no learner or runner is implemented here
+  G3:
+    status: PASS
+    boundary: symmetric thin host adapters with structured provenance-bearing input/output and explicit ownership exclusions
+  G4:
+    status: PASS
+    predicates: exact four paths, exact host set, 10 agents, 10/30/60 seconds, 28/30, 4.5/5, RI0, S15
+  G5:
+    status: PASS
+    failures:
+      - silent adapter failure -> visible degraded result and ordinary-launch fallback
+      - timeout -> exact clock failure
+      - partial document drift -> cross-document failure
+      - correlated evaluator error -> S15 invalidates scoring
+      - stored-value echo/squelch -> automatic failure
+      - placed_not_delivered and declared_not_verified -> direct evidence required
+      - redaction/output overflow -> safety failure
+  G6:
+    status: PASS
+    boundary: runtime/config/secret/DB/queue/workflow/deploy/merge surfaces are forbidden; maker-checker separation is mandatory
+  G7:
+    status: PASS
+    reach_evidence: durable Issue URL, repo-local handoff path, AUN reply, and final exact-head audit route
+
+implementation_boundary:
+  summary: >-
+    One docs-only Rapid/Lite PR containing this repo-local handoff and the three
+    aligned contracts. The handoff file is required control metadata, not an
+    additional product cell or runtime artifact.
+  expected_pr_count: 1
+  forbidden_operations:
+    - implement, audit, approve, or merge outside the assigned function
+    - ready-for-review or merge before independent exact-head audit and owner decision
+    - runtime/hook/profile/config/identity/secret/DB/queue/TUI/workflow/deploy/activation mutation
+    - ALPHA-01+ work
+    - live AUN, Discord, host, process, device, production, or external-repository mutation
+
+validation:
+  required_commands:
+    - git diff --name-only bf390764eb559fbfebdc7aae85d68d8d9e5b9650..<head> with exact four-path equality
+    - git diff --check bf390764eb559fbfebdc7aae85d68d8d9e5b9650..<head>
+    - YAML safe-load of .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-00-20260723-001.yaml
+    - Rapid/Lite report using the exact handoff path and final head
+    - scripted three-document consistency check for host set, agents, canary identity, clocks, thresholds, RI0, S15, squelch, fallback, and claim limits
+    - negative check proving 26/30 and 27/30 cannot authorize this alpha gate
+    - applicable repository documentation tests
+  required_evidence:
+    - exact base, final head, and final tree
+    - exact four changed paths
+    - preimage and final blob SHAs for the handoff and three docs
+    - YAML parse, Rapid/Lite, cross-document, negative, diff-check, and documentation-test results
+    - PR body readback naming this exact handoff path and final base/head/tree
+    - independent exact-head R2 audit URL
+    - owner exact-head decision before merge
+
+independent_audit:
+  required: true
+  primary_agent_id: codex-audit
+  alternate_agent_id: devauditor
+  active_function: evidence_audit_gate
+  exact_head_required: true
+  subagent_audit_admissible: false
+  required_verdict_before_owner_decision:
+    - PASS
+    - PASS_WITH_WARN
+
+owner_decision:
+  implementation_scope_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+  required_before_merge: true
+  exact_head_required: true
+  exact_head_sha: null
+  decision_ref: null
+  merge_authorized_now: false
+
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit and merged_at
+    - post-merge exact-main readback
+    - docs/control-only post-merge verification
+    - next_step
+    - no unresolved follow-up blocker
+
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_refs:
+    - this repo-local control_handoff
+    - owner_confirmation_ref
+
+next_action:
+  who: kusabi
+  active_function: implementation_executor
+  what: create one docs-only Draft PR with exactly this handoff file plus the three aligned docs
+  how: start from the exact base, copy this YAML exactly, run required validation, post exact evidence, and route final head to codex-audit
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053530003
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5054411712
+    - this_comment
+    - https://github.com/watchout/agent-memory/issues/262
+    - https://github.com/watchout/agent-memory/issues/263
+  scope: exact four allowed paths; no ALPHA-01+ or protected effect
+  deliverable: one bounded Draft PR, exact evidence, and independent audit handoff
+  completion_evidence: PR URL, base/head/tree, exact path/blob evidence, validations, and audit queue/message IDs
+  blocking: true
+  stop_reason: ALPHA_00_DOC_IMPLEMENTATION_AND_INDEPENDENT_AUDIT_REQUIRED
