@@ -69,11 +69,14 @@ Before running a recovery evaluation:
   where available. A prompt inside the model must not be the component that
   decides context-limit policy or recovery-pack ranking.
 - For Claude Code, `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the
-  target workspace. For Codex, the startup bridge must generate and inject
-  `restart_pack` into the first prompt.
-- For Codex, the previous Codex session was exited normally and the fresh
-  session was started through `wasurezu-codex-start --launch`, or the run must
-  be labeled as manual MCP recovery instead of startup recovery.
+  target workspace. For Codex non-alpha wrapper diagnostics, the startup bridge
+  generates and injects `restart_pack` into the first prompt.
+- For a Codex continuity-alpha run, the exact project-local
+  `.codex/hooks.json` definition is placed, reviewed/trusted at its current
+  hash, and checked against the verified `agent_id`, project, and workspace
+  binding. The previous Codex session is exited normally and the fresh session
+  is started with ordinary `codex`. A wrapper launch is labeled non-alpha
+  startup-adapter evidence; a manual MCP call is manual recovery.
 - For other MCP clients, a verified host adapter or native startup hook is
   required before the run can count as startup recovery.
 - If `auto_restart` is evaluated, record evidence that AUN absence was
@@ -137,8 +140,10 @@ The dedicated Gemini canary identity is `agent_id=kusabi-gemini`,
 2. Confirm `restart_pack` boot succeeds once in the same environment.
 3. Exit the old LLM session using the host's normal command, such as `/exit`.
 4. Start a fresh agent session in the same workspace. For Claude Code, use the
-   configured SessionStart hook. For Codex, use `wasurezu-codex-start --launch`
-   if the run is intended to count as startup recovery.
+   configured SessionStart hook. For Codex continuity alpha, invoke ordinary
+   `codex`; the reviewed native SessionStart hook must deliver recovery before
+   the first model action. Use `wasurezu-codex-start --launch` only for a
+   clearly labeled non-alpha wrapper diagnostic.
 5. Do not manually restate the project status.
 6. Give the probes below in order.
 
@@ -271,12 +276,12 @@ Startup recovery is host-adapter based:
 - Claude Code runs count when the SessionStart hook emits restart recovery into
   the first model context. The hook is a load path; policy and pack generation
   must come from deterministic Wasurezu state.
-- Codex runs count when the previous session was exited and the fresh session
-  starts with the restart pack already in the initial prompt, for example
-  through `wasurezu-codex-start --launch`. The evidence must show a launched
-  Codex run, not only `wasurezu-codex-start --print`; use
-  `recovery_quality_log.notes.launched_codex === true` or record the launch
-  command.
+- Codex continuity-alpha runs count when the previous session was exited,
+  ordinary `codex` started a new process, the reviewed native SessionStart
+  definition ran, and exact evidence proves first-context delivery plus the
+  verified identity/cap/redaction/fallback contract. Configuration presence is
+  only `placed_not_delivered`. `wasurezu-codex-start --launch` remains useful
+  non-alpha wrapper evidence, and `--print` remains inspection evidence only.
 - Plain MCP setups that require the user to say "read restart_pack" are useful
   manual recovery evidence, but they do not satisfy startup recovery.
 - TUI text injection into an already-running runtime is compatibility fallback

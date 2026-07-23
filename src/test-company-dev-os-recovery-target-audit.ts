@@ -3,8 +3,16 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCompanyDevOsRecoveryTargetAudit } from "./company-dev-os-recovery-target-audit.js";
+import {
+  CODEX_HOOK_MATCHER,
+  CODEX_HOOK_STATUS_MESSAGE,
+} from "./codex-hook-installer.js";
+import {
+  CODEX_SESSION_START_ADAPTER_ID,
+  CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
+} from "./codex-session-start.js";
 
-async function writeRecoveryFiles(root: string): Promise<void> {
+async function writeRecoveryFiles(root: string, agentId: string, project: string): Promise<void> {
   await mkdir(join(root, ".codex"), { recursive: true });
   await writeFile(
     join(root, "AGENTS.md"),
@@ -17,6 +25,32 @@ async function writeRecoveryFiles(root: string): Promise<void> {
   const launcher = join(root, ".codex", "start-with-memory.sh");
   await writeFile(launcher, "#!/usr/bin/env bash\nexit 0\n");
   await chmod(launcher, 0o755);
+  await writeFile(
+    join(root, ".codex", "hooks.json"),
+    JSON.stringify({
+      hooks: {
+        SessionStart: [{
+          matcher: CODEX_HOOK_MATCHER,
+          hooks: [{
+            type: "command",
+            command: [
+              "node '/runtime/dist/codex-session-start.js'",
+              `--adapter-id '${CODEX_SESSION_START_ADAPTER_ID}'`,
+              `--agent-id '${agentId}'`,
+              `--project '${project}'`,
+              `--workspace '${root}'`,
+              "--binding-source-ref 'fixture:registry'",
+              "--max-tokens 1800",
+              "--max-bytes 8192",
+              "--timeout-ms 7000",
+            ].join(" "),
+            timeout: CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
+            statusMessage: CODEX_HOOK_STATUS_MESSAGE,
+          }],
+        }],
+      },
+    }, null, 2) + "\n"
+  );
 }
 
 async function main(): Promise<void> {
@@ -39,7 +73,7 @@ async function main(): Promise<void> {
       join(scriptsRoot, "apply-company-dev-os-bot-workspace-overlay.py"),
       'BOT_WORKSPACES = [\n    BotWorkspace("qa", "qa", "qa", "Codex", "qa", False, "qa bot"),\n]\n'
     );
-    await writeRecoveryFiles(repoA);
+    await writeRecoveryFiles(repoA, "repo-a-dev", "repo-a");
 
     const targetsFile = join(root, "targets.json");
     await writeFile(
@@ -65,8 +99,9 @@ async function main(): Promise<void> {
     assert.equal(missing.status, "fail");
     assert(missing.findings.some((item) => item.code === "registry_missing" && item.cwd === qa));
     assert(missing.findings.some((item) => item.code === "launcher_missing" && item.cwd === qa));
+    assert(missing.findings.some((item) => item.code === "native_hook_missing" && item.cwd === qa));
 
-    await writeRecoveryFiles(qa);
+    await writeRecoveryFiles(qa, "qa", "qa");
     await writeFile(
       targetsFile,
       JSON.stringify({
@@ -129,6 +164,11 @@ async function main(): Promise<void> {
       item.severity === "block" &&
       item.cwd === qa
     ));
+    assert(unapprovedMismatch.findings.some((item) =>
+      item.code === "native_hook_identity_differs" && item.severity === "block" && item.cwd === qa
+    ));
+
+    await writeRecoveryFiles(qa, "qa-runtime", "qa");
 
     const aliasFile = join(root, "aliases.json");
     await writeFile(

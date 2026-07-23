@@ -84,6 +84,14 @@ import {
 } from "./codex-start.js";
 import type { CodexMcpBinding } from "./codex-start.js";
 import {
+  CODEX_SESSION_START_ADAPTER_ID,
+  CODEX_SESSION_START_INPUT_MAX_BYTES,
+  CODEX_SESSION_START_MAX_BYTES,
+  CODEX_SESSION_START_MAX_TOKENS,
+  runCodexSessionStart,
+} from "./codex-session-start.js";
+import { installCodexSessionStartHook } from "./codex-hook-installer.js";
+import {
   KUSABI_ONE_SEAT_IDENTITY,
   buildKusabiRuntimeIdentityReadback,
   canonicalConfigDigest,
@@ -183,6 +191,167 @@ async function testRecoveryContinuationTracker() {
   );
   assert(expired.status === "expired", "observations after ten minutes expire");
   assert(updates.length === 1, "expired observations do not write");
+}
+
+async function testCodexNativeSessionStart() {
+  console.log("\n── Codex Native SessionStart ──");
+  const root = mkdtempSync(join(tmpdir(), "am-codex-native-hook-core-"));
+  try {
+    const workspace = join(root, "workspace");
+    const runtimeRoot = join(root, "runtime");
+    mkdirSync(workspace, { recursive: true });
+    mkdirSync(join(runtimeRoot, "dist"), { recursive: true });
+    writeFileSync(join(runtimeRoot, "dist", "codex-session-start.js"), "#!/usr/bin/env node\n");
+    const binding = {
+      agent_id: "kusabi",
+      project: "agent-memory",
+      workspace,
+      binding_source_ref: "fixture:core-suite",
+      max_tokens: CODEX_SESSION_START_MAX_TOKENS,
+      max_bytes: CODEX_SESSION_START_MAX_BYTES,
+      timeout_ms: 500,
+    };
+    const rawInput = JSON.stringify({
+      session_id: "core-session-start",
+      transcript_path: null,
+      cwd: workspace,
+      hook_event_name: "SessionStart",
+      model: "gpt-test",
+      permission_mode: "default",
+      source: "startup",
+    });
+    const hook = await runCodexSessionStart(rawInput, binding, {
+      loadRecovery: async () => ({
+        recovery: {
+          text: "Recovered exact objective and next action.",
+          token_cap: CODEX_SESSION_START_MAX_TOKENS,
+          token_estimate: 11,
+          byte_count: 42,
+          redaction_count: 0,
+          redaction_version: "am031-redaction-v1",
+          truncation_count: 0,
+          omitted_section_count: 0,
+        },
+        recovery_pack: {
+          pack_ref: "restart_pack:kusabi:agent-memory:core-fixture",
+          schema_ref: "wasurezu-recovery-pack/v1",
+          token_budget: 1650,
+          confidence: "high",
+          missing_context: [],
+          source_refs: ["task_state:core-fixture"],
+          policy_version: "wasurezu-memory-safety-governance/0.1.0",
+        },
+        recovery_quality_log_ref: "recovery_quality_log:123e4567-e89b-42d3-a456-426614174000",
+      }),
+    });
+    assert(hook.output.continue === true, "Codex native hook never blocks ordinary startup");
+    assert(
+      hook.output.hookSpecificOutput?.hookEventName === "SessionStart",
+      "Codex native hook returns the exact SessionStart output surface",
+    );
+    assert(hook.evidence.identity.verified === true, "Codex native hook verifies explicit workspace identity");
+    assert(hook.evidence.outcome === "full", "Codex native hook records full recovery with evidence ref");
+    assert(hook.evidence.delivery.first_context_delivery_confirmed === false, "hook emission alone does not overclaim first-context delivery");
+    assert(
+      Object.values(hook.evidence.forbidden_effects).every((count) => count === 0),
+      "Codex native hook records zero restart, TUI, queue, and running-session effects",
+    );
+
+    const malformed = await runCodexSessionStart("not-json", binding);
+    assert(malformed.output.continue === true, "malformed Codex hook input fails open to ordinary startup");
+    assert(malformed.evidence.outcome === "degraded", "malformed Codex hook input is visibly degraded");
+
+    const dryRun = await installCodexSessionStartHook({
+      mode: "dry-run",
+      workspace,
+      runtime_root: runtimeRoot,
+      agent_id: "kusabi",
+      project: "agent-memory",
+      binding_source_ref: "fixture:core-suite",
+    });
+    assert(dryRun.wrote_hooks_file === false, "Codex hook installer dry-run writes nothing");
+    assert(!existsSync(join(workspace, ".codex", "hooks.json")), "Codex hook dry-run leaves hooks.json absent");
+
+    const applied = await installCodexSessionStartHook({
+      mode: "apply",
+      workspace,
+      runtime_root: runtimeRoot,
+      agent_id: "kusabi",
+      project: "agent-memory",
+      binding_source_ref: "fixture:core-suite",
+    });
+    assert(applied.config_match === "exact", "Codex hook installer places the exact native definition");
+    assert(applied.trust_verified === false, "Codex hook placement never claims operator trust");
+    assert(applied.first_context_delivered === false, "Codex hook placement remains placed_not_delivered");
+    const installed = readFileSync(join(workspace, ".codex", "hooks.json"), "utf8");
+    assert(installed.includes(CODEX_SESSION_START_ADAPTER_ID), "installed hook binds the Wasurezu adapter id");
+
+    const evidenceSchema = JSON.parse(readFileSync(
+      "docs/design/schemas/codex-session-start-evidence-v1.schema.json",
+      "utf8",
+    ));
+    const validateEvidence = new Ajv2020({ strict: false, validateFormats: false }).compile(evidenceSchema);
+    assert(validateEvidence(hook.evidence), "Codex SessionStart evidence validates against its public schema");
+
+    const distHook = join(process.cwd(), "dist", "codex-session-start.js");
+    const distInstaller = join(process.cwd(), "dist", "codex-hook-installer.js");
+    if (existsSync(distHook) && existsSync(distInstaller)) {
+      const binDir = join(root, "bin");
+      mkdirSync(binDir, { recursive: true });
+      const hookLink = join(binDir, "wasurezu-codex-session-start");
+      const installerLink = join(binDir, "wasurezu-codex-hook-install");
+      symlinkSync(distHook, hookLink);
+      symlinkSync(distInstaller, installerLink);
+      const hookStdout = execFileSync(process.execPath, [
+        hookLink,
+        "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
+        "--agent-id", "fixture-agent",
+        "--project", "fixture-project",
+        "--workspace", workspace,
+        "--binding-source-ref", "fixture:bin-symlink",
+      ], {
+        encoding: "utf8",
+        input: rawInput,
+        env: {
+          ...process.env,
+          AGENT_MEMORY_DB_TYPE: "sqlite",
+          AGENT_MEMORY_DB_PATH: join(root, "hook-db", "memory.db"),
+          DATABASE_URL: "",
+          AGENT_MEMORY_DATABASE_URL: "",
+        },
+      });
+      const hookWire = JSON.parse(hookStdout);
+      assert(hookWire.hookSpecificOutput?.hookEventName === "SessionStart", "native Codex hook npm-bin symlink executes the CLI");
+      const oversizedWire = JSON.parse(execFileSync(process.execPath, [
+        hookLink,
+        "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
+        "--agent-id", "fixture-agent",
+        "--project", "fixture-project",
+        "--workspace", workspace,
+        "--binding-source-ref", "fixture:bin-symlink",
+      ], {
+        encoding: "utf8",
+        input: "x".repeat(CODEX_SESSION_START_INPUT_MAX_BYTES + 1),
+      }));
+      assert(oversizedWire.continue === true, "oversized native hook stdin leaves ordinary startup usable");
+      assert(/MALFORMED_HOOK_INPUT/.test(oversizedWire.systemMessage), "oversized native hook stdin reports the exact degraded reason");
+      const installerStdout = execFileSync(process.execPath, [
+        installerLink,
+        "--dry-run",
+        "--workspace", workspace,
+        "--runtime-root", process.cwd(),
+        "--agent-id", "kusabi",
+        "--project", "agent-memory",
+        "--binding-source-ref", "fixture:core-suite",
+      ], { encoding: "utf8" });
+      const installerWire = JSON.parse(installerStdout);
+      assert(installerWire.adapter_id === CODEX_SESSION_START_ADAPTER_ID, "Codex hook installer npm-bin symlink executes the CLI");
+    } else {
+      assert(true, "native Codex hook bin symlink tests skipped because dist is absent");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 function sameStringSet(actual: string[], expected: readonly string[]): boolean {
@@ -3206,6 +3375,8 @@ function testHostAdapterPackagingBoundary() {
   assert(packageJson.bin["agent-memory"] === "dist/index.js", "agent-memory compatibility CLI remains on the existing MCP entrypoint");
   assert(packageJson.bin["wasurezu-restart"] === "dist/restart-cli.js", "npm package exposes wasurezu-restart CLI");
   assert(packageJson.bin["wasurezu-claude-start"] === "dist/claude-start.js", "npm package exposes wasurezu-claude-start CLI");
+  assert(packageJson.bin["wasurezu-codex-session-start"] === "dist/codex-session-start.js", "npm package exposes native Codex SessionStart CLI");
+  assert(packageJson.bin["wasurezu-codex-hook-install"] === "dist/codex-hook-installer.js", "npm package exposes Codex hook installer/checker CLI");
   assert(packageJson.files.includes("scripts/host-adapters"), "npm package includes optional host adapter scripts");
 
   const codexHostScripts = [
@@ -3295,6 +3466,11 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("`--launch` is fail-closed"), "host adapter docs document Claude runner launch fail-closed behavior");
   assert(normalizedHostAdapters.includes("The runner does not kill or replace existing Claude sessions"), "host adapter docs avoid claiming Claude process replacement");
   assert(normalizedHostAdapters.includes("Codex launcher hardening helpers"), "host adapter docs document Codex hardening helpers");
+  assert(normalizedHostAdapters.includes("Codex ALPHA-01 native adapter"), "host adapter docs define the native Codex SessionStart adapter");
+  assert(normalizedHostAdapters.includes("startup|resume|clear|compact"), "host adapter docs pin all Codex SessionStart sources");
+  assert(normalizedHostAdapters.includes("1,800 estimated tokens and 8,192 UTF-8 bytes"), "host adapter docs pin native Codex output caps");
+  assert(normalizedHostAdapters.includes("Placement never trusts the hook"), "host adapter docs separate placement from hook trust");
+  assert(normalizedHostAdapters.includes("placed_not_delivered"), "host adapter docs forbid placement-only delivery claims");
   assert(normalizedHostAdapters.includes("scripts/host-adapters/"), "host adapter docs document packaged operator scripts");
   assert(normalizedHostAdapters.includes("`codex [OPTIONS] [PROMPT]`"), "host adapter docs document Codex positional prompt contract");
   assert(lowerHostAdapters.includes("visible in the codex process argv"), "host adapter docs disclose Codex argv visibility limitation");
@@ -4554,6 +4730,7 @@ async function run() {
   await testCodexConversationIngest();
   await testRestartPack();
   await testCodexStartupBridge();
+  await testCodexNativeSessionStart();
   await testClaudeResessionRunner();
   await testClaudeMarkerController();
   testRestartCommandPreflight();
