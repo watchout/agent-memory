@@ -178,6 +178,20 @@ max_score = 30
 automatic_failure = any fatal condition in section 8
 claim_eligible = no automatic_failure and required evidence exists for the claim
 continuity_alpha_eligible = claim_eligible
+  and claim_eligibility contains "continuity_alpha_candidate"
+  and continuity_alpha_evidence.candidate == true
+  and continuity_alpha_evidence.required_native_hosts
+      == ["codex", "claude_code", "gemini_cli"]
+  and every continuity_alpha_evidence.native_host_results[].passed == true
+  and continuity_alpha_evidence.native_host_matrix_passed == true
+  and continuity_alpha_evidence.native_host_matrix_aggregate_ref exists
+  and continuity_alpha_evidence.approved_p0_agent_sequence
+      == ["kusabi", "spec", "arc", "codex-cto", "codex-audit",
+          "devauditor", "qa", "check", "org-build-dev", "dev-001"]
+  and every continuity_alpha_evidence.p0_results[].passed == true
+  and continuity_alpha_evidence.p0_stop_on_first_failure == true
+  and continuity_alpha_evidence.approved_p0_sequence_passed == true
+  and continuity_alpha_evidence.approved_p0_sequence_aggregate_ref exists
   and total_score >= 28
   and blind_operator_score >= 4.5
   and restatement_incident == RI0
@@ -185,6 +199,19 @@ continuity_alpha_eligible = claim_eligible
   and T1-T0 <= 10s and T3-T0 <= 30s and T4-T0 <= 60s
   and S15 == pass
 ```
+
+`continuity_alpha_evidence.candidate` may be `true` only when the native-host
+results contain exactly one passing ordinary-command `SessionStart` result for
+each required host, with no wrapper or community-host substitution, and the P0
+results contain the exact approved agent sequence in order with no skipped,
+duplicated, or reordered entry. Both aggregate refs must resolve to durable
+evidence that identifies the counted run refs. A per-run score cannot set the
+candidate value by itself.
+
+The machine labels for the retained 24/26/27-point thresholds are explicitly
+namespaced `non_alpha_*`. They are not aliases for
+`continuity_alpha_candidate`, and consumers must not promote or translate them
+to that value.
 
 Caps prevent a high numeric score from supporting an overbroad claim:
 
@@ -328,6 +355,7 @@ interface KusabiRecoveryScoreReportDraft {
   useful_result_ref?: string;
   s15_result_ref?: string;
   s15_passed?: boolean;
+  continuity_alpha_evidence?: KusabiContinuityAlphaAggregateEvidenceDraft;
   output_caps?: { max_bytes: number; max_tokens: number };
   redaction_applied?: boolean;
   truncation_count?: number;
@@ -339,14 +367,106 @@ interface KusabiRecoveryScoreReportDraft {
   outcome: "full" | "partial" | "degraded" | "failed" | "invalid";
   claim_eligibility: Array<
     "manual_recovery_evidence" |
-    "minimum_pass" |
-    "default_ready_candidate" |
-    "l2_measured_restart_recovery" |
-    "l4_world_class_candidate"
+    "non_alpha_minimum_pass" |
+    "non_alpha_legacy_default_ready_candidate" |
+    "non_alpha_l2_measured_restart_recovery" |
+    "continuity_alpha_candidate" |
+    "maturity_l4_world_class_candidate"
   >;
   uamp_refs?: string[];
   attestation_refs?: string[];
   notes?: string[];
+}
+
+interface KusabiContinuityAlphaAggregateEvidenceDraft {
+  candidate: boolean;
+  required_native_hosts: readonly ["codex", "claude_code", "gemini_cli"];
+  native_host_results: [
+    KusabiContinuityAlphaHostEvidenceDraft & {
+      host: "codex";
+      ordinary_launch_command: "codex";
+    },
+    KusabiContinuityAlphaHostEvidenceDraft & {
+      host: "claude_code";
+      ordinary_launch_command: "claude";
+    },
+    KusabiContinuityAlphaHostEvidenceDraft & {
+      host: "gemini_cli";
+      ordinary_launch_command: "gemini";
+    }
+  ];
+  native_host_matrix_passed: boolean;
+  native_host_matrix_aggregate_ref: string;
+  approved_p0_agent_sequence: readonly [
+    "kusabi",
+    "spec",
+    "arc",
+    "codex-cto",
+    "codex-audit",
+    "devauditor",
+    "qa",
+    "check",
+    "org-build-dev",
+    "dev-001"
+  ];
+  p0_results: [
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 0;
+      agent_id: "kusabi";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 1;
+      agent_id: "spec";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 2;
+      agent_id: "arc";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 3;
+      agent_id: "codex-cto";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 4;
+      agent_id: "codex-audit";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 5;
+      agent_id: "devauditor";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 6;
+      agent_id: "qa";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 7;
+      agent_id: "check";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 8;
+      agent_id: "org-build-dev";
+    },
+    KusabiContinuityAlphaP0EvidenceDraft & {
+      sequence_index: 9;
+      agent_id: "dev-001";
+    }
+  ];
+  p0_stop_on_first_failure: true;
+  approved_p0_sequence_passed: boolean;
+  approved_p0_sequence_aggregate_ref: string;
+}
+
+interface KusabiContinuityAlphaHostEvidenceDraft {
+  host: "codex" | "claude_code" | "gemini_cli";
+  ordinary_launch_command: "codex" | "claude" | "gemini";
+  native_start_surface: "SessionStart";
+  passed: boolean;
+  counted_run_refs: string[];
+}
+
+interface KusabiContinuityAlphaP0EvidenceDraft {
+  passed: boolean;
+  counted_run_refs: string[];
 }
 
 interface KusabiRecoveryEvidenceRefDraft {
