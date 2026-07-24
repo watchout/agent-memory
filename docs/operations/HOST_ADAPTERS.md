@@ -38,9 +38,11 @@ without one uses an explicit bridge or remains manual MCP recovery.
 
 ## Continuity-Alpha Host Adapter Contract
 
-This section is the normative ALPHA-00 contract. It defines the common port
-that ALPHA-01 through ALPHA-03 must implement; it does not claim that those
-runtime adapters are implemented yet.
+This section is the normative ALPHA-00 contract. ALPHA-01 implements the Codex
+port in source; ALPHA-02 and ALPHA-03 remain downstream. Source availability,
+workspace placement, operator trust, first-context delivery, and canary
+acceptance are separate lifecycle states. ALPHA-01 alone does not claim that a
+live seat is activated or that recovery was delivered.
 
 The user-facing promise is deliberately narrow: after the operator ends the
 old session and starts a fresh process with the host's ordinary command
@@ -113,6 +115,70 @@ non-alpha and cannot authorize this gate.
 The contract makes no claim of automatic disconnect detection, automatic
 process restart, injection into a running session, perfect recovery, or zero
 leakage. A native hook is a fresh-process load path, not lifecycle ownership.
+
+### Codex ALPHA-01 native adapter
+
+Codex 0.144.2 loads a trusted project-local `.codex/hooks.json` and runs
+matching `SessionStart` command hooks with JSON on stdin. The Wasurezu source
+entrypoints are:
+
+- `wasurezu-codex-session-start`: validates the Codex hook input, verifies the
+  explicit `agent_id` / project / workspace binding, builds a bounded
+  `restart_pack`, and returns it through
+  `hookSpecificOutput.additionalContext`;
+- `wasurezu-codex-hook-install`: checks, previews, or atomically places the
+  exact project hook while preserving unrelated hooks.
+
+The generated matcher is exactly `startup|resume|clear|compact`. The command
+hook timeout is 9 seconds and its internal recovery deadline is 7 seconds, so
+it can return a structured degraded result before the T1 10-second alpha
+limit. Model-visible output is capped at 1,800 estimated tokens and 8,192 UTF-8
+bytes. Evidence uses
+`docs/design/schemas/codex-session-start-evidence-v1.schema.json` and records
+the applied caps, redaction count, truncation count, omitted-section count,
+verified identity digests, pack ref/schema/confidence/missing context/source
+refs, start source, timing, outcome, and zero forbidden effects. Hook-side
+delivery remains `status=degraded`, `emission_status=emitted`, and
+`first_context_delivery_confirmed=false`; a source process cannot claim T0-T4
+or first-model-context observation by returning stdout. Only the later
+fresh-session canary may produce delivered evidence and T0-T4 timestamps.
+
+Example placement flow after an activation handoff authorizes one target:
+
+```bash
+wasurezu-codex-hook-install --dry-run \
+  --workspace /path/to/workspace \
+  --runtime-root /path/to/agent-memory \
+  --agent-id exact-agent-id \
+  --project exact-memory-project \
+  --binding-source-ref exact-verified-binding-ref
+
+wasurezu-codex-hook-install --apply \
+  --workspace /path/to/workspace \
+  --runtime-root /path/to/agent-memory \
+  --agent-id exact-agent-id \
+  --project exact-memory-project \
+  --binding-source-ref exact-verified-binding-ref
+```
+
+Placement never trusts the hook. The operator must start ordinary `codex`,
+open `/hooks`, review the exact definition, and trust its current hash. A
+changed definition requires fresh review. Until trust and a fresh-session
+transcript prove first-context delivery, status remains
+`placed_not_delivered`. `--check` verifies the exact placed definition but does
+not claim either trust or delivery.
+
+On an authorized `--apply` over an existing file, the report records a unique
+mode-0600 `backup_file`. Rollback restores that exact preimage atomically (or,
+when the installer created the sole new hooks file, removes only that created
+file) under a separate activation/rollback handoff, then rechecks `/hooks`.
+Restored or edited definitions require review of the new current hash; a
+backup path is rollback evidence, not rollback authority.
+
+If input, identity, recovery, deadline, or evidence logging fails, the adapter
+returns `continue: true` and a visible `systemMessage`; Codex continues its
+ordinary startup. If the hook is disabled or untrusted, Codex skips it and
+surfaces its own hook warning. Neither path may be scored as recovered.
 
 ## Control-Plane Runner Boundary
 
@@ -283,28 +349,25 @@ supervisors remain responsible for runtime lifecycle and queue state.
 | 2 | Native lifecycle integration | The host has a native startup hook or extension point that runs recovery on session start. | Startup recovery, transparent host integration. |
 | 3 | Managed enterprise integration | Org install, policy, audit, metrics, and rollout controls are available. | Enterprise managed recovery. Future tier. |
 
-## Current Host Matrix (Before ALPHA-01 Through ALPHA-03)
+## Current Host Matrix (After ALPHA-01 Source Implementation)
 
-| Host | Level | Startup Path | Notes |
-|------|-------|--------------|-------|
+| Host | Source capability | Startup Path | Deployment/claim state |
+|------|-------------------|--------------|------------------------|
 | Claude Code | 2 | `wasurezu-claude-start --fresh-session` starts one ordinary new process with a temporary native SessionStart hook that runs `boot.js` in `restart_pack` mode. | The fresh path does not detect disconnects, kill a process, or write to a TUI. SessionStart is only the selected-pack load hook. |
-| Codex | 1 | `wasurezu-codex-start --fresh-session --selected-pack-ref <ref> --cd <workspace>` starts `codex exec --json -` and supplies the bounded recovery prompt on stdin. | The recovery pack is not placed in process argv. Plain Codex MCP config remains manual recovery only. |
+| Codex | 2 | Ordinary `codex` loads the placed and trusted `.codex/hooks.json`; `wasurezu-codex-session-start` returns bounded native SessionStart context. | ALPHA-01 proves source behavior only. Per-seat placement/trust and first-context evidence remain ALPHA-05/ALPHA-06 work. The Level-1 wrapper remains a non-alpha fallback. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Other MCP clients | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Do not claim startup recovery until an adapter or native hook is verified. |
 
-This table records the implemented state at exact base
-`bf390764eb559fbfebdc7aae85d68d8d9e5b9650`; it is not the alpha acceptance
-state. The wrapper/launcher paths remain evidence-producing fallbacks until
-native parity is proven, but they cannot satisfy the ordinary-command alpha
-gate.
+This table records source capability, not live rollout or alpha acceptance.
+The wrapper/launcher paths remain evidence-producing fallbacks, but they cannot
+satisfy the ordinary-command alpha gate.
 
 ## Restart UX
 
-The following launcher flow documents the pre-alpha implementation. The alpha
-target is simpler: the operator exits the old session, then invokes `codex`,
-`claude`, or `gemini`; the native start surface performs the contract above.
-A wrapper command is not alpha acceptance evidence.
+The alpha UX is deliberately ordinary: the operator exits the old session,
+then invokes `codex`, `claude`, or `gemini`; the native start surface performs
+the contract above. A wrapper command is not alpha acceptance evidence.
 
 For hosts without a native lifecycle hook, the intended UX is re-entry rather
 than unmanaged process replacement:
@@ -319,6 +382,14 @@ For Codex:
 
 ```bash
 /exit
+codex
+```
+
+This counts only when the exact project hook is placed, reviewed/trusted, and
+the fresh-session evidence proves that recovery reached the first model
+context. The legacy wrapper remains available for diagnostics and rollback:
+
+```bash
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
 
@@ -353,12 +424,14 @@ Supervisor restart command preflight:
 - Missing, non-executable, or not-preauthorized restart commands fail closed
   with structured diagnostics.
 
-The legacy interactive Codex contract remains `codex [OPTIONS] [PROMPT]`.
+The legacy wrapper's interactive Codex contract remains
+`codex [OPTIONS] [PROMPT]`.
 `wasurezu-codex-start --doctor` checks local Codex help/version surfaces without
 launching Codex. On that legacy path, the bounded prompt can be visible in the
-Codex process argv. The ordinary fresh-session path instead uses the verified
-noninteractive `codex exec --json -` surface and writes the bounded recovery
-prompt to child stdin, so it is not visible in process argv.
+Codex process argv. Its wrapper fresh-session path instead uses
+`codex exec --json -` and writes the bounded recovery prompt to child stdin.
+The ALPHA-01 primary path uses native SessionStart and does not place recovery
+text in process argv.
 
 ## Ordinary Fresh-Session Fleet Path
 
@@ -441,11 +514,13 @@ A recovery run only counts as startup recovery when the first model context
 already includes `restart_pack`.
 
 - Claude Code: counts when the SessionStart hook emits restart recovery.
-- Codex: counts when started through `wasurezu-codex-start --fresh-session`,
-  `wasurezu-codex-start --launch`, or an
-  equivalent verified startup prompt adapter. Printed prompts from
-  `wasurezu-codex-start --print` are inspection evidence only, not startup
-  recovery runs.
+- Codex non-alpha diagnostics: wrapper runs may count as legacy startup-adapter
+  evidence. Printed prompts from `wasurezu-codex-start --print` are inspection
+  evidence only.
+- Codex continuity alpha: counts only when ordinary `codex` runs the reviewed
+  native SessionStart definition and evidence proves verified identity,
+  first-context delivery, applied bounds/redaction, and ordinary-launch-safe
+  fallback behavior.
 - MCP-only clients: do not count unless the host has a verified adapter or hook.
 - Continuity-alpha runs count only when the ordinary `codex`, `claude`, or
   `gemini` command starts a fresh process and the corresponding native start

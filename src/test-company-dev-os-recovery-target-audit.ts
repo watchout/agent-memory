@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCompanyDevOsRecoveryTargetAudit } from "./company-dev-os-recovery-target-audit.js";
+import {
+  buildCodexSessionStartHookGroup,
+} from "./codex-hook-installer.js";
+import {
+  CODEX_SESSION_START_ADAPTER_ID,
+} from "./codex-session-start.js";
 
-async function writeRecoveryFiles(root: string): Promise<void> {
+async function writeRecoveryFiles(root: string, agentId: string, project: string): Promise<void> {
   await mkdir(join(root, ".codex"), { recursive: true });
+  const runtimeRoot = join(root, ".fixture-runtime");
+  await mkdir(join(runtimeRoot, "dist"), { recursive: true });
+  await writeFile(join(runtimeRoot, "dist", "codex-session-start.js"), "#!/usr/bin/env node\n");
   await writeFile(
     join(root, "AGENTS.md"),
     "<!-- agent-memory-codex-agents:start -->\n# Wasurezu Startup Recovery\n<!-- agent-memory-codex-agents:end -->\n"
@@ -17,6 +26,22 @@ async function writeRecoveryFiles(root: string): Promise<void> {
   const launcher = join(root, ".codex", "start-with-memory.sh");
   await writeFile(launcher, "#!/usr/bin/env bash\nexit 0\n");
   await chmod(launcher, 0o755);
+  await writeFile(
+    join(root, ".codex", "hooks.json"),
+    JSON.stringify({
+      hooks: {
+        SessionStart: [buildCodexSessionStartHookGroup(runtimeRoot, {
+          agent_id: agentId,
+          project,
+          workspace: root,
+          binding_source_ref: "fixture:registry",
+          max_tokens: 1_800,
+          max_bytes: 8_192,
+          timeout_ms: 7_000,
+        })],
+      },
+    }, null, 2) + "\n"
+  );
 }
 
 async function main(): Promise<void> {
@@ -39,7 +64,7 @@ async function main(): Promise<void> {
       join(scriptsRoot, "apply-company-dev-os-bot-workspace-overlay.py"),
       'BOT_WORKSPACES = [\n    BotWorkspace("qa", "qa", "qa", "Codex", "qa", False, "qa bot"),\n]\n'
     );
-    await writeRecoveryFiles(repoA);
+    await writeRecoveryFiles(repoA, "repo-a-dev", "repo-a");
 
     const targetsFile = join(root, "targets.json");
     await writeFile(
@@ -65,8 +90,9 @@ async function main(): Promise<void> {
     assert.equal(missing.status, "fail");
     assert(missing.findings.some((item) => item.code === "registry_missing" && item.cwd === qa));
     assert(missing.findings.some((item) => item.code === "launcher_missing" && item.cwd === qa));
+    assert(missing.findings.some((item) => item.code === "native_hook_missing" && item.cwd === qa));
 
-    await writeRecoveryFiles(qa);
+    await writeRecoveryFiles(qa, "qa", "qa");
     await writeFile(
       targetsFile,
       JSON.stringify({
@@ -96,6 +122,41 @@ async function main(): Promise<void> {
     assert.equal(pass.status, "pass");
     assert.equal(pass.totals.block_findings, 0);
     assert.equal(pass.totals.existing_company_targets, 2);
+
+    const repoAHooksFile = join(repoA, ".codex", "hooks.json");
+    const falseExecutableConfig = JSON.parse(await readFile(repoAHooksFile, "utf8"));
+    falseExecutableConfig.hooks.SessionStart[0].hooks[0].command = [
+      "'/bin/false' '/runtime/dist/codex-session-start.js'",
+      `--adapter-id '${CODEX_SESSION_START_ADAPTER_ID}'`,
+      "--agent-id 'repo-a-dev'",
+      "--project 'repo-a'",
+      `--workspace '${repoA}'`,
+      "--binding-source-ref 'fixture:registry'",
+      "--max-tokens 1800",
+      "--max-bytes 8192",
+      "--timeout-ms 7000",
+    ].join(" ");
+    await writeFile(repoAHooksFile, JSON.stringify(falseExecutableConfig, null, 2) + "\n");
+    const falseExecutable = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(falseExecutable.status, "fail");
+    assert(falseExecutable.findings.some((item) => item.code === "native_hook_invalid" && item.cwd === repoA));
+
+    await writeRecoveryFiles(repoA, "repo-a-dev", "repo-a");
+    const wrongStatusConfig = JSON.parse(await readFile(repoAHooksFile, "utf8"));
+    wrongStatusConfig.hooks.SessionStart[0].hooks[0].statusMessage = "Unexpected status";
+    await writeFile(repoAHooksFile, JSON.stringify(wrongStatusConfig, null, 2) + "\n");
+    const wrongStatus = await runCompanyDevOsRecoveryTargetAudit({
+      targetsFile,
+      companyDevOsRoot: companyRoot,
+      devRoot,
+    });
+    assert.equal(wrongStatus.status, "fail");
+    assert(wrongStatus.findings.some((item) => item.code === "native_hook_invalid" && item.cwd === repoA));
+    await writeRecoveryFiles(repoA, "repo-a-dev", "repo-a");
 
     await writeFile(
       targetsFile,
@@ -129,6 +190,11 @@ async function main(): Promise<void> {
       item.severity === "block" &&
       item.cwd === qa
     ));
+    assert(unapprovedMismatch.findings.some((item) =>
+      item.code === "native_hook_identity_differs" && item.severity === "block" && item.cwd === qa
+    ));
+
+    await writeRecoveryFiles(qa, "qa-runtime", "qa");
 
     const aliasFile = join(root, "aliases.json");
     await writeFile(

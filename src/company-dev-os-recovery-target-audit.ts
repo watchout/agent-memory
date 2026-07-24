@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  CODEX_HOOK_MATCHER,
+  CODEX_HOOK_STATUS_MESSAGE,
+  parseCodexHookCommand,
+  parseHooksFile,
+} from "./codex-hook-installer.js";
+import {
+  CODEX_SESSION_START_ADAPTER_ID,
+  CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
+  CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
+  CODEX_SESSION_START_MAX_BYTES,
+  CODEX_SESSION_START_MAX_TOKENS,
+} from "./codex-session-start.js";
 
 export type CompanyDevOsRecoveryAuditStatus = "pass" | "fail";
 export type CompanyDevOsRecoveryFindingSeverity = "warn" | "block";
@@ -33,6 +46,9 @@ export interface CompanyDevOsRecoveryFinding {
     | "registry_non_codex"
     | "agents_recovery_missing"
     | "instructions_recovery_missing"
+    | "native_hook_missing"
+    | "native_hook_invalid"
+    | "native_hook_identity_differs"
     | "launcher_missing"
     | "launcher_not_executable"
     | "registry_identity_differs"
@@ -60,6 +76,8 @@ export interface CompanyDevOsRecoveryTargetReport {
   };
   launcher_file: string;
   launcher_status: "ok" | "missing" | "not_executable";
+  native_hook_file: string;
+  native_hook_status: "exact" | "missing" | "invalid" | "identity_mismatch";
   agents_recovery_block: boolean;
   instructions_recovery_block: boolean;
   findings: CompanyDevOsRecoveryFinding[];
@@ -252,6 +270,68 @@ async function executableStatus(path: string): Promise<"ok" | "missing" | "not_e
   }
 }
 
+async function nativeHookStatus(
+  path: string,
+  expectedAgentId: string,
+  expectedProject: string,
+  expectedWorkspace: string,
+): Promise<"exact" | "missing" | "invalid" | "identity_mismatch"> {
+  let raw: string;
+  try {
+    raw = await readText(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "missing";
+    return "invalid";
+  }
+  try {
+    const parsed = parseHooksFile(raw);
+    const groups = parsed.hooks.SessionStart ?? [];
+    const managed = groups.flatMap((group) =>
+      group.hooks
+        .filter((handler) => typeof handler.command === "string" && handler.command.includes(CODEX_SESSION_START_ADAPTER_ID))
+        .map((handler) => ({ group, handler }))
+    );
+    if (managed.length !== 1) return "invalid";
+    const { group, handler } = managed[0];
+    const groupKeys = Object.keys(group).sort();
+    const handlerKeys = Object.keys(handler).sort();
+    if (
+      groupKeys.join(",") !== "hooks,matcher" ||
+      group.hooks.length !== 1 ||
+      handlerKeys.join(",") !== "command,statusMessage,timeout,type" ||
+      group.matcher !== CODEX_HOOK_MATCHER ||
+      handler.type !== "command" ||
+      handler.timeout !== CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS ||
+      handler.statusMessage !== CODEX_HOOK_STATUS_MESSAGE ||
+      typeof handler.command !== "string" ||
+      typeof handler.statusMessage !== "string"
+    ) {
+      return "invalid";
+    }
+    const parsedCommand = parseCodexHookCommand(handler.command);
+    if (!parsedCommand) return "invalid";
+    if (
+      parsedCommand.binding.agent_id !== expectedAgentId ||
+      parsedCommand.binding.project !== expectedProject ||
+      parsedCommand.binding.workspace !== expectedWorkspace
+    ) {
+      return "identity_mismatch";
+    }
+    if (
+      parsedCommand.binding.max_tokens !== CODEX_SESSION_START_MAX_TOKENS ||
+      parsedCommand.binding.max_bytes !== CODEX_SESSION_START_MAX_BYTES ||
+      parsedCommand.binding.timeout_ms !== CODEX_SESSION_START_INTERNAL_TIMEOUT_MS
+    ) {
+      return "invalid";
+    }
+    const runnerInfo = await lstat(parsedCommand.runner);
+    if (!runnerInfo.isFile() || runnerInfo.isSymbolicLink()) return "invalid";
+    return "exact";
+  } catch {
+    return "invalid";
+  }
+}
+
 function block(input: Omit<CompanyDevOsRecoveryFinding, "severity">): CompanyDevOsRecoveryFinding {
   return { severity: "block", ...input };
 }
@@ -441,8 +521,12 @@ export async function runCompanyDevOsRecoveryTargetAudit(
     const targetFindings: CompanyDevOsRecoveryFinding[] = [];
     const registryTarget = codexRegistryByCwd.get(cwd);
     const launcherFile = join(cwd, ".codex", "start-with-memory.sh");
-    const [launcherStatus, agentsBlock, instructionsBlock] = await Promise.all([
+    const nativeHookFile = join(cwd, ".codex", "hooks.json");
+    const expectedAgentId = registryTarget?.agent_id ?? source.agent_id;
+    const expectedProject = registryTarget?.project ?? source.project;
+    const [launcherStatus, nativeHook, agentsBlock, instructionsBlock] = await Promise.all([
       executableStatus(launcherFile),
+      nativeHookStatus(nativeHookFile, expectedAgentId, expectedProject, cwd),
       hasMarker(join(cwd, "AGENTS.md"), AGENTS_MARKER),
       hasMarker(join(cwd, ".codex", "instructions.md"), INSTRUCTIONS_MARKER),
     ]);
@@ -517,17 +601,45 @@ export async function runCompanyDevOsRecoveryTargetAudit(
         file: join(cwd, ".codex", "instructions.md"),
       }));
     }
-    if (launcherStatus === "missing") {
+    if (nativeHook === "missing") {
       targetFindings.push(block({
+        code: "native_hook_missing",
+        message: "Codex native SessionStart hook configuration is missing; wrapper placement cannot satisfy continuity alpha",
+        cwd,
+        file: nativeHookFile,
+        expected_agent_id: expectedAgentId,
+        expected_project: expectedProject,
+      }));
+    } else if (nativeHook === "invalid") {
+      targetFindings.push(block({
+        code: "native_hook_invalid",
+        message: "Codex native SessionStart hook configuration is malformed or not the exact bounded adapter definition",
+        cwd,
+        file: nativeHookFile,
+        expected_agent_id: expectedAgentId,
+        expected_project: expectedProject,
+      }));
+    } else if (nativeHook === "identity_mismatch") {
+      targetFindings.push(block({
+        code: "native_hook_identity_differs",
+        message: "Codex native SessionStart hook identity binding differs from the verified registry target",
+        cwd,
+        file: nativeHookFile,
+        expected_agent_id: expectedAgentId,
+        expected_project: expectedProject,
+      }));
+    }
+    if (launcherStatus === "missing") {
+      targetFindings.push(warn({
         code: "launcher_missing",
-        message: "Codex deterministic recovery launcher is missing",
+        message: "Legacy Codex recovery launcher fallback is missing; native SessionStart remains the alpha path",
         cwd,
         file: launcherFile,
       }));
     } else if (launcherStatus === "not_executable") {
-      targetFindings.push(block({
+      targetFindings.push(warn({
         code: "launcher_not_executable",
-        message: "Codex deterministic recovery launcher is not executable",
+        message: "Legacy Codex recovery launcher fallback is not executable; native SessionStart remains the alpha path",
         cwd,
         file: launcherFile,
       }));
@@ -546,6 +658,8 @@ export async function runCompanyDevOsRecoveryTargetAudit(
         : undefined,
       launcher_file: launcherFile,
       launcher_status: launcherStatus,
+      native_hook_file: nativeHookFile,
+      native_hook_status: nativeHook,
       agents_recovery_block: agentsBlock,
       instructions_recovery_block: instructionsBlock,
       findings: targetFindings,
