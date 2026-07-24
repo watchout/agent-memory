@@ -77,6 +77,14 @@ Before running a recovery evaluation:
   binding. The previous Codex session is exited normally and the fresh session
   is started with ordinary `codex`. A wrapper launch is labeled non-alpha
   startup-adapter evidence; a manual MCP call is manual recovery.
+- For a Gemini CLI continuity-alpha run, the exact project-local
+  `.gemini/settings.json` definition is placed and reviewed at its current
+  fingerprint, then the previous process is ended and ordinary `gemini`
+  starts a fresh process. The three accepted SessionStart sources are
+  `startup`, `resume`, and `clear`; hook stdout must be one strict JSON object
+  and recovery context must arrive through
+  `hookSpecificOutput.additionalContext`. Source/config presence alone is
+  `placed_not_delivered` and is not a counted recovery run.
 - For other MCP clients, a verified host adapter or native startup hook is
   required before the run can count as startup recovery.
 - If `auto_restart` is evaluated, record evidence that AUN absence was
@@ -142,8 +150,11 @@ The dedicated Gemini canary identity is `agent_id=kusabi-gemini`,
 4. Start a fresh agent session in the same workspace. For Claude Code, use the
    configured SessionStart hook. For Codex continuity alpha, invoke ordinary
    `codex`; the reviewed native SessionStart hook must deliver recovery before
-   the first model action. Use `wasurezu-codex-start --launch` only for a
-   clearly labeled non-alpha wrapper diagnostic.
+   the first model action. For Gemini CLI continuity alpha, invoke ordinary
+   `gemini`; the reviewed project hook must emit strict JSON and deliver its
+   `additionalContext` before the first model action. Use
+   `wasurezu-codex-start --launch` only for a clearly labeled non-alpha wrapper
+   diagnostic.
 5. Do not manually restate the project status.
 6. Give the probes below in order.
 
@@ -282,6 +293,13 @@ Startup recovery is host-adapter based:
   verified identity/cap/redaction/fallback contract. Configuration presence is
   only `placed_not_delivered`. `wasurezu-codex-start --launch` remains useful
   non-alpha wrapper evidence, and `--print` remains inspection evidence only.
+- Gemini CLI continuity-alpha runs count when the previous process was ended,
+  ordinary `gemini` started a fresh process, the reviewed native SessionStart
+  definition ran for `startup`, `resume`, or `clear`, and exact evidence proves
+  `hookSpecificOutput.additionalContext` reached the first model context with
+  the verified identity/cap/redaction/fallback contract. Hook/config presence
+  and adapter stderr evidence remain `placed_not_delivered` until that external
+  observation exists.
 - Plain MCP setups that require the user to say "read restart_pack" are useful
   manual recovery evidence, but they do not satisfy startup recovery.
 - TUI text injection into an already-running runtime is compatibility fallback

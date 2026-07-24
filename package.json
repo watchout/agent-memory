@@ -11,6 +11,8 @@
     "wasurezu-codex-start": "dist/codex-start.js",
     "wasurezu-codex-session-start": "dist/codex-session-start.js",
     "wasurezu-codex-hook-install": "dist/codex-hook-installer.js",
+    "wasurezu-gemini-session-start": "dist/gemini-session-start.js",
+    "wasurezu-gemini-hook-install": "dist/gemini-hook-installer.js",
     "wasurezu-claude-start": "dist/claude-start.js",
     "wasurezu-restart": "dist/restart-cli.js"
   },
@@ -53,6 +55,9 @@
     "codex:hook": "tsx src/codex-session-start.ts",
     "codex:hook-install": "tsx src/codex-hook-installer.ts",
     "test:codex-hook": "tsx src/test-codex-session-start.ts && tsx src/test-codex-hook-installer.ts",
+    "gemini:hook": "tsx src/gemini-session-start.ts",
+    "gemini:hook-install": "tsx src/gemini-hook-installer.ts",
+    "test:gemini-hook": "tsx src/test-gemini-session-start.ts && tsx src/test-gemini-hook-installer.ts",
     "claude:start": "tsx src/claude-start.ts",
     "company-dev-os:recovery-target-audit": "tsx src/company-dev-os-recovery-target-audit.ts",
     "test:company-dev-os-recovery-target-audit": "tsx src/test-company-dev-os-recovery-target-audit.ts"

@@ -1,0 +1,155 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CONTINUITY-ALPHA-03-20260724-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-03-20260724-001.yaml
+parent_ssot: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+durable_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-5066239361
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+spec_review_state: ready_for_implementation
+
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+execution_context:
+  author:
+    agent_id: kusabi
+    active_function: implementation_executor
+    authority: frozen_graph_self_handoff
+  implementer:
+    agent_id: kusabi
+    active_function: implementation_executor
+  audit:
+    active_function: evidence_audit_gate
+    primary_agent_id: codex-audit
+    alternate_agent_id: devauditor
+    exact_head_required: true
+    self_or_subagent_audit_admissible: false
+
+self_execution_authority:
+  frozen_graph: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+  amendment: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5031440908
+  durable_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-5066239361
+  graph_semantic_override_count: 0
+
+cell:
+  CELL-ID: ALPHA-03
+  cell_type: runtime_adapter
+  risk_class: R2
+  exact_base_sha: 4da3a766d92cc0327c23d3b763a74b2740b5fd7c
+  exact_base_tree: 59ac9bdf63c5e90468748494fbad5eec0bd270be
+  goal: >-
+    Make ordinary trusted-project Gemini CLI startup deliver bounded redacted
+    Wasurezu recovery through Gemini CLI 0.38.2 native SessionStart without a
+    special launcher and without changing restart lifecycle ownership.
+  non_scope:
+    - any live workspace hook placement, trust mutation, activation, canary, rollout, or deployment
+    - Claude ALPHA-02 or ALPHA-04 through ALPHA-07 implementation
+    - disconnect detection, automatic restart, process kill, or running-session injection
+    - TUI write, tmux send-keys, clipboard write, or AUN queue mutation
+    - database schema, provider, workflow, secret, release, Ready, or merge mutation
+    - self-audit, self-approval, or scope expansion
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-03-20260724-001.yaml
+    - src/gemini-session-start.ts
+    - src/gemini-hook-installer.ts
+    - src/test-gemini-session-start.ts
+    - src/test-gemini-hook-installer.ts
+    - package.json
+    - docs/operations/HOST_ADAPTERS.md
+    - docs/operations/RECOVERY_EVALUATION.md
+    - docs/design/schemas/gemini-session-start-evidence-v1.schema.json
+  forbidden_paths:
+    - .codex/**
+    - .claude/**
+    - .gemini/**
+    - .github/**
+    - .agents/**
+    - .shirube/gate-contracts/**
+    - .shirube/reports/**
+    - .shirube/repo-spec.yaml
+    - db/**
+    - dist/**
+    - package-lock.json
+    - deploy/**
+    - secrets/**
+    - .env
+    - .env.*
+  stop_conditions:
+    - exact base/tree or clean isolated-worktree preflight mismatch
+    - required behavior needs a path outside allowed_paths
+    - Gemini CLI 0.38.2 native hook schema or trust behavior contradicts the frozen design
+    - ordinary gemini launch cannot remain usable on hook failure
+    - agent_id, project, and workspace identity cannot be verified without ambiguity
+    - any focused test, build, full test, secret-safety, timeout, or path-subset check fails
+    - any live target config, hook trust, TUI, AUN queue, restart, or running-session effect occurs
+    - durable implementation or audit evidence cannot be read back
+
+acceptance_criteria:
+  - The ordinary launch command remains exactly gemini and the native config surface is .gemini/settings.json.
+  - SessionStart input accepts startup, resume, and clear and rejects malformed or unsupported inputs safely.
+  - Stdout is exactly one strict JSON object with continue true and bounded hookSpecificOutput.additionalContext when recovery succeeds.
+  - Identity binds explicit agent_id, project, and workspace and verifies hook cwd inside that workspace; cwd-only inference is forbidden.
+  - Recovery output is redacted and records numeric byte/token caps, redaction count, truncation count, and omitted-section count.
+  - Internal deadline is at most 7000ms and the Gemini hook timeout is 9000ms, both below the T1 10s alpha limit.
+  - Recovery and evidence failures leave ordinary startup usable and visibly degraded.
+  - Installer check/dry-run/apply is atomic and idempotent, preserves unrelated settings/hooks, records a rollback backup, and never auto-trusts hooks.
+  - A changed project hook requires operator review; config presence remains placed_not_delivered until first-context evidence is separately observed.
+  - Hook-side evidence keeps T0-T4 and first-context confirmation null/false; only a later canary may claim delivered timing evidence.
+  - ALPHA-03 performs no live hook placement, activation, canary, rollout, restart, TUI write, or AUN queue mutation.
+
+validation:
+  required_commands:
+    - npm ci
+    - npm run build
+    - npx tsx src/test-gemini-session-start.ts
+    - npx tsx src/test-gemini-hook-installer.ts
+    - npm test
+    - git diff --check
+    - changed-path subset check against cell.allowed_paths
+  required_evidence:
+    - exact base, head, tree, ordered parents, branch, and clean isolated worktree
+    - exact changed-path list and allowed-path subset result
+    - command-by-command validation output
+    - fail-safe, identity, redaction, cap, timeout, preservation, idempotence, trust-boundary, and zero-write fixture results
+    - Draft PR URL and exact remote-head readback
+    - independent exact-head evidence_audit_gate PASS or PASS_WITH_WARN
+    - zero live workspace activation, TUI write, AUN queue mutation, restart, and running-session injection
+
+independent_audit:
+  required: true
+  primary_agent_id: codex-audit
+  alternate_agent_id: devauditor
+  active_function: evidence_audit_gate
+  exact_head_required: true
+  subagent_audit_admissible: false
+  required_verdict: [PASS, PASS_WITH_WARN]
+
+owner_decision:
+  implementation_scope_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5066239361
+  required_before_merge: true
+  exact_head_required: true
+  exact_head_sha: null
+  decision_ref: null
+  merge_authorized_now: false
+
+next_action:
+  who: kusabi
+  active_function: implementation_executor
+  what: implement and validate only ALPHA-03, then open one Draft PR and route its exact head to an independent evidence audit
+  how: use the isolated exact-base worktree, preserve the allowed-path subset, and return immutable source/test/effect evidence
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5066239361
+    - https://geminicli.com/docs/hooks/reference/
+    - https://geminicli.com/docs/hooks/
+  scope: ALPHA-03 Gemini CLI native SessionStart source implementation only
+  deliverable: validated Draft PR, exact implementation evidence, and independent audit request
+  completion_evidence: exact tuple, path-subset PASS, validation results, fixture inventory, Draft PR, and audit queue/message ids
+  blocking: false
