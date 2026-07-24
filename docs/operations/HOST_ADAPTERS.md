@@ -39,10 +39,12 @@ without one uses an explicit bridge or remains manual MCP recovery.
 ## Continuity-Alpha Host Adapter Contract
 
 This section is the normative ALPHA-00 contract. ALPHA-01 implements the Codex
-port in source; ALPHA-02 and ALPHA-03 remain downstream. Source availability,
+port in source and ALPHA-03 implements the Gemini CLI port in source; ALPHA-02
+Claude parity hardening remains downstream. Source availability,
 workspace placement, operator trust, first-context delivery, and canary
 acceptance are separate lifecycle states. ALPHA-01 alone does not claim that a
-live seat is activated or that recovery was delivered.
+live seat is activated or that recovery was delivered; the same claim limit
+applies to ALPHA-03 source implementation.
 
 The user-facing promise is deliberately narrow: after the operator ends the
 old session and starts a fresh process with the host's ordinary command
@@ -179,6 +181,55 @@ If input, identity, recovery, deadline, or evidence logging fails, the adapter
 returns `continue: true` and a visible `systemMessage`; Codex continues its
 ordinary startup. If the hook is disabled or untrusted, Codex skips it and
 surfaces its own hook warning. Neither path may be scored as recovered.
+
+### Gemini CLI ALPHA-03 native adapter
+
+Gemini CLI 0.38.2 loads a trusted project-local `.gemini/settings.json` and
+runs `SessionStart` command hooks for the `startup`, `resume`, and `clear`
+sources. The Wasurezu source entrypoints are:
+
+- `wasurezu-gemini-session-start`: validates the strict Gemini hook JSON,
+  verifies the explicit `agent_id` / project / workspace binding, builds a
+  bounded `restart_pack`, and emits exactly one JSON object whose
+  `hookSpecificOutput.additionalContext` contains the recovered context;
+- `wasurezu-gemini-hook-install`: checks, previews, or atomically places the
+  three exact project hook groups while preserving unrelated settings and
+  handlers.
+
+The command hook timeout is 9,000 milliseconds and its internal recovery
+deadline is 7,000 milliseconds. Model-visible output is capped at 1,800
+estimated tokens and 8,192 UTF-8 bytes. Evidence uses
+`docs/design/schemas/gemini-session-start-evidence-v1.schema.json` and retains
+the same cap, redaction, pack, identity, timing, delivery, and zero-forbidden-
+effect boundary as the Codex adapter. The adapter writes strict hook JSON only
+to stdout and one structured evidence object to stderr. Hook-side evidence
+remains `placed_not_delivered`; source execution cannot prove first-model-
+context delivery or T0-T4.
+
+Example placement flow after an activation handoff authorizes one target:
+
+```bash
+wasurezu-gemini-hook-install --dry-run \
+  --workspace /path/to/workspace \
+  --runtime-root /path/to/agent-memory \
+  --agent-id exact-agent-id \
+  --project exact-memory-project \
+  --binding-source-ref exact-verified-binding-ref
+
+wasurezu-gemini-hook-install --apply \
+  --workspace /path/to/workspace \
+  --runtime-root /path/to/agent-memory \
+  --agent-id exact-agent-id \
+  --project exact-memory-project \
+  --binding-source-ref exact-verified-binding-ref
+```
+
+Placement does not approve or trust the project hook. Gemini CLI fingerprints
+project hooks and requires operator review when a definition changes. Until
+the current definition is reviewed and a later fresh-process canary proves
+first-context delivery, the state remains `placed_not_delivered`. Input,
+identity, recovery, timeout, or evidence failures return `continue: true` with
+a visible `systemMessage`, preserving ordinary `gemini` startup.
 
 ## Control-Plane Runner Boundary
 
@@ -349,14 +400,14 @@ supervisors remain responsible for runtime lifecycle and queue state.
 | 2 | Native lifecycle integration | The host has a native startup hook or extension point that runs recovery on session start. | Startup recovery, transparent host integration. |
 | 3 | Managed enterprise integration | Org install, policy, audit, metrics, and rollout controls are available. | Enterprise managed recovery. Future tier. |
 
-## Current Host Matrix (After ALPHA-01 Source Implementation)
+## Current Host Matrix (After ALPHA-01 and ALPHA-03 Source Implementation)
 
 | Host | Source capability | Startup Path | Deployment/claim state |
 |------|-------------------|--------------|------------------------|
 | Claude Code | 2 | `wasurezu-claude-start --fresh-session` starts one ordinary new process with a temporary native SessionStart hook that runs `boot.js` in `restart_pack` mode. | The fresh path does not detect disconnects, kill a process, or write to a TUI. SessionStart is only the selected-pack load hook. |
 | Codex | 2 | Ordinary `codex` loads the placed and trusted `.codex/hooks.json`; `wasurezu-codex-session-start` returns bounded native SessionStart context. | ALPHA-01 proves source behavior only. Per-seat placement/trust and first-context evidence remain ALPHA-05/ALPHA-06 work. The Level-1 wrapper remains a non-alpha fallback. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
-| Gemini CLI | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
+| Gemini CLI | 2 | Ordinary `gemini` loads a reviewed `.gemini/settings.json`; `wasurezu-gemini-session-start` returns bounded native SessionStart context for `startup`, `resume`, and `clear`. | ALPHA-03 proves source behavior only. Placement/review and first-context evidence remain ALPHA-05/ALPHA-06 work; current state is `placed_not_delivered`. |
 | Other MCP clients | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Do not claim startup recovery until an adapter or native hook is verified. |
 
 This table records source capability, not live rollout or alpha acceptance.
