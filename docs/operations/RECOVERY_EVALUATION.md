@@ -130,6 +130,50 @@ The dedicated Gemini canary identity is `agent_id=kusabi-gemini`,
 `workspace=/Users/yuji/Developer/agent-memory`, `runtime=gemini-cli`,
 `use=alpha-canary-only`, and `normal_work_queue=false`.
 
+### 3.2 ALPHA-04 evaluator binding
+
+The executable measurement instrument is
+`src/continuity-alpha-evaluator.ts`; its output contract is
+`docs/design/schemas/continuity-alpha-evaluation-v1.schema.json`. Run its
+canonical fixture suite with:
+
+```bash
+npm run test:continuity-alpha-evaluator
+```
+
+The evaluator applies these rules before a live canary can produce candidate
+evidence:
+
+1. It runs the canonical S15 stored-value echo fixture first. A missing,
+   renamed, version-mismatched, or falsely accepted fixture stops evaluation
+   before any scenario score is calculated.
+2. S1-S13 require exactly one counted run. S14 requires one passing ordinary
+   native-command run for each of Codex, Claude Code, and Gemini CLI. S15 is
+   the negative fixture, so the complete positive harness contains 16 run
+   evaluations plus the S15 result.
+3. A meaningful action requires a task-relevant action receipt selected from
+   recovered state. A useful result requires a separately referenced,
+   newly-produced task-relevant result. A prompt-supplied expected value or a
+   result that only equals a stored value is an automatic failure even when
+   other evidence fields look complete.
+4. The evaluator derives automatic failures, durations, score admission, host
+   coverage, P0 ordering, and claim eligibility. It does not accept a caller's
+   claimed pass count.
+5. The frozen `consecutive pass` requirement is implemented conservatively as
+   two or more consecutive passing evidence refs. This does not replace the
+   exact native host matrix or exact P0 sequence.
+
+S13 is the deliberate delivery exception: an untrusted, disabled, or failed
+hook passes that scenario only when the ordinary bare host remains usable and
+a visible, referenced degraded result is produced. It is fallback evidence,
+not successful first-context recovery evidence.
+
+A `deterministic_fixture` result can set `harness_verified=true`, but the schema
+forces `continuity_alpha_candidate=false`. Only later
+`observed_live_canary` evidence can become a candidate, and ALPHA-04 itself
+performs no host launch, config/trust mutation, activation, restart, TUI write,
+or rollout.
+
 ---
 
 ## 4. Test Protocol

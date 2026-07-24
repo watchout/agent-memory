@@ -55,7 +55,8 @@
     "test:codex-hook": "tsx src/test-codex-session-start.ts && tsx src/test-codex-hook-installer.ts",
     "claude:start": "tsx src/claude-start.ts",
     "company-dev-os:recovery-target-audit": "tsx src/company-dev-os-recovery-target-audit.ts",
-    "test:company-dev-os-recovery-target-audit": "tsx src/test-company-dev-os-recovery-target-audit.ts"
+    "test:company-dev-os-recovery-target-audit": "tsx src/test-company-dev-os-recovery-target-audit.ts",
+    "test:continuity-alpha-evaluator": "tsx src/test-continuity-alpha-evaluator.ts"
   },
   "keywords": [
     "mcp",
