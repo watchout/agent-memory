@@ -8,8 +8,9 @@
  * for the first model context of the already-starting process.
  */
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   estimateTokens,
@@ -33,6 +34,7 @@ export const CODEX_SESSION_START_MAX_TOKENS = 1_800;
 export const CODEX_SESSION_START_MAX_BYTES = 8_192;
 export const CODEX_SESSION_START_INTERNAL_TIMEOUT_MS = 7_000;
 export const CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
+export const CODEX_USER_CONFIG_RELATIVE_PATH = ".agent-memory/config.json" as const;
 
 const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
 export type CodexSessionStartSource = typeof START_SOURCES[number];
@@ -105,6 +107,7 @@ export interface CodexSessionStartEvidence {
     runtime: "codex";
     verified: boolean;
   };
+  store_binding: CodexStoreBindingEvidence;
   hook: {
     session_id: string | null;
     source: CodexSessionStartSource | null;
@@ -176,10 +179,19 @@ export type CodexSessionStartDegradedReason =
   | "RECOVERY_UNAVAILABLE"
   | "EVIDENCE_LOG_UNAVAILABLE";
 
+export interface CodexStoreBindingEvidence {
+  source: "environment" | "user_config" | "local_default" | "unknown";
+  backend_intent: "postgres" | "sqlite" | "json" | "unknown";
+  config_path_sha256: string | null;
+  verified: boolean;
+  credentials_embedded: false;
+}
+
 export interface LoadedCodexRecovery {
   recovery: RecoveryOutputWithMetrics;
   recovery_pack: CodexRecoveryPackEvidence;
   recovery_quality_log_ref: string | null;
+  store_binding?: CodexStoreBindingEvidence;
 }
 
 export interface RecoveryOutputWithMetrics {
@@ -226,6 +238,105 @@ class HookDegradedError extends Error {
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function unknownStoreBinding(): CodexStoreBindingEvidence {
+  return {
+    source: "unknown",
+    backend_intent: "unknown",
+    config_path_sha256: null,
+    verified: false,
+    credentials_embedded: false,
+  };
+}
+
+function postgresUrl(value: unknown): value is string {
+  return typeof value === "string" && /^postgres(?:ql)?:\/\//.test(value);
+}
+
+/**
+ * Bind a standalone native hook to the same legacy user config understood by
+ * existing Wasurezu hooks. Explicit environment intent always wins. Only the
+ * URL is applied to the one-shot child process; config identity fields never
+ * override the exact hook binding, and the URL is never returned as evidence.
+ */
+export function resolveCodexStoreBinding(
+  env: NodeJS.ProcessEnv = process.env,
+  configPath = join(homedir(), CODEX_USER_CONFIG_RELATIVE_PATH),
+): CodexStoreBindingEvidence {
+  const dbType = (env.AGENT_MEMORY_DB_TYPE ?? "").toLowerCase();
+  if (dbType === "sqlite" || dbType === "json") {
+    return {
+      source: "environment",
+      backend_intent: dbType,
+      config_path_sha256: null,
+      verified: true,
+      credentials_embedded: false,
+    };
+  }
+  if (dbType !== "" && dbType !== "postgres") {
+    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  }
+
+  const environmentUrl = env.AGENT_MEMORY_DATABASE_URL || env.DATABASE_URL || undefined;
+  if (environmentUrl !== undefined) {
+    if (!postgresUrl(environmentUrl)) throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+    return {
+      source: "environment",
+      backend_intent: "postgres",
+      config_path_sha256: null,
+      verified: true,
+      credentials_embedded: false,
+    };
+  }
+
+  let stat;
+  try {
+    stat = lstatSync(configPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT" && dbType !== "postgres") {
+      return {
+        source: "local_default",
+        backend_intent: "sqlite",
+        config_path_sha256: null,
+        verified: true,
+        credentials_embedded: false,
+      };
+    }
+    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  }
+
+  let config: unknown;
+  try {
+    config = JSON.parse(readFileSync(configPath, "utf8"));
+  } catch {
+    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  }
+  if (config === null || typeof config !== "object" || Array.isArray(config)) {
+    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  }
+  const configUrl = (config as Record<string, unknown>).database_url;
+  if (configUrl === undefined && dbType !== "postgres") {
+    return {
+      source: "local_default",
+      backend_intent: "sqlite",
+      config_path_sha256: sha256(resolve(configPath)),
+      verified: true,
+      credentials_embedded: false,
+    };
+  }
+  if (!postgresUrl(configUrl)) throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  env.AGENT_MEMORY_DATABASE_URL = configUrl;
+  return {
+    source: "user_config",
+    backend_intent: "postgres",
+    config_path_sha256: sha256(resolve(configPath)),
+    verified: true,
+    credentials_embedded: false,
+  };
 }
 
 function nonEmpty(value: unknown, field: string): string {
@@ -504,6 +615,7 @@ function buildEvidence(input: {
   completedAt: number;
   recovery?: RecoveryOutputWithMetrics;
   recoveryPack?: CodexRecoveryPackEvidence;
+  storeBinding?: CodexStoreBindingEvidence;
   outcome: "full" | "degraded";
   reason: CodexSessionStartDegradedReason | null;
   recoveryQualityLogRef: string | null;
@@ -530,6 +642,7 @@ function buildEvidence(input: {
       runtime: "codex",
       verified: input.identityVerified,
     },
+    store_binding: input.storeBinding ?? unknownStoreBinding(),
     hook: {
       session_id: input.hookInput?.session_id ?? null,
       source: input.hookInput?.source ?? null,
@@ -585,6 +698,7 @@ export async function loadCodexRecoveryFromStore(
   binding: CodexSessionStartBinding,
   input: CodexSessionStartInput,
 ): Promise<LoadedCodexRecovery> {
+  const storeBinding = resolveCodexStoreBinding();
   const store = await createStore();
   try {
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
@@ -613,6 +727,7 @@ export async function loadCodexRecoveryFromStore(
         start_source: input.source,
         binding_source_ref: redactText(binding.binding_source_ref).text,
         workspace_sha256: sha256(binding.workspace),
+        store_binding: storeBinding,
         recovery_pack: packEvidence,
         output: outputMetrics(recovery, binding),
         delivery_status: "degraded",
@@ -629,6 +744,7 @@ export async function loadCodexRecoveryFromStore(
       recovery,
       recovery_pack: packEvidence,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
+      store_binding: storeBinding,
     };
   } finally {
     await store.close();
@@ -670,6 +786,7 @@ export async function runCodexSessionStart(
       completedAt,
       recovery,
       recoveryPack: loaded.recovery_pack,
+      storeBinding: loaded.store_binding,
       outcome: evidenceLogMissing ? "degraded" : "full",
       reason: evidenceLogMissing ? "EVIDENCE_LOG_UNAVAILABLE" : null,
       recoveryQualityLogRef: loaded.recovery_quality_log_ref,
