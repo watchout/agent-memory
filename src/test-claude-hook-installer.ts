@@ -119,6 +119,20 @@ async function main(): Promise<void> {
       true,
     );
 
+    const lookalikeCommand = `echo ${CLAUDE_SESSION_START_ADAPTER_ID}`;
+    const lookalike = mergeClaudeSessionStartHook({
+      hooks: {
+        SessionStart: [{
+          matcher: "startup",
+          hooks: [{ type: "command", command: lookalikeCommand, timeout: 3 }],
+        }],
+      },
+    }, runtimeRoot, exactBinding);
+    assert.equal(lookalike.unrelatedBefore, 1);
+    assert.equal(lookalike.unrelatedAfter, 1);
+    assert.equal(lookalike.settings.hooks.SessionStart?.[0]?.hooks[0]?.command, lookalikeCommand);
+    assert.equal(lookalike.settings.hooks.SessionStart?.length, 2);
+
     assert.throws(() => parseClaudeSettings("{"), /not valid JSON/);
     assert.throws(() => parseClaudeSettings("[]"), /must contain an object/);
     assert.throws(() => parseClaudeSettings('{"hooks":[]}'), /hooks must be an object/);

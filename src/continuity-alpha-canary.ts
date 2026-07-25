@@ -24,12 +24,79 @@ import {
   evaluateContinuityAlphaSuite,
   type ContinuityAlphaEffectCounters,
   type ContinuityAlphaHost,
+  type ContinuityAlphaRunEvidence,
   type ContinuityAlphaSuiteEvaluation,
   type ContinuityAlphaSuiteInput,
 } from "./continuity-alpha-evaluator.js";
 
 export const CONTINUITY_ALPHA_CANARY_PLAN_VERSION = "continuity-alpha-canary-plan/v1" as const;
 export const CONTINUITY_ALPHA_CANARY_VERIFICATION_VERSION = "continuity-alpha-canary-verification/v1" as const;
+export const CONTINUITY_ALPHA_CANARY_PLAN_REF = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102" as const;
+export const CONTINUITY_ALPHA_CANARY_CONTROL_SOURCE_REF = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043" as const;
+export const CONTINUITY_ALPHA_CANARY_OWNER_ENVELOPE_REF = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853" as const;
+export const CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS = Object.freeze([
+  "https://github.com/watchout/agent-memory/pull/265",
+  "https://github.com/watchout/agent-memory/pull/266",
+  "https://github.com/watchout/agent-memory/pull/267",
+  "https://github.com/watchout/agent-memory/pull/270",
+] as const);
+export const CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION = "continuity-alpha-observation-receipt/v1" as const;
+
+export interface ContinuityAlphaCanaryEffectCounters extends ContinuityAlphaEffectCounters {
+  host_launch_count: number;
+  session_exit_count: number;
+  evidence_write_count: number;
+  external_send_count: number;
+  live_canary_execution_count: number;
+  deploy_count: number;
+  production_mutation_count: number;
+}
+
+export const CONTINUITY_ALPHA_CANARY_ZERO_EFFECTS: Readonly<ContinuityAlphaCanaryEffectCounters> = Object.freeze({
+  ...CONTINUITY_ALPHA_ZERO_EFFECTS,
+  host_launch_count: 0,
+  session_exit_count: 0,
+  evidence_write_count: 0,
+  external_send_count: 0,
+  live_canary_execution_count: 0,
+  deploy_count: 0,
+  production_mutation_count: 0,
+});
+
+const CONTINUITY_ALPHA_CANARY_EFFECT_KEYS = Object.freeze(Object.keys(CONTINUITY_ALPHA_CANARY_ZERO_EFFECTS).sort());
+
+export interface ContinuityAlphaObservationReceipt {
+  schema_version: typeof CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION;
+  capture_id: string;
+  captured_at: string;
+  observer_actor: string;
+  receipt_ref: string;
+  plan_id: string;
+  run_ref: string;
+  exact_head: string;
+  exact_tree: string;
+  agent_id: string;
+  runtime: ContinuityAlphaHost;
+  project: string;
+  workspace: string;
+  binding_ref: string;
+  ordinary_launch_command: string;
+  native_start_surface: string;
+  identity_receipt_ref: string;
+  first_context_receipt_ref: string;
+  action_receipt_ref: string;
+  result_receipt_ref: string;
+  evidence_sha256: string;
+}
+
+export type ContinuityAlphaObservedRunEvidence = ContinuityAlphaRunEvidence & {
+  observation_receipt: ContinuityAlphaObservationReceipt;
+};
+
+export interface ContinuityAlphaCanarySuiteInput extends Omit<ContinuityAlphaSuiteInput, "runs" | "effects"> {
+  runs: ContinuityAlphaObservedRunEvidence[];
+  effects: ContinuityAlphaCanaryEffectCounters;
+}
 
 export interface ContinuityAlphaCanaryTarget {
   agent_id: string;
@@ -88,6 +155,12 @@ export interface ContinuityAlphaCanaryPlan {
     stop_on_first_failure: true;
     initial_sudden_death_agents: ["kusabi", "spec"];
     operator_actions: ["end_old_session", "start_fresh_session_with_ordinary_command"];
+    observation_receipt: {
+      schema_version: typeof CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION;
+      source: "durable_github_issue_comment";
+      payload_digest: "sha256";
+      exact_identity_binding: true;
+    };
   };
   targets: ContinuityAlphaCanaryTarget[];
   host_canaries: ContinuityAlphaHostCanaryTarget[];
@@ -108,7 +181,7 @@ export interface ContinuityAlphaCanaryPlan {
     action: "operator_exit_then_ordinary_fresh_start";
   }>;
   forbidden_automation: string[];
-  preflight_effects: ContinuityAlphaEffectCounters;
+  preflight_effects: ContinuityAlphaCanaryEffectCounters;
   claims: {
     live_execution_performed: false;
     first_context_delivery_confirmed: false;
@@ -131,17 +204,37 @@ export interface ContinuityAlphaCanaryVerification {
   exact_subject: ContinuityAlphaCanaryPlan["exact_subject"];
   operator_boundary_verified: boolean;
   target_binding_verified: boolean;
+  receipt_provenance_verified: boolean;
+  verified_receipt_refs: string[];
   sudden_death_scope_verified: boolean;
   continuity_alpha_candidate: boolean;
   next_action: "none" | "fix_canary_evidence" | "fix_evaluator_before_operator_run";
 }
 
-function isText(value: string): boolean {
-  return value.trim() === value && value.length > 0 && !value.includes("\0");
+function isText(value: unknown): value is string {
+  return typeof value === "string"
+    && value.trim() === value
+    && value.length > 0
+    && !value.includes("\0");
 }
 
 function isSha(value: string): boolean {
   return /^[0-9a-f]{40}$/.test(value);
+}
+
+function isDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isIsoInstant(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
+function isDurableObservationRef(value: unknown): value is string {
+  return typeof value === "string"
+    && /^https:\/\/github\.com\/watchout\/agent-memory\/(?:issues|pull)\/[1-9]\d*#issuecomment-[1-9]\d*$/.test(value);
 }
 
 function exactArray(actual: readonly string[], expected: readonly string[]): boolean {
@@ -161,6 +254,19 @@ function canonical(value: unknown): string {
 
 function digest(value: unknown): string {
   return createHash("sha256").update(canonical(value)).digest("hex");
+}
+
+export function continuityAlphaObservedRunDigest(run: ContinuityAlphaRunEvidence | ContinuityAlphaObservedRunEvidence): string {
+  const { observation_receipt: _receipt, ...evidence } = run as ContinuityAlphaObservedRunEvidence;
+  return digest(evidence);
+}
+
+function exactZeroCanaryEffects(value: ContinuityAlphaCanaryEffectCounters): boolean {
+  if (!value || typeof value !== "object") return false;
+  const record = value as unknown as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return exactArray(keys, CONTINUITY_ALPHA_CANARY_EFFECT_KEYS)
+    && CONTINUITY_ALPHA_CANARY_EFFECT_KEYS.every((key) => record[key] === 0);
 }
 
 function validateTargets(targets: ContinuityAlphaCanaryTarget[]): string[] {
@@ -206,12 +312,13 @@ export function buildContinuityAlphaCanaryPlan(input: ContinuityAlphaCanaryPlanI
   const s15 = evaluateCanonicalS15Fixture();
   const errors: string[] = [];
   if (input.schema_version !== "continuity-alpha-canary-plan-input/v1") errors.push("FAIL_PLAN_INPUT_SCHEMA");
-  if (!isText(input.plan_ref)) errors.push("FAIL_PLAN_REF");
+  if (input.plan_ref !== CONTINUITY_ALPHA_CANARY_PLAN_REF) errors.push("FAIL_PLAN_REF");
   if (!isSha(input.exact_head)) errors.push("FAIL_EXACT_HEAD");
   if (!isSha(input.exact_tree)) errors.push("FAIL_EXACT_TREE");
-  if (!isText(input.control_source_ref)) errors.push("FAIL_CONTROL_SOURCE_REF");
-  if (!isText(input.owner_envelope_ref)) errors.push("FAIL_OWNER_ENVELOPE_REF");
-  if (!Array.isArray(input.dependency_refs) || input.dependency_refs.length !== 4 || input.dependency_refs.some((ref) => !isText(ref))) {
+  if (input.control_source_ref !== CONTINUITY_ALPHA_CANARY_CONTROL_SOURCE_REF) errors.push("FAIL_CONTROL_SOURCE_REF");
+  if (input.owner_envelope_ref !== CONTINUITY_ALPHA_CANARY_OWNER_ENVELOPE_REF) errors.push("FAIL_OWNER_ENVELOPE_REF");
+  if (!Array.isArray(input.dependency_refs)
+    || !exactArray(input.dependency_refs, CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS)) {
     errors.push("FAIL_EXACT_DEPENDENCY_REFS");
   }
   if (!s15.passed) errors.unshift("AUTO_FAIL_S15_PREREQUISITE");
@@ -233,6 +340,12 @@ export function buildContinuityAlphaCanaryPlan(input: ContinuityAlphaCanaryPlanI
       "end_old_session",
       "start_fresh_session_with_ordinary_command",
     ],
+    observation_receipt: {
+      schema_version: CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION,
+      source: "durable_github_issue_comment" as const,
+      payload_digest: "sha256" as const,
+      exact_identity_binding: true as const,
+    },
   };
   const exactSubject = {
     head: input.exact_head,
@@ -283,11 +396,19 @@ export function buildContinuityAlphaCanaryPlan(input: ContinuityAlphaCanaryPlanI
       "tmux_send_keys",
       "clipboard_write",
       "aun_queue_mutation",
+      "live_config_mutation",
+      "trust_mutation",
+      "activation",
+      "rollout",
+      "host_launch",
+      "session_exit",
+      "evidence_write",
       "external_send",
+      "live_canary_execution",
       "deploy",
       "production_mutation",
     ],
-    preflight_effects: { ...CONTINUITY_ALPHA_ZERO_EFFECTS },
+    preflight_effects: { ...CONTINUITY_ALPHA_CANARY_ZERO_EFFECTS },
     claims: {
       live_execution_performed: false,
       first_context_delivery_confirmed: false,
@@ -324,7 +445,7 @@ function planIntegrityErrors(plan: ContinuityAlphaCanaryPlan): string[] {
   }
 }
 
-function bindingErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaSuiteInput): string[] {
+function bindingErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaCanarySuiteInput): string[] {
   const errors: string[] = [];
   const bindings = new Map(plan.targets.map((target) => [target.agent_id, target]));
   for (const run of suite.runs) {
@@ -356,9 +477,55 @@ function bindingErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaSu
   return errors;
 }
 
+function observationReceiptErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaCanarySuiteInput): string[] {
+  const errors: string[] = [];
+  const captureIds = new Set<string>();
+  for (const run of suite.runs) {
+    const receipt = run.observation_receipt;
+    if (!receipt || typeof receipt !== "object") {
+      errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_MISSING:${run.run_ref}`);
+      continue;
+    }
+    if (receipt.schema_version !== CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION
+      || !isText(receipt.capture_id)
+      || !isIsoInstant(receipt.captured_at)
+      || !isText(receipt.observer_actor)) {
+      errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_CAPTURE:${run.run_ref}`);
+    }
+    if (captureIds.has(receipt.capture_id)) errors.push(`FAIL_DUPLICATE_OBSERVATION_CAPTURE_ID:${receipt.capture_id}`);
+    captureIds.add(receipt.capture_id);
+    const durableRefs = [
+      receipt.receipt_ref,
+      receipt.identity_receipt_ref,
+      receipt.first_context_receipt_ref,
+      receipt.action_receipt_ref,
+      receipt.result_receipt_ref,
+    ];
+    if (!durableRefs.every(isDurableObservationRef)) errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_REF:${run.run_ref}`);
+    if (receipt.plan_id !== plan.plan_id
+      || receipt.run_ref !== run.run_ref
+      || receipt.exact_head !== plan.exact_subject.head
+      || receipt.exact_tree !== plan.exact_subject.tree
+      || receipt.agent_id !== run.identity.agent_id
+      || receipt.runtime !== run.host
+      || receipt.project !== run.identity.project
+      || receipt.workspace !== run.identity.workspace
+      || receipt.binding_ref !== run.identity.binding_ref
+      || receipt.ordinary_launch_command !== run.ordinary_launch_command
+      || receipt.native_start_surface !== run.native_start_surface) {
+      errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_BINDING:${run.run_ref}`);
+    }
+    if (!isDigest(receipt.evidence_sha256)
+      || receipt.evidence_sha256 !== continuityAlphaObservedRunDigest(run)) {
+      errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_DIGEST:${run.run_ref}`);
+    }
+  }
+  return errors;
+}
+
 export function verifyObservedContinuityAlphaCanary(
   plan: ContinuityAlphaCanaryPlan,
-  suite: ContinuityAlphaSuiteInput,
+  suite: ContinuityAlphaCanarySuiteInput,
 ): ContinuityAlphaCanaryVerification {
   const planDigest = continuityAlphaCanaryPlanDigest(plan);
   const integrityErrors = planIntegrityErrors(plan);
@@ -377,23 +544,34 @@ export function verifyObservedContinuityAlphaCanary(
       exact_subject: { ...plan.exact_subject, dependency_refs: [...plan.exact_subject.dependency_refs] },
       operator_boundary_verified: false,
       target_binding_verified: false,
+      receipt_provenance_verified: false,
+      verified_receipt_refs: [],
       sudden_death_scope_verified: false,
       continuity_alpha_candidate: false,
       next_action: "fix_evaluator_before_operator_run",
     };
   }
-  const errors = bindingErrors(plan, suite);
+  const receiptErrors = observationReceiptErrors(plan, suite);
+  const errors = [...bindingErrors(plan, suite), ...receiptErrors];
   if (suite.evidence_kind !== "observed_live_canary") errors.push("FAIL_OBSERVED_LIVE_EVIDENCE_REQUIRED");
-  const evaluation = evaluateContinuityAlphaSuite(suite);
+  const evaluatorEffects = Object.fromEntries(
+    Object.keys(CONTINUITY_ALPHA_ZERO_EFFECTS).map((key) => [
+      key,
+      suite.effects[key as keyof ContinuityAlphaEffectCounters],
+    ]),
+  ) as unknown as ContinuityAlphaEffectCounters;
+  const evaluation = evaluateContinuityAlphaSuite({ ...suite, effects: evaluatorEffects });
   if (!evaluation.continuity_alpha_candidate) errors.push("FAIL_EVALUATOR_LIVE_CANDIDATE");
   const operatorBoundaryVerified = suite.evidence_kind === "observed_live_canary"
     && suite.p0_sequence.stop_on_first_failure
-    && Object.values(suite.effects).every((count) => count === 0)
+    && exactZeroCanaryEffects(suite.effects)
+    && receiptErrors.length === 0
     && suite.runs.every((run) => run.fresh_process_started
       && run.startup_path_kind === "ordinary_native"
       && Object.values(run.effects).every((count) => count === 0));
   if (!operatorBoundaryVerified) errors.push("FAIL_OPERATOR_BOUNDARY");
   const targetBindingVerified = !errors.some((error) => error.startsWith("FAIL_RUN_") || error.includes("P0"));
+  const receiptProvenanceVerified = receiptErrors.length === 0;
   const suddenDeathScopeVerified = !errors.includes("FAIL_INITIAL_SUDDEN_DEATH_SCOPE");
   const pass = errors.length === 0;
   return {
@@ -406,6 +584,10 @@ export function verifyObservedContinuityAlphaCanary(
     exact_subject: { ...plan.exact_subject, dependency_refs: [...plan.exact_subject.dependency_refs] },
     operator_boundary_verified: operatorBoundaryVerified,
     target_binding_verified: targetBindingVerified,
+    receipt_provenance_verified: receiptProvenanceVerified,
+    verified_receipt_refs: receiptProvenanceVerified
+      ? [...new Set(suite.runs.map((run) => run.observation_receipt.receipt_ref))]
+      : [],
     sudden_death_scope_verified: suddenDeathScopeVerified,
     continuity_alpha_candidate: pass && evaluation.continuity_alpha_candidate,
     next_action: pass ? "none" : "fix_canary_evidence",
@@ -438,7 +620,7 @@ function main(): void {
   if (planPath && suitePath && !planInputPath) {
     const result = verifyObservedContinuityAlphaCanary(
       readJson(planPath) as ContinuityAlphaCanaryPlan,
-      readJson(suitePath) as ContinuityAlphaSuiteInput,
+      readJson(suitePath) as ContinuityAlphaCanarySuiteInput,
     );
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (result.status !== "pass") process.exitCode = 2;

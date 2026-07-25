@@ -11,7 +11,7 @@ framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b1
 repo_spec_ref: .shirube/repo-spec.yaml
 repo: watchout/agent-memory
 repo_local_issue: https://github.com/watchout/agent-memory/issues/180
-spec_review_state: owner_directed_amendment_ready_for_implementation
+spec_review_state: ready_for_implementation
 
 owner:
   role: repo_owner
@@ -81,13 +81,13 @@ cell:
     - any live config, trust, session, TUI, queue, restart, activation, rollout, deploy, or production effect occurs
 
 acceptance_criteria:
-  - Claude settings placement has check, dry-run, and separately authorized atomic apply modes while preserving unrelated configuration.
+  - Claude settings placement has check, dry-run, and separately authorized atomic apply modes while preserving unrelated configuration; managed handlers are recognized only by the canonical parsed Wasurezu command, never by substring.
   - Claude installer refuses symlink config and runner paths, uses mode 0600 for writes and backups, and never claims trust or delivery.
-  - Canary planning evaluates canonical S15 before readiness and binds exact head, tree, dependency refs, P0 order, host matrix, thresholds, scenario contract, and operator boundary.
+  - Canary planning evaluates canonical S15 before readiness and binds exact head, tree, frozen authority refs, exact ordered ALPHA-01 through ALPHA-04 dependency refs, P0 order, host matrix, thresholds, scenario contract, and operator boundary.
   - P0 seats are distinct from the three native host canaries; Gemini uses only kusabi-gemini with alpha-canary-only and normal_work_queue false.
-  - Verification accepts only observed_live_canary evidence and rejects identity, runtime, project, workspace, binding, command, native-surface, wrapper, effect, or sudden-death-scope mismatch.
+  - Verification accepts only observed_live_canary evidence with a content-addressed durable observation receipt and rejects receipt, identity, runtime, project, workspace, binding, command, native-surface, wrapper, effect, or sudden-death-scope mismatch.
   - Passing verification delegates score and scenario truth to the ALPHA-04 evaluator and cannot be obtained by stored-value echo.
-  - JSON Schema validates ready, stopped, and passing outputs while rejecting false live-candidate claims.
+  - JSON Schema validates ready, stopped, passing, and failing outputs while rejecting false live-candidate claims in every non-pass state.
   - ALPHA-05A performs no live placement, trust, host launch, session exit, canary, restart, TUI write, queue mutation, activation, rollout, deploy, or production mutation.
 
 validation:
@@ -106,7 +106,7 @@ validation:
     - exact changed-path list and allowed-path subset result
     - command-by-command validation output
     - preservation, atomic-write, backup, mode, symlink, injection, idempotence, and no-write fixtures for Claude placement
-    - exact P0 and native-host bindings, S15-first, ordinary-command, operator-boundary, mismatch, schema, and false-claim fixtures
+    - exact authority/dependency refs, P0 and native-host bindings, S15-first, ordinary-command, operator-boundary, durable observation-receipt, mismatch, exact-zero effect, schema, and false-claim fixtures
     - Draft PR URL and exact remote-head readback
     - one independent exact-head evidence_audit_gate PASS or PASS_WITH_WARN from devauditor
     - zero live config, trust, host launch, session, TUI, queue, restart, activation, rollout, deploy, and production effects

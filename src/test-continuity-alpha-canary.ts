@@ -16,12 +16,22 @@ import {
   type CountedContinuityScenarioId,
 } from "./continuity-alpha-evaluator.js";
 import {
+  CONTINUITY_ALPHA_CANARY_CONTROL_SOURCE_REF,
+  CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS,
+  CONTINUITY_ALPHA_CANARY_OWNER_ENVELOPE_REF,
+  CONTINUITY_ALPHA_CANARY_PLAN_REF,
+  CONTINUITY_ALPHA_CANARY_ZERO_EFFECTS,
+  CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION,
   buildContinuityAlphaCanaryPlan,
   continuityAlphaCanaryPlanDigest,
+  continuityAlphaObservedRunDigest,
   verifyObservedContinuityAlphaCanary,
+  type ContinuityAlphaCanaryPlan,
+  type ContinuityAlphaCanarySuiteInput,
   type ContinuityAlphaHostCanaryTarget,
   type ContinuityAlphaCanaryPlanInput,
   type ContinuityAlphaCanaryTarget,
+  type ContinuityAlphaObservedRunEvidence,
 } from "./continuity-alpha-canary.js";
 
 const WORKSPACE = "/Users/fixture/Developer/agent-memory";
@@ -94,12 +104,12 @@ function hostCanaries(): ContinuityAlphaHostCanaryTarget[] {
 function planInput(): ContinuityAlphaCanaryPlanInput {
   return {
     schema_version: "continuity-alpha-canary-plan-input/v1",
-    plan_ref: "issue:180#alpha05-owner-envelope",
+    plan_ref: CONTINUITY_ALPHA_CANARY_PLAN_REF,
     exact_head: "1".repeat(40),
     exact_tree: "2".repeat(40),
-    control_source_ref: "issue:180#frozen-plan",
-    owner_envelope_ref: "issue:180#operator-envelope",
-    dependency_refs: ["pr:265", "pr:266", "pr:267", "pr:270"],
+    control_source_ref: CONTINUITY_ALPHA_CANARY_CONTROL_SOURCE_REF,
+    owner_envelope_ref: CONTINUITY_ALPHA_CANARY_OWNER_ENVELOPE_REF,
+    dependency_refs: [...CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS],
     targets: targets(),
     host_canaries: hostCanaries(),
   };
@@ -198,7 +208,39 @@ function validRun(
   };
 }
 
-function liveSuite(): ContinuityAlphaSuiteInput {
+function observedRun(run: ContinuityAlphaRunEvidence, plan: ContinuityAlphaCanaryPlan, index: number): ContinuityAlphaObservedRunEvidence {
+  const receiptRef = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853";
+  const observed: ContinuityAlphaObservedRunEvidence = {
+    ...run,
+    observation_receipt: {
+      schema_version: CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION,
+      capture_id: `capture-${String(index + 1).padStart(2, "0")}-${run.run_ref}`,
+      captured_at: new Date(Date.UTC(2026, 6, 25, 0, 0, index)).toISOString(),
+      observer_actor: "operator",
+      receipt_ref: receiptRef,
+      plan_id: plan.plan_id,
+      run_ref: run.run_ref,
+      exact_head: plan.exact_subject.head,
+      exact_tree: plan.exact_subject.tree,
+      agent_id: run.identity.agent_id,
+      runtime: run.host,
+      project: run.identity.project,
+      workspace: run.identity.workspace,
+      binding_ref: run.identity.binding_ref,
+      ordinary_launch_command: run.ordinary_launch_command,
+      native_start_surface: run.native_start_surface,
+      identity_receipt_ref: receiptRef,
+      first_context_receipt_ref: receiptRef,
+      action_receipt_ref: receiptRef,
+      result_receipt_ref: receiptRef,
+      evidence_sha256: "0".repeat(64),
+    },
+  };
+  observed.observation_receipt.evidence_sha256 = continuityAlphaObservedRunDigest(observed);
+  return observed;
+}
+
+function liveSuite(plan: ContinuityAlphaCanaryPlan): ContinuityAlphaCanarySuiteInput {
   const counted = ([
     "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13",
   ] as CountedContinuityScenarioId[]).map((scenario) => validRun(scenario));
@@ -207,6 +249,7 @@ function liveSuite(): ContinuityAlphaSuiteInput {
     validRun("S14", "spec", "claude_code", "claude"),
     validRun("S14", "kusabi-gemini", "gemini_cli", "gemini"),
   ];
+  const runs = [...counted, ...hostRuns].map((run, index) => observedRun(run, plan, index));
   return {
     schema_version: "continuity-alpha-suite-input/v1",
     suite_id: "observed:alpha05:sequential:1",
@@ -216,7 +259,7 @@ function liveSuite(): ContinuityAlphaSuiteInput {
       fixture_ref: "fixture:S15:source-contract",
       expected_evaluator_version: CONTINUITY_ALPHA_EVALUATOR_VERSION,
     },
-    runs: [...counted, ...hostRuns],
+    runs,
     p0_sequence: {
       stop_on_first_failure: true,
       aggregate_ref: "observed:p0:aggregate",
@@ -230,7 +273,7 @@ function liveSuite(): ContinuityAlphaSuiteInput {
       count: 2,
       evidence_refs: ["observed:sequence:1", "observed:sequence:2"],
     },
-    effects: { ...CONTINUITY_ALPHA_ZERO_EFFECTS },
+    effects: { ...CONTINUITY_ALPHA_CANARY_ZERO_EFFECTS },
   };
 }
 
@@ -254,12 +297,14 @@ assert.equal(continuityAlphaCanaryPlanDigest(plan), continuityAlphaCanaryPlanDig
 input.targets[0].agent_id = "mutated-after-build";
 input.dependency_refs[0] = "mutated-after-build";
 assert.equal(plan.targets[0].agent_id, "kusabi");
-assert.equal(plan.exact_subject.dependency_refs[0], "pr:265");
+assert.equal(plan.exact_subject.dependency_refs[0], CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS[0]);
 
-const pass = verifyObservedContinuityAlphaCanary(plan, liveSuite());
-assert.equal(pass.status, "pass");
+const pass = verifyObservedContinuityAlphaCanary(plan, liveSuite(plan));
+assert.equal(pass.status, "pass", JSON.stringify(pass, null, 2));
 assert.equal(pass.operator_boundary_verified, true);
 assert.equal(pass.target_binding_verified, true);
+assert.equal(pass.receipt_provenance_verified, true);
+assert.equal(pass.verified_receipt_refs.length, 1);
 assert.equal(pass.sudden_death_scope_verified, true);
 assert.equal(pass.continuity_alpha_candidate, true);
 assert.equal(pass.next_action, "none");
@@ -282,52 +327,82 @@ assert(buildContinuityAlphaCanaryPlan(badSha).errors.includes("FAIL_EXACT_HEAD")
 const missingDependency = planInput();
 missingDependency.dependency_refs.pop();
 assert(buildContinuityAlphaCanaryPlan(missingDependency).errors.includes("FAIL_EXACT_DEPENDENCY_REFS"));
+const reorderedDependency = planInput();
+reorderedDependency.dependency_refs.reverse();
+assert(buildContinuityAlphaCanaryPlan(reorderedDependency).errors.includes("FAIL_EXACT_DEPENDENCY_REFS"));
+const wrongPlanRef = planInput();
+wrongPlanRef.plan_ref = "https://github.com/watchout/agent-memory/issues/180#issuecomment-1";
+assert(buildContinuityAlphaCanaryPlan(wrongPlanRef).errors.includes("FAIL_PLAN_REF"));
+const wrongControlSource = planInput();
+wrongControlSource.control_source_ref = "https://github.com/watchout/agent-memory/issues/180#issuecomment-1";
+assert(buildContinuityAlphaCanaryPlan(wrongControlSource).errors.includes("FAIL_CONTROL_SOURCE_REF"));
+const wrongOwnerEnvelope = planInput();
+wrongOwnerEnvelope.owner_envelope_ref = "https://github.com/watchout/agent-memory/issues/180#issuecomment-1";
+assert(buildContinuityAlphaCanaryPlan(wrongOwnerEnvelope).errors.includes("FAIL_OWNER_ENVELOPE_REF"));
 
-const deterministic = liveSuite();
+const deterministic = liveSuite(plan);
 deterministic.evidence_kind = "deterministic_fixture";
 const deterministicResult = verifyObservedContinuityAlphaCanary(plan, deterministic);
 assert.equal(deterministicResult.status, "fail");
 assert.equal(deterministicResult.operator_boundary_verified, false);
 assert(deterministicResult.errors.includes("FAIL_OBSERVED_LIVE_EVIDENCE_REQUIRED"));
 
-const wrongBinding = liveSuite();
+const wrongBinding = liveSuite(plan);
 wrongBinding.runs[0].identity.binding_ref = "binding:wrong";
 assert(verifyObservedContinuityAlphaCanary(plan, wrongBinding).errors.some((error) => error.startsWith("FAIL_RUN_BINDING_REF")));
-const wrongWorkspace = liveSuite();
+const wrongWorkspace = liveSuite(plan);
 wrongWorkspace.runs[0].identity.workspace = "/wrong/workspace";
 assert(verifyObservedContinuityAlphaCanary(plan, wrongWorkspace).errors.some((error) => error.startsWith("FAIL_RUN_WORKSPACE_BINDING")));
-const wrongProject = liveSuite();
+const wrongProject = liveSuite(plan);
 wrongProject.runs[0].identity.project = "wrong-project";
 assert(verifyObservedContinuityAlphaCanary(plan, wrongProject).errors.some((error) => error.startsWith("FAIL_RUN_PROJECT_BINDING")));
-const wrongSurface = liveSuite();
+const wrongSurface = liveSuite(plan);
 wrongSurface.runs[0].native_start_surface = "manual";
 assert(verifyObservedContinuityAlphaCanary(plan, wrongSurface).errors.some((error) => error.startsWith("FAIL_RUN_NATIVE_START_SURFACE")));
-const outsideSuddenDeath = liveSuite();
+const outsideSuddenDeath = liveSuite(plan);
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.agent_id = "arc";
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.runtime = "gemini_cli";
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.host = "gemini_cli";
 assert(verifyObservedContinuityAlphaCanary(plan, outsideSuddenDeath).errors.includes("FAIL_INITIAL_SUDDEN_DEATH_SCOPE"));
-const wrapper = liveSuite();
+const wrapper = liveSuite(plan);
 wrapper.runs[0].startup_path_kind = "wrapper";
 const wrapperResult = verifyObservedContinuityAlphaCanary(plan, wrapper);
 assert.equal(wrapperResult.operator_boundary_verified, false);
 assert(wrapperResult.errors.includes("FAIL_OPERATOR_BOUNDARY"));
-const storedValueEcho = liveSuite();
+const storedValueEcho = liveSuite(plan);
 storedValueEcho.runs[0].continuation.probe_supplied_expected_values = true;
 storedValueEcho.runs[0].continuation.useful_result.equals_stored_value_only = true;
 assert.equal(verifyObservedContinuityAlphaCanary(plan, storedValueEcho).continuity_alpha_candidate, false);
 
+const missingReceipt = liveSuite(plan);
+delete (missingReceipt.runs[0] as Partial<ContinuityAlphaObservedRunEvidence>).observation_receipt;
+const missingReceiptResult = verifyObservedContinuityAlphaCanary(plan, missingReceipt);
+assert.equal(missingReceiptResult.receipt_provenance_verified, false);
+assert(missingReceiptResult.errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_MISSING")));
+const fixtureReceipt = liveSuite(plan);
+fixtureReceipt.runs[0].observation_receipt.receipt_ref = "fixture:claimed-live-receipt";
+assert(verifyObservedContinuityAlphaCanary(plan, fixtureReceipt).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_REF")));
+const forgedReceiptDigest = liveSuite(plan);
+forgedReceiptDigest.runs[0].observation_receipt.evidence_sha256 = "f".repeat(64);
+assert(verifyObservedContinuityAlphaCanary(plan, forgedReceiptDigest).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_DIGEST")));
+const missingDeployCounter = liveSuite(plan);
+delete (missingDeployCounter.effects as Partial<typeof missingDeployCounter.effects>).deploy_count;
+assert(verifyObservedContinuityAlphaCanary(plan, missingDeployCounter).errors.includes("FAIL_OPERATOR_BOUNDARY"));
+const externalSend = liveSuite(plan);
+externalSend.effects.external_send_count = 1;
+assert(verifyObservedContinuityAlphaCanary(plan, externalSend).errors.includes("FAIL_OPERATOR_BOUNDARY"));
+
 const mutatedPlan = structuredClone(plan);
 mutatedPlan.operator_steps[0].ordinary_command = "claude";
-const mutatedPlanResult = verifyObservedContinuityAlphaCanary(mutatedPlan, liveSuite());
+const mutatedPlanResult = verifyObservedContinuityAlphaCanary(mutatedPlan, liveSuite(plan));
 assert.equal(mutatedPlanResult.status, "stopped");
 assert(mutatedPlanResult.errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
 const forgedPlanId = structuredClone(plan);
 forgedPlanId.plan_id = `alpha05:${"f".repeat(64)}`;
-assert(verifyObservedContinuityAlphaCanary(forgedPlanId, liveSuite()).errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
+assert(verifyObservedContinuityAlphaCanary(forgedPlanId, liveSuite(plan)).errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
 
 const stoppedPlan = buildContinuityAlphaCanaryPlan(badSha);
-assert.equal(verifyObservedContinuityAlphaCanary(stoppedPlan, liveSuite()).status, "stopped");
+assert.equal(verifyObservedContinuityAlphaCanary(stoppedPlan, liveSuite(stoppedPlan)).status, "stopped");
 
 const evaluationSchema = JSON.parse(readFileSync(
   "docs/design/schemas/continuity-alpha-evaluation-v1.schema.json",
@@ -347,5 +422,11 @@ assert.equal(validate(stoppedPlan), true, JSON.stringify(validate.errors));
 const falseClaim = structuredClone(pass);
 falseClaim.continuity_alpha_candidate = false;
 assert.equal(validate(falseClaim), false);
+const failedFalseClaim = structuredClone(pass);
+failedFalseClaim.status = "fail";
+failedFalseClaim.errors = ["FAIL_SYNTHETIC"];
+failedFalseClaim.continuity_alpha_candidate = true;
+failedFalseClaim.next_action = "none";
+assert.equal(validate(failedFalseClaim), false);
 
 console.log("continuity alpha canary tests passed");

@@ -30,7 +30,14 @@
         "live_config_mutation_count",
         "trust_mutation_count",
         "activation_count",
-        "rollout_count"
+        "rollout_count",
+        "host_launch_count",
+        "session_exit_count",
+        "evidence_write_count",
+        "external_send_count",
+        "live_canary_execution_count",
+        "deploy_count",
+        "production_mutation_count"
       ],
       "properties": {
         "disconnect_detection_count": { "const": 0 },
@@ -44,7 +51,14 @@
         "live_config_mutation_count": { "const": 0 },
         "trust_mutation_count": { "const": 0 },
         "activation_count": { "const": 0 },
-        "rollout_count": { "const": 0 }
+        "rollout_count": { "const": 0 },
+        "host_launch_count": { "const": 0 },
+        "session_exit_count": { "const": 0 },
+        "evidence_write_count": { "const": 0 },
+        "external_send_count": { "const": 0 },
+        "live_canary_execution_count": { "const": 0 },
+        "deploy_count": { "const": 0 },
+        "production_mutation_count": { "const": 0 }
       }
     },
     "target": {
@@ -131,14 +145,20 @@
       "properties": {
         "head": { "$ref": "#/$defs/sha" },
         "tree": { "$ref": "#/$defs/sha" },
-        "plan_ref": { "type": "string", "minLength": 1 },
-        "control_source_ref": { "type": "string", "minLength": 1 },
-        "owner_envelope_ref": { "type": "string", "minLength": 1 },
+        "plan_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102" },
+        "control_source_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043" },
+        "owner_envelope_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853" },
         "dependency_refs": {
           "type": "array",
           "minItems": 4,
           "maxItems": 4,
-          "items": { "type": "string", "minLength": 1 }
+          "prefixItems": [
+            { "const": "https://github.com/watchout/agent-memory/pull/265" },
+            { "const": "https://github.com/watchout/agent-memory/pull/266" },
+            { "const": "https://github.com/watchout/agent-memory/pull/267" },
+            { "const": "https://github.com/watchout/agent-memory/pull/270" }
+          ],
+          "items": false
         }
       }
     },
@@ -172,7 +192,8 @@
           "additionalProperties": false,
           "required": [
             "p0_order", "host_matrix", "scenarios", "thresholds", "sequential",
-            "stop_on_first_failure", "initial_sudden_death_agents", "operator_actions"
+            "stop_on_first_failure", "initial_sudden_death_agents", "operator_actions",
+            "observation_receipt"
           ],
           "properties": {
             "p0_order": {
@@ -223,6 +244,17 @@
               "type": "array",
               "prefixItems": [{ "const": "end_old_session" }, { "const": "start_fresh_session_with_ordinary_command" }],
               "items": false
+            },
+            "observation_receipt": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["schema_version", "source", "payload_digest", "exact_identity_binding"],
+              "properties": {
+                "schema_version": { "const": "continuity-alpha-observation-receipt/v1" },
+                "source": { "const": "durable_github_issue_comment" },
+                "payload_digest": { "const": "sha256" },
+                "exact_identity_binding": { "const": true }
+              }
             }
           }
         },
@@ -264,7 +296,34 @@
             }
           }
         },
-        "forbidden_automation": { "type": "array", "minItems": 11, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "forbidden_automation": {
+          "type": "array",
+          "minItems": 19,
+          "maxItems": 19,
+          "uniqueItems": true,
+          "prefixItems": [
+            { "const": "disconnect_detection" },
+            { "const": "automatic_restart" },
+            { "const": "process_kill" },
+            { "const": "existing_session_injection" },
+            { "const": "tui_write" },
+            { "const": "tmux_send_keys" },
+            { "const": "clipboard_write" },
+            { "const": "aun_queue_mutation" },
+            { "const": "live_config_mutation" },
+            { "const": "trust_mutation" },
+            { "const": "activation" },
+            { "const": "rollout" },
+            { "const": "host_launch" },
+            { "const": "session_exit" },
+            { "const": "evidence_write" },
+            { "const": "external_send" },
+            { "const": "live_canary_execution" },
+            { "const": "deploy" },
+            { "const": "production_mutation" }
+          ],
+          "items": false
+        },
         "preflight_effects": { "$ref": "#/$defs/effectCounters" },
         "claims": {
           "type": "object",
@@ -311,7 +370,8 @@
       "required": [
         "schema_version", "plan_id", "plan_digest", "status", "errors",
         "evaluation", "exact_subject", "operator_boundary_verified",
-        "target_binding_verified", "sudden_death_scope_verified",
+        "target_binding_verified", "receipt_provenance_verified", "verified_receipt_refs",
+        "sudden_death_scope_verified",
         "continuity_alpha_candidate", "next_action"
       ],
       "properties": {
@@ -324,6 +384,15 @@
         "exact_subject": { "$ref": "#/$defs/exactSubject" },
         "operator_boundary_verified": { "type": "boolean" },
         "target_binding_verified": { "type": "boolean" },
+        "receipt_provenance_verified": { "type": "boolean" },
+        "verified_receipt_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^https://github\\.com/watchout/agent-memory/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+          }
+        },
         "sudden_death_scope_verified": { "type": "boolean" },
         "continuity_alpha_candidate": { "type": "boolean" },
         "next_action": { "enum": ["none", "fix_canary_evidence", "fix_evaluator_before_operator_run"] }
@@ -336,6 +405,8 @@
               "errors": { "maxItems": 0 },
               "operator_boundary_verified": { "const": true },
               "target_binding_verified": { "const": true },
+              "receipt_provenance_verified": { "const": true },
+              "verified_receipt_refs": { "minItems": 1 },
               "sudden_death_scope_verified": { "const": true },
               "continuity_alpha_candidate": { "const": true },
               "next_action": { "const": "none" },
@@ -349,11 +420,23 @@
           }
         },
         {
+          "if": { "properties": { "status": { "const": "fail" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "minItems": 1 },
+              "continuity_alpha_candidate": { "const": false },
+              "next_action": { "const": "fix_canary_evidence" }
+            }
+          }
+        },
+        {
           "if": { "properties": { "status": { "const": "stopped" } }, "required": ["status"] },
           "then": {
             "properties": {
               "operator_boundary_verified": { "const": false },
               "target_binding_verified": { "const": false },
+              "receipt_provenance_verified": { "const": false },
+              "verified_receipt_refs": { "maxItems": 0 },
               "sudden_death_scope_verified": { "const": false },
               "continuity_alpha_candidate": { "const": false },
               "next_action": { "const": "fix_evaluator_before_operator_run" }

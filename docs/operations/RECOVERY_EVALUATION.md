@@ -204,8 +204,9 @@ Before an operator run, the planner evaluates the canonical S15 negative
 fixture first and stops when the evaluator is not intact. A ready plan then
 binds all of the following into its SHA-256 plan identifier:
 
-- exact implementation head and tree, frozen plan and owner-envelope refs,
-  and exactly four ALPHA-01 through ALPHA-04 dependency refs;
+- exact implementation head and tree; the frozen plan, control-source, and
+  owner-envelope URLs; and the exact ordered PR #265, #266, #267, and #270
+  dependency refs;
 - the exact ordered P0 list and each seat's runtime, project, canonical
   workspace, and verified binding ref;
 - the separate exact Codex, Claude Code, and Gemini CLI native-host canary
@@ -214,13 +215,22 @@ binds all of the following into its SHA-256 plan identifier:
   sequential stop-on-first-failure policy, and initial S3 scope of `kusabi`
   and `spec`; and
 - the operator-only old-session end and ordinary-command fresh-process start
-  boundary, with all forbidden preflight effect counters at zero.
+  boundary, with the complete, exact forbidden preflight effect record at zero,
+  including host launch, session exit, evidence write, external send, live
+  canary execution, deploy, and production mutation.
 
 The verifier accepts only `observed_live_canary` evidence. For S1-S13 it
 checks evidence against a planned P0 binding; for S14 it checks each run
 against the corresponding planned host-canary binding. Agent, runtime,
 project, workspace, binding ref, ordinary launch command, and native start
-surface must all agree. The ALPHA-04 evaluator remains authoritative for score,
+surface must all agree. Each run must additionally carry a durable observation
+receipt with a unique capture id, canonical timestamp, GitHub issue-comment
+reference, exact plan/head/tree and identity fields, and a SHA-256 digest of the
+run evidence. Missing, malformed, fixture-style, mismatched, or digest-invalid
+receipts fail closed. This source-only verifier checks the receipt structure and
+content binding; it does not fetch the comment or independently prove that the
+operator performed the physical observation, so the durable comment remains
+subject to operator/auditor review. The ALPHA-04 evaluator remains authoritative for score,
 timing, RI0, meaningful-action, useful-result, safety, exact host coverage,
 exact P0 sequence, consecutive-pass evidence, and S15 behavior.
 

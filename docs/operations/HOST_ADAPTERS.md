@@ -188,8 +188,11 @@ Claude Code loads project-local `.claude/settings.json` and invokes matching
 `SessionStart` command hooks. `wasurezu-claude-session-start` implements the
 bounded recovery contract. `wasurezu-claude-hook-install` provides the same
 check, preview, and atomic placement boundary as the Codex and Gemini
-installers. It replaces only its managed Wasurezu handler and preserves
-unrelated top-level settings, hook events, SessionStart groups, and handlers.
+installers. It recognizes a managed handler only when the entire command parses
+as the canonical Wasurezu adapter command with its required arguments. A mere
+adapter-id substring is unrelated. It replaces only that canonical managed
+handler and preserves unrelated top-level settings, hook events, SessionStart
+groups, and handlers.
 
 After an activation handoff authorizes one exact target, preview before any
 placement:
@@ -460,15 +463,22 @@ wasurezu-continuity-alpha-canary --plan-json alpha05-plan.json \
   --suite-json observed-suite.json
 ```
 
-The plan binds the exact P0 order separately from the exact Codex, Claude
-Code, and Gemini CLI host canaries. Gemini coverage uses only the frozen
+The plan binds the frozen plan, control-source, owner-envelope, and ordered
+ALPHA-01 through ALPHA-04 pull-request refs, plus the exact P0 order separately
+from the exact Codex, Claude Code, and Gemini CLI host canaries. Gemini coverage uses only the frozen
 `kusabi-gemini` identity with `use=alpha-canary-only` and
 `normal_work_queue=false`; it is not a P0 work-queue seat. The verifier rejects
 runtime, project, workspace, binding, ordinary-command, or native-start-
-surface mismatches. It also rejects fixtures presented as live observation,
-wrapper/manual starts, any forbidden-effect count, a sudden-death first run
-outside `kusabi` or `spec`, and any evaluator result that is not a live alpha
-candidate. Output conforms to
+surface mismatches. Every accepted run also requires a unique capture id,
+canonical timestamp, exact plan/head/tree and identity bindings, a durable
+GitHub issue-comment receipt reference, and a SHA-256 digest of the run payload.
+The verifier validates that content binding; the referenced comment remains
+operator/auditor evidence and is not fetched or treated as self-authenticating
+by this source-only command. It also rejects fixtures presented as live
+observation, wrapper/manual starts, missing or additional effect counters,
+non-zero host/session/evidence/external-send/live-canary/deploy/production
+effects, a sudden-death first run outside `kusabi` or `spec`, and any evaluator
+result that is not a live alpha candidate. Output conforms to
 `docs/design/schemas/continuity-alpha-canary-v1.schema.json`.
 
 ## Restart UX

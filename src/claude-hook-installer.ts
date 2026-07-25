@@ -234,7 +234,7 @@ export function buildClaudeSessionStartHookGroup(
 function isManagedHandler(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.command === "string" &&
-    value.command.includes(CLAUDE_SESSION_START_ADAPTER_ID);
+    parseClaudeHookCommand(value.command) !== null;
 }
 
 function normalizeGroup(value: unknown, index: number): HookGroup {
