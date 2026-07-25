@@ -189,6 +189,60 @@ forces `continuity_alpha_candidate=false`. Only later
 performs no host launch, config/trust mutation, activation, restart, TUI write,
 or rollout.
 
+### 3.3 ALPHA-05A canary planning and evidence binding
+
+The source-only ALPHA-05A instrument is
+`src/continuity-alpha-canary.ts`; its plan and verification output contract is
+`docs/design/schemas/continuity-alpha-canary-v1.schema.json`. Run its focused
+tests with:
+
+```bash
+npm run test:continuity-alpha-canary
+```
+
+Before an operator run, the planner evaluates the canonical S15 negative
+fixture first and stops when the evaluator is not intact. A ready plan then
+binds all of the following into its SHA-256 plan identifier:
+
+- exact implementation head and tree; the frozen plan, control-source, and
+  owner-envelope URLs; and the exact ALPHA-01 through ALPHA-04 dependency order
+  PR #265, #270, #266, and #267;
+- the exact ordered P0 list and each seat's runtime, project, canonical
+  workspace, and verified binding ref;
+- the separate exact Codex, Claude Code, and Gemini CLI native-host canary
+  matrix, including the dedicated `kusabi-gemini` identity;
+- the S1-S15 contract, 10/30/60-second thresholds, 28/30 and 4.5/5 bars,
+  sequential stop-on-first-failure policy, and initial S3 scope of `kusabi`
+  and `spec`; and
+- the operator-only old-session end and ordinary-command fresh-process start
+  boundary, with the complete, exact forbidden preflight effect record at zero,
+  including host launch, session exit, evidence write, external send, live
+  canary execution, deploy, and production mutation.
+
+The verifier accepts only `observed_live_canary` evidence. For S1-S13 it
+checks evidence against a planned P0 binding; for S14 it checks each run
+against the corresponding planned host-canary binding. Agent, runtime,
+project, workspace, binding ref, ordinary launch command, and native start
+surface must all agree. Each run must additionally carry a durable observation
+receipt with a unique capture id, canonical timestamp, GitHub issue-comment
+reference, exact plan/head/tree and identity fields, and a SHA-256 digest of the
+run evidence. The verifier resolves each unique comment read-only through the
+GitHub API, requires an unedited comment from the declared observer within one
+hour of capture, and matches the complete embedded receipt JSON. Missing,
+unresolved, unrelated, edited, author-mismatched, malformed, fixture-style,
+mismatched, or digest-invalid receipts fail closed. This proves the supplied
+receipt matches the currently resolved durable comment content; operator and
+auditor review still determine whether the physical observation itself was
+truthful. The ALPHA-04 evaluator remains authoritative for score,
+timing, RI0, meaningful-action, useful-result, safety, exact host coverage,
+exact P0 sequence, consecutive-pass evidence, and S15 behavior.
+
+ALPHA-05A is not activation or live canary evidence. Plan generation and
+verification do not place hooks, approve trust, start or stop sessions, write
+TUI input, mutate AUN lifecycle, deploy, or mutate production. A live candidate
+exists only when the verifier returns `status=pass` over separately captured
+operator-run evidence.
+
 ---
 
 ## 4. Test Protocol

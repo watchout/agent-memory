@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/continuity-alpha-canary-v1.schema.json",
+  "title": "Continuity alpha canary plan and verification v1",
+  "oneOf": [
+    { "$ref": "#/$defs/plan" },
+    { "$ref": "#/$defs/verification" }
+  ],
+  "$defs": {
+    "sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "strictSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "effectCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disconnect_detection_count",
+        "automatic_restart_count",
+        "process_kill_count",
+        "existing_session_injection_count",
+        "tui_write_count",
+        "tmux_send_keys_count",
+        "clipboard_write_count",
+        "aun_queue_mutation_count",
+        "live_config_mutation_count",
+        "trust_mutation_count",
+        "activation_count",
+        "rollout_count",
+        "host_launch_count",
+        "session_exit_count",
+        "evidence_write_count",
+        "external_send_count",
+        "live_canary_execution_count",
+        "deploy_count",
+        "production_mutation_count"
+      ],
+      "properties": {
+        "disconnect_detection_count": { "const": 0 },
+        "automatic_restart_count": { "const": 0 },
+        "process_kill_count": { "const": 0 },
+        "existing_session_injection_count": { "const": 0 },
+        "tui_write_count": { "const": 0 },
+        "tmux_send_keys_count": { "const": 0 },
+        "clipboard_write_count": { "const": 0 },
+        "aun_queue_mutation_count": { "const": 0 },
+        "live_config_mutation_count": { "const": 0 },
+        "trust_mutation_count": { "const": 0 },
+        "activation_count": { "const": 0 },
+        "rollout_count": { "const": 0 },
+        "host_launch_count": { "const": 0 },
+        "session_exit_count": { "const": 0 },
+        "evidence_write_count": { "const": 0 },
+        "external_send_count": { "const": 0 },
+        "live_canary_execution_count": { "const": 0 },
+        "deploy_count": { "const": 0 },
+        "production_mutation_count": { "const": 0 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "runtime", "project", "workspace_ref", "binding_ref"],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "project": { "type": "string", "minLength": 1 },
+        "workspace_ref": { "type": "string", "minLength": 1 },
+        "binding_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hostCanaryTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "runtime", "project", "workspace_ref", "binding_ref", "use", "normal_work_queue"],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "project": { "type": "string", "minLength": 1 },
+        "workspace_ref": { "type": "string", "minLength": 1 },
+        "binding_ref": { "type": "string", "minLength": 1 },
+        "use": { "const": "alpha-canary-only" },
+        "normal_work_queue": { "const": false }
+      }
+    },
+    "exactTargets": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "kusabi" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "spec" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "arc" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "codex-cto" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "codex-audit" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "devauditor" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "qa" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "check" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "org-build-dev" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/target" }, { "properties": { "agent_id": { "const": "dev-001" } } }] }
+      ],
+      "items": false
+    },
+    "exactHostCanaries": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/hostCanaryTarget" },
+            { "properties": { "runtime": { "const": "codex" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/hostCanaryTarget" },
+            { "properties": { "runtime": { "const": "claude_code" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/hostCanaryTarget" },
+            {
+              "properties": {
+                "agent_id": { "const": "kusabi-gemini" },
+                "runtime": { "const": "gemini_cli" },
+                "project": { "const": "agent-memory" },
+                "workspace_ref": { "const": "/Users/yuji/Developer/agent-memory" }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "exactSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "tree", "plan_ref", "control_source_ref", "owner_envelope_ref", "dependency_refs"],
+      "properties": {
+        "head": { "$ref": "#/$defs/sha" },
+        "tree": { "$ref": "#/$defs/sha" },
+        "plan_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102" },
+        "control_source_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043" },
+        "owner_envelope_ref": { "const": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853" },
+        "dependency_refs": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            { "const": "https://github.com/watchout/agent-memory/pull/265" },
+            { "const": "https://github.com/watchout/agent-memory/pull/270" },
+            { "const": "https://github.com/watchout/agent-memory/pull/266" },
+            { "const": "https://github.com/watchout/agent-memory/pull/267" }
+          ],
+          "items": false
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "plan_id", "status", "errors", "exact_subject",
+        "evaluator", "contract", "targets", "host_canaries", "operator_steps", "host_canary_steps",
+        "forbidden_automation", "preflight_effects", "claims", "next_action"
+      ],
+      "properties": {
+        "schema_version": { "const": "continuity-alpha-canary-plan/v1" },
+        "plan_id": { "type": "string", "pattern": "^alpha05:[0-9a-f]{64}$" },
+        "status": { "enum": ["ready_for_operator", "stopped"] },
+        "errors": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "exact_subject": { "$ref": "#/$defs/exactSubject" },
+        "evaluator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "s15_fixture_id", "s15_checked_first", "s15_passed"],
+          "properties": {
+            "version": { "const": "continuity-alpha-evaluator/1.0.0" },
+            "s15_fixture_id": { "const": "S15-STORED-VALUE-ECHO-V1" },
+            "s15_checked_first": { "const": true },
+            "s15_passed": { "type": "boolean" }
+          }
+        },
+        "contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "p0_order", "host_matrix", "scenarios", "thresholds", "sequential",
+            "stop_on_first_failure", "initial_sudden_death_agents", "operator_actions",
+            "observation_receipt"
+          ],
+          "properties": {
+            "p0_order": {
+              "type": "array",
+              "minItems": 10,
+              "maxItems": 10,
+              "prefixItems": [
+                { "const": "kusabi" }, { "const": "spec" }, { "const": "arc" },
+                { "const": "codex-cto" }, { "const": "codex-audit" }, { "const": "devauditor" },
+                { "const": "qa" }, { "const": "check" }, { "const": "org-build-dev" }, { "const": "dev-001" }
+              ],
+              "items": false
+            },
+            "host_matrix": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "prefixItems": [
+                { "$ref": "#/$defs/codexHost" },
+                { "$ref": "#/$defs/claudeHost" },
+                { "$ref": "#/$defs/geminiHost" }
+              ],
+              "items": false
+            },
+            "scenarios": { "type": "array", "minItems": 15, "maxItems": 15, "items": { "type": "object" } },
+            "thresholds": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["t1_ms", "t3_ms", "t4_ms", "minimum_score", "minimum_blind_operator_score", "maximum_cursor_lag_ms", "minimum_consecutive_passes"],
+              "properties": {
+                "t1_ms": { "const": 10000 },
+                "t3_ms": { "const": 30000 },
+                "t4_ms": { "const": 60000 },
+                "minimum_score": { "const": 28 },
+                "minimum_blind_operator_score": { "const": 4.5 },
+                "maximum_cursor_lag_ms": { "const": 10000 },
+                "minimum_consecutive_passes": { "const": 2 }
+              }
+            },
+            "sequential": { "const": true },
+            "stop_on_first_failure": { "const": true },
+            "initial_sudden_death_agents": {
+              "type": "array",
+              "prefixItems": [{ "const": "kusabi" }, { "const": "spec" }],
+              "items": false
+            },
+            "operator_actions": {
+              "type": "array",
+              "prefixItems": [{ "const": "end_old_session" }, { "const": "start_fresh_session_with_ordinary_command" }],
+              "items": false
+            },
+            "observation_receipt": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version", "source", "payload_digest", "exact_identity_binding",
+                "resolution", "requires_unedited_comment", "maximum_capture_to_comment_ms",
+                "embedded_exact_receipt"
+              ],
+              "properties": {
+                "schema_version": { "const": "continuity-alpha-observation-receipt/v1" },
+                "source": { "const": "durable_github_issue_comment" },
+                "payload_digest": { "const": "sha256" },
+                "exact_identity_binding": { "const": true },
+                "resolution": { "const": "github_api_comment_by_id" },
+                "requires_unedited_comment": { "const": true },
+                "maximum_capture_to_comment_ms": { "const": 3600000 },
+                "embedded_exact_receipt": { "const": true }
+              }
+            }
+          }
+        },
+        "targets": { "$ref": "#/$defs/exactTargets" },
+        "host_canaries": { "$ref": "#/$defs/exactHostCanaries" },
+        "operator_steps": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ordinal", "agent_id", "runtime", "ordinary_command", "workspace_ref", "action"],
+            "properties": {
+              "ordinal": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "agent_id": { "type": "string", "minLength": 1 },
+              "runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+              "ordinary_command": { "enum": ["codex", "claude", "gemini"] },
+              "workspace_ref": { "type": "string", "minLength": 1 },
+              "action": { "const": "operator_exit_then_ordinary_fresh_start" }
+            }
+          }
+        },
+        "host_canary_steps": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ordinal", "agent_id", "runtime", "ordinary_command", "workspace_ref", "action"],
+            "properties": {
+              "ordinal": { "type": "integer", "minimum": 1, "maximum": 3 },
+              "agent_id": { "type": "string", "minLength": 1 },
+              "runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+              "ordinary_command": { "enum": ["codex", "claude", "gemini"] },
+              "workspace_ref": { "type": "string", "minLength": 1 },
+              "action": { "const": "operator_exit_then_ordinary_fresh_start" }
+            }
+          }
+        },
+        "forbidden_automation": {
+          "type": "array",
+          "minItems": 19,
+          "maxItems": 19,
+          "uniqueItems": true,
+          "prefixItems": [
+            { "const": "disconnect_detection" },
+            { "const": "automatic_restart" },
+            { "const": "process_kill" },
+            { "const": "existing_session_injection" },
+            { "const": "tui_write" },
+            { "const": "tmux_send_keys" },
+            { "const": "clipboard_write" },
+            { "const": "aun_queue_mutation" },
+            { "const": "live_config_mutation" },
+            { "const": "trust_mutation" },
+            { "const": "activation" },
+            { "const": "rollout" },
+            { "const": "host_launch" },
+            { "const": "session_exit" },
+            { "const": "evidence_write" },
+            { "const": "external_send" },
+            { "const": "live_canary_execution" },
+            { "const": "deploy" },
+            { "const": "production_mutation" }
+          ],
+          "items": false
+        },
+        "preflight_effects": { "$ref": "#/$defs/effectCounters" },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["live_execution_performed", "first_context_delivery_confirmed", "continuity_alpha_candidate"],
+          "properties": {
+            "live_execution_performed": { "const": false },
+            "first_context_delivery_confirmed": { "const": false },
+            "continuity_alpha_candidate": { "const": false }
+          }
+        },
+        "next_action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["blocking", "responsible_actor", "action"],
+          "properties": {
+            "blocking": { "const": true },
+            "responsible_actor": { "enum": ["operator", "implementation_executor"] },
+            "action": { "enum": ["place_and_review_exact_hook_then_run_first_sequential_operator_canary", "fix_plan_before_operator_run"] }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "ready_for_operator" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "maxItems": 0 },
+              "evaluator": { "properties": { "s15_passed": { "const": true } } },
+              "exact_subject": {
+                "properties": {
+                  "head": { "$ref": "#/$defs/strictSha" },
+                  "tree": { "$ref": "#/$defs/strictSha" }
+                }
+              },
+              "next_action": {
+                "properties": {
+                  "responsible_actor": { "const": "operator" },
+                  "action": { "const": "place_and_review_exact_hook_then_run_first_sequential_operator_canary" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "stopped" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "minItems": 1 },
+              "claims": {
+                "properties": {
+                  "continuity_alpha_candidate": { "const": false }
+                }
+              },
+              "next_action": {
+                "properties": {
+                  "responsible_actor": { "const": "implementation_executor" },
+                  "action": { "const": "fix_plan_before_operator_run" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "plan_id", "plan_digest", "status", "errors",
+        "evaluation", "exact_subject", "operator_boundary_verified",
+        "target_binding_verified", "receipt_provenance_verified", "verified_receipt_refs",
+        "sudden_death_scope_verified",
+        "continuity_alpha_candidate", "next_action"
+      ],
+      "properties": {
+        "schema_version": { "const": "continuity-alpha-canary-verification/v1" },
+        "plan_id": { "type": "string", "pattern": "^alpha05:[0-9a-f]{64}$" },
+        "plan_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "status": { "enum": ["pass", "fail", "stopped"] },
+        "errors": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "evaluation": { "$ref": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/continuity-alpha-evaluation-v1.schema.json" },
+        "exact_subject": { "$ref": "#/$defs/exactSubject" },
+        "operator_boundary_verified": { "type": "boolean" },
+        "target_binding_verified": { "type": "boolean" },
+        "receipt_provenance_verified": { "type": "boolean" },
+        "verified_receipt_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^https://github\\.com/watchout/agent-memory/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+          }
+        },
+        "sudden_death_scope_verified": { "type": "boolean" },
+        "continuity_alpha_candidate": { "type": "boolean" },
+        "next_action": { "enum": ["none", "fix_canary_evidence", "fix_evaluator_before_operator_run"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "maxItems": 0 },
+              "operator_boundary_verified": { "const": true },
+              "target_binding_verified": { "const": true },
+              "receipt_provenance_verified": { "const": true },
+              "verified_receipt_refs": { "minItems": 1 },
+              "sudden_death_scope_verified": { "const": true },
+              "continuity_alpha_candidate": { "const": true },
+              "next_action": { "const": "none" },
+              "exact_subject": {
+                "properties": {
+                  "head": { "$ref": "#/$defs/strictSha" },
+                  "tree": { "$ref": "#/$defs/strictSha" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "fail" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "minItems": 1 },
+              "continuity_alpha_candidate": { "const": false },
+              "next_action": { "const": "fix_canary_evidence" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "stopped" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "operator_boundary_verified": { "const": false },
+              "target_binding_verified": { "const": false },
+              "receipt_provenance_verified": { "const": false },
+              "verified_receipt_refs": { "maxItems": 0 },
+              "sudden_death_scope_verified": { "const": false },
+              "continuity_alpha_candidate": { "const": false },
+              "next_action": { "const": "fix_evaluator_before_operator_run" }
+            }
+          }
+        }
+      ]
+    },
+    "codexHost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "ordinary_command", "native_start_surface"],
+      "properties": {
+        "runtime": { "const": "codex" },
+        "ordinary_command": { "const": "codex" },
+        "native_start_surface": { "const": "codex_session_start" }
+      }
+    },
+    "claudeHost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "ordinary_command", "native_start_surface"],
+      "properties": {
+        "runtime": { "const": "claude_code" },
+        "ordinary_command": { "const": "claude" },
+        "native_start_surface": { "const": "claude_code_session_start" }
+      }
+    },
+    "geminiHost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "ordinary_command", "native_start_surface"],
+      "properties": {
+        "runtime": { "const": "gemini_cli" },
+        "ordinary_command": { "const": "gemini" },
+        "native_start_surface": { "const": "gemini_cli_session_start" }
+      }
+    }
+  }
+}
