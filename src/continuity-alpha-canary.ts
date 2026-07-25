@@ -36,11 +36,12 @@ export const CONTINUITY_ALPHA_CANARY_CONTROL_SOURCE_REF = "https://github.com/wa
 export const CONTINUITY_ALPHA_CANARY_OWNER_ENVELOPE_REF = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853" as const;
 export const CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS = Object.freeze([
   "https://github.com/watchout/agent-memory/pull/265",
+  "https://github.com/watchout/agent-memory/pull/270",
   "https://github.com/watchout/agent-memory/pull/266",
   "https://github.com/watchout/agent-memory/pull/267",
-  "https://github.com/watchout/agent-memory/pull/270",
 ] as const);
 export const CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION = "continuity-alpha-observation-receipt/v1" as const;
+export const CONTINUITY_ALPHA_OBSERVATION_RECEIPT_MARKER = "<!-- continuity-alpha-observation-receipt/v1 -->" as const;
 
 export interface ContinuityAlphaCanaryEffectCounters extends ContinuityAlphaEffectCounters {
   host_launch_count: number;
@@ -160,6 +161,10 @@ export interface ContinuityAlphaCanaryPlan {
       source: "durable_github_issue_comment";
       payload_digest: "sha256";
       exact_identity_binding: true;
+      resolution: "github_api_comment_by_id";
+      requires_unedited_comment: true;
+      maximum_capture_to_comment_ms: 3_600_000;
+      embedded_exact_receipt: true;
     };
   };
   targets: ContinuityAlphaCanaryTarget[];
@@ -189,8 +194,8 @@ export interface ContinuityAlphaCanaryPlan {
   };
   next_action: {
     blocking: true;
-    responsible_actor: "operator";
-    action: "place_and_review_exact_hook_then_run_first_sequential_operator_canary";
+    responsible_actor: "operator" | "implementation_executor";
+    action: "place_and_review_exact_hook_then_run_first_sequential_operator_canary" | "fix_plan_before_operator_run";
   };
 }
 
@@ -252,6 +257,10 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function digest(value: unknown): string {
   return createHash("sha256").update(canonical(value)).digest("hex");
 }
@@ -259,6 +268,10 @@ function digest(value: unknown): string {
 export function continuityAlphaObservedRunDigest(run: ContinuityAlphaRunEvidence | ContinuityAlphaObservedRunEvidence): string {
   const { observation_receipt: _receipt, ...evidence } = run as ContinuityAlphaObservedRunEvidence;
   return digest(evidence);
+}
+
+export function continuityAlphaObservationReceiptComment(receipt: ContinuityAlphaObservationReceipt): string {
+  return `${CONTINUITY_ALPHA_OBSERVATION_RECEIPT_MARKER}\n\`\`\`json\n${JSON.stringify(receipt, null, 2)}\n\`\`\``;
 }
 
 function exactZeroCanaryEffects(value: ContinuityAlphaCanaryEffectCounters): boolean {
@@ -345,6 +358,10 @@ export function buildContinuityAlphaCanaryPlan(input: ContinuityAlphaCanaryPlanI
       source: "durable_github_issue_comment" as const,
       payload_digest: "sha256" as const,
       exact_identity_binding: true as const,
+      resolution: "github_api_comment_by_id" as const,
+      requires_unedited_comment: true as const,
+      maximum_capture_to_comment_ms: 3_600_000 as const,
+      embedded_exact_receipt: true as const,
     },
   };
   const exactSubject = {
@@ -414,11 +431,17 @@ export function buildContinuityAlphaCanaryPlan(input: ContinuityAlphaCanaryPlanI
       first_context_delivery_confirmed: false,
       continuity_alpha_candidate: false,
     },
-    next_action: {
-      blocking: true,
-      responsible_actor: "operator",
-      action: "place_and_review_exact_hook_then_run_first_sequential_operator_canary",
-    },
+    next_action: errors.length === 0
+      ? {
+          blocking: true,
+          responsible_actor: "operator" as const,
+          action: "place_and_review_exact_hook_then_run_first_sequential_operator_canary" as const,
+        }
+      : {
+          blocking: true,
+          responsible_actor: "implementation_executor" as const,
+          action: "fix_plan_before_operator_run" as const,
+        },
   };
 }
 
@@ -477,9 +500,75 @@ function bindingErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaCa
   return errors;
 }
 
-function observationReceiptErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaCanarySuiteInput): string[] {
+interface ResolvedGitHubObservationComment {
+  id: number;
+  html_url: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  author: string;
+}
+
+function observationCommentId(ref: string): number | null {
+  const match = ref.match(/^https:\/\/github\.com\/watchout\/agent-memory\/(?:issues|pull)\/[1-9]\d*#issuecomment-([1-9]\d*)$/);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+function embeddedObservationReceipts(body: string): unknown[] {
+  const pattern = /<!--\s*continuity-alpha-observation-receipt\/v1\s*-->\s*```json\s*([\s\S]*?)```/g;
+  const receipts: unknown[] = [];
+  for (const match of body.matchAll(pattern)) {
+    try {
+      receipts.push(JSON.parse(match[1]));
+    } catch {
+      receipts.push(null);
+    }
+  }
+  return receipts;
+}
+
+async function resolveGitHubObservationComment(ref: string): Promise<ResolvedGitHubObservationComment | null> {
+  const id = observationCommentId(ref);
+  if (id === null) return null;
+  try {
+    const response = await fetch(`https://api.github.com/repos/watchout/agent-memory/issues/comments/${id}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "wasurezu-continuity-alpha-canary",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (!response.ok) return null;
+    const value: unknown = await response.json();
+    if (!isRecord(value) || !isRecord(value.user)
+      || value.id !== id
+      || value.html_url !== ref
+      || typeof value.body !== "string"
+      || value.body.trim().length === 0
+      || !isIsoInstant(value.created_at)
+      || !isIsoInstant(value.updated_at)
+      || !isText(value.user.login)) {
+      return null;
+    }
+    return {
+      id,
+      html_url: value.html_url,
+      body: value.body,
+      created_at: value.created_at,
+      updated_at: value.updated_at,
+      author: value.user.login,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function observationReceiptErrors(plan: ContinuityAlphaCanaryPlan, suite: ContinuityAlphaCanarySuiteInput): Promise<string[]> {
   const errors: string[] = [];
   const captureIds = new Set<string>();
+  const resolvedComments = new Map<string, Promise<ResolvedGitHubObservationComment | null>>();
   for (const run of suite.runs) {
     const receipt = run.observation_receipt;
     if (!receipt || typeof receipt !== "object") {
@@ -519,14 +608,36 @@ function observationReceiptErrors(plan: ContinuityAlphaCanaryPlan, suite: Contin
       || receipt.evidence_sha256 !== continuityAlphaObservedRunDigest(run)) {
       errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_DIGEST:${run.run_ref}`);
     }
+    if (isDurableObservationRef(receipt.receipt_ref)) {
+      let resolution = resolvedComments.get(receipt.receipt_ref);
+      if (!resolution) {
+        resolution = resolveGitHubObservationComment(receipt.receipt_ref);
+        resolvedComments.set(receipt.receipt_ref, resolution);
+      }
+      const comment = await resolution;
+      const capturedAt = Date.parse(receipt.captured_at);
+      const createdAt = comment ? Date.parse(comment.created_at) : Number.NaN;
+      const receiptEmbedded = comment
+        ? embeddedObservationReceipts(comment.body).some((candidate) => canonical(candidate) === canonical(receipt))
+        : false;
+      if (!comment
+        || comment.author !== receipt.observer_actor
+        || comment.created_at !== comment.updated_at
+        || !Number.isFinite(capturedAt)
+        || capturedAt > createdAt
+        || createdAt - capturedAt > 3_600_000
+        || !receiptEmbedded) {
+        errors.push(`FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION:${run.run_ref}`);
+      }
+    }
   }
   return errors;
 }
 
-export function verifyObservedContinuityAlphaCanary(
+export async function verifyObservedContinuityAlphaCanary(
   plan: ContinuityAlphaCanaryPlan,
   suite: ContinuityAlphaCanarySuiteInput,
-): ContinuityAlphaCanaryVerification {
+): Promise<ContinuityAlphaCanaryVerification> {
   const planDigest = continuityAlphaCanaryPlanDigest(plan);
   const integrityErrors = planIntegrityErrors(plan);
   if (plan.status !== "ready_for_operator" || !plan.evaluator.s15_passed || integrityErrors.length > 0) {
@@ -551,7 +662,7 @@ export function verifyObservedContinuityAlphaCanary(
       next_action: "fix_evaluator_before_operator_run",
     };
   }
-  const receiptErrors = observationReceiptErrors(plan, suite);
+  const receiptErrors = await observationReceiptErrors(plan, suite);
   const errors = [...bindingErrors(plan, suite), ...receiptErrors];
   if (suite.evidence_kind !== "observed_live_canary") errors.push("FAIL_OBSERVED_LIVE_EVIDENCE_REQUIRED");
   const evaluatorEffects = Object.fromEntries(
@@ -606,7 +717,7 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(resolve(path), "utf8"));
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const planInputPath = option(args, "--plan-input-json");
   const planPath = option(args, "--plan-json");
@@ -618,7 +729,7 @@ function main(): void {
     return;
   }
   if (planPath && suitePath && !planInputPath) {
-    const result = verifyObservedContinuityAlphaCanary(
+    const result = await verifyObservedContinuityAlphaCanary(
       readJson(planPath) as ContinuityAlphaCanaryPlan,
       readJson(suitePath) as ContinuityAlphaCanarySuiteInput,
     );
@@ -636,10 +747,8 @@ try {
   invokedPath = "";
 }
 if (invokedPath === realpathSync(fileURLToPath(import.meta.url))) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     process.stderr.write(`[continuity-alpha-canary] ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
-  }
+  });
 }

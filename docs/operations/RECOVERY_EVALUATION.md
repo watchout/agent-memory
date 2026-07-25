@@ -205,8 +205,8 @@ fixture first and stops when the evaluator is not intact. A ready plan then
 binds all of the following into its SHA-256 plan identifier:
 
 - exact implementation head and tree; the frozen plan, control-source, and
-  owner-envelope URLs; and the exact ordered PR #265, #266, #267, and #270
-  dependency refs;
+  owner-envelope URLs; and the exact ALPHA-01 through ALPHA-04 dependency order
+  PR #265, #270, #266, and #267;
 - the exact ordered P0 list and each seat's runtime, project, canonical
   workspace, and verified binding ref;
 - the separate exact Codex, Claude Code, and Gemini CLI native-host canary
@@ -226,11 +226,14 @@ project, workspace, binding ref, ordinary launch command, and native start
 surface must all agree. Each run must additionally carry a durable observation
 receipt with a unique capture id, canonical timestamp, GitHub issue-comment
 reference, exact plan/head/tree and identity fields, and a SHA-256 digest of the
-run evidence. Missing, malformed, fixture-style, mismatched, or digest-invalid
-receipts fail closed. This source-only verifier checks the receipt structure and
-content binding; it does not fetch the comment or independently prove that the
-operator performed the physical observation, so the durable comment remains
-subject to operator/auditor review. The ALPHA-04 evaluator remains authoritative for score,
+run evidence. The verifier resolves each unique comment read-only through the
+GitHub API, requires an unedited comment from the declared observer within one
+hour of capture, and matches the complete embedded receipt JSON. Missing,
+unresolved, unrelated, edited, author-mismatched, malformed, fixture-style,
+mismatched, or digest-invalid receipts fail closed. This proves the supplied
+receipt matches the currently resolved durable comment content; operator and
+auditor review still determine whether the physical observation itself was
+truthful. The ALPHA-04 evaluator remains authoritative for score,
 timing, RI0, meaningful-action, useful-result, safety, exact host coverage,
 exact P0 sequence, consecutive-pass evidence, and S15 behavior.
 

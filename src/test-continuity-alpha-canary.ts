@@ -24,6 +24,7 @@ import {
   CONTINUITY_ALPHA_OBSERVATION_RECEIPT_VERSION,
   buildContinuityAlphaCanaryPlan,
   continuityAlphaCanaryPlanDigest,
+  continuityAlphaObservationReceiptComment,
   continuityAlphaObservedRunDigest,
   verifyObservedContinuityAlphaCanary,
   type ContinuityAlphaCanaryPlan,
@@ -209,7 +210,7 @@ function validRun(
 }
 
 function observedRun(run: ContinuityAlphaRunEvidence, plan: ContinuityAlphaCanaryPlan, index: number): ContinuityAlphaObservedRunEvidence {
-  const receiptRef = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853";
+  const receiptRef = "https://github.com/watchout/agent-memory/issues/180#issuecomment-9000000001";
   const observed: ContinuityAlphaObservedRunEvidence = {
     ...run,
     observation_receipt: {
@@ -299,7 +300,41 @@ input.dependency_refs[0] = "mutated-after-build";
 assert.equal(plan.targets[0].agent_id, "kusabi");
 assert.equal(plan.exact_subject.dependency_refs[0], CONTINUITY_ALPHA_CANARY_DEPENDENCY_REFS[0]);
 
-const pass = verifyObservedContinuityAlphaCanary(plan, liveSuite(plan));
+const canonicalReceiptSuite = liveSuite(plan);
+const canonicalReceiptCommentBody = canonicalReceiptSuite.runs
+  .map((run) => continuityAlphaObservationReceiptComment(run.observation_receipt))
+  .join("\n\n");
+let resolvedReceiptCommentBody = canonicalReceiptCommentBody;
+let resolvedReceiptCommentAuthor = "operator";
+let resolvedReceiptCommentUpdatedAt = "2026-07-25T00:30:00.000Z";
+const nativeFetch = globalThis.fetch;
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const id = Number(url.match(/\/issues\/comments\/(\d+)$/)?.[1]);
+  if (id === 9_000_000_001) {
+    return new Response(JSON.stringify({
+      id,
+      html_url: "https://github.com/watchout/agent-memory/issues/180#issuecomment-9000000001",
+      body: resolvedReceiptCommentBody,
+      created_at: "2026-07-25T00:30:00.000Z",
+      updated_at: resolvedReceiptCommentUpdatedAt,
+      user: { login: resolvedReceiptCommentAuthor },
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (id === 5_054_279_853) {
+    return new Response(JSON.stringify({
+      id,
+      html_url: "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853",
+      body: "owner envelope without a continuity observation receipt",
+      created_at: "2026-07-23T00:00:00.000Z",
+      updated_at: "2026-07-23T00:00:00.000Z",
+      user: { login: "watchout" },
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return new Response("not found", { status: 404 });
+};
+
+const pass = await verifyObservedContinuityAlphaCanary(plan, liveSuite(plan));
 assert.equal(pass.status, "pass", JSON.stringify(pass, null, 2));
 assert.equal(pass.operator_boundary_verified, true);
 assert.equal(pass.target_binding_verified, true);
@@ -342,67 +377,83 @@ assert(buildContinuityAlphaCanaryPlan(wrongOwnerEnvelope).errors.includes("FAIL_
 
 const deterministic = liveSuite(plan);
 deterministic.evidence_kind = "deterministic_fixture";
-const deterministicResult = verifyObservedContinuityAlphaCanary(plan, deterministic);
+const deterministicResult = await verifyObservedContinuityAlphaCanary(plan, deterministic);
 assert.equal(deterministicResult.status, "fail");
 assert.equal(deterministicResult.operator_boundary_verified, false);
 assert(deterministicResult.errors.includes("FAIL_OBSERVED_LIVE_EVIDENCE_REQUIRED"));
 
 const wrongBinding = liveSuite(plan);
 wrongBinding.runs[0].identity.binding_ref = "binding:wrong";
-assert(verifyObservedContinuityAlphaCanary(plan, wrongBinding).errors.some((error) => error.startsWith("FAIL_RUN_BINDING_REF")));
+assert((await verifyObservedContinuityAlphaCanary(plan, wrongBinding)).errors.some((error) => error.startsWith("FAIL_RUN_BINDING_REF")));
 const wrongWorkspace = liveSuite(plan);
 wrongWorkspace.runs[0].identity.workspace = "/wrong/workspace";
-assert(verifyObservedContinuityAlphaCanary(plan, wrongWorkspace).errors.some((error) => error.startsWith("FAIL_RUN_WORKSPACE_BINDING")));
+assert((await verifyObservedContinuityAlphaCanary(plan, wrongWorkspace)).errors.some((error) => error.startsWith("FAIL_RUN_WORKSPACE_BINDING")));
 const wrongProject = liveSuite(plan);
 wrongProject.runs[0].identity.project = "wrong-project";
-assert(verifyObservedContinuityAlphaCanary(plan, wrongProject).errors.some((error) => error.startsWith("FAIL_RUN_PROJECT_BINDING")));
+assert((await verifyObservedContinuityAlphaCanary(plan, wrongProject)).errors.some((error) => error.startsWith("FAIL_RUN_PROJECT_BINDING")));
 const wrongSurface = liveSuite(plan);
 wrongSurface.runs[0].native_start_surface = "manual";
-assert(verifyObservedContinuityAlphaCanary(plan, wrongSurface).errors.some((error) => error.startsWith("FAIL_RUN_NATIVE_START_SURFACE")));
+assert((await verifyObservedContinuityAlphaCanary(plan, wrongSurface)).errors.some((error) => error.startsWith("FAIL_RUN_NATIVE_START_SURFACE")));
 const outsideSuddenDeath = liveSuite(plan);
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.agent_id = "arc";
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.runtime = "gemini_cli";
 outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.host = "gemini_cli";
-assert(verifyObservedContinuityAlphaCanary(plan, outsideSuddenDeath).errors.includes("FAIL_INITIAL_SUDDEN_DEATH_SCOPE"));
+assert((await verifyObservedContinuityAlphaCanary(plan, outsideSuddenDeath)).errors.includes("FAIL_INITIAL_SUDDEN_DEATH_SCOPE"));
 const wrapper = liveSuite(plan);
 wrapper.runs[0].startup_path_kind = "wrapper";
-const wrapperResult = verifyObservedContinuityAlphaCanary(plan, wrapper);
+const wrapperResult = await verifyObservedContinuityAlphaCanary(plan, wrapper);
 assert.equal(wrapperResult.operator_boundary_verified, false);
 assert(wrapperResult.errors.includes("FAIL_OPERATOR_BOUNDARY"));
 const storedValueEcho = liveSuite(plan);
 storedValueEcho.runs[0].continuation.probe_supplied_expected_values = true;
 storedValueEcho.runs[0].continuation.useful_result.equals_stored_value_only = true;
-assert.equal(verifyObservedContinuityAlphaCanary(plan, storedValueEcho).continuity_alpha_candidate, false);
+assert.equal((await verifyObservedContinuityAlphaCanary(plan, storedValueEcho)).continuity_alpha_candidate, false);
 
 const missingReceipt = liveSuite(plan);
 delete (missingReceipt.runs[0] as Partial<ContinuityAlphaObservedRunEvidence>).observation_receipt;
-const missingReceiptResult = verifyObservedContinuityAlphaCanary(plan, missingReceipt);
+const missingReceiptResult = await verifyObservedContinuityAlphaCanary(plan, missingReceipt);
 assert.equal(missingReceiptResult.receipt_provenance_verified, false);
 assert(missingReceiptResult.errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_MISSING")));
 const fixtureReceipt = liveSuite(plan);
 fixtureReceipt.runs[0].observation_receipt.receipt_ref = "fixture:claimed-live-receipt";
-assert(verifyObservedContinuityAlphaCanary(plan, fixtureReceipt).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_REF")));
+assert((await verifyObservedContinuityAlphaCanary(plan, fixtureReceipt)).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_REF")));
+const unrelatedDurableReceipt = liveSuite(plan);
+unrelatedDurableReceipt.runs[0].observation_receipt.receipt_ref = "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853";
+assert((await verifyObservedContinuityAlphaCanary(plan, unrelatedDurableReceipt)).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION")));
+resolvedReceiptCommentUpdatedAt = "2026-07-25T00:31:00.000Z";
+assert((await verifyObservedContinuityAlphaCanary(plan, liveSuite(plan))).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION")));
+resolvedReceiptCommentUpdatedAt = "2026-07-25T00:30:00.000Z";
+resolvedReceiptCommentAuthor = "unrelated-author";
+assert((await verifyObservedContinuityAlphaCanary(plan, liveSuite(plan))).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION")));
+resolvedReceiptCommentAuthor = "operator";
+resolvedReceiptCommentBody = "durable comment without the embedded exact receipt";
+assert((await verifyObservedContinuityAlphaCanary(plan, liveSuite(plan))).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION")));
+resolvedReceiptCommentBody = canonicalReceiptCommentBody;
 const forgedReceiptDigest = liveSuite(plan);
 forgedReceiptDigest.runs[0].observation_receipt.evidence_sha256 = "f".repeat(64);
-assert(verifyObservedContinuityAlphaCanary(plan, forgedReceiptDigest).errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_DIGEST")));
+const forgedReceiptResult = await verifyObservedContinuityAlphaCanary(plan, forgedReceiptDigest);
+assert(forgedReceiptResult.errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_DIGEST")));
+assert(forgedReceiptResult.errors.some((error) => error.startsWith("FAIL_RUN_OBSERVATION_RECEIPT_RESOLUTION")));
 const missingDeployCounter = liveSuite(plan);
 delete (missingDeployCounter.effects as Partial<typeof missingDeployCounter.effects>).deploy_count;
-assert(verifyObservedContinuityAlphaCanary(plan, missingDeployCounter).errors.includes("FAIL_OPERATOR_BOUNDARY"));
+assert((await verifyObservedContinuityAlphaCanary(plan, missingDeployCounter)).errors.includes("FAIL_OPERATOR_BOUNDARY"));
 const externalSend = liveSuite(plan);
 externalSend.effects.external_send_count = 1;
-assert(verifyObservedContinuityAlphaCanary(plan, externalSend).errors.includes("FAIL_OPERATOR_BOUNDARY"));
+assert((await verifyObservedContinuityAlphaCanary(plan, externalSend)).errors.includes("FAIL_OPERATOR_BOUNDARY"));
 
 const mutatedPlan = structuredClone(plan);
 mutatedPlan.operator_steps[0].ordinary_command = "claude";
-const mutatedPlanResult = verifyObservedContinuityAlphaCanary(mutatedPlan, liveSuite(plan));
+const mutatedPlanResult = await verifyObservedContinuityAlphaCanary(mutatedPlan, liveSuite(plan));
 assert.equal(mutatedPlanResult.status, "stopped");
 assert(mutatedPlanResult.errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
 const forgedPlanId = structuredClone(plan);
 forgedPlanId.plan_id = `alpha05:${"f".repeat(64)}`;
-assert(verifyObservedContinuityAlphaCanary(forgedPlanId, liveSuite(plan)).errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
+assert((await verifyObservedContinuityAlphaCanary(forgedPlanId, liveSuite(plan))).errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
 
 const stoppedPlan = buildContinuityAlphaCanaryPlan(badSha);
-assert.equal(verifyObservedContinuityAlphaCanary(stoppedPlan, liveSuite(stoppedPlan)).status, "stopped");
+assert.equal(stoppedPlan.next_action.responsible_actor, "implementation_executor");
+assert.equal(stoppedPlan.next_action.action, "fix_plan_before_operator_run");
+assert.equal((await verifyObservedContinuityAlphaCanary(stoppedPlan, liveSuite(stoppedPlan))).status, "stopped");
 
 const evaluationSchema = JSON.parse(readFileSync(
   "docs/design/schemas/continuity-alpha-evaluation-v1.schema.json",
@@ -428,5 +479,13 @@ failedFalseClaim.errors = ["FAIL_SYNTHETIC"];
 failedFalseClaim.continuity_alpha_candidate = true;
 failedFalseClaim.next_action = "none";
 assert.equal(validate(failedFalseClaim), false);
+const stoppedUnsafeAction = structuredClone(stoppedPlan);
+stoppedUnsafeAction.next_action = {
+  blocking: true,
+  responsible_actor: "operator",
+  action: "place_and_review_exact_hook_then_run_first_sequential_operator_canary",
+};
+assert.equal(validate(stoppedUnsafeAction), false);
 
+globalThis.fetch = nativeFetch;
 console.log("continuity alpha canary tests passed");

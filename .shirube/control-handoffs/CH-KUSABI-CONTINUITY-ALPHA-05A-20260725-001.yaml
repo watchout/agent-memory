@@ -5,7 +5,12 @@ control_handoff_id: CH-KUSABI-CONTINUITY-ALPHA-05A-20260725-001
 control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-05A-20260725-001.yaml
 parent_ssot: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
 owner_envelope_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
 durable_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102
+escalation_route: >-
+  Stop before any path or operation outside cell.allowed_paths and cell.non_scope;
+  return the exact mismatch and requested authority to the repo owner through
+  the durable Issue #180 control thread.
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_spec_ref: .shirube/repo-spec.yaml
@@ -85,7 +90,7 @@ acceptance_criteria:
   - Claude installer refuses symlink config and runner paths, uses mode 0600 for writes and backups, and never claims trust or delivery.
   - Canary planning evaluates canonical S15 before readiness and binds exact head, tree, frozen authority refs, exact ordered ALPHA-01 through ALPHA-04 dependency refs, P0 order, host matrix, thresholds, scenario contract, and operator boundary.
   - P0 seats are distinct from the three native host canaries; Gemini uses only kusabi-gemini with alpha-canary-only and normal_work_queue false.
-  - Verification accepts only observed_live_canary evidence with a content-addressed durable observation receipt and rejects receipt, identity, runtime, project, workspace, binding, command, native-surface, wrapper, effect, or sudden-death-scope mismatch.
+  - Verification accepts only observed_live_canary evidence whose content-addressed receipt is resolved read-only from the referenced GitHub comment and rejects unrelated, missing, edited, author-mismatched, receipt-mismatched, identity, runtime, project, workspace, binding, command, native-surface, wrapper, effect, or sudden-death-scope evidence.
   - Passing verification delegates score and scenario truth to the ALPHA-04 evaluator and cannot be obtained by stored-value echo.
   - JSON Schema validates ready, stopped, passing, and failing outputs while rejecting false live-candidate claims in every non-pass state.
   - ALPHA-05A performs no live placement, trust, host launch, session exit, canary, restart, TUI write, queue mutation, activation, rollout, deploy, or production mutation.

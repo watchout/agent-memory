@@ -154,9 +154,9 @@
           "maxItems": 4,
           "prefixItems": [
             { "const": "https://github.com/watchout/agent-memory/pull/265" },
+            { "const": "https://github.com/watchout/agent-memory/pull/270" },
             { "const": "https://github.com/watchout/agent-memory/pull/266" },
-            { "const": "https://github.com/watchout/agent-memory/pull/267" },
-            { "const": "https://github.com/watchout/agent-memory/pull/270" }
+            { "const": "https://github.com/watchout/agent-memory/pull/267" }
           ],
           "items": false
         }
@@ -248,12 +248,20 @@
             "observation_receipt": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["schema_version", "source", "payload_digest", "exact_identity_binding"],
+              "required": [
+                "schema_version", "source", "payload_digest", "exact_identity_binding",
+                "resolution", "requires_unedited_comment", "maximum_capture_to_comment_ms",
+                "embedded_exact_receipt"
+              ],
               "properties": {
                 "schema_version": { "const": "continuity-alpha-observation-receipt/v1" },
                 "source": { "const": "durable_github_issue_comment" },
                 "payload_digest": { "const": "sha256" },
-                "exact_identity_binding": { "const": true }
+                "exact_identity_binding": { "const": true },
+                "resolution": { "const": "github_api_comment_by_id" },
+                "requires_unedited_comment": { "const": true },
+                "maximum_capture_to_comment_ms": { "const": 3600000 },
+                "embedded_exact_receipt": { "const": true }
               }
             }
           }
@@ -341,8 +349,8 @@
           "required": ["blocking", "responsible_actor", "action"],
           "properties": {
             "blocking": { "const": true },
-            "responsible_actor": { "const": "operator" },
-            "action": { "const": "place_and_review_exact_hook_then_run_first_sequential_operator_canary" }
+            "responsible_actor": { "enum": ["operator", "implementation_executor"] },
+            "action": { "enum": ["place_and_review_exact_hook_then_run_first_sequential_operator_canary", "fix_plan_before_operator_run"] }
           }
         }
       },
@@ -357,6 +365,31 @@
                 "properties": {
                   "head": { "$ref": "#/$defs/strictSha" },
                   "tree": { "$ref": "#/$defs/strictSha" }
+                }
+              },
+              "next_action": {
+                "properties": {
+                  "responsible_actor": { "const": "operator" },
+                  "action": { "const": "place_and_review_exact_hook_then_run_first_sequential_operator_canary" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "stopped" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "errors": { "minItems": 1 },
+              "claims": {
+                "properties": {
+                  "continuity_alpha_candidate": { "const": false }
+                }
+              },
+              "next_action": {
+                "properties": {
+                  "responsible_actor": { "const": "implementation_executor" },
+                  "action": { "const": "fix_plan_before_operator_run" }
                 }
               }
             }

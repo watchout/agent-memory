@@ -464,7 +464,7 @@ wasurezu-continuity-alpha-canary --plan-json alpha05-plan.json \
 ```
 
 The plan binds the frozen plan, control-source, owner-envelope, and ordered
-ALPHA-01 through ALPHA-04 pull-request refs, plus the exact P0 order separately
+ALPHA-01 through ALPHA-04 pull-request refs (`#265`, `#270`, `#266`, `#267`), plus the exact P0 order separately
 from the exact Codex, Claude Code, and Gemini CLI host canaries. Gemini coverage uses only the frozen
 `kusabi-gemini` identity with `use=alpha-canary-only` and
 `normal_work_queue=false`; it is not a P0 work-queue seat. The verifier rejects
@@ -472,13 +472,17 @@ runtime, project, workspace, binding, ordinary-command, or native-start-
 surface mismatches. Every accepted run also requires a unique capture id,
 canonical timestamp, exact plan/head/tree and identity bindings, a durable
 GitHub issue-comment receipt reference, and a SHA-256 digest of the run payload.
-The verifier validates that content binding; the referenced comment remains
-operator/auditor evidence and is not fetched or treated as self-authenticating
-by this source-only command. It also rejects fixtures presented as live
-observation, wrapper/manual starts, missing or additional effect counters,
+The verifier performs a read-only GitHub API resolution of each unique receipt
+comment, requires an unedited comment authored by the declared observer within
+one hour of capture, and requires the exact receipt JSON to appear under the
+canonical marker in that resolved body. An unrelated real comment URL,
+caller-recomputed digest, or locally relabeled fixture therefore fails. Network
+or resolution failure also fails closed; no live claim is available from the
+unresolved input alone. It also rejects wrapper/manual starts, missing or additional effect counters,
 non-zero host/session/evidence/external-send/live-canary/deploy/production
 effects, a sudden-death first run outside `kusabi` or `spec`, and any evaluator
-result that is not a live alpha candidate. Output conforms to
+result that is not a live alpha candidate. The resolution is an external
+read-only evidence lookup, not an external message/write. Output conforms to
 `docs/design/schemas/continuity-alpha-canary-v1.schema.json`.
 
 ## Restart UX
