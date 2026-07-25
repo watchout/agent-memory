@@ -39,8 +39,8 @@ without one uses an explicit bridge or remains manual MCP recovery.
 ## Continuity-Alpha Host Adapter Contract
 
 This section is the normative ALPHA-00 contract. ALPHA-01 implements the Codex
-port in source and ALPHA-03 implements the Gemini CLI port in source; ALPHA-02
-Claude parity hardening remains downstream. Source availability,
+port in source, ALPHA-02 hardens the Claude Code port to contract parity, and
+ALPHA-03 implements the Gemini CLI port in source. Source availability,
 workspace placement, operator trust, first-context delivery, and canary
 acceptance are separate lifecycle states. ALPHA-01 alone does not claim that a
 live seat is activated or that recovery was delivered; the same claim limit
@@ -400,11 +400,11 @@ supervisors remain responsible for runtime lifecycle and queue state.
 | 2 | Native lifecycle integration | The host has a native startup hook or extension point that runs recovery on session start. | Startup recovery, transparent host integration. |
 | 3 | Managed enterprise integration | Org install, policy, audit, metrics, and rollout controls are available. | Enterprise managed recovery. Future tier. |
 
-## Current Host Matrix (After ALPHA-01 and ALPHA-03 Source Implementation)
+## Current Host Matrix (After ALPHA-01 through ALPHA-03 Source Implementation)
 
 | Host | Source capability | Startup Path | Deployment/claim state |
 |------|-------------------|--------------|------------------------|
-| Claude Code | 2 | `wasurezu-claude-start --fresh-session` starts one ordinary new process with a temporary native SessionStart hook that runs `boot.js` in `restart_pack` mode. | The fresh path does not detect disconnects, kill a process, or write to a TUI. SessionStart is only the selected-pack load hook. |
+| Claude Code | 2 | Ordinary `claude` loads the reviewed `.claude/settings.json`; `wasurezu-claude-session-start` validates native stdin, verified workspace identity, redaction/caps, and returns bounded `hookSpecificOutput.additionalContext`. | ALPHA-02 proves source behavior only. Per-seat placement/trust and first-context evidence remain ALPHA-05/ALPHA-06 work. `wasurezu-claude-start` remains a non-alpha compatibility/diagnostic fallback. |
 | Codex | 2 | Ordinary `codex` loads the placed and trusted `.codex/hooks.json`; `wasurezu-codex-session-start` returns bounded native SessionStart context. | ALPHA-01 proves source behavior only. Per-seat placement/trust and first-context evidence remain ALPHA-05/ALPHA-06 work. The Level-1 wrapper remains a non-alpha fallback. |
 | Cursor | 0 | Configure wasurezu as an MCP server and call `restart_pack` manually. | Startup adapter not verified yet. |
 | Gemini CLI | 2 | Ordinary `gemini` loads a reviewed `.gemini/settings.json`; `wasurezu-gemini-session-start` returns bounded native SessionStart context for `startup`, `resume`, and `clear`. | ALPHA-03 proves source behavior only. Placement/review and first-context evidence remain ALPHA-05/ALPHA-06 work; current state is `placed_not_delivered`. |
@@ -443,6 +443,21 @@ context. The legacy wrapper remains available for diagnostics and rollback:
 ```bash
 wasurezu-codex-start --launch --cd /path/to/workspace
 ```
+
+For Claude Code:
+
+```bash
+/exit
+claude
+```
+
+This counts only when the exact project hook calls
+`wasurezu-claude-session-start` with explicit `agent_id`, project, and
+workspace binding, the current definition is reviewed, and external evidence
+confirms that bounded context reached the first model context. The adapter
+accepts `startup`, `resume`, `clear`, and `compact`, uses a 7,000 ms maximum
+internal deadline under a 9-second hook timeout, and always leaves ordinary
+startup usable on degradation.
 
 Codex launcher hardening helpers:
 
@@ -507,7 +522,7 @@ operator sequence. Live mode also fails closed unless a durable independent
 `devauditor` or `codex-audit` PASS names the exact current Git HEAD; ARC is not
 an auditor for this gate.
 
-For Claude Code standalone resession:
+For Claude Code standalone resession compatibility diagnostics:
 
 ```bash
 /exit
@@ -520,6 +535,7 @@ wasurezu-claude-start --launch \
   --mcp-config .mcp.json
 ```
 
+This wrapper does not satisfy the ordinary-command alpha gate.
 `wasurezu-claude-start` prepares a selected `host-invocation-context/v1` pack
 for both the guarded standalone path and ordinary fresh-session path.
 SessionStart is a load hook, not the restart policy owner.
@@ -564,7 +580,10 @@ recovery, not primary startup automation.
 A recovery run only counts as startup recovery when the first model context
 already includes `restart_pack`.
 
-- Claude Code: counts when the SessionStart hook emits restart recovery.
+- Claude Code: counts only when ordinary `claude` runs the reviewed native
+  SessionStart definition and exact evidence proves verified identity,
+  bounded/redacted output, safe degradation, and first-context delivery.
+  Source/config presence alone is `placed_not_delivered`.
 - Codex non-alpha diagnostics: wrapper runs may count as legacy startup-adapter
   evidence. Printed prompts from `wasurezu-codex-start --print` are inspection
   evidence only.
