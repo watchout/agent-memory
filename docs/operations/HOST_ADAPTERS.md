@@ -131,6 +131,19 @@ entrypoints are:
 - `wasurezu-codex-hook-install`: checks, previews, or atomically places the
   exact project hook while preserving unrelated hooks.
 
+The native hook is a standalone child process, so it resolves storage before
+building the pack. Explicit `AGENT_MEMORY_DB_TYPE` and PostgreSQL URL
+environment settings take precedence. When neither an explicit local backend
+nor a PostgreSQL URL is present, the adapter reads only `database_url` from the
+existing `~/.agent-memory/config.json` compatibility surface. It never uses
+the config file's agent or project values to override the exact hook binding,
+and it never emits the URL or config contents. A present but malformed,
+unreadable, symlinked, or non-PostgreSQL database binding degrades recovery and
+keeps ordinary startup usable instead of silently selecting empty SQLite. A
+genuinely absent config preserves the OSS SQLite default. Evidence reports
+only the backend intent, binding-source class, config-path digest, and whether
+the binding was verified.
+
 The generated matcher is exactly `startup|resume|clear|compact`. The command
 hook timeout is 9 seconds and its internal recovery deadline is 7 seconds, so
 it can return a structured degraded result before the T1 10-second alpha

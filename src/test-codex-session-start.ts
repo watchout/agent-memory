@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -10,6 +10,7 @@ import {
   enforceCodexRecoveryCaps,
   parseCodexSessionStartArgs,
   recoveryFromPack,
+  resolveCodexStoreBinding,
   runCodexSessionStart,
   type CodexSessionStartBinding,
   type CodexSessionStartInput,
@@ -69,6 +70,13 @@ function loaded(text?: string): LoadedCodexRecovery {
       policy_version: "wasurezu-memory-safety-governance/0.1.0",
     },
     recovery_quality_log_ref: "recovery_quality_log:123e4567-e89b-42d3-a456-426614174000",
+    store_binding: {
+      source: "user_config",
+      backend_intent: "postgres",
+      config_path_sha256: "a".repeat(64),
+      verified: true,
+      credentials_embedded: false,
+    },
   };
 }
 
@@ -85,6 +93,65 @@ async function main(): Promise<void> {
     const outside = join(root, "outside");
     await mkdir(child, { recursive: true });
     await mkdir(outside, { recursive: true });
+
+    const configDir = join(root, "store-config");
+    const configPath = join(configDir, "config.json");
+    const syntheticDatabaseUrl = "postgresql:///fixture?host=/tmp";
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configPath, JSON.stringify({
+      database_url: syntheticDatabaseUrl,
+      agent_id: "must-not-override-hook-binding",
+      default_project: "must-not-override-hook-binding",
+    }));
+
+    const userConfigEnv: NodeJS.ProcessEnv = {};
+    const userConfigBinding = resolveCodexStoreBinding(userConfigEnv, configPath);
+    assert.equal(userConfigBinding.source, "user_config");
+    assert.equal(userConfigBinding.backend_intent, "postgres");
+    assert.match(userConfigBinding.config_path_sha256 ?? "", /^[a-f0-9]{64}$/);
+    assert.equal(userConfigBinding.credentials_embedded, false);
+    assert.equal(userConfigEnv.AGENT_MEMORY_DATABASE_URL, syntheticDatabaseUrl);
+    assert(!JSON.stringify(userConfigBinding).includes(syntheticDatabaseUrl));
+    assert(!JSON.stringify(userConfigBinding).includes("must-not-override-hook-binding"));
+
+    const explicitEnvironmentBinding = resolveCodexStoreBinding({
+      AGENT_MEMORY_DATABASE_URL: syntheticDatabaseUrl,
+    }, join(root, "not-read.json"));
+    assert.equal(explicitEnvironmentBinding.source, "environment");
+    assert.equal(explicitEnvironmentBinding.backend_intent, "postgres");
+    assert.equal(explicitEnvironmentBinding.config_path_sha256, null);
+
+    const explicitLocalEnv: NodeJS.ProcessEnv = { AGENT_MEMORY_DB_TYPE: "sqlite" };
+    const explicitLocalBinding = resolveCodexStoreBinding(explicitLocalEnv, configPath);
+    assert.equal(explicitLocalBinding.source, "environment");
+    assert.equal(explicitLocalBinding.backend_intent, "sqlite");
+    assert.equal(explicitLocalEnv.AGENT_MEMORY_DATABASE_URL, undefined);
+
+    const absentConfigBinding = resolveCodexStoreBinding({}, join(root, "absent-config.json"));
+    assert.equal(absentConfigBinding.source, "local_default");
+    assert.equal(absentConfigBinding.backend_intent, "sqlite");
+
+    const malformedConfigPath = join(configDir, "malformed.json");
+    await writeFile(malformedConfigPath, "not-json");
+    assert.throws(() => resolveCodexStoreBinding({}, malformedConfigPath), /RECOVERY_UNAVAILABLE/);
+
+    const invalidUrlConfigPath = join(configDir, "invalid-url.json");
+    await writeFile(invalidUrlConfigPath, JSON.stringify({ database_url: "https://not-a-database.invalid" }));
+    assert.throws(() => resolveCodexStoreBinding({}, invalidUrlConfigPath), /RECOVERY_UNAVAILABLE/);
+
+    const unreadableConfigPath = join(configDir, "unreadable.json");
+    await writeFile(unreadableConfigPath, JSON.stringify({ database_url: syntheticDatabaseUrl }));
+    await chmod(unreadableConfigPath, 0o000);
+    assert.throws(() => resolveCodexStoreBinding({}, unreadableConfigPath), /RECOVERY_UNAVAILABLE/);
+    await chmod(unreadableConfigPath, 0o600);
+
+    const symlinkConfigPath = join(configDir, "symlink.json");
+    await symlink(configPath, symlinkConfigPath);
+    assert.throws(() => resolveCodexStoreBinding({}, symlinkConfigPath), /RECOVERY_UNAVAILABLE/);
+    assert.throws(
+      () => resolveCodexStoreBinding({ AGENT_MEMORY_DB_TYPE: "postgres" }, join(root, "absent-postgres.json")),
+      /RECOVERY_UNAVAILABLE/,
+    );
 
     for (const source of ["startup", "resume", "clear", "compact"] as const) {
       const result = await runCodexSessionStart(hookInput(child, source), binding(workspace), {
@@ -110,6 +177,9 @@ async function main(): Promise<void> {
       assert.equal(result.evidence.adapter.normal_launch_command, "codex");
       assert.equal(result.evidence.hook.source, source);
       assert.equal(result.evidence.identity.verified, true);
+      assert.equal(result.evidence.store_binding.source, "user_config");
+      assert.equal(result.evidence.store_binding.backend_intent, "postgres");
+      assert.equal(result.evidence.store_binding.credentials_embedded, false);
       assert.equal(result.evidence.timing.elapsed_ms, 25);
       assert.equal(result.evidence.ordinary_launch_usable, true);
       assert.deepEqual(Object.values(result.evidence.forbidden_effects), [0, 0, 0, 0, 0, 0, 0]);

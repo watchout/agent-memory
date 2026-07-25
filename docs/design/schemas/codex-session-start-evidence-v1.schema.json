@@ -8,6 +8,7 @@
     "schema_version",
     "adapter",
     "identity",
+    "store_binding",
     "hook",
     "timing",
     "output",
@@ -48,6 +49,52 @@
         "binding_source_ref": { "type": "string", "minLength": 1 },
         "runtime": { "const": "codex" },
         "verified": { "type": "boolean" }
+      }
+    },
+    "store_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "backend_intent",
+        "config_path_sha256",
+        "verified",
+        "credentials_embedded"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "environment",
+            "user_config",
+            "local_default",
+            "unknown"
+          ]
+        },
+        "backend_intent": {
+          "enum": [
+            "postgres",
+            "sqlite",
+            "json",
+            "unknown"
+          ]
+        },
+        "config_path_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "credentials_embedded": {
+          "const": false
+        }
       }
     },
     "hook": {

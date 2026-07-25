@@ -1,0 +1,149 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CONTINUITY-ALPHA-05B-STORE-BINDING-20260725-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-05B-STORE-BINDING-20260725-001.yaml
+parent_ssot: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+owner_envelope_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5077386558
+observed_failure_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5077500514
+durable_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-5077500514
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+spec_review_state: ready_for_implementation
+escalation_route: >-
+  Stop before any path or operation outside cell.allowed_paths and
+  cell.non_scope; return the exact mismatch to the owner through Issue #180.
+
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+execution_context:
+  author:
+    agent_id: kusabi
+    active_function: implementation_executor
+    authority: frozen_graph_self_handoff_plus_owner_remediation_instruction
+  implementer:
+    agent_id: kusabi
+    active_function: implementation_executor
+  audit:
+    active_function: evidence_audit_gate
+    primary_agent_id: devauditor
+    alternate_agent_id: codex-audit
+    exact_head_required: true
+    self_or_subagent_audit_admissible: false
+
+cell:
+  CELL-ID: ALPHA-05B-KUSABI-STORE-BINDING-REMEDIATION
+  cell_type: native_host_store_binding_remediation
+  risk_class: R2
+  exact_base_sha: 7372d54b07f02655bc916d3f110170bab1f6ee94
+  exact_base_tree: 9fec2e8e52c7753434a67d361ca5c553a442408e
+  goal: >-
+    Bind native Codex SessionStart to the same populated memory backend as the
+    MCP recovery service without embedding credentials in hooks.json, and
+    expose non-secret backend-selection evidence.
+  non_scope:
+    - live hooks.json, hook trust, runtime profile, MCP config, user memory config, database, or operational dist mutation
+    - host launch or termination, disconnect detection, automatic restart, process kill, or running-session injection
+    - TUI, tmux, clipboard, AUN queue lifecycle, deployment, production, Ready, merge, or later P0 mutation
+    - first-context delivery, continuity-alpha PASS, rollout, or release claim from source fixtures
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-05B-STORE-BINDING-20260725-001.yaml
+    - src/codex-session-start.ts
+    - src/test-codex-session-start.ts
+    - docs/design/schemas/codex-session-start-evidence-v1.schema.json
+    - docs/operations/HOST_ADAPTERS.md
+  forbidden_paths:
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .github/**
+    - .shirube/audit-item-sets/**
+    - .shirube/cells/**
+    - .shirube/gate-contracts/**
+    - .shirube/reports/**
+    - db/**
+    - dist/**
+    - package.json
+    - package-lock.json
+    - deploy/**
+    - secrets/**
+    - .env
+    - .env.*
+  stop_conditions:
+    - exact base/tree or isolated-worktree mismatch
+    - a credential or live database URL must be embedded in a hook, artifact, log, fixture, or doc
+    - compatibility requires destructive storage migration
+    - tests cannot distinguish populated shared storage from unintended empty SQLite
+    - a required behavior needs a path outside cell.allowed_paths
+    - any focused test, build, full test, schema, package, diff, or path-subset check fails
+    - any live hook, trust, host, TUI, queue, restart, deployment, production, or later-target effect occurs
+
+acceptance_criteria:
+  - Explicit AGENT_MEMORY_DB_TYPE and PostgreSQL URL environment intent remains first in precedence.
+  - With no explicit local backend or PostgreSQL URL, Codex SessionStart reads only database_url from the existing user config compatibility surface.
+  - User-config agent and project fields never override the exact hook identity binding.
+  - A present but malformed, unreadable, symlinked, or non-PostgreSQL configured database binding fails recovery closed to ordinary startup instead of silently selecting empty SQLite.
+  - A genuinely absent user config preserves the OSS SQLite default.
+  - Evidence records only backend intent, binding-source class, config-path digest, verification state, and credentials_embedded false.
+  - Positive, absent-config, explicit-local, malformed-config, unreadable-config, symlink, invalid-URL, and non-leak fixtures pass.
+  - Existing startup, resume, clear, compact, redaction, cap, identity, timeout, and ordinary-start fallback fixtures remain green.
+  - A production-equivalent read-only probe resolves user_config PostgreSQL with high confidence, no missing context, and the current active task.
+
+validation:
+  required_commands:
+    - npm ci
+    - npm run build
+    - npm run test:codex-hook
+    - npm test
+    - git diff --check
+    - changed-path subset check against cell.allowed_paths
+    - npm pack --dry-run --json
+  required_evidence:
+    - exact base, head, tree, ordered parents, branch, and clean isolated worktree
+    - exact changed-path list and allowed-path subset result
+    - focused store-binding fixtures and full-suite results
+    - schema validation and proof that no credential, live database URL, or config contents are emitted
+    - production-equivalent read-only backend and restart-pack result without database mutation
+    - Draft PR URL and exact remote-head readback
+    - one independent exact-head evidence_audit_gate PASS or PASS_WITH_WARN from devauditor
+    - zero live hook, trust, host, session, TUI, queue lifecycle, restart, deployment, production, and later-target effects
+
+independent_audit:
+  required: true
+  primary_agent_id: devauditor
+  alternate_agent_id: codex-audit
+  active_function: evidence_audit_gate
+  exact_head_required: true
+  subagent_audit_admissible: false
+  required_verdict:
+    - PASS
+    - PASS_WITH_WARN
+
+owner_decision:
+  required_before_merge: true
+  exact_head_required: true
+  exact_head_sha: null
+  decision_ref: null
+  merge_authorized_now: false
+
+next_action:
+  who: kusabi
+  active_function: implementation_executor
+  what: validate and publish the source-only remediation, then route its immutable exact head to devauditor once
+  how: use the isolated exact-base worktree and preserve the exact allowed-path subset
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5077500514
+    - https://github.com/watchout/agent-memory/pull/272
+    - main:7372d54b07f02655bc916d3f110170bab1f6ee94
+  scope: exact allowed_paths; no live or protected mutation
+  deliverable: audited native Codex store-binding fix ready for owner exact-head decision
+  completion_evidence: immutable tuple, validations, Draft PR, remote readback, and devauditor audit queue/message IDs
+  blocking: false
