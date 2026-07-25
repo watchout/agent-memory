@@ -68,9 +68,16 @@ Before running a recovery evaluation:
 - Pre-exit prepare and post-start recovery use deterministic hook/runner paths
   where available. A prompt inside the model must not be the component that
   decides context-limit policy or recovery-pack ranking.
-- For Claude Code, `AGENT_MEMORY_BOOT_MODE=restart_pack` is enabled for the
-  target workspace. For Codex non-alpha wrapper diagnostics, the startup bridge
-  generates and injects `restart_pack` into the first prompt.
+- For a Claude Code continuity-alpha run, the exact project-local
+  `.claude/settings.json` definition calls `wasurezu-claude-session-start` with
+  explicit `agent_id`, project, and canonical workspace binding. The previous
+  session is exited normally and the fresh process is started with ordinary
+  `claude`. Accepted SessionStart sources are `startup`, `resume`, `clear`, and
+  `compact`; stdout is one strict JSON object and source/config presence alone
+  is `placed_not_delivered`. `AGENT_MEMORY_BOOT_MODE=restart_pack` and
+  `wasurezu-claude-start` are compatibility diagnostics, not alpha acceptance.
+  For Codex non-alpha wrapper diagnostics, the startup bridge generates and
+  injects `restart_pack` into the first prompt.
 - For a Codex continuity-alpha run, the exact project-local
   `.codex/hooks.json` definition is placed, reviewed/trusted at its current
   hash, and checked against the verified `agent_id`, project, and workspace
@@ -191,9 +198,11 @@ or rollout.
 1. In the pre-restart session, run transcript ingest for the target source.
 2. Confirm `restart_pack` boot succeeds once in the same environment.
 3. Exit the old LLM session using the host's normal command, such as `/exit`.
-4. Start a fresh agent session in the same workspace. For Claude Code, use the
-   configured SessionStart hook. For Codex continuity alpha, invoke ordinary
-   `codex`; the reviewed native SessionStart hook must deliver recovery before
+4. Start a fresh agent session in the same workspace. For Claude Code, invoke
+   ordinary `claude`; the reviewed native SessionStart hook must verify the
+   binding and deliver bounded context before the first model action. For
+   Codex continuity alpha, invoke ordinary `codex`; the reviewed native
+   SessionStart hook must deliver recovery before
    the first model action. For Gemini CLI continuity alpha, invoke ordinary
    `gemini`; the reviewed project hook must emit strict JSON and deliver its
    `additionalContext` before the first model action. Use
@@ -328,9 +337,14 @@ continuity-alpha gate, regardless of historical maturity labels.
 
 Startup recovery is host-adapter based:
 
-- Claude Code runs count when the SessionStart hook emits restart recovery into
-  the first model context. The hook is a load path; policy and pack generation
-  must come from deterministic Wasurezu state.
+- Claude Code continuity-alpha runs count when the previous session was exited,
+  ordinary `claude` started a new process, the reviewed native SessionStart
+  definition ran for `startup`, `resume`, `clear`, or `compact`, and exact
+  evidence proves first-context delivery plus verified identity, numeric
+  caps/redaction counters, and ordinary-launch-safe degradation. Hook/config
+  presence and adapter stderr evidence remain `placed_not_delivered` until
+  first-context delivery is externally observed. The hook is a load path;
+  lifecycle policy remains outside the adapter.
 - Codex continuity-alpha runs count when the previous session was exited,
   ordinary `codex` started a new process, the reviewed native SessionStart
   definition ran, and exact evidence proves first-context delivery plus the

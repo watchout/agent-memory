@@ -20,6 +20,7 @@ import {
   type RestartPrepareOutput,
 } from "./restart-prepare.js";
 import { redactText } from "./redact.js";
+import { CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS } from "./claude-session-start.js";
 
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
 const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
@@ -256,7 +257,7 @@ export function buildClaudeSessionStartSettings(bootJs: string): Record<string, 
             {
               type: "command",
               command: `node ${JSON.stringify(bootJs)}`,
-              timeout: 60_000,
+              timeout: CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS,
             },
           ],
         },
