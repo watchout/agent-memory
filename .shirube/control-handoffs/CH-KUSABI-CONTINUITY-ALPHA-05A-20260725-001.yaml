@@ -126,9 +126,9 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
     - https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102
     - https://github.com/watchout/agent-memory/pull/265
+    - https://github.com/watchout/agent-memory/pull/270
     - https://github.com/watchout/agent-memory/pull/266
     - https://github.com/watchout/agent-memory/pull/267
-    - https://github.com/watchout/agent-memory/pull/270
   scope: ALPHA-05A source tooling and zero-live-effect preflight only
   deliverable: validated Draft PR, exact implementation evidence, and one independent audit request
   completion_evidence: exact tuple, path-subset PASS, validation results, Draft PR, and devauditor audit queue/message ids
