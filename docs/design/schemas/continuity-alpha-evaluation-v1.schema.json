@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/continuity-alpha-evaluation-v1.schema.json",
+  "title": "Continuity alpha S1-S15 evaluation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "suite_id",
+    "evidence_kind",
+    "status",
+    "scoring_performed",
+    "harness_verified",
+    "continuity_alpha_candidate",
+    "claim_boundary",
+    "s15",
+    "scenario_results",
+    "scenario_coverage",
+    "host_matrix",
+    "p0_sequence",
+    "consecutive_passes",
+    "effects",
+    "automatic_failure_count",
+    "errors",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": "continuity-alpha-evaluation/v1" },
+    "evaluator_version": { "const": "continuity-alpha-evaluator/1.0.0" },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "evidence_kind": { "enum": ["deterministic_fixture", "observed_live_canary"] },
+    "status": { "enum": ["pass", "fail", "stopped"] },
+    "scoring_performed": { "type": "boolean" },
+    "harness_verified": { "type": "boolean" },
+    "continuity_alpha_candidate": { "type": "boolean" },
+    "claim_boundary": { "enum": ["deterministic_evaluator_only", "live_candidate_evidence", "invalid"] },
+    "s15": { "$ref": "#/$defs/s15" },
+    "scenario_results": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/runResult" }
+    },
+    "scenario_coverage": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15"] }
+    },
+    "host_matrix": { "$ref": "#/$defs/hostMatrix" },
+    "p0_sequence": { "$ref": "#/$defs/p0Sequence" },
+    "consecutive_passes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "passed"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "effects": { "$ref": "#/$defs/effects" },
+    "automatic_failure_count": { "type": "integer", "minimum": 0 },
+    "errors": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "next_action": { "enum": ["none", "fix_evaluator_before_scoring", "fix_failed_evidence"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "evidence_kind": { "const": "deterministic_fixture" } }, "required": ["evidence_kind"] },
+      "then": { "properties": { "continuity_alpha_candidate": { "const": false } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "scoring_performed": { "const": true },
+          "harness_verified": { "const": true },
+          "s15": { "$ref": "#/$defs/passingS15" },
+          "scenario_results": {
+            "minItems": 16,
+            "maxItems": 16,
+            "items": { "$ref": "#/$defs/passingRunResult" }
+          },
+          "scenario_coverage": { "$ref": "#/$defs/exactScenarioCoverage" },
+          "host_matrix": { "$ref": "#/$defs/passingHostMatrix" },
+          "p0_sequence": { "$ref": "#/$defs/passingP0Sequence" },
+          "consecutive_passes": {
+            "properties": { "count": { "minimum": 2 }, "passed": { "const": true } }
+          },
+          "effects": { "$ref": "#/$defs/zeroEffects" },
+          "automatic_failure_count": { "const": 0 },
+          "errors": { "maxItems": 0 },
+          "next_action": { "const": "none" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "stopped" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "scoring_performed": { "const": false },
+          "harness_verified": { "const": false },
+          "continuity_alpha_candidate": { "const": false },
+          "claim_boundary": { "const": "invalid" },
+          "s15": { "properties": { "passed": { "const": false } } },
+          "scenario_results": { "maxItems": 0 },
+          "scenario_coverage": { "maxItems": 0 },
+          "next_action": { "const": "fix_evaluator_before_scoring" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "pass" },
+          "evidence_kind": { "const": "observed_live_canary" }
+        },
+        "required": ["status", "evidence_kind"]
+      },
+      "then": {
+        "properties": {
+          "continuity_alpha_candidate": { "const": true },
+          "claim_boundary": { "const": "live_candidate_evidence" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "pass" },
+          "evidence_kind": { "const": "deterministic_fixture" }
+        },
+        "required": ["status", "evidence_kind"]
+      },
+      "then": {
+        "properties": {
+          "continuity_alpha_candidate": { "const": false },
+          "claim_boundary": { "const": "deterministic_evaluator_only" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "s15": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_id", "passed", "expected_failure_codes", "observed_failure_codes", "candidate_status", "fixture_ref"],
+      "properties": {
+        "fixture_id": { "const": "S15-STORED-VALUE-ECHO-V1" },
+        "passed": { "type": "boolean" },
+        "expected_failure_codes": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "string" } },
+        "observed_failure_codes": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "candidate_status": { "enum": ["pass", "fail"] },
+        "fixture_ref": { "type": "string" }
+      }
+    },
+    "passingS15": {
+      "allOf": [
+        { "$ref": "#/$defs/s15" },
+        {
+          "properties": {
+            "passed": { "const": true },
+            "candidate_status": { "const": "fail" },
+            "fixture_ref": { "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "run_ref", "scenario_id", "host", "status", "score_admissible",
+        "total_score", "blind_operator_score", "durations_ms", "meaningful_action_verified",
+        "useful_result_verified", "automatic_failure_count", "automatic_failures", "errors"
+      ],
+      "properties": {
+        "schema_version": { "const": "continuity-alpha-run-evaluation/v1" },
+        "run_ref": { "type": "string", "minLength": 1 },
+        "scenario_id": { "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14"] },
+        "host": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "status": { "enum": ["pass", "fail"] },
+        "score_admissible": { "type": "boolean" },
+        "total_score": { "type": "number" },
+        "blind_operator_score": { "type": "number" },
+        "durations_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["t1", "t3", "t4"],
+          "properties": {
+            "t1": { "type": ["number", "null"] },
+            "t3": { "type": ["number", "null"] },
+            "t4": { "type": ["number", "null"] }
+          }
+        },
+        "meaningful_action_verified": { "type": "boolean" },
+        "useful_result_verified": { "type": "boolean" },
+        "automatic_failure_count": { "type": "integer", "minimum": 0 },
+        "automatic_failures": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "errors": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+      }
+    },
+    "passingRunResult": {
+      "allOf": [
+        { "$ref": "#/$defs/runResult" },
+        {
+          "properties": {
+            "status": { "const": "pass" },
+            "score_admissible": { "const": true },
+            "total_score": { "minimum": 28 },
+            "blind_operator_score": { "minimum": 4.5 },
+            "durations_ms": {
+              "properties": {
+                "t1": { "type": "number", "minimum": 0, "maximum": 10000 },
+                "t3": { "type": "number", "minimum": 0, "maximum": 30000 },
+                "t4": { "type": "number", "minimum": 0, "maximum": 60000 }
+              }
+            },
+            "meaningful_action_verified": { "const": true },
+            "useful_result_verified": { "const": true },
+            "automatic_failure_count": { "const": 0 },
+            "automatic_failures": { "maxItems": 0 },
+            "errors": { "maxItems": 0 }
+          }
+        }
+      ]
+    },
+    "exactScenarioCoverage": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "prefixItems": [
+        { "const": "S1" }, { "const": "S2" }, { "const": "S3" }, { "const": "S4" },
+        { "const": "S5" }, { "const": "S6" }, { "const": "S7" }, { "const": "S8" },
+        { "const": "S9" }, { "const": "S10" }, { "const": "S11" }, { "const": "S12" },
+        { "const": "S13" }, { "const": "S14" }, { "const": "S15" }
+      ],
+      "items": false
+    },
+    "hostMatrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "observed", "passed"],
+      "properties": {
+        "required": { "$ref": "#/$defs/exactHosts" },
+        "observed": { "type": "array", "uniqueItems": true, "items": { "enum": ["codex", "claude_code", "gemini_cli"] } },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "passingHostMatrix": {
+      "allOf": [
+        { "$ref": "#/$defs/hostMatrix" },
+        { "properties": { "observed": { "minItems": 3, "maxItems": 3 }, "passed": { "const": true } } }
+      ]
+    },
+    "exactHosts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [{ "const": "codex" }, { "const": "claude_code" }, { "const": "gemini_cli" }],
+      "items": false
+    },
+    "p0Sequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "observed", "passed", "aggregate_ref"],
+      "properties": {
+        "expected": { "$ref": "#/$defs/exactP0" },
+        "observed": { "type": "array", "items": { "type": "string" } },
+        "passed": { "type": "boolean" },
+        "aggregate_ref": { "type": "string" }
+      }
+    },
+    "passingP0Sequence": {
+      "allOf": [
+        { "$ref": "#/$defs/p0Sequence" },
+        {
+          "properties": {
+            "observed": { "$ref": "#/$defs/exactP0" },
+            "passed": { "const": true },
+            "aggregate_ref": { "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "exactP0": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "prefixItems": [
+        { "const": "kusabi" }, { "const": "spec" }, { "const": "arc" }, { "const": "codex-cto" },
+        { "const": "codex-audit" }, { "const": "devauditor" }, { "const": "qa" }, { "const": "check" },
+        { "const": "org-build-dev" }, { "const": "dev-001" }
+      ],
+      "items": false
+    },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disconnect_detection_count", "automatic_restart_count", "process_kill_count",
+        "existing_session_injection_count", "tui_write_count", "tmux_send_keys_count",
+        "clipboard_write_count", "aun_queue_mutation_count", "live_config_mutation_count",
+        "trust_mutation_count", "activation_count", "rollout_count"
+      ],
+      "properties": {
+        "disconnect_detection_count": { "type": "integer", "minimum": 0 },
+        "automatic_restart_count": { "type": "integer", "minimum": 0 },
+        "process_kill_count": { "type": "integer", "minimum": 0 },
+        "existing_session_injection_count": { "type": "integer", "minimum": 0 },
+        "tui_write_count": { "type": "integer", "minimum": 0 },
+        "tmux_send_keys_count": { "type": "integer", "minimum": 0 },
+        "clipboard_write_count": { "type": "integer", "minimum": 0 },
+        "aun_queue_mutation_count": { "type": "integer", "minimum": 0 },
+        "live_config_mutation_count": { "type": "integer", "minimum": 0 },
+        "trust_mutation_count": { "type": "integer", "minimum": 0 },
+        "activation_count": { "type": "integer", "minimum": 0 },
+        "rollout_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "zeroEffects": {
+      "allOf": [
+        { "$ref": "#/$defs/effects" },
+        {
+          "properties": {
+            "disconnect_detection_count": { "const": 0 },
+            "automatic_restart_count": { "const": 0 },
+            "process_kill_count": { "const": 0 },
+            "existing_session_injection_count": { "const": 0 },
+            "tui_write_count": { "const": 0 },
+            "tmux_send_keys_count": { "const": 0 },
+            "clipboard_write_count": { "const": 0 },
+            "aun_queue_mutation_count": { "const": 0 },
+            "live_config_mutation_count": { "const": 0 },
+            "trust_mutation_count": { "const": 0 },
+            "activation_count": { "const": 0 },
+            "rollout_count": { "const": 0 }
+          }
+        }
+      ]
+    }
+  }
+}

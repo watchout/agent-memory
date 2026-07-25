@@ -503,6 +503,35 @@ interface KusabiRecoverySearchEvidenceDraft {
 }
 ```
 
+### 11.1 Executable ALPHA-04 evaluator
+
+`src/continuity-alpha-evaluator.ts` is the concrete fail-closed evaluator for
+the frozen continuity-alpha predicates. Its output is validated by
+`docs/design/schemas/continuity-alpha-evaluation-v1.schema.json`, and its
+canonical negative/positive fixtures run through
+`npm run test:continuity-alpha-evaluator`.
+
+The evaluator keeps the two uses of `S1` through `S6` distinct: scorecard
+`S1`-`S6` are the six 0-5 recovery-quality dimensions, while scenario
+`S1`-`S15` are the frozen interruption and evaluator-integrity cases. The
+scenario suite contains one run for each of S1-S13, three ordinary native-host
+runs for S14, and the code-owned negative fixture for S15.
+
+Score admission is derived, not asserted. The evaluator independently checks
+timing, the 30-point scorecard, blind score, RI0, action/result receipts,
+identity and first-context evidence, redaction/caps, fallback, scenario facts,
+the exact three-host matrix, the exact ordered P0 sequence, consecutive pass
+refs, and forbidden-effect counters. The S15 fixture presents a superficially
+complete 30/30 run whose prompt supplies expected values and whose result is
+only a stored-value echo; the evaluator must reject both conditions. Failure
+of the fixture stops all downstream scoring.
+
+Deterministic ALPHA-04 fixtures prove only that the measurement instrument is
+working. The JSON Schema prevents them from setting
+`continuity_alpha_candidate=true`; that field is reserved for later observed
+live-canary evidence and remains only a candidate until the remaining cell
+graph, audit, owner, and post-activation gates close.
+
 ## 12. Positive examples
 
 ### Startup recovery pass
