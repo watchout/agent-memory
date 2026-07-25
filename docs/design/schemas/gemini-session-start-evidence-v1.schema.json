@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/gemini-session-start-evidence-v1.schema.json",
+  "title": "Gemini CLI native SessionStart evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter",
+    "identity",
+    "hook",
+    "timing",
+    "output",
+    "recovery_pack",
+    "trust",
+    "delivery",
+    "outcome",
+    "degraded_reason",
+    "ordinary_launch_usable",
+    "recovery_quality_log_ref",
+    "forbidden_effects"
+  ],
+  "properties": {
+    "schema_version": { "const": "gemini-session-start-evidence/v1" },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "host", "host_contract_version", "normal_launch_command", "native_start_surface", "canonical_config_location", "delivery_mode"],
+      "properties": {
+        "id": { "const": "wasurezu-gemini-session-start" },
+        "version": { "const": "1.0.0" },
+        "host": { "const": "gemini-cli" },
+        "host_contract_version": { "const": "0.38.2" },
+        "normal_launch_command": { "const": "gemini" },
+        "native_start_surface": { "const": "SessionStart" },
+        "canonical_config_location": { "const": ".gemini/settings.json" },
+        "delivery_mode": { "const": "hookSpecificOutput.additionalContext" }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "project", "workspace_sha256", "binding_source_ref", "runtime", "verified"],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "workspace_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "binding_source_ref": { "type": "string", "minLength": 1 },
+        "runtime": { "const": "gemini-cli" },
+        "verified": { "type": "boolean" }
+      }
+    },
+    "hook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "source", "timestamp", "cwd_sha256", "input_valid", "strict_json_stdout"],
+      "properties": {
+        "session_id": { "type": ["string", "null"] },
+        "source": { "enum": ["startup", "resume", "clear", null] },
+        "timestamp": { "type": ["string", "null"], "format": "date-time" },
+        "cwd_sha256": { "anyOf": [{ "type": "string", "pattern": "^[a-f0-9]{64}$" }, { "type": "null" }] },
+        "input_valid": { "type": "boolean" },
+        "strict_json_stdout": { "const": true }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "completed_at", "elapsed_ms", "internal_timeout_ms", "hook_timeout_ms", "t0_process_start_at", "t1_injection_confirmed_at", "t2_orientation_complete_at", "t3_safe_action_started_at", "t4_useful_result_at"],
+      "properties": {
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "elapsed_ms": { "type": "integer", "minimum": 0 },
+        "internal_timeout_ms": { "type": "integer", "minimum": 100, "maximum": 7000 },
+        "hook_timeout_ms": { "const": 9000 },
+        "t0_process_start_at": { "type": "null" },
+        "t1_injection_confirmed_at": { "type": "null" },
+        "t2_orientation_complete_at": { "type": "null" },
+        "t3_safe_action_started_at": { "type": "null" },
+        "t4_useful_result_at": { "type": "null" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token_cap", "byte_cap", "token_estimate", "byte_count", "redaction_count", "redaction_version", "truncation_count", "omitted_section_count"],
+      "properties": {
+        "token_cap": { "type": "integer", "minimum": 500, "maximum": 1800 },
+        "byte_cap": { "type": "integer", "minimum": 1024, "maximum": 8192 },
+        "token_estimate": { "type": "integer", "minimum": 0, "maximum": 1800 },
+        "byte_count": { "type": "integer", "minimum": 0, "maximum": 8192 },
+        "redaction_count": { "type": "integer", "minimum": 0 },
+        "redaction_version": { "type": "string", "minLength": 1 },
+        "truncation_count": { "type": "integer", "minimum": 0 },
+        "omitted_section_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recovery_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack_ref", "schema_ref", "token_budget", "confidence", "missing_context", "source_refs", "policy_version"],
+      "properties": {
+        "pack_ref": { "type": ["string", "null"] },
+        "schema_ref": { "enum": ["wasurezu-recovery-pack/v1", null] },
+        "token_budget": { "anyOf": [{ "type": "integer", "minimum": 500, "maximum": 1800 }, { "type": "null" }] },
+        "confidence": { "enum": ["high", "medium", "low", null] },
+        "missing_context": { "type": "array", "items": { "type": "string" } },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_version": { "type": ["string", "null"] }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hook_execution_observed", "hook_trust_verified_by_adapter", "configuration_state", "changed_hook_requires_operator_review"],
+      "properties": {
+        "hook_execution_observed": { "type": "boolean" },
+        "hook_trust_verified_by_adapter": { "const": false },
+        "configuration_state": { "enum": ["placed_not_delivered", "unknown"] },
+        "changed_hook_requires_operator_review": { "const": true }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "emission_status", "first_context_delivery_confirmed"],
+      "properties": {
+        "status": { "const": "degraded" },
+        "emission_status": { "enum": ["emitted", "not_emitted"] },
+        "first_context_delivery_confirmed": { "const": false }
+      }
+    },
+    "outcome": { "enum": ["full", "degraded"] },
+    "degraded_reason": {
+      "enum": [
+        "MALFORMED_HOOK_INPUT",
+        "UNSUPPORTED_HOOK_EVENT",
+        "UNSUPPORTED_START_SOURCE",
+        "IDENTITY_BINDING_INVALID",
+        "WORKSPACE_IDENTITY_MISMATCH",
+        "RECOVERY_TIMEOUT",
+        "RECOVERY_UNAVAILABLE",
+        "EVIDENCE_LOG_UNAVAILABLE",
+        null
+      ]
+    },
+    "ordinary_launch_usable": { "const": true },
+    "recovery_quality_log_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^recovery_quality_log:[a-f0-9-]+$" },
+        { "type": "null" }
+      ]
+    },
+    "forbidden_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automatic_restart_count", "process_kill_count", "tui_write_count", "tmux_send_keys_count", "clipboard_write_count", "aun_queue_mutation_count", "running_session_injection_count"],
+      "properties": {
+        "automatic_restart_count": { "const": 0 },
+        "process_kill_count": { "const": 0 },
+        "tui_write_count": { "const": 0 },
+        "tmux_send_keys_count": { "const": 0 },
+        "clipboard_write_count": { "const": 0 },
+        "aun_queue_mutation_count": { "const": 0 },
+        "running_session_injection_count": { "const": 0 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "full" } }, "required": ["outcome"] },
+      "then": {
+        "properties": {
+          "degraded_reason": { "type": "null" },
+          "recovery_quality_log_ref": { "type": "string" },
+          "delivery": { "properties": { "status": { "const": "degraded" }, "emission_status": { "const": "emitted" } } },
+          "recovery_pack": {
+            "properties": {
+              "pack_ref": { "type": "string" },
+              "schema_ref": { "const": "wasurezu-recovery-pack/v1" },
+              "token_budget": { "type": "integer", "minimum": 500, "maximum": 1800 },
+              "confidence": { "enum": ["high", "medium", "low"] }
+            }
+          },
+          "identity": { "properties": { "verified": { "const": true } } },
+          "hook": { "properties": { "input_valid": { "const": true } } }
+        }
+      }
+    }
+  ]
+}
