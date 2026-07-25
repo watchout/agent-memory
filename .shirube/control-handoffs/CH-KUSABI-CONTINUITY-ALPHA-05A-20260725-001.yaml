@@ -1,0 +1,130 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-CONTINUITY-ALPHA-05A-20260725-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-05A-20260725-001.yaml
+parent_ssot: https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+owner_envelope_ref: https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+durable_handoff: https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+spec_review_state: owner_directed_amendment_ready_for_implementation
+
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+
+execution_context:
+  author:
+    agent_id: kusabi
+    active_function: implementation_executor
+    authority: owner_directed_bounded_handoff
+  implementer:
+    agent_id: kusabi
+    active_function: implementation_executor
+  audit:
+    active_function: evidence_audit_gate
+    primary_agent_id: devauditor
+    alternate_agent_id: codex-audit
+    exact_head_required: true
+    self_or_subagent_audit_admissible: false
+
+cell:
+  CELL-ID: ALPHA-05A
+  cell_type: canary_tooling
+  risk_class: R3
+  exact_base_sha: 76b1546e3ba4de684125365d2c01534634fd6615
+  exact_base_tree: 37a3729598d97464803cfc417db4dbdb00d4c22c
+  goal: >-
+    Complete source-only Claude placement parity and bind the frozen ALPHA-05
+    operator canary into a deterministic fail-closed plan and verifier before
+    any live configuration or session action.
+  non_scope:
+    - live Codex, Claude Code, or Gemini CLI config placement, trust, activation, canary, rollout, or deployment
+    - disconnect detection, automatic restart, process kill, or running-session injection
+    - TUI write, tmux send-keys, clipboard write, or AUN queue lifecycle mutation
+    - database schema, workflow, secret, Ready, merge, or release mutation
+    - self-audit, self-approval, duplicate audit routing, or graph expansion
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-CONTINUITY-ALPHA-05A-20260725-001.yaml
+    - src/claude-hook-installer.ts
+    - src/test-claude-hook-installer.ts
+    - src/continuity-alpha-canary.ts
+    - src/test-continuity-alpha-canary.ts
+    - docs/design/schemas/continuity-alpha-canary-v1.schema.json
+    - docs/operations/HOST_ADAPTERS.md
+    - docs/operations/RECOVERY_EVALUATION.md
+    - package.json
+  forbidden_paths:
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .github/**
+    - db/**
+    - dist/**
+    - package-lock.json
+    - deploy/**
+    - secrets/**
+    - .env
+    - .env.*
+  stop_conditions:
+    - exact base/tree or clean isolated-worktree preflight mismatch
+    - required behavior needs a path outside allowed_paths
+    - frozen P0 order, dedicated Gemini identity, host matrix, S1-S15, or owner envelope cannot be represented exactly
+    - ordinary host startup cannot remain usable on hook failure
+    - agent_id, runtime, project, workspace, binding ref, command, or native start surface cannot be verified without ambiguity
+    - any focused test, build, full test, schema, cap, timeout, path, dry-run, or package check fails
+    - any live config, trust, session, TUI, queue, restart, activation, rollout, deploy, or production effect occurs
+
+acceptance_criteria:
+  - Claude settings placement has check, dry-run, and separately authorized atomic apply modes while preserving unrelated configuration.
+  - Claude installer refuses symlink config and runner paths, uses mode 0600 for writes and backups, and never claims trust or delivery.
+  - Canary planning evaluates canonical S15 before readiness and binds exact head, tree, dependency refs, P0 order, host matrix, thresholds, scenario contract, and operator boundary.
+  - P0 seats are distinct from the three native host canaries; Gemini uses only kusabi-gemini with alpha-canary-only and normal_work_queue false.
+  - Verification accepts only observed_live_canary evidence and rejects identity, runtime, project, workspace, binding, command, native-surface, wrapper, effect, or sudden-death-scope mismatch.
+  - Passing verification delegates score and scenario truth to the ALPHA-04 evaluator and cannot be obtained by stored-value echo.
+  - JSON Schema validates ready, stopped, and passing outputs while rejecting false live-candidate claims.
+  - ALPHA-05A performs no live placement, trust, host launch, session exit, canary, restart, TUI write, queue mutation, activation, rollout, deploy, or production mutation.
+
+validation:
+  required_commands:
+    - npm ci
+    - npm run build
+    - npm run test:claude-hook
+    - npm run test:continuity-alpha-evaluator
+    - npm run test:continuity-alpha-canary
+    - npm test
+    - git diff --check
+    - changed-path subset check against cell.allowed_paths
+    - npm pack --dry-run --json
+  required_evidence:
+    - exact base, head, tree, ordered parents, branch, and clean isolated worktree
+    - exact changed-path list and allowed-path subset result
+    - command-by-command validation output
+    - preservation, atomic-write, backup, mode, symlink, injection, idempotence, and no-write fixtures for Claude placement
+    - exact P0 and native-host bindings, S15-first, ordinary-command, operator-boundary, mismatch, schema, and false-claim fixtures
+    - Draft PR URL and exact remote-head readback
+    - one independent exact-head evidence_audit_gate PASS or PASS_WITH_WARN from devauditor
+    - zero live config, trust, host launch, session, TUI, queue, restart, activation, rollout, deploy, and production effects
+
+next_action:
+  who: kusabi
+  active_function: implementation_executor
+  what: implement and validate ALPHA-05A only, then open one Draft PR and route its exact head to devauditor once
+  how: use the isolated exact-base worktree and preserve the exact allowed-path subset
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5053368043
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853
+    - https://github.com/watchout/agent-memory/issues/180#issuecomment-5076405102
+    - https://github.com/watchout/agent-memory/pull/265
+    - https://github.com/watchout/agent-memory/pull/266
+    - https://github.com/watchout/agent-memory/pull/267
+    - https://github.com/watchout/agent-memory/pull/270
+  scope: ALPHA-05A source tooling and zero-live-effect preflight only
+  deliverable: validated Draft PR, exact implementation evidence, and one independent audit request
+  completion_evidence: exact tuple, path-subset PASS, validation results, Draft PR, and devauditor audit queue/message ids
+  blocking: false

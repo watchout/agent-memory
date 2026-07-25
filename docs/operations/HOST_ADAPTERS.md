@@ -182,6 +182,36 @@ returns `continue: true` and a visible `systemMessage`; Codex continues its
 ordinary startup. If the hook is disabled or untrusted, Codex skips it and
 surfaces its own hook warning. Neither path may be scored as recovered.
 
+### Claude Code ALPHA-02 native adapter
+
+Claude Code loads project-local `.claude/settings.json` and invokes matching
+`SessionStart` command hooks. `wasurezu-claude-session-start` implements the
+bounded recovery contract. `wasurezu-claude-hook-install` provides the same
+check, preview, and atomic placement boundary as the Codex and Gemini
+installers. It replaces only its managed Wasurezu handler and preserves
+unrelated top-level settings, hook events, SessionStart groups, and handlers.
+
+After an activation handoff authorizes one exact target, preview before any
+placement:
+
+```bash
+wasurezu-claude-hook-install --dry-run \
+  --workspace /path/to/workspace \
+  --runtime-root /path/to/agent-memory \
+  --agent-id exact-agent-id \
+  --project exact-memory-project \
+  --binding-source-ref exact-verified-binding-ref
+```
+
+An authorized `--apply` writes the current definition atomically with mode
+0600 and creates a unique mode-0600 preimage backup when settings already
+exist. Symlink config and runner paths are refused. The generated matcher is
+exactly `startup|resume|clear|compact`, the hook timeout is 9 seconds, and the
+internal recovery deadline remains at most 7 seconds. `--check`, `--dry-run`,
+and `--apply` all report `trust_verified=false` and
+`first_context_delivered=false`: placement is never proof that the current
+definition was reviewed or that recovery reached the first model context.
+
 ### Gemini CLI ALPHA-03 native adapter
 
 Gemini CLI 0.38.2 loads a trusted project-local `.gemini/settings.json` and
@@ -413,6 +443,33 @@ supervisors remain responsible for runtime lifecycle and queue state.
 This table records source capability, not live rollout or alpha acceptance.
 The wrapper/launcher paths remain evidence-producing fallbacks, but they cannot
 satisfy the ordinary-command alpha gate.
+
+### ALPHA-05A canary plan boundary
+
+`wasurezu-continuity-alpha-canary` produces a deterministic, immutable plan
+for the later operator-controlled live canary and verifies only supplied
+`observed_live_canary` evidence. It does not install hooks, change trust,
+launch or end a host process, mutate AUN queue state, write evidence, or claim
+first-context delivery.
+
+```bash
+wasurezu-continuity-alpha-canary --plan-input-json alpha05-input.json \
+  > alpha05-plan.json
+
+wasurezu-continuity-alpha-canary --plan-json alpha05-plan.json \
+  --suite-json observed-suite.json
+```
+
+The plan binds the exact P0 order separately from the exact Codex, Claude
+Code, and Gemini CLI host canaries. Gemini coverage uses only the frozen
+`kusabi-gemini` identity with `use=alpha-canary-only` and
+`normal_work_queue=false`; it is not a P0 work-queue seat. The verifier rejects
+runtime, project, workspace, binding, ordinary-command, or native-start-
+surface mismatches. It also rejects fixtures presented as live observation,
+wrapper/manual starts, any forbidden-effect count, a sudden-death first run
+outside `kusabi` or `spec`, and any evaluator result that is not a live alpha
+candidate. Output conforms to
+`docs/design/schemas/continuity-alpha-canary-v1.schema.json`.
 
 ## Restart UX
 

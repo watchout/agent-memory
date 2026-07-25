@@ -189,6 +189,47 @@ forces `continuity_alpha_candidate=false`. Only later
 performs no host launch, config/trust mutation, activation, restart, TUI write,
 or rollout.
 
+### 3.3 ALPHA-05A canary planning and evidence binding
+
+The source-only ALPHA-05A instrument is
+`src/continuity-alpha-canary.ts`; its plan and verification output contract is
+`docs/design/schemas/continuity-alpha-canary-v1.schema.json`. Run its focused
+tests with:
+
+```bash
+npm run test:continuity-alpha-canary
+```
+
+Before an operator run, the planner evaluates the canonical S15 negative
+fixture first and stops when the evaluator is not intact. A ready plan then
+binds all of the following into its SHA-256 plan identifier:
+
+- exact implementation head and tree, frozen plan and owner-envelope refs,
+  and exactly four ALPHA-01 through ALPHA-04 dependency refs;
+- the exact ordered P0 list and each seat's runtime, project, canonical
+  workspace, and verified binding ref;
+- the separate exact Codex, Claude Code, and Gemini CLI native-host canary
+  matrix, including the dedicated `kusabi-gemini` identity;
+- the S1-S15 contract, 10/30/60-second thresholds, 28/30 and 4.5/5 bars,
+  sequential stop-on-first-failure policy, and initial S3 scope of `kusabi`
+  and `spec`; and
+- the operator-only old-session end and ordinary-command fresh-process start
+  boundary, with all forbidden preflight effect counters at zero.
+
+The verifier accepts only `observed_live_canary` evidence. For S1-S13 it
+checks evidence against a planned P0 binding; for S14 it checks each run
+against the corresponding planned host-canary binding. Agent, runtime,
+project, workspace, binding ref, ordinary launch command, and native start
+surface must all agree. The ALPHA-04 evaluator remains authoritative for score,
+timing, RI0, meaningful-action, useful-result, safety, exact host coverage,
+exact P0 sequence, consecutive-pass evidence, and S15 behavior.
+
+ALPHA-05A is not activation or live canary evidence. Plan generation and
+verification do not place hooks, approve trust, start or stop sessions, write
+TUI input, mutate AUN lifecycle, deploy, or mutate production. A live candidate
+exists only when the verifier returns `status=pass` over separately captured
+operator-run evidence.
+
 ---
 
 ## 4. Test Protocol

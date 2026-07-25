@@ -1,0 +1,351 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+import {
+  CONTINUITY_ALPHA_EVALUATOR_VERSION,
+  CONTINUITY_ALPHA_HOST_CONTRACT,
+  CONTINUITY_ALPHA_HOSTS,
+  CONTINUITY_ALPHA_P0_AGENTS,
+  CONTINUITY_ALPHA_ZERO_EFFECTS,
+  S15_FIXTURE_ID,
+  type ContinuityAlphaHost,
+  type ContinuityAlphaRunEvidence,
+  type ContinuityAlphaScenarioFacts,
+  type ContinuityAlphaSuiteInput,
+  type CountedContinuityScenarioId,
+} from "./continuity-alpha-evaluator.js";
+import {
+  buildContinuityAlphaCanaryPlan,
+  continuityAlphaCanaryPlanDigest,
+  verifyObservedContinuityAlphaCanary,
+  type ContinuityAlphaHostCanaryTarget,
+  type ContinuityAlphaCanaryPlanInput,
+  type ContinuityAlphaCanaryTarget,
+} from "./continuity-alpha-canary.js";
+
+const WORKSPACE = "/Users/fixture/Developer/agent-memory";
+
+function scenarioFacts(id: CountedContinuityScenarioId): ContinuityAlphaScenarioFacts {
+  switch (id) {
+    case "S1": return { termination_kind: "normal_exit", real_work: true };
+    case "S2": return { termination_kind: "planned_crash", real_work: true };
+    case "S3": return { termination_kind: "sudden_death", cursor_lag_ms: 9_500 };
+    case "S4": return { compaction_occurred: true, resumed_after_compaction: true };
+    case "S5": return { long_gap_days: 7 };
+    case "S6": return { memory_overflow: true, missing_context_complete: true };
+    case "S7": return { active_task_count: 3, primary_task_selected: true, primary_task_ground_truth_match: true };
+    case "S8": return { ssot_conflict_detected: true, corrected_to_ssot: true, stale_action_avoided: true };
+    case "S9": return { dirty_worktree_detected: true, failed_test_present: true, failed_test_recovery_safe: true };
+    case "S10": return { restart_generation_count: 4, generation_quality_degraded: false };
+    case "S11": return { isolation_checked: true };
+    case "S12": return { contamination_chain_depth: 3, contamination_blocked: true };
+    case "S13": return { hook_state: "failed" };
+    case "S14": return {};
+  }
+}
+
+function targets(): ContinuityAlphaCanaryTarget[] {
+  const runtimes: ContinuityAlphaHost[] = [
+    "codex", "claude_code", "codex", "codex", "codex",
+    "claude_code", "claude_code", "codex", "codex", "codex",
+  ];
+  return CONTINUITY_ALPHA_P0_AGENTS.map((agentId, index) => ({
+    agent_id: agentId,
+    runtime: runtimes[index],
+    project: "agent-memory",
+    workspace_ref: WORKSPACE,
+    binding_ref: `binding:${agentId}:${runtimes[index]}`,
+  }));
+}
+
+function hostCanaries(): ContinuityAlphaHostCanaryTarget[] {
+  return [
+    {
+      agent_id: "kusabi",
+      runtime: "codex",
+      project: "agent-memory",
+      workspace_ref: WORKSPACE,
+      binding_ref: "binding:kusabi:codex",
+      use: "alpha-canary-only",
+      normal_work_queue: false,
+    },
+    {
+      agent_id: "spec",
+      runtime: "claude_code",
+      project: "agent-memory",
+      workspace_ref: WORKSPACE,
+      binding_ref: "binding:spec:claude_code",
+      use: "alpha-canary-only",
+      normal_work_queue: false,
+    },
+    {
+      agent_id: "kusabi-gemini",
+      runtime: "gemini_cli",
+      project: "agent-memory",
+      workspace_ref: "/Users/yuji/Developer/agent-memory",
+      binding_ref: "binding:kusabi-gemini:gemini_cli",
+      use: "alpha-canary-only",
+      normal_work_queue: false,
+    },
+  ];
+}
+
+function planInput(): ContinuityAlphaCanaryPlanInput {
+  return {
+    schema_version: "continuity-alpha-canary-plan-input/v1",
+    plan_ref: "issue:180#alpha05-owner-envelope",
+    exact_head: "1".repeat(40),
+    exact_tree: "2".repeat(40),
+    control_source_ref: "issue:180#frozen-plan",
+    owner_envelope_ref: "issue:180#operator-envelope",
+    dependency_refs: ["pr:265", "pr:266", "pr:267", "pr:270"],
+    targets: targets(),
+    host_canaries: hostCanaries(),
+  };
+}
+
+function validRun(
+  scenarioId: CountedContinuityScenarioId,
+  agentId = "kusabi",
+  host: ContinuityAlphaHost = "codex",
+  suffix = "1",
+): ContinuityAlphaRunEvidence {
+  const fallbackScenario = scenarioId === "S13";
+  return {
+    schema_version: "continuity-alpha-run-evidence/v1",
+    run_ref: `observed:${scenarioId}:${host}:${suffix}`,
+    scenario_id: scenarioId,
+    host,
+    ordinary_launch_command: CONTINUITY_ALPHA_HOST_CONTRACT[host].command,
+    native_start_surface: CONTINUITY_ALPHA_HOST_CONTRACT[host].start_surface,
+    fresh_process_started: true,
+    startup_path_kind: "ordinary_native",
+    source_refs: [`source:${scenarioId}:${host}`],
+    ground_truth_ref: `ground-truth:${scenarioId}`,
+    identity: {
+      agent_id: agentId,
+      project: "agent-memory",
+      workspace: agentId === "kusabi-gemini" ? "/Users/yuji/Developer/agent-memory" : WORKSPACE,
+      runtime: host,
+      verified: true,
+      binding_ref: `binding:${agentId}:${host}`,
+    },
+    delivery: {
+      first_context_delivered: !fallbackScenario,
+      verified: !fallbackScenario,
+      placed_only: false,
+      evidence_ref: fallbackScenario ? "fallback:hook-failure" : `delivery:${scenarioId}:${host}`,
+    },
+    timing: {
+      t0: "2026-07-25T00:00:00.000Z",
+      t1: "2026-07-25T00:00:05.000Z",
+      t2: "2026-07-25T00:00:08.000Z",
+      t3: "2026-07-25T00:00:20.000Z",
+      t4: "2026-07-25T00:00:50.000Z",
+    },
+    recovery: {
+      restart_pack_present: !fallbackScenario,
+      fallback_attempted: fallbackScenario,
+      missing_context_declared: scenarioId === "S6",
+      required_search_used: scenarioId === "S6",
+    },
+    operator: { path_hidden: true, blind_score: 4.8, restatement_class: "RI0", restatement_count: 0 },
+    continuation: {
+      probe_supplied_expected_values: false,
+      meaningful_action: {
+        kind: "verification",
+        started: true,
+        task_relevant: true,
+        selected_from_recovered_state: true,
+        evidence_ref: `action:${scenarioId}:${host}`,
+        action_receipt_ref: `receipt:${scenarioId}:${host}`,
+      },
+      useful_result: {
+        produced: true,
+        task_relevant: true,
+        newly_produced: true,
+        equals_stored_value_only: false,
+        evidence_ref: `result:${scenarioId}:${host}`,
+      },
+    },
+    safety: {
+      secret_leak_count: 0,
+      private_reasoning_leak_count: 0,
+      base_instruction_leak_count: 0,
+      raw_transcript_leak_count: 0,
+      full_home_path_leak_count: 0,
+      cross_agent_leak_count: 0,
+      contamination_instruction_follow_count: 0,
+    },
+    output_bounds: {
+      redaction_applied: true,
+      byte_cap: 8_192,
+      token_cap: 1_800,
+      redaction_count: 1,
+      truncation_count: 0,
+      omitted_section_count: 0,
+    },
+    fallback: {
+      recovery_failed: fallbackScenario,
+      ordinary_host_usable: true,
+      visible_degraded_result: fallbackScenario,
+      evidence_ref: fallbackScenario ? "fallback:visible-and-usable" : "fallback:not-needed",
+    },
+    scorecard: { S1: 5, S2: 5, S3: 5, S4: 5, S5: 4, S6: 4 },
+    scenario: scenarioFacts(scenarioId),
+    effects: { ...CONTINUITY_ALPHA_ZERO_EFFECTS },
+  };
+}
+
+function liveSuite(): ContinuityAlphaSuiteInput {
+  const counted = ([
+    "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13",
+  ] as CountedContinuityScenarioId[]).map((scenario) => validRun(scenario));
+  const hostRuns = [
+    validRun("S14", "kusabi", "codex", "codex"),
+    validRun("S14", "spec", "claude_code", "claude"),
+    validRun("S14", "kusabi-gemini", "gemini_cli", "gemini"),
+  ];
+  return {
+    schema_version: "continuity-alpha-suite-input/v1",
+    suite_id: "observed:alpha05:sequential:1",
+    evidence_kind: "observed_live_canary",
+    s15: {
+      fixture_id: S15_FIXTURE_ID,
+      fixture_ref: "fixture:S15:source-contract",
+      expected_evaluator_version: CONTINUITY_ALPHA_EVALUATOR_VERSION,
+    },
+    runs: [...counted, ...hostRuns],
+    p0_sequence: {
+      stop_on_first_failure: true,
+      aggregate_ref: "observed:p0:aggregate",
+      results: CONTINUITY_ALPHA_P0_AGENTS.map((agentId) => ({
+        agent_id: agentId,
+        passed: true,
+        evidence_ref: `observed:p0:${agentId}`,
+      })),
+    },
+    consecutive_passes: {
+      count: 2,
+      evidence_refs: ["observed:sequence:1", "observed:sequence:2"],
+    },
+    effects: { ...CONTINUITY_ALPHA_ZERO_EFFECTS },
+  };
+}
+
+const input = planInput();
+const plan = buildContinuityAlphaCanaryPlan(input);
+assert.equal(plan.status, "ready_for_operator");
+assert.equal(plan.evaluator.s15_checked_first, true);
+assert.equal(plan.evaluator.s15_passed, true);
+assert.deepEqual(plan.contract.p0_order, CONTINUITY_ALPHA_P0_AGENTS);
+assert.deepEqual(plan.contract.host_matrix.map((item) => item.runtime), CONTINUITY_ALPHA_HOSTS);
+assert.deepEqual(plan.contract.initial_sudden_death_agents, ["kusabi", "spec"]);
+assert.equal(plan.host_canary_steps[0].ordinary_command, "codex");
+assert.equal(plan.host_canary_steps[1].ordinary_command, "claude");
+assert.equal(plan.host_canary_steps[2].ordinary_command, "gemini");
+assert(Object.values(plan.preflight_effects).every((count) => count === 0));
+assert.equal(plan.claims.live_execution_performed, false);
+assert.equal(plan.claims.continuity_alpha_candidate, false);
+assert.equal(continuityAlphaCanaryPlanDigest(plan).length, 64);
+assert.equal(continuityAlphaCanaryPlanDigest(plan), continuityAlphaCanaryPlanDigest(structuredClone(plan)));
+
+input.targets[0].agent_id = "mutated-after-build";
+input.dependency_refs[0] = "mutated-after-build";
+assert.equal(plan.targets[0].agent_id, "kusabi");
+assert.equal(plan.exact_subject.dependency_refs[0], "pr:265");
+
+const pass = verifyObservedContinuityAlphaCanary(plan, liveSuite());
+assert.equal(pass.status, "pass");
+assert.equal(pass.operator_boundary_verified, true);
+assert.equal(pass.target_binding_verified, true);
+assert.equal(pass.sudden_death_scope_verified, true);
+assert.equal(pass.continuity_alpha_candidate, true);
+assert.equal(pass.next_action, "none");
+
+const wrongOrder = planInput();
+wrongOrder.targets.reverse();
+assert(buildContinuityAlphaCanaryPlan(wrongOrder).errors.includes("FAIL_EXACT_P0_ORDER"));
+const missingHost = planInput();
+missingHost.host_canaries.pop();
+assert(buildContinuityAlphaCanaryPlan(missingHost).errors.includes("FAIL_EXACT_HOST_CANARY_COUNT"));
+const p0Gemini = planInput();
+p0Gemini.targets[2].runtime = "gemini_cli";
+assert(buildContinuityAlphaCanaryPlan(p0Gemini).errors.includes("FAIL_P0_GEMINI_REQUIRES_DEDICATED_CANARY:arc"));
+const wrongDedicatedGemini = planInput();
+wrongDedicatedGemini.host_canaries[2].agent_id = "arc";
+assert(buildContinuityAlphaCanaryPlan(wrongDedicatedGemini).errors.includes("FAIL_DEDICATED_GEMINI_CANARY_IDENTITY"));
+const badSha = planInput();
+badSha.exact_head = "not-a-sha";
+assert(buildContinuityAlphaCanaryPlan(badSha).errors.includes("FAIL_EXACT_HEAD"));
+const missingDependency = planInput();
+missingDependency.dependency_refs.pop();
+assert(buildContinuityAlphaCanaryPlan(missingDependency).errors.includes("FAIL_EXACT_DEPENDENCY_REFS"));
+
+const deterministic = liveSuite();
+deterministic.evidence_kind = "deterministic_fixture";
+const deterministicResult = verifyObservedContinuityAlphaCanary(plan, deterministic);
+assert.equal(deterministicResult.status, "fail");
+assert.equal(deterministicResult.operator_boundary_verified, false);
+assert(deterministicResult.errors.includes("FAIL_OBSERVED_LIVE_EVIDENCE_REQUIRED"));
+
+const wrongBinding = liveSuite();
+wrongBinding.runs[0].identity.binding_ref = "binding:wrong";
+assert(verifyObservedContinuityAlphaCanary(plan, wrongBinding).errors.some((error) => error.startsWith("FAIL_RUN_BINDING_REF")));
+const wrongWorkspace = liveSuite();
+wrongWorkspace.runs[0].identity.workspace = "/wrong/workspace";
+assert(verifyObservedContinuityAlphaCanary(plan, wrongWorkspace).errors.some((error) => error.startsWith("FAIL_RUN_WORKSPACE_BINDING")));
+const wrongProject = liveSuite();
+wrongProject.runs[0].identity.project = "wrong-project";
+assert(verifyObservedContinuityAlphaCanary(plan, wrongProject).errors.some((error) => error.startsWith("FAIL_RUN_PROJECT_BINDING")));
+const wrongSurface = liveSuite();
+wrongSurface.runs[0].native_start_surface = "manual";
+assert(verifyObservedContinuityAlphaCanary(plan, wrongSurface).errors.some((error) => error.startsWith("FAIL_RUN_NATIVE_START_SURFACE")));
+const outsideSuddenDeath = liveSuite();
+outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.agent_id = "arc";
+outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.identity.runtime = "gemini_cli";
+outsideSuddenDeath.runs.find((run) => run.scenario_id === "S3")!.host = "gemini_cli";
+assert(verifyObservedContinuityAlphaCanary(plan, outsideSuddenDeath).errors.includes("FAIL_INITIAL_SUDDEN_DEATH_SCOPE"));
+const wrapper = liveSuite();
+wrapper.runs[0].startup_path_kind = "wrapper";
+const wrapperResult = verifyObservedContinuityAlphaCanary(plan, wrapper);
+assert.equal(wrapperResult.operator_boundary_verified, false);
+assert(wrapperResult.errors.includes("FAIL_OPERATOR_BOUNDARY"));
+const storedValueEcho = liveSuite();
+storedValueEcho.runs[0].continuation.probe_supplied_expected_values = true;
+storedValueEcho.runs[0].continuation.useful_result.equals_stored_value_only = true;
+assert.equal(verifyObservedContinuityAlphaCanary(plan, storedValueEcho).continuity_alpha_candidate, false);
+
+const mutatedPlan = structuredClone(plan);
+mutatedPlan.operator_steps[0].ordinary_command = "claude";
+const mutatedPlanResult = verifyObservedContinuityAlphaCanary(mutatedPlan, liveSuite());
+assert.equal(mutatedPlanResult.status, "stopped");
+assert(mutatedPlanResult.errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
+const forgedPlanId = structuredClone(plan);
+forgedPlanId.plan_id = `alpha05:${"f".repeat(64)}`;
+assert(verifyObservedContinuityAlphaCanary(forgedPlanId, liveSuite()).errors.includes("AUTO_FAIL_PLAN_INTEGRITY"));
+
+const stoppedPlan = buildContinuityAlphaCanaryPlan(badSha);
+assert.equal(verifyObservedContinuityAlphaCanary(stoppedPlan, liveSuite()).status, "stopped");
+
+const evaluationSchema = JSON.parse(readFileSync(
+  "docs/design/schemas/continuity-alpha-evaluation-v1.schema.json",
+  "utf8",
+));
+const canarySchema = JSON.parse(readFileSync(
+  "docs/design/schemas/continuity-alpha-canary-v1.schema.json",
+  "utf8",
+));
+const ajv = new Ajv2020({ strict: false });
+addFormats(ajv);
+ajv.addSchema(evaluationSchema);
+const validate = ajv.compile(canarySchema);
+assert.equal(validate(plan), true, JSON.stringify(validate.errors));
+assert.equal(validate(pass), true, JSON.stringify(validate.errors));
+assert.equal(validate(stoppedPlan), true, JSON.stringify(validate.errors));
+const falseClaim = structuredClone(pass);
+falseClaim.continuity_alpha_candidate = false;
+assert.equal(validate(falseClaim), false);
+
+console.log("continuity alpha canary tests passed");

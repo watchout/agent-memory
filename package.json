@@ -14,7 +14,9 @@
     "wasurezu-gemini-session-start": "dist/gemini-session-start.js",
     "wasurezu-gemini-hook-install": "dist/gemini-hook-installer.js",
     "wasurezu-claude-session-start": "dist/claude-session-start.js",
+    "wasurezu-claude-hook-install": "dist/claude-hook-installer.js",
     "wasurezu-claude-start": "dist/claude-start.js",
+    "wasurezu-continuity-alpha-canary": "dist/continuity-alpha-canary.js",
     "wasurezu-restart": "dist/restart-cli.js"
   },
   "files": [
@@ -60,11 +62,13 @@
     "gemini:hook-install": "tsx src/gemini-hook-installer.ts",
     "test:gemini-hook": "tsx src/test-gemini-session-start.ts && tsx src/test-gemini-hook-installer.ts",
     "claude:hook": "tsx src/claude-session-start.ts",
-    "test:claude-hook": "tsx src/test-claude-session-start.ts",
+    "claude:hook-install": "tsx src/claude-hook-installer.ts",
+    "test:claude-hook": "tsx src/test-claude-session-start.ts && tsx src/test-claude-hook-installer.ts",
     "claude:start": "tsx src/claude-start.ts",
     "company-dev-os:recovery-target-audit": "tsx src/company-dev-os-recovery-target-audit.ts",
     "test:company-dev-os-recovery-target-audit": "tsx src/test-company-dev-os-recovery-target-audit.ts",
-    "test:continuity-alpha-evaluator": "tsx src/test-continuity-alpha-evaluator.ts"
+    "test:continuity-alpha-evaluator": "tsx src/test-continuity-alpha-evaluator.ts",
+    "test:continuity-alpha-canary": "tsx src/test-continuity-alpha-canary.ts"
   },
   "keywords": [
     "mcp",
