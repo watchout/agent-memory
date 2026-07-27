@@ -15,7 +15,13 @@ Kusabi reports four distinct verdicts:
 - `live_claim_eligible`: `quality_ready` is true, the evidence kind is `observed_live_canary`, and every KBF result is backed by an externally verified proof reference.
 - Timing is recorded for diagnosis only. It is not a blocking acceptance criterion in v1.
 
-The single product goal is: after an ordinary fresh start, Kusabi continues without user restatement by recovering the correct current state, next action, constraints, and blockers; correcting stale facts before acting; and producing one new, safe, verifiable result.
+The single product goal is: continuity follows the canonical `agent_id`. After
+an ordinary fresh start, changing the session, profile/runtime binding, host,
+or internal model must not change the work being continued. Kusabi recovers
+the same frozen current state, next action, constraints, blockers, decisions,
+and evidence references without user restatement; corrects stale facts before
+acting; and produces one new, safe, verifiable result. Host, model, profile,
+and `session_id` are execution provenance, not the continuity namespace.
 
 The final decision is fixed: `KUSABI_V1_PASS = G1_PASS AND G2_PASS AND G3_HOST_PASS.codex AND G3_HOST_PASS.claude_code AND G3_HOST_PASS.gemini_cli AND LIVE_PASS_COUNT = 3/3 AND BLOCKING_DEFECT_COUNT = 0 AND INDEPENDENT_R2_AUDIT_COMPLETE`.
 
@@ -35,7 +41,7 @@ Evaluation uses exactly three gates:
 
 1. `G1 evaluator contract`: deterministic positive and negative fixtures prove that the evaluator applies KBF01 through KBF09 and fails closed.
 2. `G2 integration`: the real recovery path, safety path, degradation path, and the frozen JSON/SQLite/Postgres retrieval corpus produce machine-checkable evidence.
-3. `G3 native-host live canary`: exactly one fresh ordinary session on each of `codex`, `claude_code`, and `gemini_cli`, with three distinct session IDs and no task restatement, supplies externally verified proof pairs, passes KBF01 through KBF08, and produces a new useful result. KBF09 is proved once by G2.
+3. `G3 native-host live canary`: exactly one fresh ordinary session on each of `codex`, `claude_code`, and `gemini_cli`, with three distinct session IDs and runtime binding refs but one identical canonical `agent_id`, project, workspace, and frozen ground-truth snapshot. Each run has no task restatement, supplies externally verified proof pairs, passes KBF01 through KBF08, and produces a new useful result. KBF09 is proved once by G2.
 
 The v1 quality evaluation is closed when G1, G2, and G3 pass and one independent R2 audit finds no blocking defect. At that point testing stops for v1; timing improvements, additional platforms, larger corpora, and usability refinements move to the next version or normal backlog.
 
@@ -150,6 +156,13 @@ Each run satisfies:
 - The observation comes from a fresh ordinary session with a session ID distinct from the other two runs and without task restatement.
 - Runtime evidence is not copied from a test fixture.
 - Proof references are resolved outside the evidence payload.
+
+Across the three runs, the observed and expected canonical `agent_id` must be
+identical, the project and workspace must be identical, the runtime binding
+refs must be three distinct verified refs, and the complete frozen
+ground-truth input must be byte-for-byte identical. Three individually green
+runs for different agent namespaces or different work are a verified
+`false_live_acceptance`, not a Kusabi pass.
 
 `G3_PASS = G3_HOST_PASS.codex AND G3_HOST_PASS.claude_code AND
 G3_HOST_PASS.gemini_cli`; host substitution and duplicate-host runs fail the

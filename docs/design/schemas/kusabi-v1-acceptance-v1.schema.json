@@ -12,6 +12,7 @@
     "live_pass_count",
     "required_live_pass_count",
     "g3_native_host_matrix",
+    "g3_agent_continuity",
     "blocking_defect_count",
     "reasons"
   ],
@@ -70,6 +71,36 @@
         "exact": { "type": "boolean" }
       }
     },
+    "g3_agent_continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_agent_id",
+        "observed_agent_ids",
+        "observed_projects",
+        "observed_workspaces",
+        "binding_refs",
+        "same_agent_id",
+        "same_project",
+        "same_workspace",
+        "distinct_runtime_bindings",
+        "same_ground_truth",
+        "exact"
+      ],
+      "properties": {
+        "canonical_agent_id": { "type": ["string", "null"], "minLength": 1 },
+        "observed_agent_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "observed_projects": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "observed_workspaces": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "binding_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "same_agent_id": { "type": "boolean" },
+        "same_project": { "type": "boolean" },
+        "same_workspace": { "type": "boolean" },
+        "distinct_runtime_bindings": { "type": "boolean" },
+        "same_ground_truth": { "type": "boolean" },
+        "exact": { "type": "boolean" }
+      }
+    },
     "blocking_defect_count": { "type": "integer", "minimum": 0 },
     "reasons": {
       "type": "array",
@@ -102,6 +133,21 @@
                   "gemini_cli": { "const": true }
                 }
               },
+              "exact": { "const": true }
+            }
+          },
+          "g3_agent_continuity": {
+            "properties": {
+              "canonical_agent_id": { "type": "string", "minLength": 1 },
+              "observed_agent_ids": { "minItems": 3, "maxItems": 3 },
+              "observed_projects": { "minItems": 3, "maxItems": 3 },
+              "observed_workspaces": { "minItems": 3, "maxItems": 3 },
+              "binding_refs": { "minItems": 3, "maxItems": 3, "uniqueItems": true },
+              "same_agent_id": { "const": true },
+              "same_project": { "const": true },
+              "same_workspace": { "const": true },
+              "distinct_runtime_bindings": { "const": true },
+              "same_ground_truth": { "const": true },
               "exact": { "const": true }
             }
           },

@@ -291,6 +291,19 @@ export interface KusabiV1Acceptance {
     pass_by_host: Record<KusabiNativeHost, boolean>;
     exact: boolean;
   };
+  g3_agent_continuity: {
+    canonical_agent_id: string | null;
+    observed_agent_ids: string[];
+    observed_projects: string[];
+    observed_workspaces: string[];
+    binding_refs: string[];
+    same_agent_id: boolean;
+    same_project: boolean;
+    same_workspace: boolean;
+    distinct_runtime_bindings: boolean;
+    same_ground_truth: boolean;
+    exact: boolean;
+  };
   blocking_defect_count: number;
   reasons: string[];
 }
@@ -804,6 +817,24 @@ function allAdmissiblePass(tests: KusabiFunctionalTestResult[]): boolean {
   return tests.length > 0 && tests.every((test) => test.status === "pass" && test.evidence_admissible);
 }
 
+function exactStringSet(values: string[], requiredCount: number): boolean {
+  return values.length === requiredCount && values.every((value) => value.trim().length > 0) &&
+    new Set(values).size === 1;
+}
+
+function groundTruthSignature(evidence: KusabiFunctionalEvidence): string {
+  return JSON.stringify({
+    ground_truth_ref: evidence.recovery.ground_truth_ref,
+    ground_truth_frozen_at: evidence.recovery.ground_truth_frozen_at,
+    ground_truth_source_refs: evidence.recovery.ground_truth_source_refs,
+    expected_objective_terms: evidence.recovery.expected_objective_terms,
+    expected_next_action_terms: evidence.recovery.expected_next_action_terms,
+    expected_constraint_terms: evidence.recovery.expected_constraint_terms,
+    expected_blocker_terms: evidence.recovery.expected_blocker_terms,
+    critical_facts: evidence.recovery.critical_facts.map(({ key, expected }) => ({ key, expected })),
+  });
+}
+
 export function evaluateKusabiV1Acceptance(
   input: KusabiV1AcceptanceInput,
   options: KusabiV1AcceptanceOptions = {},
@@ -848,6 +879,11 @@ export function evaluateKusabiV1Acceptance(
 
   const requiredHosts = [...KUSABI_G3_NATIVE_HOSTS];
   const observedHosts = input.g3.map((evidence) => evidence.identity.host);
+  const observedAgentIds = input.g3.map((evidence) => evidence.identity.observed_agent_id);
+  const observedProjects = input.g3.map((evidence) => evidence.identity.observed_project);
+  const observedWorkspaces = input.g3.map((evidence) => evidence.identity.workspace);
+  const bindingRefs = input.g3.map((evidence) => evidence.identity.binding_ref);
+  const groundTruthSignatures = input.g3.map(groundTruthSignature);
   const distinctLiveSessions = new Set(g3Evaluations.map((evaluation) => evaluation.session_id));
   const livePassCount = g3Evaluations.filter((evaluation) => (
     evaluation.evidence_kind === "observed_live_canary" &&
@@ -864,13 +900,34 @@ export function evaluateKusabiV1Acceptance(
   })) as Record<KusabiNativeHost, boolean>;
   const exactHostMatrix = input.g3.length === requiredHosts.length &&
     requiredHosts.every((host) => observedHosts.filter((observed) => observed === host).length === 1);
+  const sameAgentId = exactStringSet(observedAgentIds, requiredHosts.length) && input.g3.every((evidence) => (
+    evidence.identity.expected_agent_id === evidence.identity.observed_agent_id
+  ));
+  const sameProject = exactStringSet(observedProjects, requiredHosts.length) && input.g3.every((evidence) => (
+    evidence.identity.expected_project === evidence.identity.observed_project
+  ));
+  const sameWorkspace = exactStringSet(observedWorkspaces, requiredHosts.length);
+  const distinctRuntimeBindings = bindingRefs.length === requiredHosts.length &&
+    bindingRefs.every((ref) => ref.trim().length > 0) && new Set(bindingRefs).size === requiredHosts.length;
+  const sameGroundTruth = groundTruthSignatures.length === requiredHosts.length &&
+    new Set(groundTruthSignatures).size === 1;
+  const exactAgentContinuity = sameAgentId && sameProject && sameWorkspace &&
+    distinctRuntimeBindings && sameGroundTruth;
   const liveVerifiedFailure = g3Evaluations.some((evaluation) => hasVerifiedFailure(coreTests(evaluation)));
   let g3: KusabiV1GateStatus = "incomplete";
   if (liveVerifiedFailure) {
     g3 = "fail";
     reasons.push("G3_VERIFIED_FUNCTIONAL_CORE_FAILURE");
+  } else if (exactHostMatrix && input.g3.length === requiredHosts.length && !exactAgentContinuity) {
+    g3 = "fail";
+    if (!sameAgentId) reasons.push("G3_CANONICAL_AGENT_ID_MISMATCH");
+    if (!sameProject) reasons.push("G3_MEMORY_PROJECT_MISMATCH");
+    if (!sameWorkspace) reasons.push("G3_WORKSPACE_MISMATCH");
+    if (!distinctRuntimeBindings) reasons.push("G3_DISTINCT_RUNTIME_BINDINGS_REQUIRED");
+    if (!sameGroundTruth) reasons.push("G3_FROZEN_GROUND_TRUTH_MISMATCH");
   } else if (
     exactHostMatrix &&
+    exactAgentContinuity &&
     distinctLiveSessions.size === requiredHosts.length &&
     requiredHosts.every((host) => passByHost[host])
   ) {
@@ -924,6 +981,19 @@ export function evaluateKusabiV1Acceptance(
       observed_hosts: observedHosts,
       pass_by_host: passByHost,
       exact: exactHostMatrix,
+    },
+    g3_agent_continuity: {
+      canonical_agent_id: sameAgentId ? observedAgentIds[0] : null,
+      observed_agent_ids: observedAgentIds,
+      observed_projects: observedProjects,
+      observed_workspaces: observedWorkspaces,
+      binding_refs: bindingRefs,
+      same_agent_id: sameAgentId,
+      same_project: sameProject,
+      same_workspace: sameWorkspace,
+      distinct_runtime_bindings: distinctRuntimeBindings,
+      same_ground_truth: sameGroundTruth,
+      exact: exactAgentContinuity,
     },
     blocking_defect_count: blockingDefectCount,
     reasons: unique(reasons),

@@ -19,6 +19,7 @@ import {
   enforceCodexRecoveryCaps,
   parseCodexSessionStartArgs,
   recoveryFromPack,
+  resolveCodexStoreBinding,
   runCodexSessionStart,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
@@ -270,6 +271,7 @@ export async function loadClaudeRecoveryFromStore(
   binding: ClaudeSessionStartBinding,
   input: ClaudeSessionStartInput,
 ): Promise<LoadedCodexRecovery> {
+  const storeBinding = resolveCodexStoreBinding();
   const store = await createStore();
   try {
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
@@ -320,6 +322,7 @@ export async function loadClaudeRecoveryFromStore(
       recovery,
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
+      store_binding: storeBinding,
     };
   } finally {
     await store.close();

@@ -35,7 +35,7 @@ function hookInput(cwd: string, source: GeminiSessionStartInput["source"] = "sta
 
 function binding(workspace: string, overrides: Partial<GeminiSessionStartBinding> = {}): GeminiSessionStartBinding {
   return {
-    agent_id: "kusabi-gemini",
+    agent_id: "kusabi",
     project: "agent-memory",
     workspace,
     binding_source_ref: "fixture:verified-kusabi-gemini-binding",
@@ -63,7 +63,7 @@ function loaded(text?: string): LoadedGeminiRecovery {
   return {
     recovery: recovery(text),
     recovery_pack: {
-      pack_ref: "restart_pack:kusabi-gemini:agent-memory:fixture",
+      pack_ref: "restart_pack:kusabi:agent-memory:fixture",
       schema_ref: "wasurezu-recovery-pack/v1",
       token_budget: 1650,
       confidence: "high",
@@ -72,6 +72,13 @@ function loaded(text?: string): LoadedGeminiRecovery {
       policy_version: "wasurezu-memory-safety-governance/0.1.0",
     },
     recovery_quality_log_ref: "recovery_quality_log:123e4567-e89b-42d3-a456-426614174000",
+    store_binding: {
+      source: "user_config",
+      backend_intent: "postgres",
+      config_path_sha256: "a".repeat(64),
+      verified: true,
+      credentials_embedded: false,
+    },
   };
 }
 
@@ -103,6 +110,9 @@ async function main(): Promise<void> {
       assert(result.output.hookSpecificOutput?.additionalContext.includes("exact next action"));
       assert.equal(result.output.systemMessage, undefined);
       assert.equal(result.evidence.outcome, "full");
+      assert.equal(result.evidence.identity.agent_id, "kusabi");
+      assert.equal(result.evidence.store_binding.backend_intent, "postgres");
+      assert.equal(result.evidence.store_binding.verified, true);
       assert.equal(result.evidence.adapter.normal_launch_command, "gemini");
       assert.equal(result.evidence.adapter.host_contract_version, "0.38.2");
       assert.equal(result.evidence.hook.source, source);
@@ -213,12 +223,12 @@ async function main(): Promise<void> {
 
     const secret = "sk-abcdefghijklmnopqrstuvwxyz123456";
     const packData: RestartPackData = {
-      agentId: "kusabi-gemini",
+      agentId: "kusabi",
       project: "agent-memory",
       maxTokens: 1_500,
       activeTasks: [{
         id: "task-1",
-        agent_id: "kusabi-gemini",
+        agent_id: "kusabi",
         project: "agent-memory",
         task: `Continue ${secret} from /Users/yuji/Developer/agent-memory`,
         status: "in_progress",
@@ -236,7 +246,7 @@ async function main(): Promise<void> {
     };
     const pack = buildRecoveryPackArtifact(packData, {
       generated_at: "2026-07-24T00:00:00.000Z",
-      pack_id: "restart_pack:kusabi-gemini:agent-memory:redaction-fixture",
+      pack_id: "restart_pack:kusabi:agent-memory:redaction-fixture",
     });
     const built = recoveryFromPack(buildRestartPack(packData), pack, binding(workspace));
     assert(!built.text.includes(secret));
@@ -246,7 +256,7 @@ async function main(): Promise<void> {
 
     const parsed = parseGeminiSessionStartArgs([
       "--adapter-id", GEMINI_SESSION_START_ADAPTER_ID,
-      "--agent-id", "kusabi-gemini",
+      "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:binding",
@@ -254,13 +264,13 @@ async function main(): Promise<void> {
       "--max-bytes", "4096",
       "--timeout-ms", "6000",
     ], {});
-    assert.equal(parsed.agent_id, "kusabi-gemini");
+    assert.equal(parsed.agent_id, "kusabi");
     assert.equal(parsed.max_tokens, 1200);
 
     const cli = spawnSync(process.execPath, [
       join(process.cwd(), "dist", "gemini-session-start.js"),
       "--adapter-id", GEMINI_SESSION_START_ADAPTER_ID,
-      "--agent-id", "kusabi-gemini",
+      "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:binding",

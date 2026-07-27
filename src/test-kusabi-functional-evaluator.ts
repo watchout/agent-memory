@@ -64,9 +64,10 @@ function validEvidence(
   kind: KusabiFunctionalEvidence["evidence_kind"] = "deterministic_fixture",
   runId = "fixture-run-1",
   host: KusabiNativeHost = "codex",
+  sharedGroundTruthRef?: string,
 ):
 KusabiFunctionalEvidence {
-  const groundTruthRef = `ground_truth:${runId}`;
+  const groundTruthRef = sharedGroundTruthRef ?? `ground_truth:${runId}`;
   const ssotRef = `ssot:${runId}`;
   const usefulResultRef = `result:${runId}`;
   return {
@@ -481,7 +482,7 @@ await assert.rejects(
 const integrationEvidence = validEvidence("observed_integration", "integration-run-1");
 integrationEvidence.retrieval = realBackendRetrieval;
 const liveEvidenceRuns = KUSABI_G3_NATIVE_HOSTS.map((host, index) => (
-  validEvidence("observed_live_canary", `live-run-${index + 1}`, host)
+  validEvidence("observed_live_canary", `live-run-${index + 1}`, host, "ground_truth:g3-shared")
 ));
 const g1Proof = { ref: "ci:kbf-v1-fixed", content_sha256: "d".repeat(64) };
 const auditProof = { ref: "audit:kbf-v1", content_sha256: "e".repeat(64) };
@@ -514,7 +515,67 @@ assert.deepEqual(acceptance.g3_native_host_matrix, {
   pass_by_host: { codex: true, claude_code: true, gemini_cli: true },
   exact: true,
 });
+assert.deepEqual(acceptance.g3_agent_continuity, {
+  canonical_agent_id: "kusabi",
+  observed_agent_ids: ["kusabi", "kusabi", "kusabi"],
+  observed_projects: ["agent-memory", "agent-memory", "agent-memory"],
+  observed_workspaces: [
+    "/Users/yuji/Developer/agent-memory",
+    "/Users/yuji/Developer/agent-memory",
+    "/Users/yuji/Developer/agent-memory",
+  ],
+  binding_refs: [
+    "binding:codex:kusabi:agent-memory",
+    "binding:claude_code:kusabi:agent-memory",
+    "binding:gemini_cli:kusabi:agent-memory",
+  ],
+  same_agent_id: true,
+  same_project: true,
+  same_workspace: true,
+  distinct_runtime_bindings: true,
+  same_ground_truth: true,
+  exact: true,
+});
 assert.equal(acceptance.blocking_defect_count, 0);
+
+// A three-host run over different agent namespaces used to false-pass G3.
+// Kusabi continuity follows the canonical agent_id across runtime/profile swaps.
+const differentAgentIds = clone(liveEvidenceRuns);
+differentAgentIds[1].identity.expected_agent_id = "spec";
+differentAgentIds[1].identity.observed_agent_id = "spec";
+differentAgentIds[2].identity.expected_agent_id = "kusabi-gemini";
+differentAgentIds[2].identity.observed_agent_id = "kusabi-gemini";
+const differentAgentIdsResult = evaluateKusabiV1Acceptance({
+  ...acceptanceInput,
+  g3: differentAgentIds,
+}, acceptanceOptions);
+assert.equal(differentAgentIdsResult.verdict, "FAIL");
+assert.equal(differentAgentIdsResult.gates.g3_live_canary, "fail");
+assert.equal(differentAgentIdsResult.g3_agent_continuity.same_agent_id, false);
+assert(differentAgentIdsResult.reasons.includes("G3_CANONICAL_AGENT_ID_MISMATCH"));
+
+// Individually valid runs cannot pass when they recover different frozen work.
+const differentGroundTruth = clone(liveEvidenceRuns);
+differentGroundTruth[2].recovery.ground_truth_ref = "ground_truth:other-work";
+differentGroundTruth[2].recovery.ground_truth_source_refs = ["ground_truth:other-work"];
+const differentGroundTruthResult = evaluateKusabiV1Acceptance({
+  ...acceptanceInput,
+  g3: differentGroundTruth,
+}, acceptanceOptions);
+assert.equal(differentGroundTruthResult.verdict, "FAIL");
+assert.equal(differentGroundTruthResult.g3_agent_continuity.same_ground_truth, false);
+assert(differentGroundTruthResult.reasons.includes("G3_FROZEN_GROUND_TRUTH_MISMATCH"));
+
+// Host/profile bindings must change while the canonical continuity identity stays fixed.
+const duplicateRuntimeBindings = clone(liveEvidenceRuns);
+duplicateRuntimeBindings[1].identity.binding_ref = duplicateRuntimeBindings[0].identity.binding_ref;
+const duplicateRuntimeBindingsResult = evaluateKusabiV1Acceptance({
+  ...acceptanceInput,
+  g3: duplicateRuntimeBindings,
+}, acceptanceOptions);
+assert.equal(duplicateRuntimeBindingsResult.verdict, "FAIL");
+assert.equal(duplicateRuntimeBindingsResult.g3_agent_continuity.distinct_runtime_bindings, false);
+assert(duplicateRuntimeBindingsResult.reasons.includes("G3_DISTINCT_RUNTIME_BINDINGS_REQUIRED"));
 
 const onlyTwoLiveRuns = evaluateKusabiV1Acceptance({
   ...acceptanceInput,
