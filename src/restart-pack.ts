@@ -174,6 +174,11 @@ export interface RestartPackData {
   agentId: string;
   project?: string;
   maxTokens: number;
+  /**
+   * Timestamp captured when the store snapshot is loaded. Hand-built fixtures
+   * may omit it to preserve legacy deterministic behavior.
+   */
+  observedAt?: string;
   activeTasks: TaskState[];
   blockedTasks: TaskState[];
   completedTasks: TaskState[];
@@ -184,6 +189,7 @@ export interface RestartPackData {
 
 const MIN_TOKEN_BUDGET = 500;
 const DEFAULT_TOKEN_BUDGET = 1500;
+export const RESTART_PACK_TASK_FRESHNESS_WINDOW_MS = 12 * 60 * 60 * 1000;
 const HOST_INVOCATION_SCHEMA_REF = "host-invocation-context/v1";
 export const RECOVERY_PACK_SCHEMA_REF = "wasurezu-recovery-pack/v1";
 export const RECOVERY_PACK_POLICY_VERSION = "wasurezu-memory-safety-governance/0.1.0";
@@ -233,6 +239,7 @@ export async function loadRestartPackData(store: Store, input: RestartPackInput)
     agentId: input.agent_id,
     project: input.project,
     maxTokens,
+    observedAt: new Date().toISOString(),
     activeTasks,
     blockedTasks,
     completedTasks,
@@ -364,6 +371,23 @@ function buildSections(data: RestartPackData): string[] {
   );
 
   sections.push(RECOVERY_CONTROL_SECTION);
+
+  const taskFreshness = taskCheckpointFreshness(data);
+  if (taskFreshness === "stale") {
+    sections.push(
+      [
+        "FRESHNESS CAUTION",
+        "The current task checkpoint is older than the recovery freshness window. Treat status-bearing facts as unverified, use targeted search_memory when available, and verify external SSOT before acting.",
+      ].join("\n")
+    );
+  } else if (taskFreshness === "unknown") {
+    sections.push(
+      [
+        "FRESHNESS UNKNOWN",
+        "The current task checkpoint freshness cannot be verified because its observation time or checkpoint time is missing, invalid, or future-skewed. Treat status-bearing facts as unverified, use targeted search_memory when available, and verify external SSOT before acting.",
+      ].join("\n")
+    );
+  }
 
   if (hiddenStructuredCount > 0) {
     sections.push(
@@ -580,6 +604,12 @@ function buildRecoveryItems(data: RestartPackData): RecoveryPackItem[] {
   return items;
 }
 
+function canonicalSourceTime(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
+}
+
 function recoveryItem(input: Omit<RecoveryPackItem, "sensitivity"> & { sensitivity?: RecoveryPackSensitivity }): RecoveryPackItem {
   const redacted = redactText(input.summary);
   const sensitivity = input.sensitivity ?? (redacted.redaction_count > 0 ? "secret_redacted" : "internal");
@@ -588,8 +618,11 @@ function recoveryItem(input: Omit<RecoveryPackItem, "sensitivity"> & { sensitivi
     requestedMemorySafetyClass === "approved_memory" && !input.promotion_evidence?.promotion_ref
       ? "candidate_memory"
       : requestedMemorySafetyClass;
+  const { source_time: rawSourceTime, ...itemInput } = input;
+  const sourceTime = canonicalSourceTime(rawSourceTime);
   const item: RecoveryPackItem = {
-    ...input,
+    ...itemInput,
+    ...(sourceTime ? { source_time: sourceTime } : {}),
     summary: clipLine(redacted.text, 1200),
     sensitivity,
     memory_safety_class: memorySafetyClass,
@@ -720,6 +753,9 @@ function missingContextFor(data: RestartPackData): string[] {
   if (!active?.next_steps) missing.push("next_action");
   if (data.decisions.length === 0) missing.push("latest_decision");
   if (data.knowledge.length === 0 && data.conversationEvents.length === 0) missing.push("supporting_context");
+  const taskFreshness = taskCheckpointFreshness(data);
+  if (taskFreshness === "stale") missing.push("task_checkpoint_stale");
+  if (taskFreshness === "unknown") missing.push("task_checkpoint_freshness_unknown");
   for (const risk of detectContinuityRisks({ decisions: data.decisions })) {
     if (!missing.includes(risk.missing_context_key)) missing.push(risk.missing_context_key);
   }
@@ -738,6 +774,8 @@ function confidenceScore(missingContext: string[]): number {
     latest_decision: 0.15,
     supporting_context: 0.15,
     contradictory_decisions: 0.3,
+    task_checkpoint_stale: 0.25,
+    task_checkpoint_freshness_unknown: 0.25,
   };
   const penalty = missingContext.reduce((sum, key) => sum + (weights[key] ?? 0.1), 0);
   return Math.max(0, Math.min(1, Number((1 - penalty).toFixed(2))));
@@ -756,6 +794,25 @@ function confidenceReasonsFor(data: RestartPackData, missingContext: string[]): 
     reasons.push(`missing ${missing}`);
   }
   return reasons;
+}
+
+type TaskCheckpointFreshness = "fresh" | "stale" | "unknown" | "unavailable";
+
+function taskCheckpointFreshness(data: RestartPackData): TaskCheckpointFreshness {
+  const primaryTask = data.activeTasks[0] ?? data.blockedTasks[0];
+  if (!primaryTask) return "unavailable";
+  if (!data.observedAt) return "unknown";
+  const observedAt = Date.parse(data.observedAt);
+  const checkpointAt = Date.parse(primaryTask.updated_at ?? primaryTask.created_at);
+  if (!Number.isFinite(observedAt) || !Number.isFinite(checkpointAt)) return "unknown";
+  const age = observedAt - checkpointAt;
+  if (age < 0) return "unknown";
+  return age > RESTART_PACK_TASK_FRESHNESS_WINDOW_MS ? "stale" : "fresh";
+}
+
+export function taskCheckpointIsStale(data: RestartPackData): boolean {
+  const freshness = taskCheckpointFreshness(data);
+  return freshness === "stale" || freshness === "unknown";
 }
 
 function defaultDeliveryMode(targetRuntime: HostInvocationTargetRuntime): HostInvocationDeliveryMode {

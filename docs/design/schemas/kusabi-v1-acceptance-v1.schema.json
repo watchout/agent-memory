@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kusabi-v1-acceptance/v1",
+  "title": "Kusabi v1 Final Acceptance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict",
+    "kusabi_v1_pass",
+    "gates",
+    "live_pass_count",
+    "required_live_pass_count",
+    "g3_native_host_matrix",
+    "blocking_defect_count",
+    "reasons"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-v1-acceptance/v1" },
+    "verdict": { "enum": ["PASS", "FAIL", "INCOMPLETE"] },
+    "kusabi_v1_pass": { "type": "boolean" },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g1_evaluator_contract",
+        "g2_integration",
+        "g3_live_canary",
+        "independent_r2_audit"
+      ],
+      "properties": {
+        "g1_evaluator_contract": { "enum": ["pass", "fail", "incomplete"] },
+        "g2_integration": { "enum": ["pass", "fail", "incomplete"] },
+        "g3_live_canary": { "enum": ["pass", "fail", "incomplete"] },
+        "independent_r2_audit": { "enum": ["pass", "fail", "incomplete"] }
+      }
+    },
+    "live_pass_count": { "type": "integer", "minimum": 0 },
+    "required_live_pass_count": { "const": 3 },
+    "g3_native_host_matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_hosts", "observed_hosts", "pass_by_host", "exact"],
+      "properties": {
+        "required_hosts": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "codex" },
+            { "const": "claude_code" },
+            { "const": "gemini_cli" }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "observed_hosts": {
+          "type": "array",
+          "items": { "enum": ["codex", "claude_code", "gemini_cli"] }
+        },
+        "pass_by_host": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["codex", "claude_code", "gemini_cli"],
+          "properties": {
+            "codex": { "type": "boolean" },
+            "claude_code": { "type": "boolean" },
+            "gemini_cli": { "type": "boolean" }
+          }
+        },
+        "exact": { "type": "boolean" }
+      }
+    },
+    "blocking_defect_count": { "type": "integer", "minimum": 0 },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["verdict"],
+        "properties": { "verdict": { "const": "PASS" } }
+      },
+      "then": {
+        "properties": {
+          "kusabi_v1_pass": { "const": true },
+          "live_pass_count": { "const": 3 },
+          "blocking_defect_count": { "const": 0 },
+          "g3_native_host_matrix": {
+            "properties": {
+              "observed_hosts": {
+                "minItems": 3,
+                "maxItems": 3,
+                "uniqueItems": true
+              },
+              "pass_by_host": {
+                "properties": {
+                  "codex": { "const": true },
+                  "claude_code": { "const": true },
+                  "gemini_cli": { "const": true }
+                }
+              },
+              "exact": { "const": true }
+            }
+          },
+          "gates": {
+            "properties": {
+              "g1_evaluator_contract": { "const": "pass" },
+              "g2_integration": { "const": "pass" },
+              "g3_live_canary": { "const": "pass" },
+              "independent_r2_audit": { "const": "pass" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["kusabi_v1_pass"],
+        "properties": { "kusabi_v1_pass": { "const": true } }
+      },
+      "then": {
+        "properties": { "verdict": { "const": "PASS" } }
+      }
+    }
+  ]
+}

@@ -21,7 +21,7 @@ import type { LoadedCodexRecovery, RecoveryOutputWithMetrics } from "./codex-ses
 function hookInput(
   cwd: string,
   source: ClaudeSessionStartInput["source"] = "startup",
-  permissionMode: ClaudeSessionStartInput["permission_mode"] = "default",
+  permissionMode?: ClaudeSessionStartInput["permission_mode"],
 ): string {
   return JSON.stringify({
     session_id: `session-${source}`,
@@ -29,8 +29,8 @@ function hookInput(
     cwd,
     hook_event_name: "SessionStart",
     model: "claude-sonnet-4-6",
-    permission_mode: permissionMode,
     source,
+    ...(permissionMode === undefined ? {} : { permission_mode: permissionMode }),
   });
 }
 
@@ -109,6 +109,7 @@ async function main(): Promise<void> {
       assert.equal(result.evidence.identity.runtime, "claude-code");
       assert.equal(result.evidence.identity.verified, true);
       assert.equal(result.evidence.hook.source, source);
+      assert.equal(result.evidence.hook.permission_mode, null);
       assert.equal(result.evidence.hook.strict_json_stdout, true);
       assert.equal(result.evidence.timing.elapsed_ms, 24);
       assert.equal(result.evidence.timing.hook_timeout_seconds, 9);
@@ -132,6 +133,20 @@ async function main(): Promise<void> {
     const auto = await runClaudeSessionStart(autoInput, binding(workspace), { loadRecovery: async () => loaded() });
     assert.equal(auto.evidence.hook.permission_mode, "auto");
     assert.equal(auto.evidence.hook.agent_type, "continuity-canary");
+
+    const defaultModeInput = hookInput(child, "startup", "default");
+    const parsedDefaultMode = parseClaudeSessionStartInput(defaultModeInput);
+    assert.equal(parsedDefaultMode.permission_mode, "default");
+    const defaultMode = await runClaudeSessionStart(defaultModeInput, binding(workspace), {
+      loadRecovery: async () => loaded(),
+    });
+    assert.equal(defaultMode.evidence.hook.permission_mode, "default");
+
+    const invalidPermissionMode = await runClaudeSessionStart(
+      JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "allowEverything" }),
+      binding(workspace),
+    );
+    assert.match(invalidPermissionMode.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
 
     const malformed = await runClaudeSessionStart("not-json", binding(workspace));
     assert.match(malformed.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
@@ -157,7 +172,7 @@ async function main(): Promise<void> {
     );
     assert.match(additionalProperty.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
 
-    for (const field of ["cwd", "hook_event_name", "model", "permission_mode", "session_id", "source", "transcript_path"]) {
+    for (const field of ["cwd", "hook_event_name", "model", "session_id", "source", "transcript_path"]) {
       const input = JSON.parse(hookInput(child));
       delete input[field];
       const result = await runClaudeSessionStart(JSON.stringify(input), binding(workspace));

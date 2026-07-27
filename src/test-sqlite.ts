@@ -125,6 +125,22 @@ async function testSupersede() {
     activeApi.find((d) => d.id === result.new.id) !== undefined,
     "new decision in active list"
   );
+  const allApi = await store.getDecisions({ agent_id: AGENT, status: "all" });
+  assert(allApi.some((d) => d.id === d1.id), "superseded decision remains available for explicit history");
+  const decisionSearch = await store.searchMemory({
+    agent_id: AGENT,
+    project: PROJECT,
+    query: "REST GraphQL",
+    scope: "decisions",
+  });
+  assert(
+    !decisionSearch.decisions.some((d) => d.id === d1.id),
+    "decision search excludes superseded history by default",
+  );
+  assert(
+    decisionSearch.decisions.some((d) => d.id === result.new.id),
+    "decision search keeps the active replacement",
+  );
 
   // Error: non-existent
   try {

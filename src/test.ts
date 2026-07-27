@@ -463,6 +463,22 @@ async function testDecisions() {
     status: "all",
   });
   assert(all.length === 3, "all=3 including superseded");
+  assert(all.some((d) => d.id === d1.id), "superseded decision remains available for explicit history");
+
+  const decisionSearch = await store.searchMemory({
+    agent_id: "test-agent",
+    project: "hotel-app",
+    query: "JWT session",
+    scope: "decisions",
+  });
+  assert(
+    !decisionSearch.decisions.some((d) => d.id === d1.id),
+    "decision search excludes superseded history by default",
+  );
+  assert(
+    decisionSearch.decisions.some((d) => d.id === result.new.id),
+    "decision search keeps the active replacement",
+  );
 
   // Agent isolation
   const otherAgent = await store.getDecisions({
