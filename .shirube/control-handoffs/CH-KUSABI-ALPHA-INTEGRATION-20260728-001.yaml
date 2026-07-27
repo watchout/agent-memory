@@ -1,0 +1,159 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-ALPHA-INTEGRATION-20260728-001
+control_handoff_ref: .shirube/control-handoffs/CH-KUSABI-ALPHA-INTEGRATION-20260728-001.yaml
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-07-28"
+  decision_ref: ODR-KUSABI-ALPHA-INTEGRATION-20260728-001
+  instruction: ODR-KUSABI-ALPHA-INTEGRATION-20260728-001 を記載内容どおり一括承認します
+
+lifecycle_state: IMPLEMENTATION_ACTIVE
+
+execution_context:
+  agent_id: kusabi
+  active_function: implementation_executor
+  canonical_workspace: /Users/yuji/Developer/agent-memory
+  candidate_worktree: /Users/yuji/Developer/.wt-kusabi-claude-session-input-compat
+  repository: watchout/agent-memory
+
+cell:
+  CELL-ID: KUSABI-ALPHA-CANONICAL-INTEGRATION-001
+  cell_id: KUSABI-ALPHA-CANONICAL-INTEGRATION-001
+  cell_type: exact_head_publication_and_conditional_merge
+  risk_class: R2
+  goal: Publish the verified Kusabi alpha candidate unchanged and integrate it into canonical main after all frozen gates pass.
+  exact_subject:
+    base_branch: main
+    base_sha: 94c0a8e7edb56758cb0ee08888503aeee0a3e980
+    head_branch: codex/kusabi-claude-session-input-compat-20260727
+    head_sha: 15d1519f8ef6eedf440bfb56a21d7a867c4098a7
+    head_tree: 0a5c047abaf22229e32c4953d41bfe0ba3198bfb
+    commit_count: 3
+    changed_file_count: 24
+  allowed_paths:
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-INTEGRATION-20260728-001.yaml
+    - docs/design/KUSABI_KBF_ACCEPTANCE_CONTRACT.md
+    - docs/design/schemas/claude-session-start-evidence-v1.schema.json
+    - docs/design/schemas/gemini-session-start-evidence-v1.schema.json
+    - docs/design/schemas/kusabi-functional-evaluation-v1.schema.json
+    - docs/design/schemas/kusabi-functional-evidence-v1.schema.json
+    - docs/design/schemas/kusabi-v1-acceptance-v1.schema.json
+    - docs/operations/HOST_ADAPTERS.md
+    - docs/operations/RECOVERY_EVALUATION.md
+    - package.json
+    - src/claude-session-start.ts
+    - src/gemini-session-start.ts
+    - src/kusabi-functional-evaluator.ts
+    - src/measure-kusabi-functional.ts
+    - src/restart-pack.ts
+    - src/stores/json-store.ts
+    - src/stores/pg-store.ts
+    - src/stores/sqlite-store.ts
+    - src/stores/voyage.ts
+    - src/test-claude-session-start.ts
+    - src/test-gemini-session-start.ts
+    - src/test-kusabi-functional-evaluator.ts
+    - src/test-pg.ts
+    - src/test-sqlite.ts
+    - src/test.ts
+  forbidden_paths:
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .github/**
+    - .shirube/audit-item-sets/**
+    - .shirube/audits/**
+    - .shirube/cells/**
+    - .shirube/gate-contracts/**
+    - .shirube/reports/**
+    - db/**
+    - dist/**
+    - package-lock.json
+    - deploy/**
+    - secrets/**
+    - .env
+    - .env.*
+  allowed_operations:
+    - read-only exact base, head, tree, worktree, remote, PR, CI, audit, and merge-state checks
+    - push the unchanged exact candidate branch
+    - create and update one draft pull request targeting main
+    - route one exact-head independent audit through AUN to codex-audit
+    - record the owner exact-head approval on the pull request
+    - mark the pull request ready only after CI and independent audit pass
+    - route merge execution through AUN to codex-cto or allow the human repository owner to merge
+    - squash merge without admin bypass after every merge condition passes
+    - perform read-only post-merge commit, tree, parent, and main equality verification
+  forbidden_operations:
+    - source, test, schema, documentation, package, lockfile, or generated-output edits
+    - commit, amend, rebase, cherry-pick, force-push, or head/base substitution
+    - CI, audit, branch-protection, or actor-separation bypass
+    - maker self-audit or maker self-merge
+    - collaboration sub-agent audit
+    - TUI injection, wrapper launch, or automatic restart
+    - npm publish, tag, GitHub Release, deployment, or runtime/configuration mutation
+    - mutation of unrelated worktrees or existing user changes
+  stop_conditions:
+    - remote main differs from exact_subject.base_sha
+    - candidate head or tree differs from exact_subject
+    - candidate worktree is dirty
+    - CI fails
+    - independent audit rejects or reports a blocking finding
+    - merge conflict or non-clean merge state
+    - branch protection requires bypass
+    - any additional code change is required
+    - no separate authorized merge actor is available
+
+owner_decision:
+  result: APPROVED_EXACT_HEAD
+  actor: watchout
+  observed_at: "2026-07-28"
+  decision_ref: ODR-KUSABI-ALPHA-INTEGRATION-20260728-001
+  exact_head_sha: 15d1519f8ef6eedf440bfb56a21d7a867c4098a7
+  exact_tree_sha: 0a5c047abaf22229e32c4953d41bfe0ba3198bfb
+  conditional_merge_authorized: true
+
+evidence:
+  alpha_acceptance_ref: .shirube/control-handoffs/CH-KUSABI-G3-ACTIVATION-20260727-001.yaml
+  alpha_acceptance_sha256: 66a8fb8c52c8cf01531261ebdafb70aae90d45d9abbd62c81de7ab2e953e9636
+  g1: PASS
+  g2: PASS
+  g3: PASS_3_OF_3
+  independent_r2: PASS_WITH_WARN_BLOCKING_0
+  blocking_defect_count: 0
+  preflight: PENDING
+  remote_branch: PENDING
+  pull_request: PENDING
+  ci: PENDING
+  exact_head_audit: PENDING
+  merge: PENDING
+  post_merge: PENDING
+
+gate_result:
+  gate: kusabi_alpha_canonical_integration
+  result: IN_PROGRESS
+  authority_limit: exact-head publication and conditionally authorized separate-actor merge only
+
+next_action:
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Re-run exact immutable preflight, push the unchanged candidate, open one draft PR, and route CI plus exact-head external audit in parallel.
+  deliver_via: GitHub and AUN
+  exact_input_refs:
+    - base:94c0a8e7edb56758cb0ee08888503aeee0a3e980
+    - candidate:15d1519f8ef6eedf440bfb56a21d7a867c4098a7
+    - tree:0a5c047abaf22229e32c4953d41bfe0ba3198bfb
+    - acceptance:66a8fb8c52c8cf01531261ebdafb70aae90d45d9abbd62c81de7ab2e953e9636
+  scope: cell.allowed_operations and exact_subject only
+  deliverable: canonical main containing the verified Kusabi alpha candidate
+  completion_evidence: PR, green CI, exact-head independent audit, owner approval, separate-actor merge, and post-merge main readback
+  blocking: false
