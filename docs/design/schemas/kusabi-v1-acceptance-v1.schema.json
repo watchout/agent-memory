@@ -80,11 +80,14 @@
         "observed_projects",
         "observed_workspaces",
         "binding_refs",
+        "observed_store_backends",
+        "store_binding_refs",
         "same_agent_id",
         "same_project",
         "same_workspace",
         "distinct_runtime_bindings",
         "same_ground_truth",
+        "same_store_binding",
         "exact"
       ],
       "properties": {
@@ -93,11 +96,20 @@
         "observed_projects": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "observed_workspaces": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "binding_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "observed_store_backends": {
+          "type": "array",
+          "items": { "enum": ["sqlite", "postgres", "json", "multi_backend_test"] }
+        },
+        "store_binding_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^store-binding:[a-f0-9]{64}$" }
+        },
         "same_agent_id": { "type": "boolean" },
         "same_project": { "type": "boolean" },
         "same_workspace": { "type": "boolean" },
         "distinct_runtime_bindings": { "type": "boolean" },
         "same_ground_truth": { "type": "boolean" },
+        "same_store_binding": { "type": "boolean" },
         "exact": { "type": "boolean" }
       }
     },
@@ -143,11 +155,18 @@
               "observed_projects": { "minItems": 3, "maxItems": 3 },
               "observed_workspaces": { "minItems": 3, "maxItems": 3 },
               "binding_refs": { "minItems": 3, "maxItems": 3, "uniqueItems": true },
+              "observed_store_backends": {
+                "minItems": 3,
+                "maxItems": 3,
+                "items": { "enum": ["sqlite", "postgres"] }
+              },
+              "store_binding_refs": { "minItems": 3, "maxItems": 3 },
               "same_agent_id": { "const": true },
               "same_project": { "const": true },
               "same_workspace": { "const": true },
               "distinct_runtime_bindings": { "const": true },
               "same_ground_truth": { "const": true },
+              "same_store_binding": { "const": true },
               "exact": { "const": true }
             }
           },

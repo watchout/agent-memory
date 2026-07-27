@@ -448,6 +448,8 @@ async function main(): Promise<void> {
         observed_agent_id: recoveryAgent,
         expected_project: project,
         observed_project: project,
+        store_backend: "multi_backend_test",
+        store_binding_ref: `store-binding:${sha256("json+sqlite+postgres:disposable-g2")}`,
         store_binding_verified: stores.length === 3,
         credentials_embedded: false,
       },

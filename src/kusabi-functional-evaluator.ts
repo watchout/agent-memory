@@ -27,6 +27,7 @@ export type KusabiFunctionalEvidenceKind =
   "deterministic_fixture" | "observed_integration" | "observed_live_canary";
 export type KusabiFunctionalTestStatus = "pass" | "fail" | "not_measured";
 export type KusabiRetrievalBackend = "json" | "sqlite" | "postgres";
+export type KusabiStoreBackend = KusabiRetrievalBackend | "multi_backend_test";
 export type KusabiNativeHost = ContinuityAlphaHost;
 export type KusabiUsefulResultKind =
   "code_diff" | "test_receipt" | "verified_status" | "document_artifact" | "root_cause_evidence";
@@ -99,6 +100,8 @@ export interface KusabiFunctionalEvidence {
     observed_agent_id: string;
     expected_project: string;
     observed_project: string;
+    store_backend: KusabiStoreBackend;
+    store_binding_ref: string;
     store_binding_verified: boolean;
     credentials_embedded: boolean;
   };
@@ -297,11 +300,14 @@ export interface KusabiV1Acceptance {
     observed_projects: string[];
     observed_workspaces: string[];
     binding_refs: string[];
+    observed_store_backends: KusabiStoreBackend[];
+    store_binding_refs: string[];
     same_agent_id: boolean;
     same_project: boolean;
     same_workspace: boolean;
     distinct_runtime_bindings: boolean;
     same_ground_truth: boolean;
+    same_store_binding: boolean;
     exact: boolean;
   };
   blocking_defect_count: number;
@@ -331,6 +337,7 @@ const RETRIEVAL_QUERIES_PER_CATEGORY = 5;
 const RETRIEVAL_TOP_K = 5 as const;
 const MAX_BACKEND_METRIC_SPREAD = 0.05;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const STORE_BINDING_REF_PATTERN = /^store-binding:[a-f0-9]{64}$/;
 
 function normalized(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
@@ -630,6 +637,15 @@ export function evaluateKusabiFunctionalEvidence(
   if (!evidence.identity.identity_verified) identityReasons.push("KBF01_IDENTITY_NOT_VERIFIED");
   if (evidence.identity.expected_agent_id !== evidence.identity.observed_agent_id) identityReasons.push("KBF01_AGENT_MISMATCH");
   if (evidence.identity.expected_project !== evidence.identity.observed_project) identityReasons.push("KBF01_PROJECT_MISMATCH");
+  if (!STORE_BINDING_REF_PATTERN.test(evidence.identity.store_binding_ref)) {
+    identityReasons.push("KBF01_STORE_BINDING_REF_INVALID");
+  }
+  if (
+    evidence.evidence_kind === "observed_live_canary" &&
+    evidence.identity.store_backend !== "sqlite" && evidence.identity.store_backend !== "postgres"
+  ) {
+    identityReasons.push("KBF01_LIVE_STORE_BACKEND_UNSUPPORTED");
+  }
   if (!evidence.identity.store_binding_verified) identityReasons.push("KBF01_STORE_BINDING_NOT_VERIFIED");
   if (evidence.identity.credentials_embedded) identityReasons.push("KBF01_CREDENTIALS_EMBEDDED");
   tests.push(testResult("KBF-01", identityReasons.length === 0 ? "pass" : "fail", identityReasons, evidence, verifiedObservedProofs));
@@ -883,6 +899,8 @@ export function evaluateKusabiV1Acceptance(
   const observedProjects = input.g3.map((evidence) => evidence.identity.observed_project);
   const observedWorkspaces = input.g3.map((evidence) => evidence.identity.workspace);
   const bindingRefs = input.g3.map((evidence) => evidence.identity.binding_ref);
+  const observedStoreBackends = input.g3.map((evidence) => evidence.identity.store_backend);
+  const storeBindingRefs = input.g3.map((evidence) => evidence.identity.store_binding_ref);
   const groundTruthSignatures = input.g3.map(groundTruthSignature);
   const distinctLiveSessions = new Set(g3Evaluations.map((evaluation) => evaluation.session_id));
   const livePassCount = g3Evaluations.filter((evaluation) => (
@@ -911,8 +929,11 @@ export function evaluateKusabiV1Acceptance(
     bindingRefs.every((ref) => ref.trim().length > 0) && new Set(bindingRefs).size === requiredHosts.length;
   const sameGroundTruth = groundTruthSignatures.length === requiredHosts.length &&
     new Set(groundTruthSignatures).size === 1;
+  const sameStoreBinding = exactStringSet(observedStoreBackends, requiredHosts.length) &&
+    exactStringSet(storeBindingRefs, requiredHosts.length) &&
+    observedStoreBackends[0] !== "multi_backend_test" && observedStoreBackends[0] !== "json";
   const exactAgentContinuity = sameAgentId && sameProject && sameWorkspace &&
-    distinctRuntimeBindings && sameGroundTruth;
+    distinctRuntimeBindings && sameGroundTruth && sameStoreBinding;
   const liveVerifiedFailure = g3Evaluations.some((evaluation) => hasVerifiedFailure(coreTests(evaluation)));
   let g3: KusabiV1GateStatus = "incomplete";
   if (liveVerifiedFailure) {
@@ -925,6 +946,7 @@ export function evaluateKusabiV1Acceptance(
     if (!sameWorkspace) reasons.push("G3_WORKSPACE_MISMATCH");
     if (!distinctRuntimeBindings) reasons.push("G3_DISTINCT_RUNTIME_BINDINGS_REQUIRED");
     if (!sameGroundTruth) reasons.push("G3_FROZEN_GROUND_TRUTH_MISMATCH");
+    if (!sameStoreBinding) reasons.push("G3_STORE_BINDING_MISMATCH");
   } else if (
     exactHostMatrix &&
     exactAgentContinuity &&
@@ -988,11 +1010,14 @@ export function evaluateKusabiV1Acceptance(
       observed_projects: observedProjects,
       observed_workspaces: observedWorkspaces,
       binding_refs: bindingRefs,
+      observed_store_backends: observedStoreBackends,
+      store_binding_refs: storeBindingRefs,
       same_agent_id: sameAgentId,
       same_project: sameProject,
       same_workspace: sameWorkspace,
       distinct_runtime_bindings: distinctRuntimeBindings,
       same_ground_truth: sameGroundTruth,
+      same_store_binding: sameStoreBinding,
       exact: exactAgentContinuity,
     },
     blocking_defect_count: blockingDefectCount,

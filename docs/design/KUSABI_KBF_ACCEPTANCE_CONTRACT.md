@@ -22,6 +22,9 @@ the same frozen current state, next action, constraints, blockers, decisions,
 and evidence references without user restatement; corrects stale facts before
 acting; and produces one new, safe, verifiable result. Host, model, profile,
 and `session_id` are execution provenance, not the continuity namespace.
+SQLite and PostgreSQL are both supported user-selected stores. Continuity
+requires every swapped execution surface to resolve the same selected backend
+and credential-safe store fingerprint; it does not require PostgreSQL.
 
 The final decision is fixed: `KUSABI_V1_PASS = G1_PASS AND G2_PASS AND G3_HOST_PASS.codex AND G3_HOST_PASS.claude_code AND G3_HOST_PASS.gemini_cli AND LIVE_PASS_COUNT = 3/3 AND BLOCKING_DEFECT_COUNT = 0 AND INDEPENDENT_R2_AUDIT_COMPLETE`.
 
@@ -160,7 +163,9 @@ Each run satisfies:
 Across the three runs, the observed and expected canonical `agent_id` must be
 identical, the project and workspace must be identical, the runtime binding
 refs must be three distinct verified refs, and the complete frozen
-ground-truth input must be byte-for-byte identical. Three individually green
+ground-truth input must be byte-for-byte identical. The selected store backend
+must be either SQLite or PostgreSQL, and its credential-safe binding ref must
+be identical across all three hosts. Three individually green
 runs for different agent namespaces or different work are a verified
 `false_live_acceptance`, not a Kusabi pass.
 

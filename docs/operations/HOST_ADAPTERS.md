@@ -162,6 +162,12 @@ back to a different backend, because the same `agent_id` on different stores
 is not continuity. Each host records the resolved store-binding evidence, and
 G3 rejects a row whose store binding is unverified.
 
+SQLite and PostgreSQL are both supported choices. SQLite remains the OSS
+default when no PostgreSQL URL or explicit backend override is configured;
+an explicit SQLite selection wins over an inherited PostgreSQL URL. G3 tests
+the operator-selected backend rather than prescribing one, and requires the
+same credential-safe store binding fingerprint on all three hosts.
+
 The generated matcher is exactly `startup|resume|clear|compact`. The command
 hook timeout is 9 seconds and its internal recovery deadline is 7 seconds, so
 it can return a structured degraded result before the T1 10-second alpha

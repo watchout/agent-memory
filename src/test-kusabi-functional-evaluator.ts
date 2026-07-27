@@ -100,6 +100,8 @@ KusabiFunctionalEvidence {
       observed_agent_id: "kusabi",
       expected_project: "agent-memory",
       observed_project: "agent-memory",
+      store_backend: "postgres",
+      store_binding_ref: `store-binding:${"9".repeat(64)}`,
       store_binding_verified: true,
       credentials_embedded: false,
     },
@@ -230,6 +232,10 @@ const invalidHostBindings: Array<{
   {
     reason: "KBF01_BINDING_REF_MISSING",
     mutate: (evidence) => { evidence.identity.binding_ref = ""; },
+  },
+  {
+    reason: "KBF01_STORE_BINDING_REF_INVALID",
+    mutate: (evidence) => { evidence.identity.store_binding_ref = "store-binding:not-a-sha256"; },
   },
 ];
 for (const fixture of invalidHostBindings) {
@@ -529,11 +535,18 @@ assert.deepEqual(acceptance.g3_agent_continuity, {
     "binding:claude_code:kusabi:agent-memory",
     "binding:gemini_cli:kusabi:agent-memory",
   ],
+  observed_store_backends: ["postgres", "postgres", "postgres"],
+  store_binding_refs: [
+    `store-binding:${"9".repeat(64)}`,
+    `store-binding:${"9".repeat(64)}`,
+    `store-binding:${"9".repeat(64)}`,
+  ],
   same_agent_id: true,
   same_project: true,
   same_workspace: true,
   distinct_runtime_bindings: true,
   same_ground_truth: true,
+  same_store_binding: true,
   exact: true,
 });
 assert.equal(acceptance.blocking_defect_count, 0);
@@ -576,6 +589,30 @@ const duplicateRuntimeBindingsResult = evaluateKusabiV1Acceptance({
 assert.equal(duplicateRuntimeBindingsResult.verdict, "FAIL");
 assert.equal(duplicateRuntimeBindingsResult.g3_agent_continuity.distinct_runtime_bindings, false);
 assert(duplicateRuntimeBindingsResult.reasons.includes("G3_DISTINCT_RUNTIME_BINDINGS_REQUIRED"));
+
+// SQLite and PostgreSQL are both valid choices, but a single G3 run may not drift between them.
+const differentStoreBackends = clone(liveEvidenceRuns);
+differentStoreBackends[1].identity.store_backend = "sqlite";
+differentStoreBackends[1].identity.store_binding_ref = `store-binding:${"8".repeat(64)}`;
+const differentStoreBackendsResult = evaluateKusabiV1Acceptance({
+  ...acceptanceInput,
+  g3: differentStoreBackends,
+}, acceptanceOptions);
+assert.equal(differentStoreBackendsResult.verdict, "FAIL");
+assert.equal(differentStoreBackendsResult.g3_agent_continuity.same_store_binding, false);
+assert(differentStoreBackendsResult.reasons.includes("G3_STORE_BINDING_MISMATCH"));
+
+const sqliteLiveRuns = clone(liveEvidenceRuns);
+for (const evidence of sqliteLiveRuns) {
+  evidence.identity.store_backend = "sqlite";
+  evidence.identity.store_binding_ref = `store-binding:${"7".repeat(64)}`;
+}
+const sqliteAcceptance = evaluateKusabiV1Acceptance({
+  ...acceptanceInput,
+  g3: sqliteLiveRuns,
+}, acceptanceOptions);
+assert.equal(sqliteAcceptance.verdict, "PASS");
+assert.equal(sqliteAcceptance.g3_agent_continuity.same_store_binding, true);
 
 const onlyTwoLiveRuns = evaluateKusabiV1Acceptance({
   ...acceptanceInput,
@@ -853,6 +890,8 @@ const acceptanceSchemaPath = join(
 const acceptanceSchema = JSON.parse(readFileSync(acceptanceSchemaPath, "utf8"));
 const validateAcceptance = ajv.compile(acceptanceSchema);
 assert.equal(validateAcceptance(acceptance), true, JSON.stringify(validateAcceptance.errors));
+assert.equal(validateAcceptance(sqliteAcceptance), true, JSON.stringify(validateAcceptance.errors));
+assert.equal(validateAcceptance(differentStoreBackendsResult), true, JSON.stringify(validateAcceptance.errors));
 assert.equal(validateAcceptance(onlyTwoLiveRuns), true, JSON.stringify(validateAcceptance.errors));
 assert.equal(validateAcceptance(blockingDefectResult), true, JSON.stringify(validateAcceptance.errors));
 assert.equal(validateAcceptance(currentV1Result), true, JSON.stringify(validateAcceptance.errors));

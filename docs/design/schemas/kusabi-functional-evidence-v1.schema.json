@@ -64,6 +64,8 @@
         "observed_agent_id",
         "expected_project",
         "observed_project",
+        "store_backend",
+        "store_binding_ref",
         "store_binding_verified",
         "credentials_embedded"
       ],
@@ -82,6 +84,8 @@
         "observed_agent_id": { "type": "string", "minLength": 1 },
         "expected_project": { "type": "string", "minLength": 1 },
         "observed_project": { "type": "string", "minLength": 1 },
+        "store_backend": { "enum": ["sqlite", "postgres", "json", "multi_backend_test"] },
+        "store_binding_ref": { "type": "string", "pattern": "^store-binding:[a-f0-9]{64}$" },
         "store_binding_verified": { "type": "boolean" },
         "credentials_embedded": { "type": "boolean" }
       }
