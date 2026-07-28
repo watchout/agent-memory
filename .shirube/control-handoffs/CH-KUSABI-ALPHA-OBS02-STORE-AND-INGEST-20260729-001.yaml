@@ -1,6 +1,13 @@
 schema_version: shirube-v3/control_handoff/v1
+mode: rapid-lite
+profile: hotel-lite
 control_handoff_id: CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
 lifecycle_state: IMPLEMENTATION_ACTIVE
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
 
 control_source:
   kind: direct_owner_instruction
@@ -9,6 +16,7 @@ control_source:
   decision_ref: ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
 
 cell:
+  CELL-ID: KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
   cell_id: KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
   cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
   cell_type: storage_and_ingest_implementation
@@ -38,6 +46,21 @@ cell:
     - docs/operations/KUSABI_ALPHA_OBS02_STORE_MIGRATION.md
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+  forbidden_paths:
+    - src/codex-session-start.ts
+    - src/claude-session-start.ts
+    - src/gemini-session-start.ts
+    - src/*hook-installer.ts
+    - dist/**
+    - deploy/**
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .github/**
+    - .env
+    - .env.*
+    - secrets/**
   allowed_operations:
     - edit only cell.allowed_paths
     - run local TypeScript, SQLite, PostgreSQL, migration, build, parse, privacy, diff, and scope validation
@@ -66,6 +89,24 @@ execution_context:
   canonical_workspace: /Users/yuji/Developer/agent-memory
   candidate_worktree: /Users/yuji/Developer/.wt-kusabi-alpha-obs02-store-ingest
   repository: watchout/agent-memory
+
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - HOME=<temporary-directory> npx tsx src/test-sqlite.ts
+    - HOME=<temporary-directory> npx tsx tests/gate0/migration-idempotency.ts
+    - DATABASE_URL=<isolated-test-database> npx tsx src/test-pg.ts
+    - npm run build
+    - npm test
+    - git diff --check
+  required_evidence:
+    - SQLite 199/199
+    - PostgreSQL 140/140 in a unique temporary schema
+    - migration idempotency 16/16
+    - repository regression 1549/1549 and Kusabi functional evaluator
+    - normalized fixture SHA-256 parity
+    - zero temporary PostgreSQL schemas remaining
+    - exact changed-path scope and privacy scan
 
 owner_decision:
   result: APPROVED_IMPLEMENTATION_SCOPE

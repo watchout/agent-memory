@@ -7,6 +7,12 @@ risk_class: R3
 cell_type: storage_and_ingest_implementation
 route: direct-owner-approval
 mode: rapid-lite
+profile: hotel-lite
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
 
 control_source:
   kind: direct_owner_instruction
