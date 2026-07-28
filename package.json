@@ -50,7 +50,7 @@
     "prepack": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "tsx src/test.ts",
+    "test": "tsx src/test.ts && tsx src/test-kusabi-functional-evaluator.ts",
     "test:pg": "tsx src/test-pg.ts",
     "migrate": "tsx src/migrate.ts",
     "boot": "tsx src/boot.ts",
@@ -68,7 +68,9 @@
     "company-dev-os:recovery-target-audit": "tsx src/company-dev-os-recovery-target-audit.ts",
     "test:company-dev-os-recovery-target-audit": "tsx src/test-company-dev-os-recovery-target-audit.ts",
     "test:continuity-alpha-evaluator": "tsx src/test-continuity-alpha-evaluator.ts",
-    "test:continuity-alpha-canary": "tsx src/test-continuity-alpha-canary.ts"
+    "test:continuity-alpha-canary": "tsx src/test-continuity-alpha-canary.ts",
+    "test:kusabi-functional": "tsx src/test-kusabi-functional-evaluator.ts",
+    "measure:kusabi-functional": "tsx src/measure-kusabi-functional.ts"
   },
   "keywords": [
     "mcp",

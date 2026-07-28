@@ -15,8 +15,10 @@ import { estimateTokens } from "./constants.js";
 import {
   enforceCodexRecoveryCaps,
   recoveryFromPack,
+  resolveCodexStoreBinding,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
+  type CodexStoreBindingEvidence,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
 import { redactText } from "./redact.js";
@@ -30,7 +32,7 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const GEMINI_SESSION_START_ADAPTER_ID = "wasurezu-gemini-session-start" as const;
-export const GEMINI_SESSION_START_ADAPTER_VERSION = "1.0.0" as const;
+export const GEMINI_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
 export const GEMINI_SESSION_START_EVIDENCE_SCHEMA = "gemini-session-start-evidence/v1" as const;
 export const GEMINI_SESSION_START_HOST_CONTRACT_VERSION = "0.38.2" as const;
 export const GEMINI_SESSION_START_INPUT_MAX_BYTES = 65_536;
@@ -100,6 +102,7 @@ export interface GeminiSessionStartEvidence {
     runtime: "gemini-cli";
     verified: boolean;
   };
+  store_binding: CodexStoreBindingEvidence;
   hook: {
     session_id: string | null;
     source: GeminiSessionStartSource | null;
@@ -169,6 +172,7 @@ export interface LoadedGeminiRecovery {
   recovery: RecoveryOutputWithMetrics;
   recovery_pack: CodexRecoveryPackEvidence;
   recovery_quality_log_ref: string | null;
+  store_binding?: CodexStoreBindingEvidence;
 }
 
 export interface GeminiSessionStartDependencies {
@@ -395,6 +399,7 @@ function buildEvidence(input: {
   outcome: "full" | "degraded";
   reason: GeminiSessionStartDegradedReason | null;
   recoveryQualityLogRef: string | null;
+  storeBinding?: CodexStoreBindingEvidence;
 }): GeminiSessionStartEvidence {
   const binding = safeBindingForEvidence(input.binding);
   return {
@@ -416,6 +421,13 @@ function buildEvidence(input: {
       binding_source_ref: binding.binding_source_ref,
       runtime: "gemini-cli",
       verified: input.identityVerified,
+    },
+    store_binding: input.storeBinding ?? {
+      source: "unknown",
+      backend_intent: "unknown",
+      config_path_sha256: null,
+      verified: false,
+      credentials_embedded: false,
     },
     hook: {
       session_id: input.hookInput?.session_id ?? null,
@@ -484,6 +496,7 @@ export async function loadGeminiRecoveryFromStore(
   binding: GeminiSessionStartBinding,
   input: GeminiSessionStartInput,
 ): Promise<LoadedGeminiRecovery> {
+  const storeBinding = resolveCodexStoreBinding();
   const store = await createStore();
   try {
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
@@ -528,6 +541,7 @@ export async function loadGeminiRecoveryFromStore(
       recovery,
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
+      store_binding: storeBinding,
     };
   } finally {
     await store.close();
@@ -571,6 +585,7 @@ export async function runGeminiSessionStart(
       outcome: evidenceLogMissing ? "degraded" : "full",
       reason: evidenceLogMissing ? "EVIDENCE_LOG_UNAVAILABLE" : null,
       recoveryQualityLogRef: loaded.recovery_quality_log_ref,
+      storeBinding: loaded.store_binding,
     });
     return {
       output: {

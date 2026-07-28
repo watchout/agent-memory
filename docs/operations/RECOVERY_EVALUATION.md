@@ -430,6 +430,100 @@ recovery guarantee, and no zero-leak guarantee.
 
 ---
 
+### 5.4 Kusabi Basic-Function Quality Profile
+
+Kusabi uses a separate basic-function profile to measure correctness and
+continuation quality without changing the frozen continuity-alpha gate. The
+machine evaluator is `src/kusabi-functional-evaluator.ts`; its output contract
+is `docs/design/schemas/kusabi-functional-evaluation-v1.schema.json`; input
+evidence and final verdicts use
+`docs/design/schemas/kusabi-functional-evidence-v1.schema.json` and
+`docs/design/schemas/kusabi-v1-acceptance-v1.schema.json`. Run the
+deterministic evaluator suite with the rules frozen in
+`docs/design/KUSABI_KBF_ACCEPTANCE_CONTRACT.md`:
+
+```sh
+npm run test:kusabi-functional
+```
+
+Run the observed G2 integration measurement only against isolated temporary
+JSON/SQLite storage and a dedicated disposable Postgres database:
+
+```sh
+KUSABI_G2_DATABASE_URL=postgresql://localhost/<disposable-db> \
+  npm run measure:kusabi-functional
+```
+
+The measurement disables optional external embeddings, emits no connection
+string or temporary path, closes all stores, and removes its temporary JSON
+and SQLite files on exit. The operator must drop the dedicated Postgres test
+database and verify its absence after the command.
+
+Normal decision retrieval searches active decisions only. Superseded rows and
+their `superseded_by` links remain stored and are available through explicit
+`get_decisions` calls with `status=superseded` or `status=all`; excluding them
+from default search is not deletion.
+
+| ID | Test | Pass condition |
+|----|------|----------------|
+| KBF-01 | Native delivery, host identity, and store binding | Exact host/runtime, ordinary command, native start surface, canonical workspace/binding ref, native first-context delivery, fresh session, expected agent/project identity, and store binding are verified. |
+| KBF-02 | Objective accuracy | Ground truth is frozen before T0; the recovered objective contains all expected terms and cites externally verified source refs. |
+| KBF-03 | Next action, constraints, and blockers | Recovered next action, constraints, and blockers match their frozen term sets. |
+| KBF-04 | Critical status freshness and confidence | Critical facts match ground truth; stale or missing facts must not be presented as complete high-confidence context. |
+| KBF-05 | External SSOT conflict correction | External SSOT is checked; any conflict is detected, corrected, and prevented from triggering a stale action. |
+| KBF-06 | Safety, redaction, and isolation | Redaction is applied and all leak/forbidden-effect counters remain zero. |
+| KBF-07 | Real continuation utility | RI0, zero user restatements, an action after T0, and a new typed result with a verified ref and digest distinct from recovered context. |
+| KBF-08 | Safe degradation | The negative fixture passes, ordinary host use remains available, and degradation is visible. |
+| KBF-09 | Retrieval quality and backend parity | Precision@5, Recall@5, and nDCG@5 are each at least 0.8 and backend parity is verified. |
+
+The functional core requires KBF-01 through KBF-08, including freshness and
+confidence calibration in KBF-04. `quality_ready` requires all nine tests.
+Deterministic evidence proves evaluator behavior only. An
+`observed_live_canary` is eligible for a live quality claim only when all nine
+tests pass and every test-specific proof reference plus SHA-256 digest is
+resolved as an exact pair by an external verifier supplied separately from
+the evidence payload. Relabeling a fixture
+as live therefore produces `not_measured`, not a pass.
+
+KBF-09 fixes `K=5` and exactly 30 queries: five queries in each of the six
+contract categories. Each query runs exactly once on JSON, SQLite, and
+Postgres for exactly 90 observations. The evaluator derives macro Precision@5,
+Recall@5, and nDCG@5; all must be at least 0.80. The maximum cross-backend
+spread for each metric must be at most 0.05. A wrong query count, category
+balance, backend matrix, or result depth is `not_measured`.
+
+An observed threshold failure remains an open blocking defect until its cause
+is corrected and the same fixed measurement is rerun. A later pass does not
+erase a previously verified failure when the unchanged implementation is
+non-deterministic; this enforces the existing zero-blocking-defect rule rather
+than adding a KBF dimension or gate.
+
+The final v1 verdict is `PASS` only when the fixed evaluator suite passes, the
+real-backend integration gate passes, exactly one distinct ordinary-command
+live session for each of Codex, Claude Code, and Gemini CLI passes KBF-01
+through KBF-08, the blocking-defect count is zero, and
+one independent R2 audit is complete without a blocking finding. A verified
+failure is `FAIL`; missing measurement or proof is `INCOMPLETE`.
+
+T1, T3, and T4 remain recorded in this profile, but `performance.blocking` is
+always false. They are improvement signals, not basic-function failures. This
+does not relax the timing rules of the frozen continuity-alpha gate above.
+
+Loaded task checkpoints older than 12 hours are marked with
+`task_checkpoint_stale`, downgrade an otherwise complete recovery pack to
+medium confidence, and add a visible freshness caution. The age warning does
+not itself prove a fact wrong; KBF-05 uses the external SSOT check to decide
+whether correction is required.
+
+Missing, invalid, or future-skewed observation/checkpoint timestamps are never
+treated as fresh. They emit `task_checkpoint_freshness_unknown`, omit an
+invalid item `source_time`, keep confidence below high, and render
+`FRESHNESS UNKNOWN`. Either freshness marker fails KBF-04 until authoritative
+verification or correction clears it, even when confidence is already medium
+or low.
+
+---
+
 ## 6. Backup And Recovery Ladder
 
 If the restarted agent is missing context, it must climb this ladder in order.

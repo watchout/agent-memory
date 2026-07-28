@@ -88,16 +88,28 @@ implement this public contract later, but are contract-only for this alpha.
 P0 agents (exactly 10): `kusabi`, `spec`, `arc`, `codex-cto`, `codex-audit`,
 `devauditor`, `qa`, `check`, `org-build-dev`, and `dev-001`.
 
-Gemini uses a dedicated canary identity only:
+The native-host G3 canary is an agent-continuity test, not three independent
+agent tests. It keeps the canonical memory owner fixed while changing the
+execution surface:
 
 ```yaml
-agent_id: kusabi-gemini
+agent_id: kusabi
 memory_project: agent-memory
 workspace: /Users/yuji/Developer/agent-memory
-runtime: gemini-cli
-use: alpha-canary-only
-normal_work_queue: false
+runtimes:
+  - codex
+  - claude-code
+  - gemini-cli
+runtime_binding_refs: distinct_per_runtime
+frozen_work_snapshot: identical_across_all_three_runs
 ```
+
+`agent_id` is the continuity namespace and remains stable across session,
+profile/runtime binding, host, and internal model changes. Runtime, model,
+profile/binding ref, and `session_id` are provenance. Replacing `kusabi` with
+`spec`, `kusabi-gemini`, or another namespace in one G3 row tests a different
+agent and cannot satisfy the Kusabi continuity claim. Different agent IDs
+remain isolated for normal multi-agent operation and later P0/P1 fleet tests.
 
 The alpha clocks and thresholds are T0 = fresh host process start, T1 =
 recovery context injection complete, T2 = agent orientation complete, T3 =
@@ -143,6 +155,18 @@ keeps ordinary startup usable instead of silently selecting empty SQLite. A
 genuinely absent config preserves the OSS SQLite default. Evidence reports
 only the backend intent, binding-source class, config-path digest, and whether
 the binding was verified.
+
+This storage-resolution rule is shared by the Codex, Claude Code, and Gemini
+CLI native adapters. A host-specific adapter must not skip it or silently fall
+back to a different backend, because the same `agent_id` on different stores
+is not continuity. Each host records the resolved store-binding evidence, and
+G3 rejects a row whose store binding is unverified.
+
+SQLite and PostgreSQL are both supported choices. SQLite remains the OSS
+default when no PostgreSQL URL or explicit backend override is configured;
+an explicit SQLite selection wins over an inherited PostgreSQL URL. G3 tests
+the operator-selected backend rather than prescribing one, and requires the
+same credential-safe store binding fingerprint on all three hosts.
 
 The generated matcher is exactly `startup|resume|clear|compact`. The command
 hook timeout is 9 seconds and its internal recovery deadline is 7 seconds, so

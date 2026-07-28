@@ -11,10 +11,12 @@ import { homedir } from "os";
 const VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_MODEL = "voyage-3-lite"; // 512-dim, fast, good for short text
 export const EMBEDDING_DIM = 512;
+export const DISABLE_EMBEDDINGS_ENV = "AGENT_MEMORY_DISABLE_EMBEDDINGS";
 
 let _apiKey: string | null | undefined = undefined; // undefined = not yet loaded
 
 function loadApiKey(): string | null {
+  if (process.env[DISABLE_EMBEDDINGS_ENV] === "1") return null;
   if (_apiKey !== undefined) return _apiKey;
 
   // 1. Check environment variable

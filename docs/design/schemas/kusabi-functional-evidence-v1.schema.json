@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kusabi-functional-evidence/v1",
+  "title": "Kusabi Functional Evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "evidence_ref",
+    "run_id",
+    "session_id",
+    "proofs",
+    "identity",
+    "recovery",
+    "safety",
+    "continuation",
+    "degradation",
+    "retrieval",
+    "performance"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-functional-evidence/v1" },
+    "evidence_kind": {
+      "enum": ["deterministic_fixture", "observed_integration", "observed_live_canary"]
+    },
+    "evidence_ref": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "proofs": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["test_id", "source_kind", "ref", "content_sha256"],
+        "properties": {
+          "test_id": {
+            "enum": ["KBF-01", "KBF-02", "KBF-03", "KBF-04", "KBF-05", "KBF-06", "KBF-07", "KBF-08", "KBF-09"]
+          },
+          "source_kind": {
+            "enum": ["deterministic_fixture", "observed_integration", "observed_live_canary"]
+          },
+          "ref": { "type": "string", "minLength": 1 },
+          "content_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "runtime",
+        "ordinary_launch_command",
+        "native_start_surface",
+        "workspace",
+        "binding_ref",
+        "native_delivery_confirmed",
+        "fresh_session_confirmed",
+        "launch_mode",
+        "identity_verified",
+        "expected_agent_id",
+        "observed_agent_id",
+        "expected_project",
+        "observed_project",
+        "store_backend",
+        "store_binding_ref",
+        "store_binding_verified",
+        "credentials_embedded"
+      ],
+      "properties": {
+        "host": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "ordinary_launch_command": { "type": "string", "minLength": 1 },
+        "native_start_surface": { "type": "string", "minLength": 1 },
+        "workspace": { "type": "string", "minLength": 1 },
+        "binding_ref": { "type": "string", "minLength": 1 },
+        "native_delivery_confirmed": { "type": "boolean" },
+        "fresh_session_confirmed": { "type": "boolean" },
+        "launch_mode": { "enum": ["ordinary_command", "test_harness", "wrapper"] },
+        "identity_verified": { "type": "boolean" },
+        "expected_agent_id": { "type": "string", "minLength": 1 },
+        "observed_agent_id": { "type": "string", "minLength": 1 },
+        "expected_project": { "type": "string", "minLength": 1 },
+        "observed_project": { "type": "string", "minLength": 1 },
+        "store_backend": { "enum": ["sqlite", "postgres", "json", "multi_backend_test"] },
+        "store_binding_ref": { "type": "string", "pattern": "^store-binding:[a-f0-9]{64}$" },
+        "store_binding_verified": { "type": "boolean" },
+        "credentials_embedded": { "type": "boolean" }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ground_truth_ref",
+        "ground_truth_frozen_at",
+        "ground_truth_source_refs",
+        "expected_objective_terms",
+        "recovered_objective",
+        "expected_next_action_terms",
+        "recovered_next_action",
+        "expected_constraint_terms",
+        "recovered_constraints",
+        "expected_blocker_terms",
+        "recovered_blockers",
+        "critical_facts",
+        "confidence",
+        "missing_context",
+        "ssot_check_performed",
+        "ssot_evidence_ref",
+        "ssot_conflict_detected",
+        "corrected_to_ssot",
+        "stale_action_avoided"
+      ],
+      "properties": {
+        "ground_truth_ref": { "type": "string", "minLength": 1 },
+        "ground_truth_frozen_at": { "type": "string", "format": "date-time" },
+        "ground_truth_source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expected_objective_terms": {
+          "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+        },
+        "recovered_objective": { "type": "string" },
+        "expected_next_action_terms": {
+          "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+        },
+        "recovered_next_action": { "type": "string" },
+        "expected_constraint_terms": {
+          "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+        },
+        "recovered_constraints": { "type": "string" },
+        "expected_blocker_terms": {
+          "type": "array", "items": { "type": "string", "minLength": 1 }
+        },
+        "recovered_blockers": { "type": "string" },
+        "critical_facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "expected", "recovered"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "expected": { "type": "string", "minLength": 1 },
+              "recovered": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "missing_context": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "ssot_check_performed": { "type": "boolean" },
+        "ssot_evidence_ref": { "type": "string" },
+        "ssot_conflict_detected": { "type": "boolean" },
+        "corrected_to_ssot": { "type": "boolean" },
+        "stale_action_avoided": { "type": "boolean" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_applied",
+        "secret_leak_count",
+        "private_reasoning_leak_count",
+        "base_instruction_leak_count",
+        "full_home_path_leak_count",
+        "forbidden_effect_count"
+      ],
+      "properties": {
+        "redaction_applied": { "type": "boolean" },
+        "secret_leak_count": { "type": "number" },
+        "private_reasoning_leak_count": { "type": "number" },
+        "base_instruction_leak_count": { "type": "number" },
+        "full_home_path_leak_count": { "type": "number" },
+        "forbidden_effect_count": { "type": "number" }
+      }
+    },
+    "continuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restatement_class",
+        "restatement_count",
+        "meaningful_action_started",
+        "meaningful_action_ref",
+        "useful_result_produced",
+        "useful_result_new",
+        "useful_result_equals_stored_value_only",
+        "useful_result_ref",
+        "useful_result_kind",
+        "useful_result_created_at",
+        "useful_result_content_sha256",
+        "recovered_context_content_sha256"
+      ],
+      "properties": {
+        "restatement_class": { "enum": ["RI0", "RI1", "RI2"] },
+        "restatement_count": { "type": "integer", "minimum": 0 },
+        "meaningful_action_started": { "type": "boolean" },
+        "meaningful_action_ref": { "type": "string" },
+        "useful_result_produced": { "type": "boolean" },
+        "useful_result_new": { "type": "boolean" },
+        "useful_result_equals_stored_value_only": { "type": "boolean" },
+        "useful_result_ref": { "type": "string" },
+        "useful_result_kind": {
+          "enum": ["code_diff", "test_receipt", "verified_status", "document_artifact", "root_cause_evidence"]
+        },
+        "useful_result_created_at": { "type": "string", "format": "date-time" },
+        "useful_result_content_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "recovered_context_content_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "degradation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_tested", "fixture_passed", "ordinary_host_usable", "visible_degraded_result"],
+      "properties": {
+        "fixture_tested": { "type": "boolean" },
+        "fixture_passed": { "type": "boolean" },
+        "ordinary_host_usable": { "type": "boolean" },
+        "visible_degraded_result": { "type": "boolean" }
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ground_truth_frozen", "execution_kind", "top_k", "cases"],
+      "properties": {
+        "ground_truth_frozen": { "type": "boolean" },
+        "execution_kind": { "enum": ["deterministic_fixture", "real_backend"] },
+        "top_k": { "const": 5 },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "query_id",
+              "category",
+              "query",
+              "backend",
+              "expected_relevant_refs",
+              "returned_refs"
+            ],
+            "properties": {
+              "query_id": { "type": "string", "minLength": 1 },
+              "category": {
+                "enum": [
+                  "objective_current_state",
+                  "next_action_blocker",
+                  "decision_constraint",
+                  "source_provenance",
+                  "multilingual_paraphrase",
+                  "stale_superseded_conflict"
+                ]
+              },
+              "query": { "type": "string", "minLength": 1 },
+              "backend": { "enum": ["json", "sqlite", "postgres"] },
+              "expected_relevant_refs": {
+                "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+              },
+              "returned_refs": {
+                "type": "array", "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t0", "t1", "t3", "t4"],
+      "properties": {
+        "t0": { "type": "string", "format": "date-time" },
+        "t1": { "type": "string", "format": "date-time" },
+        "t3": { "type": "string", "format": "date-time" },
+        "t4": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

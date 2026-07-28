@@ -277,7 +277,7 @@ export class PgStore implements Store {
     let conversationEvents: ConversationEvent[] = [];
 
     if (scope === "decisions" || scope === "all") {
-      const conditions: string[] = ["agent_id = $1", "embedding IS NOT NULL"];
+      const conditions: string[] = ["agent_id = $1", "status = 'active'", "embedding IS NOT NULL"];
       const params: unknown[] = [input.agent_id];
       let pi = 2;
       if (input.project) {
@@ -366,7 +366,7 @@ export class PgStore implements Store {
     let taskStates: TaskState[] = [];
 
     if (scope === "decisions" || scope === "all") {
-      const conditions: string[] = ["agent_id = $1"];
+      const conditions: string[] = ["agent_id = $1", "status = 'active'"];
       const params: unknown[] = [input.agent_id];
       let pi = 2;
 

@@ -40,15 +40,7 @@ import type {
   GetKusabiPartitionInput,
 } from "./types.js";
 
-const DATA_DIR = join(homedir(), ".agent-memory");
-const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
-const TASK_STATES_FILE = join(DATA_DIR, "task-states.json");
-const KNOWLEDGE_FILE = join(DATA_DIR, "knowledge.json");
-const CONVERSATION_EVENTS_FILE = join(DATA_DIR, "conversation-events.json");
-const RAW_EVENTS_FILE = join(DATA_DIR, "raw-events.json");
-const SELECTED_RESTART_PACKS_FILE = join(DATA_DIR, "selected-restart-packs.json");
-const CATCH_UP_LOG_FILE = join(DATA_DIR, "catch-up-log.json");
-const KUSABI_PARTITIONS_FILE = join(DATA_DIR, "kusabi-agent-memory-partitions.json");
+const DEFAULT_DATA_DIR = join(homedir(), ".agent-memory");
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -67,6 +59,7 @@ function conversationSearchScore(event: ConversationEvent, keywords: string[]): 
 }
 
 export class JsonStore implements Store {
+  private readonly dataDir: string;
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
@@ -76,18 +69,26 @@ export class JsonStore implements Store {
   private catchUpLog: CatchUpLog[] = [];
   private kusabiPartitions: KusabiPartition[] = [];
 
+  constructor(dataDir = DEFAULT_DATA_DIR) {
+    this.dataDir = dataDir;
+  }
+
+  private dataFile(name: string): string {
+    return join(this.dataDir, name);
+  }
+
   async initialize(): Promise<void> {
-    if (!existsSync(DATA_DIR)) {
-      await mkdir(DATA_DIR, { recursive: true });
+    if (!existsSync(this.dataDir)) {
+      await mkdir(this.dataDir, { recursive: true });
     }
-    this.decisions = await this.loadFile<Decision>(DECISIONS_FILE);
-    this.taskStates = await this.loadFile<TaskState>(TASK_STATES_FILE);
-    this.knowledgeItems = await this.loadFile<Knowledge>(KNOWLEDGE_FILE);
-    this.conversationEvents = await this.loadFile<ConversationEvent>(CONVERSATION_EVENTS_FILE);
-    this.rawEvents = await this.loadFile<RawEvent>(RAW_EVENTS_FILE);
-    this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(SELECTED_RESTART_PACKS_FILE);
-    this.catchUpLog = await this.loadFile<CatchUpLog>(CATCH_UP_LOG_FILE);
-    this.kusabiPartitions = await this.loadFile<KusabiPartition>(KUSABI_PARTITIONS_FILE);
+    this.decisions = await this.loadFile<Decision>(this.dataFile("decisions.json"));
+    this.taskStates = await this.loadFile<TaskState>(this.dataFile("task-states.json"));
+    this.knowledgeItems = await this.loadFile<Knowledge>(this.dataFile("knowledge.json"));
+    this.conversationEvents = await this.loadFile<ConversationEvent>(this.dataFile("conversation-events.json"));
+    this.rawEvents = await this.loadFile<RawEvent>(this.dataFile("raw-events.json"));
+    this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(this.dataFile("selected-restart-packs.json"));
+    this.catchUpLog = await this.loadFile<CatchUpLog>(this.dataFile("catch-up-log.json"));
+    this.kusabiPartitions = await this.loadFile<KusabiPartition>(this.dataFile("kusabi-agent-memory-partitions.json"));
     // AM-023: back-fill + dedup legacy task_states from before the
     // task_id schema change. Mirrors the SQL migration in pg-store /
     // sqlite-store: copy `task` into `task_id` for any row that's
@@ -134,11 +135,11 @@ export class JsonStore implements Store {
   }
 
   private async saveDecisions(): Promise<void> {
-    await writeFile(DECISIONS_FILE, JSON.stringify(this.decisions, null, 2));
+    await writeFile(this.dataFile("decisions.json"), JSON.stringify(this.decisions, null, 2));
   }
 
   private async saveTaskStates(): Promise<void> {
-    await writeFile(TASK_STATES_FILE, JSON.stringify(this.taskStates, null, 2));
+    await writeFile(this.dataFile("task-states.json"), JSON.stringify(this.taskStates, null, 2));
   }
 
   async logDecision(input: LogDecisionInput): Promise<Decision> {
@@ -299,6 +300,7 @@ export class JsonStore implements Store {
         .filter((d) => {
           if (d.agent_id !== input.agent_id) return false;
           if (input.project && d.project !== input.project) return false;
+          if (d.status !== "active") return false;
           const searchText = [d.decision, d.context || "", ...d.tags].join(" ");
           return matchesAny(searchText);
         })
@@ -413,19 +415,19 @@ export class JsonStore implements Store {
   }
 
   private async saveKnowledgeFile(): Promise<void> {
-    await writeFile(KNOWLEDGE_FILE, JSON.stringify(this.knowledgeItems, null, 2));
+    await writeFile(this.dataFile("knowledge.json"), JSON.stringify(this.knowledgeItems, null, 2));
   }
 
   private async saveConversationEventsFile(): Promise<void> {
-    await writeFile(CONVERSATION_EVENTS_FILE, JSON.stringify(this.conversationEvents, null, 2));
+    await writeFile(this.dataFile("conversation-events.json"), JSON.stringify(this.conversationEvents, null, 2));
   }
 
   private async saveRawEventsFile(): Promise<void> {
-    await writeFile(RAW_EVENTS_FILE, JSON.stringify(this.rawEvents, null, 2));
+    await writeFile(this.dataFile("raw-events.json"), JSON.stringify(this.rawEvents, null, 2));
   }
 
   private async saveSelectedRestartPacksFile(): Promise<void> {
-    await writeFile(SELECTED_RESTART_PACKS_FILE, JSON.stringify(this.selectedRestartPacks, null, 2));
+    await writeFile(this.dataFile("selected-restart-packs.json"), JSON.stringify(this.selectedRestartPacks, null, 2));
   }
 
   async getRecentMessages(): Promise<AgentMessage[]> {
@@ -722,7 +724,7 @@ export class JsonStore implements Store {
   // ─── Catch-up Log (AM-026) ───────────────────────────────────
 
   private async saveCatchUpLogFile(): Promise<void> {
-    await writeFile(CATCH_UP_LOG_FILE, JSON.stringify(this.catchUpLog, null, 2));
+    await writeFile(this.dataFile("catch-up-log.json"), JSON.stringify(this.catchUpLog, null, 2));
   }
 
   async getLastCatchUpLog(
@@ -789,7 +791,7 @@ export class JsonStore implements Store {
   // ─── Kusabi partition registry (CELL-4MCP-KUSABI-001) ─────────
 
   private async saveKusabiPartitionsFile(): Promise<void> {
-    await writeFile(KUSABI_PARTITIONS_FILE, JSON.stringify(this.kusabiPartitions, null, 2));
+    await writeFile(this.dataFile("kusabi-agent-memory-partitions.json"), JSON.stringify(this.kusabiPartitions, null, 2));
   }
 
   async getKusabiPartition(

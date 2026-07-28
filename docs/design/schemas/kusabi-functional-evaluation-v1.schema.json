@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kusabi-functional-evaluation/v1",
+  "title": "Kusabi Functional Evaluation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "evidence_ref",
+    "run_id",
+    "session_id",
+    "host",
+    "tests",
+    "retrieval_metrics",
+    "performance",
+    "functional_core_pass",
+    "quality_ready",
+    "live_evidence_admissible",
+    "live_claim_eligible",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-functional-evaluation/v1" },
+    "evidence_kind": {
+      "enum": ["deterministic_fixture", "observed_integration", "observed_live_canary"]
+    },
+    "evidence_ref": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "host": { "enum": ["codex", "claude_code", "gemini_cli"] },
+    "tests": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "status", "reasons", "evidence_refs", "evidence_admissible"],
+        "properties": {
+          "id": {
+            "enum": [
+              "KBF-01",
+              "KBF-02",
+              "KBF-03",
+              "KBF-04",
+              "KBF-05",
+              "KBF-06",
+              "KBF-07",
+              "KBF-08",
+              "KBF-09"
+            ]
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pass", "fail", "not_measured"] },
+          "reasons": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "evidence_admissible": { "type": "boolean" }
+        }
+      }
+    },
+    "retrieval_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measured",
+        "benchmark_ready",
+        "execution_kind",
+        "top_k",
+        "precision_at_k",
+        "recall_at_k",
+        "ndcg_at_k",
+        "case_count",
+        "query_count",
+        "backends",
+        "category_counts",
+        "backend_parity_verified",
+        "backend_metrics"
+      ],
+      "properties": {
+        "measured": { "type": "boolean" },
+        "benchmark_ready": { "type": "boolean" },
+        "execution_kind": { "enum": ["deterministic_fixture", "real_backend"] },
+        "top_k": { "const": 5 },
+        "precision_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "recall_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "ndcg_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "case_count": { "type": "integer", "minimum": 0 },
+        "query_count": { "type": "integer", "minimum": 0 },
+        "backends": {
+          "type": "array",
+          "items": { "enum": ["json", "sqlite", "postgres"] },
+          "uniqueItems": true
+        },
+        "category_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "objective_current_state",
+            "next_action_blocker",
+            "decision_constraint",
+            "source_provenance",
+            "multilingual_paraphrase",
+            "stale_superseded_conflict"
+          ],
+          "properties": {
+            "objective_current_state": { "type": "integer", "minimum": 0 },
+            "next_action_blocker": { "type": "integer", "minimum": 0 },
+            "decision_constraint": { "type": "integer", "minimum": 0 },
+            "source_provenance": { "type": "integer", "minimum": 0 },
+            "multilingual_paraphrase": { "type": "integer", "minimum": 0 },
+            "stale_superseded_conflict": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "backend_parity_verified": { "type": "boolean" },
+        "backend_metrics": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["backend", "case_count", "precision_at_k", "recall_at_k", "ndcg_at_k"],
+            "properties": {
+              "backend": { "enum": ["json", "sqlite", "postgres"] },
+              "case_count": { "type": "integer", "minimum": 0 },
+              "precision_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "recall_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "ndcg_at_k": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "t1_ms", "t3_ms", "t4_ms", "blocking"],
+      "properties": {
+        "measured": { "type": "boolean" },
+        "t1_ms": { "type": ["number", "null"], "minimum": 0 },
+        "t3_ms": { "type": ["number", "null"], "minimum": 0 },
+        "t4_ms": { "type": ["number", "null"], "minimum": 0 },
+        "blocking": { "const": false }
+      }
+    },
+    "functional_core_pass": { "type": "boolean" },
+    "quality_ready": { "type": "boolean" },
+    "live_evidence_admissible": { "type": "boolean" },
+    "live_claim_eligible": { "type": "boolean" },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}

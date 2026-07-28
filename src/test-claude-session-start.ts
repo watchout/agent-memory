@@ -21,7 +21,7 @@ import type { LoadedCodexRecovery, RecoveryOutputWithMetrics } from "./codex-ses
 function hookInput(
   cwd: string,
   source: ClaudeSessionStartInput["source"] = "startup",
-  permissionMode: ClaudeSessionStartInput["permission_mode"] = "default",
+  permissionMode?: ClaudeSessionStartInput["permission_mode"],
 ): string {
   return JSON.stringify({
     session_id: `session-${source}`,
@@ -29,17 +29,17 @@ function hookInput(
     cwd,
     hook_event_name: "SessionStart",
     model: "claude-sonnet-4-6",
-    permission_mode: permissionMode,
     source,
+    ...(permissionMode === undefined ? {} : { permission_mode: permissionMode }),
   });
 }
 
 function binding(workspace: string, overrides: Partial<ClaudeSessionStartBinding> = {}): ClaudeSessionStartBinding {
   return {
-    agent_id: "spec",
+    agent_id: "kusabi",
     project: "agent-memory",
     workspace,
-    binding_source_ref: "fixture:verified-spec-binding",
+    binding_source_ref: "fixture:verified-kusabi-claude-binding",
     max_tokens: CLAUDE_SESSION_START_MAX_TOKENS,
     max_bytes: CLAUDE_SESSION_START_MAX_BYTES,
     timeout_ms: 500,
@@ -64,7 +64,7 @@ function loaded(text?: string): LoadedCodexRecovery {
   return {
     recovery: recovery(text),
     recovery_pack: {
-      pack_ref: "restart_pack:spec:agent-memory:fixture",
+      pack_ref: "restart_pack:kusabi:agent-memory:fixture",
       schema_ref: "wasurezu-recovery-pack/v1",
       token_budget: 1_650,
       confidence: "high",
@@ -73,6 +73,13 @@ function loaded(text?: string): LoadedCodexRecovery {
       policy_version: "wasurezu-memory-safety-governance/0.1.0",
     },
     recovery_quality_log_ref: "recovery_quality_log:123e4567-e89b-42d3-a456-426614174000",
+    store_binding: {
+      source: "user_config",
+      backend_intent: "postgres",
+      config_path_sha256: "a".repeat(64),
+      verified: true,
+      credentials_embedded: false,
+    },
   };
 }
 
@@ -108,7 +115,11 @@ async function main(): Promise<void> {
       assert.equal(result.evidence.adapter.canonical_config_location, ".claude/settings.json");
       assert.equal(result.evidence.identity.runtime, "claude-code");
       assert.equal(result.evidence.identity.verified, true);
+      assert.equal(result.evidence.identity.agent_id, "kusabi");
+      assert.equal(result.evidence.store_binding.backend_intent, "postgres");
+      assert.equal(result.evidence.store_binding.verified, true);
       assert.equal(result.evidence.hook.source, source);
+      assert.equal(result.evidence.hook.permission_mode, null);
       assert.equal(result.evidence.hook.strict_json_stdout, true);
       assert.equal(result.evidence.timing.elapsed_ms, 24);
       assert.equal(result.evidence.timing.hook_timeout_seconds, 9);
@@ -132,6 +143,20 @@ async function main(): Promise<void> {
     const auto = await runClaudeSessionStart(autoInput, binding(workspace), { loadRecovery: async () => loaded() });
     assert.equal(auto.evidence.hook.permission_mode, "auto");
     assert.equal(auto.evidence.hook.agent_type, "continuity-canary");
+
+    const defaultModeInput = hookInput(child, "startup", "default");
+    const parsedDefaultMode = parseClaudeSessionStartInput(defaultModeInput);
+    assert.equal(parsedDefaultMode.permission_mode, "default");
+    const defaultMode = await runClaudeSessionStart(defaultModeInput, binding(workspace), {
+      loadRecovery: async () => loaded(),
+    });
+    assert.equal(defaultMode.evidence.hook.permission_mode, "default");
+
+    const invalidPermissionMode = await runClaudeSessionStart(
+      JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "allowEverything" }),
+      binding(workspace),
+    );
+    assert.match(invalidPermissionMode.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
 
     const malformed = await runClaudeSessionStart("not-json", binding(workspace));
     assert.match(malformed.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
@@ -157,7 +182,7 @@ async function main(): Promise<void> {
     );
     assert.match(additionalProperty.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
 
-    for (const field of ["cwd", "hook_event_name", "model", "permission_mode", "session_id", "source", "transcript_path"]) {
+    for (const field of ["cwd", "hook_event_name", "model", "session_id", "source", "transcript_path"]) {
       const input = JSON.parse(hookInput(child));
       delete input[field];
       const result = await runClaudeSessionStart(JSON.stringify(input), binding(workspace));
@@ -209,7 +234,7 @@ async function main(): Promise<void> {
 
     const parsedArgs = parseClaudeSessionStartArgs([
       "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
-      "--agent-id", "spec",
+      "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:binding",
@@ -217,7 +242,7 @@ async function main(): Promise<void> {
       "--max-bytes", "4096",
       "--timeout-ms", "6000",
     ], {});
-    assert.equal(parsedArgs.agent_id, "spec");
+    assert.equal(parsedArgs.agent_id, "kusabi");
     assert.equal(parsedArgs.max_tokens, 1200);
 
     const settings = buildClaudeSessionStartSettings("/tmp/wasurezu/dist/boot.js") as {
@@ -229,7 +254,7 @@ async function main(): Promise<void> {
       "--import", "tsx",
       "src/claude-session-start.ts",
       "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
-      "--agent-id", "spec",
+      "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:real-cli",
@@ -251,13 +276,17 @@ async function main(): Promise<void> {
     const realEvidence = JSON.parse(realEvidenceLines[0]);
     assert.equal(realEvidence.outcome, "full");
     assert.equal(realEvidence.identity.verified, true);
+    assert.equal(realEvidence.identity.agent_id, "kusabi");
+    assert.equal(realEvidence.store_binding.source, "environment");
+    assert.equal(realEvidence.store_binding.backend_intent, "sqlite");
+    assert.equal(realEvidence.store_binding.verified, true);
     assert(validateEvidence(realEvidence), JSON.stringify(validateEvidence.errors));
 
     const cli = spawnSync(process.execPath, [
       "--import", "tsx",
       "src/claude-session-start.ts",
       "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
-      "--agent-id", "spec",
+      "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:cli",

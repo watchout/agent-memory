@@ -861,7 +861,7 @@ export class SqliteStore implements Store {
     const conversationEvents: ConversationEvent[] = [];
 
     if (scope === "decisions" || scope === "all") {
-      const conditions: string[] = ["agent_id = ?"];
+      const conditions: string[] = ["agent_id = ?", "status = 'active'"];
       const params: unknown[] = [input.agent_id];
       if (input.project) {
         conditions.push("project = ?");

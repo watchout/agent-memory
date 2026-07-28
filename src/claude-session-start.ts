@@ -19,6 +19,7 @@ import {
   enforceCodexRecoveryCaps,
   parseCodexSessionStartArgs,
   recoveryFromPack,
+  resolveCodexStoreBinding,
   runCodexSessionStart,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
@@ -40,9 +41,9 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const CLAUDE_SESSION_START_ADAPTER_ID = "wasurezu-claude-session-start" as const;
-export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.0" as const;
+export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
 export const CLAUDE_SESSION_START_EVIDENCE_SCHEMA = "claude-session-start-evidence/v1" as const;
-export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2026-07-25" as const;
+export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2026-07-27" as const;
 export const CLAUDE_SESSION_START_INPUT_MAX_BYTES = CODEX_SESSION_START_INPUT_MAX_BYTES;
 export const CLAUDE_SESSION_START_MAX_TOKENS = CODEX_SESSION_START_MAX_TOKENS;
 export const CLAUDE_SESSION_START_MAX_BYTES = CODEX_SESSION_START_MAX_BYTES;
@@ -62,12 +63,11 @@ const REQUIRED_FIELDS = [
   "cwd",
   "hook_event_name",
   "model",
-  "permission_mode",
   "session_id",
   "source",
   "transcript_path",
 ] as const;
-const OPTIONAL_FIELDS = ["agent_type"] as const;
+const OPTIONAL_FIELDS = ["agent_type", "permission_mode"] as const;
 
 export type ClaudeSessionStartSource = typeof START_SOURCES[number];
 export type ClaudeSessionStartPermissionMode = typeof PERMISSION_MODES[number];
@@ -79,7 +79,7 @@ export interface ClaudeSessionStartInput {
   cwd: string;
   hook_event_name: "SessionStart";
   model: string;
-  permission_mode: ClaudeSessionStartPermissionMode;
+  permission_mode?: ClaudeSessionStartPermissionMode;
   source: ClaudeSessionStartSource;
   agent_type?: string;
 }
@@ -183,8 +183,13 @@ export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInp
     !nonEmptyString(input.transcript_path) ||
     !nonEmptyString(input.cwd) ||
     typeof input.model !== "string" ||
-    typeof input.permission_mode !== "string" ||
-    !PERMISSION_MODES.includes(input.permission_mode as ClaudeSessionStartPermissionMode) ||
+    !(
+      input.permission_mode === undefined ||
+      (
+        typeof input.permission_mode === "string" &&
+        PERMISSION_MODES.includes(input.permission_mode as ClaudeSessionStartPermissionMode)
+      )
+    ) ||
     !(input.agent_type === undefined || nonEmptyString(input.agent_type))
   ) {
     throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
@@ -195,8 +200,10 @@ export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInp
     cwd: input.cwd,
     hook_event_name: "SessionStart",
     model: input.model,
-    permission_mode: input.permission_mode as ClaudeSessionStartPermissionMode,
     source: input.source as ClaudeSessionStartSource,
+    ...(typeof input.permission_mode === "string"
+      ? { permission_mode: input.permission_mode as ClaudeSessionStartPermissionMode }
+      : {}),
     ...(typeof input.agent_type === "string" ? { agent_type: input.agent_type } : {}),
   };
 }
@@ -208,14 +215,26 @@ function toCodexInput(input: ClaudeSessionStartInput): CodexSessionStartInput {
     cwd: input.cwd,
     hook_event_name: "SessionStart",
     model: input.model,
-    permission_mode: input.permission_mode === "auto" ? "default" : input.permission_mode,
+    permission_mode:
+      input.permission_mode === undefined || input.permission_mode === "auto"
+        ? "default"
+        : input.permission_mode,
     source: input.source,
   };
 }
 
 function proxyForInputError(error: ClaudeInputError, raw: string): string {
-  if (error.reason === "UNSUPPORTED_HOOK_EVENT") return raw;
-  if (error.reason === "UNSUPPORTED_START_SOURCE") return raw;
+  if (error.reason === "UNSUPPORTED_HOOK_EVENT" || error.reason === "UNSUPPORTED_START_SOURCE") {
+    try {
+      const input: unknown = JSON.parse(raw);
+      if (isRecord(input) && input.permission_mode === undefined) {
+        return JSON.stringify({ ...input, permission_mode: "default" });
+      }
+    } catch {
+      // The original parser has already classified this input.
+    }
+    return raw;
+  }
   return "{}";
 }
 
@@ -252,6 +271,7 @@ export async function loadClaudeRecoveryFromStore(
   binding: ClaudeSessionStartBinding,
   input: ClaudeSessionStartInput,
 ): Promise<LoadedCodexRecovery> {
+  const storeBinding = resolveCodexStoreBinding();
   const store = await createStore();
   try {
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
@@ -302,6 +322,7 @@ export async function loadClaudeRecoveryFromStore(
       recovery,
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
+      store_binding: storeBinding,
     };
   } finally {
     await store.close();
