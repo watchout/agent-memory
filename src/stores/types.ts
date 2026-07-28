@@ -221,6 +221,60 @@ export interface GetRawEventsInput {
   limit?: number;
 }
 
+// ─── Kusabi fleet observability runtime events (OBS-02) ────────────────────
+
+export type KusabiRuntimeEventType =
+  | "deployment_observed"
+  | "session_start"
+  | "recovery_result"
+  | "heartbeat"
+  | "runtime_error"
+  | "evidence_sink_error"
+  | "privacy_violation";
+
+/**
+ * Strict, privacy-safe runtime-event document after JSON Schema validation.
+ * The schema remains the normative shape; this type captures the fields the
+ * persistence layer indexes without duplicating every nested schema detail.
+ */
+export interface KusabiRuntimeEventDocument extends Record<string, unknown> {
+  schema_version: "kusabi-runtime-event/v1";
+  event_id: string;
+  event_type: KusabiRuntimeEventType;
+  occurred_at: string;
+  manifest_id: string;
+  target_key: string;
+}
+
+export interface KusabiRuntimeEventRecord {
+  event_id: string;
+  manifest_id: string;
+  target_key: string;
+  event_type: KusabiRuntimeEventType;
+  occurred_at: string;
+  event_sha256: string;
+  event: KusabiRuntimeEventDocument;
+  ingested_at: string;
+}
+
+export interface SaveKusabiRuntimeEventInput {
+  event: KusabiRuntimeEventDocument;
+  event_sha256: string;
+}
+
+export interface SaveKusabiRuntimeEventResult {
+  record: KusabiRuntimeEventRecord;
+  inserted: boolean;
+}
+
+export interface GetKusabiRuntimeEventsInput {
+  manifest_id?: string;
+  target_key?: string;
+  event_type?: KusabiRuntimeEventType;
+  since?: string;
+  limit?: number;
+}
+
 // ─── AM-026: Catch-up ledger types ──────────────────────────────────────────
 
 /**
@@ -434,6 +488,9 @@ export interface GetKusabiPartitionInput {
 }
 
 export interface Store {
+  /** Selected backend. JSON is deterministic-fixture only for OBS-02. */
+  readonly backend: "sqlite" | "postgres" | "json";
+
   /** Initialize the store (create tables/files if needed) */
   initialize(): Promise<void>;
 
@@ -469,6 +526,12 @@ export interface Store {
 
   /** Read canonical raw events in newest-first order (AM-103 first slice) */
   getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]>;
+
+  /** Persist one validated Kusabi runtime event, idempotently by event_id. */
+  saveKusabiRuntimeEvent(input: SaveKusabiRuntimeEventInput): Promise<SaveKusabiRuntimeEventResult>;
+
+  /** Read normalized Kusabi runtime events in newest-first order. */
+  getKusabiRuntimeEvents(input: GetKusabiRuntimeEventsInput): Promise<KusabiRuntimeEventRecord[]>;
 
   /** Save a knowledge entry (v0.3.0) */
   saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge>;

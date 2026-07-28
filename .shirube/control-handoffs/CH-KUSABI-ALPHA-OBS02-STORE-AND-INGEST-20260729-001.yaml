@@ -1,0 +1,131 @@
+schema_version: shirube-v3/control_handoff/v1
+control_handoff_id: CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
+lifecycle_state: IMPLEMENTATION_ACTIVE
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-07-29"
+  decision_ref: ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+
+cell:
+  cell_id: KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
+  cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+  cell_type: storage_and_ingest_implementation
+  risk_class: R3
+  goal: >-
+    Add strict runtime-event ingest and a dedicated SQLite/PostgreSQL ledger,
+    with isolated parity evidence and no live migration or activation.
+  exact_subject:
+    repository: watchout/agent-memory
+    base_branch: main
+    base_sha: 3b03dfe8ae269735dd051b91012ad325c249e5e2
+    base_tree: f09cbe23788267d271060b498031ea4bb09ebfaa
+    head_branch: codex/kusabi-alpha-obs02-store-ingest-20260729
+  allowed_paths:
+    - src/kusabi-runtime-event-store.ts
+    - src/artifact-schema-validator.ts
+    - src/stores/types.ts
+    - src/stores/json-store.ts
+    - src/stores/sqlite-store.ts
+    - src/stores/pg-store.ts
+    - src/stores/pg-migrations.ts
+    - src/test-kusabi-runtime-event-store.ts
+    - src/test-sqlite.ts
+    - src/test-pg.ts
+    - tests/gate0/migration-idempotency.ts
+    - package.json
+    - docs/operations/KUSABI_ALPHA_OBS02_STORE_MIGRATION.md
+    - .shirube/cells/CELL-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+  allowed_operations:
+    - edit only cell.allowed_paths
+    - run local TypeScript, SQLite, PostgreSQL, migration, build, parse, privacy, diff, and scope validation
+    - create and drop uniquely named test-only PostgreSQL schemas
+    - create and delete temporary SQLite/JSON test files
+    - commit and push the implementation branch without force
+    - create and update one draft pull request targeting main
+    - route one exact-head independent audit through AUN
+  forbidden_operations:
+    - live database migration or mutation of persistent product tables
+    - host event emission, runtime adapter modification, or wrapper injection
+    - configuration, hook trust, distribution, activation, deployment, restart, or session mutation
+    - access or storage of credentials, environment values, database URLs, raw absolute paths, prompts, conversations, recovery-pack content, or private reasoning as telemetry
+    - maker self-audit, maker self-approval, maker self-merge, or protected-gate bypass
+    - collaboration sub-agent audit, TUI injection, tmux send-keys, or automatic restart
+    - force-push, admin bypass, npm publish, tag, release, or destructive rollback
+  stop_conditions:
+    - approved deliverable requires a forbidden path or operation
+    - isolation cleanup, privacy rejection, idempotency, or backend parity fails
+    - independent exact-head audit reports a blocking finding
+    - merge requires an unapproved effect or gate bypass
+
+execution_context:
+  agent_id: kusabi
+  active_function: implementation_executor
+  canonical_workspace: /Users/yuji/Developer/agent-memory
+  candidate_worktree: /Users/yuji/Developer/.wt-kusabi-alpha-obs02-store-ingest
+  repository: watchout/agent-memory
+
+owner_decision:
+  result: APPROVED_IMPLEMENTATION_SCOPE
+  actor: watchout
+  observed_at: "2026-07-29"
+  decision_ref: ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+  required_before_merge: true
+  exact_head_required_before_merge: true
+  exact_head_sha: null
+  live_database_migration_authorized: false
+  host_emission_authorized: false
+  configuration_or_trust_change_authorized: false
+  distribution_or_activation_authorized: false
+  deployment_authorized: false
+
+evidence:
+  design_merge_commit: 3b03dfe8ae269735dd051b91012ad325c249e5e2
+  design_tree: f09cbe23788267d271060b498031ea4bb09ebfaa
+  design_pr: https://github.com/watchout/agent-memory/pull/274
+  runtime_event_schema: docs/design/schemas/kusabi-runtime-event-v1.schema.json
+  implementation_validation: PASS_LOCAL
+  typescript_no_emit: PASS
+  sqlite_contract: PASS_199_OF_199
+  postgres_contract: PASS_140_OF_140_ISOLATED_SCHEMA
+  sqlite_migration_idempotency: PASS_16_OF_16
+  repository_regression: PASS_1549_OF_1549_AND_KUSABI_FUNCTIONAL_EVALUATOR
+  production_build: PASS_GENERATED_OUTPUT_CLEANED
+  json_fixture_boundary: PASS_NOT_DURABLE
+  yaml_parse: PASS_2_OF_2
+  json_parse: PASS_1_OF_1
+  changed_path_scope: PASS_13_OF_13_ALLOWED
+  privacy_static_scan: PASS
+  postgres_temporary_schema_cleanup: PASS_ZERO_REMAINING
+  git_diff_check: PASS
+  fixed_fixture_normalized_sha256: 17dbf478bbb50f291f3dffeee2249791b9102fff206b29fe838f47680b9c936b
+  live_database_migration: NOT_RUN_NOT_AUTHORIZED
+  host_emission: NOT_IMPLEMENTED_NOT_AUTHORIZED
+  configuration_trust_distribution_activation_deployment: NOT_RUN_NOT_AUTHORIZED
+  pull_request: PENDING
+  exact_head_sha: PENDING
+  exact_tree_sha: PENDING
+  independent_exact_head_audit: PENDING
+
+gate_result:
+  gate: kusabi_alpha_obs02_store_and_ingest
+  result: READY_FOR_PR_AUDIT
+  reason: Approved implementation and local isolated validation pass; protected merge remains separately gated.
+  authority_limit: code, additive migration definitions, documentation, isolated tests, draft PR, and audit routing
+
+next_action:
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Finish the approved implementation and deterministic validation, publish the draft PR, then route the immutable exact head/tree for independent audit.
+  deliver_via: GitHub and AUN
+  exact_input_refs:
+    - owner-decision:ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+    - design-pr:https://github.com/watchout/agent-memory/pull/274
+    - baseline-commit:3b03dfe8ae269735dd051b91012ad325c249e5e2
+    - baseline-tree:f09cbe23788267d271060b498031ea4bb09ebfaa
+  scope: cell.allowed_paths and cell.allowed_operations only
+  deliverable: one exact-head OBS-02 draft PR with independent audit evidence
+  completion_evidence: exact changed paths, full validation receipts, isolated cleanup proof, PR URL, head/tree, independent audit verdict, and owner exact-head decision
+  blocking: false

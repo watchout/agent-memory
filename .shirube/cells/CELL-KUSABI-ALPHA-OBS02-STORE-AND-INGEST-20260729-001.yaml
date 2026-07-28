@@ -1,0 +1,159 @@
+schema_version: shirube-cell/v1
+document_type: cell
+cell_id: KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001
+status: implementation_active
+risk_tier: R3
+risk_class: R3
+cell_type: storage_and_ingest_implementation
+route: direct-owner-approval
+mode: rapid-lite
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-07-29"
+  decision_ref: ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+  instruction: >-
+    Implement the dedicated runtime-event ledger, additive migration code,
+    documentation, and isolated SQLite/PostgreSQL tests. Exclude live database
+    migration, host emission, configuration/trust change, distribution,
+    activation, and deployment. Preserve exact-head audit, owner decision, and
+    separate protected merge gate.
+
+control_handoff: .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+design_ref: docs/design/KUSABI_FLEET_OBSERVABILITY_CONTRACT.md
+runtime_event_schema_ref: docs/design/schemas/kusabi-runtime-event-v1.schema.json
+operation_ref: docs/operations/KUSABI_ALPHA_OBS02_STORE_MIGRATION.md
+baseline:
+  branch: main
+  commit_sha: 3b03dfe8ae269735dd051b91012ad325c249e5e2
+  tree_sha: f09cbe23788267d271060b498031ea4bb09ebfaa
+
+goal: >-
+  Implement a privacy-safe, idempotent Kusabi runtime-event ingest boundary and
+  dedicated durable ledger with equivalent normalized behavior in the
+  user-selected SQLite and PostgreSQL stores, without mutating a live database
+  or enabling any producer/runtime.
+
+acceptance:
+  - Strict draft-2020-12 validation rejects unknown fields before persistence.
+  - Canonical recursive JSON hashing is deterministic.
+  - Exact duplicate delivery is idempotent by event_id.
+  - Same event_id with different canonical bytes is rejected as an integrity conflict.
+  - SQLite acknowledges only after its selected file is written.
+  - PostgreSQL acknowledges only after transaction commit.
+  - Store failure produces bounded privacy-safe emergency evidence; dual failure is observable as failed.
+  - JSON remains deterministic-fixture only and never counts as durable evidence.
+  - Additive migrations are idempotent and do not rewrite the legacy raw_events ledger.
+  - SQLite and PostgreSQL fixed fixtures produce an identical normalized SHA-256.
+  - All database validation is isolated and cleaned up; no live product table is migrated.
+
+allowed_paths:
+  - src/kusabi-runtime-event-store.ts
+  - src/artifact-schema-validator.ts
+  - src/stores/types.ts
+  - src/stores/json-store.ts
+  - src/stores/sqlite-store.ts
+  - src/stores/pg-store.ts
+  - src/stores/pg-migrations.ts
+  - src/test-kusabi-runtime-event-store.ts
+  - src/test-sqlite.ts
+  - src/test-pg.ts
+  - tests/gate0/migration-idempotency.ts
+  - package.json
+  - docs/operations/KUSABI_ALPHA_OBS02_STORE_MIGRATION.md
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS02-STORE-AND-INGEST-20260729-001.yaml
+
+forbidden_paths:
+  - src/codex-session-start.ts
+  - src/claude-session-start.ts
+  - src/gemini-session-start.ts
+  - src/*hook-installer.ts
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - .env
+  - .env.*
+  - secrets/**
+
+forbidden_operations:
+  - live database migration or product-table mutation
+  - host event emission or runtime adapter change
+  - agent configuration, hook trust, distribution, activation, restart, or deployment
+  - raw conversation, prompt, private reasoning, recovery-pack content, credential, database URL, environment value, or raw absolute path telemetry
+  - maker self-audit, maker self-approval, maker self-merge, or merge-gate bypass
+  - collaboration sub-agent audit, TUI injection, wrapper launch, or automatic restart
+  - force-push, npm publish, tag, release, or destructive schema rollback
+
+required_tests:
+  - npx tsc --noEmit
+  - temporary SQLite integration suite and reopen persistence proof
+  - isolated PostgreSQL schema integration suite with guaranteed cleanup
+  - SQLite migration idempotency gate
+  - repository regression suite
+  - production build
+  - YAML parse, changed-path scope, privacy-literal scan, and git diff checks
+
+owner_decision:
+  implementation_authorized: true
+  decision_ref: ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+  required_before_merge: true
+  exact_head_required_before_merge: true
+  exact_head_sha: null
+  live_database_migration_authorized: false
+  host_emission_authorized: false
+  runtime_activation_authorized: false
+  fleet_distribution_authorized: false
+  deployment_authorized: false
+
+stop_conditions:
+  - An implementation requirement cannot be met inside allowed_paths and approved operations.
+  - A test demonstrates possible live-database mutation, forbidden telemetry persistence, or backend-contract divergence.
+  - Independent exact-head audit reports a blocking finding.
+  - Merge would require bypass or an unapproved scope expansion.
+
+evidence:
+  typescript_no_emit: PASS
+  sqlite_contract: PASS_199_OF_199
+  postgres_contract: PASS_140_OF_140_ISOLATED_SCHEMA
+  sqlite_migration_idempotency: PASS_16_OF_16
+  repository_regression: PASS_1549_OF_1549_AND_KUSABI_FUNCTIONAL_EVALUATOR
+  production_build: PASS_GENERATED_OUTPUT_CLEANED
+  json_fixture_boundary: PASS_NOT_DURABLE
+  yaml_parse: PASS_2_OF_2
+  json_parse: PASS_1_OF_1
+  changed_path_scope: PASS_13_OF_13_ALLOWED
+  privacy_static_scan: PASS
+  postgres_temporary_schema_cleanup: PASS_ZERO_REMAINING
+  git_diff_check: PASS
+  normalized_fixture_sha256: 17dbf478bbb50f291f3dffeee2249791b9102fff206b29fe838f47680b9c936b
+  live_database_migration: NOT_RUN_NOT_AUTHORIZED
+  host_emission: NOT_IMPLEMENTED_NOT_AUTHORIZED
+  activation_or_deployment: NOT_RUN_NOT_AUTHORIZED
+  independent_exact_head_audit: PENDING
+  owner_exact_head_decision: PENDING
+
+gate_result:
+  gate: kusabi_alpha_obs02_store_and_ingest
+  result: READY_FOR_PR_AUDIT
+  reason: Implementation and deterministic local validation pass; exact-head audit and owner merge decision follow publication.
+  authority_limit: approved OBS-02 files, isolated tests, draft PR publication, and audit routing only
+
+next_action:
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Complete all local validation, publish one draft PR, and route one independent audit bound to its exact head and tree without waiting on non-blocking acknowledgements.
+  deliver_via: GitHub and AUN
+  exact_input_refs:
+    - owner-decision:ODR-KUSABI-ALPHA-OBS02-STORE-INGEST-20260729-001
+    - baseline-commit:3b03dfe8ae269735dd051b91012ad325c249e5e2
+    - baseline-tree:f09cbe23788267d271060b498031ea4bb09ebfaa
+  scope: allowed_paths and approved operations only
+  deliverable: independently auditable exact-head OBS-02 implementation PR
+  completion_evidence: local test receipts, isolated-database cleanup proof, exact changed paths, PR head/tree, independent verdict, and owner exact-head decision
+  blocking: false

@@ -6,6 +6,10 @@ import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
+import {
+  assertKusabiRuntimeEventHash,
+  KusabiRuntimeEventConflictError,
+} from "../kusabi-runtime-event-store.js";
 import type {
   Store,
   Decision,
@@ -14,6 +18,7 @@ import type {
   AgentMessage,
   ConversationEvent,
   RawEvent,
+  KusabiRuntimeEventRecord,
   SelectedRestartPack,
   RecoveryConfig,
   CatchUpLog,
@@ -31,6 +36,9 @@ import type {
   GetConversationEventsInput,
   SaveRawEventInput,
   GetRawEventsInput,
+  SaveKusabiRuntimeEventInput,
+  SaveKusabiRuntimeEventResult,
+  GetKusabiRuntimeEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -59,12 +67,14 @@ function conversationSearchScore(event: ConversationEvent, keywords: string[]): 
 }
 
 export class JsonStore implements Store {
+  readonly backend = "json" as const;
   private readonly dataDir: string;
   private decisions: Decision[] = [];
   private taskStates: TaskState[] = [];
   private knowledgeItems: Knowledge[] = [];
   private conversationEvents: ConversationEvent[] = [];
   private rawEvents: RawEvent[] = [];
+  private kusabiRuntimeEvents: KusabiRuntimeEventRecord[] = [];
   private selectedRestartPacks: SelectedRestartPack[] = [];
   private catchUpLog: CatchUpLog[] = [];
   private kusabiPartitions: KusabiPartition[] = [];
@@ -86,6 +96,9 @@ export class JsonStore implements Store {
     this.knowledgeItems = await this.loadFile<Knowledge>(this.dataFile("knowledge.json"));
     this.conversationEvents = await this.loadFile<ConversationEvent>(this.dataFile("conversation-events.json"));
     this.rawEvents = await this.loadFile<RawEvent>(this.dataFile("raw-events.json"));
+    this.kusabiRuntimeEvents = await this.loadFile<KusabiRuntimeEventRecord>(
+      this.dataFile("kusabi-runtime-events.json"),
+    );
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(this.dataFile("selected-restart-packs.json"));
     this.catchUpLog = await this.loadFile<CatchUpLog>(this.dataFile("catch-up-log.json"));
     this.kusabiPartitions = await this.loadFile<KusabiPartition>(this.dataFile("kusabi-agent-memory-partitions.json"));
@@ -426,6 +439,13 @@ export class JsonStore implements Store {
     await writeFile(this.dataFile("raw-events.json"), JSON.stringify(this.rawEvents, null, 2));
   }
 
+  private async saveKusabiRuntimeEventsFile(): Promise<void> {
+    await writeFile(
+      this.dataFile("kusabi-runtime-events.json"),
+      JSON.stringify(this.kusabiRuntimeEvents, null, 2),
+    );
+  }
+
   private async saveSelectedRestartPacksFile(): Promise<void> {
     await writeFile(this.dataFile("selected-restart-packs.json"), JSON.stringify(this.selectedRestartPacks, null, 2));
   }
@@ -538,6 +558,53 @@ export class JsonStore implements Store {
         new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
     );
     return results.slice(0, input.limit ?? 50);
+  }
+
+  async saveKusabiRuntimeEvent(
+    input: SaveKusabiRuntimeEventInput,
+  ): Promise<SaveKusabiRuntimeEventResult> {
+    assertKusabiRuntimeEventHash(input.event_sha256);
+    const existing = this.kusabiRuntimeEvents.find(
+      (record) => record.event_id === input.event.event_id,
+    );
+    if (existing) {
+      if (existing.event_sha256 !== input.event_sha256) {
+        throw new KusabiRuntimeEventConflictError(input.event.event_id);
+      }
+      return { record: structuredClone(existing), inserted: false };
+    }
+
+    const record: KusabiRuntimeEventRecord = {
+      event_id: input.event.event_id,
+      manifest_id: input.event.manifest_id,
+      target_key: input.event.target_key,
+      event_type: input.event.event_type,
+      occurred_at: input.event.occurred_at,
+      event_sha256: input.event_sha256,
+      event: structuredClone(input.event),
+      ingested_at: new Date().toISOString(),
+    };
+    this.kusabiRuntimeEvents.push(record);
+    await this.saveKusabiRuntimeEventsFile();
+    return { record: structuredClone(record), inserted: true };
+  }
+
+  async getKusabiRuntimeEvents(
+    input: GetKusabiRuntimeEventsInput,
+  ): Promise<KusabiRuntimeEventRecord[]> {
+    let results = [...this.kusabiRuntimeEvents];
+    if (input.manifest_id) results = results.filter((event) => event.manifest_id === input.manifest_id);
+    if (input.target_key) results = results.filter((event) => event.target_key === input.target_key);
+    if (input.event_type) results = results.filter((event) => event.event_type === input.event_type);
+    if (input.since) {
+      const sinceMs = new Date(input.since).getTime();
+      results = results.filter((event) => new Date(event.occurred_at).getTime() >= sinceMs);
+    }
+    results.sort((a, b) => {
+      const occurred = new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+      return occurred !== 0 ? occurred : b.event_id.localeCompare(a.event_id);
+    });
+    return structuredClone(results.slice(0, boundedLimit(input.limit)));
   }
 
   private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
@@ -848,4 +915,9 @@ export class JsonStore implements Store {
   async close(): Promise<void> {
     // No-op for JSON store
   }
+}
+
+function boundedLimit(value: number | undefined): number {
+  if (!Number.isInteger(value) || (value ?? 0) <= 0) return 50;
+  return Math.min(value as number, 500);
 }

@@ -6,12 +6,18 @@
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
 import { SqliteStore } from "./stores/sqlite-store.js";
+import { JsonStore } from "./stores/json-store.js";
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { stripOrphanSurrogates } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
+import {
+  OBS02_PARITY_MANIFEST_ID,
+  runKusabiRuntimeEventJsonFixtureContract,
+  runKusabiRuntimeEventStoreContract,
+} from "./test-kusabi-runtime-event-store.js";
 import initSqlJs from "sql.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
@@ -45,6 +51,23 @@ async function testMigration() {
   // initialize is idempotent
   await store.initialize();
   assert(true, "initialize is idempotent");
+}
+
+async function testKusabiRuntimeEventStore() {
+  console.log("\n── SqliteStore Kusabi OBS-02 runtime events ──");
+  await runKusabiRuntimeEventStoreContract(store, assert, "SQLite");
+}
+
+async function testKusabiRuntimeEventJsonFixtureBoundary() {
+  console.log("\n── JsonStore Kusabi OBS-02 fixture-only boundary ──");
+  const dataDir = mkdtempSync(join(tmpdir(), "kusabi-obs02-json-fixture-"));
+  const fixtureStore = new JsonStore(dataDir);
+  try {
+    await fixtureStore.initialize();
+    await runKusabiRuntimeEventJsonFixtureContract(fixtureStore, assert);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
 }
 
 async function testDecisionCRUD() {
@@ -1384,6 +1407,12 @@ async function testPersistence() {
   const config = await reopened.getRecoveryConfig(AGENT);
   assert(config !== null, "recovery_config persists across reopen");
 
+  const runtimeEvents = await reopened.getKusabiRuntimeEvents({
+    manifest_id: OBS02_PARITY_MANIFEST_ID,
+    limit: 10,
+  });
+  assert(runtimeEvents.length === 2, "Kusabi runtime events persist across reopen");
+
   await reopened.close();
 
   // Reassign so cleanup() at end of run() can close cleanly
@@ -1401,6 +1430,8 @@ async function run() {
   try {
     await setup();
     await testMigration();
+    await testKusabiRuntimeEventStore();
+    await testKusabiRuntimeEventJsonFixtureBoundary();
     await testDecisionCRUD();
     await testSupersede();
     await testTaskStates();

@@ -66,7 +66,7 @@ async function runTests(): Promise<void> {
     assert(decisions.length === 1, "seeded decision still present after second initialize()");
     assert(decisions[0].id === d1.id, "seeded decision id matches after second initialize()");
 
-    // ── Test 4: Core tables are accessible (decisions, task_states, knowledge, raw_events) ──
+    // ── Test 4: Core tables are accessible after idempotent initialization ──
     const tableChecks: Array<{ name: string; probe: () => Promise<unknown> }> = [
       {
         name: "decisions",
@@ -83,6 +83,10 @@ async function runTests(): Promise<void> {
       {
         name: "raw_events",
         probe: () => store.getRawEvents({ agent_id: AGENT }),
+      },
+      {
+        name: "kusabi_runtime_events",
+        probe: () => store.getKusabiRuntimeEvents({ limit: 1 }),
       },
     ];
 
