@@ -45,6 +45,7 @@ acceptance:
   - Expected and observed commit, tree, artifact, configuration, binding, host runtime, and storage-backend identities are comparable without secrets.
   - Healthy, degraded, failed, stale, not_observed, and drifted states are deterministic.
   - Missing evidence, version drift, configuration drift, repeated degradation, runtime failure, and privacy-policy violation have explicit alert rules.
+  - Every fixed alert code has one schema-enforced severity; open or acknowledged P0/P1 alerts are blocking, P2/P3 alerts are non-blocking, and evidence_sink_failure has an explicit P1-failed-or-deadline versus P2-emergency-before-deadline split.
   - SQLite and PostgreSQL preserve one product contract; centralized internal fleet observation does not make AUN a Kusabi core dependency.
   - Conversation content, prompts, private reasoning, recovery-pack content, credentials, database URLs, environment values, and raw absolute paths are forbidden telemetry.
   - The rollout runbook has canary, staged rollout, rollback, alert smoke, 24-hour soak, and exact closure criteria.
@@ -83,6 +84,7 @@ required_tests:
   - Parse both changed YAML artifacts.
   - Parse and compile both changed JSON Schemas under JSON Schema draft 2020-12.
   - Validate canonical positive examples and rejection fixtures against both schemas.
+  - Reject the six KUSABI-OBS-AUDIT-B1 counterexamples 6/6, accept the nine normative alert-classification examples 9/9, and reproduce fixture-body manifest SHA-256 ac1b6a9f5d37563a8ff736a72a1bd9035f0eef3ca30e8ab16940b4bbef37c173.
   - Run git diff --check origin/main...HEAD.
   - Prove changed paths are an exact subset of allowed_paths.
   - Run TypeScript compilation with --noEmit and the existing test suite without modifying generated output.
@@ -107,7 +109,7 @@ stop_conditions:
 next_action:
   actor_agent_id: kusabi
   active_function: implementation_executor
-  action: Author and validate the six design-only deliverables, publish one draft PR, and route exact-head independent design review without waiting on non-blocking acknowledgements.
+  action: Publish the KUSABI-OBS-AUDIT-B1 schema correction and reproducible fixture evidence, then route a fresh exact-head independent R2 design review without waiting on non-blocking acknowledgements.
   deliver_via: GitHub and AUN
   exact_input_refs:
     - owner-decision:ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
@@ -115,5 +117,5 @@ next_action:
     - baseline-tree:e6a610648011353698c34985f946c57a6044abfd
   scope: allowed_paths only
   deliverable: independently reviewable Kusabi fleet observability design PR
-  completion_evidence: exact changed-path set, schema compile and fixture results, TypeScript no-emit/test results, PR URL, independent audit, and owner exact-head decision
+  completion_evidence: exact changed-path set, schema compile, cited negatives rejected 6/6, normative positives accepted 9/9, fixture-body manifest hash, separated exact-head/merge-ref test results, PR URL, fresh independent audit, and owner exact-head decision
   blocking: false

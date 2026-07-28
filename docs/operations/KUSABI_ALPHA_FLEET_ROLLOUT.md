@@ -93,7 +93,104 @@ These gates are later cells; this design PR cannot satisfy them.
 - Unknown fields, malformed hashes, raw-path fields, arbitrary error text,
   privacy violations disguised as success, and invalid blocking severities are
   rejected.
+- The six `KUSABI-OBS-AUDIT-B1` counterexamples reject 6/6 and the nine
+  normative code/severity/blocking examples accept 9/9.
 - Canonicalization and `target_key` fixtures are deterministic.
+
+#### Gate O1 alert-classification reproduction
+
+Run from the repository root. The fixture body is completely defined by
+`makeAlert` plus each case tuple; SHA-256 is over `JSON.stringify(body)`.
+
+```bash
+node <<'NODE'
+const fs = require('node:fs')
+const crypto = require('node:crypto')
+const Ajv2020 = require('ajv/dist/2020').default
+const addFormats = require('ajv-formats')
+const schema = JSON.parse(fs.readFileSync(
+  'docs/design/schemas/kusabi-fleet-status-v1.schema.json', 'utf8'))
+const ajv = new Ajv2020({ strict: true, allErrors: true })
+addFormats(ajv)
+ajv.addSchema(schema)
+const validate = ajv.getSchema(`${schema.$id}#/$defs/alert`)
+const h = 'a'.repeat(64)
+const makeAlert = (code, severity, blocking) => ({
+  alert_id: '00000000-0000-4000-8000-000000000001', severity, code,
+  target_key: h, first_seen_at: '2026-07-29T00:00:00Z',
+  last_seen_at: '2026-07-29T00:00:01Z', occurrence_count: 1,
+  fingerprint_sha256: h, status: 'open',
+  evidence_refs: [{ kind: 'run', locator_sha256: h, content_sha256: h }],
+  next_action: {
+    actor_agent_id: 'kusabi', active_function: 'implementation_executor',
+    action: 'inspect', deliver_via: 'status', exact_input_refs: [h],
+    scope: 'one target', deliverable: 'verdict',
+    completion_evidence: 'evidence', blocking
+  }
+})
+const cases = [
+  ['neg-runtime-p3-nonblocking', 'runtime_failure', 'P3', false, false],
+  ['neg-not-observed-p3-nonblocking', 'not_observed', 'P3', false, false],
+  ['neg-runtime-p1-nonblocking', 'runtime_failure', 'P1', false, false],
+  ['neg-stale-p1-blocking', 'stale_observation', 'P1', true, false],
+  ['neg-isolated-p1-blocking', 'isolated_degradation', 'P1', true, false],
+  ['neg-performance-p0-blocking', 'performance_warning', 'P0', true, false],
+  ['pos-privacy-p0-blocking', 'privacy_violation', 'P0', true, true],
+  ['pos-runtime-p1-blocking', 'runtime_failure', 'P1', true, true],
+  ['pos-not-observed-p1-blocking', 'not_observed', 'P1', true, true],
+  ['pos-stale-p2-nonblocking', 'stale_observation', 'P2', false, true],
+  ['pos-repeated-p2-nonblocking', 'repeated_degradation', 'P2', false, true],
+  ['pos-isolated-p3-nonblocking', 'isolated_degradation', 'P3', false, true],
+  ['pos-performance-p3-nonblocking', 'performance_warning', 'P3', false, true],
+  ['pos-sink-failed-p1-blocking', 'evidence_sink_failure', 'P1', true, true],
+  ['pos-sink-emergency-p2-nonblocking', 'evidence_sink_failure', 'P2', false, true]
+]
+const records = cases.map(([name, code, severity, blocking, expected_valid]) => {
+  const body = makeAlert(code, severity, blocking)
+  const actual_valid = validate(body)
+  return {
+    name, code, severity, blocking, expected_valid, actual_valid,
+    pass: actual_valid === expected_valid,
+    body_sha256: crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')
+  }
+})
+for (const record of records) console.log(JSON.stringify(record))
+const bodyManifest = records.map(({name, code, severity, blocking,
+  expected_valid, body_sha256}) =>
+  ({name, code, severity, blocking, expected_valid, body_sha256}))
+const summary = {
+  passed: `${records.filter(({pass}) => pass).length}/${records.length}`,
+  negative_rejected: `${records.slice(0, 6).filter(({actual_valid}) => !actual_valid).length}/6`,
+  positive_accepted: `${records.slice(6).filter(({actual_valid}) => actual_valid).length}/9`,
+  fixture_body_manifest_sha256: crypto.createHash('sha256')
+    .update(JSON.stringify(bodyManifest)).digest('hex')
+}
+console.log(JSON.stringify(summary))
+if (records.some(({pass}) => !pass)) process.exit(1)
+NODE
+```
+
+Expected and observed result at the corrected design head is `15/15`, with
+negative rejection `6/6`, positive acceptance `9/9`, and fixture-body manifest
+SHA-256 `ac1b6a9f5d37563a8ff736a72a1bd9035f0eef3ca30e8ab16940b4bbef37c173`.
+
+| Fixture | Body SHA-256 |
+| --- | --- |
+| `neg-runtime-p3-nonblocking` | `8b029b4013e2ded4bfa517e6b4525de945fba92648332f2cea45da5b5a569a46` |
+| `neg-not-observed-p3-nonblocking` | `c05d67ec4e1c3ef858493a2e08a78989018669352c65f284ccfa4e828853404c` |
+| `neg-runtime-p1-nonblocking` | `d4cca575da1205a8e4a579e2393a177f5020e2b2b845b92ac77bea92337a4c6c` |
+| `neg-stale-p1-blocking` | `d9ef7d6f2e7bfdcb3682387d9847e6b70746732b70722169e573898da46b6199` |
+| `neg-isolated-p1-blocking` | `2840862a008c4e74f69009a0be911f9751a252f8a213cb24454849500aa407cf` |
+| `neg-performance-p0-blocking` | `ed906c6a744a9488b01535cec08907e075761dba51a8fc9f7b67316f5356964a` |
+| `pos-privacy-p0-blocking` | `3e6d6019dfec3d178874d143e143d4014ec0c4b7078c0e23b048380a0d937592` |
+| `pos-runtime-p1-blocking` | `ad51c7d8eed75dedd728397998abc90e26a0850f0f1e4a16d72f0d2c11a379c3` |
+| `pos-not-observed-p1-blocking` | `a36dce3e6fc637308f1d8f5a66cb4eb127816f795654813e69b30c68c6bc0056` |
+| `pos-stale-p2-nonblocking` | `75b79716c76a8d63086b83f2d50e8acacdc3e7af071f9c8dcb00d6bf1fc9607f` |
+| `pos-repeated-p2-nonblocking` | `98db627342b408b15a3352f21bb0fdb9849ece4c0edb2b27ecfb5b2c100e177d` |
+| `pos-isolated-p3-nonblocking` | `55c989eb4232a9301c07294a5b9d44b440664a1d869bba259f682b7dbcdeaf08` |
+| `pos-performance-p3-nonblocking` | `a6ab1677093f740ee32f80904bf8725b4c8f693e5da2a2ead84c9b31d72ac1c7` |
+| `pos-sink-failed-p1-blocking` | `ddefa8512288a9a651352fac44625a77185f18d18ff40e0a5dd43b38dacb9ed9` |
+| `pos-sink-emergency-p2-nonblocking` | `1b974278e0923e72fbc5f2bb072874d65d7105e690dac66ce46585d306c8ec9a` |
 
 ### Gate O2 — storage and idempotency
 
@@ -230,7 +327,8 @@ conversation content, or production destructive behavior.
 | config or trust hash mismatch | drifted | P1 `configuration_drift` | yes |
 | backend binding mismatch | drifted | P1 `storage_drift` | yes |
 | no event by activation deadline | not_observed | P1 `not_observed` | yes |
-| durable sink failure with emergency line | degraded or failed | P1/P2 `evidence_sink_failure` by severity rule | stage-dependent |
+| evidence delivery `failed`, or required durable evidence absent at an activation/closure deadline | failed | P1 `evidence_sink_failure` | yes |
+| bounded `emergency_only` evidence before the applicable deadline while ordinary startup remains usable | degraded | P2 `evidence_sink_failure` | no; affected stage cannot close |
 | observation older than frozen threshold | stale | P2 `stale_observation` | no, except stage gate |
 | three degradations in 15 minutes | degraded | P2 `repeated_degradation` | no, stage cannot close |
 | one isolated safe degradation | degraded | P3 `isolated_degradation` | no |

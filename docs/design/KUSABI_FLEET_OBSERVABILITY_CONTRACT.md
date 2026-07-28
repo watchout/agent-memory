@@ -275,10 +275,29 @@ fixture suite check arithmetic, uniqueness, precedence, and time-window rules.
 | P2 | stale target, emergency-only evidence, or 3 degradations within 15 minutes | Keep ordinary work running; investigate without stopping unrelated work. |
 | P3 | isolated degradation or performance warning | Record and trend; non-blocking. |
 
-An alert carries `next_action`. `blocking: true` is permitted only for a P0
-safety/data-integrity/false-acceptance incident or a protected rollout gate.
-Ordinary ACKs, queue receipts, progress reports, isolated warnings, and P2/P3
-alerts never stop implementation.
+The code mapping is normative and is enforced by the fleet-status schema:
+
+| Codes | Allowed severity | `next_action.blocking` while open or acknowledged |
+| --- | --- | --- |
+| `privacy_violation`, `destructive_effect`, `data_loss_or_corruption`, `false_acceptance` | P0 only | `true` |
+| `runtime_failure`, `build_drift`, `configuration_drift`, `binding_drift`, `storage_drift`, `not_observed` | P1 only | `true` |
+| `evidence_sink_failure` after delivery is `failed`, or when required durable evidence is absent at an activation or closure deadline | P1 only | `true` |
+| `evidence_sink_failure` while a bounded `emergency_only` record exists before the applicable deadline and ordinary startup remains usable | P2 only | `false` |
+| `stale_observation`, `repeated_degradation` | P2 only | `false` |
+| `isolated_degradation`, `performance_warning` | P3 only | `false` |
+
+The `evidence_sink_failure` split is an explicit producer decision derived from
+delivery state plus the frozen stage deadline; it is never inferred from free
+text. A P2 sink alert prevents the affected stage from closing where durable
+evidence is a pass criterion, but it does not set a blocking next action or
+stop unrelated approved work. At the deadline, or when delivery is `failed`,
+the same code must be emitted as P1 with a blocking next action.
+
+An alert carries `next_action`. Every open or acknowledged P0/P1 alert has
+`blocking: true`; every open or acknowledged P2/P3 alert has `blocking: false`.
+Resolved or suppressed alerts may use `next_action: none`. Ordinary ACKs,
+queue receipts, progress reports, isolated warnings, and P2/P3 alerts never
+stop unrelated implementation.
 
 The snapshot-level `next_action` mirrors the highest-severity unresolved alert
 or is `none` when no action remains. An `open` or `acknowledged` alert always

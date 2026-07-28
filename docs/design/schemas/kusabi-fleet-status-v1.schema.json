@@ -398,6 +398,67 @@
           "if": {
             "properties": {
               "code": {
+                "enum": [
+                  "runtime_failure",
+                  "build_drift",
+                  "configuration_drift",
+                  "binding_drift",
+                  "storage_drift",
+                  "not_observed"
+                ]
+              }
+            },
+            "required": ["code"]
+          },
+          "then": {
+            "properties": {
+              "severity": { "const": "P1" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": { "const": "evidence_sink_failure" }
+            },
+            "required": ["code"]
+          },
+          "then": {
+            "properties": {
+              "severity": { "enum": ["P1", "P2"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": { "enum": ["stale_observation", "repeated_degradation"] }
+            },
+            "required": ["code"]
+          },
+          "then": {
+            "properties": {
+              "severity": { "const": "P2" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": { "enum": ["isolated_degradation", "performance_warning"] }
+            },
+            "required": ["code"]
+          },
+          "then": {
+            "properties": {
+              "severity": { "const": "P3" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
                 "enum": ["privacy_violation", "destructive_effect", "data_loss_or_corruption", "false_acceptance"]
               },
               "status": { "enum": ["open", "acknowledged"] }
@@ -422,6 +483,44 @@
           },
           "then": {
             "properties": { "next_action": { "$ref": "#/$defs/nextAction" } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "severity": { "enum": ["P0", "P1"] },
+              "status": { "enum": ["open", "acknowledged"] }
+            },
+            "required": ["severity", "status"]
+          },
+          "then": {
+            "properties": {
+              "next_action": {
+                "allOf": [
+                  { "$ref": "#/$defs/nextAction" },
+                  { "type": "object", "properties": { "blocking": { "const": true } } }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "severity": { "enum": ["P2", "P3"] },
+              "status": { "enum": ["open", "acknowledged"] }
+            },
+            "required": ["severity", "status"]
+          },
+          "then": {
+            "properties": {
+              "next_action": {
+                "allOf": [
+                  { "$ref": "#/$defs/nextAction" },
+                  { "type": "object", "properties": { "blocking": { "const": false } } }
+                ]
+              }
+            }
           }
         },
         {

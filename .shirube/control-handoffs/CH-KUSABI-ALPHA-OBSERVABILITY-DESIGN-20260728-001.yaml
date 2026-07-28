@@ -50,6 +50,7 @@ acceptance_criteria:
   - Expected and observed commit, tree, artifact, configuration, binding, host runtime, and storage-backend identities are comparable without secrets.
   - Healthy, degraded, failed, stale, not_observed, and drifted states are deterministic.
   - Missing evidence, version drift, configuration drift, repeated degradation, runtime failure, and privacy-policy violation have explicit alert rules.
+  - Every fixed alert code has one schema-enforced severity; open or acknowledged P0/P1 alerts are blocking, P2/P3 alerts are non-blocking, and evidence_sink_failure has an explicit P1-failed-or-deadline versus P2-emergency-before-deadline split.
   - SQLite and PostgreSQL preserve one product contract; centralized internal fleet observation does not make AUN a Kusabi core dependency.
   - Conversation content, prompts, private reasoning, recovery-pack content, credentials, database URLs, environment values, and raw absolute paths are forbidden telemetry.
   - The rollout runbook has canary, staged rollout, rollback, alert smoke, 24-hour soak, and exact closure criteria.
@@ -61,6 +62,7 @@ validation:
     - npm test
     - strict Ajv draft-2020-12 schema compile
     - positive and negative schema fixture validation
+    - KUSABI-OBS-AUDIT-B1 alert-classification matrix with six cited negatives rejected 6/6, nine normative positives accepted 9/9, and fixture-body manifest SHA-256 verification
     - JSON and YAML parse
     - local Markdown link check
     - forbidden telemetry literal scan
@@ -70,7 +72,8 @@ validation:
     - exact base, head, tree, branch, and clean isolated worktree
     - JSON_PARSE_PASS 2/2 and YAML_PARSE_PASS 2/2
     - SCHEMA_STRICT_COMPILE_PASS 2/2
-    - FIXTURE_PASS runtime positive 2, fleet positive 4, negative 7
+    - FIXTURE_PASS runtime positive 2, fleet positive 4, original negative 7
+    - ALERT_CLASSIFICATION_PASS 15/15, NEGATIVE_REJECTED 6/6, POSITIVE_ACCEPTED 9/9, FIXTURE_BODY_MANIFEST_SHA256 ac1b6a9f5d37563a8ff736a72a1bd9035f0eef3ca30e8ab16940b4bbef37c173
     - LOCAL_LINK_PASS 2/2 and forbidden telemetry literal scan PASS
     - TypeScript no-emit PASS
     - repository tests PASS 1527 plus Kusabi functional evaluator
@@ -219,27 +222,35 @@ evidence:
   fleet_status_schema: PASS_DRAFT_2020_12_STRICT
   rollout_runbook: PASS_PRESENT_AND_LINKED
   schema_compile: PASS_AJV_2020_STRICT_2_OF_2
-  fixture_validation: PASS_RUNTIME_POSITIVE_2_FLEET_POSITIVE_4_NEGATIVE_7
+  fixture_validation: PASS_RUNTIME_POSITIVE_2_FLEET_POSITIVE_4_ORIGINAL_NEGATIVE_7
+  alert_classification: PASS_15_OF_15_NEGATIVE_REJECTED_6_OF_6_POSITIVE_ACCEPTED_9_OF_9
+  alert_fixture_body_manifest_sha256: ac1b6a9f5d37563a8ff736a72a1bd9035f0eef3ca30e8ab16940b4bbef37c173
   json_parse: PASS_2_OF_2
   yaml_parse: PASS_2_OF_2
-  local_link_check: PASS_2_OF_2
+  local_link_check: PASS_3_CHECKED_0_MISSING
   forbidden_telemetry_literal_scan: PASS
   path_scope: PASS_EXACT_6_OF_6_ALLOWED_PATHS
   typescript_no_emit: PASS
-  repository_tests: PASS_1527_AND_KUSABI_FUNCTIONAL_EVALUATOR
+  repository_tests:
+    local_exact_head_node_22: PASS_1527_AND_KUSABI_FUNCTIONAL_EVALUATOR
+    github_pr_merge_ref_node_18_20_22: PASS_1549_EACH_AND_KUSABI_FUNCTIONAL_EVALUATOR
+    count_explanation: Local exact-head and GitHub pull-request merge-ref results are separate evidence subjects and are not presented as one count.
   pull_request: https://github.com/watchout/agent-memory/pull/274
-  independent_design_audit: PENDING
+  independent_design_audit_prior: FAIL_KUSABI_OBS_AUDIT_B1
+  independent_design_audit_prior_ref: https://github.com/watchout/agent-memory/pull/274#issuecomment-5102656344
+  audit_blocker_correction: PASS_LOCAL_PENDING_NEW_EXACT_HEAD_AUDIT
   owner_exact_head: PENDING
 
 gate_result:
   gate: kusabi_alpha_observability_design
   result: IN_PROGRESS
+  reason: KUSABI-OBS-AUDIT-B1 is mechanically corrected and locally validated; a fresh exact-head independent audit and owner exact-head decision remain required.
   authority_limit: design-only authoring, validation, draft PR publication, and independent design-review routing
 
 next_action:
   actor_agent_id: kusabi
   active_function: implementation_executor
-  action: Publish the corrected exact head and route one independent R2 design audit against PR 274 through AUN.
+  action: Publish the KUSABI-OBS-AUDIT-B1 correction with immutable fixture evidence and route one fresh independent R2 design audit against PR 274 through AUN.
   deliver_via: GitHub and AUN
   exact_input_refs:
     - owner-decision:ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
@@ -247,5 +258,5 @@ next_action:
     - baseline-tree:e6a610648011353698c34985f946c57a6044abfd
   scope: cell.allowed_paths and cell.allowed_operations only
   deliverable: exact-head independent audit result for the Kusabi fleet observability design PR
-  completion_evidence: strict schemas, positive and negative fixtures, changed-path proof, TypeScript no-emit/test receipts, PR URL, independent audit, and owner exact-head decision
+  completion_evidence: strict schemas, cited negatives rejected 6/6, normative positives accepted 9/9, fixture-body manifest hash, changed-path proof, separated exact-head/merge-ref test receipts, PR URL, fresh independent audit, and owner exact-head decision
   blocking: false
