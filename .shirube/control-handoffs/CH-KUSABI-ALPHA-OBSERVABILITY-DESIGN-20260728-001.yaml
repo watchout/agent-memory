@@ -7,6 +7,74 @@ framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b1
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 repo_spec_ref: .shirube/repo-spec.yaml
 repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+
+allowed_paths:
+  - docs/design/KUSABI_FLEET_OBSERVABILITY_CONTRACT.md
+  - docs/design/schemas/kusabi-runtime-event-v1.schema.json
+  - docs/design/schemas/kusabi-fleet-status-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+
+forbidden_paths:
+  - src/**
+  - test/**
+  - tests/**
+  - db/**
+  - scripts/**
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - yarn.lock
+  - .env
+  - .env.*
+  - secrets/**
+
+stop_conditions:
+  - any forbidden path or operation becomes necessary
+  - independent design audit reports a blocking finding
+  - merge would require bypass or an unapproved scope expansion
+
+acceptance_criteria:
+  - The fleet target denominator is frozen by a versioned manifest before rollout; registry totals are never treated as the denominator implicitly.
+  - Runtime events and derived fleet status have strict draft-2020-12 JSON Schemas with unknown fields rejected.
+  - Expected and observed commit, tree, artifact, configuration, binding, host runtime, and storage-backend identities are comparable without secrets.
+  - Healthy, degraded, failed, stale, not_observed, and drifted states are deterministic.
+  - Missing evidence, version drift, configuration drift, repeated degradation, runtime failure, and privacy-policy violation have explicit alert rules.
+  - SQLite and PostgreSQL preserve one product contract; centralized internal fleet observation does not make AUN a Kusabi core dependency.
+  - Conversation content, prompts, private reasoning, recovery-pack content, credentials, database URLs, environment values, and raw absolute paths are forbidden telemetry.
+  - The rollout runbook has canary, staged rollout, rollback, alert smoke, 24-hour soak, and exact closure criteria.
+  - Runtime implementation, DB migration, configuration mutation, trust changes, activation, and fleet distribution remain outside this cell.
+
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm test
+    - strict Ajv draft-2020-12 schema compile
+    - positive and negative schema fixture validation
+    - JSON and YAML parse
+    - local Markdown link check
+    - forbidden telemetry literal scan
+    - git diff --check origin/main...HEAD
+    - changed-path equality against allowed_paths
+  required_evidence:
+    - exact base, head, tree, branch, and clean isolated worktree
+    - JSON_PARSE_PASS 2/2 and YAML_PARSE_PASS 2/2
+    - SCHEMA_STRICT_COMPILE_PASS 2/2
+    - FIXTURE_PASS runtime positive 2, fleet positive 4, negative 7
+    - LOCAL_LINK_PASS 2/2 and forbidden telemetry literal scan PASS
+    - TypeScript no-emit PASS
+    - repository tests PASS 1527 plus Kusabi functional evaluator
+    - exact changed-path scope PASS 6/6
 
 control_source:
   kind: direct_owner_instruction
@@ -159,7 +227,7 @@ evidence:
   path_scope: PASS_EXACT_6_OF_6_ALLOWED_PATHS
   typescript_no_emit: PASS
   repository_tests: PASS_1527_AND_KUSABI_FUNCTIONAL_EVALUATOR
-  pull_request: PENDING
+  pull_request: https://github.com/watchout/agent-memory/pull/274
   independent_design_audit: PENDING
   owner_exact_head: PENDING
 
@@ -171,13 +239,13 @@ gate_result:
 next_action:
   actor_agent_id: kusabi
   active_function: implementation_executor
-  action: Complete the approved design artifacts, validate them, publish one draft PR, and route exact-head independent design audit.
+  action: Publish the corrected exact head and route one independent R2 design audit against PR 274 through AUN.
   deliver_via: GitHub and AUN
   exact_input_refs:
     - owner-decision:ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
     - baseline-commit:1f9bc0549b560280cc19c4c5a371ab80d54e8159
     - baseline-tree:e6a610648011353698c34985f946c57a6044abfd
   scope: cell.allowed_paths and cell.allowed_operations only
-  deliverable: independently reviewable Kusabi fleet observability design PR
+  deliverable: exact-head independent audit result for the Kusabi fleet observability design PR
   completion_evidence: strict schemas, positive and negative fixtures, changed-path proof, TypeScript no-emit/test receipts, PR URL, independent audit, and owner exact-head decision
   blocking: false

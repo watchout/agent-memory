@@ -16,6 +16,8 @@ control_source:
   instruction: ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
 
 control_handoff: .shirube/control-handoffs/CH-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
 baseline:
   branch: main
   commit_sha: 1f9bc0549b560280cc19c4c5a371ab80d54e8159
