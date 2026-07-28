@@ -1,0 +1,117 @@
+schema_version: shirube-cell/v1
+document_type: cell
+cell_id: KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001
+status: implementation_active
+risk_tier: R2
+risk_class: R2
+cell_type: cross_cutting_design_only
+route: direct-owner-approval
+mode: rapid-lite
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-07-28"
+  decision_ref: ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
+  instruction: ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
+
+control_handoff: .shirube/control-handoffs/CH-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+baseline:
+  branch: main
+  commit_sha: 1f9bc0549b560280cc19c4c5a371ab80d54e8159
+  tree_sha: e6a610648011353698c34985f946c57a6044abfd
+
+goal: >-
+  Freeze a complete, measurable, privacy-safe observability contract for the
+  Kusabi alpha fleet before any latest-alpha fleet-wide activation. The design
+  must make expected membership, observed build/configuration, recovery health,
+  drift, missing evidence, and actionable failure feedback deterministically
+  visible across Codex, Claude Code, and Gemini CLI without changing runtime,
+  storage, agent configuration, or distribution in this cell.
+
+deliverables:
+  - docs/design/KUSABI_FLEET_OBSERVABILITY_CONTRACT.md
+  - docs/design/schemas/kusabi-runtime-event-v1.schema.json
+  - docs/design/schemas/kusabi-fleet-status-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+
+acceptance:
+  - The fleet target denominator is frozen by a versioned manifest before rollout; registry totals are never treated as the denominator implicitly.
+  - Runtime events and derived fleet status have strict draft-2020-12 JSON Schemas with unknown fields rejected.
+  - Expected and observed commit, tree, artifact, configuration, binding, host runtime, and storage-backend identities are comparable without secrets.
+  - Healthy, degraded, failed, stale, not_observed, and drifted states are deterministic.
+  - Missing evidence, version drift, configuration drift, repeated degradation, runtime failure, and privacy-policy violation have explicit alert rules.
+  - SQLite and PostgreSQL preserve one product contract; centralized internal fleet observation does not make AUN a Kusabi core dependency.
+  - Conversation content, prompts, private reasoning, recovery-pack content, credentials, database URLs, environment values, and raw absolute paths are forbidden telemetry.
+  - The rollout runbook has canary, staged rollout, rollback, alert smoke, 24-hour soak, and exact closure criteria.
+  - Runtime implementation, DB migration, configuration mutation, trust changes, activation, and fleet distribution remain outside this cell.
+
+allowed_paths:
+  - docs/design/KUSABI_FLEET_OBSERVABILITY_CONTRACT.md
+  - docs/design/schemas/kusabi-runtime-event-v1.schema.json
+  - docs/design/schemas/kusabi-fleet-status-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-001.yaml
+
+forbidden_paths:
+  - src/**
+  - test/**
+  - tests/**
+  - db/**
+  - scripts/**
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - yarn.lock
+  - .env
+  - .env.*
+  - secrets/**
+
+required_tests:
+  - Parse both changed YAML artifacts.
+  - Parse and compile both changed JSON Schemas under JSON Schema draft 2020-12.
+  - Validate canonical positive examples and rejection fixtures against both schemas.
+  - Run git diff --check origin/main...HEAD.
+  - Prove changed paths are an exact subset of allowed_paths.
+  - Run TypeScript compilation with --noEmit and the existing test suite without modifying generated output.
+
+owner_decision:
+  design_authoring_approved: true
+  decision_ref: ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
+  required_before_merge: true
+  exact_head_required_before_merge: true
+  exact_head_sha: null
+  implementation_authorized: false
+  runtime_activation_authorized: false
+  fleet_distribution_authorized: false
+
+stop_conditions:
+  - Any runtime, DB, migration, package, workflow, generated output, agent configuration, trust, deployment, or distribution change is required.
+  - A telemetry field requires raw conversation, prompt, private reasoning, recovery-pack content, credentials, database URL, environment value, or raw absolute path.
+  - The design cannot preserve both SQLite and PostgreSQL as user-selected Kusabi stores.
+  - The target manifest denominator cannot be frozen before a later rollout.
+  - An independent design audit reports a blocking finding.
+
+next_action:
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Author and validate the six design-only deliverables, publish one draft PR, and route exact-head independent design review without waiting on non-blocking acknowledgements.
+  deliver_via: GitHub and AUN
+  exact_input_refs:
+    - owner-decision:ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006
+    - baseline-commit:1f9bc0549b560280cc19c4c5a371ab80d54e8159
+    - baseline-tree:e6a610648011353698c34985f946c57a6044abfd
+  scope: allowed_paths only
+  deliverable: independently reviewable Kusabi fleet observability design PR
+  completion_evidence: exact changed-path set, schema compile and fixture results, TypeScript no-emit/test results, PR URL, independent audit, and owner exact-head decision
+  blocking: false

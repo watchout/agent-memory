@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/kusabi-runtime-event-v1.schema.json",
+  "title": "Kusabi runtime event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "manifest_id",
+    "target_key",
+    "producer",
+    "build",
+    "configuration",
+    "storage",
+    "outcome",
+    "health",
+    "privacy",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-runtime-event/v1" },
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": {
+      "enum": [
+        "deployment_observed",
+        "session_start",
+        "recovery_result",
+        "heartbeat",
+        "runtime_error",
+        "evidence_sink_error",
+        "privacy_violation"
+      ]
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "manifest_id": { "$ref": "#/$defs/boundedId" },
+    "target_key": { "$ref": "#/$defs/sha256" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "build": { "$ref": "#/$defs/buildIdentity" },
+    "configuration": { "$ref": "#/$defs/configurationIdentity" },
+    "storage": { "$ref": "#/$defs/storageIdentity" },
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "health": { "$ref": "#/$defs/health" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/evidenceRef" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": { "status": { "const": "full" } },
+            "required": ["status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "reason_code": { "const": null },
+              "normalized_error_code": { "const": null },
+              "error_fingerprint_sha256": { "const": null },
+              "evidence_delivery": { "const": "durable" }
+            }
+          },
+          "evidence_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": { "status": { "enum": ["degraded", "failed"] } },
+            "required": ["status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "reason_code": { "$ref": "#/$defs/reasonCodeValue" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": { "status": { "const": "not_applicable" } },
+            "required": ["status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "reason_code": { "const": null },
+              "normalized_error_code": { "const": null },
+              "error_fingerprint_sha256": { "const": null }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": { "evidence_delivery": { "const": "failed" } },
+            "required": ["evidence_delivery"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "status": { "const": "failed" },
+              "reason_code": { "enum": ["evidence_sink_unavailable", "evidence_sink_write_failed"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": { "evidence_delivery": { "const": "emergency_only" } },
+            "required": ["evidence_delivery"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "status": { "enum": ["degraded", "failed"] },
+              "reason_code": { "enum": ["evidence_sink_unavailable", "evidence_sink_write_failed"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": { "enum": ["runtime_error", "evidence_sink_error"] }
+        },
+        "required": ["event_type"]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "status": { "enum": ["degraded", "failed"] },
+              "normalized_error_code": { "$ref": "#/$defs/boundedId" },
+              "error_fingerprint_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "privacy": {
+            "type": "object",
+            "properties": { "forbidden_field_count": { "type": "integer", "minimum": 1 } },
+            "required": ["forbidden_field_count"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "event_type": { "const": "privacy_violation" },
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "status": { "const": "failed" },
+              "reason_code": { "const": "privacy_forbidden_field" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event_type": { "const": "privacy_violation" } },
+        "required": ["event_type"]
+      },
+      "then": {
+        "properties": {
+          "privacy": {
+            "type": "object",
+            "properties": { "forbidden_field_count": { "type": "integer", "minimum": 1 } }
+          },
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "status": { "const": "failed" },
+              "reason_code": { "const": "privacy_forbidden_field" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "boundedId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "project",
+        "host_runtime",
+        "adapter_id",
+        "adapter_version",
+        "workspace_sha256",
+        "session_ref_sha256"
+      ],
+      "properties": {
+        "agent_id": { "$ref": "#/$defs/boundedId" },
+        "project": { "$ref": "#/$defs/boundedId" },
+        "host_runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "adapter_id": { "$ref": "#/$defs/boundedId" },
+        "adapter_version": { "$ref": "#/$defs/boundedId" },
+        "workspace_sha256": { "$ref": "#/$defs/sha256" },
+        "session_ref_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "buildIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_sha", "tree_sha", "artifact_sha256"],
+      "properties": {
+        "commit_sha": { "$ref": "#/$defs/gitSha" },
+        "tree_sha": { "$ref": "#/$defs/gitSha" },
+        "artifact_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "configurationIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_sha256", "trust_fingerprint_sha256", "binding_source_ref_sha256"],
+      "properties": {
+        "config_sha256": { "$ref": "#/$defs/sha256" },
+        "trust_fingerprint_sha256": { "$ref": "#/$defs/sha256" },
+        "binding_source_ref_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "storageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "binding_sha256"],
+      "properties": {
+        "backend": { "enum": ["sqlite", "postgres"] },
+        "binding_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "reasonCodeValue": {
+      "type": "string",
+      "enum": [
+        "malformed_hook_input",
+        "binding_mismatch",
+        "store_unavailable",
+        "recovery_unavailable",
+        "recovery_incomplete",
+        "timeout",
+        "runtime_exception",
+        "evidence_sink_unavailable",
+        "evidence_sink_write_failed",
+        "build_drift",
+        "configuration_drift",
+        "binding_drift",
+        "backend_drift",
+        "stale_observation",
+        "privacy_forbidden_field",
+        "unknown_normalized_error"
+      ]
+    },
+    "reasonCode": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/reasonCodeValue" }
+      ]
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason_code",
+        "elapsed_ms",
+        "evidence_delivery",
+        "normalized_error_code",
+        "error_fingerprint_sha256"
+      ],
+      "properties": {
+        "status": { "enum": ["full", "degraded", "failed", "not_applicable"] },
+        "reason_code": { "$ref": "#/$defs/reasonCode" },
+        "elapsed_ms": { "type": "number", "minimum": 0 },
+        "evidence_delivery": { "enum": ["durable", "emergency_only", "failed"] },
+        "normalized_error_code": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/boundedId" }
+          ]
+        },
+        "error_fingerprint_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recovered_tokens",
+        "task_continued",
+        "recovery_quality_score",
+        "search_memory_count_10min"
+      ],
+      "properties": {
+        "recovered_tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "task_continued": { "type": ["boolean", "null"] },
+        "recovery_quality_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "search_memory_count_10min": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_version", "redaction_count", "forbidden_field_count"],
+      "properties": {
+        "policy_version": { "$ref": "#/$defs/boundedId" },
+        "redaction_count": { "type": "integer", "minimum": 0 },
+        "forbidden_field_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "locator_sha256", "content_sha256"],
+      "properties": {
+        "kind": { "enum": ["local_store", "central_store", "run", "github", "aun", "stderr_emergency"] },
+        "locator_sha256": { "$ref": "#/$defs/sha256" },
+        "content_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
