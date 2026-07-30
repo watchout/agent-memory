@@ -21,6 +21,7 @@ import {
   type CodexStoreBindingEvidence,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
+import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
@@ -711,7 +712,7 @@ async function main(): Promise<void> {
     };
     const reason = error instanceof GeminiHookDegradedError ? error.reason : "IDENTITY_BINDING_INVALID";
     const observedAt = Date.now();
-    writeCliResult({
+    const result: GeminiSessionStartRunResult = {
       output: degradedOutput(reason),
       evidence: buildEvidence({
         binding: evidenceBinding,
@@ -723,10 +724,14 @@ async function main(): Promise<void> {
         recoveryQualityLogRef: null,
       }),
       exit_code: 0,
-    });
+    };
+    await emitKusabiSessionStartRuntimeEvent(result.evidence);
+    writeCliResult(result);
     return;
   }
-  writeCliResult(await runGeminiSessionStart(rawInput, binding));
+  const result = await runGeminiSessionStart(rawInput, binding);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence);
+  writeCliResult(result);
 }
 
 const modulePath = realpathSync(fileURLToPath(import.meta.url));

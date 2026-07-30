@@ -1,0 +1,164 @@
+schema_version: shirube-cell/v1
+document_type: cell
+cell_id: KUSABI-ALPHA-OBS03-HOST-EMISSION-20260730-001
+status: ready_for_pr_audit
+risk_tier: R3
+risk_class: R3
+cell_type: host_runtime_event_emission
+route: direct-owner-approval
+mode: rapid-lite
+profile: hotel-lite
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/180
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-07-30"
+  decision_ref: ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
+  instruction: >-
+    Implement common Codex, Claude Code, and Gemini CLI runtime-event emission,
+    normalization, failure isolation, and regression tests. Continue to OBS-04
+    only after the OBS-03 exact-head gate passes and prepare OBS-05 manifest/R0
+    inputs read-only. Exclude live configuration or trust changes, activation,
+    distribution, restart, TUI injection, live database migration, and deployment.
+
+control_handoff: .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS03-HOST-EMISSION-20260730-001.yaml
+design_ref: docs/design/KUSABI_FLEET_OBSERVABILITY_CONTRACT.md
+runtime_event_schema_ref: docs/design/schemas/kusabi-runtime-event-v1.schema.json
+operation_ref: docs/operations/KUSABI_ALPHA_OBS03_HOST_EMISSION.md
+baseline:
+  branch: main
+  commit_sha: e7891181c4c54448cedfd7ad15aae17d5602236f
+  tree_sha: 1cb20806b1ab59b9a27c1d1a9364396cdb5e72a3
+
+goal: >-
+  Emit one strict privacy-safe session_start runtime event from each native
+  Codex, Claude Code, and Gemini CLI adapter into the user-selected OBS-02
+  SQLite or PostgreSQL ledger while preserving ordinary startup when the
+  observability target or sink is absent, mismatched, slow, or unavailable.
+
+acceptance:
+  - With no rollout target binding, all three native adapters preserve their prior stdout and stderr behavior.
+  - Host identities normalize exactly to codex, claude_code, and gemini_cli.
+  - The canonical target_key is SHA-256 of agent_id, project, normalized host runtime, and workspace_sha256 joined by newlines.
+  - The rollout target rejects unknown fields, JSON storage, malformed hashes, and non-exact build/configuration/storage identities.
+  - A verified SQLite or PostgreSQL backend matching the target is required before durable ingest.
+  - Same manifest, target, event type, and session reference produces a deterministic idempotent event_id.
+  - Sink creation, backend drift, write failure, timeout, and emergency-writer failure never alter the already-produced hook result.
+  - Emergency evidence is one bounded privacy-safe JSON line and excludes raw errors, paths, credentials, prompts, and recovery content.
+  - The emission attempt is bounded to 500 ms after recovery unless a smaller deterministic test bound is injected.
+  - Actual native CLI execution persists one schema-valid event for each of the three host runtimes.
+
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBS03-HOST-EMISSION-20260730-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS03-HOST-EMISSION-20260730-001.yaml
+  - docs/operations/KUSABI_ALPHA_OBS03_HOST_EMISSION.md
+  - src/kusabi-runtime-event-store.ts
+  - src/kusabi-runtime-event-emitter.ts
+  - src/codex-session-start.ts
+  - src/claude-session-start.ts
+  - src/gemini-session-start.ts
+  - src/test-kusabi-runtime-event-emitter.ts
+  - src/test-codex-session-start.ts
+  - src/test-claude-session-start.ts
+  - src/test-gemini-session-start.ts
+  - package.json
+
+forbidden_paths:
+  - src/*hook-installer.ts
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - .env
+  - .env.*
+  - secrets/**
+
+forbidden_operations:
+  - live configuration or hook-trust mutation
+  - runtime activation, distribution, deployment, restart, or live database migration
+  - TUI, tmux, clipboard, or running-session injection
+  - wrapper launch or automatic restart
+  - raw conversation, prompt, private reasoning, recovery content, credential, database URL, environment value, or raw absolute path telemetry
+  - OBS-04 implementation before this exact-head gate passes
+  - maker self-audit, maker self-approval, maker self-merge, force-push, admin bypass, npm publish, tag, or release
+
+required_tests:
+  - npx tsc --noEmit
+  - npx tsx src/test-kusabi-runtime-event-emitter.ts
+  - npm run test:codex-hook
+  - npm run test:claude-hook
+  - npm run test:gemini-hook
+  - isolated PostgreSQL OBS-02 parity suite
+  - isolated PostgreSQL OBS-03 emitter persistence and cleanup suite
+  - npm test
+  - npm run build
+  - YAML parse, exact changed-path equality, privacy scan, and git diff checks
+
+owner_decision:
+  implementation_authorized: true
+  decision_ref: ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
+  required_before_merge: true
+  exact_head_required_before_merge: true
+  exact_head_sha: null
+  obs04_authorized_after_exact_head_gate: true
+  obs05_read_only_preparation_authorized: true
+  live_configuration_or_trust_change_authorized: false
+  runtime_activation_authorized: false
+  fleet_distribution_authorized: false
+  live_database_migration_authorized: false
+  deployment_authorized: false
+
+stop_conditions:
+  - An implementation requirement cannot be met inside allowed_paths and approved operations.
+  - Ordinary startup becomes dependent on durable event delivery or exceeds the bounded emission window.
+  - A test finds forbidden telemetry, non-idempotent identity, or SQLite/PostgreSQL contract divergence.
+  - Independent exact-head audit reports a blocking finding.
+  - A protected mutation or scope expansion is required.
+
+evidence:
+  typescript_no_emit: PASS
+  common_emitter_contract: PASS
+  three_native_cli_sqlite_emission: PASS
+  codex_native_hook_regression: PASS
+  claude_native_hook_regression: PASS
+  gemini_native_hook_regression: PASS
+  production_build: PASS
+  repository_regression: PASS_1549_OF_1549_AND_KUSABI_FUNCTIONAL_EVALUATOR
+  isolated_postgres_parity: PASS_140_OF_140_AND_OBS03_EMITTER_REOPEN
+  postgres_temporary_schema_cleanup: PASS_ZERO_REMAINING
+  yaml_parse: PASS_2_OF_2
+  changed_path_scope: PASS_10_OF_10_ALLOWED
+  privacy_static_scan: PASS_WITH_RUNTIME_FORBIDDEN_LITERAL_ASSERTIONS
+  git_diff_check: PASS
+  live_configuration_trust_activation_distribution_migration_deployment: NOT_RUN_NOT_AUTHORIZED
+  independent_exact_head_audit: PENDING
+  owner_exact_head_decision: PENDING
+
+gate_result:
+  gate: kusabi_alpha_obs03_host_emission
+  result: READY_FOR_PR_AUDIT
+  reason: Approved implementation and deterministic local/isolated validation pass; exact-head audit and owner merge decision follow publication.
+  authority_limit: approved OBS-03 files, tests, documentation, draft PR publication, and exact-head audit routing only
+
+next_action:
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Complete deterministic validation, publish one draft PR, and route the immutable head/tree for independent audit without waiting on non-blocking acknowledgements.
+  deliver_via: GitHub and AUN
+  exact_input_refs:
+    - owner-decision:ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
+    - baseline-commit:e7891181c4c54448cedfd7ad15aae17d5602236f
+    - baseline-tree:1cb20806b1ab59b9a27c1d1a9364396cdb5e72a3
+    - obs02-pr:https://github.com/watchout/agent-memory/pull/275
+  scope: allowed_paths and approved operations only
+  deliverable: independently auditable exact-head OBS-03 implementation PR
+  completion_evidence: full test receipts, exact changed paths, PR head/tree, independent verdict, owner exact-head decision, and separate protected merge result
+  blocking: false

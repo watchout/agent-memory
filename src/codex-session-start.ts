@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   estimateTokens,
 } from "./constants.js";
+import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
@@ -931,10 +932,12 @@ async function main(): Promise<void> {
       }),
       exit_code: 0,
     };
+    await emitKusabiSessionStartRuntimeEvent(result.evidence);
     writeCliResult(result);
     return;
   }
   const result = await runCodexSessionStart(rawInput, binding);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence);
   writeCliResult(result);
 }
 

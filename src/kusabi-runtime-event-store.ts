@@ -29,7 +29,13 @@ export interface KusabiEmergencyEvidence {
   target_key: string;
   event_sha256: string;
   reason_code: "evidence_sink_unavailable" | "evidence_sink_write_failed";
-  normalized_error_code: "json_fixture_only" | "event_id_conflict" | "store_write_failed";
+  normalized_error_code:
+    | "json_fixture_only"
+    | "event_id_conflict"
+    | "store_write_failed"
+    | "store_unavailable"
+    | "backend_drift"
+    | "target_invalid";
 }
 
 export interface KusabiRuntimeEventIngestResult {
@@ -146,7 +152,7 @@ function compiledValidator(schemaDir: string): ValidateFunction {
   return validate;
 }
 
-function emergencyResult(
+export function writeKusabiRuntimeEventEmergency(
   event: KusabiRuntimeEventDocument,
   eventSha256: string,
   reasonCode: KusabiEmergencyEvidence["reason_code"],
@@ -177,6 +183,8 @@ function emergencyResult(
     return { evidence_delivery: "failed", inserted: false, record: null, emergency: null };
   }
 }
+
+const emergencyResult = writeKusabiRuntimeEventEmergency;
 
 function cloneJson(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value));
