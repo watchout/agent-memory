@@ -30,6 +30,7 @@ import {
   type LoadedCodexRecovery,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
+import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
@@ -463,7 +464,9 @@ async function main(): Promise<void> {
   } catch {
     // The normal runner below emits a structured, non-blocking degradation.
   }
-  writeCliResult(await runClaudeSessionStart(raw, binding));
+  const result = await runClaudeSessionStart(raw, binding);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence);
+  writeCliResult(result);
 }
 
 let invokedPath = "";
