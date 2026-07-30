@@ -9,6 +9,28 @@ repo_spec_ref: .shirube/repo-spec.yaml
 repo_local_issue: https://github.com/watchout/agent-memory/issues/180
 audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
 
+acceptance_criteria:
+  - All six fleet states follow the fixed precedence in the OBS-04 design contract.
+  - All fixed P0-P3 conditions map to deterministic alerts and Shirube next actions.
+  - The evidence-sink deadline escalates from P2 to blocking P1 without suppressing local evidence.
+  - Fingerprints group the same normalized defect across hosts without forbidden raw content.
+  - Duplicate delivery, unknown targets, malformed records, and bounded-history truncation fail closed.
+  - SQLite and isolated PostgreSQL fixtures produce the same normalized fleet-status digest.
+  - Notifier failure cannot alter or suppress the canonical snapshot or local report.
+  - Full TypeScript, repository, native-hook, build, path-scope, privacy, and diff checks pass.
+
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    reason: >-
+      src/test-pg.ts creates and drops only a uniquely named isolated PostgreSQL
+      test schema in a finally cleanup path. The approved OBS-04 scope explicitly
+      permits temporary isolated PostgreSQL schema cleanup and forbids live DB
+      migration or product-state mutation; no runtime hard-delete behavior is added.
+    scope:
+      - src/test-pg.ts
+    approved_by: watchout via ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
+    expires_at: 2026-08-31
+
 control_source:
   kind: direct_owner_instruction
   actor: watchout
@@ -42,6 +64,22 @@ cell:
     - src/test-sqlite.ts
     - src/test-pg.ts
     - package.json
+  forbidden_paths:
+    - src/*hook-installer.ts
+    - src/*session-start.ts
+    - src/stores/*migration*
+    - src/stores/sqlite-store.ts
+    - src/stores/pg-store.ts
+    - dist/**
+    - deploy/**
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .github/**
+    - .env
+    - .env.*
+    - secrets/**
   allowed_operations:
     - edit only cell.allowed_paths
     - derive status read-only from one exact manifest and existing runtime-event records
