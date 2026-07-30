@@ -16,6 +16,7 @@
     "wasurezu-claude-session-start": "dist/claude-session-start.js",
     "wasurezu-claude-hook-install": "dist/claude-hook-installer.js",
     "wasurezu-claude-start": "dist/claude-start.js",
+    "wasurezu-kusabi-fleet-status": "dist/kusabi-fleet-status-cli.js",
     "wasurezu-continuity-alpha-canary": "dist/continuity-alpha-canary.js",
     "wasurezu-restart": "dist/restart-cli.js"
   },
@@ -50,7 +51,7 @@
     "prepack": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "tsx src/test.ts && tsx src/test-kusabi-functional-evaluator.ts && tsx src/test-kusabi-runtime-event-emitter.ts",
+    "test": "tsx src/test.ts && tsx src/test-kusabi-functional-evaluator.ts && tsx src/test-kusabi-runtime-event-emitter.ts && tsx src/test-kusabi-fleet-status.ts",
     "test:pg": "tsx src/test-pg.ts",
     "migrate": "tsx src/migrate.ts",
     "boot": "tsx src/boot.ts",
@@ -70,6 +71,7 @@
     "test:continuity-alpha-evaluator": "tsx src/test-continuity-alpha-evaluator.ts",
     "test:continuity-alpha-canary": "tsx src/test-continuity-alpha-canary.ts",
     "test:kusabi-functional": "tsx src/test-kusabi-functional-evaluator.ts",
+    "test:kusabi-fleet-status": "tsx src/test-kusabi-fleet-status.ts",
     "measure:kusabi-functional": "tsx src/measure-kusabi-functional.ts"
   },
   "keywords": [
