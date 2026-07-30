@@ -1,0 +1,65 @@
+schema_version: shirube-cell/rapid-lite/v1
+cell_id: KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001
+title: OSS publish Phase 0 package dry-run evidence
+status: active
+risk_tier: R1
+parent_ssot: https://github.com/watchout/agent-memory/issues/238
+goal: >-
+  Record package dry-run evidence for the current wasurezu-compatible package
+  without publishing, creating a tarball artifact, changing package metadata,
+  changing package files-list, renaming package/MCP surfaces, or claiming public
+  release readiness.
+covers:
+  - npm ci preflight evidence
+  - npm pack dry-run evidence
+  - package contents inventory
+  - package inclusion gaps
+  - Phase 0 no-publish boundary
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-OSS-PUBLISH-PHASE0-PACKAGE-DRY-RUN-001.yaml
+  - docs/standards/OSS_PUBLISH_PHASE0_PACKAGE_DRY_RUN.md
+forbidden_paths:
+  - src/**
+  - tests/**
+  - test/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
+  - .github/workflows/**
+  - docker-compose.yml
+  - deploy/**
+  - .env
+  - .env.*
+  - private-config/**
+  - secrets/**
+  - docs/v2/**
+  - dist/**
+  - node_modules/**
+  - "*.tgz"
+  - "**/branch-protection/**"
+  - "**/ruleset/**"
+required_tests:
+  - git diff --name-only origin/main...HEAD
+  - git diff --check origin/main...HEAD
+  - git diff --check
+  - YAML basic field check for Cell/handoff
+  - npm ci
+  - npm pack --dry-run --json
+  - package dry-run contents check
+  - forbidden path scan
+post_merge_tests:
+  - verify changed files remain within allowed paths
+  - verify package dry-run evidence file exists
+  - verify package.json, package-lock.json, runtime code, workflows, deployment files, dist artifacts, and tarballs were not committed
+  - verify PR does not authorize publish, release, package rename, package files-list change, MCP namespace rename, legal clearance, or public release-readiness
+stop_conditions:
+  - A change requires package metadata, package name, package files list, lockfile, or MCP namespace edits.
+  - A change requires npm publish, non-dry-run npm pack artifact creation, git tag, GitHub Release, or MCP registry submission.
+  - A change requires runtime, DB, env var, workflow, deployment, branch protection, or ruleset edits.
+  - A change claims legal/trademark/compliance certification, public release readiness, or dependency-license legal clearance.
+  - A change claims UAMP conformance, backend parity, federation, enterprise readiness, DLP, or zero leakage.
+notes:
+  - CEO/legal/operator approved a package dry-run Cell in issue #238 D6.
+  - This Cell records evidence only. It does not fix package inclusion gaps.
+  - Package metadata changes require a separate owner-approved Cell.
