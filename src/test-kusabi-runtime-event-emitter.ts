@@ -264,15 +264,49 @@ async function main(): Promise<void> {
     assert.equal(dualFailure.status, "failed");
 
     const timeoutLines: string[] = [];
+    let lateSaveCount = 0;
+    let lateStoreCloseCount = 0;
+    const timeoutStartedAt = Date.now();
     const timedOut = await emitKusabiSessionStartRuntimeEvent(evidence("codex"), {
       target: target(),
-      createStore: async () => await new Promise<Store>(() => undefined),
+      createStore: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        const store = fakeStore("sqlite", async () => {
+          lateSaveCount++;
+        });
+        store.close = async () => {
+          lateStoreCloseCount++;
+        };
+        return store;
+      },
       writeEmergency: (line) => timeoutLines.push(line),
       timeoutMs: 5,
     });
+    const timeoutReturnedMs = Date.now() - timeoutStartedAt;
     assert.equal(timedOut.status, "emergency_only");
     assert.equal(timedOut.emergency?.normalized_error_code, "store_unavailable");
     assert.equal(timeoutLines.length, 1);
+    assert(timeoutReturnedMs < 100, `timeout returned after ${timeoutReturnedMs} ms`);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(lateSaveCount, 0, "timed-out store must never receive a durable save");
+    assert.equal(lateStoreCloseCount, 1, "a store produced after timeout must be closed");
+
+    const workerTimeoutLines: string[] = [];
+    const workerTimeoutStartedAt = Date.now();
+    const workerTimedOut = await emitKusabiSessionStartRuntimeEvent(evidence("codex", "postgres"), {
+      target: target("postgres"),
+      env: {
+        ...process.env,
+        AGENT_MEMORY_DB_TYPE: "postgres",
+        AGENT_MEMORY_DATABASE_URL: "postgres://127.0.0.1:9/kusabi-timeout-probe",
+      },
+      writeEmergency: (line) => workerTimeoutLines.push(line),
+      timeoutMs: 5,
+    });
+    const workerTimeoutMs = Date.now() - workerTimeoutStartedAt;
+    assert.equal(workerTimedOut.status, "emergency_only");
+    assert.equal(workerTimeoutLines.length, 1);
+    assert(workerTimeoutMs < 250, `timeout worker retained resources for ${workerTimeoutMs} ms`);
 
     const malformedEvidence = evidence("codex");
     malformedEvidence.timing.completed_at = "not-a-date";

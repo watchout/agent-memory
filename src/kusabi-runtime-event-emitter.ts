@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ingestKusabiRuntimeEvent,
   kusabiRuntimeEventSha256,
@@ -12,6 +15,9 @@ import type { KusabiRuntimeEventDocument, Store } from "./stores/types.js";
 export const KUSABI_RUNTIME_EVENT_TARGET_ENV = "KUSABI_RUNTIME_EVENT_TARGET_JSON" as const;
 export const KUSABI_RUNTIME_EVENT_TARGET_SCHEMA = "kusabi-runtime-event-target/v1" as const;
 export const KUSABI_RUNTIME_EVENT_EMISSION_TIMEOUT_MS = 500;
+
+const KUSABI_RUNTIME_EVENT_WORKER_ARG = "--kusabi-runtime-event-worker";
+const KUSABI_RUNTIME_EVENT_WORKER_MAX_BYTES = 16_384;
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const GIT_SHA_RE = /^[a-f0-9]{40}$/;
@@ -67,9 +73,15 @@ export interface KusabiRuntimeEventEmissionResult {
 export interface KusabiRuntimeEventEmissionOptions {
   target?: KusabiRuntimeEventTargetBinding | string | null;
   env?: NodeJS.ProcessEnv;
-  createStore?: () => Promise<Store>;
+  createStore?: (signal: AbortSignal) => Promise<Store>;
   writeEmergency?: (line: string) => void;
   timeoutMs?: number;
+}
+
+interface KusabiRuntimeEventWorkerRequest {
+  event: KusabiRuntimeEventDocument;
+  target: KusabiRuntimeEventTargetBinding;
+  store_binding: KusabiSessionStartEvidence["store_binding"];
 }
 
 export function parseKusabiRuntimeEventTarget(
@@ -204,41 +216,139 @@ export async function emitKusabiSessionStartRuntimeEvent(
 
     const event = buildKusabiSessionStartRuntimeEvent(evidence, target);
     const timeoutMs = boundedTimeout(options.timeoutMs);
-    let timedOut = false;
-    const emergencyWriter = (line: string) => {
-      if (!timedOut) (options.writeEmergency ?? defaultEmergencyWriter)(line);
-    };
-    const emission = emitPreparedEvent(event, evidence, target, options, emergencyWriter);
-    let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<KusabiRuntimeEventEmissionResult>((resolve) => {
-      timer = setTimeout(() => {
-        timedOut = true;
-        resolve(safeEmergencyResult(
-          event,
-          "evidence_sink_unavailable",
-          "store_unavailable",
-          options.writeEmergency,
-        ));
-      }, timeoutMs);
-    });
-    const result = await Promise.race([emission, timeout]);
-    if (timer !== undefined) clearTimeout(timer);
-    return result;
+    if (options.createStore !== undefined) {
+      return emitPreparedEventInProcess(event, evidence, target, options, timeoutMs);
+    }
+    return emitPreparedEventInWorker(event, evidence, target, options, timeoutMs);
   } catch {
     return { status: "failed", event_id: null, target_key: null, emergency: null };
   }
 }
 
-async function emitPreparedEvent(
+async function emitPreparedEventInProcess(
   event: KusabiRuntimeEventDocument,
   evidence: KusabiSessionStartEvidence,
   target: KusabiRuntimeEventTargetBinding,
   options: KusabiRuntimeEventEmissionOptions,
-  writeEmergency: (line: string) => void,
+  timeoutMs: number,
 ): Promise<KusabiRuntimeEventEmissionResult> {
-  const backendIntent = evidence.store_binding.backend_intent;
+  const controller = new AbortController();
+  let timedOut = false;
+  const emergencyWriter = (line: string) => {
+    if (!timedOut) (options.writeEmergency ?? defaultEmergencyWriter)(line);
+  };
+  const emission = emitPreparedEvent(
+    event,
+    evidence.store_binding,
+    target,
+    options,
+    emergencyWriter,
+    controller.signal,
+  );
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<KusabiRuntimeEventEmissionResult>((resolve) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+      resolve(timeoutEmergencyResult(event, options.writeEmergency));
+    }, timeoutMs);
+  });
+  const result = await Promise.race([emission, timeout]);
+  if (timer !== undefined) clearTimeout(timer);
+  return result;
+}
+
+async function emitPreparedEventInWorker(
+  event: KusabiRuntimeEventDocument,
+  evidence: KusabiSessionStartEvidence,
+  target: KusabiRuntimeEventTargetBinding,
+  options: KusabiRuntimeEventEmissionOptions,
+  timeoutMs: number,
+): Promise<KusabiRuntimeEventEmissionResult> {
+  const modulePath = fileURLToPath(import.meta.url);
+  const workerArgs = modulePath.endsWith(".ts")
+    ? ["--import", "tsx", modulePath, KUSABI_RUNTIME_EVENT_WORKER_ARG]
+    : [modulePath, KUSABI_RUNTIME_EVENT_WORKER_ARG];
+  const child = spawn(process.execPath, workerArgs, {
+    env: { ...process.env, ...(options.env ?? {}) },
+    stdio: ["pipe", "pipe", "ignore"],
+  });
+  const request: KusabiRuntimeEventWorkerRequest = {
+    event,
+    target,
+    store_binding: {
+      backend_intent: evidence.store_binding.backend_intent,
+      verified: evidence.store_binding.verified,
+    },
+  };
+  let output = "";
+  let outputExceeded = false;
+  let timedOut = false;
+  let settled = false;
+
+  return await new Promise<KusabiRuntimeEventEmissionResult>((resolveResult) => {
+    const finish = (result: KusabiRuntimeEventEmissionResult) => {
+      if (settled) return;
+      settled = true;
+      resolveResult(result);
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      if (outputExceeded) return;
+      output += chunk;
+      if (Buffer.byteLength(output, "utf8") > KUSABI_RUNTIME_EVENT_WORKER_MAX_BYTES) {
+        outputExceeded = true;
+        output = "";
+        child.kill("SIGKILL");
+      }
+    });
+    child.stdin.on("error", () => undefined);
+    child.on("error", () => {
+      clearTimeout(timer);
+      finish(timeoutEmergencyResult(event, options.writeEmergency));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (timedOut || outputExceeded || code !== 0) {
+        finish(timeoutEmergencyResult(event, options.writeEmergency));
+        return;
+      }
+      const result = parseWorkerResult(output);
+      if (result === null) {
+        finish(timeoutEmergencyResult(event, options.writeEmergency));
+        return;
+      }
+      if (result.status === "emergency_only" && result.emergency !== null) {
+        finish(safeEmergencyResult(
+          event,
+          result.emergency.reason_code,
+          result.emergency.normalized_error_code,
+          options.writeEmergency,
+        ));
+        return;
+      }
+      finish(result);
+    });
+    child.stdin.end(canonicalJson(request));
+  });
+}
+
+async function emitPreparedEvent(
+  event: KusabiRuntimeEventDocument,
+  storeBinding: KusabiSessionStartEvidence["store_binding"],
+  target: KusabiRuntimeEventTargetBinding,
+  options: KusabiRuntimeEventEmissionOptions,
+  writeEmergency: (line: string) => void,
+  signal: AbortSignal,
+): Promise<KusabiRuntimeEventEmissionResult> {
+  const backendIntent = storeBinding.backend_intent;
   if (
-    !evidence.store_binding.verified ||
+    !storeBinding.verified ||
     (backendIntent !== "sqlite" && backendIntent !== "postgres") ||
     backendIntent !== target.storage.backend
   ) {
@@ -252,8 +362,13 @@ async function emitPreparedEvent(
 
   let store: Store | null = null;
   try {
-    store = await (options.createStore ?? (() => createQuietStore(options.env ?? process.env)))();
+    throwIfEmissionAborted(signal);
+    store = await (options.createStore ?? ((workerSignal) =>
+      createQuietStore(options.env ?? process.env, workerSignal)))(signal);
+    throwIfEmissionAborted(signal);
   } catch {
+    if (store !== null) await closeQuietly(store);
+    if (signal.aborted) return emissionResult("failed", event, null);
     return safeEmergencyResult(
       event,
       "evidence_sink_unavailable",
@@ -262,7 +377,17 @@ async function emitPreparedEvent(
     );
   }
 
+  let closePromise: Promise<void> | null = null;
+  const closeStoreOnce = (): Promise<void> => {
+    closePromise ??= closeQuietly(store);
+    return closePromise;
+  };
+  const closeOnAbort = () => {
+    void closeStoreOnce();
+  };
+  signal.addEventListener("abort", closeOnAbort, { once: true });
   try {
+    throwIfEmissionAborted(signal);
     if (store.backend !== target.storage.backend) {
       return safeEmergencyResult(
         event,
@@ -271,11 +396,14 @@ async function emitPreparedEvent(
         writeEmergency,
       );
     }
+    throwIfEmissionAborted(signal);
     const result = await ingestKusabiRuntimeEvent(store, event, {
       writeEmergency,
     });
+    throwIfEmissionAborted(signal);
     return emissionResult(result.evidence_delivery, event, result.emergency);
   } catch {
+    if (signal.aborted) return emissionResult("failed", event, null);
     return safeEmergencyResult(
       event,
       "evidence_sink_write_failed",
@@ -283,15 +411,13 @@ async function emitPreparedEvent(
       writeEmergency,
     );
   } finally {
-    try {
-      await store.close();
-    } catch {
-      // Closing observability must never change the already-produced hook result.
-    }
+    signal.removeEventListener("abort", closeOnAbort);
+    await closeStoreOnce();
   }
 }
 
-async function createQuietStore(env: NodeJS.ProcessEnv): Promise<Store> {
+async function createQuietStore(env: NodeJS.ProcessEnv, signal: AbortSignal): Promise<Store> {
+  throwIfEmissionAborted(signal);
   const dbType = (env.AGENT_MEMORY_DB_TYPE ?? "").toLowerCase();
   const dbUrl = env.AGENT_MEMORY_DATABASE_URL ?? env.DATABASE_URL ?? "";
   const hasPostgresUrl = dbUrl.startsWith("postgres");
@@ -302,8 +428,120 @@ async function createQuietStore(env: NodeJS.ProcessEnv): Promise<Store> {
     if (!dbUrl) throw new Error("KUSABI_RUNTIME_EVENT_STORE_UNAVAILABLE");
     store = new PgStore(dbUrl);
   } else store = new SqliteStore();
-  await store.initialize();
-  return store;
+  const closeOnAbort = () => {
+    void closeQuietly(store);
+  };
+  signal.addEventListener("abort", closeOnAbort, { once: true });
+  try {
+    await store.initialize();
+    throwIfEmissionAborted(signal);
+    return store;
+  } catch (error) {
+    await closeQuietly(store);
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", closeOnAbort);
+  }
+}
+
+function timeoutEmergencyResult(
+  event: KusabiRuntimeEventDocument,
+  writeEmergency?: (line: string) => void,
+): KusabiRuntimeEventEmissionResult {
+  return safeEmergencyResult(
+    event,
+    "evidence_sink_unavailable",
+    "store_unavailable",
+    writeEmergency,
+  );
+}
+
+function throwIfEmissionAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw new Error("KUSABI_RUNTIME_EVENT_EMISSION_ABORTED");
+}
+
+async function closeQuietly(store: Store): Promise<void> {
+  try {
+    await store.close();
+  } catch {
+    // Closing observability must never change the already-produced hook result.
+  }
+}
+
+function parseWorkerResult(raw: string): KusabiRuntimeEventEmissionResult | null {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value)) return null;
+    if (
+      value.status !== "durable" && value.status !== "emergency_only" &&
+      value.status !== "failed"
+    ) return null;
+    if (typeof value.event_id !== "string" || typeof value.target_key !== "string") return null;
+    if (value.emergency !== null && !isEmergencyEvidence(value.emergency)) return null;
+    return {
+      status: value.status,
+      event_id: value.event_id,
+      target_key: value.target_key,
+      emergency: value.emergency,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isEmergencyEvidence(value: unknown): value is KusabiEmergencyEvidence {
+  if (!isRecord(value)) return false;
+  return value.schema_version === "kusabi-emergency-evidence/v1" &&
+    typeof value.event_id === "string" && typeof value.event_type === "string" &&
+    typeof value.occurred_at === "string" && typeof value.manifest_id === "string" &&
+    typeof value.target_key === "string" && sha256Value(value.event_sha256) &&
+    (value.reason_code === "evidence_sink_unavailable" || value.reason_code === "evidence_sink_write_failed") &&
+    typeof value.normalized_error_code === "string";
+}
+
+async function runKusabiRuntimeEventWorker(): Promise<void> {
+  try {
+    let raw = "";
+    for await (const chunk of process.stdin) {
+      raw += String(chunk);
+      if (Buffer.byteLength(raw, "utf8") > KUSABI_RUNTIME_EVENT_WORKER_MAX_BYTES) {
+        throw new Error("KUSABI_RUNTIME_EVENT_WORKER_INPUT_TOO_LARGE");
+      }
+    }
+    const request = parseWorkerRequest(raw);
+    const result = await emitPreparedEvent(
+      request.event,
+      request.store_binding,
+      request.target,
+      { createStore: async (signal) => await createQuietStore(process.env, signal) },
+      () => undefined,
+      new AbortController().signal,
+    );
+    process.stdout.write(canonicalJson(result));
+  } catch {
+    process.exitCode = 1;
+  }
+}
+
+function parseWorkerRequest(raw: string): KusabiRuntimeEventWorkerRequest {
+  const value: unknown = JSON.parse(raw);
+  if (!isRecord(value) || !exactKeys(value, ["event", "target", "store_binding"])) {
+    throw new Error("KUSABI_RUNTIME_EVENT_WORKER_INPUT_INVALID");
+  }
+  const storeBinding = value.store_binding;
+  if (
+    !isRecord(storeBinding) || !exactKeys(storeBinding, ["backend_intent", "verified"]) ||
+    (storeBinding.backend_intent !== "sqlite" && storeBinding.backend_intent !== "postgres") ||
+    storeBinding.verified !== true
+  ) throw new Error("KUSABI_RUNTIME_EVENT_WORKER_INPUT_INVALID");
+  return {
+    event: value.event as KusabiRuntimeEventDocument,
+    target: parseKusabiRuntimeEventTarget(value.target as KusabiRuntimeEventTargetBinding),
+    store_binding: {
+      backend_intent: storeBinding.backend_intent,
+      verified: true,
+    },
+  };
 }
 
 function safeEmergencyResult(
@@ -441,4 +679,12 @@ function canonicalJson(value: unknown): string {
   if (typeof value !== "object") return JSON.stringify(null);
   const record = value as Record<string, unknown>;
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+}
+
+if (
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url)) &&
+  process.argv[2] === KUSABI_RUNTIME_EVENT_WORKER_ARG
+) {
+  void runKusabiRuntimeEventWorker();
 }

@@ -86,8 +86,13 @@ second backend log line to native hook stderr.
 ## Failure isolation
 
 Emission is awaited for at most 500 ms after the recovery result has been
-constructed. The following outcomes do not replace, suppress, or mutate that
-ordinary result:
+constructed. Default SQLite/PostgreSQL persistence runs in a private child
+process. On timeout the parent sends `SIGKILL` and waits for process closure
+before returning bounded emergency evidence, so an unfinished operation cannot
+retain the hook process or perform a later durable save. Injected deterministic
+test stores receive an `AbortSignal`; a store that resolves after cancellation
+is closed without being used. The following outcomes do not replace, suppress,
+or mutate the ordinary result:
 
 | Condition | Emission result | Normalized emergency code |
 | --- | --- | --- |
@@ -124,7 +129,8 @@ against one temporary SQLite ledger, reopens the ledger, and requires exactly
 three schema-valid `session_start` events with distinct normalized runtimes and
 the exact target-key formula. It also covers duplicate delivery, a PostgreSQL
 contract store, backend drift, target rejection, sink open/write failures,
-bounded timeout, emergency-writer failure, and forbidden-literal exclusion.
+bounded timeout, no-late-save after delayed store creation, bounded child
+process completion, emergency-writer failure, and forbidden-literal exclusion.
 The PostgreSQL integration suite remains isolated in unique temporary schemas
 and must be cleaned up after execution.
 
