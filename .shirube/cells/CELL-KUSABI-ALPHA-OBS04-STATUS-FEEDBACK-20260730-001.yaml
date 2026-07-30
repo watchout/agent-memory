@@ -116,7 +116,9 @@ owner_decision:
 
 evidence:
   typescript_no_emit: PASS
-  fleet_status_fixed_contract: PASS_125_ASSERTIONS
+  fleet_status_fixed_contract: PASS_145_ASSERTIONS
+  latest_applicable_recovery_regression: PASS_HEARTBEAT_AND_DEPLOYMENT_PRESERVE_FULL_RECOVERY
+  unresolved_failure_regression: PASS_FAIL_CLOSED_UNTIL_FULL_DURABLE_RECOVERY
   state_precedence: PASS_6_OF_6
   fixed_alert_codes: PASS_ALL_P0_AND_P1_P2_P3_IMPLEMENTED
   seeded_p0_p1_detection: PASS_100_OF_100
@@ -139,7 +141,7 @@ evidence:
   privacy_and_network_static_scan: PASS_NO_FORBIDDEN_RUNTIME_ACCESS_OR_NETWORK_IMPORT
   git_diff_check: PASS
   live_configuration_trust_activation_distribution_migration_deployment: NOT_RUN_NOT_AUTHORIZED
-  independent_exact_head_audit: PENDING
+  independent_exact_head_audit: PENDING_NEW_EXACT_HEAD_AFTER_REQUEST_CHANGES
   owner_exact_head_decision: PENDING
 
 gate_result:
@@ -150,13 +152,14 @@ gate_result:
 next_action:
   actor_agent_id: kusabi
   active_function: implementation_executor
-  action: Publish one draft PR and route immutable exact-head evidence for independent audit without waiting on non-blocking acknowledgements.
+  action: Publish the corrected exact head and route immutable evidence for a fresh independent audit without waiting on non-blocking acknowledgements.
   deliver_via: GitHub and AUN
   exact_input_refs:
     - owner-decision:ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
     - baseline-commit:9f3064be64d7d76c446842a17607bae51635fd7b
     - baseline-tree:3fa4aa3a56b1fcbd666e42c1359564aca9dfb58e
     - obs03-merge:9f3064be64d7d76c446842a17607bae51635fd7b
+    - audit-finding:https://github.com/watchout/agent-memory/pull/277#issuecomment-5127589174
   scope: allowed_paths and approved code, test, and documentation operations only
   deliverable: independently auditable exact-head OBS-04 implementation PR
   completion_evidence: deterministic fixtures, backend parity, full test receipts, exact changed paths, PR head/tree, independent verdict, and owner exact-head decision

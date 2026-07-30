@@ -218,6 +218,81 @@ async function main(): Promise<void> {
   check(alertFor(deploymentOnly, "isolated_degradation").severity === "P3",
     "inventory-only runtime gap is a non-blocking isolated degradation");
 
+  const heartbeatAfterRecovery = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000401",
+    eventType: "heartbeat",
+    occurredAt: "2026-07-30T00:00:40.000Z",
+  });
+  const recoveredThenHeartbeat = snapshot(healthyManifest, [healthyEvent, heartbeatAfterRecovery]);
+  check(recoveredThenHeartbeat.targets[0].state === "healthy",
+    "a later exact heartbeat preserves the latest successful applicable recovery");
+  check(recoveredThenHeartbeat.targets[0].last_seen_at === heartbeatAfterRecovery.occurred_at &&
+    recoveredThenHeartbeat.alerts.length === 0,
+    "heartbeat refreshes observation time without inventing a recovery degradation");
+
+  const deploymentAfterRecovery = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000402",
+    eventType: "deployment_observed",
+    occurredAt: "2026-07-30T00:00:45.000Z",
+  });
+  const recoveredThenDeployment = snapshot(healthyManifest, [healthyEvent, deploymentAfterRecovery]);
+  check(recoveredThenDeployment.targets[0].state === "healthy",
+    "a later exact inventory observation preserves the latest successful applicable recovery");
+  check(recoveredThenDeployment.targets[0].last_seen_at === deploymentAfterRecovery.occurred_at &&
+    recoveredThenDeployment.alerts.length === 0,
+    "inventory refreshes observed identity without inventing a recovery degradation");
+
+  const degradedRecoveryBeforeHeartbeat = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000403",
+    occurredAt: "2026-07-30T00:00:35.000Z",
+    status: "degraded",
+    reasonCode: "recovery_incomplete",
+    normalizedErrorCode: "recovery_incomplete",
+  });
+  const heartbeatAfterDegradation = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000404",
+    eventType: "heartbeat",
+    occurredAt: "2026-07-30T00:00:45.000Z",
+  });
+  const degradedThenHeartbeat = snapshot(healthyManifest,
+    [degradedRecoveryBeforeHeartbeat, heartbeatAfterDegradation]);
+  check(degradedThenHeartbeat.targets[0].state === "degraded",
+    "a later heartbeat does not clear an unresolved degraded recovery");
+  check(alertFor(degradedThenHeartbeat, "isolated_degradation").last_seen_at ===
+    degradedRecoveryBeforeHeartbeat.occurred_at,
+    "unresolved degradation evidence remains bound to the applicable recovery");
+
+  const failureAfterRecovery = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000405",
+    eventType: "runtime_error",
+    occurredAt: "2026-07-30T00:00:40.000Z",
+    status: "failed",
+    reasonCode: "runtime_exception",
+    normalizedErrorCode: "runtime_failure",
+  });
+  const heartbeatAfterFailure = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000406",
+    eventType: "heartbeat",
+    occurredAt: "2026-07-30T00:00:50.000Z",
+  });
+  const failedThenHeartbeat = snapshot(healthyManifest,
+    [healthyEvent, failureAfterRecovery, heartbeatAfterFailure]);
+  check(failedThenHeartbeat.targets[0].state === "failed",
+    "a later heartbeat does not clear an unresolved runtime failure");
+  check(alertFor(failedThenHeartbeat, "runtime_failure").last_seen_at === failureAfterRecovery.occurred_at,
+    "unresolved runtime failure alert remains bound to the failure event");
+
+  const recoveryAfterFailure = kusabiFleetStatusFixtureEvent(healthyManifest, {
+    eventId: "00000000-0000-4000-8000-000000000407",
+    occurredAt: "2026-07-30T00:00:55.000Z",
+  });
+  const failureThenRecovered = snapshot(healthyManifest,
+    [healthyEvent, failureAfterRecovery, heartbeatAfterFailure, recoveryAfterFailure]);
+  check(failureThenRecovered.targets[0].state === "healthy",
+    "a later exact full durable recovery resolves the prior runtime failure");
+  check(failureThenRecovered.alerts.length === 0,
+    "resolved runtime failure no longer creates an open alert");
+
   const performanceEvent = kusabiFleetStatusFixtureEvent(healthyManifest, {
     eventType: "recovery_result",
     status: "degraded",
@@ -332,7 +407,9 @@ async function main(): Promise<void> {
   assertions++;
 
   for (const result of [healthy, notObservedAfter, privacy, runtimeFailure, ...normalizedP0Results, drift, stale,
-    isolated, repeated, emergencyBefore, emergencyAtDeadline, failedDelivery, deploymentOnly, performanceStatus]) {
+    isolated, repeated, emergencyBefore, emergencyAtDeadline, failedDelivery, deploymentOnly,
+    recoveredThenHeartbeat, recoveredThenDeployment, degradedThenHeartbeat, failedThenHeartbeat,
+    failureThenRecovered, performanceStatus]) {
     check(validateKusabiFleetStatus(result).valid, `derived ${result.targets[0].state} snapshot remains schema-valid`);
     const summary = result.summary;
     check(summary.target_count === summary.healthy_count + summary.degraded_count + summary.failed_count +

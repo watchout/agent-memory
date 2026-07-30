@@ -583,8 +583,23 @@ function deriveTarget(
 
   const latest = records[records.length - 1];
   const event = latest.event;
-  const normalizedP0Code = normalizedP0AlertCode(event);
-  const performanceWarning = event.outcome.normalized_error_code === "performance_warning";
+  const latestRecovery = latestRecordMatching(records, ({ event: candidate }) =>
+    candidate.event_type === "session_start" || candidate.event_type === "recovery_result");
+  const latestSuccessfulRecoveryIndex = latestRecordIndexMatching(records, ({ event: candidate }) =>
+    isRecoveryObservation(candidate));
+  const unresolvedRecords = records.slice(latestSuccessfulRecoveryIndex + 1);
+  const unresolvedHardFailure = latestRecordMatching(unresolvedRecords, ({ event: candidate }) =>
+    candidate.event_type !== "privacy_violation" &&
+    (candidate.event_type === "runtime_error" || candidate.outcome.status === "failed"));
+  const unresolvedEvidenceFailure = latestRecordMatching(unresolvedRecords, ({ event: candidate }) =>
+    candidate.outcome.evidence_delivery !== "durable");
+  const unresolvedDegradation = latestRecordMatching(unresolvedRecords, ({ event: candidate }) =>
+    isDegradedEvent(candidate));
+  const degradationEvidence = unresolvedDegradation ??
+    (latestRecovery === undefined || !isRecoveryObservation(latestRecovery.event) ? latestRecovery ?? latest : undefined);
+  const hardFailureEvent = unresolvedHardFailure?.event;
+  const normalizedP0Code = hardFailureEvent === undefined ? null : normalizedP0AlertCode(hardFailureEvent);
+  const performanceWarning = degradationEvidence?.event.outcome.normalized_error_code === "performance_warning";
   const observed = observedDeployment(event);
   const consecutiveDegraded = consecutiveDegradationCount(records);
   const drift = driftReasons(manifestTarget, event);
@@ -592,11 +607,10 @@ function deriveTarget(
   const privacyEvents = records.filter(({ event: candidate }) =>
     candidate.event_type === "privacy_violation" || candidate.privacy.forbidden_field_count > 0);
   if (privacyEvents.length > 0) hardReasons.push("privacy_violation");
-  if (event.event_type !== "privacy_violation" &&
-      (event.event_type === "runtime_error" || event.outcome.status === "failed")) {
-    hardReasons.push("runtime_failure");
+  if (unresolvedHardFailure !== undefined) hardReasons.push("runtime_failure");
+  if (unresolvedEvidenceFailure?.event.outcome.evidence_delivery === "failed") {
+    hardReasons.push("evidence_sink_failure");
   }
-  if (event.outcome.evidence_delivery === "failed") hardReasons.push("evidence_sink_failure");
 
   let state: KusabiFleetTargetState;
   let stateReasons: KusabiFleetStateReason[];
@@ -610,14 +624,12 @@ function deriveTarget(
     state = "stale";
     stateReasons = ["stale_observation"];
   } else if (
-    event.outcome.status === "degraded" || event.outcome.evidence_delivery === "emergency_only" ||
-    consecutiveDegraded >= 3 || !isRecoveryObservation(event)
+    consecutiveDegraded >= 3 || degradationEvidence !== undefined
   ) {
     state = "degraded";
     stateReasons = uniqueReasons([
       ...(consecutiveDegraded >= 3 ? ["repeated_degradation" as const] : []),
-      ...((event.outcome.status === "degraded" || event.outcome.evidence_delivery === "emergency_only" || !isRecoveryObservation(event))
-        ? ["latest_recovery_degraded" as const] : []),
+      ...(degradationEvidence !== undefined ? ["latest_recovery_degraded" as const] : []),
     ]);
   } else {
     state = "healthy";
@@ -643,19 +655,19 @@ function deriveTarget(
     alerts.push(makeEventAlert(manifest, manifestTarget, "privacy_violation", "P0", privacyEvents, evidenceRefs));
   }
   if (normalizedP0Code !== null) {
-    alerts.push(makeEventAlert(manifest, manifestTarget, normalizedP0Code, "P0", [latest], evidenceRefs));
+    alerts.push(makeEventAlert(manifest, manifestTarget, normalizedP0Code, "P0", [unresolvedHardFailure!], evidenceRefs));
   } else if (hardReasons.includes("runtime_failure")) {
-    alerts.push(makeEventAlert(manifest, manifestTarget, "runtime_failure", "P1", [latest], evidenceRefs));
+    alerts.push(makeEventAlert(manifest, manifestTarget, "runtime_failure", "P1", [unresolvedHardFailure!], evidenceRefs));
   }
-  if (event.outcome.evidence_delivery !== "durable") {
-    const blocking = event.outcome.evidence_delivery === "failed" ||
+  if (unresolvedEvidenceFailure !== undefined) {
+    const blocking = unresolvedEvidenceFailure.event.outcome.evidence_delivery === "failed" ||
       generatedMs >= Date.parse(manifestTarget.durable_evidence_deadline_at);
     alerts.push(makeEventAlert(
       manifest,
       manifestTarget,
       "evidence_sink_failure",
       blocking ? "P1" : "P2",
-      [latest],
+      [unresolvedEvidenceFailure],
       evidenceRefs,
     ));
   }
@@ -688,12 +700,11 @@ function deriveTarget(
   if (consecutiveDegraded >= 3) {
     const degraded = records.slice(-consecutiveDegraded);
     alerts.push(makeEventAlert(manifest, manifestTarget, "repeated_degradation", "P2", degraded, evidenceRefs));
-  } else if (!performanceWarning &&
-      (event.outcome.status === "degraded" || event.outcome.evidence_delivery === "emergency_only" || !isRecoveryObservation(event))) {
-    alerts.push(makeEventAlert(manifest, manifestTarget, "isolated_degradation", "P3", [latest], evidenceRefs));
+  } else if (!performanceWarning && state === "degraded" && degradationEvidence !== undefined) {
+    alerts.push(makeEventAlert(manifest, manifestTarget, "isolated_degradation", "P3", [degradationEvidence], evidenceRefs));
   }
-  if (performanceWarning) {
-    alerts.push(makeEventAlert(manifest, manifestTarget, "performance_warning", "P3", [latest], evidenceRefs));
+  if (performanceWarning && degradationEvidence !== undefined) {
+    alerts.push(makeEventAlert(manifest, manifestTarget, "performance_warning", "P3", [degradationEvidence], evidenceRefs));
   }
   return { target, alerts };
 }
@@ -867,6 +878,24 @@ function isDegradedEvent(event: RuntimeEventDocument): boolean {
 function isRecoveryObservation(event: RuntimeEventDocument): boolean {
   return (event.event_type === "session_start" || event.event_type === "recovery_result") &&
     event.outcome.status === "full" && event.outcome.evidence_delivery === "durable";
+}
+
+function latestRecordIndexMatching(
+  records: PreparedRecord[],
+  predicate: (record: PreparedRecord) => boolean,
+): number {
+  for (let index = records.length - 1; index >= 0; index--) {
+    if (predicate(records[index])) return index;
+  }
+  return -1;
+}
+
+function latestRecordMatching(
+  records: PreparedRecord[],
+  predicate: (record: PreparedRecord) => boolean,
+): PreparedRecord | undefined {
+  const index = latestRecordIndexMatching(records, predicate);
+  return index === -1 ? undefined : records[index];
 }
 
 function summarize(targets: KusabiFleetTargetStatus[], alerts: KusabiFleetAlert[]): KusabiFleetStatusSummary {

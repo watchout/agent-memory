@@ -148,6 +148,8 @@ automatically.
 - every fixed P0 trigger plus P1/P2/P3 severity and blocking semantics;
 - four independent drift classes;
 - isolated and repeated degradation;
+- successful recovery followed by heartbeat or inventory observation, plus
+  fail-closed degraded/failure preservation until a later successful recovery;
 - emergency-only P2 to P1 deadline transition and immediate failed-delivery P1;
 - duplicate idempotency, future-event exclusion, maintenance handling, strict
   manifest rejection, event-integrity rejection, schema validation, canonical
