@@ -2,12 +2,98 @@ schema_version: shirube-v3/control_handoff/v1
 mode: rapid-lite
 profile: hotel-lite
 control_handoff_id: CH-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001
-lifecycle_state: READY_FOR_PR_AUDIT
+lifecycle_state: READY_FOR_EXACT_HEAD_AUDIT
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 repo_spec_ref: .shirube/repo-spec.yaml
 repo_local_issue: https://github.com/watchout/agent-memory/issues/180
 audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+owner_confirmation_ref: ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
+spec_review_state: ready_for_implementation
+next_role: independent_audit
+
+repository:
+  name: watchout/agent-memory
+
+owner:
+  role: repo_owner
+  actor: watchout
+
+escalation_route: >-
+  Stop the affected cell and require an explicit owner decision before any
+  protected runtime, configuration, trust, database, notification, merge,
+  activation, distribution, restart, or deployment effect.
+
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
+  - docs/operations/KUSABI_ALPHA_OBS04_STATUS_FEEDBACK.md
+  - src/kusabi-fleet-status.ts
+  - src/kusabi-fleet-status-cli.ts
+  - src/test-kusabi-fleet-status.ts
+  - src/test-kusabi-fleet-status-store.ts
+  - src/test-sqlite.ts
+  - src/test-pg.ts
+  - package.json
+
+forbidden_paths:
+  - src/*hook-installer.ts
+  - src/*session-start.ts
+  - src/stores/*migration*
+  - src/stores/sqlite-store.ts
+  - src/stores/pg-store.ts
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - .env
+  - .env.*
+  - secrets/**
+
+allowed_operations:
+  - edit only allowed_paths
+  - derive status read-only from one exact manifest and existing runtime-event records
+  - run local TypeScript, fixture, SQLite, isolated PostgreSQL, build, parse, privacy, diff, and scope validation
+  - create and delete temporary test-only SQLite files and isolated PostgreSQL schemas
+  - commit and push the implementation branch without force
+  - create and update one draft pull request targeting main
+  - route one exact-head independent audit through AUN
+  - prepare OBS-05 manifest and R0 inputs read-only
+
+forbidden_operations:
+  - edit event-store schema, migrations, SQLite/PostgreSQL store implementations, native host hooks, or live configuration
+  - external notification mutation, issue creation, activation, distribution, deployment, restart, wrapper use, or session injection
+  - TUI, tmux, clipboard, or running-session writes
+  - access or persist credentials, database URLs, environment values, raw paths, prompts, conversations, recovery content, private reasoning, exceptions, or stacks as telemetry
+  - maker self-audit, self-approval, self-merge, protected-gate bypass, force-push, npm publish, tag, or release
+
+stop_conditions:
+  - approved delivery requires a forbidden path or operation
+  - state precedence, strict schema, privacy, arithmetic, idempotency, fingerprint grouping, failure isolation, or backend parity fails
+  - independent exact-head audit reports a blocking finding
+  - merge or activation requires an unapproved effect or gate bypass
+
+required_checks:
+  - npx tsc --noEmit
+  - npx tsx src/test-kusabi-fleet-status.ts
+  - npm test
+  - npm run test:codex-hook
+  - npm run test:claude-hook
+  - npm run test:gemini-hook
+  - isolated SQLite and PostgreSQL status-parity contract
+  - npm run build
+  - YAML parse, exact changed-path equality, privacy scan, and git diff checks
+
+required_evidence:
+  - changed_files
+  - validation_commands
+  - validation_results
+  - PR_head_SHA
+  - independent_audit_record
+  - owner_decision
 
 acceptance_criteria:
   - All six fleet states follow the fixed precedence in the OBS-04 design contract.
@@ -38,6 +124,7 @@ control_source:
   decision_ref: ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
 
 cell:
+  id: KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001
   CELL-ID: KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001
   cell_id: KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001
   cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
@@ -53,53 +140,6 @@ cell:
     base_sha: 9f3064be64d7d76c446842a17607bae51635fd7b
     base_tree: 3fa4aa3a56b1fcbd666e42c1359564aca9dfb58e
     head_branch: codex/kusabi-alpha-obs04-status-alert-20260730
-  allowed_paths:
-    - .shirube/cells/CELL-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
-    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
-    - docs/operations/KUSABI_ALPHA_OBS04_STATUS_FEEDBACK.md
-    - src/kusabi-fleet-status.ts
-    - src/kusabi-fleet-status-cli.ts
-    - src/test-kusabi-fleet-status.ts
-    - src/test-kusabi-fleet-status-store.ts
-    - src/test-sqlite.ts
-    - src/test-pg.ts
-    - package.json
-  forbidden_paths:
-    - src/*hook-installer.ts
-    - src/*session-start.ts
-    - src/stores/*migration*
-    - src/stores/sqlite-store.ts
-    - src/stores/pg-store.ts
-    - dist/**
-    - deploy/**
-    - .agents/**
-    - .claude/**
-    - .codex/**
-    - .gemini/**
-    - .github/**
-    - .env
-    - .env.*
-    - secrets/**
-  allowed_operations:
-    - edit only cell.allowed_paths
-    - derive status read-only from one exact manifest and existing runtime-event records
-    - run local TypeScript, fixture, SQLite, isolated PostgreSQL, build, parse, privacy, diff, and scope validation
-    - create and delete temporary test-only SQLite files and isolated PostgreSQL schemas
-    - commit and push the implementation branch without force
-    - create and update one draft pull request targeting main
-    - route one exact-head independent audit through AUN
-    - prepare OBS-05 manifest and R0 inputs read-only
-  forbidden_operations:
-    - edit event-store schema, migrations, SQLite/PostgreSQL store implementations, native host hooks, or live configuration
-    - external notification mutation, issue creation, activation, distribution, deployment, restart, wrapper use, or session injection
-    - TUI, tmux, clipboard, or running-session writes
-    - access or persist credentials, database URLs, environment values, raw paths, prompts, conversations, recovery content, private reasoning, exceptions, or stacks as telemetry
-    - maker self-audit, self-approval, self-merge, protected-gate bypass, force-push, npm publish, tag, or release
-  stop_conditions:
-    - approved delivery requires a forbidden path or operation
-    - state precedence, strict schema, privacy, arithmetic, idempotency, fingerprint grouping, failure isolation, or backend parity fails
-    - independent exact-head audit reports a blocking finding
-    - merge or activation requires an unapproved effect or gate bypass
 
 execution_context:
   agent_id: kusabi
@@ -120,13 +160,12 @@ validation:
     - npm run build
     - git diff --check
   required_evidence:
-    - deterministic state-precedence and alert-classification matrix
-    - exact target uniqueness and summary arithmetic
-    - duplicate-delivery idempotency
-    - cross-host fingerprint equality for one normalized defect
-    - SQLite/PostgreSQL normalized snapshot parity
-    - optional notifier failure leaves canonical status and local report queryable
-    - exact changed-path equality and privacy scan
+    - changed_files
+    - validation_commands
+    - validation_results
+    - PR_head_SHA
+    - independent_audit_record
+    - owner_decision
 
 owner_decision:
   result: APPROVED_IMPLEMENTATION_SCOPE
@@ -173,15 +212,24 @@ gate_result:
   reason: Dependency, owner-scope, deterministic behavior, backend parity, privacy, and regression gates pass locally; protected effects remain absent.
 
 next_action:
-  actor_agent_id: kusabi
-  active_function: implementation_executor
-  action: Publish one draft PR and route the immutable head/tree for independent audit without waiting on non-blocking acknowledgements.
-  deliver_via: GitHub and AUN
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  actor_agent_id: codex-audit
+  active_function: evidence_audit_gate
+  action: Independently audit the immutable PR head/tree and return PASS or an evidence-backed itemized rejection.
+  handoff_method: AUN queue plus immutable GitHub PR comment
+  deliver_via: AUN reply plus immutable GitHub PR comment
+  input_refs:
+    - https://github.com/watchout/agent-memory/pull/277
+    - commit:9f3064be64d7d76c446842a17607bae51635fd7b
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001.yaml
   exact_input_refs:
+    - https://github.com/watchout/agent-memory/pull/277
     - owner-decision:ODR-KUSABI-ALPHA-OBS03-04-ACCELERATION-20260730-001
     - baseline-commit:9f3064be64d7d76c446842a17607bae51635fd7b
     - baseline-tree:3fa4aa3a56b1fcbd666e42c1359564aca9dfb58e
-  scope: cell.allowed_paths and approved operations only
-  deliverable: independently auditable exact-head OBS-04 implementation PR
-  completion_evidence: deterministic tests, backend parity, exact changed paths, PR head/tree, independent verdict, and owner exact-head decision
-  blocking: false
+  scope: read-only independent audit of PR 277 and the approved OBS-04 boundaries only
+  deliverable: exact-head audit verdict with all applicable Stage 9 items and durable evidence refs
+  completion_evidence: immutable PR audit artifact plus AUN reply bound to the current exact head/tree
+  stop_reason: independent exact-head audit is the required external gate before owner exact-head decision
+  blocking: true
