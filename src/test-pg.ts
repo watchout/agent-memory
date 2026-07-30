@@ -4,10 +4,15 @@
  * Requires: DATABASE_URL=postgresql://localhost/agent_comms
  * Run: DATABASE_URL=postgresql://localhost/agent_comms tsx src/test-pg.ts
  *
- * Uses transaction rollback for test isolation — no persistent side effects.
+ * Uses a unique PostgreSQL schema that is dropped after the suite — no
+ * persistent product-table side effects.
  */
 import { readFileSync } from "fs";
+import pg from "pg";
 import { PgStore } from "./stores/pg-store.js";
+import { runKusabiRuntimeEventStoreContract } from "./test-kusabi-runtime-event-store.js";
+
+const { Pool } = pg;
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -32,11 +37,15 @@ function assert(condition: boolean, msg: string) {
 // Use a unique agent_id per test run to avoid collisions
 const AGENT = `test-pg-${Date.now()}`;
 const PROJECT = "test-project";
+const TEST_SCHEMA = `obs02_suite_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
 let store: PgStore;
+let suiteAdmin: pg.Pool;
 
 async function setup() {
-  store = new PgStore(DATABASE_URL!);
+  suiteAdmin = new Pool({ connectionString: DATABASE_URL! });
+  await suiteAdmin.query(`CREATE SCHEMA ${TEST_SCHEMA}`);
+  store = new PgStore(withPgSearchPath(DATABASE_URL!, TEST_SCHEMA));
   await store.initialize();
 }
 
@@ -48,6 +57,11 @@ async function testMigration() {
   // Run initialize again — should be idempotent
   await store.initialize();
   assert(true, "migrations are idempotent (IF NOT EXISTS)");
+}
+
+async function testKusabiRuntimeEventStore() {
+  console.log("\n── PgStore Kusabi OBS-02 runtime events ──");
+  await runKusabiRuntimeEventStoreContract(store, assert, "PostgreSQL");
 }
 
 function withPgSearchPath(connectionString: string, schema: string): string {
@@ -205,6 +219,7 @@ async function testMigrationRerunSafetyInIsolatedSchema() {
           "conversation_events",
           "decisions",
           "knowledge",
+          "kusabi_runtime_events",
           "raw_events",
           "recovery_config",
           "recovery_quality_log",
@@ -213,7 +228,7 @@ async function testMigrationRerunSafetyInIsolatedSchema() {
         ],
       ],
     );
-    assert(tables.rows.length === 8, "isolated migration creates the expected PG tables");
+    assert(tables.rows.length === 9, "isolated migration creates the expected PG tables");
 
     const rawOccurredAt = await admin.query(
       `SELECT is_nullable
@@ -240,10 +255,12 @@ async function testMigrationRerunSafetyInIsolatedSchema() {
           "uq_raw_events_source_event",
           "uq_raw_events_hash_time",
           "idx_selected_restart_packs_agent",
+          "idx_kusabi_runtime_events_manifest",
+          "idx_kusabi_runtime_events_target",
         ],
       ],
     );
-    assert(indexes.rows.length === 4, "isolated migration rerun keeps required indexes present");
+    assert(indexes.rows.length === 6, "isolated migration rerun keeps required indexes present");
   } finally {
     await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await admin.end();
@@ -521,7 +538,9 @@ async function testTaskIdUpsert() {
 
   // Cleanup just this isolated agent
   const pg = await import("pg");
-  const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  const pool = new pg.default.Pool({
+    connectionString: withPgSearchPath(DATABASE_URL!, TEST_SCHEMA),
+  });
   try {
     await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [
       `${upsertAgent}%`,
@@ -746,7 +765,9 @@ async function testRecoveryQualityLog() {
 
   // Verify the row by querying directly
   const pg = await import("pg");
-  const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
+  const pool = new pg.default.Pool({
+    connectionString: withPgSearchPath(DATABASE_URL!, TEST_SCHEMA),
+  });
   try {
     const r = await pool.query(
       `SELECT recovered_tokens, task_continued, quality_score, notes, search_memory_count_10min
@@ -1053,16 +1074,12 @@ async function testConversationEvents() {
 }
 
 async function cleanup() {
-  // Clean up test data
-  const pg = await import("pg");
-  const pool = new pg.default.Pool({ connectionString: DATABASE_URL! });
-  await pool.query("DELETE FROM raw_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.query("DELETE FROM conversation_events WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.query("DELETE FROM decisions WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.query("DELETE FROM knowledge WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.query("DELETE FROM recovery_quality_log WHERE agent_id LIKE $1", [`${AGENT}%`]);
-  await pool.end();
+  if (!suiteAdmin) return;
+  try {
+    await suiteAdmin.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
+  } finally {
+    await suiteAdmin.end();
+  }
 }
 
 async function run() {
@@ -1072,6 +1089,7 @@ async function run() {
   try {
     await setup();
     await testMigration();
+    await testKusabiRuntimeEventStore();
     await testMigrationRerunSafetyInIsolatedSchema();
     await testRawEventsLegacyOccurredAtMigration();
     await testDecisionCRUD();
@@ -1087,8 +1105,11 @@ async function run() {
     await testKnowledgeSupersede();
     await testConversationEvents();
   } finally {
-    await cleanup();
-    await store.close();
+    try {
+      if (store) await store.close();
+    } finally {
+      await cleanup();
+    }
   }
 
   console.log(`\n── Results: ${passed} passed, ${failed} failed ──`);

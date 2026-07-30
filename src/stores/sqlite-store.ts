@@ -6,6 +6,10 @@ import { v4 as uuidv4 } from "uuid";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
+import {
+  assertKusabiRuntimeEventHash,
+  KusabiRuntimeEventConflictError,
+} from "../kusabi-runtime-event-store.js";
 import type {
   Store,
   Decision,
@@ -14,6 +18,7 @@ import type {
   AgentMessage,
   ConversationEvent,
   RawEvent,
+  KusabiRuntimeEventRecord,
   SelectedRestartPack,
   RecoveryConfig,
   CatchUpLog,
@@ -33,6 +38,9 @@ import type {
   GetConversationEventsInput,
   SaveRawEventInput,
   GetRawEventsInput,
+  SaveKusabiRuntimeEventInput,
+  SaveKusabiRuntimeEventResult,
+  GetKusabiRuntimeEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -181,6 +189,24 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_raw_events_recent
     ON raw_events(agent_id, source, occurred_at DESC)`,
 
+  `CREATE TABLE IF NOT EXISTS kusabi_runtime_events (
+    event_id TEXT PRIMARY KEY,
+    manifest_id TEXT NOT NULL,
+    target_key TEXT NOT NULL CHECK(length(target_key) = 64),
+    event_type TEXT NOT NULL CHECK(event_type IN (
+      'deployment_observed', 'session_start', 'recovery_result', 'heartbeat',
+      'runtime_error', 'evidence_sink_error', 'privacy_violation'
+    )),
+    occurred_at TEXT NOT NULL,
+    event_sha256 TEXT NOT NULL CHECK(length(event_sha256) = 64),
+    event_json TEXT NOT NULL,
+    ingested_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_runtime_events_manifest
+    ON kusabi_runtime_events(manifest_id, occurred_at DESC, event_id DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_runtime_events_target
+    ON kusabi_runtime_events(target_key, occurred_at DESC, event_id DESC)`,
+
   `CREATE TABLE IF NOT EXISTS selected_restart_packs (
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -246,6 +272,11 @@ function loadSqlJs(): Promise<SqlJsStatic> {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function boundedKusabiEventLimit(value: number | undefined): number {
+  if (!Number.isInteger(value) || (value ?? 0) <= 0) return 50;
+  return Math.min(value as number, 500);
 }
 
 function contentHash(content: string): string {
@@ -319,6 +350,7 @@ function scopedStatusWhere(input: {
 }
 
 export class SqliteStore implements Store {
+  readonly backend = "sqlite" as const;
   private db!: Database;
   private dbPath: string;
   private fts5Available = false;
@@ -1128,6 +1160,95 @@ export class SqliteStore implements Store {
     return rows.map((row) => this.rowToRawEvent(row));
   }
 
+  async saveKusabiRuntimeEvent(
+    input: SaveKusabiRuntimeEventInput,
+  ): Promise<SaveKusabiRuntimeEventResult> {
+    assertKusabiRuntimeEventHash(input.event_sha256);
+    const existing = this.allRows(
+      "SELECT * FROM kusabi_runtime_events WHERE event_id = ? LIMIT 1",
+      [input.event.event_id],
+    )[0];
+    if (existing) {
+      const record = this.rowToKusabiRuntimeEvent(existing);
+      if (record.event_sha256 !== input.event_sha256) {
+        throw new KusabiRuntimeEventConflictError(input.event.event_id);
+      }
+      // A prior file write may have failed after the in-memory COMMIT. Retry
+      // persistence before acknowledging the duplicate as durable.
+      this.persist();
+      return { record, inserted: false };
+    }
+
+    const ingestedAt = new Date().toISOString();
+    this.db.run("BEGIN IMMEDIATE");
+    try {
+      this.db.run(
+        `INSERT INTO kusabi_runtime_events
+          (event_id, manifest_id, target_key, event_type, occurred_at,
+           event_sha256, event_json, ingested_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.event.event_id,
+          input.event.manifest_id,
+          input.event.target_key,
+          input.event.event_type,
+          input.event.occurred_at,
+          input.event_sha256,
+          JSON.stringify(input.event),
+          ingestedAt,
+        ],
+      );
+      this.db.run("COMMIT");
+    } catch (error) {
+      try {
+        this.db.run("ROLLBACK");
+      } catch {
+        // Preserve the original insert/constraint error.
+      }
+      throw error;
+    }
+
+    // sql.js COMMIT is in-memory. The ACK is returned only after the selected
+    // SQLite file has been written successfully.
+    this.persist();
+    const row = this.allRows(
+      "SELECT * FROM kusabi_runtime_events WHERE event_id = ? LIMIT 1",
+      [input.event.event_id],
+    )[0];
+    return { record: this.rowToKusabiRuntimeEvent(row), inserted: true };
+  }
+
+  async getKusabiRuntimeEvents(
+    input: GetKusabiRuntimeEventsInput,
+  ): Promise<KusabiRuntimeEventRecord[]> {
+    const conditions: string[] = ["1 = 1"];
+    const params: unknown[] = [];
+    if (input.manifest_id) {
+      conditions.push("manifest_id = ?");
+      params.push(input.manifest_id);
+    }
+    if (input.target_key) {
+      conditions.push("target_key = ?");
+      params.push(input.target_key);
+    }
+    if (input.event_type) {
+      conditions.push("event_type = ?");
+      params.push(input.event_type);
+    }
+    if (input.since) {
+      conditions.push("occurred_at >= ?");
+      params.push(input.since);
+    }
+    const rows = this.allRows(
+      `SELECT * FROM kusabi_runtime_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC, event_id DESC
+       LIMIT ${boundedKusabiEventLimit(input.limit)}`,
+      params,
+    );
+    return rows.map((row) => this.rowToKusabiRuntimeEvent(row));
+  }
+
   private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
     await this.saveRawEvent(conversationEventToRawEventInput(event));
   }
@@ -1664,6 +1785,19 @@ export class SqliteStore implements Store {
       metadata: parseJsonObject(row.metadata),
       occurred_at: ((row.occurred_at as string | null) ?? (row.event_at as string | null)) ?? "",
       created_at: ((row.created_at as string | null) ?? (row.ingested_at as string | null)) ?? "",
+    };
+  }
+
+  private rowToKusabiRuntimeEvent(row: Record<string, unknown>): KusabiRuntimeEventRecord {
+    return {
+      event_id: String(row.event_id),
+      manifest_id: String(row.manifest_id),
+      target_key: String(row.target_key),
+      event_type: String(row.event_type) as KusabiRuntimeEventRecord["event_type"],
+      occurred_at: String(row.occurred_at),
+      event_sha256: String(row.event_sha256),
+      event: JSON.parse(String(row.event_json)) as KusabiRuntimeEventRecord["event"],
+      ingested_at: String(row.ingested_at),
     };
   }
 

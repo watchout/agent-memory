@@ -296,6 +296,27 @@ export const PG_MIGRATIONS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_raw_events_recent
      ON raw_events (agent_id, source, occurred_at DESC)`,
 
+  // OBS-02: privacy-safe canonical runtime events. This is deliberately
+  // separate from raw_events, whose content-bearing compatibility contract
+  // and agent-scoped dedup keys are not the fleet-observability contract.
+  `CREATE TABLE IF NOT EXISTS kusabi_runtime_events (
+    event_id UUID PRIMARY KEY,
+    manifest_id TEXT NOT NULL,
+    target_key TEXT NOT NULL CHECK(target_key ~ '^[a-f0-9]{64}$'),
+    event_type TEXT NOT NULL CHECK(event_type IN (
+      'deployment_observed', 'session_start', 'recovery_result', 'heartbeat',
+      'runtime_error', 'evidence_sink_error', 'privacy_violation'
+    )),
+    occurred_at TIMESTAMPTZ NOT NULL,
+    event_sha256 TEXT NOT NULL CHECK(event_sha256 ~ '^[a-f0-9]{64}$'),
+    event_json JSONB NOT NULL CHECK(jsonb_typeof(event_json) = 'object'),
+    ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_runtime_events_manifest
+     ON kusabi_runtime_events (manifest_id, occurred_at DESC, event_id DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_kusabi_runtime_events_target
+     ON kusabi_runtime_events (target_key, occurred_at DESC, event_id DESC)`,
+
   // AM-039: selected restart packs for host/AUN boot consume.
   `CREATE TABLE IF NOT EXISTS selected_restart_packs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

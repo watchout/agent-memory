@@ -4,6 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import { PG_MIGRATIONS } from "./pg-migrations.js";
+import {
+  assertKusabiRuntimeEventHash,
+  KusabiRuntimeEventConflictError,
+} from "../kusabi-runtime-event-store.js";
 import type {
   Store,
   Decision,
@@ -12,6 +16,7 @@ import type {
   AgentMessage,
   ConversationEvent,
   RawEvent,
+  KusabiRuntimeEventRecord,
   SelectedRestartPack,
   RecoveryConfig,
   CatchUpLog,
@@ -31,6 +36,9 @@ import type {
   GetConversationEventsInput,
   SaveRawEventInput,
   GetRawEventsInput,
+  SaveKusabiRuntimeEventInput,
+  SaveKusabiRuntimeEventResult,
+  GetKusabiRuntimeEventsInput,
   SaveSelectedRestartPackInput,
   GetSelectedRestartPackInput,
   ConsumeSelectedRestartPackInput,
@@ -52,7 +60,13 @@ function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function boundedKusabiEventLimit(value: number | undefined): number {
+  if (!Number.isInteger(value) || (value ?? 0) <= 0) return 50;
+  return Math.min(value as number, 500);
+}
+
 export class PgStore implements Store {
+  readonly backend = "postgres" as const;
   private pool: pg.Pool;
 
   constructor(connectionString: string) {
@@ -816,6 +830,85 @@ export class PgStore implements Store {
     return result.rows.map((row: Record<string, unknown>) => this.rowToRawEvent(row));
   }
 
+  async saveKusabiRuntimeEvent(
+    input: SaveKusabiRuntimeEventInput,
+  ): Promise<SaveKusabiRuntimeEventResult> {
+    assertKusabiRuntimeEventHash(input.event_sha256);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const inserted = await client.query(
+        `INSERT INTO kusabi_runtime_events
+          (event_id, manifest_id, target_key, event_type, occurred_at,
+           event_sha256, event_json)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         ON CONFLICT (event_id) DO NOTHING
+         RETURNING *`,
+        [
+          input.event.event_id,
+          input.event.manifest_id,
+          input.event.target_key,
+          input.event.event_type,
+          input.event.occurred_at,
+          input.event_sha256,
+          JSON.stringify(input.event),
+        ],
+      );
+
+      let row = inserted.rows[0] as Record<string, unknown> | undefined;
+      const wasInserted = Boolean(row);
+      if (!row) {
+        const existing = await client.query(
+          "SELECT * FROM kusabi_runtime_events WHERE event_id = $1 FOR SHARE",
+          [input.event.event_id],
+        );
+        row = existing.rows[0] as Record<string, unknown> | undefined;
+      }
+      if (!row) throw new Error("KUSABI_RUNTIME_EVENT_CONFLICT_READ_MISSING");
+      const record = this.rowToKusabiRuntimeEvent(row);
+      if (record.event_sha256 !== input.event_sha256) {
+        throw new KusabiRuntimeEventConflictError(input.event.event_id);
+      }
+
+      // The durable ACK is constructed only after COMMIT succeeds.
+      await client.query("COMMIT");
+      return { record, inserted: wasInserted };
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the original write/constraint error.
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getKusabiRuntimeEvents(
+    input: GetKusabiRuntimeEventsInput,
+  ): Promise<KusabiRuntimeEventRecord[]> {
+    const conditions: string[] = ["TRUE"];
+    const params: unknown[] = [];
+    const add = (condition: (position: number) => string, value: unknown) => {
+      params.push(value);
+      conditions.push(condition(params.length));
+    };
+    if (input.manifest_id) add((i) => `manifest_id = $${i}`, input.manifest_id);
+    if (input.target_key) add((i) => `target_key = $${i}`, input.target_key);
+    if (input.event_type) add((i) => `event_type = $${i}`, input.event_type);
+    if (input.since) add((i) => `occurred_at >= $${i}`, input.since);
+
+    const result = await this.pool.query(
+      `SELECT * FROM kusabi_runtime_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY occurred_at DESC, event_id DESC
+       LIMIT ${boundedKusabiEventLimit(input.limit)}`,
+      params,
+    );
+    return result.rows.map((row: Record<string, unknown>) => this.rowToKusabiRuntimeEvent(row));
+  }
+
   private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
     await this.saveRawEvent(conversationEventToRawEventInput(event));
   }
@@ -1364,6 +1457,26 @@ export class PgStore implements Store {
           : row.ingested_at instanceof Date
             ? row.ingested_at.toISOString()
             : ((row.created_at as string | null) ?? (row.ingested_at as string)),
+    };
+  }
+
+  private rowToKusabiRuntimeEvent(row: Record<string, unknown>): KusabiRuntimeEventRecord {
+    const event = typeof row.event_json === "string"
+      ? JSON.parse(row.event_json)
+      : row.event_json;
+    return {
+      event_id: String(row.event_id),
+      manifest_id: String(row.manifest_id),
+      target_key: String(row.target_key),
+      event_type: String(row.event_type) as KusabiRuntimeEventRecord["event_type"],
+      occurred_at: row.occurred_at instanceof Date
+        ? row.occurred_at.toISOString()
+        : String(row.occurred_at),
+      event_sha256: String(row.event_sha256),
+      event: event as KusabiRuntimeEventRecord["event"],
+      ingested_at: row.ingested_at instanceof Date
+        ? row.ingested_at.toISOString()
+        : String(row.ingested_at),
     };
   }
 
