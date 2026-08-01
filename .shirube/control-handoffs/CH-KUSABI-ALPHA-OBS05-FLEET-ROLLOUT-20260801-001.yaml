@@ -1,6 +1,6 @@
 schema_version: shirube-v3/control_handoff/v1
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: PHASE_A_STORAGE_BINDING_CORRECTNESS_REWORK
+lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
 mode: full
 profile: protected-surface
 
@@ -38,8 +38,9 @@ exact_subject:
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   dependency_pr: https://github.com/watchout/agent-memory/pull/277
   control_source_issue: https://github.com/watchout/agent-memory/issues/280
-  implementation_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-  implementation_tree_sha: 055711bd3b0436597cce97fec8ca04104bc38926
+  implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
+  implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
+  rollout_core_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
 
 allowed_paths:
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -181,7 +182,7 @@ evidence:
   current_three_host_runtime_roots_current_build: false
   production_mutation_performed: false
   phase_a_implementation:
-    changed_paths: PASS_8_OF_8_ALLOWED
+    changed_paths: PASS_20_OF_20_ALLOWED
     typescript_no_emit: PASS
     rollout_focused_suite: PASS_34_ASSERTIONS
     repository_regression: PASS_1549_OF_1549
@@ -192,6 +193,8 @@ evidence:
     production_build: PASS
     git_diff_check: PASS
     live_configuration_trust_activation_distribution_migration_restart: NOT_RUN_NOT_AUTHORIZED
+    actual_storage_binding_hash_emission: PASS
+    backend_and_binding_drift_before_store_creation: PASS
   storage_binding_discovery:
     observed_running_sessions: 35
     postgres_sessions: 35
@@ -201,28 +204,27 @@ evidence:
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
-  result: PHASE_A_REWORK_REQUIRED
+  result: PHASE_A_IMPLEMENTATION_PASS
   reason: >-
-    Read-only R0 preparation found two actual credential-safe storage binding
-    hashes across the running fleet, while the runtime event emitter copied the
-    manifest binding hash after checking only backend type. Phase A must fail
-    closed on exact resolved binding drift before independent audit. No
-    production mutation has occurred.
+    The emitter now binds durable events to the credential-safe hash of the
+    actual resolved store and rejects backend or binding drift before store
+    creation. Full regression, native host, build, and isolated PostgreSQL
+    checks pass. No production mutation has occurred.
 
 next_action:
   blocking: false
-  owner_agent: kusabi
-  owner_function: implementation_executor
-  action: Implement credential-safe actual storage binding observation in the native session-start evidence and runtime event emitter, rerun the full Phase A checks, then renew the exact-ref independent audit.
-  handoff_method: Continue on the existing OBS-05 branch and update issue 280 with immutable evidence.
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: Independently audit the exact final Phase A implementation, including actual storage binding derivation, false-acceptance resistance, and the 35-binding denominator.
+  handoff_method: AUN instruction plus durable issue 280 comment.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
-    - commit:7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-    - tree:055711bd3b0436597cce97fec8ca04104bc38926
+    - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
+    - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: The expanded allowed_paths only; no production runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
-  deliverable: Exact resolved storage binding hash in session-start evidence and emitted events, with drift rejection and regression evidence.
-  completion_evidence: Credential-safe two-binding fixtures, full required checks, immutable commit/tree, durable issue comment, and renewed independent audit handoff.
+  scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
+  deliverable: Exact-ref PASS or itemized blocking findings with evidence.
+  completion_evidence: Durable GitHub issue comment and AUN reply identifying auditor, refs, verdict, and findings.

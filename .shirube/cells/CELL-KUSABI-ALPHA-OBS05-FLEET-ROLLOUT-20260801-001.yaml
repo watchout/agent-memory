@@ -2,7 +2,7 @@ schema_version: shirube-v3/cell/v1
 cell_id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
 cell_type: protected_fleet_rollout
 risk_class: R4
-lifecycle_state: PHASE_A_STORAGE_BINDING_CORRECTNESS_REWORK
+lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
 control_source: https://github.com/watchout/agent-memory/issues/280
 goal: >-
   Freeze the authoritative eligible-production binding denominator, implement
@@ -22,8 +22,8 @@ exact_subject:
   provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   control_source: https://github.com/watchout/agent-memory/issues/280
-  phase_a_implementation_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-  phase_a_implementation_tree_sha: 055711bd3b0436597cce97fec8ca04104bc38926
+  phase_a_implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
+  phase_a_implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
 
 target_denominator:
   manifest_version: 1
@@ -87,18 +87,18 @@ completion_boundary:
 
 next_action:
   blocking: false
-  owner_agent: kusabi
-  owner_function: implementation_executor
-  action: Replace manifest-echoed storage identity with credential-safe actual resolved store binding evidence, verify exact drift rejection, then renew the independent audit at the new exact head/tree.
-  handoff_method: Existing OBS-05 branch and issue 280 evidence thread.
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: Independently audit the exact final Phase A implementation, 35-binding denominator, native trust readback, actual storage binding evidence, failure isolation, and rollout contract.
+  handoff_method: AUN instruction referencing issue 280 and the exact artifact head/tree.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
-    - commit:7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-    - tree:055711bd3b0436597cce97fec8ca04104bc38926
+    - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
+    - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Expanded control-handoff allowed_paths only; no production runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
-  deliverable: Credential-safe actual storage binding observation and fail-closed drift handling with regression evidence.
-  completion_evidence: Full checks, immutable commit/tree, durable issue comment, and renewed exact-ref audit handoff.
+  scope: Read-only R4 Phase A implementation and denominator audit; no file, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
+  deliverable: PASS or itemized blocking findings bound to the exact control-artifact head/tree.
+  completion_evidence: Durable GitHub issue comment and AUN reply with auditor identity and exact refs.
