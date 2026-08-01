@@ -2,7 +2,7 @@ schema_version: shirube-v3/cell/v1
 cell_id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
 cell_type: protected_fleet_rollout
 risk_class: R4
-lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
+lifecycle_state: PHASE_A_DB_INVENTORY_HARDENED_CONTROL_GRAPH_PENDING
 control_source: https://github.com/watchout/agent-memory/issues/280
 goal: >-
   Freeze the authoritative eligible-production binding denominator, implement
@@ -22,16 +22,19 @@ exact_subject:
   provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   control_source: https://github.com/watchout/agent-memory/issues/280
-  phase_a_implementation_commit_sha: 5f395952ebe7c6379eb8c843915ddba8a643fb2c
-  phase_a_implementation_tree_sha: 8d3207f8adf3276d8f6ceccc00091a88e8070f90
-  r0_candidate_commit_sha: 6e96b172b05b14c39337c5d90da2ffcd08aa549f
-  r0_candidate_tree_sha: a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
-  manifest_candidate_sha256: 90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
-  rollout_plan_candidate_sha256: fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
-  r0_report_sha256: 3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
+  phase_a_implementation_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+  phase_a_implementation_tree_sha: 8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+  r0_candidate_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+  r0_candidate_tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
+  inventory_snapshot_sha256: 5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+  primary_result_sha256: 3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+  query_contract_sha256: 33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+  manifest_candidate_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+  rollout_plan_candidate_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+  r0_report_sha256: ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
 
 target_denominator:
-  manifest_version: 1
+  manifest_version: 2
   target_count: 35
   host_counts:
     codex: 21
@@ -42,6 +45,9 @@ target_denominator:
     - /Users/yuji/.codex/skills/applying-onisoku-pdca/scripts/fleet-daily-pdca.sh eligible
     - aun:agents-runtime-profile-read-only
     - control-handoff:CH-KUSABI-G3-ACTIVATION-20260727-001
+    - inventory-snapshot-sha256:5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+    - primary-result-sha256:3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+    - query-contract-sha256:33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
   exclusions:
     - human
     - disabled
@@ -58,6 +64,8 @@ stage_contract:
   handoff_to_obs06: full_manifest_exact_and_durable_readback_with_zero_open_p0_p1
 
 acceptance_criteria:
+  - The shared agent_comms DB is the identity SSOT; registered and canonical IDs must match for new work, and every eligibility predicate must be verified true.
+  - The 33 DB-primary plus 2 owner-approved secondary binding snapshot exactly equals the 35-target manifest and is bound into the rollout-plan authorization hash.
   - Manifest target keys and manifest SHA-256 are deterministic and unique.
   - All 35 workspace bindings resolve without persisting raw paths or secrets.
   - R0 records every config and native-trust preimage plus expected postimage without writing configuration or trust state.
@@ -91,26 +99,30 @@ completion_boundary:
     - owner_exact_manifest_go
 
 next_action:
-  blocking: false
-  owner_agent: codex-audit
-  owner_function: evidence_audit_gate
-  action: Independently audit the exact final Phase A implementation, 35-binding denominator, native trust readback, actual storage binding evidence, failure isolation, and rollout contract.
-  handoff_method: AUN instruction referencing issue 280 and the exact artifact head/tree.
+  blocking: true
+  owner_agent: arc
+  owner_function: control_artifact_author
+  action: Freeze the complete issue-280 OBS05/OBS06 cell graph and correct the handoff to bind the DB-backed 35-binding artifact before fresh independent audit.
+  handoff_method: AUN message c513f159-6f5c-429e-9c8f-6a1e86b0d56d plus durable issue 280 evidence.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    - commit:5f395952ebe7c6379eb8c843915ddba8a643fb2c
-    - tree:8d3207f8adf3276d8f6ceccc00091a88e8070f90
-    - commit:6e96b172b05b14c39337c5d90da2ffcd08aa549f
-    - tree:a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
-    - manifest-sha256:90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
-    - rollout-plan-sha256:fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
-    - r0-report-sha256:3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
-    - r0-artifact-file-sha256:100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5150520875
+    - commit:e0128af8dd1642296dc0dd3be49e42cbe715c34a
+    - tree:8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+    - commit:62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+    - tree:18ebefde52257c51fb092df604a3c9359f9c5d85
+    - inventory-snapshot-sha256:5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+    - primary-result-sha256:3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+    - query-contract-sha256:33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+    - manifest-sha256:bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    - rollout-plan-sha256:d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+    - r0-report-sha256:ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
+    - r0-artifact-file-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Read-only R4 Phase A implementation and denominator audit; no file, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
-  deliverable: PASS or itemized blocking findings bound to the exact control-artifact head/tree.
-  completion_evidence: Durable GitHub issue comment and AUN reply with auditor identity and exact refs.
+  scope: Control graph and corrected handoff only; no implementation, runtime, config, trust, DB, merge, deployment, restart, owner approval, or TUI mutation.
+  deliverable: Frozen complete cell graph and corrected exact-ref handoff, then a fresh codex-audit route.
+  completion_evidence: Exact control commit/tree, changed paths, durable issue comment, AUN return, and explicit next_action.

@@ -1,6 +1,6 @@
 schema_version: shirube-v3/control_handoff/v1
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
+lifecycle_state: PHASE_A_DB_INVENTORY_HARDENED_CONTROL_GRAPH_PENDING
 mode: full
 profile: protected-surface
 
@@ -38,11 +38,12 @@ exact_subject:
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   dependency_pr: https://github.com/watchout/agent-memory/pull/277
   control_source_issue: https://github.com/watchout/agent-memory/issues/280
-  implementation_commit_sha: 5f395952ebe7c6379eb8c843915ddba8a643fb2c
-  implementation_tree_sha: 8d3207f8adf3276d8f6ceccc00091a88e8070f90
+  implementation_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+  implementation_tree_sha: 8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
   rollout_core_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-  r0_candidate_commit_sha: 6e96b172b05b14c39337c5d90da2ffcd08aa549f
-  r0_candidate_tree_sha: a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
+  inventory_hardening_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+  r0_candidate_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+  r0_candidate_tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
 
 allowed_paths:
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
@@ -187,8 +188,8 @@ evidence:
   phase_a_implementation:
     changed_paths: PASS_21_OF_21_ALLOWED
     typescript_no_emit: PASS
-    rollout_focused_suite: PASS_36_ASSERTIONS
-    repository_regression: PASS_1549_OF_1549
+    rollout_focused_suite: PASS_46_ASSERTIONS
+    repository_regression: PASS_1540_OF_1540
     obs04_regression: PASS_145_ASSERTIONS
     codex_claude_gemini_hook_regression: PASS_ALL
     postgres_isolated_suite: PASS_145_OF_145
@@ -206,10 +207,15 @@ evidence:
     production_mutation_performed: false
   r0_candidate:
     artifact_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    manifest_sha256: 90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
-    rollout_plan_sha256: fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
-    report_sha256: 3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
-    artifact_file_sha256: 100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
+    manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    rollout_plan_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+    report_sha256: ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
+    artifact_file_sha256: a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+    query_contract_sha256: 33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+    primary_result_sha256: 3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+    inventory_snapshot_sha256: 5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+    primary_binding_count: 33
+    secondary_binding_count: 2
     target_count: 35
     unique_target_keys: 35
     config_file_preimages: 12
@@ -224,34 +230,40 @@ evidence:
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
-  result: PHASE_A_IMPLEMENTATION_PASS
+  result: PHASE_A_DB_INVENTORY_PASS_CONTROL_GRAPH_PENDING
   reason: >-
-    The emitter now binds durable events to the credential-safe hash of the
-    actual resolved store and rejects backend or binding drift before store
-    creation. Full regression, native host, build, and isolated PostgreSQL
-    checks pass. No production mutation has occurred.
+    The rollout core now requires a self-hashed shared-DB inventory snapshot,
+    exact registered/canonical identity, explicit eligibility predicates, and
+    exact snapshot-to-manifest equality at R0 and protected apply. The live
+    read-only DB result is 33 primary plus 2 approved secondary bindings. The
+    remaining independent-audit blocker is the missing frozen control-source
+    cell graph, which is routed to arc. No production mutation has occurred.
 
 next_action:
-  blocking: false
-  owner_agent: codex-audit
-  owner_function: evidence_audit_gate
-  action: Independently audit the exact final Phase A implementation, including actual storage binding derivation, false-acceptance resistance, and the 35-binding denominator.
-  handoff_method: AUN instruction plus durable issue 280 comment.
+  blocking: true
+  owner_agent: arc
+  owner_function: control_artifact_author
+  action: Freeze the complete issue-280 OBS05/OBS06 cell graph and issue a corrected handoff binding this DB-backed inventory, then route a fresh exact-head audit.
+  handoff_method: AUN message c513f159-6f5c-429e-9c8f-6a1e86b0d56d plus durable issue 280 comment.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    - commit:5f395952ebe7c6379eb8c843915ddba8a643fb2c
-    - tree:8d3207f8adf3276d8f6ceccc00091a88e8070f90
-    - commit:6e96b172b05b14c39337c5d90da2ffcd08aa549f
-    - tree:a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
-    - manifest-sha256:90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
-    - rollout-plan-sha256:fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
-    - r0-report-sha256:3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
-    - r0-artifact-file-sha256:100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5150520875
+    - commit:e0128af8dd1642296dc0dd3be49e42cbe715c34a
+    - tree:8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+    - commit:62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+    - tree:18ebefde52257c51fb092df604a3c9359f9c5d85
+    - inventory-snapshot-sha256:5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+    - primary-result-sha256:3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+    - query-contract-sha256:33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+    - manifest-sha256:bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    - rollout-plan-sha256:d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+    - r0-report-sha256:ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
+    - r0-artifact-file-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
-  deliverable: Exact-ref PASS or itemized blocking findings with evidence.
-  completion_evidence: Durable GitHub issue comment and AUN reply identifying auditor, refs, verdict, and findings.
+  scope: Control-source cell graph and corrected handoff only; no product, runtime, config, trust, DB, merge, deployment, restart, owner approval, or TUI mutation.
+  deliverable: Frozen OBS05/OBS06 cell graph plus corrected exact-ref handoff, followed by a fresh independent audit route.
+  completion_evidence: Exact control commit/tree, changed paths, durable issue comment, AUN return, and fresh audit next_action.
