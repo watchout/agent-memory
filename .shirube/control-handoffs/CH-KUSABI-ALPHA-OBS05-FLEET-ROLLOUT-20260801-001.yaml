@@ -41,6 +41,8 @@ exact_subject:
   implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
   implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
   rollout_core_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
+  r0_candidate_commit_sha: a3cb0e862a0f866735b178f190da29277fc8f8e0
+  r0_candidate_tree_sha: c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
 
 allowed_paths:
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
@@ -183,7 +185,7 @@ evidence:
   current_three_host_runtime_roots_current_build: false
   production_mutation_performed: false
   phase_a_implementation:
-    changed_paths: PASS_20_OF_20_ALLOWED
+    changed_paths: PASS_21_OF_21_ALLOWED
     typescript_no_emit: PASS
     rollout_focused_suite: PASS_34_ASSERTIONS
     repository_regression: PASS_1549_OF_1549
@@ -202,6 +204,16 @@ evidence:
     distinct_credential_safe_binding_hashes: 2
     manifest_echo_false_acceptance_found: true
     production_mutation_performed: false
+  r0_candidate:
+    artifact_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
+    manifest_sha256: 94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
+    rollout_plan_sha256: 827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
+    report_sha256: 32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
+    target_count: 35
+    unique_target_keys: 35
+    production_mutation_count: 0
+    forbidden_value_count: 0
+    raw_path_or_credential_match_count: 0
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
@@ -222,8 +234,14 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
     - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
     - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
+    - commit:a3cb0e862a0f866735b178f190da29277fc8f8e0
+    - tree:c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
+    - manifest-sha256:94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
+    - rollout-plan-sha256:827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
+    - r0-report-sha256:32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
   scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.

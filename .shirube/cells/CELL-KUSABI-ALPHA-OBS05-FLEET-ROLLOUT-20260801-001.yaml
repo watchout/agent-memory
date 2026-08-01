@@ -24,6 +24,11 @@ exact_subject:
   control_source: https://github.com/watchout/agent-memory/issues/280
   phase_a_implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
   phase_a_implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
+  r0_candidate_commit_sha: a3cb0e862a0f866735b178f190da29277fc8f8e0
+  r0_candidate_tree_sha: c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
+  manifest_candidate_sha256: 94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
+  rollout_plan_candidate_sha256: 827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
+  r0_report_sha256: 32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
 
 target_denominator:
   manifest_version: 1
@@ -95,8 +100,14 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
     - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
     - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
+    - commit:a3cb0e862a0f866735b178f190da29277fc8f8e0
+    - tree:c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
+    - manifest-sha256:94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
+    - rollout-plan-sha256:827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
+    - r0-report-sha256:32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
   scope: Read-only R4 Phase A implementation and denominator audit; no file, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
