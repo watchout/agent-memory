@@ -1,6 +1,6 @@
 schema_version: shirube-v3/control_handoff/v1
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: PHASE_A_AUTHORIZED_PREIMPLEMENTATION_AUDIT_PENDING
+lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
 mode: full
 profile: protected-surface
 
@@ -38,6 +38,8 @@ exact_subject:
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   dependency_pr: https://github.com/watchout/agent-memory/pull/277
   control_source_issue: https://github.com/watchout/agent-memory/issues/280
+  implementation_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
+  implementation_tree_sha: 055711bd3b0436597cce97fec8ca04104bc38926
 
 allowed_paths:
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -166,28 +168,42 @@ evidence:
   unplaced_bindings: 32
   current_three_host_runtime_roots_current_build: false
   production_mutation_performed: false
+  phase_a_implementation:
+    changed_paths: PASS_8_OF_8_ALLOWED
+    typescript_no_emit: PASS
+    rollout_focused_suite: PASS_34_ASSERTIONS
+    repository_regression: PASS_1549_OF_1549
+    obs04_regression: PASS_145_ASSERTIONS
+    codex_claude_gemini_hook_regression: PASS_ALL
+    postgres_isolated_suite: PASS_145_OF_145
+    sqlite_postgres_normalized_status_sha256: 3a9c014f9fe54e81138d53f2e988aa2373c85e92c54aa3e0424b85416b8781f1
+    production_build: PASS
+    git_diff_check: PASS
+    live_configuration_trust_activation_distribution_migration_restart: NOT_RUN_NOT_AUTHORIZED
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
-  result: CONDITIONAL_GO
+  result: PHASE_A_IMPLEMENTATION_PASS
   reason: >-
-    Direct owner instruction and issue 280 authorize implementation and R0
-    preparation. R4 policy still requires independent pre-implementation audit
-    and one exact manifest/build/config owner decision before any production
-    configuration, trust, activation, or distribution mutation.
+    Phase A tooling is implemented and locally verified without production
+    mutation. R4 policy still requires independent audit and one exact
+    manifest/build/config owner decision before production configuration,
+    trust, activation, or distribution mutation.
 
 next_action:
   blocking: false
   owner_agent: codex-audit
   owner_function: evidence_audit_gate
-  action: Independently audit the exact Phase A control artifacts and 35-binding denominator, returning PASS or itemized blocking findings.
+  action: Independently audit the exact Phase A implementation, control artifacts, false-acceptance resistance, and 35-binding denominator, returning PASS or itemized blocking findings.
   handoff_method: AUN instruction plus durable issue 280 comment.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - commit:7a9f1ed2c62151971da4d555c69ff0e0e8902f48
+    - tree:055711bd3b0436597cce97fec8ca04104bc38926
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Read-only R4 pre-implementation audit only; no product, runtime, config, trust, DB, merge, deployment, or queue mutation.
+  scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, or queue mutation.
   deliverable: Exact-ref PASS or itemized blocking findings with evidence.
   completion_evidence: Durable GitHub issue comment and AUN reply identifying auditor, refs, verdict, and findings.

@@ -21,6 +21,8 @@ exact_subject:
   provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   control_source: https://github.com/watchout/agent-memory/issues/280
+  phase_a_implementation_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
+  phase_a_implementation_tree_sha: 055711bd3b0436597cce97fec8ca04104bc38926
 
 target_denominator:
   manifest_version: 1
@@ -86,14 +88,16 @@ next_action:
   blocking: false
   owner_agent: codex-audit
   owner_function: evidence_audit_gate
-  action: Independently audit this R4 plan, 35-binding denominator derivation, phase boundaries, failure isolation, and proposed rollout evidence contract.
+  action: Independently audit the exact Phase A implementation, 35-binding denominator derivation, phase boundaries, failure isolation, native trust readback, and rollout evidence contract.
   handoff_method: AUN instruction referencing issue 280 and the exact artifact head/tree.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - commit:7a9f1ed2c62151971da4d555c69ff0e0e8902f48
+    - tree:055711bd3b0436597cce97fec8ca04104bc38926
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Read-only pre-implementation R4 plan and denominator audit; no file, runtime, config, trust, DB, merge, or deployment mutation.
+  scope: Read-only R4 Phase A implementation and denominator audit; no file, runtime, config, trust, DB, merge, or deployment mutation.
   deliverable: PASS or itemized blocking findings bound to the exact control-artifact head/tree.
   completion_evidence: Durable GitHub issue comment and AUN reply with auditor identity and exact refs.
