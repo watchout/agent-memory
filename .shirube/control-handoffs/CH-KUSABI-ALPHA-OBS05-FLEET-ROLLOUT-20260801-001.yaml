@@ -1,0 +1,193 @@
+schema_version: shirube-v3/control_handoff/v1
+control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+lifecycle_state: PHASE_A_AUTHORIZED_PREIMPLEMENTATION_AUDIT_PENDING
+mode: full
+profile: protected-surface
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-08-01"
+  issue_ref: https://github.com/watchout/agent-memory/issues/280
+  instruction: >-
+    Set distribution to every eligible production agent binding as the goal and
+    continue by the shortest path without stopping at each agent or at
+    intermediate ACK, queue, CI, or merge states.
+
+cell:
+  id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+  cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  cell_type: protected_fleet_rollout
+  risk_class: R4
+  goal: >-
+    Build and operate one deterministic, rollback-safe, observable rollout for
+    the frozen 35-binding Kusabi fleet and hand exact readback to OBS-06.
+
+execution_context:
+  agent_id: kusabi
+  active_function: implementation_executor
+  orchestration_transition_ref: direct-owner-instruction:2026-08-01:full-agent-distribution
+  canonical_workspace: /Users/yuji/Developer/agent-memory
+  candidate_worktree: /Users/yuji/Developer/.wt-kusabi-alpha-obs05-fleet-rollout
+  repository: watchout/agent-memory
+
+exact_subject:
+  base_branch: main
+  provisional_base_sha: 3070a842627b0f9b61f8c60c331b19727b755083
+  provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
+  head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
+  dependency_pr: https://github.com/watchout/agent-memory/pull/277
+  control_source_issue: https://github.com/watchout/agent-memory/issues/280
+
+allowed_paths:
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  - docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md
+  - src/kusabi-fleet-rollout.ts
+  - src/test-kusabi-fleet-rollout.ts
+  - package.json
+
+forbidden_paths:
+  - src/*hook-installer.ts
+  - src/*session-start.ts
+  - src/stores/**
+  - src/*migration*
+  - dist/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .github/**
+  - .env
+  - .env.*
+  - secrets/**
+
+phase_a_allowed_operations:
+  - read-only authoritative inventory and existing configuration inspection
+  - create and edit only allowed_paths
+  - implement deterministic manifest, rollout-plan, R0, stage-gate, and observed-deployment evidence tooling
+  - use existing native host installers through their exported atomic APIs in tests and dry-run only
+  - run local schema, TypeScript, unit, full regression, SQLite, isolated PostgreSQL, build, privacy, path-scope, and diff checks
+  - create temporary test-only workspaces, files, SQLite databases, and isolated PostgreSQL schemas with deterministic cleanup
+  - commit and push the implementation branch without force
+  - create and update one draft pull request targeting main
+  - route the two required independent audits through AUN
+  - generate credential-safe local R0 and manifest candidate artifacts without raw paths or environment values
+
+phase_a_forbidden_operations:
+  - write any production agent configuration or trust state
+  - activate, distribute, deploy, restart, stop, launch, or inject any production agent/session
+  - write live Kusabi runtime events or change live SQLite/PostgreSQL state
+  - external notification other than durable control/audit routing for this cell
+  - wrapper use, TUI input, tmux send-keys, clipboard writes, or automatic restart
+  - maker self-audit, self-approval, self-merge, bypass, force-push, npm publish, tag, or release
+  - access or persist credentials, database URLs, environment values, raw absolute paths, prompts, conversations, recovery content, private reasoning, exceptions, or stacks as telemetry
+
+phase_b_protected_operations:
+  authorization_state: PENDING_EXACT_MANIFEST_OWNER_GO
+  allowed_only_after:
+    - PR 277 merged exact-head verification
+    - pre-implementation R4 audit PASS with zero blocking findings
+    - final implementation head/tree and host artifact hashes frozen
+    - 35-target manifest and rollout-plan hashes frozen
+    - R0 35/35 PASS with rollback preimages and expected postimages
+    - exact owner decision binding implementation head/tree, manifest hash, rollout-plan hash, and artifact/config/binding/backend tuple
+  proposed_operations:
+    - atomically apply only the managed Kusabi hook definition for manifest targets in R1, R2, then R3 order
+    - preserve unrelated settings and create mode-0600 preimage backups
+    - perform read-only post-write byte/hash verification and emit observed deployment evidence
+    - request normal native host trust/review through explicit operator actions without TUI injection or automatic restart
+    - rollback the affected stage only when a frozen stop condition fires
+
+stop_conditions:
+  - PR 277 merges a head or tree other than the approved exact tuple
+  - the canonical eligible selector or approved Kusabi three-host binding produces a denominator other than the frozen 35 targets
+  - any workspace, runtime, project, target key, preimage, expected postimage, artifact, trust, backend, store binding, or owner-decision ref is unresolved or mismatched
+  - a config path or runtime artifact is a symlink or non-regular file
+  - a write would touch anything except the one managed host definition and its installer backup
+  - any required audit returns a blocking finding
+  - a stage produces an open P0/P1, privacy violation, failed/drifted/not_observed target, or non-durable evidence at its deadline
+  - protected mutation is attempted before the exact manifest owner GO
+  - merge or deployment would require bypass or scope expansion
+
+required_checks:
+  - npx tsc --noEmit
+  - npx tsx src/test-kusabi-fleet-rollout.ts
+  - npm test
+  - npm run test:codex-hook
+  - npm run test:claude-hook
+  - npm run test:gemini-hook
+  - isolated SQLite and PostgreSQL parity checks
+  - npm run build
+  - strict schema compile and positive/negative fixtures
+  - git diff --check
+  - exact changed-path equality against allowed_paths
+  - forbidden telemetry and network side-effect scan
+
+required_evidence:
+  - issue_280_control_source
+  - dependency_pr_277_merge_sha_tree_and_main_ancestry
+  - exact_changed_files_and_validation_results
+  - manifest_id_version_sha256_target_count_and_exclusions
+  - rollout_plan_sha256_stage_membership_and_batch_order
+  - r0_35_of_35_preimage_expected_postimage_and_rollback_report
+  - two_independent_audit_records
+  - exact_head_owner_decision
+  - r1_r2_r3_stage_reports_and_obs04_status_snapshots
+  - zero_forbidden_effect_report
+
+owner_decision:
+  result: APPROVED_GOAL_AND_PHASE_A
+  actor: watchout
+  observed_at: "2026-08-01"
+  decision_ref: direct-owner-instruction:2026-08-01:full-agent-distribution
+  scope: phase_a_allowed_operations only
+  implementation_authorized: true
+  read_only_r0_authorized: true
+  production_configuration_mutation_authorized: false
+  trust_mutation_authorized: false
+  fleet_distribution_authorized: false
+  activation_or_restart_authorized: false
+  exact_manifest_owner_decision_required: true
+
+evidence:
+  issue_created: https://github.com/watchout/agent-memory/issues/280
+  provisional_target_count: 35
+  provisional_host_counts:
+    codex: 21
+    claude_code: 13
+    gemini_cli: 1
+  workspace_resolution: PASS_35_OF_35
+  unsafe_or_invalid_config_paths: PASS_0_OF_35
+  existing_managed_placements: 3
+  unplaced_bindings: 32
+  current_three_host_runtime_roots_current_build: false
+  production_mutation_performed: false
+
+gate_result:
+  gate: kusabi_alpha_obs05_phase_a_entry
+  result: CONDITIONAL_GO
+  reason: >-
+    Direct owner instruction and issue 280 authorize implementation and R0
+    preparation. R4 policy still requires independent pre-implementation audit
+    and one exact manifest/build/config owner decision before any production
+    configuration, trust, activation, or distribution mutation.
+
+next_action:
+  blocking: false
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: Independently audit the exact Phase A control artifacts and 35-binding denominator, returning PASS or itemized blocking findings.
+  handoff_method: AUN instruction plus durable issue 280 comment.
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/280
+    - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - commit:3070a842627b0f9b61f8c60c331b19727b755083
+    - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
+  scope: Read-only R4 pre-implementation audit only; no product, runtime, config, trust, DB, merge, deployment, or queue mutation.
+  deliverable: Exact-ref PASS or itemized blocking findings with evidence.
+  completion_evidence: Durable GitHub issue comment and AUN reply identifying auditor, refs, verdict, and findings.

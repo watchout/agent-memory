@@ -1,0 +1,99 @@
+schema_version: shirube-v3/cell/v1
+cell_id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+cell_type: protected_fleet_rollout
+risk_class: R4
+control_source: https://github.com/watchout/agent-memory/issues/280
+goal: >-
+  Freeze the authoritative eligible-production binding denominator, implement
+  deterministic read-only inventory and staged rollout tooling, distribute one
+  exact Kusabi build to every frozen binding, and prove exact durable readback
+  before handing the fleet to the OBS-06 soak cell.
+
+dependencies:
+  - cell_id: KUSABI-ALPHA-OBS04-STATUS-FEEDBACK-20260730-001
+    completion_ref: https://github.com/watchout/agent-memory/pull/277
+    required_state: merged_exact_head_and_tree_verified
+
+exact_subject:
+  repository: watchout/agent-memory
+  base_branch: main
+  provisional_base_sha: 3070a842627b0f9b61f8c60c331b19727b755083
+  provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
+  head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
+  control_source: https://github.com/watchout/agent-memory/issues/280
+
+target_denominator:
+  manifest_version: 1
+  target_count: 35
+  host_counts:
+    codex: 21
+    claude_code: 13
+    gemini_cli: 1
+  canonical_three_host_canary_agent_id: kusabi
+  source_refs:
+    - /Users/yuji/.codex/skills/applying-onisoku-pdca/scripts/fleet-daily-pdca.sh eligible
+    - aun:agents-runtime-profile-read-only
+    - control-handoff:CH-KUSABI-G3-ACTIVATION-20260727-001
+  exclusions:
+    - human
+    - disabled
+    - retired
+    - test_only
+    - fixture
+    - unapproved_secondary_binding
+
+stage_contract:
+  r0: read_only_inventory_and_rollback_preimage
+  r1: kusabi_codex_claude_gemini_canary
+  r2: prior_12_seat_cohort_minus_kusabi_codex_already_in_r1
+  r3: all_remaining_manifest_targets_in_deterministic_batches
+  handoff_to_obs06: full_manifest_exact_and_durable_readback_with_zero_open_p0_p1
+
+acceptance_criteria:
+  - Manifest target keys and manifest SHA-256 are deterministic and unique.
+  - All 35 workspace bindings resolve without persisting raw paths or secrets.
+  - R0 records every preimage state/hash and expected postimage hash without writing configuration.
+  - Rollout tooling refuses any head, tree, artifact, config, binding, trust, backend, store-binding, workspace, or owner-decision mismatch.
+  - Existing unrelated host hooks and settings are preserved byte-semantically.
+  - Configuration writes are atomic and create mode-0600 rollback backups when a preimage exists.
+  - R1, R2, and R3 advance only when the prior stage has 100% exact durable coverage and zero open P0/P1 alerts.
+  - A read-only deployment observer records observed identity rather than copying expected identity.
+  - The final OBS-05 snapshot has exact and durable coverage 100%, failed/drifted/not_observed 0, privacy violations 0, and open P0/P1 0.
+  - No wrapper, TUI injection, tmux send-keys, automatic restart, bypass merge, force-push, secret access, or raw-path telemetry occurs.
+
+required_gates:
+  - machine_path_and_schema_checks
+  - full_ci
+  - independent_pre_implementation_plan_and_manifest_audit
+  - independent_post_implementation_exact_head_and_runtime_evidence_audit
+  - exact_head_owner_decision_before_protected_configuration_or_distribution_mutation
+  - separate_merge_actor
+
+completion_boundary:
+  completes_cell: false
+  successor_cell: KUSABI-ALPHA-OBS06-SOAK-CLOSURE-20260801-001
+  required_handoff_evidence:
+    - exact_manifest_id_version_sha256_and_target_count
+    - exact_implementation_head_tree_and_artifact_hashes
+    - r0_35_of_35_preflight
+    - r1_r2_r3_stage_reports
+    - full_manifest_obs04_status_snapshot
+    - rollback_and_forbidden_effect_report
+    - two_independent_audit_results
+    - owner_exact_manifest_go
+
+next_action:
+  blocking: false
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: Independently audit this R4 plan, 35-binding denominator derivation, phase boundaries, failure isolation, and proposed rollout evidence contract.
+  handoff_method: AUN instruction referencing issue 280 and the exact artifact head/tree.
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/280
+    - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - commit:3070a842627b0f9b61f8c60c331b19727b755083
+    - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
+  scope: Read-only pre-implementation R4 plan and denominator audit; no file, runtime, config, trust, DB, merge, or deployment mutation.
+  deliverable: PASS or itemized blocking findings bound to the exact control-artifact head/tree.
+  completion_evidence: Durable GitHub issue comment and AUN reply with auditor identity and exact refs.
