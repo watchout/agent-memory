@@ -42,8 +42,10 @@ for an otherwise eligible canonical agent.
 
 The database query itself remains behind the inventory adapter boundary. The
 rollout core accepts only `kusabi-fleet-inventory-snapshot/v1`, pins the query
-contract SHA-256, recomputes every binding key and the snapshot SHA-256, and
-requires all eligibility predicates to be true. Missing, extra, duplicated,
+contract SHA-256, records a reproducible primary-query result SHA-256,
+recomputes every binding key and the snapshot SHA-256, and requires the
+registered ID to equal the canonical ID plus all eligibility predicates to be
+true. Missing, extra, duplicated,
 unsorted, inactive, disabled, stale-alias, or hash-mismatched inventory fails
 closed. The rollout plan and R0 report both bind the snapshot and its exact
 primary/secondary denominator; protected batch application must receive the

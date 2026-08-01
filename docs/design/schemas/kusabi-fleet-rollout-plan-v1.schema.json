@@ -67,6 +67,7 @@
       "required": [
         "snapshot_sha256",
         "query_contract_sha256",
+        "primary_result_sha256",
         "primary_binding_count",
         "secondary_binding_count",
         "target_count"
@@ -74,6 +75,7 @@
       "properties": {
         "snapshot_sha256": { "$ref": "#/$defs/sha256" },
         "query_contract_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_result_sha256": { "$ref": "#/$defs/sha256" },
         "primary_binding_count": { "type": "integer", "minimum": 0 },
         "secondary_binding_count": { "type": "integer", "minimum": 0 },
         "target_count": { "type": "integer", "minimum": 1 }

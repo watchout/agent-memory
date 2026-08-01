@@ -113,6 +113,7 @@ export interface KusabiFleetInventoryEligibility {
 
 export interface KusabiFleetInventoryBinding {
   binding_key: string;
+  registered_agent_id: string;
   canonical_agent_id: string;
   project: string;
   host_runtime: KusabiHostRuntime;
@@ -130,6 +131,7 @@ export interface KusabiFleetInventorySnapshot {
     kind: "agent_comms_postgres";
     query_contract_id: "kusabi-fleet-eligibility/v1";
     query_contract_sha256: string;
+    primary_result_sha256: string;
     captured_at: string;
   };
   primary_binding_count: number;
@@ -140,13 +142,14 @@ export interface KusabiFleetInventorySnapshot {
 
 export interface KusabiFleetInventorySnapshotInput {
   schema_version: "kusabi-fleet-inventory-snapshot/v1";
-  source: KusabiFleetInventorySnapshot["source"];
+  source: Omit<KusabiFleetInventorySnapshot["source"], "primary_result_sha256">;
   bindings: KusabiFleetInventoryBindingInput[];
 }
 
 export interface KusabiFleetInventorySummary {
   snapshot_sha256: string;
   query_contract_sha256: string;
+  primary_result_sha256: string;
   primary_binding_count: number;
   secondary_binding_count: number;
   target_count: number;
@@ -378,7 +381,12 @@ export function sealKusabiFleetInventorySnapshot(
   })).sort((left, right) => left.binding_key.localeCompare(right.binding_key));
   const snapshot: KusabiFleetInventorySnapshot = {
     schema_version: input.schema_version,
-    source: input.source,
+    source: {
+      ...input.source,
+      primary_result_sha256: sha256(canonicalJson(
+        bindings.filter(({ binding_source }) => binding_source === "agent_comms_primary"),
+      )),
+    },
     primary_binding_count: bindings.filter(({ binding_source }) => binding_source === "agent_comms_primary").length,
     secondary_binding_count: bindings.filter(({ binding_source }) => binding_source === "owner_approved_secondary").length,
     bindings,
@@ -397,10 +405,13 @@ export function assertKusabiFleetInventorySnapshot(
   ])) fail("KUSABI_FLEET_INVENTORY_INVALID");
   if (
     value.schema_version !== "kusabi-fleet-inventory-snapshot/v1" || !isRecord(value.source) ||
-    !exactKeys(value.source, ["kind", "query_contract_id", "query_contract_sha256", "captured_at"]) ||
+    !exactKeys(value.source, [
+      "kind", "query_contract_id", "query_contract_sha256", "primary_result_sha256", "captured_at",
+    ]) ||
     value.source.kind !== "agent_comms_postgres" ||
     value.source.query_contract_id !== "kusabi-fleet-eligibility/v1" ||
     value.source.query_contract_sha256 !== KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 ||
+    !sha256Value(value.source.primary_result_sha256) ||
     !nonNegativeInteger(value.primary_binding_count) || !nonNegativeInteger(value.secondary_binding_count) ||
     !Array.isArray(value.bindings) || value.bindings.length < 1 || !sha256Value(value.snapshot_sha256)
   ) fail("KUSABI_FLEET_INVENTORY_INVALID");
@@ -419,9 +430,10 @@ export function assertKusabiFleetInventorySnapshot(
       ? rawBinding.eligibility
       : null;
     if (!isRecord(rawBinding) || !exactKeys(rawBinding, [
-      "binding_key", "canonical_agent_id", "project", "host_runtime", "workspace_sha256",
+      "binding_key", "registered_agent_id", "canonical_agent_id", "project", "host_runtime", "workspace_sha256",
       "binding_source", "binding_source_ref_sha256", "eligibility",
-    ]) || !boundedId(rawBinding.canonical_agent_id) || !boundedId(rawBinding.project) ||
+    ]) || !boundedId(rawBinding.registered_agent_id) || !boundedId(rawBinding.canonical_agent_id) ||
+      rawBinding.registered_agent_id !== rawBinding.canonical_agent_id || !boundedId(rawBinding.project) ||
       !(rawBinding.host_runtime === "codex" || rawBinding.host_runtime === "claude_code" ||
         rawBinding.host_runtime === "gemini_cli") || !sha256Value(rawBinding.workspace_sha256) ||
       !(rawBinding.binding_source === "agent_comms_primary" ||
@@ -446,6 +458,13 @@ export function assertKusabiFleetInventorySnapshot(
     primaryCount + secondaryCount !== value.bindings.length) {
     fail("KUSABI_FLEET_INVENTORY_COUNT_MISMATCH");
   }
+  const primaryResultSha256 = sha256(canonicalJson(
+    (value.bindings as unknown as KusabiFleetInventoryBinding[])
+      .filter(({ binding_source }) => binding_source === "agent_comms_primary"),
+  ));
+  if (value.source.primary_result_sha256 !== primaryResultSha256) {
+    fail("KUSABI_FLEET_INVENTORY_PRIMARY_RESULT_MISMATCH");
+  }
   const snapshot = value as unknown as KusabiFleetInventorySnapshot;
   if (kusabiFleetInventorySnapshotSha256(snapshot) !== snapshot.snapshot_sha256) {
     fail("KUSABI_FLEET_INVENTORY_HASH_MISMATCH");
@@ -456,6 +475,7 @@ function inventorySummary(snapshot: KusabiFleetInventorySnapshot): KusabiFleetIn
   return {
     snapshot_sha256: snapshot.snapshot_sha256,
     query_contract_sha256: snapshot.source.query_contract_sha256,
+    primary_result_sha256: snapshot.source.primary_result_sha256,
     primary_binding_count: snapshot.primary_binding_count,
     secondary_binding_count: snapshot.secondary_binding_count,
     target_count: snapshot.bindings.length,
@@ -554,9 +574,11 @@ export function assertKusabiFleetRolloutPlan(
     !isRecord(value.implementation) || !exactKeys(value.implementation, ["commit_sha", "tree_sha"]) ||
     !gitSha(value.implementation.commit_sha) || !gitSha(value.implementation.tree_sha) ||
     !isRecord(value.inventory) || !exactKeys(value.inventory, [
-      "snapshot_sha256", "query_contract_sha256", "primary_binding_count", "secondary_binding_count", "target_count",
+      "snapshot_sha256", "query_contract_sha256", "primary_result_sha256",
+      "primary_binding_count", "secondary_binding_count", "target_count",
     ]) || !sha256Value(value.inventory.snapshot_sha256) ||
     value.inventory.query_contract_sha256 !== KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 ||
+    !sha256Value(value.inventory.primary_result_sha256) ||
     !nonNegativeInteger(value.inventory.primary_binding_count) ||
     !nonNegativeInteger(value.inventory.secondary_binding_count) ||
     !positiveInteger(value.inventory.target_count) ||

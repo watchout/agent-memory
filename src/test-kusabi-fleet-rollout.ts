@@ -20,6 +20,7 @@ import {
   sealKusabiFleetRolloutAuthorization,
   type KusabiFleetInventoryBindingInput,
   type KusabiFleetInventorySnapshot,
+  type KusabiFleetInventorySnapshotInput,
   type KusabiFleetObservedTarget,
   type KusabiFleetR0Options,
   type KusabiFleetRolloutTargetInput,
@@ -101,6 +102,7 @@ async function main(): Promise<void> {
       r0.report.inventory.snapshot_sha256 === r0.inventory_snapshot.snapshot_sha256,
     "R0 binds the authoritative inventory snapshot into plan and report");
     check(r0.inventory_snapshot.source.query_contract_sha256 === KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 &&
+      r0.inventory_snapshot.source.primary_result_sha256 === r0.rollout_plan.inventory.primary_result_sha256 &&
       r0.inventory_snapshot.primary_binding_count + r0.inventory_snapshot.secondary_binding_count === 5,
     "R0 pins the shared-DB query contract and primary/secondary denominator");
     assertKusabiFleetInventorySnapshot(r0.inventory_snapshot);
@@ -160,6 +162,13 @@ async function main(): Promise<void> {
       schema_version: "kusabi-fleet-inventory-snapshot/v1",
       source: inventorySource(),
       bindings: ineligibleBindings,
+    }));
+    const aliasBindings = inventoryBindingsFor(targets);
+    aliasBindings[0].registered_agent_id = "legacy-alias";
+    await expectCode("KUSABI_FLEET_INVENTORY_BINDING_INVALID", () => sealKusabiFleetInventorySnapshot({
+      schema_version: "kusabi-fleet-inventory-snapshot/v1",
+      source: inventorySource(),
+      bindings: aliasBindings,
     }));
 
     const unsorted = structuredClone(r0.rollout_plan);
@@ -398,7 +407,7 @@ function r0Options(
   };
 }
 
-function inventorySource(): KusabiFleetInventorySnapshot["source"] {
+function inventorySource(): KusabiFleetInventorySnapshotInput["source"] {
   return {
     kind: "agent_comms_postgres",
     query_contract_id: "kusabi-fleet-eligibility/v1",
@@ -409,6 +418,7 @@ function inventorySource(): KusabiFleetInventorySnapshot["source"] {
 
 function inventoryBindingsFor(targets: KusabiFleetRolloutTargetInput[]): KusabiFleetInventoryBindingInput[] {
   return targets.map((target) => ({
+    registered_agent_id: target.agent_id,
     canonical_agent_id: target.agent_id,
     project: target.project,
     host_runtime: target.host_runtime,
