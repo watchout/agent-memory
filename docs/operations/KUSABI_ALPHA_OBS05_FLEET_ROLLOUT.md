@@ -32,12 +32,16 @@ before computing a postimage. It records only:
 - hashed config locator;
 - absent/file preimage state, SHA-256, and mode;
 - expected postimage and actual adapter artifact SHA-256;
+- native trust-source locator SHA-256, observed preimage trust fingerprint,
+  expected trust fingerprint, and explicit preimage exact/not-exact state;
 - whether rollback material is required.
 
 The desired postimage is produced by the existing Codex, Claude Code, or Gemini
 CLI merge function. That preserves unrelated settings and hook handlers while
 replacing only the managed Wasurezu SessionStart definition. R0 performs zero
-production writes.
+production writes. The trust preimage is evaluated against the desired managed
+command, so one complete manual-trust delta is known before R1 rather than
+being discovered target by target during rollout.
 
 ## Exact authorization
 

@@ -83,6 +83,7 @@ export interface KusabiFleetRolloutTargetInput {
   workspace: string;
   binding_source_ref: string;
   storage: KusabiFleetDeploymentIdentity["storage"];
+  trust_source: KusabiFleetTrustSource;
   stage: KusabiFleetRolloutStage;
   batch_id: string;
   maintenance_windows?: Array<{ started_at: string; ended_at: string }>;
@@ -123,6 +124,10 @@ export interface KusabiFleetR0TargetEvidence {
   preimage_mode: string | null;
   expected_postimage_sha256: string;
   artifact_sha256: string;
+  trust_source_locator_sha256: string;
+  preimage_trust_fingerprint_sha256: string;
+  expected_trust_fingerprint_sha256: string;
+  preimage_trust_exact: boolean;
   rollback_required: boolean;
 }
 
@@ -255,6 +260,10 @@ interface PreparedTarget {
   desiredSha256: string;
   artifactSha256: string;
   adapterVersion: string;
+  expectedTrustFingerprint: string;
+  observedTrustFingerprint: string;
+  observedTrustExact: boolean;
+  trustSourceLocatorSha256: string;
 }
 
 export function kusabiFleetRolloutPlanSha256(plan: KusabiFleetRolloutPlan): string {
@@ -408,12 +417,7 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
         },
         configuration: {
           config_sha256: target.desiredSha256,
-          trust_fingerprint_sha256: expectedTrustFingerprint(
-            target.input.host_runtime,
-            target.targetKey,
-            sha256(target.workspace),
-            target.desiredRaw,
-          ),
+          trust_fingerprint_sha256: target.expectedTrustFingerprint,
           binding_source_ref_sha256: sha256(target.input.binding_source_ref),
         },
         storage: target.input.storage,
@@ -466,6 +470,10 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
     preimage_mode: target.snapshot.mode,
     expected_postimage_sha256: target.desiredSha256,
     artifact_sha256: target.artifactSha256,
+    trust_source_locator_sha256: target.trustSourceLocatorSha256,
+    preimage_trust_fingerprint_sha256: target.observedTrustFingerprint,
+    expected_trust_fingerprint_sha256: target.expectedTrustFingerprint,
+    preimage_trust_exact: target.observedTrustExact,
     rollback_required: target.snapshot.raw !== target.desiredRaw,
   })).sort((left, right) => left.target_key.localeCompare(right.target_key));
   const report: KusabiFleetR0Report = {
@@ -730,6 +738,20 @@ async function prepareTarget(input: KusabiFleetRolloutTargetInput, runtimeRoot: 
   const snapshot = await readConfigSnapshot(workspace, input.host_runtime);
   const desiredRaw = desiredConfigRaw(input.host_runtime, snapshot.raw,
     runtimeRoot, bindingFor(identity, workspace, input.binding_source_ref));
+  const expectedTrust = expectedTrustFingerprint(
+    input.host_runtime,
+    kusabiFleetTargetKey(identity),
+    identity.workspace_sha256,
+    desiredRaw,
+  );
+  const observedTrust = await observeTrustFingerprint(
+    input.host_runtime,
+    kusabiFleetTargetKey(identity),
+    identity.workspace_sha256,
+    snapshot.configPath,
+    desiredRaw,
+    input.trust_source,
+  );
   return {
     input,
     workspace,
@@ -739,7 +761,28 @@ async function prepareTarget(input: KusabiFleetRolloutTargetInput, runtimeRoot: 
     desiredSha256: sha256(desiredRaw),
     artifactSha256: await readArtifactSha256(runtimeRoot, input.host_runtime),
     adapterVersion: adapterVersion(input.host_runtime),
+    expectedTrustFingerprint: expectedTrust,
+    observedTrustFingerprint: observedTrust.fingerprint,
+    observedTrustExact: observedTrust.verified,
+    trustSourceLocatorSha256: trustSourceLocatorSha256(input.trust_source),
   };
+}
+
+function trustSourceLocatorSha256(source: KusabiFleetTrustSource): string {
+  if (source.kind === "codex_hook_state") {
+    return sha256(canonicalCompactJson({ kind: source.kind, config_toml_sha256: sha256(source.config_toml) }));
+  }
+  if (source.kind === "claude_project_state") {
+    return sha256(canonicalCompactJson({
+      kind: source.kind,
+      claude_state_json_sha256: sha256(source.claude_state_json),
+    }));
+  }
+  return sha256(canonicalCompactJson({
+    kind: source.kind,
+    trusted_folders_json_sha256: sha256(source.trusted_folders_json),
+    trusted_hooks_json_sha256: sha256(source.trusted_hooks_json),
+  }));
 }
 
 function desiredConfigRaw(
@@ -1142,10 +1185,24 @@ function validateTargetInput(input: KusabiFleetRolloutTargetInput): void {
     fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
   }
   requireStorage(input.storage);
+  requireTrustSource(input.trust_source, input.host_runtime);
   for (const window of input.maintenance_windows ?? []) {
     requireTimestamp(window.started_at, "KUSABI_FLEET_TARGET_INPUT_INVALID");
     requireTimestamp(window.ended_at, "KUSABI_FLEET_TARGET_INPUT_INVALID");
     if (Date.parse(window.started_at) >= Date.parse(window.ended_at)) fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
+  }
+}
+
+function requireTrustSource(source: KusabiFleetTrustSource, host: KusabiHostRuntime): void {
+  if (!isRecord(source) ||
+    (host === "codex" && (!exactKeys(source, ["kind", "config_toml"]) ||
+      source.kind !== "codex_hook_state" || !canonicalText(source.config_toml))) ||
+    (host === "claude_code" && (!exactKeys(source, ["kind", "claude_state_json"]) ||
+      source.kind !== "claude_project_state" || !canonicalText(source.claude_state_json))) ||
+    (host === "gemini_cli" && (!exactKeys(source, ["kind", "trusted_folders_json", "trusted_hooks_json"]) ||
+      source.kind !== "gemini_hook_state" || !canonicalText(source.trusted_folders_json) ||
+      !canonicalText(source.trusted_hooks_json)))) {
+    fail("KUSABI_FLEET_TRUST_SOURCE_MISMATCH");
   }
 }
 

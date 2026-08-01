@@ -56,6 +56,10 @@ async function main(): Promise<void> {
     await writeFile(join(runtimeRoot, "dist", "codex-session-start.js"), "codex-artifact-v1\n");
     await writeFile(join(runtimeRoot, "dist", "claude-session-start.js"), "claude-artifact-v1\n");
     await writeFile(join(runtimeRoot, "dist", "gemini-session-start.js"), "gemini-artifact-v1\n");
+    await writeFile(join(root, "codex-config.toml"), "[hooks.state]\n");
+    await writeFile(join(root, "claude-state.json"), '{"projects":{}}');
+    await writeFile(join(root, "gemini-trusted-folders.json"), "{}");
+    await writeFile(join(root, "gemini-trusted-hooks.json"), "{}");
 
     const targets: KusabiFleetRolloutTargetInput[] = [];
     const hosts: KusabiHostRuntime[] = ["codex", "claude_code", "gemini_cli", "codex", "claude_code"];
@@ -71,6 +75,7 @@ async function main(): Promise<void> {
         workspace,
         binding_source_ref: `binding-source-${index + 1}`,
         storage: STORAGE,
+        trust_source: trustSourceFor(root, hosts[index]),
         stage,
         batch_id: batchId,
       });
@@ -91,10 +96,19 @@ async function main(): Promise<void> {
       "R1/R2/R3 memberships are deterministic");
     check(r0.report.production_mutation_count === 0 && r0.report.forbidden_value_count === 0,
       "R0 reports zero mutation and forbidden values");
+    check(r0.report.targets.every((target) =>
+      !target.preimage_trust_exact && target.preimage_trust_fingerprint_sha256.length === 64 &&
+      target.expected_trust_fingerprint_sha256.length === 64 && target.trust_source_locator_sha256.length === 64),
+    "R0 records credential-safe native trust preimages for every target");
     const persisted = JSON.stringify(r0);
     check(!targets.some((target) => persisted.includes(target.workspace)), "R0 artifacts contain no raw workspace paths");
     check(!targets.some((target) => persisted.includes(target.binding_source_ref)),
       "R0 artifacts contain no raw binding refs");
+    check(!targets.some((target) => {
+      const source = target.trust_source;
+      return Object.values(source).some((value) => typeof value === "string" && value !== source.kind &&
+        persisted.includes(value));
+    }), "R0 artifacts contain no raw trust-state locators");
 
     const schema = JSON.parse(await readFile(
       join(process.cwd(), "docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json"), "utf8"));
@@ -149,10 +163,6 @@ async function main(): Promise<void> {
       const raw = await readFile(configPath(target), "utf8");
       check(raw.includes("unrelated-hook"), `${target.host_runtime} unrelated hook is preserved`);
     }
-    await writeFile(join(root, "codex-config.toml"), "[hooks.state]\n");
-    await writeFile(join(root, "claude-state.json"), '{"projects":{}}');
-    await writeFile(join(root, "gemini-trusted-folders.json"), "{}");
-    await writeFile(join(root, "gemini-trusted-hooks.json"), "{}");
     const untrustedInput = targets[0];
     const untrustedObservation = await observeKusabiFleetDeployment({
       target: manifestTargetFor(r0.manifest, untrustedInput),

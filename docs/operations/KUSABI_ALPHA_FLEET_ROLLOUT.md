@@ -436,3 +436,8 @@ credential-safe `kusabi-store-binding/v1` hash from the actually selected
 store locator; runtime emission fails closed before store creation when that
 hash or backend differs from the manifest. It does not itself authorize Phase
 B or alter the actor and closure boundaries above.
+
+R0 also records the current native trust preimage for every manifest target
+against the desired command, using only locator and fingerprint hashes. This
+freezes the complete operator trust delta before protected mutation without
+persisting user-home paths or private host state.
