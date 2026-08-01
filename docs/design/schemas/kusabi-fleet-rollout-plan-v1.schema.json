@@ -9,6 +9,7 @@
     "rollout_id",
     "manifest",
     "implementation",
+    "inventory",
     "batches",
     "rollout_plan_sha256"
   ],
@@ -17,6 +18,7 @@
     "rollout_id": { "$ref": "#/$defs/boundedId" },
     "manifest": { "$ref": "#/$defs/manifest" },
     "implementation": { "$ref": "#/$defs/implementation" },
+    "inventory": { "$ref": "#/$defs/inventory" },
     "batches": {
       "type": "array",
       "minItems": 3,
@@ -57,6 +59,24 @@
       "properties": {
         "commit_sha": { "$ref": "#/$defs/gitSha" },
         "tree_sha": { "$ref": "#/$defs/gitSha" }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_sha256",
+        "query_contract_sha256",
+        "primary_binding_count",
+        "secondary_binding_count",
+        "target_count"
+      ],
+      "properties": {
+        "snapshot_sha256": { "$ref": "#/$defs/sha256" },
+        "query_contract_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_binding_count": { "type": "integer", "minimum": 0 },
+        "secondary_binding_count": { "type": "integer", "minimum": 0 },
+        "target_count": { "type": "integer", "minimum": 1 }
       }
     },
     "batch": {

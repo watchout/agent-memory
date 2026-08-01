@@ -8,13 +8,18 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
   applyKusabiFleetRolloutBatch,
+  assertKusabiFleetInventorySnapshot,
   assertKusabiFleetRolloutAuthorization,
   assertKusabiFleetRolloutPlan,
   evaluateKusabiFleetBatchGate,
+  KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256,
   kusabiCodexHookTrustRecords,
   observeKusabiFleetDeployment,
   prepareKusabiFleetR0,
+  sealKusabiFleetInventorySnapshot,
   sealKusabiFleetRolloutAuthorization,
+  type KusabiFleetInventoryBindingInput,
+  type KusabiFleetInventorySnapshot,
   type KusabiFleetObservedTarget,
   type KusabiFleetR0Options,
   type KusabiFleetRolloutTargetInput,
@@ -64,8 +69,9 @@ async function main(): Promise<void> {
     const targets: KusabiFleetRolloutTargetInput[] = [];
     const hosts: KusabiHostRuntime[] = ["codex", "claude_code", "gemini_cli", "codex", "claude_code"];
     for (let index = 0; index < hosts.length; index++) {
-      const workspace = join(root, `workspace-${index + 1}`);
-      await mkdir(workspace, { recursive: true });
+      const workspaceInput = join(root, `workspace-${index + 1}`);
+      await mkdir(workspaceInput, { recursive: true });
+      const workspace = await realpath(workspaceInput);
       const stage = index < 3 ? "r1" as const : index === 3 ? "r2" as const : "r3" as const;
       const batchId = stage === "r1" ? "r1-01" : stage === "r2" ? "r2-01" : "r3-01";
       targets.push({
@@ -90,6 +96,15 @@ async function main(): Promise<void> {
     const after = await Promise.all(targets.map(readRawConfig));
     check(JSON.stringify(before) === JSON.stringify(after), "R0 is read-only byte-for-byte");
     check(r0.manifest.targets.length === 5 && r0.report.target_count === 5, "R0 freezes the exact denominator");
+    check(r0.inventory_snapshot.bindings.length === 5 &&
+      r0.rollout_plan.inventory.snapshot_sha256 === r0.inventory_snapshot.snapshot_sha256 &&
+      r0.report.inventory.snapshot_sha256 === r0.inventory_snapshot.snapshot_sha256,
+    "R0 binds the authoritative inventory snapshot into plan and report");
+    check(r0.inventory_snapshot.source.query_contract_sha256 === KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 &&
+      r0.inventory_snapshot.primary_binding_count + r0.inventory_snapshot.secondary_binding_count === 5,
+    "R0 pins the shared-DB query contract and primary/secondary denominator");
+    assertKusabiFleetInventorySnapshot(r0.inventory_snapshot);
+    assertions++;
     check(new Set(r0.manifest.targets.map((target) => target.target_key)).size === 5,
       "R0 target keys are unique");
     check(r0.rollout_plan.batches.map((batch) => batch.target_keys.length).join(",") === "3,1,1",
@@ -118,8 +133,34 @@ async function main(): Promise<void> {
     check(validatePlan(r0.rollout_plan), "rollout plan validates against the normative schema");
     check(!validatePlan({ ...r0.rollout_plan, unexpected: true }),
       "normative schema rejects unknown rollout-plan fields");
-    assertKusabiFleetRolloutPlan(r0.rollout_plan, r0.manifest);
+    assertKusabiFleetRolloutPlan(r0.rollout_plan, r0.manifest, r0.inventory_snapshot);
     assertions++;
+
+    const staleAliasTargets = structuredClone(targets);
+    staleAliasTargets[0].agent_id = "legacy-agent-id";
+    await expectCode("KUSABI_FLEET_INVENTORY_MANIFEST_MISMATCH",
+      () => prepareKusabiFleetR0(r0Options(runtimeRoot, staleAliasTargets, r0.inventory_snapshot)));
+    const missingTarget = targets.slice(0, -1);
+    await expectCode("KUSABI_FLEET_INVENTORY_MANIFEST_MISMATCH",
+      () => prepareKusabiFleetR0(r0Options(runtimeRoot, missingTarget, r0.inventory_snapshot)));
+    const tamperedInventory = structuredClone(r0.inventory_snapshot);
+    tamperedInventory.snapshot_sha256 = "f".repeat(64);
+    await expectCode("KUSABI_FLEET_INVENTORY_HASH_MISMATCH",
+      () => prepareKusabiFleetR0(r0Options(runtimeRoot, targets, tamperedInventory)));
+    const unsortedInventory = structuredClone(r0.inventory_snapshot);
+    unsortedInventory.bindings.reverse();
+    await expectCode("KUSABI_FLEET_INVENTORY_ORDER_INVALID",
+      () => assertKusabiFleetInventorySnapshot(unsortedInventory));
+    const ineligibleBindings = inventoryBindingsFor(targets);
+    ineligibleBindings[0].eligibility = {
+      ...ineligibleBindings[0].eligibility,
+      new_work_allowed: false,
+    } as KusabiFleetInventoryBindingInput["eligibility"];
+    await expectCode("KUSABI_FLEET_INVENTORY_BINDING_INVALID", () => sealKusabiFleetInventorySnapshot({
+      schema_version: "kusabi-fleet-inventory-snapshot/v1",
+      source: inventorySource(),
+      bindings: ineligibleBindings,
+    }));
 
     const unsorted = structuredClone(r0.rollout_plan);
     unsorted.batches[0].target_keys.reverse();
@@ -146,9 +187,20 @@ async function main(): Promise<void> {
     await expectCode("KUSABI_FLEET_AUTHORIZATION_HASH_MISMATCH",
       () => assertKusabiFleetRolloutAuthorization(badAuthorization));
 
+    await expectCode("KUSABI_FLEET_ROLLOUT_INVENTORY_MISMATCH", () => applyKusabiFleetRolloutBatch({
+      plan: r0.rollout_plan,
+      manifest: r0.manifest,
+      inventory_snapshot: inventorySnapshotFor(targets.slice(0, -1)),
+      authorization,
+      batch_id: "r1-01",
+      runtime_root: runtimeRoot,
+      targets,
+    }));
+
     const r1Apply = await applyKusabiFleetRolloutBatch({
       plan: r0.rollout_plan,
       manifest: r0.manifest,
+      inventory_snapshot: r0.inventory_snapshot,
       authorization,
       batch_id: "r1-01",
       runtime_root: runtimeRoot,
@@ -242,6 +294,7 @@ async function main(): Promise<void> {
     await expectCode("KUSABI_FLEET_PRIOR_BATCH_GATE_REQUIRED", () => applyKusabiFleetRolloutBatch({
       plan: r0.rollout_plan,
       manifest: r0.manifest,
+      inventory_snapshot: r0.inventory_snapshot,
       authorization,
       batch_id: "r2-01",
       runtime_root: runtimeRoot,
@@ -250,6 +303,7 @@ async function main(): Promise<void> {
     const r2Apply = await applyKusabiFleetRolloutBatch({
       plan: r0.rollout_plan,
       manifest: r0.manifest,
+      inventory_snapshot: r0.inventory_snapshot,
       authorization,
       batch_id: "r2-01",
       runtime_root: runtimeRoot,
@@ -318,7 +372,11 @@ async function main(): Promise<void> {
   }
 }
 
-function r0Options(runtimeRoot: string, targets: KusabiFleetRolloutTargetInput[]): KusabiFleetR0Options {
+function r0Options(
+  runtimeRoot: string,
+  targets: KusabiFleetRolloutTargetInput[],
+  inventorySnapshot: KusabiFleetInventorySnapshot = inventorySnapshotFor(targets),
+): KusabiFleetR0Options {
   return {
     manifest_id: "kusabi-fleet-test-20260801",
     manifest_version: 1,
@@ -335,8 +393,47 @@ function r0Options(runtimeRoot: string, targets: KusabiFleetRolloutTargetInput[]
       { batch_id: "r2-01", stage: "r2", ordinal: 2, minimum_soak_seconds: 3_600 },
       { batch_id: "r3-01", stage: "r3", ordinal: 3, minimum_soak_seconds: 0 },
     ],
+    inventory_snapshot: inventorySnapshot,
     targets,
   };
+}
+
+function inventorySource(): KusabiFleetInventorySnapshot["source"] {
+  return {
+    kind: "agent_comms_postgres",
+    query_contract_id: "kusabi-fleet-eligibility/v1",
+    query_contract_sha256: KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256,
+    captured_at: "2026-08-01T04:59:00.000Z",
+  };
+}
+
+function inventoryBindingsFor(targets: KusabiFleetRolloutTargetInput[]): KusabiFleetInventoryBindingInput[] {
+  return targets.map((target) => ({
+    canonical_agent_id: target.agent_id,
+    project: target.project,
+    host_runtime: target.host_runtime,
+    workspace_sha256: digest(target.workspace),
+    binding_source: target.host_runtime === "codex" ? "agent_comms_primary" : "owner_approved_secondary",
+    binding_source_ref_sha256: digest(target.binding_source_ref),
+    eligibility: {
+      canonical_identity_verified: true,
+      agent_type_non_human: true,
+      agent_active: true,
+      profile_enabled: true,
+      runtime_supported: true,
+      production_workspace: true,
+      workspace_binding_active: true,
+      new_work_allowed: true,
+    },
+  }));
+}
+
+function inventorySnapshotFor(targets: KusabiFleetRolloutTargetInput[]): KusabiFleetInventorySnapshot {
+  return sealKusabiFleetInventorySnapshot({
+    schema_version: "kusabi-fleet-inventory-snapshot/v1",
+    source: inventorySource(),
+    bindings: inventoryBindingsFor(targets),
+  });
 }
 
 async function seedUnrelatedConfig(target: KusabiFleetRolloutTargetInput): Promise<void> {

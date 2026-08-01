@@ -15,6 +15,14 @@ The normative rollout-plan schema is
 `docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json`. Semantic
 validation additionally requires:
 
+- a self-hashed `agent_comms` inventory snapshot produced under the pinned
+  `kusabi-fleet-eligibility/v1` query contract;
+- canonical agent identity plus active agent/profile/workspace/new-work
+  eligibility for every binding;
+- exact equality between the inventory snapshot and manifest on canonical
+  agent ID, project, host runtime, workspace hash, and binding-source hash;
+- an explicit split between shared-DB primary bindings and owner-approved
+  secondary host bindings, with both counts bound into the plan hash;
 - every manifest target exactly once;
 - unique batch IDs and target keys;
 - canonical target-key ordering inside each batch;
@@ -23,6 +31,23 @@ validation additionally requires:
 - a self-consistent rollout-plan SHA-256.
 
 ## R0 evidence
+
+The shared `agent_comms` PostgreSQL database is the identity and production-seat
+source of truth. `agent_aliases` resolves legacy names to the canonical
+`agents.agent_id`; an alias that is disabled for new work cannot appear as a
+rollout identity. Primary workspace eligibility comes from the active agent,
+profile, and `agent_workspace_bindings` state. A secondary Claude Code or Gemini
+CLI binding is accepted only as an explicitly owner-approved secondary binding
+for an otherwise eligible canonical agent.
+
+The database query itself remains behind the inventory adapter boundary. The
+rollout core accepts only `kusabi-fleet-inventory-snapshot/v1`, pins the query
+contract SHA-256, recomputes every binding key and the snapshot SHA-256, and
+requires all eligibility predicates to be true. Missing, extra, duplicated,
+unsorted, inactive, disabled, stale-alias, or hash-mismatched inventory fails
+closed. The rollout plan and R0 report both bind the snapshot and its exact
+primary/secondary denominator; protected batch application must receive the
+same snapshot again.
 
 R0 canonicalizes each workspace with `realpath`, rejects a symlinked workspace,
 config directory, config file, or host artifact, and parses any existing JSON
@@ -110,7 +135,9 @@ No prior batch or unrelated setting is rolled back.
 ## Verification oracle
 
 `npm run test:kusabi-fleet-rollout` covers read-only R0, strict schema and
-semantic rejection, exact authorization, the three-host R1 apply, unrelated
+semantic rejection, DB-inventory/manifest equality, stale-alias, missing-seat,
+ineligible-seat, inventory-order and inventory-hash refusal, exact
+authorization, the three-host R1 apply, unrelated
 hook preservation, mode 0600, native trust refusal before approval, observed
 identity, P1 blocking, prior-stage enforcement, the exact one-hour R2
 threshold, byte-level drift detection, and symlink refusal. The suite uses

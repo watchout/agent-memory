@@ -49,6 +49,27 @@ const GIT_SHA_RE = /^[a-f0-9]{40}$/;
 const BOUNDED_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const STAGE_ORDER = { r1: 1, r2: 2, r3: 3 } as const;
 
+const KUSABI_FLEET_INVENTORY_QUERY_CONTRACT = {
+  schema_version: "kusabi-fleet-inventory-query-contract/v1",
+  database: "agent_comms",
+  canonical_identity_tables: ["agent_aliases", "agents"],
+  workspace_binding_table: "agent_workspace_bindings",
+  primary_predicates: [
+    "agent_type_non_human",
+    "agent_active",
+    "profile_enabled",
+    "runtime_supported",
+    "production_workspace",
+    "workspace_binding_active",
+    "new_work_allowed",
+  ],
+  secondary_binding_source: "owner_approved_secondary",
+} as const;
+
+export const KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 = sha256(
+  canonicalJson(KUSABI_FLEET_INVENTORY_QUERY_CONTRACT),
+);
+
 export type KusabiFleetRolloutStage = keyof typeof STAGE_ORDER;
 
 export interface KusabiFleetRolloutBatch {
@@ -72,8 +93,63 @@ export interface KusabiFleetRolloutPlan {
     commit_sha: string;
     tree_sha: string;
   };
+  inventory: KusabiFleetInventorySummary;
   batches: KusabiFleetRolloutBatch[];
   rollout_plan_sha256: string;
+}
+
+export type KusabiFleetInventoryBindingSource = "agent_comms_primary" | "owner_approved_secondary";
+
+export interface KusabiFleetInventoryEligibility {
+  canonical_identity_verified: true;
+  agent_type_non_human: true;
+  agent_active: true;
+  profile_enabled: true;
+  runtime_supported: true;
+  production_workspace: true;
+  workspace_binding_active: true;
+  new_work_allowed: true;
+}
+
+export interface KusabiFleetInventoryBinding {
+  binding_key: string;
+  canonical_agent_id: string;
+  project: string;
+  host_runtime: KusabiHostRuntime;
+  workspace_sha256: string;
+  binding_source: KusabiFleetInventoryBindingSource;
+  binding_source_ref_sha256: string;
+  eligibility: KusabiFleetInventoryEligibility;
+}
+
+export type KusabiFleetInventoryBindingInput = Omit<KusabiFleetInventoryBinding, "binding_key">;
+
+export interface KusabiFleetInventorySnapshot {
+  schema_version: "kusabi-fleet-inventory-snapshot/v1";
+  source: {
+    kind: "agent_comms_postgres";
+    query_contract_id: "kusabi-fleet-eligibility/v1";
+    query_contract_sha256: string;
+    captured_at: string;
+  };
+  primary_binding_count: number;
+  secondary_binding_count: number;
+  bindings: KusabiFleetInventoryBinding[];
+  snapshot_sha256: string;
+}
+
+export interface KusabiFleetInventorySnapshotInput {
+  schema_version: "kusabi-fleet-inventory-snapshot/v1";
+  source: KusabiFleetInventorySnapshot["source"];
+  bindings: KusabiFleetInventoryBindingInput[];
+}
+
+export interface KusabiFleetInventorySummary {
+  snapshot_sha256: string;
+  query_contract_sha256: string;
+  primary_binding_count: number;
+  secondary_binding_count: number;
+  target_count: number;
 }
 
 export interface KusabiFleetRolloutTargetInput {
@@ -111,6 +187,7 @@ export interface KusabiFleetR0Options {
     ordinal: number;
     minimum_soak_seconds: number;
   }>;
+  inventory_snapshot: KusabiFleetInventorySnapshot;
   targets: KusabiFleetRolloutTargetInput[];
 }
 
@@ -135,6 +212,7 @@ export interface KusabiFleetR0Report {
   schema_version: "kusabi-fleet-r0-report/v1";
   captured_at: string;
   manifest: KusabiFleetRolloutPlan["manifest"];
+  inventory: KusabiFleetInventorySummary;
   rollout_plan_sha256: string;
   target_count: number;
   targets: KusabiFleetR0TargetEvidence[];
@@ -144,6 +222,7 @@ export interface KusabiFleetR0Report {
 }
 
 export interface KusabiFleetR0Result {
+  inventory_snapshot: KusabiFleetInventorySnapshot;
   manifest: KusabiFleetManifest;
   rollout_plan: KusabiFleetRolloutPlan;
   report: KusabiFleetR0Report;
@@ -209,6 +288,7 @@ export interface KusabiFleetBatchGateReport {
 export interface KusabiFleetApplyBatchOptions {
   plan: KusabiFleetRolloutPlan;
   manifest: KusabiFleetManifest;
+  inventory_snapshot: KusabiFleetInventorySnapshot;
   authorization: KusabiFleetRolloutAuthorization;
   batch_id: string;
   runtime_root: string;
@@ -266,12 +346,148 @@ interface PreparedTarget {
   trustSourceLocatorSha256: string;
 }
 
+export function kusabiFleetInventoryBindingKey(
+  binding: Pick<KusabiFleetInventoryBinding,
+    "canonical_agent_id" | "project" | "host_runtime" | "workspace_sha256" | "binding_source_ref_sha256">,
+): string {
+  return sha256([
+    binding.canonical_agent_id,
+    binding.project,
+    binding.host_runtime,
+    binding.workspace_sha256,
+    binding.binding_source_ref_sha256,
+  ].join("\n"));
+}
+
+export function kusabiFleetInventorySnapshotSha256(snapshot: KusabiFleetInventorySnapshot): string {
+  return sha256(canonicalJson({
+    schema_version: snapshot.schema_version,
+    source: snapshot.source,
+    primary_binding_count: snapshot.primary_binding_count,
+    secondary_binding_count: snapshot.secondary_binding_count,
+    bindings: snapshot.bindings,
+  }));
+}
+
+export function sealKusabiFleetInventorySnapshot(
+  input: KusabiFleetInventorySnapshotInput,
+): KusabiFleetInventorySnapshot {
+  const bindings = input.bindings.map((binding) => ({
+    ...binding,
+    binding_key: kusabiFleetInventoryBindingKey(binding),
+  })).sort((left, right) => left.binding_key.localeCompare(right.binding_key));
+  const snapshot: KusabiFleetInventorySnapshot = {
+    schema_version: input.schema_version,
+    source: input.source,
+    primary_binding_count: bindings.filter(({ binding_source }) => binding_source === "agent_comms_primary").length,
+    secondary_binding_count: bindings.filter(({ binding_source }) => binding_source === "owner_approved_secondary").length,
+    bindings,
+    snapshot_sha256: "0".repeat(64),
+  };
+  snapshot.snapshot_sha256 = kusabiFleetInventorySnapshotSha256(snapshot);
+  assertKusabiFleetInventorySnapshot(snapshot);
+  return snapshot;
+}
+
+export function assertKusabiFleetInventorySnapshot(
+  value: unknown,
+): asserts value is KusabiFleetInventorySnapshot {
+  if (!isRecord(value) || !exactKeys(value, [
+    "schema_version", "source", "primary_binding_count", "secondary_binding_count", "bindings", "snapshot_sha256",
+  ])) fail("KUSABI_FLEET_INVENTORY_INVALID");
+  if (
+    value.schema_version !== "kusabi-fleet-inventory-snapshot/v1" || !isRecord(value.source) ||
+    !exactKeys(value.source, ["kind", "query_contract_id", "query_contract_sha256", "captured_at"]) ||
+    value.source.kind !== "agent_comms_postgres" ||
+    value.source.query_contract_id !== "kusabi-fleet-eligibility/v1" ||
+    value.source.query_contract_sha256 !== KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 ||
+    !nonNegativeInteger(value.primary_binding_count) || !nonNegativeInteger(value.secondary_binding_count) ||
+    !Array.isArray(value.bindings) || value.bindings.length < 1 || !sha256Value(value.snapshot_sha256)
+  ) fail("KUSABI_FLEET_INVENTORY_INVALID");
+  requireTimestamp(value.source.captured_at, "KUSABI_FLEET_INVENTORY_INVALID");
+
+  const eligibilityKeys = [
+    "canonical_identity_verified", "agent_type_non_human", "agent_active", "profile_enabled",
+    "runtime_supported", "production_workspace", "workspace_binding_active", "new_work_allowed",
+  ];
+  const seen = new Set<string>();
+  let primaryCount = 0;
+  let secondaryCount = 0;
+  let previousKey = "";
+  for (const rawBinding of value.bindings) {
+    const eligibility = isRecord(rawBinding) && isRecord(rawBinding.eligibility)
+      ? rawBinding.eligibility
+      : null;
+    if (!isRecord(rawBinding) || !exactKeys(rawBinding, [
+      "binding_key", "canonical_agent_id", "project", "host_runtime", "workspace_sha256",
+      "binding_source", "binding_source_ref_sha256", "eligibility",
+    ]) || !boundedId(rawBinding.canonical_agent_id) || !boundedId(rawBinding.project) ||
+      !(rawBinding.host_runtime === "codex" || rawBinding.host_runtime === "claude_code" ||
+        rawBinding.host_runtime === "gemini_cli") || !sha256Value(rawBinding.workspace_sha256) ||
+      !(rawBinding.binding_source === "agent_comms_primary" ||
+        rawBinding.binding_source === "owner_approved_secondary") ||
+      !sha256Value(rawBinding.binding_source_ref_sha256) || !sha256Value(rawBinding.binding_key) ||
+      eligibility === null || !exactKeys(eligibility, eligibilityKeys) ||
+      !eligibilityKeys.every((key) => eligibility[key] === true)) {
+      fail("KUSABI_FLEET_INVENTORY_BINDING_INVALID");
+    }
+    const binding = rawBinding as unknown as KusabiFleetInventoryBinding;
+    if (binding.binding_key !== kusabiFleetInventoryBindingKey(binding)) {
+      fail("KUSABI_FLEET_INVENTORY_BINDING_KEY_MISMATCH");
+    }
+    if (seen.has(binding.binding_key)) fail("KUSABI_FLEET_INVENTORY_DUPLICATE_BINDING");
+    if (previousKey !== "" && binding.binding_key <= previousKey) fail("KUSABI_FLEET_INVENTORY_ORDER_INVALID");
+    seen.add(binding.binding_key);
+    previousKey = binding.binding_key;
+    if (binding.binding_source === "agent_comms_primary") primaryCount++;
+    else secondaryCount++;
+  }
+  if (primaryCount !== value.primary_binding_count || secondaryCount !== value.secondary_binding_count ||
+    primaryCount + secondaryCount !== value.bindings.length) {
+    fail("KUSABI_FLEET_INVENTORY_COUNT_MISMATCH");
+  }
+  const snapshot = value as unknown as KusabiFleetInventorySnapshot;
+  if (kusabiFleetInventorySnapshotSha256(snapshot) !== snapshot.snapshot_sha256) {
+    fail("KUSABI_FLEET_INVENTORY_HASH_MISMATCH");
+  }
+}
+
+function inventorySummary(snapshot: KusabiFleetInventorySnapshot): KusabiFleetInventorySummary {
+  return {
+    snapshot_sha256: snapshot.snapshot_sha256,
+    query_contract_sha256: snapshot.source.query_contract_sha256,
+    primary_binding_count: snapshot.primary_binding_count,
+    secondary_binding_count: snapshot.secondary_binding_count,
+    target_count: snapshot.bindings.length,
+  };
+}
+
+function assertInventoryMatchesManifest(
+  snapshot: KusabiFleetInventorySnapshot,
+  manifest: KusabiFleetManifest,
+): void {
+  assertKusabiFleetInventorySnapshot(snapshot);
+  assertKusabiFleetManifest(manifest);
+  const inventoryKeys = snapshot.bindings.map(({ binding_key }) => binding_key).sort();
+  const manifestKeys = manifest.targets.map((target) => kusabiFleetInventoryBindingKey({
+    canonical_agent_id: target.identity.agent_id,
+    project: target.identity.project,
+    host_runtime: target.identity.host_runtime,
+    workspace_sha256: target.identity.workspace_sha256,
+    binding_source_ref_sha256: target.expected.configuration.binding_source_ref_sha256,
+  })).sort();
+  if (canonicalJson(inventoryKeys) !== canonicalJson(manifestKeys)) {
+    fail("KUSABI_FLEET_INVENTORY_MANIFEST_MISMATCH");
+  }
+}
+
 export function kusabiFleetRolloutPlanSha256(plan: KusabiFleetRolloutPlan): string {
   return sha256(canonicalJson({
     schema_version: plan.schema_version,
     rollout_id: plan.rollout_id,
     manifest: plan.manifest,
     implementation: plan.implementation,
+    inventory: plan.inventory,
     batches: plan.batches,
   }));
 }
@@ -324,9 +540,10 @@ export function assertKusabiFleetRolloutAuthorization(
 export function assertKusabiFleetRolloutPlan(
   value: unknown,
   manifest?: KusabiFleetManifest,
+  inventorySnapshot?: KusabiFleetInventorySnapshot,
 ): asserts value is KusabiFleetRolloutPlan {
   if (!isRecord(value) || !exactKeys(value, [
-    "schema_version", "rollout_id", "manifest", "implementation", "batches", "rollout_plan_sha256",
+    "schema_version", "rollout_id", "manifest", "implementation", "inventory", "batches", "rollout_plan_sha256",
   ])) fail("KUSABI_FLEET_ROLLOUT_PLAN_INVALID");
   if (
     value.schema_version !== "kusabi-fleet-rollout-plan/v1" || !boundedId(value.rollout_id) ||
@@ -336,6 +553,15 @@ export function assertKusabiFleetRolloutPlan(
     !sha256Value(value.manifest.manifest_sha256) || !positiveInteger(value.manifest.target_count) ||
     !isRecord(value.implementation) || !exactKeys(value.implementation, ["commit_sha", "tree_sha"]) ||
     !gitSha(value.implementation.commit_sha) || !gitSha(value.implementation.tree_sha) ||
+    !isRecord(value.inventory) || !exactKeys(value.inventory, [
+      "snapshot_sha256", "query_contract_sha256", "primary_binding_count", "secondary_binding_count", "target_count",
+    ]) || !sha256Value(value.inventory.snapshot_sha256) ||
+    value.inventory.query_contract_sha256 !== KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256 ||
+    !nonNegativeInteger(value.inventory.primary_binding_count) ||
+    !nonNegativeInteger(value.inventory.secondary_binding_count) ||
+    !positiveInteger(value.inventory.target_count) ||
+    Number(value.inventory.primary_binding_count) + Number(value.inventory.secondary_binding_count) !==
+      Number(value.inventory.target_count) ||
     !Array.isArray(value.batches) || value.batches.length < 1
   ) fail("KUSABI_FLEET_ROLLOUT_PLAN_INVALID");
 
@@ -371,7 +597,9 @@ export function assertKusabiFleetRolloutPlan(
     (value.batches as unknown as KusabiFleetRolloutBatch[]).some((batch) => batch.stage === stage))) {
     fail("KUSABI_FLEET_ROLLOUT_STAGE_MISSING");
   }
-  if (seenTargets.size !== value.manifest.target_count) fail("KUSABI_FLEET_ROLLOUT_TARGET_COUNT_MISMATCH");
+  if (seenTargets.size !== value.manifest.target_count || seenTargets.size !== value.inventory.target_count) {
+    fail("KUSABI_FLEET_ROLLOUT_TARGET_COUNT_MISMATCH");
+  }
   const plan = value as unknown as KusabiFleetRolloutPlan;
   if (kusabiFleetRolloutPlanSha256(plan) !== plan.rollout_plan_sha256) {
     fail("KUSABI_FLEET_ROLLOUT_PLAN_HASH_MISMATCH");
@@ -385,6 +613,14 @@ export function assertKusabiFleetRolloutPlan(
       manifest.manifest_sha256 !== plan.manifest.manifest_sha256 || manifest.targets.length !== plan.manifest.target_count ||
       canonicalJson(manifestKeys) !== canonicalJson(planKeys)
     ) fail("KUSABI_FLEET_ROLLOUT_MANIFEST_MISMATCH");
+  }
+  if (inventorySnapshot) {
+    assertKusabiFleetInventorySnapshot(inventorySnapshot);
+    if (canonicalJson(plan.inventory) !== canonicalJson(inventorySummary(inventorySnapshot))) {
+      fail("KUSABI_FLEET_ROLLOUT_INVENTORY_MISMATCH");
+    }
+    if (!manifest) fail("KUSABI_FLEET_ROLLOUT_INVENTORY_MANIFEST_REQUIRED");
+    assertInventoryMatchesManifest(inventorySnapshot, manifest);
   }
 }
 
@@ -430,6 +666,7 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
   };
   manifest.manifest_sha256 = kusabiFleetManifestSha256(manifest);
   assertKusabiFleetManifest(manifest);
+  assertInventoryMatchesManifest(options.inventory_snapshot, manifest);
 
   const assignments = new Map(prepared.map(({ targetKey, input }) => [targetKey, input.batch_id]));
   const batches: KusabiFleetRolloutBatch[] = options.batch_order.map((batch) => ({
@@ -454,11 +691,12 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
       target_count: manifest.targets.length,
     },
     implementation: { commit_sha: options.commit_sha, tree_sha: options.tree_sha },
+    inventory: inventorySummary(options.inventory_snapshot),
     batches,
     rollout_plan_sha256: "0".repeat(64),
   };
   rolloutPlan.rollout_plan_sha256 = kusabiFleetRolloutPlanSha256(rolloutPlan);
-  assertKusabiFleetRolloutPlan(rolloutPlan, manifest);
+  assertKusabiFleetRolloutPlan(rolloutPlan, manifest, options.inventory_snapshot);
 
   const evidenceTargets: KusabiFleetR0TargetEvidence[] = prepared.map((target) => ({
     target_key: target.targetKey,
@@ -480,6 +718,7 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
     schema_version: "kusabi-fleet-r0-report/v1",
     captured_at: options.captured_at,
     manifest: rolloutPlan.manifest,
+    inventory: rolloutPlan.inventory,
     rollout_plan_sha256: rolloutPlan.rollout_plan_sha256,
     target_count: evidenceTargets.length,
     targets: evidenceTargets,
@@ -488,7 +727,7 @@ export async function prepareKusabiFleetR0(options: KusabiFleetR0Options): Promi
     report_sha256: "0".repeat(64),
   };
   report.report_sha256 = sha256(canonicalJson({ ...report, report_sha256: undefined }));
-  return { manifest, rollout_plan: rolloutPlan, report };
+  return { inventory_snapshot: options.inventory_snapshot, manifest, rollout_plan: rolloutPlan, report };
 }
 
 export async function observeKusabiFleetDeployment(
@@ -665,7 +904,7 @@ export function evaluateKusabiFleetBatchGate(
 export async function applyKusabiFleetRolloutBatch(
   options: KusabiFleetApplyBatchOptions,
 ): Promise<KusabiFleetApplyBatchReport> {
-  assertKusabiFleetRolloutPlan(options.plan, options.manifest);
+  assertKusabiFleetRolloutPlan(options.plan, options.manifest, options.inventory_snapshot);
   assertKusabiFleetRolloutAuthorization(options.authorization);
   assertAuthorizationMatches(options.authorization, options.plan, options.manifest);
   const batch = options.plan.batches.find(({ batch_id }) => batch_id === options.batch_id);
@@ -1157,6 +1396,10 @@ function validateR0Options(options: KusabiFleetR0Options): void {
   requireTimestamp(options.activation_at, "KUSABI_FLEET_R0_INPUT_INVALID");
   requireTimestamp(options.durable_evidence_deadline_at, "KUSABI_FLEET_R0_INPUT_INVALID");
   requireTimestamp(options.captured_at, "KUSABI_FLEET_R0_INPUT_INVALID");
+  assertKusabiFleetInventorySnapshot(options.inventory_snapshot);
+  if (options.inventory_snapshot.source.captured_at !== options.captured_at) {
+    fail("KUSABI_FLEET_R0_INVENTORY_CAPTURE_MISMATCH");
+  }
   if (Date.parse(options.activation_at) >= Date.parse(options.durable_evidence_deadline_at)) {
     fail("KUSABI_FLEET_R0_DEADLINE_INVALID");
   }
