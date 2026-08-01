@@ -11,6 +11,7 @@ import { readFileSync } from "fs";
 import pg from "pg";
 import { PgStore } from "./stores/pg-store.js";
 import { runKusabiRuntimeEventStoreContract } from "./test-kusabi-runtime-event-store.js";
+import { runKusabiFleetStatusStoreContract } from "./test-kusabi-fleet-status-store.js";
 
 const { Pool } = pg;
 
@@ -62,6 +63,12 @@ async function testMigration() {
 async function testKusabiRuntimeEventStore() {
   console.log("\n── PgStore Kusabi OBS-02 runtime events ──");
   await runKusabiRuntimeEventStoreContract(store, assert, "PostgreSQL");
+}
+
+async function testKusabiFleetStatus() {
+  console.log("\n── PgStore Kusabi OBS-04 fleet status ──");
+  const result = await runKusabiFleetStatusStoreContract(store, assert, "PostgreSQL");
+  console.log(`  normalized status sha256: ${result.normalized_sha256}`);
 }
 
 function withPgSearchPath(connectionString: string, schema: string): string {
@@ -1090,6 +1097,7 @@ async function run() {
     await setup();
     await testMigration();
     await testKusabiRuntimeEventStore();
+    await testKusabiFleetStatus();
     await testMigrationRerunSafetyInIsolatedSchema();
     await testRawEventsLegacyOccurredAtMigration();
     await testDecisionCRUD();

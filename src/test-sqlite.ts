@@ -18,6 +18,7 @@ import {
   runKusabiRuntimeEventJsonFixtureContract,
   runKusabiRuntimeEventStoreContract,
 } from "./test-kusabi-runtime-event-store.js";
+import { runKusabiFleetStatusStoreContract } from "./test-kusabi-fleet-status-store.js";
 import initSqlJs from "sql.js";
 
 const TEST_DB_PATH = join(tmpdir(), `agent-memory-test-sqlite-${Date.now()}.db`);
@@ -68,6 +69,12 @@ async function testKusabiRuntimeEventJsonFixtureBoundary() {
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
+}
+
+async function testKusabiFleetStatus() {
+  console.log("\n── SqliteStore Kusabi OBS-04 fleet status ──");
+  const result = await runKusabiFleetStatusStoreContract(store, assert, "SQLite");
+  console.log(`  normalized status sha256: ${result.normalized_sha256}`);
 }
 
 async function testDecisionCRUD() {
@@ -1432,6 +1439,7 @@ async function run() {
     await testMigration();
     await testKusabiRuntimeEventStore();
     await testKusabiRuntimeEventJsonFixtureBoundary();
+    await testKusabiFleetStatus();
     await testDecisionCRUD();
     await testSupersede();
     await testTaskStates();
