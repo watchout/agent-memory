@@ -5,7 +5,7 @@
       "schema_version": "kusabi-fleet-manifest/v1",
       "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
       "version": 1,
-      "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+      "manifest_sha256": "90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91",
       "targets": [
         {
           "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
@@ -17,8 +17,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -32,8 +32,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -47,8 +47,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -62,8 +62,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -77,8 +77,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -92,8 +92,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -107,8 +107,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -122,8 +122,8 @@
               "binding_sha256": "0b12481e04b51aed2cfa73a8a235a540cec322bb855e443ea181bbacc21d9e31"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -137,8 +137,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -152,8 +152,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -167,8 +167,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -182,8 +182,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -197,8 +197,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -212,8 +212,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -227,8 +227,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -242,8 +242,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -257,8 +257,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -272,8 +272,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -287,8 +287,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -302,8 +302,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -317,8 +317,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -332,8 +332,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -347,8 +347,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -362,8 +362,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -377,8 +377,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -392,8 +392,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -407,8 +407,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -422,8 +422,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -437,8 +437,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -452,8 +452,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -467,8 +467,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -482,8 +482,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -497,8 +497,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -512,8 +512,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -527,8 +527,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -542,8 +542,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -557,8 +557,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -572,8 +572,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -587,8 +587,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -602,8 +602,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -617,8 +617,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -632,8 +632,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -647,8 +647,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -662,8 +662,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -677,8 +677,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -692,8 +692,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -707,8 +707,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -722,8 +722,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -737,8 +737,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -752,8 +752,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -767,8 +767,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -782,8 +782,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -797,8 +797,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
               "adapter_version": "1.0.2"
             },
@@ -812,8 +812,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -827,8 +827,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -842,8 +842,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -857,8 +857,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -872,8 +872,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -887,8 +887,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -902,8 +902,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -917,8 +917,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -932,8 +932,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -947,8 +947,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -962,8 +962,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -977,8 +977,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -992,8 +992,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -1007,8 +1007,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
               "adapter_version": "1.0.1"
             },
@@ -1022,8 +1022,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         },
@@ -1037,8 +1037,8 @@
           },
           "expected": {
             "build": {
-              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+              "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90",
               "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
               "adapter_version": "1.0.2"
             },
@@ -1052,8 +1052,8 @@
               "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
             }
           },
-          "activation_at": "2026-08-01T05:30:00.000Z",
-          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "activation_at": "2026-08-01T05:38:07.191Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:08:07.191Z",
           "stale_after_seconds": 600,
           "maintenance_windows": []
         }
@@ -1065,12 +1065,12 @@
       "manifest": {
         "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
         "version": 1,
-        "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+        "manifest_sha256": "90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91",
         "target_count": 35
       },
       "implementation": {
-        "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
-        "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd"
+        "commit_sha": "5f395952ebe7c6379eb8c843915ddba8a643fb2c",
+        "tree_sha": "8d3207f8adf3276d8f6ceccc00091a88e8070f90"
       },
       "batches": [
         {
@@ -1165,18 +1165,18 @@
           ]
         }
       ],
-      "rollout_plan_sha256": "827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56"
+      "rollout_plan_sha256": "fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b"
     },
     "report": {
       "schema_version": "kusabi-fleet-r0-report/v1",
-      "captured_at": "2026-08-01T05:03:16.974Z",
+      "captured_at": "2026-08-01T05:28:07.191Z",
       "manifest": {
         "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
         "version": 1,
-        "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+        "manifest_sha256": "90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91",
         "target_count": 35
       },
-      "rollout_plan_sha256": "827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56",
+      "rollout_plan_sha256": "fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b",
       "target_count": 35,
       "targets": [
         {
@@ -1189,6 +1189,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "2a6e08d8c469f5848aae54c2df159ba086e85954b871f4a4982886332c1b5c9d",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "d4cc9f37c42ba593ba602486a536db248e1052e6e6411e7aad0ab141a794b899",
+          "expected_trust_fingerprint_sha256": "4e6c430a4548651a952ef2cb4d958f43c98596389da3216c25c5491dbe0f0d4a",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1201,6 +1205,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "38203205c63d81efee2df7a24a9b7c54fde1dd144d2882001ef98db7f896846e",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "9bb9d0b5c34b5dbcf3562eb3f4d236da78ab19b5c568f9b5304642c3b6f714b9",
+          "expected_trust_fingerprint_sha256": "d3f2c8c44e513e3de5653f9e672e787c232d6dd4ba2ae918484ea07d89e9325f",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1213,6 +1221,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "10a3a20963f8dfa1ff6acb504f5228f1752610ce0678f2afb5d5e24cbe8fc674",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "fbfc96d68f23a9c157fb29507215516da3b9c7565ba7ddb06b8764ba5946d174",
+          "expected_trust_fingerprint_sha256": "75f10a2c3607daf70ec03e4a54f35bb9fad6b3239adb6467cd904dac673aeb64",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1225,6 +1237,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "6c41b645020f1557773ebedc4018b164094283e62373f28b17015dd304288bc4",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "36cc44bd3ce2dc2c1a0c89f18fa6d692a30ba624aea2c86660d57d341ecc1bcf",
+          "expected_trust_fingerprint_sha256": "3021e80dafe2e20afae3b7a76e907b181ae1ad17a05f0142ac10cbd66ab6054c",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1237,6 +1253,10 @@
           "preimage_mode": "0600",
           "expected_postimage_sha256": "d501a996e92600b120447d28fe3b3e5af12874e2825ede885ff1a0d297be7ac2",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "6928a0a2537210e5c431885951c7249d4f1cf5b2883fb8c2c3fb1c5c2b600d5d",
+          "expected_trust_fingerprint_sha256": "60bd716ccfcf43b01b9b6abb0e6ba421c7d51236e63806c737b649e55dfa0b5e",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1249,6 +1269,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "3bfb1b67891b8fd7984927cd86aab2088c6b098cea5b1aab4a83b2c1eba9a15b",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "481fc62202a47225fb71341eb11a113366b2c8474e33b41bf819f7104a078f01",
+          "expected_trust_fingerprint_sha256": "6341b9ec099536319d791103e60ab94c299e46ef8f4e8f75c184170cc18eadaa",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1261,6 +1285,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "cf296d3658ec9d7e4fd43c39d3583612d9294248d4ee18da8cbb66ddc0f5c911",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "ba6e6180232198be21f7730185bd4380c68b3bd8056c179ad533f65cca77b167",
+          "expected_trust_fingerprint_sha256": "3c30199a8e7351b5ed0345e295125759e01c589fc4729149483f4f420e37d4cf",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1273,6 +1301,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "01c3a805b09855ab6d0e0d420d552927450233bc34d64f07870bba2caa8bfd1a",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "e5449be63ef8e2c1cf092c33da0e1fe92890a1ca38ddb3f75c58c4432684589b",
+          "expected_trust_fingerprint_sha256": "a93aef80bb7d875dd3e3a656bdb39df7e21462b43f736f0669eae7c7a41f4e42",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1285,6 +1317,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "adab776b9bd973ef2b78c2ea4eb7bca5cc533c7141e391dd819fdf246ea4cc4e",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "e64de0f6cca245833676f005df50c42cefc9dd34e2d6ebcbc56ba5fed28166d1",
+          "expected_trust_fingerprint_sha256": "53996521730754a9a7f77b90f8b32b3a02ac8c66e4d6ed1074f7884bcd015921",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1297,6 +1333,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "ea02ef5a1fd1f1dc7367155ba21f3b5b477dd9d849c26256208a4154b359f23b",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "0da50fca74c975bbf06ffe56422853588491befcc932513517d6971cd94dc0a2",
+          "expected_trust_fingerprint_sha256": "1c4e2f3d0e24eab508c49110965d2285b01edad6789ee99e29a5374dccd92d6a",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1309,6 +1349,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "3c7f8cfd15f00699525976f9fcffd1e9222773b1818d1dcf0c25f3bbc94eb2e6",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "5693c7fe40392131b4968103ba14a6b2720d4d19cb9d22b7c7566611107911f8",
+          "expected_trust_fingerprint_sha256": "9144a0a4c7a33e49b7e1b81d58b971a67336887ff53f2eca04e4e5b0c01a1832",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1321,6 +1365,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "ce447d28760a81f413bc83b6aace768dc76e4291f12ad294146ccd9d73fb3370",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "9166e9049c8da4ac25d2043d42914a7052e852ea635371f135e6f5b92600fbf6",
+          "expected_trust_fingerprint_sha256": "c226af81ab40c9c2df51e633729c95961f8740e1c40b6ecdc0e9c43cb42be47e",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1333,6 +1381,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "690564ac17c1a2f164805bc8693d36e2191f2965da9a03b9308a374770a6836e",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "4e7105303112b418c074af9b5a17a8150cf0f883624ea111bbf8e31833d6cf26",
+          "expected_trust_fingerprint_sha256": "15d7b34ead776cc2ff42977dd2216b50c1a68ad64d2ef3aff68dec825bacaa81",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1345,6 +1397,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "ef9b500489711e53e2a9073d6bbb042f1dd13fc364c777fe098fae8621c17ceb",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "39fa6f0551c0f23d7f21468557b1f5cab3994823936959ef2a476b93b0e2aede",
+          "expected_trust_fingerprint_sha256": "77452f266ed8fbf60149fa6b2fe62cab5c1486b21a5a8e0bd967338e50111bb3",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1357,6 +1413,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "240cb3082d5b9fa332d0a27431ca83304b159f814cffede4a1d3ce79ee3d41ef",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "f1d140e8de9a376ff4139227c494686ad3afb52762ae72c6a7b80859e1e535ca",
+          "expected_trust_fingerprint_sha256": "86040653ae7405cde5ac02f8cad9da0bbe07aa049ba788af349db627a7c041fb",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1369,6 +1429,10 @@
           "preimage_mode": "0600",
           "expected_postimage_sha256": "44de12f7a6bd501517713e66e754fdc0277fe45c6c68fe8c06c29941d35fd76f",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "6795a1a5ea8337eb5dc48432b67b4058d7be88590978d356c6cd5bb172697c13",
+          "expected_trust_fingerprint_sha256": "f363b71fd8cc010fb3c647c883fc712a577de8d39b14fe69007d7a399a2c908b",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1381,6 +1445,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "8946d0d45e3abb3fa2494c1e118ce6b4b561f8f5664561851a44e4b0edcd2a87",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "bf7e81847ac57d99ac7de3f2e66667afc5dcfffad14d7b1570b8bf0f7e37ded9",
+          "expected_trust_fingerprint_sha256": "28906b74e0f12b7eb6915a44bed3e90a119171cefb144fbcdb779ecaecf9cbb8",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1393,6 +1461,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "2cbabdf2c4324cbed81fbf89e20038ed74115e0738871a89d0e1303e88b9a4dc",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "b2c0e03d5fa4657c2b4608f0c63f0fce32d951711a03108f2dd26031e0af1413",
+          "expected_trust_fingerprint_sha256": "6b8f2bb1c16c05260f375adf0e9e81f95a98c30c75901d0209f2c3ace253ab66",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1405,6 +1477,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "11b44dbad01e9fa79c9baba217f6352afac5fee8a4c5b89f11acb3c29e1750a9",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "4e1c3ca4226a2183ced44261adf87a64d4268cac309d445799c13486e68dee36",
+          "expected_trust_fingerprint_sha256": "33671343e1354696f698619e2da63a7ec038d54e56932f9d46cabe383aefcdca",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1417,6 +1493,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "ad54c70b57c72f1b73495d56b1c804013601e70cf7e6febcbf792500ec223c22",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "7af331e88da1059c941105d1ba453f9560bd2bfd60a72f52ef6bdafbbf73a431",
+          "expected_trust_fingerprint_sha256": "e76015e3d8e243ef65a5c923078207898c86fefb1bc03c7465a94edcced04ff3",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1429,6 +1509,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "91431faf7a43d3fbbf99ff89c5da21587d2cce9cbef71e08658e238315af27dd",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "eb4501c52e3292af1ee02ed21e15ec52024588b32850b10301b2d7b82e13ac0c",
+          "expected_trust_fingerprint_sha256": "60d575c97b5c850172e5ac3ccf8fd0e95dec7e3e4f64bd5d40c9a141b18ca712",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1441,6 +1525,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "b26eef4181f7857c012ff7f6500c01d18fbc442555083fea59b4b1a95a9d6b98",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "3e39b81e8e6ea038f34f794ddc0d604d77e729b444341d9794901f44c856368c",
+          "expected_trust_fingerprint_sha256": "cfcc4887100f619d9c04ca01970666100ab7c09724a8acd03a20768c46f936d5",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1453,6 +1541,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "3899d42170ad0638b9aeb7f0869173d937ee0e5f71e209870818ab22da081dbd",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "bb2d66f22d1736d6cbede68394d6697156b1628c785f9111d9100791707a8424",
+          "expected_trust_fingerprint_sha256": "5c2a04ff22837633bb41b753cd18344096bc62121275064a9d8f2df168a530fa",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1465,6 +1557,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "29bf117499aa9814d0e37a974a60b6b4a2e95e9e71e6ed2870011c2f1d281338",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "6310c9693ec52ac4c6504778c3713ee7d79db4037f669264d650097dbfdc7c4a",
+          "expected_trust_fingerprint_sha256": "1720af4afc8332ad5e79fa4035f97096b2e34d1f2240102bf3f86872c2303a17",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1477,6 +1573,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "1bdd38647a3cb31684232bf480e452c1307790f991195dd2ae6245c91dc595fc",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "f59b8559d7994945517e09e456abdd0e361cc4dc52dc900fe470d9952dfbd79d",
+          "expected_trust_fingerprint_sha256": "b7a86d814a013b5df4a07249e4127de6540872f6dda50ad2f0dd69ce6c8f16dd",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1489,6 +1589,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "4c13713f6289cdd8fee4698aa1004fa8a1320587ad04256ffc8e7ce3ef871714",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "393653a650c4554e804f71becec66a8b0f7db164598ea874d458669b70664313",
+          "expected_trust_fingerprint_sha256": "b97d54a68053869eaed61d3af6115a3efe4a784488170c253861826a87e13422",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1501,6 +1605,10 @@
           "preimage_mode": "0600",
           "expected_postimage_sha256": "fdb5a68e0b1f06bdbff9e4f94300c2a9f52fdb3fbcf61964ad581851011224fa",
           "artifact_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
+          "trust_source_locator_sha256": "123ba53d0939f0fccf73b186ce9533fe5eb3d61e2c7ed1e9e278ffc1d44f65bd",
+          "preimage_trust_fingerprint_sha256": "81242a4c64c41ec1f01cefa2c6a38c72c0b1d6beaef4f6475fc1605ad2e92a57",
+          "expected_trust_fingerprint_sha256": "7805b6d8e3fb6b22e4f15a75ef08768aceeaeec4cf591585a059dc1061b90b0c",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1513,6 +1621,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "68838068704abf52e696c667dcd5d1b4cc54721a2ae85bd1ea9825239f7a4ff7",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "f2a3c805b225a7fe6ca7545034f5d951db63b4b53e048476a0f74a3024c912fd",
+          "expected_trust_fingerprint_sha256": "efc61f6e9742195f75e854856e5a72f68715a3a851928bb4d0985456dacadc2c",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1525,6 +1637,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "abebad4eb4702252efd6fd3f1abd51d5fee2921f84f6e08aa0a11e85e1b935e8",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "4bcc86ba5cc013fc2b30e02c456052eb3fac585d0d0c3fcd57f764a97eaab82a",
+          "expected_trust_fingerprint_sha256": "30a83b8f78e6b3bc69fb76368ab16030cfbe9a0dd017615affa07185bd091504",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1537,6 +1653,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "64128894c953696c98612dc819c92a7d2fd5ba5ce2281905709a7bb524532c8d",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "949f54cf4928390b8a913453e8952f354b236114508d8b501f95e1affa2dba43",
+          "expected_trust_fingerprint_sha256": "5c3c5d1616996b43f06fe0a42fa8f8576c3dd3e8b8a8ffa5b5fb7517933603e3",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1549,6 +1669,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "b27b2c70b968a425465b37c0d78e9c7e541879099a12a1b354881a32b3c88be9",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "b20f50c155d859e608a180b913e4f457968fada86f59573c9ccd96ffcf6f695e",
+          "expected_trust_fingerprint_sha256": "9cfdd407fee6d822f205ae04082273d078b271d34cc902f5a434ba136ac2d246",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1561,6 +1685,10 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "9ebe2e5ceb75e11786b419cecd15901d804869146b24699fa111ab5fe1fce97a",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "fd98aefff6394f149d8cc74359cc102a94592e0d856c84723b37bc913ec8df6f",
+          "expected_trust_fingerprint_sha256": "63606abbfb90ed433c2637c1c01b71046bc5c8ffe82fde0e452fda38cb40346f",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1573,6 +1701,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "0ccde3ae5b523f0daeb92a8f7920695efec4dee64eb3fa60c8c288ca66213e33",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "d5b50119423267e75ddad3348d1e487b41f8a84618504ffb6a267bbd9c570ed2",
+          "expected_trust_fingerprint_sha256": "9b1894bb27a62b2c7099304fc99d37745f31f2bed0df2349f1f174174dffcad4",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1585,6 +1717,10 @@
           "preimage_mode": null,
           "expected_postimage_sha256": "6510af49269a5c9dec0ec62281bba1356ee7090d57da96af73f67b4d6ec8dd0e",
           "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "trust_source_locator_sha256": "2fe29d3a877b511b57e71ba399a8dbedcddd3635a5f7f85d9d7b0144fe2a7a57",
+          "preimage_trust_fingerprint_sha256": "57c27049412e8c2dd6836f8cace05d972f42524e8cda83a0454396ea348f7ec4",
+          "expected_trust_fingerprint_sha256": "9570ff00311f5aa3a09ece8770043fe95a02afc5c9250f61c5b7a3aa976ea117",
+          "preimage_trust_exact": false,
           "rollback_required": true
         },
         {
@@ -1597,12 +1733,16 @@
           "preimage_mode": "0644",
           "expected_postimage_sha256": "5a102777c99aa561ceea015ff4ee79a391e577f2341f5d7e73b4f16364600e38",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
+          "preimage_trust_fingerprint_sha256": "6316cd7bf16b56cf666613dedab1b963ca3f0e66118cb14b6ed6da25e82b668a",
+          "expected_trust_fingerprint_sha256": "7a9e7c780bacafac17dd79decf70bcc812524be795ecd5fa67295879b19c727a",
+          "preimage_trust_exact": false,
           "rollback_required": true
         }
       ],
       "forbidden_value_count": 0,
       "production_mutation_count": 0,
-      "report_sha256": "32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322"
+      "report_sha256": "3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40"
     }
   },
   "storage_groups": [
