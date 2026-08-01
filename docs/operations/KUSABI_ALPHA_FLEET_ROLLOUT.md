@@ -431,5 +431,8 @@ The implementation adds a strict rollout-plan schema, deterministic R0
 preimage/postimage calculation, exact owner-authorization binding, isolated
 batch application and rollback, native Codex/Claude/Gemini trust readback,
 independent build/config/binding observation, prior-batch enforcement, and the
-one-hour R2 soak gate. It does not itself authorize Phase B or alter the actor
-and closure boundaries above.
+one-hour R2 soak gate. Native session-start evidence additionally derives a
+credential-safe `kusabi-store-binding/v1` hash from the actually selected
+store locator; runtime emission fails closed before store creation when that
+hash or backend differs from the manifest. It does not itself authorize Phase
+B or alter the actor and closure boundaries above.

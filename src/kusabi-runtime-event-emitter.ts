@@ -52,6 +52,7 @@ export interface KusabiSessionStartEvidence {
   };
   store_binding: {
     backend_intent: "postgres" | "sqlite" | "json" | "unknown";
+    binding_sha256: string | null;
     verified: boolean;
   };
   hook: { session_id: string | null };
@@ -164,7 +165,16 @@ export function buildKusabiSessionStartRuntimeEvent(
       trust_fingerprint_sha256: target.configuration.trust_fingerprint_sha256,
       binding_source_ref_sha256: digest(evidence.identity.binding_source_ref),
     },
-    storage: { ...target.storage },
+    storage: {
+      backend: evidence.store_binding.backend_intent === "postgres"
+        ? "postgres"
+        : evidence.store_binding.backend_intent === "sqlite"
+          ? "sqlite"
+          : target.storage.backend,
+      binding_sha256: sha256Value(evidence.store_binding.binding_sha256)
+        ? evidence.store_binding.binding_sha256
+        : "0".repeat(64),
+    },
     outcome: {
       status: evidence.outcome,
       reason_code: evidence.outcome === "full" ? null : degradedReason.reason,
@@ -278,6 +288,7 @@ async function emitPreparedEventInWorker(
     target,
     store_binding: {
       backend_intent: evidence.store_binding.backend_intent,
+      binding_sha256: evidence.store_binding.binding_sha256,
       verified: evidence.store_binding.verified,
     },
   };
@@ -356,6 +367,14 @@ async function emitPreparedEvent(
       event,
       "evidence_sink_unavailable",
       "backend_drift",
+      writeEmergency,
+    );
+  }
+  if (!sha256Value(storeBinding.binding_sha256) || storeBinding.binding_sha256 !== target.storage.binding_sha256) {
+    return safeEmergencyResult(
+      event,
+      "evidence_sink_unavailable",
+      "binding_drift",
       writeEmergency,
     );
   }
@@ -530,8 +549,9 @@ function parseWorkerRequest(raw: string): KusabiRuntimeEventWorkerRequest {
   }
   const storeBinding = value.store_binding;
   if (
-    !isRecord(storeBinding) || !exactKeys(storeBinding, ["backend_intent", "verified"]) ||
+    !isRecord(storeBinding) || !exactKeys(storeBinding, ["backend_intent", "binding_sha256", "verified"]) ||
     (storeBinding.backend_intent !== "sqlite" && storeBinding.backend_intent !== "postgres") ||
+    !sha256Value(storeBinding.binding_sha256) ||
     storeBinding.verified !== true
   ) throw new Error("KUSABI_RUNTIME_EVENT_WORKER_INPUT_INVALID");
   return {
@@ -539,6 +559,7 @@ function parseWorkerRequest(raw: string): KusabiRuntimeEventWorkerRequest {
     target: parseKusabiRuntimeEventTarget(value.target as KusabiRuntimeEventTargetBinding),
     store_binding: {
       backend_intent: storeBinding.backend_intent,
+      binding_sha256: storeBinding.binding_sha256,
       verified: true,
     },
   };

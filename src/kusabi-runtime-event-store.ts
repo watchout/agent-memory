@@ -35,6 +35,7 @@ export interface KusabiEmergencyEvidence {
     | "store_write_failed"
     | "store_unavailable"
     | "backend_drift"
+    | "binding_drift"
     | "target_invalid";
 }
 

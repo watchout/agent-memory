@@ -77,6 +77,7 @@ function loaded(text?: string): LoadedCodexRecovery {
       source: "user_config",
       backend_intent: "postgres",
       config_path_sha256: "a".repeat(64),
+      binding_sha256: "b".repeat(64),
       verified: true,
       credentials_embedded: false,
     },

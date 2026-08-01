@@ -12,6 +12,7 @@ import {
   type KusabiRuntimeEventTargetBinding,
   type KusabiSessionStartEvidence,
 } from "./kusabi-runtime-event-emitter.js";
+import { kusabiStoreBindingSha256 } from "./codex-session-start.js";
 import { validateKusabiRuntimeEvent } from "./kusabi-runtime-event-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { PgStore } from "./stores/pg-store.js";
@@ -59,7 +60,7 @@ function evidence(
       binding_source_ref: "binding:kusabi:test-secret-ref",
       runtime,
     },
-    store_binding: { backend_intent: backend, verified: true },
+    store_binding: { backend_intent: backend, binding_sha256: "1".repeat(64), verified: true },
     hook: { session_id: `session-${runtime}` },
     timing: { completed_at: "2026-07-30T00:00:00.000Z", elapsed_ms: 21 },
     output: { token_estimate: 180, redaction_count: 2 },
@@ -230,6 +231,23 @@ async function main(): Promise<void> {
     assert.equal(driftStoreCreated, false);
     assert.equal(driftLines.length, 1);
 
+    let bindingDriftStoreCreated = false;
+    const bindingDriftLines: string[] = [];
+    const bindingDriftEvidence = evidence("codex");
+    bindingDriftEvidence.store_binding.binding_sha256 = "2".repeat(64);
+    const bindingDrift = await emitKusabiSessionStartRuntimeEvent(bindingDriftEvidence, {
+      target: target(),
+      createStore: async () => {
+        bindingDriftStoreCreated = true;
+        return fakeStore("sqlite", async () => undefined);
+      },
+      writeEmergency: (line) => bindingDriftLines.push(line),
+    });
+    assert.equal(bindingDrift.status, "emergency_only");
+    assert.equal(bindingDrift.emergency?.normalized_error_code, "binding_drift");
+    assert.equal(bindingDriftStoreCreated, false);
+    assert.equal(bindingDriftLines.length, 1);
+
     const unavailableLines: string[] = [];
     const unavailable = await emitKusabiSessionStartRuntimeEvent(evidence("codex"), {
       target: target(),
@@ -317,7 +335,9 @@ async function main(): Promise<void> {
     const child = join(workspace, "child");
     await mkdir(child, { recursive: true });
     const cliDbPath = join(root, "three-host-cli.db");
-    const cliTarget = JSON.stringify(target());
+    const cliTargetValue = target();
+    cliTargetValue.storage.binding_sha256 = kusabiStoreBindingSha256("sqlite", cliDbPath);
+    const cliTarget = JSON.stringify(cliTargetValue);
     const commonArgs = [
       "--agent-id", "kusabi",
       "--project", "agent-memory",

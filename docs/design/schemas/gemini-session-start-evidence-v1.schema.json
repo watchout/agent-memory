@@ -29,7 +29,7 @@
       "required": ["id", "version", "host", "host_contract_version", "normal_launch_command", "native_start_surface", "canonical_config_location", "delivery_mode"],
       "properties": {
         "id": { "const": "wasurezu-gemini-session-start" },
-        "version": { "const": "1.0.1" },
+        "version": { "const": "1.0.2" },
         "host": { "const": "gemini-cli" },
         "host_contract_version": { "const": "0.38.2" },
         "normal_launch_command": { "const": "gemini" },
@@ -58,6 +58,7 @@
         "source",
         "backend_intent",
         "config_path_sha256",
+        "binding_sha256",
         "verified",
         "credentials_embedded"
       ],
@@ -65,6 +66,12 @@
         "source": { "enum": ["environment", "user_config", "local_default", "unknown"] },
         "backend_intent": { "enum": ["postgres", "sqlite", "json", "unknown"] },
         "config_path_sha256": {
+          "anyOf": [
+            { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            { "type": "null" }
+          ]
+        },
+        "binding_sha256": {
           "anyOf": [
             { "type": "string", "pattern": "^[a-f0-9]{64}$" },
             { "type": "null" }

@@ -68,8 +68,13 @@ The deployment observer derives observed identity from the live target:
   trust dialog state;
 - Gemini trust by matching both the trusted-folder decision and every actual
   managed command in the native trusted-hooks state;
-- build commit/tree and storage binding from explicit evidence supplied by
-  their authoritative read-only observers.
+- build commit/tree from explicit evidence supplied by the authoritative
+  read-only build observer;
+- storage binding from native session-start resolution. The adapter hashes the
+  actual selected PostgreSQL URL or canonical local-store path with the
+  `kusabi-store-binding/v1` domain separator and never returns the locator.
+  Runtime events carry this observed hash, and the emitter refuses to create a
+  store when either backend or binding hash differs from the manifest target.
 
 The Codex hash reproduction is pinned to the exact upstream
 [`command_hook_hash`](https://github.com/openai/codex/blob/6751b54cae32b23786001e2414d749a9916201e1/codex-rs/hooks/src/engine/discovery.rs)
@@ -82,7 +87,8 @@ rollout.
 The result is exact only when every class matches the manifest. Extra
 whitespace therefore causes configuration drift even if the command still
 parses, and a changed artifact causes build drift even if an expected hash was
-provided elsewhere. This prevents expected-as-observed false acceptance.
+provided elsewhere. A manifest-supplied storage hash is never copied into a
+durable event. This prevents expected-as-observed false acceptance.
 
 ## Batch gating and rollback
 

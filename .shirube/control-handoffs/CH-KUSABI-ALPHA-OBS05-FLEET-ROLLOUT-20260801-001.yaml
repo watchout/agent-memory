@@ -1,6 +1,6 @@
 schema_version: shirube-v3/control_handoff/v1
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: PHASE_A_IMPLEMENTED_INDEPENDENT_AUDIT_PENDING
+lifecycle_state: PHASE_A_STORAGE_BINDING_CORRECTNESS_REWORK
 mode: full
 profile: protected-surface
 
@@ -45,15 +45,26 @@ allowed_paths:
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json
+  - docs/design/schemas/codex-session-start-evidence-v1.schema.json
+  - docs/design/schemas/claude-session-start-evidence-v1.schema.json
+  - docs/design/schemas/gemini-session-start-evidence-v1.schema.json
   - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
   - docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md
   - src/kusabi-fleet-rollout.ts
   - src/test-kusabi-fleet-rollout.ts
+  - src/codex-session-start.ts
+  - src/claude-session-start.ts
+  - src/gemini-session-start.ts
+  - src/kusabi-runtime-event-emitter.ts
+  - src/kusabi-runtime-event-store.ts
+  - src/test-codex-session-start.ts
+  - src/test-claude-session-start.ts
+  - src/test-gemini-session-start.ts
+  - src/test-kusabi-runtime-event-emitter.ts
   - package.json
 
 forbidden_paths:
   - src/*hook-installer.ts
-  - src/*session-start.ts
   - src/stores/**
   - src/*migration*
   - dist/**
@@ -71,6 +82,7 @@ phase_a_allowed_operations:
   - read-only authoritative inventory and existing configuration inspection
   - create and edit only allowed_paths
   - implement deterministic manifest, rollout-plan, R0, stage-gate, and observed-deployment evidence tooling
+  - bind emitted storage identity to the credential-safe hash of the actual resolved hook store rather than copying the manifest target
   - use existing native host installers through their exported atomic APIs in tests and dry-run only
   - run local schema, TypeScript, unit, full regression, SQLite, isolated PostgreSQL, build, privacy, path-scope, and diff checks
   - create temporary test-only workspaces, files, SQLite databases, and isolated PostgreSQL schemas with deterministic cleanup
@@ -180,22 +192,29 @@ evidence:
     production_build: PASS
     git_diff_check: PASS
     live_configuration_trust_activation_distribution_migration_restart: NOT_RUN_NOT_AUTHORIZED
+  storage_binding_discovery:
+    observed_running_sessions: 35
+    postgres_sessions: 35
+    distinct_credential_safe_binding_hashes: 2
+    manifest_echo_false_acceptance_found: true
+    production_mutation_performed: false
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
-  result: PHASE_A_IMPLEMENTATION_PASS
+  result: PHASE_A_REWORK_REQUIRED
   reason: >-
-    Phase A tooling is implemented and locally verified without production
-    mutation. R4 policy still requires independent audit and one exact
-    manifest/build/config owner decision before production configuration,
-    trust, activation, or distribution mutation.
+    Read-only R0 preparation found two actual credential-safe storage binding
+    hashes across the running fleet, while the runtime event emitter copied the
+    manifest binding hash after checking only backend type. Phase A must fail
+    closed on exact resolved binding drift before independent audit. No
+    production mutation has occurred.
 
 next_action:
   blocking: false
-  owner_agent: codex-audit
-  owner_function: evidence_audit_gate
-  action: Independently audit the exact Phase A implementation, control artifacts, false-acceptance resistance, and 35-binding denominator, returning PASS or itemized blocking findings.
-  handoff_method: AUN instruction plus durable issue 280 comment.
+  owner_agent: kusabi
+  owner_function: implementation_executor
+  action: Implement credential-safe actual storage binding observation in the native session-start evidence and runtime event emitter, rerun the full Phase A checks, then renew the exact-ref independent audit.
+  handoff_method: Continue on the existing OBS-05 branch and update issue 280 with immutable evidence.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -204,6 +223,6 @@ next_action:
     - tree:055711bd3b0436597cce97fec8ca04104bc38926
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, or queue mutation.
-  deliverable: Exact-ref PASS or itemized blocking findings with evidence.
-  completion_evidence: Durable GitHub issue comment and AUN reply identifying auditor, refs, verdict, and findings.
+  scope: The expanded allowed_paths only; no production runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
+  deliverable: Exact resolved storage binding hash in session-start evidence and emitted events, with drift rejection and regression evidence.
+  completion_evidence: Credential-safe two-binding fixtures, full required checks, immutable commit/tree, durable issue comment, and renewed independent audit handoff.
