@@ -1,0 +1,1659 @@
+{
+  "schema_version": "kusabi-fleet-r0-candidate-pack/v1",
+  "result": {
+    "manifest": {
+      "schema_version": "kusabi-fleet-manifest/v1",
+      "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
+      "version": 1,
+      "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+      "targets": [
+        {
+          "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
+          "identity": {
+            "agent_id": "aun",
+            "project": "codex-aun",
+            "host_runtime": "codex",
+            "workspace_sha256": "ca4fce1e749b5248421614d5d6f33de7044c92c6784d76bd3036a4b6708e12bf"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "2a6e08d8c469f5848aae54c2df159ba086e85954b871f4a4982886332c1b5c9d",
+              "trust_fingerprint_sha256": "4e6c430a4548651a952ef2cb4d958f43c98596389da3216c25c5491dbe0f0d4a",
+              "binding_source_ref_sha256": "2671d41124e05f1d35d7885183f3858c52b53baec3c5dde772a057ee65a7dfd1"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "055ae80199cce2a5c7533e2f05e4e945844158df082c00b55a9c1246fa5de3e3",
+          "identity": {
+            "agent_id": "misell",
+            "project": "misell",
+            "host_runtime": "codex",
+            "workspace_sha256": "0d0a50b9bc0b6fa2237f08601ff5b2f8a23c9093b6243b9f2274b1314b21d48a"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "38203205c63d81efee2df7a24a9b7c54fde1dd144d2882001ef98db7f896846e",
+              "trust_fingerprint_sha256": "d3f2c8c44e513e3de5653f9e672e787c232d6dd4ba2ae918484ea07d89e9325f",
+              "binding_source_ref_sha256": "a4bf1eadbc29066b58a3daad4f192e3479e8bf63b5463e673c38b2debfe6b8be"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "1a2f91d787c903093b286d195a91cd3c0bf6004ff655cff46ad4e2fb480119a9",
+          "identity": {
+            "agent_id": "arc",
+            "project": "iyasaka-arc",
+            "host_runtime": "codex",
+            "workspace_sha256": "d3347096a66311b834de82e2ab4460c2afb8b0b9d478b55d24e72af27d681b18"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "10a3a20963f8dfa1ff6acb504f5228f1752610ce0678f2afb5d5e24cbe8fc674",
+              "trust_fingerprint_sha256": "75f10a2c3607daf70ec03e4a54f35bb9fad6b3239adb6467cd904dac673aeb64",
+              "binding_source_ref_sha256": "7de648153af96f77b0f4e56c3435b693b654fc1298e2cb90e1e02c724f70affa"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "1de95b3a2388e35f24870a9caf316b1adb8572e27990badf48eeea59629212ed",
+          "identity": {
+            "agent_id": "research-lead",
+            "project": "research-lead",
+            "host_runtime": "codex",
+            "workspace_sha256": "241b19dcae3af7b8746c4fc16574cbdef1d25a90642611735ed8fafb11e34199"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "6c41b645020f1557773ebedc4018b164094283e62373f28b17015dd304288bc4",
+              "trust_fingerprint_sha256": "3021e80dafe2e20afae3b7a76e907b181ae1ad17a05f0142ac10cbd66ab6054c",
+              "binding_source_ref_sha256": "e3c1924fb3d38f5add8cd695934a28e04c059d8fc8a37fe93681be61c810c746"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "0b12481e04b51aed2cfa73a8a235a540cec322bb855e443ea181bbacc21d9e31"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "1e41ea72881e275538bd287644e803bccf61bcdd64be44fedad7e4a1338f93b7",
+          "identity": {
+            "agent_id": "kusabi",
+            "project": "agent-memory",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "b33d299731f65e2bca9786da8e3c3b581c8c8b5ad30a8555a1fc87df2b8d5a56"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "d501a996e92600b120447d28fe3b3e5af12874e2825ede885ff1a0d297be7ac2",
+              "trust_fingerprint_sha256": "60bd716ccfcf43b01b9b6abb0e6ba421c7d51236e63806c737b649e55dfa0b5e",
+              "binding_source_ref_sha256": "3bf8b9142cb1c5fe396a5b7f256af8da38282f298829686fe683ad068dc74372"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "210c4f7f8c7d8d8d928e141b883ef3f97289c431c7295fe7b34db63cd91675f1",
+          "identity": {
+            "agent_id": "sales-bot",
+            "project": "sales-bot",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "71a4fa090d2028a88243faaab102203a34175e9065f8889cd15df39e948499e5"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "3bfb1b67891b8fd7984927cd86aab2088c6b098cea5b1aab4a83b2c1eba9a15b",
+              "trust_fingerprint_sha256": "6341b9ec099536319d791103e60ab94c299e46ef8f4e8f75c184170cc18eadaa",
+              "binding_source_ref_sha256": "eba274e279c9f2bd49cfb2a728192367ed155091b82092ca0f2fa7b3d05016e4"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "2565d749b6d666d263c91ab4f8fbf7c7d0385daa5d4154eb026dce5537030c57",
+          "identity": {
+            "agent_id": "versa",
+            "project": "versa",
+            "host_runtime": "codex",
+            "workspace_sha256": "ec72ada360889df13c158a451fd47a5a987b5b238d6ce5c2f8bf6430c5a190bd"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "cf296d3658ec9d7e4fd43c39d3583612d9294248d4ee18da8cbb66ddc0f5c911",
+              "trust_fingerprint_sha256": "3c30199a8e7351b5ed0345e295125759e01c589fc4729149483f4f420e37d4cf",
+              "binding_source_ref_sha256": "9f68107bc7187eaea2dad950022adcd998b6da1b5d0dedc7603a47c5c9816ad8"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "29b64b09026280d82cc59d84827e6dde731d3d4f4bce46f1204b7adbe4ca8cd1",
+          "identity": {
+            "agent_id": "design",
+            "project": "design",
+            "host_runtime": "codex",
+            "workspace_sha256": "6bc8104bd7b0bd6c6f2558c45cb2284768429c8c49c485f402d0ea5772a3c7cd"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "01c3a805b09855ab6d0e0d420d552927450233bc34d64f07870bba2caa8bfd1a",
+              "trust_fingerprint_sha256": "a93aef80bb7d875dd3e3a656bdb39df7e21462b43f736f0669eae7c7a41f4e42",
+              "binding_source_ref_sha256": "08b640d07f2e6d9b011877d0c1c31e7acf18c9161ed9f308c80c937e81ab2de0"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "2ba7a702a9980b252b6e0dca46ef711d08dd98c83b1a743529d6788e8521f367",
+          "identity": {
+            "agent_id": "spec",
+            "project": "spec",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "01d8696604683706a30a17bda69417b92fbedae2f6905674202d9c7ac6ab79f9"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "adab776b9bd973ef2b78c2ea4eb7bca5cc533c7141e391dd819fdf246ea4cc4e",
+              "trust_fingerprint_sha256": "53996521730754a9a7f77b90f8b32b3a02ac8c66e4d6ed1074f7884bcd015921",
+              "binding_source_ref_sha256": "3bc5ef9462e305e097586f7b8798be529b0c986710f175394fd6543c497c891f"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "3727410c88f6fe2f37ce6a33b63d2ae3909dce3947c45242f62090cfce9240c8",
+          "identity": {
+            "agent_id": "codex-audit",
+            "project": "codex-audit",
+            "host_runtime": "codex",
+            "workspace_sha256": "1da1c5dad18bf072e6cbfb9473cbce464d111ecda3dfb5b2c946e668ac90d534"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "ea02ef5a1fd1f1dc7367155ba21f3b5b477dd9d849c26256208a4154b359f23b",
+              "trust_fingerprint_sha256": "1c4e2f3d0e24eab508c49110965d2285b01edad6789ee99e29a5374dccd92d6a",
+              "binding_source_ref_sha256": "0e91a344f9e732c4d5826fb681da4cee86b64109fbbeda71e7be3c49c4fe9a71"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "3c4696864b0a1d69c5f514efc5e85f9fce1d7581094065c40020fbb8542e1f91",
+          "identity": {
+            "agent_id": "takumi",
+            "project": "takumi",
+            "host_runtime": "codex",
+            "workspace_sha256": "c24d489dad25f1e7d34dddbf807d5bfc57024ce8d9313888dbffabe07b57d506"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "3c7f8cfd15f00699525976f9fcffd1e9222773b1818d1dcf0c25f3bbc94eb2e6",
+              "trust_fingerprint_sha256": "9144a0a4c7a33e49b7e1b81d58b971a67336887ff53f2eca04e4e5b0c01a1832",
+              "binding_source_ref_sha256": "1358d6c11ea3db24355c6a3dd898b2ffc4ebd9a6773cd67a7cea66254ff76f6b"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "3d2c918d728142fbc1b796fb9932e77c5c582001063daf3f0ff6e8a1d9378e0b",
+          "identity": {
+            "agent_id": "kodama",
+            "project": "kodama",
+            "host_runtime": "codex",
+            "workspace_sha256": "966d3e23e2d3ac7b8286c0c68e0aedfe8ba0f841fed0c392a12e0a064041832c"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "ce447d28760a81f413bc83b6aace768dc76e4291f12ad294146ccd9d73fb3370",
+              "trust_fingerprint_sha256": "c226af81ab40c9c2df51e633729c95961f8740e1c40b6ecdc0e9c43cb42be47e",
+              "binding_source_ref_sha256": "42650b18cc10af82ca7f6690e6eb0fe481189196366a423212cfdaeaf81077e6"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "468ced53794a56f6948e651c0392d2d93e2252c9929f7be74f52af4f60496beb",
+          "identity": {
+            "agent_id": "devauditor",
+            "project": "dev-auditor",
+            "host_runtime": "codex",
+            "workspace_sha256": "0457d2593b57d376480f531b63fb6bfc48b4b33f9d4c3f844ca80c4990d49f0a"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "690564ac17c1a2f164805bc8693d36e2191f2965da9a03b9308a374770a6836e",
+              "trust_fingerprint_sha256": "15d7b34ead776cc2ff42977dd2216b50c1a68ad64d2ef3aff68dec825bacaa81",
+              "binding_source_ref_sha256": "089547b96ec3e9aea7045f1aae644b3d0737603d10c01cadbeb055ebc1840bf7"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "53a562e805be00eff910774d611d932bd38f25b2fc4f892ff5c40108e92f83ec",
+          "identity": {
+            "agent_id": "codex-cto",
+            "project": "codex",
+            "host_runtime": "codex",
+            "workspace_sha256": "a1bf6f2a4ed9e4494ff9338e592de998416de3947b38679b7696fd28f6fa6f68"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "ef9b500489711e53e2a9073d6bbb042f1dd13fc364c777fe098fae8621c17ceb",
+              "trust_fingerprint_sha256": "77452f266ed8fbf60149fa6b2fe62cab5c1486b21a5a8e0bd967338e50111bb3",
+              "binding_source_ref_sha256": "11815d099b71912c26c5f001eae6674db3d831d60847415e4d354098d20c9bdb"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "62023fd5ffc83b27fcaac33c4ba30d111440117d807442111ab61a96c6b8e90a",
+          "identity": {
+            "agent_id": "qa",
+            "project": "qa",
+            "host_runtime": "codex",
+            "workspace_sha256": "1d372fbefe550bfb59365159876f3eb2975bd6082ee650542f6235c0e1706cde"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "240cb3082d5b9fa332d0a27431ca83304b159f814cffede4a1d3ce79ee3d41ef",
+              "trust_fingerprint_sha256": "86040653ae7405cde5ac02f8cad9da0bbe07aa049ba788af349db627a7c041fb",
+              "binding_source_ref_sha256": "0cc9d558b0510354747ace63f0acc384242c9a36190340e18efc51fd8b78ce7c"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "703f9e3cff45648013f33085f36adf89cc8997a6ccd0bf7bd957888c3d60c641",
+          "identity": {
+            "agent_id": "kusabi",
+            "project": "agent-memory",
+            "host_runtime": "codex",
+            "workspace_sha256": "b33d299731f65e2bca9786da8e3c3b581c8c8b5ad30a8555a1fc87df2b8d5a56"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "44de12f7a6bd501517713e66e754fdc0277fe45c6c68fe8c06c29941d35fd76f",
+              "trust_fingerprint_sha256": "f363b71fd8cc010fb3c647c883fc712a577de8d39b14fe69007d7a399a2c908b",
+              "binding_source_ref_sha256": "1659b241330bac60d85bc7725eaf031943152ac9c4923445de551638f583f569"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "73b56298fa2c985067c6a21485919605e6646fbbdd04911d678ada61b0f66e96",
+          "identity": {
+            "agent_id": "pfaun",
+            "project": "pfaun",
+            "host_runtime": "codex",
+            "workspace_sha256": "1185062ed89010f3dd8902324ab9b5a6c13e885819eb6d2db01e3acb94956303"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "8946d0d45e3abb3fa2494c1e118ce6b4b561f8f5664561851a44e4b0edcd2a87",
+              "trust_fingerprint_sha256": "28906b74e0f12b7eb6915a44bed3e90a119171cefb144fbcdb779ecaecf9cbb8",
+              "binding_source_ref_sha256": "abd11bab03aa261976fad7009f302f18be84b96069c13e2df79672f2b90d45f7"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "7c93308370a4320cf9e9f0ec612dac8a810471383afaff2cefe76580ba1de50a",
+          "identity": {
+            "agent_id": "zumen",
+            "project": "zumen",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "696c95ab62e57e2a148a5e69789f8ffe0c0cb4ced5ee3b42080cc6f3ea087b83"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "2cbabdf2c4324cbed81fbf89e20038ed74115e0738871a89d0e1303e88b9a4dc",
+              "trust_fingerprint_sha256": "6b8f2bb1c16c05260f375adf0e9e81f95a98c30c75901d0209f2c3ace253ab66",
+              "binding_source_ref_sha256": "ab2c18f0a685bcce57f2c88aa04773be27286f543774481d683dcdd131209f27"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "7f42067bae8d79cfe8c27bb1e7a8d6f96dc2fca09864b6188c3afc3398d24ead",
+          "identity": {
+            "agent_id": "adf-lead",
+            "project": "ai-dev-framework",
+            "host_runtime": "codex",
+            "workspace_sha256": "84b0c884bedfa34fa8cb8a4f10b4b05247ca7e53113ed2dd3edaac08b84d2d78"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "11b44dbad01e9fa79c9baba217f6352afac5fee8a4c5b89f11acb3c29e1750a9",
+              "trust_fingerprint_sha256": "33671343e1354696f698619e2da63a7ec038d54e56932f9d46cabe383aefcdca",
+              "binding_source_ref_sha256": "e4753f6a4b74f282f695ba5b679b8adfd990085983373c43b60c7a2b29c012de"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "84a31591179202a7978ae47f75de8e678bec1c07f2f7c5004ba17dd2be1abc08",
+          "identity": {
+            "agent_id": "nyusatsu-dev",
+            "project": "nyusatsu",
+            "host_runtime": "codex",
+            "workspace_sha256": "4dfa5701b53d0f15d0ac63d98fec30939fedc7b2b3c022aa4ef3322d960ea89a"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "ad54c70b57c72f1b73495d56b1c804013601e70cf7e6febcbf792500ec223c22",
+              "trust_fingerprint_sha256": "e76015e3d8e243ef65a5c923078207898c86fefb1bc03c7465a94edcced04ff3",
+              "binding_source_ref_sha256": "9bd6a3052b05d3f7eb0ec514ea17155a4a0eea4fc2bb851d2f7f7e464f8db385"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "876d8eaa489b3d854dfa25a081d8eb2c9f836742f2a190e4fe61b71362ebb527",
+          "identity": {
+            "agent_id": "webb-dev",
+            "project": "webb-dev",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "0c98c8592eddbe61699bb78901df76d78fb91aff70cce1718c4d36ceebd1c4e2"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "91431faf7a43d3fbbf99ff89c5da21587d2cce9cbef71e08658e238315af27dd",
+              "trust_fingerprint_sha256": "60d575c97b5c850172e5ac3ccf8fd0e95dec7e3e4f64bd5d40c9a141b18ca712",
+              "binding_source_ref_sha256": "555d88c86407aeb16a4a59afd2da815fa93cab5aff53333f47a9a29bad996936"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "8e39779d4eeebc794f5396fc3eb9070ae3df20e7f89c6eeb0e0875a6b8426c35",
+          "identity": {
+            "agent_id": "xmarketing-dev",
+            "project": "x-marketing-engine",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "95fef83fac3f882a53a7567b83455a76b08f24d01477f39fa75903c067a440a3"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "b26eef4181f7857c012ff7f6500c01d18fbc442555083fea59b4b1a95a9d6b98",
+              "trust_fingerprint_sha256": "cfcc4887100f619d9c04ca01970666100ab7c09724a8acd03a20768c46f936d5",
+              "binding_source_ref_sha256": "37b3ace985a7d49041f07f55daa2b08ef42d4296f06c3784acbf7677dc8ccad5"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "9685df2ff2d96f56af89cf6e9a9ef5d6e42b567588cff9df9b0907945120f43b",
+          "identity": {
+            "agent_id": "suite-lead",
+            "project": "iyasaka-arc-suite-lead",
+            "host_runtime": "codex",
+            "workspace_sha256": "5f880ce9dcab1a784ca6286a4c30bd524330d84f0bcbcf3f67dd95e4b1c45666"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "3899d42170ad0638b9aeb7f0869173d937ee0e5f71e209870818ab22da081dbd",
+              "trust_fingerprint_sha256": "5c2a04ff22837633bb41b753cd18344096bc62121275064a9d8f2df168a530fa",
+              "binding_source_ref_sha256": "c13267c72c517119f72a03b9946218bc2f3021b8f7e885d7d951003090eac2ca"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "99f895ae449f4608f42d7f89c83e2c5ff4b0a4ac7d9b189f74f490474785f2bb",
+          "identity": {
+            "agent_id": "haishin-dev",
+            "project": "haishin-puls-hub",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "1ec29fedeaf8e55d84deee99a300c0c584fd2b373e60eaa844a10919ac3a5e51"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "29bf117499aa9814d0e37a974a60b6b4a2e95e9e71e6ed2870011c2f1d281338",
+              "trust_fingerprint_sha256": "1720af4afc8332ad5e79fa4035f97096b2e34d1f2240102bf3f86872c2303a17",
+              "binding_source_ref_sha256": "89f17075c42ac7b3770cf07d9e01d1f7e507b0898d2a9fee0bcbbbdee2cef0f6"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "b91a83d2690ab9d9e4950a24add03ad9aac57349ea45ed3cbec627397579b3f1",
+          "identity": {
+            "agent_id": "dev-001",
+            "project": "dev-001",
+            "host_runtime": "codex",
+            "workspace_sha256": "3b4c58b102c9fcaf7f9493f1373de1b18627ffe5d4f9cd861c2737f18559f259"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "1bdd38647a3cb31684232bf480e452c1307790f991195dd2ae6245c91dc595fc",
+              "trust_fingerprint_sha256": "b7a86d814a013b5df4a07249e4127de6540872f6dda50ad2f0dd69ce6c8f16dd",
+              "binding_source_ref_sha256": "73ab65b34d41ca926321a35a7df9fe0869377300d1cecf8a3a25a58972452bd2"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "bb4e46cfb2f0518816c45a5645376c29a1c1565d0031383c09c9de58cd8ad77c",
+          "identity": {
+            "agent_id": "hotel-lead",
+            "project": "hotel-lead",
+            "host_runtime": "codex",
+            "workspace_sha256": "03eaefe8cdfb7fd6e925c50defb80a0e61009be3958539dd1ed77ff7221bf3fa"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "4c13713f6289cdd8fee4698aa1004fa8a1320587ad04256ffc8e7ce3ef871714",
+              "trust_fingerprint_sha256": "b97d54a68053869eaed61d3af6115a3efe4a784488170c253861826a87e13422",
+              "binding_source_ref_sha256": "756109f91f8a8d4a1e6a81d54628e1b8e01299aaffbaab35603bd967d96c8586"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "c7b5fbc47a79d95b96cfb641bac3c29fe2454414869f58343d6617044eb0f25a",
+          "identity": {
+            "agent_id": "kusabi",
+            "project": "agent-memory",
+            "host_runtime": "gemini_cli",
+            "workspace_sha256": "b33d299731f65e2bca9786da8e3c3b581c8c8b5ad30a8555a1fc87df2b8d5a56"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "fdb5a68e0b1f06bdbff9e4f94300c2a9f52fdb3fbcf61964ad581851011224fa",
+              "trust_fingerprint_sha256": "7805b6d8e3fb6b22e4f15a75ef08768aceeaeec4cf591585a059dc1061b90b0c",
+              "binding_source_ref_sha256": "4bc60eb5ce66967c2b14548576243ea49c418cdc5c830660e969bda0ed0ac469"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "cbe0be8c2424578f7e6e3d3571bdadfa7575c436751a39b9a69d58f773e86a6d",
+          "identity": {
+            "agent_id": "check",
+            "project": "check",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "cd2c68719264e6eab8b5364608915b0963d0da417878dc6a1b59aa66cf7c7105"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "68838068704abf52e696c667dcd5d1b4cc54721a2ae85bd1ea9825239f7a4ff7",
+              "trust_fingerprint_sha256": "efc61f6e9742195f75e854856e5a72f68715a3a851928bb4d0985456dacadc2c",
+              "binding_source_ref_sha256": "d6f835669c2edfe9df89aacc4ed76d9672f375e8cbc6ea2fca77ad9e2bb732a8"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "d2307337c759a1fb90ea88e8ea625b7d6ec2752b13438318e3a4221bee4a3a38",
+          "identity": {
+            "agent_id": "vice",
+            "project": "iyasaka-org",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "dd174f0c9b1b1f665381ad74b0e6bb3eb0fcc086544db91f5a5fa4ccd0383ad2"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "abebad4eb4702252efd6fd3f1abd51d5fee2921f84f6e08aa0a11e85e1b935e8",
+              "trust_fingerprint_sha256": "30a83b8f78e6b3bc69fb76368ab16030cfbe9a0dd017615affa07185bd091504",
+              "binding_source_ref_sha256": "c5801753da1a01d7a0949ca56ecf92be7f7e744138a36ea5118a58a89721df00"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "d30dfaa65c5b80ca461424da863f57a9a125ae9d1714eab8ba502e9c102c5be7",
+          "identity": {
+            "agent_id": "marketing-bot",
+            "project": "marketing-bot",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "99abe24a7863ea15751e42eb0c8c7574dfe0d467cb55367b463b832f461de237"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "64128894c953696c98612dc819c92a7d2fd5ba5ce2281905709a7bb524532c8d",
+              "trust_fingerprint_sha256": "5c3c5d1616996b43f06fe0a42fa8f8576c3dd3e8b8a8ffa5b5fb7517933603e3",
+              "binding_source_ref_sha256": "b3d7275e76ce1f8685c10f33c1bc9b48bd601efec24cf4126c9f91104713787a"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "e6aa05d740a2a4fd72fe96e0a06bd6a0e64f567f55cb518e2cc0cfe948668135",
+          "identity": {
+            "agent_id": "upwork-dev",
+            "project": "upwork-automation",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "dc336809b5f601fece71590336fe316111e9556c0c25cd40f0228bb124337f33"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "b27b2c70b968a425465b37c0d78e9c7e541879099a12a1b354881a32b3c88be9",
+              "trust_fingerprint_sha256": "9cfdd407fee6d822f205ae04082273d078b271d34cc902f5a434ba136ac2d246",
+              "binding_source_ref_sha256": "1b034cf70318f4b3fc16281e2e4390b2876532f02439ea8176fdce4dd557cae1"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "e9bcf1d0e5d72cfa3a5dadeffceec06a50f0955fcd86f3d7ac7f38522ff219c2",
+          "identity": {
+            "agent_id": "org-build-dev",
+            "project": "org-build",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "1b35fab6d5d2dc947d67e1048feecb37caa6b14c50cec46d06215462652211a1"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "9ebe2e5ceb75e11786b419cecd15901d804869146b24699fa111ab5fe1fce97a",
+              "trust_fingerprint_sha256": "63606abbfb90ed433c2637c1c01b71046bc5c8ffe82fde0e452fda38cb40346f",
+              "binding_source_ref_sha256": "8b336602a765f88900fcb15d48ebe422ace05d179717ab076a9376acaf1b695b"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "ea1ffe420834bf827d94fa0922910b3ed2fa85e5c3d876456ecbde5c375c3d6d",
+          "identity": {
+            "agent_id": "hotel-dev",
+            "project": "hotel-saas-rebuild",
+            "host_runtime": "codex",
+            "workspace_sha256": "6554b4b61b85792a6197a4989ce4f43a5f8adc49adea768b06c15f9acd0312ed"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "0ccde3ae5b523f0daeb92a8f7920695efec4dee64eb3fa60c8c288ca66213e33",
+              "trust_fingerprint_sha256": "9b1894bb27a62b2c7099304fc99d37745f31f2bed0df2349f1f174174dffcad4",
+              "binding_source_ref_sha256": "387f36d76aef00662e2b10caeeb21516be5ba9807491840aa3c564e4aadac073"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "f746298c9fa7050c2416becc693207bad5563c2d569adfb4aa94d911e0b692ce",
+          "identity": {
+            "agent_id": "secretary",
+            "project": "secretary",
+            "host_runtime": "codex",
+            "workspace_sha256": "9968cf18f08b16490422f65fbf1d86b1203b0d607431fb886434c0441465e79f"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+              "adapter_version": "1.0.1"
+            },
+            "configuration": {
+              "config_sha256": "6510af49269a5c9dec0ec62281bba1356ee7090d57da96af73f67b4d6ec8dd0e",
+              "trust_fingerprint_sha256": "9570ff00311f5aa3a09ece8770043fe95a02afc5c9250f61c5b7a3aa976ea117",
+              "binding_source_ref_sha256": "6161e4bcee53770cc4f5a483cadafeb10004a6ec78c220e1431af7f9a421abe4"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        },
+        {
+          "target_key": "fde846a9929a735b45ccea34ad019837f2e49c92f21fab8b8df031e1955c78a7",
+          "identity": {
+            "agent_id": "wbs-dev",
+            "project": "wbs",
+            "host_runtime": "claude_code",
+            "workspace_sha256": "c4893f7b54a571368892ffb0f50fedf4774a1742dd2c4ec81155976b4a1a31ec"
+          },
+          "expected": {
+            "build": {
+              "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+              "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd",
+              "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+              "adapter_version": "1.0.2"
+            },
+            "configuration": {
+              "config_sha256": "5a102777c99aa561ceea015ff4ee79a391e577f2341f5d7e73b4f16364600e38",
+              "trust_fingerprint_sha256": "7a9e7c780bacafac17dd79decf70bcc812524be795ecd5fa67295879b19c727a",
+              "binding_source_ref_sha256": "31a1966c4c14c2d90c71ce5bc71b73260597d0b3e94a116693abe097e5766900"
+            },
+            "storage": {
+              "backend": "postgres",
+              "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a"
+            }
+          },
+          "activation_at": "2026-08-01T05:30:00.000Z",
+          "durable_evidence_deadline_at": "2026-08-01T07:00:00.000Z",
+          "stale_after_seconds": 600,
+          "maintenance_windows": []
+        }
+      ]
+    },
+    "rollout_plan": {
+      "schema_version": "kusabi-fleet-rollout-plan/v1",
+      "rollout_id": "kusabi-alpha-obs05-rollout-20260801-v1-candidate",
+      "manifest": {
+        "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
+        "version": 1,
+        "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+        "target_count": 35
+      },
+      "implementation": {
+        "commit_sha": "77621a8ccb81282bb302be4d5572faa8ec0cd711",
+        "tree_sha": "f30b22a55a0156e06026cc819b3daaae2784c2cd"
+      },
+      "batches": [
+        {
+          "batch_id": "r1-01",
+          "stage": "r1",
+          "ordinal": 1,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "1e41ea72881e275538bd287644e803bccf61bcdd64be44fedad7e4a1338f93b7",
+            "703f9e3cff45648013f33085f36adf89cc8997a6ccd0bf7bd957888c3d60c641",
+            "c7b5fbc47a79d95b96cfb641bac3c29fe2454414869f58343d6617044eb0f25a"
+          ]
+        },
+        {
+          "batch_id": "r2-01",
+          "stage": "r2",
+          "ordinal": 2,
+          "minimum_soak_seconds": 3600,
+          "target_keys": [
+            "1a2f91d787c903093b286d195a91cd3c0bf6004ff655cff46ad4e2fb480119a9",
+            "2ba7a702a9980b252b6e0dca46ef711d08dd98c83b1a743529d6788e8521f367",
+            "3727410c88f6fe2f37ce6a33b63d2ae3909dce3947c45242f62090cfce9240c8",
+            "468ced53794a56f6948e651c0392d2d93e2252c9929f7be74f52af4f60496beb",
+            "53a562e805be00eff910774d611d932bd38f25b2fc4f892ff5c40108e92f83ec",
+            "62023fd5ffc83b27fcaac33c4ba30d111440117d807442111ab61a96c6b8e90a",
+            "b91a83d2690ab9d9e4950a24add03ad9aac57349ea45ed3cbec627397579b3f1",
+            "bb4e46cfb2f0518816c45a5645376c29a1c1565d0031383c09c9de58cd8ad77c",
+            "cbe0be8c2424578f7e6e3d3571bdadfa7575c436751a39b9a69d58f773e86a6d",
+            "e9bcf1d0e5d72cfa3a5dadeffceec06a50f0955fcd86f3d7ac7f38522ff219c2",
+            "f746298c9fa7050c2416becc693207bad5563c2d569adfb4aa94d911e0b692ce"
+          ]
+        },
+        {
+          "batch_id": "r3-01",
+          "stage": "r3",
+          "ordinal": 3,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
+            "055ae80199cce2a5c7533e2f05e4e945844158df082c00b55a9c1246fa5de3e3",
+            "1de95b3a2388e35f24870a9caf316b1adb8572e27990badf48eeea59629212ed",
+            "210c4f7f8c7d8d8d928e141b883ef3f97289c431c7295fe7b34db63cd91675f1",
+            "2565d749b6d666d263c91ab4f8fbf7c7d0385daa5d4154eb026dce5537030c57"
+          ]
+        },
+        {
+          "batch_id": "r3-02",
+          "stage": "r3",
+          "ordinal": 4,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "29b64b09026280d82cc59d84827e6dde731d3d4f4bce46f1204b7adbe4ca8cd1",
+            "3c4696864b0a1d69c5f514efc5e85f9fce1d7581094065c40020fbb8542e1f91",
+            "3d2c918d728142fbc1b796fb9932e77c5c582001063daf3f0ff6e8a1d9378e0b",
+            "73b56298fa2c985067c6a21485919605e6646fbbdd04911d678ada61b0f66e96",
+            "7c93308370a4320cf9e9f0ec612dac8a810471383afaff2cefe76580ba1de50a"
+          ]
+        },
+        {
+          "batch_id": "r3-03",
+          "stage": "r3",
+          "ordinal": 5,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "7f42067bae8d79cfe8c27bb1e7a8d6f96dc2fca09864b6188c3afc3398d24ead",
+            "84a31591179202a7978ae47f75de8e678bec1c07f2f7c5004ba17dd2be1abc08",
+            "876d8eaa489b3d854dfa25a081d8eb2c9f836742f2a190e4fe61b71362ebb527",
+            "8e39779d4eeebc794f5396fc3eb9070ae3df20e7f89c6eeb0e0875a6b8426c35",
+            "9685df2ff2d96f56af89cf6e9a9ef5d6e42b567588cff9df9b0907945120f43b"
+          ]
+        },
+        {
+          "batch_id": "r3-04",
+          "stage": "r3",
+          "ordinal": 6,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "99f895ae449f4608f42d7f89c83e2c5ff4b0a4ac7d9b189f74f490474785f2bb",
+            "d2307337c759a1fb90ea88e8ea625b7d6ec2752b13438318e3a4221bee4a3a38",
+            "d30dfaa65c5b80ca461424da863f57a9a125ae9d1714eab8ba502e9c102c5be7",
+            "e6aa05d740a2a4fd72fe96e0a06bd6a0e64f567f55cb518e2cc0cfe948668135",
+            "ea1ffe420834bf827d94fa0922910b3ed2fa85e5c3d876456ecbde5c375c3d6d"
+          ]
+        },
+        {
+          "batch_id": "r3-05",
+          "stage": "r3",
+          "ordinal": 7,
+          "minimum_soak_seconds": 0,
+          "target_keys": [
+            "fde846a9929a735b45ccea34ad019837f2e49c92f21fab8b8df031e1955c78a7"
+          ]
+        }
+      ],
+      "rollout_plan_sha256": "827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56"
+    },
+    "report": {
+      "schema_version": "kusabi-fleet-r0-report/v1",
+      "captured_at": "2026-08-01T05:03:16.974Z",
+      "manifest": {
+        "manifest_id": "kusabi-alpha-obs05-fleet-20260801-v1-candidate",
+        "version": 1,
+        "manifest_sha256": "94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b",
+        "target_count": 35
+      },
+      "rollout_plan_sha256": "827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56",
+      "target_count": 35,
+      "targets": [
+        {
+          "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
+          "host_runtime": "codex",
+          "batch_id": "r3-01",
+          "config_locator_sha256": "ccea9f1cc9da70626381ab724d24aac81db76f3d35f99cd334003a2dc0bd6e0a",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "2a6e08d8c469f5848aae54c2df159ba086e85954b871f4a4982886332c1b5c9d",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "055ae80199cce2a5c7533e2f05e4e945844158df082c00b55a9c1246fa5de3e3",
+          "host_runtime": "codex",
+          "batch_id": "r3-01",
+          "config_locator_sha256": "34b3caeaf501f9190255a6149b6a6b8b3d24936f6ac91c1d74dbb0328c57f47b",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "38203205c63d81efee2df7a24a9b7c54fde1dd144d2882001ef98db7f896846e",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "1a2f91d787c903093b286d195a91cd3c0bf6004ff655cff46ad4e2fb480119a9",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "f7786135aa296d8eaa136b07270199993929296d8ef37c11f0a6d16e836d7c41",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "10a3a20963f8dfa1ff6acb504f5228f1752610ce0678f2afb5d5e24cbe8fc674",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "1de95b3a2388e35f24870a9caf316b1adb8572e27990badf48eeea59629212ed",
+          "host_runtime": "codex",
+          "batch_id": "r3-01",
+          "config_locator_sha256": "2d2f8e096bb07e0f2201e49d49fd61bb57a67c807bfccc40f1b96c21afffca8a",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "6c41b645020f1557773ebedc4018b164094283e62373f28b17015dd304288bc4",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "1e41ea72881e275538bd287644e803bccf61bcdd64be44fedad7e4a1338f93b7",
+          "host_runtime": "claude_code",
+          "batch_id": "r1-01",
+          "config_locator_sha256": "878ce9820801d7c4c62ab365a3f220e5fe84256901411701f19ef1fa722df8c5",
+          "preimage_state": "file",
+          "preimage_sha256": "c252e848d6f0c696fe35f6f5506fc9861abea51af6f6561636cd28edb05f8811",
+          "preimage_mode": "0600",
+          "expected_postimage_sha256": "d501a996e92600b120447d28fe3b3e5af12874e2825ede885ff1a0d297be7ac2",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "210c4f7f8c7d8d8d928e141b883ef3f97289c431c7295fe7b34db63cd91675f1",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-01",
+          "config_locator_sha256": "57608000860db5bab6abbc5b9cd750c625253e1c2b169b03d3992d10d1c45f2f",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "3bfb1b67891b8fd7984927cd86aab2088c6b098cea5b1aab4a83b2c1eba9a15b",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "2565d749b6d666d263c91ab4f8fbf7c7d0385daa5d4154eb026dce5537030c57",
+          "host_runtime": "codex",
+          "batch_id": "r3-01",
+          "config_locator_sha256": "543a55fd4fb38900da0545e5cbff4ad07de828321ebdbcded5cec2965c5c92d0",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "cf296d3658ec9d7e4fd43c39d3583612d9294248d4ee18da8cbb66ddc0f5c911",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "29b64b09026280d82cc59d84827e6dde731d3d4f4bce46f1204b7adbe4ca8cd1",
+          "host_runtime": "codex",
+          "batch_id": "r3-02",
+          "config_locator_sha256": "e959f65f926a35038278892f0fb987e3073f84d026c8b84ce16926944e376d46",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "01c3a805b09855ab6d0e0d420d552927450233bc34d64f07870bba2caa8bfd1a",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "2ba7a702a9980b252b6e0dca46ef711d08dd98c83b1a743529d6788e8521f367",
+          "host_runtime": "claude_code",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "618f1b227fc1b24d9db35e3230e3adb887362e6483f8c3fc412f40589563c4e8",
+          "preimage_state": "file",
+          "preimage_sha256": "d654fe708c9fbeaf4cb6614bc3e1a64ef68d2c8eb38e4c639851cfa03c854ad6",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "adab776b9bd973ef2b78c2ea4eb7bca5cc533c7141e391dd819fdf246ea4cc4e",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "3727410c88f6fe2f37ce6a33b63d2ae3909dce3947c45242f62090cfce9240c8",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "f446e02e179f600b21789353f4ce2ab02a4add394f1bd3ed0007b093c5218e71",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "ea02ef5a1fd1f1dc7367155ba21f3b5b477dd9d849c26256208a4154b359f23b",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "3c4696864b0a1d69c5f514efc5e85f9fce1d7581094065c40020fbb8542e1f91",
+          "host_runtime": "codex",
+          "batch_id": "r3-02",
+          "config_locator_sha256": "638695e73ccde83f64d2532942329065cdb74d87c627429a4e3e25bfbe283a2c",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "3c7f8cfd15f00699525976f9fcffd1e9222773b1818d1dcf0c25f3bbc94eb2e6",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "3d2c918d728142fbc1b796fb9932e77c5c582001063daf3f0ff6e8a1d9378e0b",
+          "host_runtime": "codex",
+          "batch_id": "r3-02",
+          "config_locator_sha256": "ca9621f3233adf83a007ca63aa6990468f16768f495c606ceb8df0e461d02360",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "ce447d28760a81f413bc83b6aace768dc76e4291f12ad294146ccd9d73fb3370",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "468ced53794a56f6948e651c0392d2d93e2252c9929f7be74f52af4f60496beb",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "2247a6aafa5550d04fba00f44d62e1661a78d219b5880f1cd20d2f31011019c4",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "690564ac17c1a2f164805bc8693d36e2191f2965da9a03b9308a374770a6836e",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "53a562e805be00eff910774d611d932bd38f25b2fc4f892ff5c40108e92f83ec",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "a01ad37a2015377c33e004cc59a56cede9141ebcb684032c8f76c273c9f735b3",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "ef9b500489711e53e2a9073d6bbb042f1dd13fc364c777fe098fae8621c17ceb",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "62023fd5ffc83b27fcaac33c4ba30d111440117d807442111ab61a96c6b8e90a",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "d5678210702941856cef761364035fb58606d7f38e0e7c52dcf62ff21517042d",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "240cb3082d5b9fa332d0a27431ca83304b159f814cffede4a1d3ce79ee3d41ef",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "703f9e3cff45648013f33085f36adf89cc8997a6ccd0bf7bd957888c3d60c641",
+          "host_runtime": "codex",
+          "batch_id": "r1-01",
+          "config_locator_sha256": "814ec69ddabf770db855d0e751b057d195a5dc910c362e39816133cdc08ed752",
+          "preimage_state": "file",
+          "preimage_sha256": "a7ce8e895ac62dac905ec6449d6447732c16b4cced967b29d5f0ac68693563a2",
+          "preimage_mode": "0600",
+          "expected_postimage_sha256": "44de12f7a6bd501517713e66e754fdc0277fe45c6c68fe8c06c29941d35fd76f",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "73b56298fa2c985067c6a21485919605e6646fbbdd04911d678ada61b0f66e96",
+          "host_runtime": "codex",
+          "batch_id": "r3-02",
+          "config_locator_sha256": "d42ec6b661155d538549ad7a9b1ac0a36bbc8504d885b5a4cd327906a379dd92",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "8946d0d45e3abb3fa2494c1e118ce6b4b561f8f5664561851a44e4b0edcd2a87",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "7c93308370a4320cf9e9f0ec612dac8a810471383afaff2cefe76580ba1de50a",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-02",
+          "config_locator_sha256": "c5f349edfdab0cb0d3575c45ed43a4b2af7ca6fbbdd320f4e38144525b388c22",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "2cbabdf2c4324cbed81fbf89e20038ed74115e0738871a89d0e1303e88b9a4dc",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "7f42067bae8d79cfe8c27bb1e7a8d6f96dc2fca09864b6188c3afc3398d24ead",
+          "host_runtime": "codex",
+          "batch_id": "r3-03",
+          "config_locator_sha256": "8016b4dcad8d3216d5a92c37aa4d88742f380a2dcb1a57baea57c98beb01c9ee",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "11b44dbad01e9fa79c9baba217f6352afac5fee8a4c5b89f11acb3c29e1750a9",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "84a31591179202a7978ae47f75de8e678bec1c07f2f7c5004ba17dd2be1abc08",
+          "host_runtime": "codex",
+          "batch_id": "r3-03",
+          "config_locator_sha256": "388141f93e6cf90c6b3274e0114ac63a2ca056b9bebff6d1064c65f25631afff",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "ad54c70b57c72f1b73495d56b1c804013601e70cf7e6febcbf792500ec223c22",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "876d8eaa489b3d854dfa25a081d8eb2c9f836742f2a190e4fe61b71362ebb527",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-03",
+          "config_locator_sha256": "b68dc32d2c9d36374aaab926ca242f416f442005691b5219c03ef0682147f2e1",
+          "preimage_state": "file",
+          "preimage_sha256": "4c7a674f4387142c8342fafe55772986d536246bdb2388b97d07b61f330da530",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "91431faf7a43d3fbbf99ff89c5da21587d2cce9cbef71e08658e238315af27dd",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "8e39779d4eeebc794f5396fc3eb9070ae3df20e7f89c6eeb0e0875a6b8426c35",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-03",
+          "config_locator_sha256": "e30234da97bc07f5090784e5f3343a11e478cba5c889dca1eb1ae466af0e7179",
+          "preimage_state": "file",
+          "preimage_sha256": "764b0930aa656e5950e0b5c3f85c1640b96e648928965c9c9b669478921acb49",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "b26eef4181f7857c012ff7f6500c01d18fbc442555083fea59b4b1a95a9d6b98",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "9685df2ff2d96f56af89cf6e9a9ef5d6e42b567588cff9df9b0907945120f43b",
+          "host_runtime": "codex",
+          "batch_id": "r3-03",
+          "config_locator_sha256": "92246af5d62920a8e0df2a103dd39d493d087e3b77347667c23d3d6978c57a7c",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "3899d42170ad0638b9aeb7f0869173d937ee0e5f71e209870818ab22da081dbd",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "99f895ae449f4608f42d7f89c83e2c5ff4b0a4ac7d9b189f74f490474785f2bb",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-04",
+          "config_locator_sha256": "ab90f5f61367e79c5dac151880cd6057056cbbeefad934fe9d0570924d68a5e7",
+          "preimage_state": "file",
+          "preimage_sha256": "efb0c047eb05ead00f564e040fa53d5c3e42a55c0dba03cdb2418ba9c8f420eb",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "29bf117499aa9814d0e37a974a60b6b4a2e95e9e71e6ed2870011c2f1d281338",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "b91a83d2690ab9d9e4950a24add03ad9aac57349ea45ed3cbec627397579b3f1",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "ee0dcf52b75db4013607d556850ca4a5a6e2e90db4f1a53daa15add3ec8e2cf9",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "1bdd38647a3cb31684232bf480e452c1307790f991195dd2ae6245c91dc595fc",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "bb4e46cfb2f0518816c45a5645376c29a1c1565d0031383c09c9de58cd8ad77c",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "617405b423892e249d307e7a2c2a2e73745e9e13985dbc10a2730a6dac8db6d0",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "4c13713f6289cdd8fee4698aa1004fa8a1320587ad04256ffc8e7ce3ef871714",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "c7b5fbc47a79d95b96cfb641bac3c29fe2454414869f58343d6617044eb0f25a",
+          "host_runtime": "gemini_cli",
+          "batch_id": "r1-01",
+          "config_locator_sha256": "055eaaefb5795fc41639218f151eaa8a9284d5837fe939aea5e97d0ed12922b9",
+          "preimage_state": "file",
+          "preimage_sha256": "18bfe7a214ca6b43baa301e1a7820dd6ccef2df312b58ceab2364431f118cbac",
+          "preimage_mode": "0600",
+          "expected_postimage_sha256": "fdb5a68e0b1f06bdbff9e4f94300c2a9f52fdb3fbcf61964ad581851011224fa",
+          "artifact_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
+          "rollback_required": true
+        },
+        {
+          "target_key": "cbe0be8c2424578f7e6e3d3571bdadfa7575c436751a39b9a69d58f773e86a6d",
+          "host_runtime": "claude_code",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "740b35008b76eab4e16ee3180c4c66172afeee3b04644d56e90de43c8c00a775",
+          "preimage_state": "file",
+          "preimage_sha256": "4432d0bd6dcbd7d80ef0f3ce88bfa01283218d67f399fe8ec80d50587bfde28c",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "68838068704abf52e696c667dcd5d1b4cc54721a2ae85bd1ea9825239f7a4ff7",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "d2307337c759a1fb90ea88e8ea625b7d6ec2752b13438318e3a4221bee4a3a38",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-04",
+          "config_locator_sha256": "f89eca3f0eae2505f8b727d95dc814c339a1da927ff2fce9647f4d71e14c9eef",
+          "preimage_state": "file",
+          "preimage_sha256": "1781e38dc12e0a3357f44504513f266b57e53584218b128a76cedb1ffaf41144",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "abebad4eb4702252efd6fd3f1abd51d5fee2921f84f6e08aa0a11e85e1b935e8",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "d30dfaa65c5b80ca461424da863f57a9a125ae9d1714eab8ba502e9c102c5be7",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-04",
+          "config_locator_sha256": "638f6377ee756848bac46e6e26b99a456783aced1953346d1400003777b87def",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "64128894c953696c98612dc819c92a7d2fd5ba5ce2281905709a7bb524532c8d",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "e6aa05d740a2a4fd72fe96e0a06bd6a0e64f567f55cb518e2cc0cfe948668135",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-04",
+          "config_locator_sha256": "506aaf00ab19accb89ccf2c16d580bb3099b888eccbe77d87b30f08817725250",
+          "preimage_state": "file",
+          "preimage_sha256": "1410b4ed369bfb0ca3dff769bab05b5889fb2461fd6f2a9ed0e8ee8f67096daf",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "b27b2c70b968a425465b37c0d78e9c7e541879099a12a1b354881a32b3c88be9",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "e9bcf1d0e5d72cfa3a5dadeffceec06a50f0955fcd86f3d7ac7f38522ff219c2",
+          "host_runtime": "claude_code",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "81b6872d1e5eecf249e22c04a98ee070273a3b611d53116e8da24c5bb41a0d09",
+          "preimage_state": "file",
+          "preimage_sha256": "165ebd3d7c9a570f9023e12834c66e85b1993b74b3536d9970ba6c5c8602f21f",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "9ebe2e5ceb75e11786b419cecd15901d804869146b24699fa111ab5fe1fce97a",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        },
+        {
+          "target_key": "ea1ffe420834bf827d94fa0922910b3ed2fa85e5c3d876456ecbde5c375c3d6d",
+          "host_runtime": "codex",
+          "batch_id": "r3-04",
+          "config_locator_sha256": "c471458e3009f5a9404f29a81e23dd65133e6e91383af7392df47bdf1eabb910",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "0ccde3ae5b523f0daeb92a8f7920695efec4dee64eb3fa60c8c288ca66213e33",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "f746298c9fa7050c2416becc693207bad5563c2d569adfb4aa94d911e0b692ce",
+          "host_runtime": "codex",
+          "batch_id": "r2-01",
+          "config_locator_sha256": "d55e68da3d70f95c0a41061debefc83eeff9028a0f53a8c58848b5dd86cf5834",
+          "preimage_state": "absent",
+          "preimage_sha256": null,
+          "preimage_mode": null,
+          "expected_postimage_sha256": "6510af49269a5c9dec0ec62281bba1356ee7090d57da96af73f67b4d6ec8dd0e",
+          "artifact_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+          "rollback_required": true
+        },
+        {
+          "target_key": "fde846a9929a735b45ccea34ad019837f2e49c92f21fab8b8df031e1955c78a7",
+          "host_runtime": "claude_code",
+          "batch_id": "r3-05",
+          "config_locator_sha256": "d3aaa74fd58d36cecff087efe9d43f32c756d5b50b1d2794b8753d8049a3baa8",
+          "preimage_state": "file",
+          "preimage_sha256": "5489837277319193f4f073ae4c19abd54d84d8a0b021ba58bc5b3f134c00a501",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "5a102777c99aa561ceea015ff4ee79a391e577f2341f5d7e73b4f16364600e38",
+          "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+          "rollback_required": true
+        }
+      ],
+      "forbidden_value_count": 0,
+      "production_mutation_count": 0,
+      "report_sha256": "32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322"
+    }
+  },
+  "storage_groups": [
+    {
+      "backend": "postgres",
+      "binding_sha256": "0b12481e04b51aed2cfa73a8a235a540cec322bb855e443ea181bbacc21d9e31",
+      "target_count": 1,
+      "targets": [
+        "research-lead:codex"
+      ]
+    },
+    {
+      "backend": "postgres",
+      "binding_sha256": "a1330147fb1a6a9aacfb8608c6edefa4cca13dd0171732877560aa3a014fd39a",
+      "target_count": 34,
+      "targets": [
+        "adf-lead:codex",
+        "arc:codex",
+        "aun:codex",
+        "check:claude_code",
+        "codex-audit:codex",
+        "codex-cto:codex",
+        "design:codex",
+        "dev-001:codex",
+        "devauditor:codex",
+        "haishin-dev:claude_code",
+        "hotel-dev:codex",
+        "hotel-lead:codex",
+        "kodama:codex",
+        "kusabi:claude_code",
+        "kusabi:codex",
+        "kusabi:gemini_cli",
+        "marketing-bot:claude_code",
+        "misell:codex",
+        "nyusatsu-dev:codex",
+        "org-build-dev:claude_code",
+        "pfaun:codex",
+        "qa:codex",
+        "sales-bot:claude_code",
+        "secretary:codex",
+        "spec:claude_code",
+        "suite-lead:codex",
+        "takumi:codex",
+        "upwork-dev:claude_code",
+        "versa:codex",
+        "vice:claude_code",
+        "wbs-dev:claude_code",
+        "webb-dev:claude_code",
+        "xmarketing-dev:claude_code",
+        "zumen:claude_code"
+      ]
+    }
+  ]
+}

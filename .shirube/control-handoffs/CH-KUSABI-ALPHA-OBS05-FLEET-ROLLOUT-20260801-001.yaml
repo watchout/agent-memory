@@ -43,6 +43,7 @@ exact_subject:
   rollout_core_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
 
 allowed_paths:
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json
