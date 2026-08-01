@@ -22,13 +22,13 @@ exact_subject:
   provisional_base_tree: cd08d13398850e361c40f503dd09bdda7fba71d0
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   control_source: https://github.com/watchout/agent-memory/issues/280
-  phase_a_implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
-  phase_a_implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
-  r0_candidate_commit_sha: a3cb0e862a0f866735b178f190da29277fc8f8e0
-  r0_candidate_tree_sha: c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
-  manifest_candidate_sha256: 94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
-  rollout_plan_candidate_sha256: 827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
-  r0_report_sha256: 32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
+  phase_a_implementation_commit_sha: 5f395952ebe7c6379eb8c843915ddba8a643fb2c
+  phase_a_implementation_tree_sha: 8d3207f8adf3276d8f6ceccc00091a88e8070f90
+  r0_candidate_commit_sha: 6e96b172b05b14c39337c5d90da2ffcd08aa549f
+  r0_candidate_tree_sha: a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
+  manifest_candidate_sha256: 90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
+  rollout_plan_candidate_sha256: fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
+  r0_report_sha256: 3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
 
 target_denominator:
   manifest_version: 1
@@ -60,7 +60,7 @@ stage_contract:
 acceptance_criteria:
   - Manifest target keys and manifest SHA-256 are deterministic and unique.
   - All 35 workspace bindings resolve without persisting raw paths or secrets.
-  - R0 records every preimage state/hash and expected postimage hash without writing configuration.
+  - R0 records every config and native-trust preimage plus expected postimage without writing configuration or trust state.
   - Rollout tooling refuses any head, tree, artifact, config, binding, trust, backend, store-binding, workspace, or owner-decision mismatch.
   - Existing unrelated host hooks and settings are preserved byte-semantically.
   - Configuration writes are atomic and create mode-0600 rollback backups when a preimage exists.
@@ -101,13 +101,14 @@ next_action:
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
-    - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
-    - commit:a3cb0e862a0f866735b178f190da29277fc8f8e0
-    - tree:c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
-    - manifest-sha256:94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
-    - rollout-plan-sha256:827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
-    - r0-report-sha256:32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
+    - commit:5f395952ebe7c6379eb8c843915ddba8a643fb2c
+    - tree:8d3207f8adf3276d8f6ceccc00091a88e8070f90
+    - commit:6e96b172b05b14c39337c5d90da2ffcd08aa549f
+    - tree:a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
+    - manifest-sha256:90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
+    - rollout-plan-sha256:fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
+    - r0-report-sha256:3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
+    - r0-artifact-file-sha256:100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
   scope: Read-only R4 Phase A implementation and denominator audit; no file, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.

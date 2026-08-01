@@ -38,11 +38,11 @@ exact_subject:
   head_branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
   dependency_pr: https://github.com/watchout/agent-memory/pull/277
   control_source_issue: https://github.com/watchout/agent-memory/issues/280
-  implementation_commit_sha: 77621a8ccb81282bb302be4d5572faa8ec0cd711
-  implementation_tree_sha: f30b22a55a0156e06026cc819b3daaae2784c2cd
+  implementation_commit_sha: 5f395952ebe7c6379eb8c843915ddba8a643fb2c
+  implementation_tree_sha: 8d3207f8adf3276d8f6ceccc00091a88e8070f90
   rollout_core_commit_sha: 7a9f1ed2c62151971da4d555c69ff0e0e8902f48
-  r0_candidate_commit_sha: a3cb0e862a0f866735b178f190da29277fc8f8e0
-  r0_candidate_tree_sha: c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
+  r0_candidate_commit_sha: 6e96b172b05b14c39337c5d90da2ffcd08aa549f
+  r0_candidate_tree_sha: a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
 
 allowed_paths:
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
@@ -187,7 +187,7 @@ evidence:
   phase_a_implementation:
     changed_paths: PASS_21_OF_21_ALLOWED
     typescript_no_emit: PASS
-    rollout_focused_suite: PASS_34_ASSERTIONS
+    rollout_focused_suite: PASS_36_ASSERTIONS
     repository_regression: PASS_1549_OF_1549
     obs04_regression: PASS_145_ASSERTIONS
     codex_claude_gemini_hook_regression: PASS_ALL
@@ -206,11 +206,18 @@ evidence:
     production_mutation_performed: false
   r0_candidate:
     artifact_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    manifest_sha256: 94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
-    rollout_plan_sha256: 827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
-    report_sha256: 32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
+    manifest_sha256: 90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
+    rollout_plan_sha256: fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
+    report_sha256: 3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
+    artifact_file_sha256: 100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
     target_count: 35
     unique_target_keys: 35
+    config_file_preimages: 12
+    config_absent_preimages: 23
+    native_trust_preimages: 35
+    native_trust_exact_preimages: 0
+    native_trust_deltas: 35
+    rollback_required_targets: 35
     production_mutation_count: 0
     forbidden_value_count: 0
     raw_path_or_credential_match_count: 0
@@ -235,13 +242,14 @@ next_action:
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    - commit:77621a8ccb81282bb302be4d5572faa8ec0cd711
-    - tree:f30b22a55a0156e06026cc819b3daaae2784c2cd
-    - commit:a3cb0e862a0f866735b178f190da29277fc8f8e0
-    - tree:c9577ec02b627e5f09dbf4e7a0ccac8db8c05b5e
-    - manifest-sha256:94dc67962dd23559a38a0524a3de85c7f4eca94c057828140d98a1aea7d5817b
-    - rollout-plan-sha256:827796683a9f9dc3c4627feceab4f3281735d629de84eee7783b2287a414ec56
-    - r0-report-sha256:32c8e83512ffc00ae86087823c613c821db01565cfdb5546b5a300eb005c6322
+    - commit:5f395952ebe7c6379eb8c843915ddba8a643fb2c
+    - tree:8d3207f8adf3276d8f6ceccc00091a88e8070f90
+    - commit:6e96b172b05b14c39337c5d90da2ffcd08aa549f
+    - tree:a9ae5404a15e58ee6cb1d275c10a8a1acce7957c
+    - manifest-sha256:90afee76695b68242963c184aab76bbaa92517452e8655ea637b3fc7d7be1e91
+    - rollout-plan-sha256:fef8068ffb82409424bcd28fba6c909e0e6706cf5532bf83a032172a2a23da1b
+    - r0-report-sha256:3348df8ede5f957e7708b50860591efb28f2418ac8c1787e19f66210dd5d8b40
+    - r0-artifact-file-sha256:100c42c6b73b5730c9811e3e73542fce63a80325227c3ac488b1306d76c2b039
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
   scope: Read-only R4 Phase A implementation audit only; no product, runtime, config, trust, DB, merge, deployment, restart, or TUI mutation.
