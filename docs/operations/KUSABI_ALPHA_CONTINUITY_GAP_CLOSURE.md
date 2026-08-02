@@ -65,3 +65,46 @@ A2 produces an independently auditable candidate only. A3 interruption and
 continuation execution, preproduction audit, owner production GO, merge,
 distribution, activation, and soak remain separate later gates. Status reports,
 ACKs, and queue receipts are not completion evidence.
+
+## A3 local interruption-continuation evidence
+
+A3 is a local, isolated fixture gate. It launches a distinct interrupted child
+process and a distinct fresh recovery child process for every Codex, Claude Code,
+and Gemini CLI scenario. The frozen matrix is three hosts by seven interruption
+points: pre-output, post-visible/pre-capture, in-flight tool, post-file-write/
+pre-commit, temporary database outage, capture crash/restart, and identity
+mismatch. All 21 rows must pass; same-process continuation is rejected.
+
+The fixture maps Codex to an isolated JSON store, Claude Code to an isolated
+SQLite store, and Gemini CLI to an isolated PostgreSQL schema. Selected packs
+are single-use except when an identity mismatch is rejected. Capture replay uses
+the canonical `Store.saveRawEvent` source reference and must retain exactly one
+durable event. Temporary stores and schemas are removed deterministically.
+
+Recovery envelopes are strict, bounded data-only objects. They contain only an
+exact fixture identity, durable objective and next action, redacted fixture
+source references, explicit effect state, and privacy classification. Unknown
+fields, private reasoning, protected instruction bodies, raw tool payloads,
+credentials, secrets, and raw absolute home paths are rejected before store
+consumption. Output is limited to 1,800 estimated tokens and 8,192 bytes, and
+each fresh process has a seven-second startup deadline.
+
+Run the A3 gate and its inherited checks from the exact clean A2 head:
+
+```text
+npx tsc --noEmit
+npx tsx src/test-kusabi-continuity-interruption-e2e.ts
+npx tsx src/test-raw-capture-service.ts
+npx tsx src/test-gemini-conversation-ingest.ts
+npm test
+npm run test:codex-hook
+npm run test:claude-hook
+npm run test:gemini-hook
+npm run build
+git diff --check
+```
+
+The A3 evidence schema is
+`docs/design/schemas/kusabi-continuity-interruption-e2e-v1.schema.json`.
+Passing A3 does not authorize preproduction audit, owner GO, PR state changes,
+merge, distribution, deployment, restart, session mutation, or production use.
