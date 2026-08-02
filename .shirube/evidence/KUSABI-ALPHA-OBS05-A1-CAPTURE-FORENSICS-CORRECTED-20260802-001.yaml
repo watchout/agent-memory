@@ -1,0 +1,276 @@
+schema_version: shirube-v3/evidence/v1
+evidence_id: EVIDENCE-KUSABI-ALPHA-OBS05-A1-CORRECTED-20260802-001
+
+control_source:
+  issue: https://github.com/watchout/agent-memory/issues/280
+  predecessor_A1_packet: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+  request_changes_audit: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+
+cell:
+  id: KUSABI-ALPHA-OBS05-CAPTURE-FORENSICS-20260802-001
+execution_context:
+  author_agent_id: arc
+  active_function: control_artifact_author
+  evidence_origin_agent_id: kusabi
+lifecycle_state: A1_EVIDENCE_CORRECTED_A2_LOCKED_PENDING_FRESH_INDEPENDENT_AUDIT
+
+subject:
+  pull_request: https://github.com/watchout/agent-memory/pull/281
+  predecessor_head_sha: c009e22d8e575c613a7114668afd12d4a5e3dc12
+  predecessor_tree_sha: 9560028032ee53a51a7f33864f83025ee689ef9a
+  registry_sha256: 365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
+  cursor_state_sha256: 93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
+  R0_artifact_sha256: a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+  publication_tuple_source: durable_issue_280_comment_after_exact_push
+
+preserved_findings:
+  capture_ABI:
+    canonical_store_capability: saveRawEvent
+    installed_daemon_call: recordRawEvent
+    installed_failure: "TypeError: store.recordRawEvent is not a function"
+    verdict: ABI_MISMATCH_CONFIRMED
+  immutable_runtime:
+    exact_commit_tree_artifact_binding: absent
+    source_git_state: untracked
+    artifact_git_state: ignored
+    verdict: FAIL_MUTABLE_WORKSPACE_DIST_CONFIRMED
+  Gemini_dual_format_feasibility: SUPPORTED
+
+registry_reconciliation:
+  authoritative_manifest_binding_count: 35
+  installed_registry_row_count: 47
+  registry_rows_covering_at_least_one_manifest_binding: 23
+  manifest_bindings_covered: 24
+  matched_registry_identity:
+    exact: 17
+    legacy_alias_drift: 6
+  unmatched_registry_rows: 24
+  missing_manifest_bindings: 11
+  rows_covering_multiple_manifest_bindings: 1
+  arithmetic_net_surplus_47_minus_35: 12
+  twelve_is_an_enumerable_extra_row_set: false
+  reconciliation_contract: >-
+    A2 must consume the complete bidirectional 24-unmatched-row and
+    11-missing-binding sets. The arithmetic net difference 12 is not a row set
+    and must never be used to select, adopt, delete, or omit registry entries.
+  unmatched_registry_categories:
+    project_absent_from_authoritative_manifest: 20
+    host_runtime_incompatible: 2
+    workspace_mismatch_for_authoritative_project: 2
+  unmatched_registry_row_sha256:
+    project_absent_from_authoritative_manifest:
+      - 2382089b08e381ba76104ccf68e87cfa04e16f4685d1da94ab369b0b96d8028c
+      - dd89b78d5ea9e9ecf68a6392927539d34fe87405a4211fab376ba0ba82995393
+      - 94ae106e643039ffb9f6756190463f50f361bc3e4b11eaf4729965a3ba62da82
+      - 919df7d847684e862cf0156c504e6d6716558cb877290aa00cdfcfc8c47aaead
+      - 56c36f4ebae396034f8a9cc8dbfd59063bb144177c109cf833999ca73fe7766b
+      - 9fdd4649ec25c028f5e521c8f12c6a39370222331e553f3cbd2bab6b716b72d2
+      - 32982eeae48777f3e2417ee7da7d95635505e1924ecd8f21e4713fad747b6e3f
+      - 8e20f1ffbb6804d67f35b15081848e3eaf036ab4cfc5f510de68fde61c244b4c
+      - ba3460dd9a33b029de915009f3f26e856921d2700208b240ecfeb7fcfb3a27a6
+      - ec0d0f0fde4991cd7df74a69e6b940a175ec160733e78cf511d2e704a4995bcc
+      - 7590ba1456edcab0f84c6dc0dbbd41b3d3989fdaa9cf4ec31e91269ad8a27924
+      - 679702f07212f29da9d81f015861fb7f7da097969f67d3bad7d3c0ef7f3655
+      - fa0d1c7f5b08708206421e4102876dfffbdec1d1af72a675b52e758fdc959255
+      - 6ebe55bb173825edb267fa789ebc67bf1f98f4a09cf47d963a73d8e2d7f1d6ef
+      - f5923170dd713ca22a329150609daf59c5a13f3338d20bb316c5146b735e9bf7
+      - f9d2fc4e046975e5ce5516b33cc880bd5f669441c9c2595cdcc61d55409edc45
+      - d12c6c8ea7e6105e946ce4d53163cfa8afc8e5a63f5577fbf702754ab23cb5c8
+      - 66d6e249c25789a0e732e1caa34ba0f4ffc26e5e6bbd1bbe4058dee861e5f7c9
+      - 5a69ad42a502ad6f701a64283dff94a47adcd401a8bab1f09435cb1788f34ad7
+      - de0397139e69f20706200cd6c129bdca218912133f9fa1bc9c40c5ee27b960fe
+    host_runtime_incompatible:
+      - 492ed8a18532aaacd3d00626e34feafa48fb7664dc7f88cf885931944ca83e17
+      - 1524162b58e31811f96381d7f4e70e403001755c4dd8e7baef28dfe8026f1d50
+    workspace_mismatch_for_authoritative_project:
+      - b30c45e427440c4fd6ebe39244128bcd698eeb030726ce34c6d05da01097fdd6
+      - bf40d45cb0c306b1da07f03218632c868974961f67c99a2086e9cd37524965fd
+  missing_manifest_categories:
+    no_matching_project_workspace_registry_row: 8
+    host_runtime_not_supported_by_registry_row: 3
+  missing_manifest_binding_keys:
+    - 0076eacde8a469cb7bfefa8c2da9bc18716a8211ee62a699eaf7fb9c440bca43
+    - 4c439e1e582310f03b2c7a9ccf1699160c8f148db3cd92d11e626c8d7f772e2a
+    - 5e90150c91386452041dbabd24eaebb1eea7fcb0ed0bea9e04e710c03e2ded1d
+    - 7d29cf0b4205b52c6937d25a6d281a3a51eeb2d16bd547aea0c8549173755855
+    - 84be9bbfd515e6f1212a07af0484917bf85630b57ce1281663ead65b1abfea5c
+    - 91873671761f1b94d65cff5f762bbacc6907df05bda9a15e3395932adad47b3c
+    - a933cae156255a48df05fa3891bad34d07e519235034669a6621a34479b428b7
+    - ac0be7b54a446866c95be5235ea6810ad286b780426cd6ba8e20a5dba98dedbe
+    - c09aa6119fbad0857179e9e43a63ce8aba408dc4eb19cad778d4b87adfed2508
+    - d625b6e878999d8e256c1327d1d2650987b9b3ed195c4339e8058c60dae4c70d
+    - eba47a1f53fdc5b5318bab0041af7718d80d2d2f325753d7e35f1c3a1710ffb4
+  set_evidence:
+    unmatched_hash_count: 24
+    unmatched_hash_unique_count: 24
+    missing_key_count: 11
+    missing_key_unique_count: 11
+    bidirectional_proof: PASS
+
+capture_lag_and_backlog:
+  cursor_state_sha256: 93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
+  measured_at: "2026-08-02T03:19:00.742Z"
+  exact_lag_seconds: 1075343.495
+  packet_floor_lag_seconds: 1075343
+  daemon_default_lookback_seconds: 86400
+  correct_floor_excess_seconds: 988943
+  predecessor_claimed_excess_seconds: 989543
+  predecessor_arithmetic_error_seconds: 600
+  known_candidate_backlog:
+    files: 83
+    pending_lines: 224936
+    pending_bytes: 1717411829
+  deterministic_recovery:
+    naive_restart_closes_gap: false
+    required: cursor-aware bounded historical backfill with idempotent saveRawEvent and external readback
+
+Gemini_capture_feasibility:
+  installed_CLI_version: 0.52.0
+  observed_formats:
+    snapshot_JSON_files: 23
+    append_patch_JSONL_files: 1
+    JSONL_records: 33
+    JSONL_parse_errors: 0
+  complete_snapshot_top_key_union:
+    - directories
+    - kind
+    - lastUpdated
+    - messages
+    - projectHash
+    - sessionId
+    - startTime
+    - summary
+  complete_snapshot_message_key_union:
+    - content
+    - displayContent
+    - id
+    - model
+    - thoughts
+    - timestamp
+    - tokens
+    - toolCalls
+    - type
+  observed_sensitive_surface:
+    snapshot_files_with_directories: 4
+    snapshot_files_with_summary: 3
+    snapshot_message_count: 210
+    snapshot_messages_with_thoughts: 184
+    JSONL_records_with_thoughts: 11
+  default_deny_privacy_fixture_contract:
+    direct_persist_allowlist:
+      session:
+        - kind
+        - lastUpdated
+        - sessionId
+        - startTime
+      message:
+        - content
+        - displayContent
+        - id
+        - model
+        - timestamp
+        - type
+    derived_persist_allowlist:
+      - credential_safe_visible_tool_summary_after_redaction
+    always_exclude:
+      - directories
+      - summary
+      - thoughts
+      - tokens
+      - raw_toolCalls
+      - private_tool_payloads
+      - credential_bearing_arguments_or_results
+      - system_instruction_bodies
+      - developer_instruction_bodies
+      - private_reasoning
+    unknown_field_behavior: REJECT_AND_RECORD_CREDENTIAL_SAFE_SCHEMA_DRIFT_ONLY
+    fixture_requirements:
+      - snapshot_JSON_positive_and_negative_cases
+      - append_patch_JSONL_positive_and_negative_cases
+      - every_observed_top_and_message_field_classified
+      - thoughts_and_raw_toolCalls_never_persisted
+      - unrecognized_field_rejected_by_default
+      - idempotent_reconstruction_and_replay
+  verdict: SUPPORTED_WITH_EXPLICIT_DUAL_FORMAT_DEFAULT_DENY_PRIVACY_FILTERED_ADAPTER
+  owner_disposition_required: false
+
+review_pending_worktree_drift:
+  auditor_observed_at: "2026-08-02T03:35:15Z"
+  audit_boundary:
+    - path: src/gemini-conversation-ingest.ts
+      audit_sha256: 25a9a98fedbc9bde1137e0c08b774e65241187526fed9a7fa1d37e1f9fb1abfd
+      current_sha256: 25a9a98fedbc9bde1137e0c08b774e65241187526fed9a7fa1d37e1f9fb1abfd
+      current_readback: MATCH_AUDIT
+    - path: src/test-gemini-conversation-ingest.ts
+      audit_sha256: 1efeb8bf50bbd15097205e113bda8cdd4e8b387646ac4abea4ea13f648e891dc
+      current_sha256: 1efeb8bf50bbd15097205e113bda8cdd4e8b387646ac4abea4ea13f648e891dc
+      current_readback: MATCH_AUDIT
+    - path: src/raw-capture-service.ts
+      audit_sha256: 4ee1fbb1130b1161b73c32948305e650a618a65ef6979f41f58b864e3d322c5f
+      current_sha256: d7581d1f0578e4c21fa17f0b4e52a40a048cb99c49edd1abc0eb0f2f89d47a4b
+      current_readback: DRIFTED_AFTER_AUDIT
+  later_observed_boundary_drift:
+    - path: package.json
+      git_state: modified_tracked
+      head_sha256: 49c473d060ddc87fad155c25ddd0341a9ae973c6aa58c9863c66fa1da6282d80
+      current_sha256: dce944afc74aef8178417739e951eac80c9b57a451fa6722499809cbf86278d5
+      diff_sha256: a806024589c8b6e78513f384825ffb6d3351f4adae92a9d032bcb65433848260
+    - path: src/test-raw-capture-service.ts
+      git_state: untracked
+      current_sha256: 41e3e01bbf829357b214cd707f63b249756c6e78200917bd6b428ce8dd0ab6b6
+    - path: docs/design/schemas/kusabi-raw-capture-service-v1.schema.json
+      git_state: untracked
+      current_sha256: 40d6b93197cce0fe7e5723d693e86988828cc570229db4bafba4156430bf4ba6
+  performed_by_arc: false
+  disposition:
+    state: PRESERVE_QUARANTINED_NOT_EXECUTION_EVIDENCE
+    authority: ARC_CONTROL_ARTIFACT_DISPOSITION
+    instructions:
+      - stop all A2 work in this worktree
+      - do not delete modify stage adopt commit test or continue any listed product file
+      - do not treat any listed file or package diff as A2 implementation evidence
+      - preserve this worktree byte state for forensic comparison
+      - after fresh independent audit PASS, require a new explicit A2 handoff and begin only from a clean isolated worktree at the audited control head
+    production_effect_authorized: false
+
+verification:
+  corrected_evidence_only: true
+  product_files_changed_by_arc: false
+  product_files_staged_or_committed_by_arc: false
+  runtime_supervisor_configuration_trust_database_changed_by_arc: false
+  PR_state_label_Ready_merge_changed_by_arc: false
+  deploy_restart_session_TUI_or_owner_decision_changed_by_arc: false
+
+gate_result:
+  verdict: CORRECTED_A1_EVIDENCE_READY_FOR_FRESH_INDEPENDENT_AUDIT
+  A2_unlock: DENIED_PENDING_FRESH_AUDIT_AND_NEW_EXPLICIT_HANDOFF
+  owner_GO: NOT_GRANTED
+  merge_ready: false
+
+next_action:
+  blocking: true
+  actor_agent_id: codex-audit
+  active_function: evidence_audit_gate
+  action: >-
+    Audit the exact graph v1.2, corrected handoff, and this corrected A1 packet;
+    verify 24/11 set completeness, 988943-second arithmetic, complete Gemini
+    field classification/default-deny contract, and the preserve-only worktree
+    disposition. Return PASS or itemized blockers without implementing.
+  deliver_via: Durable Issue 280 audit plus AUN return to ARC.
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+    - https://github.com/watchout/agent-memory/pull/281
+    - this_file_at_exact_publication_commit
+    - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
+    - state-sha256:93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
+    - R0-artifact-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+  scope: >-
+    Read-only exact-ref audit only; no product/control edits, runtime,
+    supervisor, configuration, trust, database, PR-state, label, Ready, merge,
+    deploy, restart, session, TUI, owner decision, deletion, adoption, or A2 continuation.
+  deliverable: One exact-ref audit verdict with all predicates and complete next_action.
+  completion_evidence: >-
+    Durable audit URL, exact commit/tree and three artifact digests, safe parse,
+    set-count and uniqueness proof, arithmetic proof, privacy-field proof,
+    worktree-disposition readback, protected-effects attestation, and AUN return.
