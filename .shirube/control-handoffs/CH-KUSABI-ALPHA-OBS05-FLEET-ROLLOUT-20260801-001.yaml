@@ -1,4 +1,6 @@
 schema_version: shirube-v3/control_handoff/v1
+framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
+repo_local_issue: https://github.com/watchout/agent-memory/issues/280
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
 lifecycle_state: PHASE_A_DB_INVENTORY_HARDENED_CONTROL_GRAPH_PENDING
 mode: full
@@ -15,6 +17,7 @@ control_source:
     intermediate ACK, queue, CI, or merge states.
 
 cell:
+  CELL-ID: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
   id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
   cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   cell_type: protected_fleet_rollout
