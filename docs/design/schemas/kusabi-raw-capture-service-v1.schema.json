@@ -113,7 +113,8 @@
       "required": [
         "authoritative_target_count",
         "unique_authoritative_binding_key_count",
-        "reconciled_target_count",
+        "actual_covered_manifest_binding_count",
+        "registry_manifest_exact_equality",
         "installed_registry_observation_count",
         "unmatched_registry_row_sha256",
         "missing_manifest_binding_keys",
@@ -127,7 +128,8 @@
       "properties": {
         "authoritative_target_count": { "const": 35 },
         "unique_authoritative_binding_key_count": { "const": 35 },
-        "reconciled_target_count": { "const": 35 },
+        "actual_covered_manifest_binding_count": { "const": 24 },
+        "registry_manifest_exact_equality": { "const": false },
         "installed_registry_observation_count": { "const": 47 },
         "unmatched_registry_row_sha256": {
           "type": "array",

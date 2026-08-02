@@ -17,6 +17,7 @@ import {
   type KusabiFleetManifest,
 } from "./kusabi-fleet-status.js";
 import {
+  assertFrozenReconciliation,
   assertNotMutableWorkspaceDist,
   authoritativeManifestBindingKeys,
   normalizedRawCaptureEvidenceSha256,
@@ -45,12 +46,17 @@ async function main(): Promise<void> {
     const reconciliation = reconcileRawCaptureRegistry(manifest, registryRows);
     assert.equal(reconciliation.authoritative_target_count, 35);
     assert.equal(reconciliation.unique_authoritative_binding_key_count, 35);
-    assert.equal(reconciliation.reconciled_target_count, 35);
+    assert.equal(reconciliation.actual_covered_manifest_binding_count, 24);
+    assert.equal(reconciliation.registry_manifest_exact_equality, false);
     assert.equal(reconciliation.installed_registry_observation_count, 47);
     assert.equal(reconciliation.unmatched_registry_row_count, 24);
     assert.equal(reconciliation.unmatched_registry_row_unique_count, 24);
     assert.equal(reconciliation.missing_manifest_binding_count, 11);
     assert.equal(reconciliation.missing_manifest_binding_unique_count, 11);
+    assert.equal(
+      reconciliation.actual_covered_manifest_binding_count,
+      reconciliation.authoritative_target_count - reconciliation.missing_manifest_binding_unique_count,
+    );
     assert.equal(reconciliation.arithmetic_net_difference, 12);
     assert.equal(reconciliation.arithmetic_net_difference_is_enumerable_row_set, false);
     assert.notDeepEqual(
@@ -103,6 +109,30 @@ async function main(): Promise<void> {
     addFormats(ajv);
     const validate = ajv.compile(schemaRaw);
     for (const report of reports) assert(validate(report), JSON.stringify(validate.errors));
+    const fabricatedCoverage = structuredClone(reports[0]);
+    fabricatedCoverage.reconciliation.actual_covered_manifest_binding_count = 35;
+    assert.equal(validate(fabricatedCoverage), false);
+    assert.throws(
+      () => assertFrozenReconciliation(fabricatedCoverage.reconciliation),
+      /FROZEN_RECONCILIATION_MISMATCH/,
+    );
+    const fabricatedEquality = structuredClone(reports[0]);
+    fabricatedEquality.reconciliation.registry_manifest_exact_equality = true;
+    assert.equal(validate(fabricatedEquality), false);
+    assert.throws(
+      () => assertFrozenReconciliation(fabricatedEquality.reconciliation),
+      /FROZEN_RECONCILIATION_MISMATCH/,
+    );
+    const missingActualCoverage = structuredClone(reports[0]) as unknown as {
+      reconciliation: Record<string, unknown>;
+    };
+    delete missingActualCoverage.reconciliation.actual_covered_manifest_binding_count;
+    assert.equal(validate(missingActualCoverage), false);
+    const missingEquality = structuredClone(reports[0]) as unknown as {
+      reconciliation: Record<string, unknown>;
+    };
+    delete missingEquality.reconciliation.registry_manifest_exact_equality;
+    assert.equal(validate(missingEquality), false);
     const missingCapability = structuredClone(reports[0]) as Record<string, unknown>;
     delete missingCapability.store_capability;
     assert.equal(validate(missingCapability), false);
@@ -144,6 +174,17 @@ async function main(): Promise<void> {
     assert(/\.saveRawEvent\s*\(/.test(await readFile(
       join(process.cwd(), "src", "gemini-conversation-ingest.ts"), "utf8",
     )), "canonical saveRawEvent ABI is invoked");
+    console.log(`RAW_CAPTURE_RECONCILIATION=${JSON.stringify({
+      authoritative_target_count: reconciliation.authoritative_target_count,
+      actual_covered_manifest_binding_count: reconciliation.actual_covered_manifest_binding_count,
+      installed_registry_observation_count: reconciliation.installed_registry_observation_count,
+      unmatched_registry_row_count: reconciliation.unmatched_registry_row_count,
+      missing_manifest_binding_count: reconciliation.missing_manifest_binding_count,
+      arithmetic_net_difference: reconciliation.arithmetic_net_difference,
+      arithmetic_net_difference_is_enumerable_row_set:
+        reconciliation.arithmetic_net_difference_is_enumerable_row_set,
+      registry_manifest_exact_equality: reconciliation.registry_manifest_exact_equality,
+    })}`);
     console.log(`Raw capture service tests passed; normalized parity sha256=${parityDigests[0]}`);
   } finally {
     if (pgStore) await pgStore.close();

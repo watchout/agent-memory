@@ -37,7 +37,8 @@ export interface InstalledCaptureRegistryRow {
 export interface RawCaptureReconciliation {
   authoritative_target_count: number;
   unique_authoritative_binding_key_count: number;
-  reconciled_target_count: number;
+  actual_covered_manifest_binding_count: number;
+  registry_manifest_exact_equality: boolean;
   installed_registry_observation_count: number;
   unmatched_registry_row_sha256: string[];
   missing_manifest_binding_keys: string[];
@@ -150,7 +151,9 @@ export function reconcileRawCaptureRegistry(
   const reconciliation: RawCaptureReconciliation = {
     authoritative_target_count: manifest.targets.length,
     unique_authoritative_binding_key_count: authoritative.size,
-    reconciled_target_count: authoritative.size,
+    actual_covered_manifest_binding_count: covered.size,
+    registry_manifest_exact_equality:
+      covered.size === authoritative.size && missing.length === 0 && unmatched.length === 0,
     installed_registry_observation_count: registryRows.length,
     unmatched_registry_row_sha256: unmatched.sort(),
     missing_manifest_binding_keys: missing,
@@ -166,11 +169,24 @@ export function reconcileRawCaptureRegistry(
 }
 
 export function assertFrozenReconciliation(value: RawCaptureReconciliation): void {
+  const derivedExactEquality =
+    value.actual_covered_manifest_binding_count === value.authoritative_target_count &&
+    value.missing_manifest_binding_count === 0 &&
+    value.unmatched_registry_row_count === 0;
   if (
     value.authoritative_target_count !== FROZEN_AUTHORITATIVE_TARGET_COUNT ||
     value.unique_authoritative_binding_key_count !== FROZEN_AUTHORITATIVE_TARGET_COUNT ||
-    value.reconciled_target_count !== FROZEN_AUTHORITATIVE_TARGET_COUNT ||
+    value.actual_covered_manifest_binding_count !==
+      value.authoritative_target_count - value.missing_manifest_binding_unique_count ||
+    value.actual_covered_manifest_binding_count !==
+      FROZEN_AUTHORITATIVE_TARGET_COUNT - FROZEN_MISSING_MANIFEST_BINDING_COUNT ||
+    value.registry_manifest_exact_equality !== derivedExactEquality ||
+    value.registry_manifest_exact_equality !== false ||
     value.installed_registry_observation_count !== FROZEN_INSTALLED_REGISTRY_COUNT ||
+    value.unmatched_registry_row_sha256.length !== FROZEN_UNMATCHED_REGISTRY_COUNT ||
+    new Set(value.unmatched_registry_row_sha256).size !== FROZEN_UNMATCHED_REGISTRY_COUNT ||
+    value.missing_manifest_binding_keys.length !== FROZEN_MISSING_MANIFEST_BINDING_COUNT ||
+    new Set(value.missing_manifest_binding_keys).size !== FROZEN_MISSING_MANIFEST_BINDING_COUNT ||
     value.unmatched_registry_row_count !== FROZEN_UNMATCHED_REGISTRY_COUNT ||
     value.unmatched_registry_row_unique_count !== FROZEN_UNMATCHED_REGISTRY_COUNT ||
     value.missing_manifest_binding_count !== FROZEN_MISSING_MANIFEST_BINDING_COUNT ||

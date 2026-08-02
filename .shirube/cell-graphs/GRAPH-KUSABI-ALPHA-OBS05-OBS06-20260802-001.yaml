@@ -1,6 +1,6 @@
 schema_version: shirube-v3/cell_graph/v1
 graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-graph_version: 1.2.1
+graph_version: 1.2.2
 status: frozen
 control_source: https://github.com/watchout/agent-memory/issues/280
 risk_class: R4
@@ -76,6 +76,20 @@ amendment_history:
     authorization_at_amendment: >-
       Control/evidence correction and fresh audit routing only. The exact A2 and
       protected-effect locks from graph v1.2.0 remain unchanged.
+  - graph_version: 1.2.2
+    amendment_control_source: https://github.com/watchout/agent-memory/issues/280#issuecomment-5160508152
+    predecessor_graph_version: 1.2.1
+    reason: >-
+      Independent order-70 audit proved that the candidate copied the frozen
+      authoritative denominator 35 into reconciled_target_count even though the
+      observed R0 preimage covers 24 bindings, has 24 unmatched registry rows,
+      and is missing 11 manifest bindings. Preproduction now requires this
+      mismatch to be reported truthfully with exact equality false; final
+      35-of-35 remains mandatory after the owner-approved rollout.
+    authorization_at_amendment: >-
+      Exact four-path order-50 reconciliation correction and fresh order-70
+      audit only. Order 80, merge, rollout, production mutation, and owner GO
+      remain locked.
 
 root_goal:
   goal_id: KUSABI-ALPHA-OBS05-OBS06-FLEET-CLOSURE-20260801-001
@@ -116,7 +130,7 @@ source_refs:
   - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
 
 frozen_version_boundary:
-  graph_version: 1.2.1
+  graph_version: 1.2.2
   inventory_snapshot_schema: kusabi-fleet-inventory-snapshot/v1
   manifest_version: 2
   target_count: 35
@@ -206,7 +220,7 @@ owner_decision_points:
       - implementation_commit_and_tree
       - immutable_host_artifact_hashes
       - immutable_startup_and_capture_artifact_hashes
-      - capture_registry_manifest_equality_35_of_35
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
       - three_host_interruption_e2e_and_privacy_evidence
       - inventory_snapshot_sha256
       - manifest_sha256
@@ -466,7 +480,7 @@ cells:
     required_evidence:
       - exact_changed_paths_and_commit_tree
       - capture_service_contract_and_abi_regression
-      - registry_manifest_equality_35_of_35
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
       - immutable_artifact_digest_and_provenance
       - sqlite_postgresql_normalized_parity
       - zero_forbidden_telemetry_and_protected_effects
@@ -516,20 +530,22 @@ cells:
     active_function: evidence_audit_gate
     primary_responsibility: >-
       Independently audit the final implementation head/tree, immutable capture
-      artifact, 35-target reconciliation, Gemini disposition, interruption E2E,
-      privacy boundaries, and protected-effect count before owner production GO.
+      artifact, truthful frozen R0 registry preimage, exact rollout plan, Gemini
+      disposition, interruption E2E, privacy boundaries, and protected-effect
+      count before owner production GO. This audit does not claim post-rollout
+      registry equality.
     implementation_boundary: read_only_exact_ref_audit_only
     verification_boundary: >-
       One current shirube-audit/v1 PASS must bind exact refs and complete
       evidence with zero blockers; maker self-audit is not accepted.
     version_boundary:
       audit_subject_source: exact_final_implementation_and_e2e_packet
-      graph_version: 1.2.1
+      graph_version: 1.2.2
     owner_decision_points: []
     required_evidence:
       - independent_shirube_audit_v1
       - exact_subject_commit_tree_and_artifact_digest_match
-      - capture_registry_manifest_equality_35_of_35
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
       - three_host_interruption_matrix_pass
       - zero_blocking_findings
     completion_state: PENDING_DEPENDENCY
@@ -548,6 +564,8 @@ cells:
     verification_boundary: >-
       Authenticated owner decision explicitly names immutable refs and grants
       or denies production configuration, trust, distribution, and activation.
+      The decision binds the audited preproduction mismatch tuple and rollout
+      plan; it does not inherit or assert a pre-rollout 35-of-35 result.
     version_boundary:
       decision_point: OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
       exact_subject_source: passing_independent_audit_packet
@@ -673,6 +691,7 @@ cells:
     required_evidence:
       - deterministic_r3_batch_reports_21_of_21
       - full_manifest_obs04_status_snapshot_35_of_35
+      - capture_registry_manifest_equality_35_of_35
       - exact_and_durable_coverage_100_percent
       - zero_blocker_privacy_and_forbidden_effect_report
     completion_state: PENDING_DEPENDENCY
@@ -698,6 +717,7 @@ cells:
     required_evidence:
       - independent_postimplementation_audit
       - exact_runtime_identity_readback_35_of_35
+      - capture_registry_manifest_equality_35_of_35
       - rollback_failure_isolation_and_privacy_pass
       - zero_blocking_findings
     completion_state: PENDING_DEPENDENCY
@@ -731,6 +751,7 @@ cells:
     required_evidence:
       - all_96_timestamped_checkpoints
       - final_obs04_snapshot_35_of_35
+      - capture_registry_manifest_equality_35_of_35_at_all_96_checkpoints
       - alert_latency_and_backend_parity_evidence
       - complete_closure_packet
     completion_state: PENDING_DEPENDENCY
@@ -789,14 +810,14 @@ cells:
     completion_state: PENDING_DEPENDENCY
 
 frontmost_incomplete:
-  cell_id: KUSABI-ALPHA-OBS05-A1-CORRECTION-AUDIT-20260802-001
+  cell_id: KUSABI-ALPHA-OBS05-PREPRODUCTION-EXACT-HEAD-AUDIT-20260802-001
   active_function: evidence_audit_gate
   actor_agent_id: codex-audit
   reason: >-
-    The prior graph v1.1 audit passed and A1 forensics ran, but independent A1
-    review returned four blockers. Graph v1.2, the corrected handoff/evidence,
-    and preserve-only drift disposition must pass a fresh exact-ref audit before
-    A2 can receive any new execution authority.
+    The order-70 audit found that the candidate constructed equality from the
+    authoritative denominator instead of reporting actual coverage. Graph
+    v1.2.2 and the bounded service, schema, and test correction must pass a
+    fresh exact-ref audit before order 80 can begin.
 
 failure_modes:
   - id: FM-GRAPH-DRIFT
@@ -809,10 +830,13 @@ failure_modes:
     detection: capture_service_calls_a_store_capability_other_than_canonical_saveRawEvent
     response: stop_capture_candidate_and_require_tracked_contract_regression_evidence
   - id: FM-CAPTURE-REGISTRY-DRIFT
-    detection: installed_capture_registry_keys_do_not_equal_authoritative_35_target_manifest
+    detection: >-
+      installed_capture_registry_preimage_differs_from_the_frozen_47_rows_24_actual_covered_24_unmatched_11_missing_exact_key_sets_or_digests
     response: >-
-      block; categorize extras and missing keys by read-only evidence; never
-      silently adopt, delete, or redefine the authoritative denominator
+      block as unclassified drift; preserve the frozen truthful preproduction
+      tuple and exact key-set/digest evidence; never silently adopt, delete, or
+      redefine the authoritative denominator. Exact equality remains required
+      after the owner-approved rollout.
   - id: FM-NET-DIFFERENCE-AS-ROW-SET
     detection: arithmetic_47_minus_35_is_used_as_an_enumerable_registry_row_set
     response: >-
@@ -886,10 +910,11 @@ next_action:
   owner_function: evidence_audit_gate
   action: >-
     Independently audit the exact published control commit/tree containing this
-    graph v1.2.1, corrected handoff, and corrected A1 packet; bind all three
-    raw-file SHA-256 values, reproduce the 24/11 sets, 988943-second arithmetic,
-    complete Gemini default-deny field contract, and preserve-only worktree
-    disposition; then return one current shirube-audit/v1 verdict.
+    successor containing graph v1.2.2 and the bounded registry correction;
+    reproduce denominator 35, actual coverage 24, installed rows 47, unmatched
+    rows 24, missing bindings 11, and exact equality false; verify final
+    post-rollout 35-of-35 remains mandatory; then return one current
+    shirube-audit/v1 verdict.
   handoff_method: AUN anchored to the exact Issue 280 publication comment and PR 281 head.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
@@ -908,14 +933,18 @@ next_action:
     - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
     - state-sha256:93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
     - R0-artifact-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
-    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.1
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5160508152
+    - predecessor-commit:3f7a481c485133fa77e2ee505b0bcb96ee3d21a4
+    - predecessor-tree:27a9202cda7ae1835993d9420965215bfeebb3f6
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.2
   scope: >-
     Read-only exact-ref evidence audit only; no product, control, runtime,
     configuration, trust, DB, PR-state, label, Ready, merge, deployment,
     restart, session, owner-decision, deletion, adoption, A2 continuation, or TUI mutation.
   deliverable: One durable exact-head graph-v1.2/corrected-A1 shirube-audit/v1 record.
   completion_evidence: >-
-    Issue 280 audit URL, exact audited commit/tree and three artifact digests,
-    safe parse, 24/11 uniqueness proof, arithmetic/privacy/drift predicates,
-    protected-effects attestation, verdict, and a complete next_action to ARC
-    for a separate clean-worktree A2 handoff only on PASS.
+    Issue 280 audit URL, exact successor commit/tree and four file digests, safe
+    graph parse, truthful 35/24/47/24/11/false reconciliation proof, schema
+    positive and negative fixtures, preserved post-rollout 35-of-35, protected-
+    effects attestation, verdict, and a complete next_action to the order-80
+    protected-surface gate only on PASS.
