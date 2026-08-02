@@ -2,7 +2,7 @@ schema_version: shirube-v3/control_handoff/v1
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_local_issue: https://github.com/watchout/agent-memory/issues/280
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: PHASE_A_DB_INVENTORY_HARDENED_CONTROL_GRAPH_PENDING
+lifecycle_state: CONTROL_GRAPH_FROZEN_PENDING_FRESH_EXACT_HEAD_AUDIT
 mode: full
 profile: protected-surface
 
@@ -15,6 +15,21 @@ control_source:
     Set distribution to every eligible production agent binding as the goal and
     continue by the shortest path without stopping at each agent or at
     intermediate ACK, queue, CI, or merge states.
+
+cell_graph:
+  graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
+  graph_version: 1.0.0
+  graph_ref: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
+  status: frozen
+  freeze_basis_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
+  freeze_basis_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
+  digest_algorithm: sha256_raw_utf8_lf_v1
+  digest_record_location: external_issue_280_publication_evidence
+  frontmost_incomplete_cell_id: KUSABI-ALPHA-OBS05-PREIMPLEMENTATION-AUDIT-20260802-001
+  amendment_rule: >-
+    Any graph membership, order, dependency, risk, owner-decision point, or
+    version-boundary change requires a versioned graph amendment, durable Issue
+    280 publication, and a fresh independent audit.
 
 cell:
   CELL-ID: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
@@ -47,8 +62,41 @@ exact_subject:
   inventory_hardening_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
   r0_candidate_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
   r0_candidate_tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
+  corrected_handoff_basis_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
+  corrected_handoff_basis_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
+  corrected_handoff_publication_tuple_source: durable_issue_280_comment
+
+exact_input_artifacts:
+  control_graph:
+    path: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
+    graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
+    graph_version: 1.0.0
+    digest_source: durable_issue_280_publication_evidence
+  db_backed_inventory:
+    path: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
+    commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+    tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
+    file_sha256: a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+    inventory_snapshot_schema: kusabi-fleet-inventory-snapshot/v1
+    query_contract_sha256: 33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+    primary_result_sha256: 3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+    inventory_snapshot_sha256: 5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+    primary_binding_count: 33
+    owner_approved_secondary_binding_count: 2
+    target_count: 35
+    manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    rollout_plan_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+    r0_report_sha256: ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
+  phase_a_implementation:
+    commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+    tree_sha: 8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+  immutable_ref_policy: >-
+    The corrected handoff is executable only when the published graph/handoff
+    commit and tree, both raw-file digests, the implementation tuple, the R0
+    artifact tuple, and every inventory/manifest/plan/report digest match.
 
 allowed_paths:
+  - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -71,6 +119,16 @@ allowed_paths:
   - src/test-kusabi-runtime-event-emitter.ts
   - package.json
 
+control_artifact_author_only_paths:
+  paths:
+    - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
+    - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  executor_rule: >-
+    These paths are present in the PR-wide allowlist for machine path checks but
+    are not writable by implementation_executor. Only control_artifact_author
+    may change them under an explicit control-artifact handoff.
+
 forbidden_paths:
   - src/*hook-installer.ts
   - src/stores/**
@@ -88,7 +146,7 @@ forbidden_paths:
 
 phase_a_allowed_operations:
   - read-only authoritative inventory and existing configuration inspection
-  - create and edit only allowed_paths
+  - create and edit only allowed_paths other than control_artifact_author_only_paths
   - implement deterministic manifest, rollout-plan, R0, stage-gate, and observed-deployment evidence tooling
   - bind emitted storage identity to the credential-safe hash of the actual resolved hook store rather than copying the manifest target
   - use existing native host installers through their exported atomic APIs in tests and dry-run only
@@ -233,23 +291,27 @@ evidence:
 
 gate_result:
   gate: kusabi_alpha_obs05_phase_a_entry
-  result: PHASE_A_DB_INVENTORY_PASS_CONTROL_GRAPH_PENDING
+  result: CONTROL_GRAPH_FROZEN_DB_INVENTORY_PASS_PENDING_FRESH_EXACT_HEAD_AUDIT
   reason: >-
     The rollout core now requires a self-hashed shared-DB inventory snapshot,
     exact registered/canonical identity, explicit eligibility predicates, and
     exact snapshot-to-manifest equality at R0 and protected apply. The live
     read-only DB result is 33 primary plus 2 approved secondary bindings. The
-    remaining independent-audit blocker is the missing frozen control-source
-    cell graph, which is routed to arc. No production mutation has occurred.
+    complete OBS05/OBS06 graph is frozen above and the handoff is corrected to
+    bind that graph and the immutable DB-backed R0 artifact. A fresh exact-head
+    independent audit is now the frontmost incomplete cell. No production
+    mutation has occurred.
 
 next_action:
   blocking: true
-  owner_agent: arc
-  owner_function: control_artifact_author
-  action: Freeze the complete issue-280 OBS05/OBS06 cell graph and issue a corrected handoff binding this DB-backed inventory, then route a fresh exact-head audit.
-  handoff_method: AUN message c513f159-6f5c-429e-9c8f-6a1e86b0d56d plus durable issue 280 comment.
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: Independently audit the exact published control commit/tree containing the frozen graph and corrected DB-inventory-bound handoff, then return one current shirube-audit/v1 verdict.
+  handoff_method: AUN anchored to the exact Issue 280 publication comment and PR 281 head.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
+    - https://github.com/watchout/agent-memory/pull/281
+    - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
@@ -267,6 +329,7 @@ next_action:
     - r0-artifact-file-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-  scope: Control-source cell graph and corrected handoff only; no product, runtime, config, trust, DB, merge, deployment, restart, owner approval, or TUI mutation.
-  deliverable: Frozen OBS05/OBS06 cell graph plus corrected exact-ref handoff, followed by a fresh independent audit route.
-  completion_evidence: Exact control commit/tree, changed paths, durable issue comment, AUN return, and fresh audit next_action.
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.0.0
+  scope: Read-only exact-ref audit only; no product, control, runtime, config, trust, DB, PR-state, label, Ready, merge, deployment, restart, owner approval, session, or TUI mutation.
+  deliverable: One durable current exact-head shirube-audit/v1 record covering the graph, handoff, implementation tuple, and DB-backed R0 provenance.
+  completion_evidence: Issue 280 audit URL, exact audited commit/tree and artifact digests, complete findings, verdict, and a complete next_action to owner GO only on PASS.
