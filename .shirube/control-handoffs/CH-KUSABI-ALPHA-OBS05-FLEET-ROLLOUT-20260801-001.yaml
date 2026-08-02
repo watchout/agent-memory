@@ -204,8 +204,14 @@ allowed_paths:
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  - docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json
+  - docs/design/schemas/codex-session-start-evidence-v1.schema.json
+  - docs/design/schemas/claude-session-start-evidence-v1.schema.json
+  - docs/design/schemas/gemini-session-start-evidence-v1.schema.json
   - docs/design/schemas/kusabi-raw-capture-service-v1.schema.json
   - docs/design/schemas/kusabi-continuity-interruption-e2e-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md
   - docs/operations/KUSABI_ALPHA_CONTINUITY_GAP_CLOSURE.md
   - src/codex-conversation-ingest.ts
   - src/claude-conversation-ingest.ts
@@ -222,6 +228,15 @@ allowed_paths:
   - src/test-kusabi-continuity-interruption-e2e.ts
   - src/kusabi-fleet-rollout.ts
   - src/test-kusabi-fleet-rollout.ts
+  - src/codex-session-start.ts
+  - src/claude-session-start.ts
+  - src/gemini-session-start.ts
+  - src/kusabi-runtime-event-emitter.ts
+  - src/kusabi-runtime-event-store.ts
+  - src/test-codex-session-start.ts
+  - src/test-claude-session-start.ts
+  - src/test-gemini-session-start.ts
+  - src/test-kusabi-runtime-event-emitter.ts
   - package.json
 
 control_artifact_author_only_paths:
