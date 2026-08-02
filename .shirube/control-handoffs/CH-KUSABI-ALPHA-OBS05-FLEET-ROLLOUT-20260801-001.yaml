@@ -2,7 +2,7 @@ schema_version: shirube-v3/control_handoff/v1
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_local_issue: https://github.com/watchout/agent-memory/issues/280
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: CONTROL_GRAPH_V1_2_AND_A1_EVIDENCE_CORRECTED_A2_LOCKED_PENDING_FRESH_AUDIT
+lifecycle_state: CONTROL_GRAPH_V1_2_1_AND_COMPLETE_A1_FIELD_SURFACE_CORRECTED_A2_LOCKED_PENDING_FRESH_AUDIT
 mode: full
 profile: protected-surface
 
@@ -33,10 +33,20 @@ control_source:
       unmatched/11 missing bidirectional set, correct lag arithmetic to 988943
       seconds, classify the complete Gemini field surface under default deny,
       preserve review-pending product drift without adoption, and route a fresh audit.
+  A1_complete_field_surface_supplement:
+    kind: credential_safe_evidence_supplement
+    observed_at: "2026-08-02"
+    ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+    body_sha256: 5c5b9f27f78f4e9d0a57a5e2a192f5c8e2de50e2f7b7aad93d7605a2f97cae26
+    report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+    instruction: >-
+      Bind all observed Gemini path shapes and top, message, JSONL, set-patch,
+      and toolCall fields; default-deny exactly 195 thought-bearing records,
+      model, raw tool payloads, protected instructions, and unknown fields.
 
 cell_graph:
   graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-  graph_version: 1.2.0
+  graph_version: 1.2.1
   graph_ref: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
   status: frozen
   predecessor_publication_head_sha: f4f14443e039eb3300cbbf182e3faa6b311bff50
@@ -93,22 +103,33 @@ exact_subject:
   graph_v1_2_correction_basis_tree_sha: 9560028032ee53a51a7f33864f83025ee689ef9a
   graph_v1_2_request_changes_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
   graph_v1_2_publication_tuple_source: durable_issue_280_comment_after_exact_push
+  graph_v1_2_1_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+  graph_v1_2_1_publication_tuple_source: durable_issue_280_comment_after_exact_push
 
 exact_input_artifacts:
   control_graph:
     path: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-    graph_version: 1.2.0
+    graph_version: 1.2.1
     digest_source: durable_issue_280_publication_evidence
   corrected_A1_evidence:
     path: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
-    file_sha256: e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+    file_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
     predecessor_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
     audit_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
     unmatched_registry_row_count: 24
     missing_manifest_binding_count: 11
     corrected_floor_lag_excess_seconds: 988943
-    Gemini_privacy_contract: COMPLETE_FIELD_INVENTORY_DEFAULT_DENY
+    complete_field_surface_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+    complete_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+    Gemini_observed_path_shape_count: 3
+    Gemini_top_field_count: 8
+    Gemini_snapshot_message_field_count: 9
+    Gemini_JSONL_record_field_count: 14
+    Gemini_set_patch_field_count: 2
+    Gemini_toolCall_field_count: 10
+    thought_bearing_records_default_denied: 195
+    Gemini_privacy_contract: COMPLETE_ALL_FIELD_UNIONS_DEFAULT_DENY
   db_backed_inventory:
     path: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
     commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
@@ -188,7 +209,7 @@ current_authorization:
     - session_or_TUI_mutation
     - deletion_adoption_staging_commit_testing_or_continuation_of_review_pending_product_drift
   implementation_unlock_requires:
-    - graph_v1_2_handoff_and_corrected_A1_exact_head_independent_audit_PASS
+    - graph_v1_2_1_handoff_and_complete_corrected_A1_exact_head_independent_audit_PASS
     - zero_blocking_findings
     - new_explicit_A2_handoff_from_ARC
     - clean_isolated_worktree_at_the_audited_control_head
@@ -197,13 +218,13 @@ current_authorization:
 delivery_sequence:
   WIP_limit: 1
   concurrent_now:
-    - fresh_independent_graph_v1_2_and_corrected_A1_audit_only
+    - fresh_independent_graph_v1_2_1_and_complete_corrected_A1_audit_only
   phases:
     - A0_graph_v1_1_and_handoff_publication
     - amended_control_exact_head_independent_audit
     - A1_read_only_ABI_registry_backlog_runtime_and_gemini_forensics
-    - A1_graph_v1_2_handoff_evidence_correction_and_drift_disposition
-    - fresh_graph_v1_2_and_corrected_A1_independent_audit
+    - A1_graph_v1_2_1_complete_field_surface_correction_and_drift_disposition
+    - fresh_graph_v1_2_1_and_complete_corrected_A1_independent_audit
     - new_explicit_clean_worktree_A2_handoff
     - A2_tracked_immutable_capture_service_and_35_target_reconciliation
     - A3_codex_claude_gemini_interruption_continuation_E2E
@@ -304,7 +325,7 @@ forbidden_paths:
 
 review_pending_worktree_drift:
   evidence_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
-  evidence_sha256: e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+  evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
   auditor_original_three_paths:
     - src/gemini-conversation-ingest.ts
     - src/test-gemini-conversation-ingest.ts
@@ -450,7 +471,7 @@ required_evidence:
   - corrected_988943_second_floor_lag_excess
   - complete_Gemini_field_surface_default_deny_fixture_contract
   - preserve_only_review_pending_worktree_drift_disposition_and_readback
-  - fresh_graph_v1_2_handoff_corrected_A1_independent_audit_PASS
+  - fresh_graph_v1_2_1_handoff_complete_corrected_A1_independent_audit_PASS
   - new_explicit_ARC_A2_handoff_and_clean_isolated_worktree
   - tracked_capture_service_contract_using_saveRawEvent
   - immutable_runtime_commit_tree_artifact_digest_readback
@@ -547,11 +568,12 @@ evidence:
 
 gate_result:
   gate: kusabi_alpha_obs05_A1_control_evidence_correction
-  result: GRAPH_V1_2_HANDOFF_AND_A1_EVIDENCE_CORRECTED_A2_LOCKED_PENDING_FRESH_AUDIT
+  result: GRAPH_V1_2_1_HANDOFF_AND_COMPLETE_A1_FIELD_SURFACE_CORRECTED_A2_LOCKED_PENDING_FRESH_AUDIT
   reason: >-
-    Graph v1.2 and the corrected A1 packet bind all 24 unmatched registry rows,
+    Graph v1.2.1 and the corrected A1 packet bind all 24 unmatched registry rows,
     all 11 missing manifest bindings, the corrected 988943-second floor excess,
-    and the complete observed Gemini field surface under default deny. The
+    and all observed Gemini path/field unions under default deny, including 195
+    thought-bearing records, model, raw tool payloads, and unknown fields. The
     review-pending product drift is preserved but not adopted, committed, or
     authorized. A fresh independent audit is frontmost; A2 and every protected
     effect remain locked.
@@ -561,7 +583,7 @@ next_action:
   owner_agent: codex-audit
   owner_function: evidence_audit_gate
   action: >-
-    Independently audit the exact published graph v1.2 commit/tree, corrected
+    Independently audit the exact published graph v1.2.1 commit/tree, corrected
     handoff, and corrected A1 evidence; reproduce 24/11 completeness and
     uniqueness, 988943-second arithmetic, complete Gemini default-deny field
     classification, and preserve-only worktree disposition; then return one
@@ -571,6 +593,7 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/280
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
     - https://github.com/watchout/agent-memory/pull/281
     - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -578,16 +601,17 @@ next_action:
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
     - predecessor-commit:c009e22d8e575c613a7114668afd12d4a5e3dc12
     - predecessor-tree:9560028032ee53a51a7f33864f83025ee689ef9a
-    - corrected-A1-sha256:e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+    - corrected-A1-sha256:5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+    - Gemini-field-surface-report-sha256:5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
     - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
     - state-sha256:93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
     - R0-artifact-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
-    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.0
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.1
   scope: >-
     Read-only exact-ref audit only; no product/control edits, runtime,
     supervisor, configuration, trust, DB, PR-state, label, Ready, merge,
     deployment, restart, owner decision, session, TUI, deletion, adoption, or A2 continuation.
-  deliverable: One durable current exact-head graph-v1.2/corrected-A1 shirube-audit/v1 record.
+  deliverable: One durable current exact-head graph-v1.2.1/complete-corrected-A1 shirube-audit/v1 record.
   completion_evidence: >-
     Issue 280 audit URL, exact audited commit/tree and three artifact digests,
     safe parse, 24/11 uniqueness proof, arithmetic/privacy/drift predicates,

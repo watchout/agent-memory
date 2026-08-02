@@ -5,6 +5,7 @@ control_source:
   issue: https://github.com/watchout/agent-memory/issues/280
   predecessor_A1_packet: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
   request_changes_audit: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+  complete_Gemini_field_surface_supplement: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
 
 cell:
   id: KUSABI-ALPHA-OBS05-CAPTURE-FORENSICS-20260802-001
@@ -131,6 +132,12 @@ Gemini_capture_feasibility:
     append_patch_JSONL_files: 1
     JSONL_records: 33
     JSONL_parse_errors: 0
+    path_shapes:
+      session_snapshot_JSON: 19
+      session_append_patch_JSONL: 1
+      nested_session_fragment_JSON: 4
+    JSON_parse_errors: 0
+  complete_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
   complete_snapshot_top_key_union:
     - directories
     - kind
@@ -150,16 +157,45 @@ Gemini_capture_feasibility:
     - tokens
     - toolCalls
     - type
+  complete_JSONL_record_key_union:
+    - $set
+    - content
+    - id
+    - kind
+    - lastUpdated
+    - model
+    - projectHash
+    - sessionId
+    - startTime
+    - thoughts
+    - timestamp
+    - tokens
+    - toolCalls
+    - type
+  complete_JSONL_set_patch_key_union:
+    - lastUpdated
+    - messages
+  complete_toolCall_key_union:
+    - args
+    - description
+    - displayName
+    - id
+    - name
+    - renderOutputAsMarkdown
+    - result
+    - resultDisplay
+    - status
+    - timestamp
   observed_sensitive_surface:
     snapshot_files_with_directories: 4
     snapshot_files_with_summary: 3
     snapshot_message_count: 210
     snapshot_messages_with_thoughts: 184
     JSONL_records_with_thoughts: 11
+    total_records_with_thoughts_default_denied: 195
   default_deny_privacy_fixture_contract:
     direct_persist_allowlist:
       session:
-        - kind
         - lastUpdated
         - sessionId
         - startTime
@@ -167,17 +203,27 @@ Gemini_capture_feasibility:
         - content
         - displayContent
         - id
-        - model
         - timestamp
         - type
     derived_persist_allowlist:
-      - credential_safe_visible_tool_summary_after_redaction
+      - toolCall.name_after_redaction
+      - toolCall.displayName_after_redaction
+      - toolCall.status_after_redaction
     always_exclude:
       - directories
       - summary
+      - projectHash
       - thoughts
       - tokens
+      - model
       - raw_toolCalls
+      - toolCall.args
+      - toolCall.result
+      - toolCall.resultDisplay
+      - toolCall.description
+      - toolCall.renderOutputAsMarkdown
+      - toolCall.id
+      - toolCall.timestamp
       - private_tool_payloads
       - credential_bearing_arguments_or_results
       - system_instruction_bodies
@@ -187,11 +233,15 @@ Gemini_capture_feasibility:
     fixture_requirements:
       - snapshot_JSON_positive_and_negative_cases
       - append_patch_JSONL_positive_and_negative_cases
+      - nested_session_fragment_JSON_positive_and_negative_cases
       - every_observed_top_and_message_field_classified
+      - every_observed_JSONL_record_set_patch_and_toolCall_field_classified
       - thoughts_and_raw_toolCalls_never_persisted
       - unrecognized_field_rejected_by_default
       - idempotent_reconstruction_and_replay
-  verdict: SUPPORTED_WITH_EXPLICIT_DUAL_FORMAT_DEFAULT_DENY_PRIVACY_FILTERED_ADAPTER
+      - malformed_record_rejected_without_partial_private_field_persistence
+      - denied_field_sentinel_count_zero_in_normalized_output_and_persisted_readback
+  verdict: SUPPORTED_WITH_EXPLICIT_THREE_PATH_SHAPE_DUAL_FORMAT_DEFAULT_DENY_PRIVACY_FILTERED_ADAPTER
   owner_disposition_required: false
 
 review_pending_worktree_drift:
@@ -252,7 +302,7 @@ next_action:
   actor_agent_id: codex-audit
   active_function: evidence_audit_gate
   action: >-
-    Audit the exact graph v1.2, corrected handoff, and this corrected A1 packet;
+    Audit the exact graph v1.2.1, corrected handoff, and this corrected A1 packet;
     verify 24/11 set completeness, 988943-second arithmetic, complete Gemini
     field classification/default-deny contract, and the preserve-only worktree
     disposition. Return PASS or itemized blockers without implementing.
@@ -260,6 +310,7 @@ next_action:
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
     - https://github.com/watchout/agent-memory/pull/281
     - this_file_at_exact_publication_commit
     - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631

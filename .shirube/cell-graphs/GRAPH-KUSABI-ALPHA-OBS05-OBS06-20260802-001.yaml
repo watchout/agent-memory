@@ -1,6 +1,6 @@
 schema_version: shirube-v3/cell_graph/v1
 graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-graph_version: 1.2.0
+graph_version: 1.2.1
 status: frozen
 control_source: https://github.com/watchout/agent-memory/issues/280
 risk_class: R4
@@ -24,6 +24,9 @@ freeze_basis:
   provenance_remediation_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5150578633
   A1_predecessor_evidence_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
   A1_request_changes_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+  A1_complete_field_surface_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+  A1_complete_field_surface_supplement_body_sha256: 5c5b9f27f78f4e9d0a57a5e2a192f5c8e2de50e2f7b7aad93d7605a2f97cae26
+  A1_complete_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
   A1_control_correction_basis_head_sha: c009e22d8e575c613a7114668afd12d4a5e3dc12
   A1_control_correction_basis_tree_sha: 9560028032ee53a51a7f33864f83025ee689ef9a
 
@@ -62,6 +65,17 @@ amendment_history:
       disposition, and fresh independent audit routing. A2, product changes,
       runtime, supervisor, configuration, trust, database, PR state, Ready,
       merge, deploy, restart, session, TUI, and owner decisions remain locked.
+  - graph_version: 1.2.1
+    amendment_control_source: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+    predecessor_graph_version: 1.2.0
+    reason: >-
+      Bind the complete Gemini supplement: three observed path shapes, 8 top
+      fields, 9 snapshot-message fields, 14 JSONL record fields, 2 set-patch
+      fields, and 10 toolCall fields. Exactly 195 thought-bearing records remain
+      default denied; model and raw toolCall payload fields are not persisted.
+    authorization_at_amendment: >-
+      Control/evidence correction and fresh audit routing only. The exact A2 and
+      protected-effect locks from graph v1.2.0 remain unchanged.
 
 root_goal:
   goal_id: KUSABI-ALPHA-OBS05-OBS06-FLEET-CLOSURE-20260801-001
@@ -99,9 +113,10 @@ source_refs:
   - .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
   - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
   - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+  - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
 
 frozen_version_boundary:
-  graph_version: 1.2.0
+  graph_version: 1.2.1
   inventory_snapshot_schema: kusabi-fleet-inventory-snapshot/v1
   manifest_version: 2
   target_count: 35
@@ -126,7 +141,15 @@ frozen_version_boundary:
   arithmetic_net_surplus_is_enumerable_row_set: false
   corrected_floor_lag_excess_seconds: 988943
   corrected_A1_evidence_path: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
-  corrected_A1_evidence_sha256: e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+  corrected_A1_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+  complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+  Gemini_observed_path_shape_count: 3
+  Gemini_top_field_count: 8
+  Gemini_snapshot_message_field_count: 9
+  Gemini_JSONL_record_field_count: 14
+  Gemini_set_patch_field_count: 2
+  Gemini_toolCall_field_count: 10
+  thought_bearing_records_default_denied: 195
   change_rule: >-
     Any membership, order, dependency, risk, decision point, implementation
     tuple, inventory or manifest digest, stage criterion, or closure criterion
@@ -361,7 +384,8 @@ cells:
       arithmetic_net_surplus_is_enumerable_row_set: false
       corrected_floor_lag_excess_seconds: 988943
       corrected_evidence_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
-      corrected_evidence_sha256: e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+      corrected_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+      complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
       production_mutation_authorized: false
     owner_decision_points:
       - OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION
@@ -383,7 +407,7 @@ cells:
       - KUSABI-ALPHA-OBS05-CAPTURE-FORENSICS-20260802-001
     active_function: evidence_audit_gate
     primary_responsibility: >-
-      Independently audit graph v1.2, the corrected executor handoff, corrected
+      Independently audit graph v1.2.1, the corrected executor handoff, corrected
       A1 evidence, and the preserve-only disposition before any A2 authority.
     implementation_boundary: read_only_exact_ref_audit_only
     verification_boundary: >-
@@ -392,10 +416,12 @@ cells:
       complete Gemini field classification/default deny, and worktree-drift
       readback; return PASS with zero blockers or keep A2 locked.
     version_boundary:
-      graph_version: 1.2.0
+      graph_version: 1.2.1
       predecessor_A1_evidence_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
       request_changes_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
-      corrected_evidence_sha256: e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+      complete_field_surface_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+      corrected_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+      complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
     owner_decision_points: []
     required_evidence:
       - independent_shirube_audit_v1
@@ -403,6 +429,8 @@ cells:
       - bidirectional_24_unmatched_11_missing_proof
       - corrected_988943_second_arithmetic_proof
       - complete_Gemini_default_deny_privacy_contract_proof
+      - complete_Gemini_three_path_shape_and_all_field_union_proof
+      - exactly_195_thought_bearing_records_default_denied
       - review_pending_worktree_drift_preserve_only_readback
       - zero_blocking_findings
     completion_state: FRONTMOST_INCOMPLETE
@@ -496,7 +524,7 @@ cells:
       evidence with zero blockers; maker self-audit is not accepted.
     version_boundary:
       audit_subject_source: exact_final_implementation_and_e2e_packet
-      graph_version: 1.2.0
+      graph_version: 1.2.1
     owner_decision_points: []
     required_evidence:
       - independent_shirube_audit_v1
@@ -858,7 +886,7 @@ next_action:
   owner_function: evidence_audit_gate
   action: >-
     Independently audit the exact published control commit/tree containing this
-    graph v1.2, corrected handoff, and corrected A1 packet; bind all three
+    graph v1.2.1, corrected handoff, and corrected A1 packet; bind all three
     raw-file SHA-256 values, reproduce the 24/11 sets, 988943-second arithmetic,
     complete Gemini default-deny field contract, and preserve-only worktree
     disposition; then return one current shirube-audit/v1 verdict.
@@ -867,6 +895,7 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/280
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
     - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
     - https://github.com/watchout/agent-memory/pull/281
     - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
@@ -874,11 +903,12 @@ next_action:
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
     - predecessor-commit:c009e22d8e575c613a7114668afd12d4a5e3dc12
     - predecessor-tree:9560028032ee53a51a7f33864f83025ee689ef9a
-    - corrected-A1-sha256:e7bf09f25613adad76e101c0abb75e00563dfa89a33abadce44c8362a8a3ba10
+    - corrected-A1-sha256:5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+    - Gemini-field-surface-report-sha256:5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
     - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
     - state-sha256:93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
     - R0-artifact-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
-    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.0
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.1
   scope: >-
     Read-only exact-ref evidence audit only; no product, control, runtime,
     configuration, trust, DB, PR-state, label, Ready, merge, deployment,
