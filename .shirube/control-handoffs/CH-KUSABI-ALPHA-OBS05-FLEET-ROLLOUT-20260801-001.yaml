@@ -2,7 +2,7 @@ schema_version: shirube-v3/control_handoff/v1
 framework_ref: watchout/ai-dev-framework@6917720d0ea02fe96f3b7752aa802bc135ec1b19
 repo_local_issue: https://github.com/watchout/agent-memory/issues/280
 control_handoff_id: CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-lifecycle_state: CONTROL_GRAPH_FROZEN_PENDING_FRESH_EXACT_HEAD_AUDIT
+lifecycle_state: CONTROL_GRAPH_V1_1_AMENDED_PENDING_FRESH_EXACT_HEAD_AUDIT
 mode: full
 profile: protected-surface
 
@@ -15,14 +15,23 @@ control_source:
     Set distribution to every eligible production agent binding as the goal and
     continue by the shortest path without stopping at each agent or at
     intermediate ACK, queue, CI, or merge states.
+  continuity_amendment:
+    kind: direct_owner_instruction
+    observed_at: "2026-08-02"
+    ref: conversation:2026-08-02:close-gap-to-finished-continuity
+    durable_plan_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154422459
+    instruction: >-
+      Close the gap from ordinary native start through durable visible-event
+      capture and new-process recovery for Codex, Claude Code, and Gemini CLI;
+      amend the control graph and executor handoff before the current audit.
 
 cell_graph:
   graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-  graph_version: 1.0.0
+  graph_version: 1.1.0
   graph_ref: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
   status: frozen
-  freeze_basis_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
-  freeze_basis_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
+  predecessor_publication_head_sha: f4f14443e039eb3300cbbf182e3faa6b311bff50
+  predecessor_publication_tree_sha: 056fd7334f3a9a29e40a25133fcd9f7bd6c7596b
   digest_algorithm: sha256_raw_utf8_lf_v1
   digest_record_location: external_issue_280_publication_evidence
   frontmost_incomplete_cell_id: KUSABI-ALPHA-OBS05-PREIMPLEMENTATION-AUDIT-20260802-001
@@ -32,14 +41,16 @@ cell_graph:
     280 publication, and a fresh independent audit.
 
 cell:
-  CELL-ID: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-  id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
-  cell_ref: .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
-  cell_type: protected_fleet_rollout
+  CELL-ID: KUSABI-ALPHA-OBS05-CONTINUITY-GAP-CLOSURE-20260802-001
+  id: KUSABI-ALPHA-OBS05-CONTINUITY-GAP-CLOSURE-20260802-001
+  parent_cell_id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+  cell_ref: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
+  cell_type: capture_restoration_reconciliation_and_interruption_continuity
   risk_class: R4
   goal: >-
-    Build and operate one deterministic, rollback-safe, observable rollout for
-    the frozen 35-binding Kusabi fleet and hand exact readback to OBS-06.
+    Restore a tracked immutable capture boundary, reconcile it to the frozen
+    35-binding manifest, and prove three-host new-process interruption
+    continuity before any production owner GO.
 
 execution_context:
   agent_id: kusabi
@@ -48,6 +59,7 @@ execution_context:
   canonical_workspace: /Users/yuji/Developer/agent-memory
   candidate_worktree: /Users/yuji/Developer/.wt-kusabi-alpha-obs05-fleet-rollout
   repository: watchout/agent-memory
+  authorization_state: PENDING_AMENDED_CONTROL_AUDIT
 
 exact_subject:
   base_branch: main
@@ -65,12 +77,15 @@ exact_subject:
   corrected_handoff_basis_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
   corrected_handoff_basis_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
   corrected_handoff_publication_tuple_source: durable_issue_280_comment
+  graph_v1_0_publication_head_sha: f4f14443e039eb3300cbbf182e3faa6b311bff50
+  graph_v1_0_publication_tree_sha: 056fd7334f3a9a29e40a25133fcd9f7bd6c7596b
+  graph_v1_1_publication_tuple_source: durable_issue_280_comment_after_exact_push
 
 exact_input_artifacts:
   control_graph:
     path: .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
-    graph_version: 1.0.0
+    graph_version: 1.1.0
     digest_source: durable_issue_280_publication_evidence
   db_backed_inventory:
     path: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
@@ -95,28 +110,118 @@ exact_input_artifacts:
     commit and tree, both raw-file digests, the implementation tuple, the R0
     artifact tuple, and every inventory/manifest/plan/report digest match.
 
+observed_continuity_gap:
+  observation_time: "2026-08-02"
+  authoritative_binding_count: 35
+  installed_capture_target_count: 47
+  installed_registry_authoritative: false
+  raw_capture_daemon_tracked_on_main_or_pr281: false
+  supervisor_state: spawn_scheduled_exit_loop
+  observed_run_count: 18383
+  observed_last_exit_code: 1
+  repeated_error: "TypeError: store.recordRawEvent is not a function"
+  canonical_store_capability: saveRawEvent
+  installed_runtime_source: mutable_workspace_dist
+  committed_capture_hosts: [codex, claude_code]
+  gemini_capture_adapter_present: false
+  observation_is_implementation_authorization: false
+
+target_contract:
+  continuation_definition: new_native_process_not_same_or_inflight_call
+  native_hosts: [codex, claude_code, gemini_cli]
+  startup_behavior: bounded_data_only_recovery_pack
+  visible_event_behavior: continuously_redacted_and_durably_captured
+  excluded_content:
+    - private_chain_of_thought
+    - system_instruction_bodies
+    - developer_instruction_bodies
+  ambiguous_side_effect_rule: require_idempotency_key_or_external_readback_before_retry
+  authoritative_capture_denominator: db_backed_35_target_manifest
+  immutable_runtime_rule: >-
+    Startup and capture runtime must resolve to a repo-owned artifact built from
+    an exact commit/tree and verified digest, never mutable workspace dist.
+
+current_authorization:
+  authorized_now:
+    - control_artifact_publication
+    - read_only_capture_forensics_after_amended_control_audit_pass
+    - independent_audit_routing
+  not_authorized_now:
+    - product_code_change
+    - production_configuration_or_trust_change
+    - runtime_or_supervisor_mutation
+    - launchagent_restart_stop_or_start
+    - database_or_schema_mutation
+    - PR_state_label_Ready_or_merge_change
+    - deployment_or_release
+    - session_or_TUI_mutation
+  implementation_unlock_requires:
+    - graph_v1_1_exact_head_independent_audit_pass
+    - read_only_A1_forensics_complete_with_exact_evidence
+    - gemini_supported_verdict_or_owner_disposition_if_proven_unsupported
+
+delivery_sequence:
+  WIP_limit: 2
+  concurrent_now:
+    - ARC_control_amendment_and_independent_audit_route
+    - Kusabi_read_only_forensics_only_after_audit_PASS
+  phases:
+    - A0_graph_v1_1_and_handoff_publication
+    - amended_control_exact_head_independent_audit
+    - A1_read_only_ABI_registry_backlog_runtime_and_gemini_forensics
+    - A2_tracked_immutable_capture_service_and_35_target_reconciliation
+    - A3_codex_claude_gemini_interruption_continuation_E2E
+    - preproduction_exact_head_independent_audit
+    - exact_owner_production_GO
+    - merge_R1_R2_R3_and_OBS06_soak
+
+feasibility_and_schedule:
+  feasibility: FEASIBLE_WITH_CONTROL_GRAPH_AMENDMENT
+  schedule_commitment: CANT_YET
+  reasons:
+    - capture_backlog_and_lag_are_unmeasured_until_A1
+    - Gemini_capture_feasibility_is_unresolved_until_A1
+    - continuous_soak_has_a_hard_lower_bound_of_24_hours_and_96_checkpoints
+
+acceptance_metrics:
+  ordinary_native_launch_recovery: 35_of_35
+  capture_registry_manifest_equality: 35_of_35
+  immutable_startup_and_capture_runtime_readback: 35_of_35
+  sentinel_durable_capture_and_recovery: 35_of_35
+  private_or_protected_capture_count: 0
+  duplicate_external_side_effect_count: 0
+  capture_nonzero_exit_count_during_soak: 0
+  startup_timeout_seconds_max: 7
+  recovery_output_tokens_max: 1800
+  recovery_output_bytes_max: 8192
+  alert_p95_seconds_max: 60
+  sqlite_postgresql_normalized_parity: 1.0
+  soak_duration_hours: 24
+  soak_checkpoint_count: 96
+
 allowed_paths:
   - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
   - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
-  - docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json
-  - docs/design/schemas/codex-session-start-evidence-v1.schema.json
-  - docs/design/schemas/claude-session-start-evidence-v1.schema.json
-  - docs/design/schemas/gemini-session-start-evidence-v1.schema.json
-  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
-  - docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md
+  - docs/design/schemas/kusabi-raw-capture-service-v1.schema.json
+  - docs/design/schemas/kusabi-continuity-interruption-e2e-v1.schema.json
+  - docs/operations/KUSABI_ALPHA_CONTINUITY_GAP_CLOSURE.md
+  - src/codex-conversation-ingest.ts
+  - src/claude-conversation-ingest.ts
+  - src/gemini-conversation-ingest.ts
+  - src/test-gemini-conversation-ingest.ts
+  - src/raw-capture-coverage.ts
+  - src/raw-capture-service.ts
+  - src/test-raw-capture-service.ts
+  - src/continuity-alpha-canary.ts
+  - src/test-continuity-alpha-canary.ts
+  - src/continuity-alpha-evaluator.ts
+  - src/test-continuity-alpha-evaluator.ts
+  - src/kusabi-continuity-interruption-e2e.ts
+  - src/test-kusabi-continuity-interruption-e2e.ts
   - src/kusabi-fleet-rollout.ts
   - src/test-kusabi-fleet-rollout.ts
-  - src/codex-session-start.ts
-  - src/claude-session-start.ts
-  - src/gemini-session-start.ts
-  - src/kusabi-runtime-event-emitter.ts
-  - src/kusabi-runtime-event-store.ts
-  - src/test-codex-session-start.ts
-  - src/test-claude-session-start.ts
-  - src/test-gemini-session-start.ts
-  - src/test-kusabi-runtime-event-emitter.ts
   - package.json
 
 control_artifact_author_only_paths:
@@ -144,20 +249,41 @@ forbidden_paths:
   - .env.*
   - secrets/**
 
-phase_a_allowed_operations:
-  - read-only authoritative inventory and existing configuration inspection
-  - create and edit only allowed_paths other than control_artifact_author_only_paths
-  - implement deterministic manifest, rollout-plan, R0, stage-gate, and observed-deployment evidence tooling
-  - bind emitted storage identity to the credential-safe hash of the actual resolved hook store rather than copying the manifest target
-  - use existing native host installers through their exported atomic APIs in tests and dry-run only
-  - run local schema, TypeScript, unit, full regression, SQLite, isolated PostgreSQL, build, privacy, path-scope, and diff checks
-  - create temporary test-only workspaces, files, SQLite databases, and isolated PostgreSQL schemas with deterministic cleanup
-  - commit and push the implementation branch without force
-  - create and update one draft pull request targeting main
-  - route the two required independent audits through AUN
-  - generate credential-safe local R0 and manifest candidate artifacts without raw paths or environment values
+phased_executor_operations:
+  A1_read_only_forensics:
+    authorization_state: PENDING_AMENDED_CONTROL_AUDIT_PASS
+    allowed:
+      - inspect Store raw-event capability and capture-service process contract read-only
+      - reconcile installed capture registry 47 against authoritative manifest 35 read-only
+      - measure credential-safe capture lag and backlog without database writes
+      - identify runtime artifact provenance without supervisor or filesystem mutation
+      - determine Gemini visible-event capture feasibility without configuration mutation
+      - publish one credential-safe A1 evidence packet and route its review
+    file_edits_allowed: false
+    production_mutations_allowed: false
+  A2_capture_service_implementation:
+    authorization_state: >-
+      LOCKED_UNTIL_A1_COMPLETE_AND_GEMINI_SUPPORTED_OR_OWNER_DISPOSITION
+    allowed_after_unlock:
+      - create and edit only allowed_paths other than control_artifact_author_only_paths
+      - implement tracked repo-owned capture service against canonical saveRawEvent
+      - reconcile target coverage only from the authoritative 35-target manifest
+      - implement Gemini adapter when supported by A1 evidence
+      - run local and isolated schema, TypeScript, unit, regression, SQLite, PostgreSQL, build, privacy, path-scope, and diff checks
+      - create temporary test-only workspaces, files, databases, and isolated PostgreSQL schemas with deterministic cleanup
+      - commit and push the implementation branch without force
+      - update the existing draft PR body and evidence without changing PR state
+      - route independent preproduction audit through AUN
+    production_mutations_allowed: false
+  A3_three_host_interruption_e2e:
+    authorization_state: LOCKED_UNTIL_A2_EVIDENCE_COMPLETE
+    allowed_after_unlock:
+      - execute local and isolated Codex Claude Code and Gemini CLI interruption fixtures
+      - verify new-process recovery, capture durability, privacy exclusion, and replay safety
+      - publish exact evidence without restarting or injecting production sessions
+    production_mutations_allowed: false
 
-phase_a_forbidden_operations:
+all_executor_forbidden_operations:
   - write any production agent configuration or trust state
   - activate, distribute, deploy, restart, stop, launch, or inject any production agent/session
   - write live Kusabi runtime events or change live SQLite/PostgreSQL state
@@ -165,12 +291,20 @@ phase_a_forbidden_operations:
   - wrapper use, TUI input, tmux send-keys, clipboard writes, or automatic restart
   - maker self-audit, self-approval, self-merge, bypass, force-push, npm publish, tag, or release
   - access or persist credentials, database URLs, environment values, raw absolute paths, prompts, conversations, recovery content, private reasoning, exceptions, or stacks as telemetry
+  - treat the installed 47-target capture registry as authority or silently adopt/delete its 12 extra entries
+  - invoke recordRawEvent or modify src/stores to preserve that obsolete capability
+  - run production capture from mutable workspace dist
+  - silently omit Gemini from the three-host contract
+  - retry an ambiguous external side effect without an idempotency key or external readback
 
 phase_b_protected_operations:
   authorization_state: PENDING_EXACT_MANIFEST_OWNER_GO
   allowed_only_after:
     - PR 277 merged exact-head verification
-    - pre-implementation R4 audit PASS with zero blocking findings
+    - amended-control R4 audit PASS with zero blocking findings
+    - read-only A1 forensics complete with exact ABI registry backlog provenance and Gemini evidence
+    - capture-service and three-host interruption E2E implementation complete
+    - preproduction exact-head R4 audit PASS with zero blocking findings
     - final implementation head/tree and host artifact hashes frozen
     - 35-target manifest and rollout-plan hashes frozen
     - R0 35/35 PASS with rollback preimages and expected postimages
@@ -192,9 +326,20 @@ stop_conditions:
   - a stage produces an open P0/P1, privacy violation, failed/drifted/not_observed target, or non-durable evidence at its deadline
   - protected mutation is attempted before the exact manifest owner GO
   - merge or deployment would require bypass or scope expansion
+  - capture service calls recordRawEvent or any capability other than canonical saveRawEvent
+  - installed registry and authoritative manifest are conflated or the 35-target denominator changes without a versioned amendment
+  - startup or capture runtime resolves to mutable workspace dist
+  - Gemini capture is unsupported without OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION
+  - any interruption scenario would replay an ambiguous effect without idempotency or external readback
+  - private reasoning or system/developer instruction bodies enter captured or recovered content
 
 required_checks:
   - npx tsc --noEmit
+  - npx tsx src/test-raw-capture-service.ts
+  - npx tsx src/test-gemini-conversation-ingest.ts
+  - npx tsx src/test-kusabi-continuity-interruption-e2e.ts
+  - npm run test:continuity-alpha-canary
+  - npm run test:continuity-alpha-evaluator
   - npx tsx src/test-kusabi-fleet-rollout.ts
   - npm test
   - npm run test:codex-hook
@@ -203,6 +348,7 @@ required_checks:
   - isolated SQLite and PostgreSQL parity checks
   - npm run build
   - strict schema compile and positive/negative fixtures
+  - negative fixtures for ABI mismatch, registry 47 versus manifest 35, mutable runtime root, Gemini unavailable, seven interruption states, private/protected capture, and duplicate replay
   - git diff --check
   - exact changed-path equality against allowed_paths
   - forbidden telemetry and network side-effect scan
@@ -218,20 +364,32 @@ required_evidence:
   - exact_head_owner_decision
   - r1_r2_r3_stage_reports_and_obs04_status_snapshots
   - zero_forbidden_effect_report
+  - A1_read_only_capture_ABI_registry_backlog_runtime_and_gemini_report
+  - tracked_capture_service_contract_using_saveRawEvent
+  - immutable_runtime_commit_tree_artifact_digest_readback
+  - capture_registry_equals_authoritative_manifest_35_of_35
+  - sentinel_durable_capture_and_recovery_35_of_35
+  - codex_claude_gemini_interruption_matrix
+  - startup_timeout_at_most_7_seconds_and_recovery_output_at_most_1800_tokens_or_8192_bytes
+  - capture_nonzero_exit_count_zero_during_soak
+  - alert_p95_at_most_60_seconds
+  - duplicate_external_side_effect_count_zero
+  - private_or_protected_capture_count_zero
 
 owner_decision:
-  result: APPROVED_GOAL_AND_PHASE_A
+  result: APPROVED_GOAL_WITH_AMENDED_EXECUTION_GATES
   actor: watchout
   observed_at: "2026-08-01"
   decision_ref: direct-owner-instruction:2026-08-01:full-agent-distribution
-  scope: phase_a_allowed_operations only
-  implementation_authorized: true
-  read_only_r0_authorized: true
+  scope: control publication now; read-only A1 only after amended-control audit PASS
+  implementation_authorized: false
+  read_only_A1_authorized_after_audit: true
   production_configuration_mutation_authorized: false
   trust_mutation_authorized: false
   fleet_distribution_authorized: false
   activation_or_restart_authorized: false
   exact_manifest_owner_decision_required: true
+  conditional_gemini_disposition_required_if_unsupported: true
 
 evidence:
   issue_created: https://github.com/watchout/agent-memory/issues/280
@@ -246,6 +404,17 @@ evidence:
   unplaced_bindings: 32
   current_three_host_runtime_roots_current_build: false
   production_mutation_performed: false
+  continuity_gap_observation:
+    authoritative_binding_count: 35
+    installed_capture_target_count: 47
+    raw_capture_daemon_tracked: false
+    capture_supervisor_run_count: 18383
+    capture_supervisor_last_exit_code: 1
+    capture_error: "TypeError: store.recordRawEvent is not a function"
+    canonical_store_capability: saveRawEvent
+    installed_runtime_mutable: true
+    gemini_capture_adapter_present: false
+    production_mutation_performed: false
   phase_a_implementation:
     changed_paths: PASS_21_OF_21_ALLOWED
     typescript_no_emit: PASS
@@ -290,32 +459,33 @@ evidence:
     raw_path_or_credential_match_count: 0
 
 gate_result:
-  gate: kusabi_alpha_obs05_phase_a_entry
-  result: CONTROL_GRAPH_FROZEN_DB_INVENTORY_PASS_PENDING_FRESH_EXACT_HEAD_AUDIT
+  gate: kusabi_alpha_obs05_continuity_gap_control_amendment
+  result: GRAPH_V1_1_AMENDED_PENDING_FRESH_EXACT_HEAD_CONTROL_AUDIT
   reason: >-
-    The rollout core now requires a self-hashed shared-DB inventory snapshot,
-    exact registered/canonical identity, explicit eligibility predicates, and
-    exact snapshot-to-manifest equality at R0 and protected apply. The live
-    read-only DB result is 33 primary plus 2 approved secondary bindings. The
-    complete OBS05/OBS06 graph is frozen above and the handoff is corrected to
-    bind that graph and the immutable DB-backed R0 artifact. A fresh exact-head
-    independent audit is now the frontmost incomplete cell. No production
-    mutation has occurred.
+    The authoritative 35-target DB-backed manifest remains frozen, while the
+    installed capture registry reports 47 targets, the untracked mutable-dist
+    capture daemon repeatedly calls obsolete recordRawEvent and exits, and no
+    committed Gemini capture adapter exists. Graph v1.1 inserts amended-control
+    audit, read-only A1 forensics, tracked immutable capture implementation,
+    three-host interruption E2E, and a preproduction audit before owner GO. The
+    fresh amended-control audit is frontmost; no implementation or protected
+    mutation is authorized or performed by this amendment.
 
 next_action:
   blocking: true
   owner_agent: codex-audit
   owner_function: evidence_audit_gate
-  action: Independently audit the exact published control commit/tree containing the frozen graph and corrected DB-inventory-bound handoff, then return one current shirube-audit/v1 verdict.
+  action: Independently audit the exact published graph v1.1 commit/tree and corrected continuity executor handoff, then return one current amended-control shirube-audit/v1 verdict.
   handoff_method: AUN anchored to the exact Issue 280 publication comment and PR 281 head.
   exact_input_refs:
     - https://github.com/watchout/agent-memory/issues/280
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154422459
     - https://github.com/watchout/agent-memory/pull/281
     - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
     - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
     - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
-    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5150520875
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154405274
     - commit:e0128af8dd1642296dc0dd3be49e42cbe715c34a
     - tree:8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
     - commit:62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
@@ -329,7 +499,9 @@ next_action:
     - r0-artifact-file-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
     - commit:3070a842627b0f9b61f8c60c331b19727b755083
     - tree:cd08d13398850e361c40f503dd09bdda7fba71d0
-    - publication_tuple:durable_issue_280_comment_for_graph_version_1.0.0
+    - predecessor-control-commit:f4f14443e039eb3300cbbf182e3faa6b311bff50
+    - predecessor-control-tree:056fd7334f3a9a29e40a25133fcd9f7bd6c7596b
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.1.0
   scope: Read-only exact-ref audit only; no product, control, runtime, config, trust, DB, PR-state, label, Ready, merge, deployment, restart, owner approval, session, or TUI mutation.
-  deliverable: One durable current exact-head shirube-audit/v1 record covering the graph, handoff, implementation tuple, and DB-backed R0 provenance.
-  completion_evidence: Issue 280 audit URL, exact audited commit/tree and artifact digests, complete findings, verdict, and a complete next_action to owner GO only on PASS.
+  deliverable: One durable current exact-head amended-control shirube-audit/v1 record covering all 17 cells, three owner-decision points, handoff gates, implementation tuple, and DB-backed R0 provenance.
+  completion_evidence: Issue 280 audit URL, exact audited commit/tree and artifact digests, complete findings, verdict, and a complete next_action to read-only A1 forensics only on PASS.
