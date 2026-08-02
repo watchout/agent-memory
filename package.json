@@ -62,6 +62,8 @@
     "gemini:hook": "tsx src/gemini-session-start.ts",
     "gemini:hook-install": "tsx src/gemini-hook-installer.ts",
     "test:gemini-hook": "tsx src/test-gemini-session-start.ts && tsx src/test-gemini-hook-installer.ts",
+    "test:gemini-conversation-ingest": "tsx src/test-gemini-conversation-ingest.ts",
+    "test:raw-capture-service": "tsx src/test-raw-capture-service.ts",
     "claude:hook": "tsx src/claude-session-start.ts",
     "claude:hook-install": "tsx src/claude-hook-installer.ts",
     "test:claude-hook": "tsx src/test-claude-session-start.ts && tsx src/test-claude-hook-installer.ts",

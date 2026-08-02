@@ -146,7 +146,30 @@ export async function ingestCodexConversationEvents(
         continue;
       }
 
-      const wasDuplicate = await hasExistingConversationEvent(store, agentId, event);
+      const wasDuplicate = await hasExistingRawEvent(store, agentId, event);
+      await store.saveRawEvent({
+        agent_id: agentId,
+        session_id: getString(event.metadata.session_id),
+        project: input.project,
+        host: "codex",
+        source: "codex",
+        event_type: rawEventTypeForRole(event.role),
+        role: event.role,
+        content: event.content,
+        source_ref: {
+          source: "codex",
+          source_event_id: event.source_event_id,
+          source_path: event.source_path,
+        },
+        source_event_id: event.source_event_id,
+        source_path: event.source_path,
+        redaction_level: "complete",
+        private_reasoning: false,
+        metadata: event.metadata,
+        occurred_at: event.occurred_at,
+      });
+      // Preserve the AM-031 compatibility projection while the canonical
+      // capture ledger is saveRawEvent above.
       await store.saveConversationEvent({
         agent_id: agentId,
         project: input.project,
@@ -221,22 +244,19 @@ export function extractCodexRawEvent(
       item_id: getString(payload.id),
       call_id: getString(payload.call_id),
       cwd: getString(payload.cwd) ? normalizeHomePath(getString(payload.cwd)!) : undefined,
-      model_provider: getString(payload.model_provider),
-      model: getString(payload.model),
       cli_version: getString(payload.cli_version),
       redaction_version: redacted.redaction_version,
       redaction_count: redacted.redaction_count,
-      ingested_at: new Date().toISOString(),
     },
   };
 }
 
-async function hasExistingConversationEvent(
+async function hasExistingRawEvent(
   store: Store,
   agentId: string,
   event: ExtractedCodexRawEvent
 ): Promise<boolean> {
-  const existing = await store.getConversationEvents({
+  const existing = await store.getRawEvents({
     agent_id: agentId,
     source: "codex",
     since: event.occurred_at,
@@ -298,8 +318,6 @@ function extractCodexContent(record: Record<string, unknown>, payload: Record<st
     const parts = [
       "Codex session started",
       getString(payload.source) ? `source=${payload.source}` : "",
-      getString(payload.model_provider) ? `provider=${payload.model_provider}` : "",
-      getString(payload.model) ? `model=${payload.model}` : "",
       getString(payload.cwd) ? `cwd=${normalizeHomePath(getString(payload.cwd)!)}` : "",
     ].filter(Boolean);
     return parts.join(" ");
@@ -315,12 +333,12 @@ function extractCodexContent(record: Record<string, unknown>, payload: Record<st
   if (typeof payload.text === "string") return payload.text;
   if (typeof payload.message === "string") return payload.message;
   if (payloadType === "function_call") {
-    return `[function_call:${getString(payload.name) ?? "unknown"}] ${safeCompactJson(stripForbiddenFields(payload.arguments ?? {}))}`;
+    return `[function_call:${redactText(getString(payload.name) ?? "unknown").text}]`;
   }
   if (payloadType === "function_call_output") {
-    return `[function_call_output] ${safeCompactJson(stripForbiddenFields(payload.output ?? {}))}`;
+    return "[function_call_output]";
   }
-  return `[${payloadType ?? getString(record.type) ?? "unknown"}] ${safeCompactJson(stripForbiddenFields(payload))}`;
+  return `[${payloadType ?? getString(record.type) ?? "unknown"}]`;
 }
 
 function codexContentBlocksToText(content: unknown[]): string {
@@ -336,7 +354,7 @@ function codexContentBlocksToText(content: unknown[]): string {
     if ((type === "input_text" || type === "output_text") && typeof item.text === "string") {
       parts.push(item.text);
     } else {
-      parts.push(`[${type}] ${safeCompactJson(stripForbiddenFields(item))}`);
+      parts.push(`[${type}]`);
     }
   }
   return parts.join("\n").trim();
@@ -374,4 +392,12 @@ function isReasoningBlock(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const type = getString(value.type) ?? "";
   return /reasoning|thinking|thought|chain_of_thought/i.test(type);
+}
+
+function rawEventTypeForRole(role: ExtractedCodexRawEvent["role"]):
+  "user_message" | "assistant_message" | "tool_call" | "runtime_event" {
+  if (role === "user") return "user_message";
+  if (role === "assistant") return "assistant_message";
+  if (role === "tool") return "tool_call";
+  return "runtime_event";
 }

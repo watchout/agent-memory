@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync, type Dirent } from "fs";
 import { join } from "path";
 import { normalizeHomePath, redactText } from "./redact.js";
 
-export type RawCaptureCoverageSource = "claude_code" | "codex";
+export type RawCaptureCoverageSource = "claude_code" | "codex" | "gemini_cli";
 export type RawCaptureCoverageStatus = "clean" | "degraded" | "failed";
 export type RawCaptureCoverageReason =
   | "transcript_root_missing"
@@ -122,7 +122,7 @@ function inspectRawCaptureSource(
   if (!input.root || !existsSync(input.root)) {
     reasons.add("transcript_root_missing");
   } else {
-    const scanned = scanTranscriptRoot(input.root, maxDepth, sinceMs);
+    const scanned = scanTranscriptRoot(input.root, input.source, maxDepth, sinceMs);
     knownFiles = scanned.knownFiles;
     unknownFiles = scanned.unknownFiles;
     scanFailed = scanned.scanFailed;
@@ -176,6 +176,7 @@ function inspectRawCaptureSource(
 
 function scanTranscriptRoot(
   root: string,
+  source: RawCaptureCoverageSource,
   maxDepth: number,
   sinceMs: number | null
 ): { knownFiles: string[]; unknownFiles: string[]; scanFailed: boolean } {
@@ -207,7 +208,10 @@ function scanTranscriptRoot(
         continue;
       }
       if (sinceMs !== null && mtimeMs < sinceMs) continue;
-      if (entry.name.endsWith(".jsonl")) {
+      if (
+        entry.name.endsWith(".jsonl") ||
+        (source === "gemini_cli" && entry.name.endsWith(".json"))
+      ) {
         knownFiles.push(path);
       } else {
         unknownFiles.push(path);
