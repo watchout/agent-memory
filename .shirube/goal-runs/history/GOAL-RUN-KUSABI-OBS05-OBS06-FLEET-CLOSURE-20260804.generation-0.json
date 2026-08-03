@@ -117,20 +117,26 @@
   "acceptance_digest": "sha256:7b47b8d619de137c7be1ced0e5bae436e36cf798ff47a02ef9a58a51bd7286d0",
   "target_manifest_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json#sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
-  "status": "ACTIVE",
-  "generation": 1,
-  "state_digest": "sha256:5c244402b03b1cc99d7d85602f538f6ecb6dbd6424fa5594cecc705d58c8f68e",
-  "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-  "blocker_set": [],
+  "status": "BLOCKED",
+  "generation": 0,
+  "state_digest": "sha256:5a1e03b4856c74000360a305448eb5e355414bd499f8661ac8c8a5fe1b19aeb9",
+  "active_work_item_id": null,
+  "blocker_set": [
+    {
+      "blocker_id": "B-01-PR281-EXACT-MERGE",
+      "ordinal": 1,
+      "evidence_refs": [
+        "https://github.com/watchout/agent-memory/pull/281",
+        "aun://queue/147691"
+      ],
+      "removal_predicate": "Exact approved PR 281 head is normally merged, merge tree equals acda601d, and main ancestry is verified."
+    }
+  ],
   "acceptance_states": [
     {
       "acceptance_id": "A-01-PR281-EXACT-MERGE",
-      "status": "VERIFIED_PASS",
-      "evidence_refs": [
-        "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
-        "git-commit:867b7be7feed82ebb8c57334867858f16b8da341",
-        "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50"
-      ]
+      "status": "UNMET",
+      "evidence_refs": []
     },
     {
       "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
@@ -571,9 +577,9 @@
     }
   ],
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
   },
   "verified_completion_evidence": []
 }

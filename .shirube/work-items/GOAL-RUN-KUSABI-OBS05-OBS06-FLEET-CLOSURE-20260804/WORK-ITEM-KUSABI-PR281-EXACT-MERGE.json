@@ -49,14 +49,51 @@
   "unmet_condition_id": "A-01-PR281-EXACT-MERGE",
   "acceptance_ordinal": 1,
   "blocker_ordinal": 1,
-  "status": "READY",
-  "dispatch_idempotency_key": "sha256:608e7409f36890f4aceeac6748c7614637157246c52abc0ae9165db83b6e9070",
-  "generation": 0,
-  "state_digest": "sha256:3f207bb4bcf9f2bbae56b7dbe76b1194b9c4685a16d4c44c65ea3f8a30eb78a3",
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:bf3cba77982894f0f1902d8d31475ebef645fd8e6675d395b701cf34397e5727",
+  "generation": 1,
+  "state_digest": "sha256:04de577d6593f0e2941572ae28e25552104fd4423e124f29a44d45bf70b116fa",
   "checkpoint": {
-    "event_sequence": 0,
-    "last_event_id": null,
-    "last_idempotency_key": null
+    "event_sequence": 1,
+    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
+    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
   },
-  "terminal_evidence": []
+  "terminal_evidence": [
+    {
+      "evidence_ref": "conversation:2026-08-04:explicit-merge-approval",
+      "evidence_class": "owner_decision_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": "B-01-PR281-EXACT-MERGE",
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "git-commit:867b7be7feed82ebb8c57334867858f16b8da341",
+      "evidence_class": "exact_merge_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "evidence_class": "main_ancestry_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
 }

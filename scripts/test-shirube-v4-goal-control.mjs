@@ -62,11 +62,12 @@ const statusA = run(["status"]);
 const statusB = run(["status"]);
 check(canonicalJson(statusA) === canonicalJson(statusB), "status readback must be deterministic across process restart");
 check(statusA.targets.total === 35 && statusA.targets.live_exact === 0, "frozen target denominator must be 35 with no false live completion");
-check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 0, "acceptance progress must start at 0/11");
-check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-PR281-EXACT-MERGE", "single next WorkItem must be exact PR281 merge");
+check(statusA.generation === 1 && statusA.status === "ACTIVE", "exact merge evidence must advance the GoalRun to active generation 1");
+check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "exact merge must advance exactly one acceptance predicate");
+check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "single next WorkItem must be immutable runtime release");
 check(statusA.can_continue === true, "a known next WorkItem must remain machine-routable");
-check(statusA.next_action?.actor_agent_id === "ceo" && statusA.next_action?.active_function === "owner_decision", "PR281 merge must route to the actual human merge actor");
-check(statusA.next_action?.blocking === true, "protected human merge must be reported as the real external stop condition");
+check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "post-merge release must route back to Kusabi");
+check(statusA.next_action?.blocking === false, "post-merge local release work must not create a declaration stall");
 
 const workItems = checkReport.work_item_validators.map((row) => JSON.parse(readFileSync(repoPath(row.report.file), "utf8")));
 const inMemoryStatus = buildStatus(JSON.parse(readFileSync(GOAL, "utf8")), workItems);

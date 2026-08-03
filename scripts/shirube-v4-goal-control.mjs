@@ -10,6 +10,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const GOAL_ID = "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804";
 const GOAL_PATH = ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json";
+const GOAL_HISTORY_DIR = ".shirube/goal-runs/history";
 const BINDING_PATH = ".shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json";
 const WORK_ITEM_DIR = ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804";
 const EVIDENCE_PATH = ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json";
@@ -19,6 +20,13 @@ const EXPECTED_TREE = "acda601dbb5ea14d7ef5db955b638eaece6cda50";
 const EXPECTED_VERSION = `git-tree:${EXPECTED_TREE}`;
 const EXPECTED_TARGET_SET_SHA256 = "69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec";
 const CANONICAL_CONTRACT_PR = "https://github.com/watchout/ai-dev-framework/pull/564";
+const EXACT_MERGE = {
+  head: "85c852cb527fc1c5f96deb0c2ebec35737dcd2c1",
+  tree: EXPECTED_TREE,
+  merge_commit: "867b7be7feed82ebb8c57334867858f16b8da341",
+  merged_at: "2026-08-03T22:41:12Z",
+  evidence_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+};
 const ALL_OPERATIONS = [
   "WORK_ITEM_DISPATCH", "INDEPENDENT_AUDIT", "INDEPENDENT_REAUDIT", "PARENT_RETURN",
   "EVIDENCE_RECORD", "INTERNAL_REPLY", "GITHUB_WRITEBACK", "DEPENDENCY_BYPASS",
@@ -391,6 +399,70 @@ function initialize(repoRoot, sourceRoot, observedAt) {
   return { goalRun, workItems, binding };
 }
 
+function advanceExactMerge(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  if (previous.generation !== 0 || previous.acceptance_states.find((state) => state.acceptance_id === "A-01-PR281-EXACT-MERGE")?.status !== "UNMET") {
+    throw new Error("exact merge advancement requires the unadvanced generation-0 GoalRun");
+  }
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-0.json`);
+  writeJson(previousPath, previous);
+
+  const eventId = `EVENT-KUSABI-PR281-EXACT-MERGE-${EXACT_MERGE.merge_commit}`;
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    head: EXACT_MERGE.head,
+    tree: EXACT_MERGE.tree,
+    merge_commit: EXACT_MERGE.merge_commit,
+    evidence_ref: EXACT_MERGE.evidence_ref,
+  });
+  const checkpoint = { event_sequence: 1, last_event_id: eventId, last_idempotency_key: idempotencyKey };
+  const goalRun = structuredClone(previous);
+  goalRun.status = "ACTIVE";
+  goalRun.generation = 1;
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
+  goalRun.blocker_set = [];
+  goalRun.acceptance_states = goalRun.acceptance_states.map((state) => state.acceptance_id === "A-01-PR281-EXACT-MERGE"
+    ? { ...state, status: "VERIFIED_PASS", evidence_refs: [EXACT_MERGE.evidence_ref, `git-commit:${EXACT_MERGE.merge_commit}`, `git-tree:${EXACT_MERGE.tree}`] }
+    : state);
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+
+  const evidenceByClass = {
+    owner_decision_readback: "conversation:2026-08-04:explicit-merge-approval",
+    exact_merge_readback: `git-commit:${EXACT_MERGE.merge_commit}`,
+    main_ancestry_readback: EXACT_MERGE.evidence_ref,
+  };
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    if (item.unmet_condition_id === "A-01-PR281-EXACT-MERGE") {
+      item.status = "VERIFIED_TERMINAL";
+      item.terminal_evidence = item.required_evidence.map((evidenceClass, index) => ({
+        evidence_ref: evidenceByClass[evidenceClass],
+        evidence_class: evidenceClass,
+        subject_work_item_id: item.work_item_id,
+        actor_id: "watchout",
+        active_function: "owner_decision",
+        provenance_ref: EXACT_MERGE.evidence_ref,
+        acceptance_id: "A-01-PR281-EXACT-MERGE",
+        blocker_id: index === 0 ? "B-01-PR281-EXACT-MERGE" : null,
+        exact_version: `git-tree:${EXACT_MERGE.tree}`,
+        predicate_verified: true,
+      }));
+    }
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath };
+}
+
 function frameworkRoot(repoRoot, explicit) {
   const candidates = [
     explicit,
@@ -481,9 +553,17 @@ function check(repoRoot, explicitFrameworkRoot, writeEvidence) {
   const root = frameworkRoot(repoRoot, explicitFrameworkRoot);
   const goalPath = absolute(repoRoot, GOAL_PATH);
   const bindingPath = absolute(repoRoot, BINDING_PATH);
-  const goal = runValidator(root, "validate-goal-run.mjs", ["--file", goalPath], repoRoot);
+  const goalDocument = readJson(goalPath);
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${goalDocument.generation - 1}.json`);
+  const goalArgs = ["--file", goalPath, ...(goalDocument.generation > 0 && existsSync(previousPath) ? ["--previous", previousPath] : [])];
+  const goal = runValidator(root, "validate-goal-run.mjs", goalArgs, repoRoot);
   const workItems = loadWorkItems(repoRoot);
-  const workItemReports = workItems.map(({ path }) => runValidator(root, "validate-work-item-v2.mjs", ["--file", path, "--goal-run", goalPath], repoRoot));
+  const workItemReports = workItems.map(({ path, document }) => runValidator(
+    root,
+    "validate-work-item-v2.mjs",
+    ["--file", path, ...(document.status === "VERIFIED_TERMINAL" ? [] : ["--goal-run", goalPath])],
+    repoRoot,
+  ));
   const binding = runValidator(root, "validate-execution-goal-binding.mjs", ["--file", bindingPath, "--goal-run", goalPath], repoRoot);
   const status = buildStatus(readJson(goalPath), workItems.map(({ document }) => document));
   const pass = goal.report.verdict === "PASS" && binding.report.verdict === "PASS" && workItemReports.every((entry) => entry.report.verdict === "PASS") && status.targets.total === 35 && status.next_work_item !== null;
@@ -512,6 +592,13 @@ function main() {
   const observedAt = options["observed-at"] || new Date().toISOString();
   if (command === "init") {
     initialize(repoRoot, sourceRoot, observedAt);
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "advance-exact-merge") {
+    advanceExactMerge(repoRoot, options["observed-at"] || EXACT_MERGE.merged_at);
     const report = check(repoRoot, options["framework-root"], true);
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = report.verdict === "PASS" ? 0 : 1;
