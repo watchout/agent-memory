@@ -419,3 +419,25 @@ The rollout closure packet contains:
 
 Only that packet closes fleet observability and distribution. A PR merge, CI
 green result, queue ACK, or old rollout receipt alone is not closure evidence.
+
+## 13. OBS-05 executable boundary
+
+Issue #280 authorizes Phase A implementation and read-only R0 under
+`CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001`. The executable contract is
+documented in [`KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md`](KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md)
+and implemented by `src/kusabi-fleet-rollout.ts`.
+
+The implementation adds a strict rollout-plan schema, deterministic R0
+preimage/postimage calculation, exact owner-authorization binding, isolated
+batch application and rollback, native Codex/Claude/Gemini trust readback,
+independent build/config/binding observation, prior-batch enforcement, and the
+one-hour R2 soak gate. Native session-start evidence additionally derives a
+credential-safe `kusabi-store-binding/v1` hash from the actually selected
+store locator; runtime emission fails closed before store creation when that
+hash or backend differs from the manifest. It does not itself authorize Phase
+B or alter the actor and closure boundaries above.
+
+R0 also records the current native trust preimage for every manifest target
+against the desired command, using only locator and fingerprint hashes. This
+freezes the complete operator trust delta before protected mutation without
+persisting user-home paths or private host state.

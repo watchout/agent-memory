@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/kusabi-raw-capture-service-v1.schema.json",
+  "title": "Kusabi raw capture service evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "generated_at",
+    "manifest_id",
+    "target_key",
+    "agent_id",
+    "project",
+    "host_runtime",
+    "store_backend",
+    "deterministic_controller",
+    "llm_call_count",
+    "store_capability",
+    "source_results",
+    "reconciliation",
+    "runtime_candidate",
+    "production_effect_count"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-raw-capture-service/v1" },
+    "run_id": { "$ref": "#/$defs/boundedId" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "manifest_id": { "$ref": "#/$defs/boundedId" },
+    "target_key": { "$ref": "#/$defs/sha256" },
+    "agent_id": { "$ref": "#/$defs/boundedId" },
+    "project": { "$ref": "#/$defs/boundedId" },
+    "host_runtime": { "$ref": "#/$defs/host" },
+    "store_backend": { "enum": ["json", "sqlite", "postgres"] },
+    "deterministic_controller": { "const": "script" },
+    "llm_call_count": { "const": 0 },
+    "store_capability": { "const": "saveRawEvent" },
+    "source_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/sourceResult" }
+    },
+    "reconciliation": { "$ref": "#/$defs/reconciliation" },
+    "runtime_candidate": { "$ref": "#/$defs/runtimeCandidate" },
+    "production_effect_count": { "const": 0 }
+  },
+  "$defs": {
+    "boundedId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9._:/-]+$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "host": { "enum": ["codex", "claude_code", "gemini_cli"] },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denied_field_count",
+        "thought_bearing_records_denied",
+        "protected_instruction_records_denied",
+        "unknown_field_records_denied",
+        "malformed_records_denied"
+      ],
+      "properties": {
+        "denied_field_count": { "$ref": "#/$defs/nonNegativeInteger" },
+        "thought_bearing_records_denied": { "$ref": "#/$defs/nonNegativeInteger" },
+        "protected_instruction_records_denied": { "$ref": "#/$defs/nonNegativeInteger" },
+        "unknown_field_records_denied": { "$ref": "#/$defs/nonNegativeInteger" },
+        "malformed_records_denied": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "sourceResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "files_scanned",
+        "records_seen",
+        "events_saved",
+        "events_duplicate",
+        "events_skipped",
+        "coverage_status"
+      ],
+      "properties": {
+        "source": { "$ref": "#/$defs/host" },
+        "files_scanned": { "$ref": "#/$defs/nonNegativeInteger" },
+        "records_seen": { "$ref": "#/$defs/nonNegativeInteger" },
+        "events_saved": { "$ref": "#/$defs/nonNegativeInteger" },
+        "events_duplicate": { "$ref": "#/$defs/nonNegativeInteger" },
+        "events_skipped": { "$ref": "#/$defs/nonNegativeInteger" },
+        "coverage_status": { "enum": ["clean", "degraded", "failed"] },
+        "privacy": { "$ref": "#/$defs/privacy" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "gemini_cli" } }, "required": ["source"] },
+          "then": {
+            "properties": { "privacy": { "$ref": "#/$defs/privacy" } },
+            "required": ["privacy"]
+          },
+          "else": { "properties": { "privacy": false } }
+        }
+      ]
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritative_target_count",
+        "unique_authoritative_binding_key_count",
+        "actual_covered_manifest_binding_count",
+        "registry_manifest_exact_equality",
+        "installed_registry_observation_count",
+        "unmatched_registry_row_sha256",
+        "missing_manifest_binding_keys",
+        "unmatched_registry_row_count",
+        "unmatched_registry_row_unique_count",
+        "missing_manifest_binding_count",
+        "missing_manifest_binding_unique_count",
+        "arithmetic_net_difference",
+        "arithmetic_net_difference_is_enumerable_row_set"
+      ],
+      "properties": {
+        "authoritative_target_count": { "const": 35 },
+        "unique_authoritative_binding_key_count": { "const": 35 },
+        "actual_covered_manifest_binding_count": { "const": 24 },
+        "registry_manifest_exact_equality": { "const": false },
+        "installed_registry_observation_count": { "const": 47 },
+        "unmatched_registry_row_sha256": {
+          "type": "array",
+          "minItems": 24,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "missing_manifest_binding_keys": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "unmatched_registry_row_count": { "const": 24 },
+        "unmatched_registry_row_unique_count": { "const": 24 },
+        "missing_manifest_binding_count": { "const": 11 },
+        "missing_manifest_binding_unique_count": { "const": 11 },
+        "arithmetic_net_difference": { "const": 12 },
+        "arithmetic_net_difference_is_enumerable_row_set": { "const": false }
+      }
+    },
+    "runtimeCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree",
+        "built_artifact_sha256",
+        "build_command",
+        "artifact_path_relative_to_repository",
+        "runtime_source_kind"
+      ],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "built_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "build_command": { "const": "npm run build" },
+        "artifact_path_relative_to_repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "runtime_source_kind": { "const": "immutable_release_artifact" }
+      }
+    }
+  }
+}

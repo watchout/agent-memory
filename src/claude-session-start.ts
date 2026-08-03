@@ -42,7 +42,7 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const CLAUDE_SESSION_START_ADAPTER_ID = "wasurezu-claude-session-start" as const;
-export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
+export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.2" as const;
 export const CLAUDE_SESSION_START_EVIDENCE_SCHEMA = "claude-session-start-evidence/v1" as const;
 export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2026-07-27" as const;
 export const CLAUDE_SESSION_START_INPUT_MAX_BYTES = CODEX_SESSION_START_INPUT_MAX_BYTES;

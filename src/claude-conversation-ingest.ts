@@ -147,7 +147,30 @@ export async function ingestClaudeConversationEvents(
         continue;
       }
 
-      const wasDuplicate = await hasExistingConversationEvent(store, agentId, event);
+      const wasDuplicate = await hasExistingRawEvent(store, agentId, event);
+      await store.saveRawEvent({
+        agent_id: agentId,
+        session_id: getString(event.metadata.session_id),
+        project: input.project,
+        host: "claude_code",
+        source: "claude_code",
+        event_type: rawEventTypeForRole(event.role),
+        role: event.role,
+        content: event.content,
+        source_ref: {
+          source: "claude_code",
+          source_event_id: event.source_event_id,
+          source_path: event.source_path,
+        },
+        source_event_id: event.source_event_id,
+        source_path: event.source_path,
+        redaction_level: "complete",
+        private_reasoning: false,
+        metadata: event.metadata,
+        occurred_at: event.occurred_at,
+      });
+      // Preserve the AM-031 compatibility projection while the canonical
+      // capture ledger is saveRawEvent above.
       await store.saveConversationEvent({
         agent_id: agentId,
         project: input.project,
@@ -170,12 +193,12 @@ export async function ingestClaudeConversationEvents(
   return result;
 }
 
-async function hasExistingConversationEvent(
+async function hasExistingRawEvent(
   store: Store,
   agentId: string,
   event: ExtractedClaudeRawEvent
 ): Promise<boolean> {
-  const existing = await store.getConversationEvents({
+  const existing = await store.getRawEvents({
     agent_id: agentId,
     source: "claude_code",
     since: event.occurred_at,
@@ -204,6 +227,7 @@ export function extractClaudeRawEvent(
   record: Record<string, unknown>,
   context: ExtractContext
 ): ExtractedClaudeRawEvent | null {
+  if (isProtectedClaudeRecord(record)) return null;
   const occurredAt = getTimestamp(record);
   if (!occurredAt) return null;
 
@@ -232,7 +256,6 @@ export function extractClaudeRawEvent(
       cwd: getString(record.cwd) ? normalizeHomePath(getString(record.cwd)!) : undefined,
       redaction_version: redacted.redaction_version,
       redaction_count: redacted.redaction_count,
-      ingested_at: new Date().toISOString(),
     },
   };
 }
@@ -288,11 +311,11 @@ function contentToText(content: unknown): string {
       parts.push(item.text);
     } else if (type === "tool_use") {
       const name = getString(item.name) ?? "unknown";
-      parts.push(`[tool_use:${name}] ${safeCompactJson(item.input ?? {})}`);
+      parts.push(`[tool_use:${redactText(name).text}]`);
     } else if (type === "tool_result") {
-      parts.push(`[tool_result] ${contentToText(item.content)}`);
+      parts.push("[tool_result]");
     } else {
-      parts.push(`[${type}] ${safeCompactJson(item)}`);
+      parts.push(`[${type}]`);
     }
   }
   return parts.join("\n").trim();
@@ -312,4 +335,19 @@ function getString(value: unknown): string | undefined {
 
 function isBlockType(value: unknown, type: string): boolean {
   return !!value && typeof value === "object" && (value as { type?: unknown }).type === type;
+}
+
+function isProtectedClaudeRecord(record: Record<string, unknown>): boolean {
+  const type = getString(record.type) ?? "";
+  const role = getString(record.role) ?? "";
+  if (type === "system" || type === "developer" || role === "system" || role === "developer") return true;
+  return /reasoning|thinking|thought|chain_of_thought/i.test(type);
+}
+
+function rawEventTypeForRole(role: ExtractedClaudeRawEvent["role"]):
+  "user_message" | "assistant_message" | "tool_call" | "runtime_event" {
+  if (role === "user") return "user_message";
+  if (role === "assistant") return "assistant_message";
+  if (role === "tool") return "tool_call";
+  return "runtime_event";
 }

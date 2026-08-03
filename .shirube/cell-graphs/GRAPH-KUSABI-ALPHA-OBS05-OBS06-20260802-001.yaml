@@ -1,0 +1,950 @@
+schema_version: shirube-v3/cell_graph/v1
+graph_id: GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001
+graph_version: 1.2.2
+status: frozen
+control_source: https://github.com/watchout/agent-memory/issues/280
+risk_class: R4
+frozen_at: "2026-08-02"
+artifact_digest_algorithm: sha256_raw_utf8_lf_v1
+artifact_digest_record_location: external_issue_280_publication_evidence
+
+freeze_basis:
+  repository: watchout/agent-memory
+  pull_request: https://github.com/watchout/agent-memory/pull/281
+  branch: codex/kusabi-alpha-obs05-fleet-rollout-20260801
+  base_commit_sha: 9959236f76bdf41c143ba065ff0adcb98570547e
+  base_tree_sha: cd08d13398850e361c40f503dd09bdda7fba71d0
+  predecessor_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
+  predecessor_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
+  implementation_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+  implementation_tree_sha: 8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+  r0_inventory_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+  r0_inventory_tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
+  audit_block_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5150520875
+  provenance_remediation_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5150578633
+  A1_predecessor_evidence_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+  A1_request_changes_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+  A1_complete_field_surface_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+  A1_complete_field_surface_supplement_body_sha256: 5c5b9f27f78f4e9d0a57a5e2a192f5c8e2de50e2f7b7aad93d7605a2f97cae26
+  A1_complete_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+  A1_control_correction_basis_head_sha: c009e22d8e575c613a7114668afd12d4a5e3dc12
+  A1_control_correction_basis_tree_sha: 9560028032ee53a51a7f33864f83025ee689ef9a
+
+amendment_history:
+  - graph_version: 1.0.0
+    published_head_sha: f4f14443e039eb3300cbbf182e3faa6b311bff50
+    published_tree_sha: 056fd7334f3a9a29e40a25133fcd9f7bd6c7596b
+    publication_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154405274
+    result: SUPERSEDED_BY_VERSION_1_1_0_BEFORE_PRODUCTION_GO
+  - graph_version: 1.1.0
+    amendment_control_source: conversation:2026-08-02:close-gap-to-finished-continuity
+    durable_plan_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154422459
+    reason: >-
+      The installed raw-capture target registry is 47 while the authoritative
+      DB-backed eligible-binding manifest is 35, the untracked capture daemon is
+      failing in a supervisor loop on recordRawEvent while the canonical Store
+      capability is saveRawEvent, its runtime source is mutable workspace dist,
+      and committed capture coverage has no Gemini conversation adapter.
+    authorization_at_amendment: >-
+      Control publication, read-only diagnosis, and independent audit routing
+      only. Product, runtime, configuration, trust, database, PR-state, merge,
+      deployment, restart, session, and TUI mutations remain unauthorized.
+  - graph_version: 1.2.0
+    amendment_control_source: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+    predecessor_A1_evidence_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+    reason: >-
+      Independent A1 review proved that the net cardinality difference 12 is not
+      an enumerable extra-row set. The complete reconciliation is 24 unmatched
+      registry rows and 11 missing manifest bindings; the correct floor lag
+      excess is 988943 seconds; and the Gemini privacy fixture must classify the
+      complete observed field surface under default deny. Product-file drift
+      created while review was pending is preserved but is not adopted as A2
+      evidence or authority.
+    authorization_at_amendment: >-
+      Exactly graph, handoff, corrected A1 evidence publication, worktree-drift
+      disposition, and fresh independent audit routing. A2, product changes,
+      runtime, supervisor, configuration, trust, database, PR state, Ready,
+      merge, deploy, restart, session, TUI, and owner decisions remain locked.
+  - graph_version: 1.2.1
+    amendment_control_source: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+    predecessor_graph_version: 1.2.0
+    reason: >-
+      Bind the complete Gemini supplement: three observed path shapes, 8 top
+      fields, 9 snapshot-message fields, 14 JSONL record fields, 2 set-patch
+      fields, and 10 toolCall fields. Exactly 195 thought-bearing records remain
+      default denied; model and raw toolCall payload fields are not persisted.
+    authorization_at_amendment: >-
+      Control/evidence correction and fresh audit routing only. The exact A2 and
+      protected-effect locks from graph v1.2.0 remain unchanged.
+  - graph_version: 1.2.2
+    amendment_control_source: https://github.com/watchout/agent-memory/issues/280#issuecomment-5160508152
+    predecessor_graph_version: 1.2.1
+    reason: >-
+      Independent order-70 audit proved that the candidate copied the frozen
+      authoritative denominator 35 into reconciled_target_count even though the
+      observed R0 preimage covers 24 bindings, has 24 unmatched registry rows,
+      and is missing 11 manifest bindings. Preproduction now requires this
+      mismatch to be reported truthfully with exact equality false; final
+      35-of-35 remains mandatory after the owner-approved rollout.
+    authorization_at_amendment: >-
+      Exact four-path order-50 reconciliation correction and fresh order-70
+      audit only. Order 80, merge, rollout, production mutation, and owner GO
+      remain locked.
+
+root_goal:
+  goal_id: KUSABI-ALPHA-OBS05-OBS06-FLEET-CLOSURE-20260801-001
+  completion_cell_id: KUSABI-ALPHA-OBS06-OWNER-CLOSURE-20260801-001
+  statement: >-
+    Build one owner-approved immutable Kusabi startup and visible-event capture
+    version, prove interruption continuation across Codex, Claude Code, and
+    Gemini CLI, distribute it to all 35 frozen eligible production bindings,
+    prove exact and durable readback, sustain the frozen acceptance thresholds
+    for 24 continuous hours and 96 checkpoints, and obtain independent closure
+    review plus the final owner decision.
+  completion_requires:
+    - observed_exact_targets_divided_by_manifest_targets_equals_1_0_at_all_96_checkpoints
+    - failed_drifted_not_observed_each_equals_0_at_all_96_checkpoints
+    - open_or_acknowledged_p0_p1_equals_0_at_all_96_checkpoints
+    - forbidden_telemetry_values_equals_0
+    - sqlite_postgresql_normalized_parity_equals_1_0
+    - exact_build_tree_artifact_adapter_config_trust_binding_backend_and_store_binding_readback_35_of_35
+    - raw_capture_registry_equals_authoritative_manifest_35_of_35
+    - immutable_startup_and_capture_runtime_readback_35_of_35
+    - sentinel_durably_captured_and_recovered_35_of_35
+    - three_host_interruption_continuation_matrix_pass
+    - duplicate_external_side_effects_equals_0
+    - independent_closure_review_pass
+    - final_owner_closure_decision
+
+source_refs:
+  - https://github.com/watchout/agent-memory/issues/280
+  - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154422459
+  - docs/operations/KUSABI_ALPHA_FLEET_ROLLOUT.md
+  - docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md
+  - .shirube/cells/CELL-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
+  - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+  - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+  - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+
+frozen_version_boundary:
+  graph_version: 1.2.2
+  inventory_snapshot_schema: kusabi-fleet-inventory-snapshot/v1
+  manifest_version: 2
+  target_count: 35
+  host_counts:
+    codex: 21
+    claude_code: 13
+    gemini_cli: 1
+  primary_binding_count: 33
+  owner_approved_secondary_binding_count: 2
+  query_contract_sha256: 33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1
+  primary_result_sha256: 3badf63032aabda18fd50e2bd3e7cafbdd6a739868997be4c4cd36ed59bbca21
+  inventory_snapshot_sha256: 5744a98ca7e05ba14dbe6be488a2730df0ede8f42d5fc2c0d45612dfa06ad736
+  manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+  rollout_plan_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+  r0_report_sha256: ced21db5bc91b1501f41e9bb47949ceb52b86720472a3a4f4f413d6ae00c8970
+  r0_artifact_file_sha256: a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+  installed_registry_sha256: 365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
+  cursor_state_sha256: 93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
+  unmatched_registry_row_count: 24
+  missing_manifest_binding_count: 11
+  arithmetic_net_surplus: 12
+  arithmetic_net_surplus_is_enumerable_row_set: false
+  corrected_floor_lag_excess_seconds: 988943
+  corrected_A1_evidence_path: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
+  corrected_A1_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+  complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+  Gemini_observed_path_shape_count: 3
+  Gemini_top_field_count: 8
+  Gemini_snapshot_message_field_count: 9
+  Gemini_JSONL_record_field_count: 14
+  Gemini_set_patch_field_count: 2
+  Gemini_toolCall_field_count: 10
+  thought_bearing_records_default_denied: 195
+  change_rule: >-
+    Any membership, order, dependency, risk, decision point, implementation
+    tuple, inventory or manifest digest, stage criterion, or closure criterion
+    change requires a recorded amendment, a graph_version increment, durable
+    Issue 280 publication, and a fresh independent audit. Ad-hoc cells are
+    forbidden.
+
+graph_invariants:
+  execution_order: strictly_sequential
+  ready_rule: lowest_order_incomplete_cell_with_all_dependencies_complete
+  parallel_cells: []
+  acknowledgement_is_completion: false
+  pr_or_merge_is_root_completion: false
+  stage_advance_requires_prior_stage_exact_and_durable_coverage: true
+  affected_stage_stops_on_first_p0_or_p1: true
+  unrelated_approved_work_may_continue: true
+  protected_mutation_requires_exact_owner_go: true
+  runtime_or_session_restart_by_implementation_executor: false
+  raw_path_secret_prompt_conversation_or_private_reasoning_telemetry: forbidden
+  installed_registry_is_authority: false
+  authoritative_capture_denominator_source: db_backed_35_target_manifest
+  registry_reconciliation_is_bidirectional: true
+  required_unmatched_registry_row_count: 24
+  required_missing_manifest_binding_count: 11
+  net_cardinality_difference_is_not_a_row_set: true
+  mutable_workspace_dist_as_production_runtime: forbidden
+  ambiguous_external_side_effect_retry_requires_readback_or_idempotency_key: true
+  review_pending_product_drift_is_implementation_evidence: false
+  A2_unlock_requires_fresh_graph_v1_2_and_corrected_A1_audit_PASS: true
+
+owner_decision_points:
+  - point_id: OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION
+    owner: watchout
+    conditional_when: >-
+      Read-only A1 forensics proves that a supported Gemini CLI visible-event
+      capture adapter cannot meet the frozen privacy and continuity contract.
+    required_before_cells:
+      - KUSABI-ALPHA-OBS05-CAPTURE-SERVICE-RECONCILIATION-20260802-001
+    exact_subject:
+      - gemini_adapter_feasibility_evidence
+      - fail_closed_unsupported_scope
+      - revised_three_host_acceptance_denominator
+    default_without_decision: GEMINI_REMAINS_REQUIRED_AND_IMPLEMENTATION_STOPS
+    not_granted_by_this_graph: true
+  - point_id: OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    owner: watchout
+    required_before_cells:
+      - KUSABI-ALPHA-OBS05-EXACT-HEAD-MERGE-20260801-001
+      - KUSABI-ALPHA-OBS05-R1-CANARY-20260801-001
+      - KUSABI-ALPHA-OBS05-R2-PILOT-20260801-001
+      - KUSABI-ALPHA-OBS05-R3-FLEET-20260801-001
+    exact_subject:
+      - fresh_independent_audit_passed_control_head_and_tree
+      - implementation_commit_and_tree
+      - immutable_host_artifact_hashes
+      - immutable_startup_and_capture_artifact_hashes
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
+      - three_host_interruption_e2e_and_privacy_evidence
+      - inventory_snapshot_sha256
+      - manifest_sha256
+      - rollout_plan_sha256
+      - artifact_config_binding_backend_store_binding_tuple
+    not_granted_by_this_graph: true
+  - point_id: OD-OBS06-FINAL-CLOSURE
+    owner: watchout
+    required_before_cells:
+      - KUSABI-ALPHA-OBS06-OWNER-CLOSURE-20260801-001
+    exact_subject:
+      - exact_merged_and_deployed_version_tuple
+      - all_96_continuous_soak_checkpoints
+      - independent_closure_review_pass
+      - final_zero_blocker_snapshot
+    not_granted_by_this_graph: true
+
+cells:
+  - cell_id: KUSABI-ALPHA-OBS05-CONTROL-GRAPH-FREEZE-20260802-001
+    order: 10
+    cell_type: control_graph_and_handoff_normalization
+    risk_class: R4
+    dependencies: []
+    active_function: control_artifact_author
+    primary_responsibility: >-
+      Freeze this complete OBS05/OBS06 graph and issue one corrected handoff
+      that binds the immutable DB-backed 35-target inventory evidence.
+    implementation_boundary: >-
+      This graph and the OBS05 control handoff only; no product, runtime,
+      configuration, trust, database, merge, deploy, restart, label, Ready, or
+      owner-decision mutation.
+    verification_boundary: >-
+      Safe YAML parse, exact two-path diff, raw file SHA-256, exact commit/tree,
+      GitHub API readback, and an independent audit route.
+    version_boundary:
+      graph_version: 1.0.0
+      predecessor_head_sha: 3a8e05e6c4cc7d21533bc367e3d4d09c7aee94dc
+      predecessor_tree_sha: 6aaabfc18e7ff4d8637812b06632ff9f80879b45
+      publication_tuple_source: durable_issue_280_readback
+    owner_decision_points: []
+    required_evidence:
+      - graph_and_handoff_file_sha256
+      - exact_publication_commit_and_tree
+      - exact_changed_paths
+      - issue_280_comment_url_and_api_readback
+    completion_state: COMPLETE_ON_EXACT_PUBLICATION_AND_READBACK
+
+  - cell_id: KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+    order: 20
+    cell_type: phase_a_rollout_artifact_and_r0_inventory
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-CONTROL-GRAPH-FREEZE-20260802-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Supply deterministic rollout tooling, immutable manifest and plan
+      candidates, and a credential-safe read-only R0 preimage and rollback
+      packet for all frozen bindings.
+    implementation_boundary: >-
+      The exact implementation and R0 artifacts already recorded at the frozen
+      commits; no production configuration, trust, runtime, database, deploy,
+      activation, or restart effect is authorized by candidate evidence.
+    verification_boundary: >-
+      35 unique target keys, exact 33 primary plus 2 approved secondary DB
+      provenance, manifest equality, schema/semantic tests, backend parity,
+      rollback evidence, zero forbidden values, and zero production mutations.
+    version_boundary:
+      implementation_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+      implementation_tree_sha: 8643eec0a5ec02324fccda61e0b1b9af7d5e54b2
+      r0_inventory_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+      r0_inventory_tree_sha: 18ebefde52257c51fb092df604a3c9359f9c5d85
+      manifest_version: 2
+    owner_decision_points: []
+    required_evidence:
+      - immutable_db_backed_inventory_snapshot_35_of_35
+      - exact_manifest_and_rollout_plan_digests
+      - r0_preimage_expected_postimage_and_rollback_35_of_35
+      - phase_a_validation_packet
+      - production_mutation_count_zero
+    completion_state: CANDIDATE_COMPLETE_PENDING_INDEPENDENT_ACCEPTANCE
+
+  - cell_id: KUSABI-ALPHA-OBS05-CONTINUITY-GAP-CLOSURE-20260802-001
+    order: 25
+    cell_type: versioned_control_graph_and_executor_handoff_amendment
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001
+    active_function: control_artifact_author
+    primary_responsibility: >-
+      Amend the frozen delivery graph and executor handoff so capture-service
+      restoration, 47-to-35 registry reconciliation, immutable runtime
+      provenance, Gemini capture disposition, and three-host interruption E2E
+      precede any production owner GO.
+    implementation_boundary: >-
+      Exactly this graph and the existing OBS05 control handoff. No product,
+      runtime, configuration, trust, database, PR-state, label, Ready, merge,
+      deploy, restart, session, TUI, or owner-decision mutation.
+    verification_boundary: >-
+      Safe YAML parse, graph version 1.1.0, exact two-path diff, dependency and
+      order integrity, raw file SHA-256, exact commit/tree, GitHub API readback,
+      durable Issue 280 evidence, and a fresh independent audit route.
+    version_boundary:
+      predecessor_graph_version: 1.0.0
+      predecessor_head_sha: f4f14443e039eb3300cbbf182e3faa6b311bff50
+      predecessor_tree_sha: 056fd7334f3a9a29e40a25133fcd9f7bd6c7596b
+      amended_graph_version: 1.1.0
+      durable_plan_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154422459
+    owner_decision_points: []
+    required_evidence:
+      - graph_and_handoff_file_sha256
+      - exact_publication_commit_and_tree
+      - exact_changed_paths_two_of_two
+      - issue_280_comment_url_and_api_readback
+      - superseded_v1_0_audit_route_notice
+    completion_state: COMPLETE_ON_EXACT_PUBLICATION_AND_READBACK
+
+  - cell_id: KUSABI-ALPHA-OBS05-PREIMPLEMENTATION-AUDIT-20260802-001
+    order: 30
+    cell_type: independent_exact_head_evidence_audit
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-CONTINUITY-GAP-CLOSURE-20260802-001
+    active_function: evidence_audit_gate
+    primary_responsibility: >-
+      Independently audit the exact graph v1.1 control publication head/tree,
+      amended cell membership and dependencies, corrected executor handoff,
+      and immutable Phase A/R0 provenance before any implementation resumes.
+    implementation_boundary: read_only_exact_ref_audit_only
+    verification_boundary: >-
+      One shirube-audit/v1 record must bind the publication commit/tree and both
+      control artifact SHA-256 values, report all findings, and return PASS with
+      zero blocking findings before read-only A1 forensics begins.
+    version_boundary:
+      audit_subject_source: exact_issue_280_control_publication_tuple
+      implementation_commit_sha: e0128af8dd1642296dc0dd3be49e42cbe715c34a
+      r0_inventory_commit_sha: 62d4417c1411d81d6bb02bcd9ca5f54e63cc6387
+      passing_audit_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154573824
+    owner_decision_points: []
+    required_evidence:
+      - independent_shirube_audit_v1
+      - exact_subject_commit_tree_match
+      - amended_17_cell_graph_and_frontmost_handoff_pass
+      - zero_blocking_findings
+    completion_state: COMPLETE_PASS
+
+  - cell_id: KUSABI-ALPHA-OBS05-CAPTURE-FORENSICS-20260802-001
+    order: 40
+    cell_type: read_only_capture_abi_registry_and_host_feasibility_forensics
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-PREIMPLEMENTATION-AUDIT-20260802-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Produce read-only evidence for the running capture-service ABI mismatch,
+      authoritative 35-target manifest versus installed 47-target registry,
+      capture lag/backlog, immutable-runtime feasibility, and Gemini visible
+      event capture feasibility.
+    implementation_boundary: >-
+      Read-only inspection and a credential-safe evidence packet only. No file,
+      runtime, supervisor, configuration, trust, database, PR-state, session,
+      or TUI mutation.
+    verification_boundary: >-
+      Bind canonical saveRawEvent, enumerate all 24 unmatched registry rows and
+      all 11 missing manifest bindings without adoption or deletion, prove the
+      corrected 988943-second floor excess, identify mutable runtime provenance,
+      and classify the complete Gemini field surface under default deny.
+    version_boundary:
+      authoritative_target_count: 35
+      observed_installed_capture_target_count: 47
+      observed_failure: "TypeError: store.recordRawEvent is not a function"
+      canonical_store_capability: saveRawEvent
+      unmatched_registry_row_count: 24
+      missing_manifest_binding_count: 11
+      arithmetic_net_surplus: 12
+      arithmetic_net_surplus_is_enumerable_row_set: false
+      corrected_floor_lag_excess_seconds: 988943
+      corrected_evidence_ref: .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
+      corrected_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+      complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+      production_mutation_authorized: false
+    owner_decision_points:
+      - OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION
+    required_evidence:
+      - credential_safe_capture_abi_report
+      - registry_manifest_reconciliation_47_to_35
+      - capture_lag_and_backlog_measurement
+      - immutable_runtime_provenance_report
+      - complete_Gemini_field_inventory_and_default_deny_fixture_contract
+      - review_pending_worktree_drift_preserve_only_disposition
+      - production_mutation_count_zero
+    completion_state: CORRECTED_EVIDENCE_PUBLISHED_PENDING_FRESH_AUDIT
+
+  - cell_id: KUSABI-ALPHA-OBS05-A1-CORRECTION-AUDIT-20260802-001
+    order: 45
+    cell_type: independent_graph_handoff_and_corrected_A1_evidence_audit
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-CAPTURE-FORENSICS-20260802-001
+    active_function: evidence_audit_gate
+    primary_responsibility: >-
+      Independently audit graph v1.2.1, the corrected executor handoff, corrected
+      A1 evidence, and the preserve-only disposition before any A2 authority.
+    implementation_boundary: read_only_exact_ref_audit_only
+    verification_boundary: >-
+      Bind the exact publication commit/tree and all three artifact SHA-256
+      values; reproduce 24/11 counts and uniqueness, 988943-second arithmetic,
+      complete Gemini field classification/default deny, and worktree-drift
+      readback; return PASS with zero blockers or keep A2 locked.
+    version_boundary:
+      graph_version: 1.2.1
+      predecessor_A1_evidence_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+      request_changes_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+      complete_field_surface_supplement_ref: https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+      corrected_evidence_sha256: 5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+      complete_Gemini_field_surface_report_sha256: 5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+    owner_decision_points: []
+    required_evidence:
+      - independent_shirube_audit_v1
+      - exact_subject_commit_tree_and_three_artifact_digests
+      - bidirectional_24_unmatched_11_missing_proof
+      - corrected_988943_second_arithmetic_proof
+      - complete_Gemini_default_deny_privacy_contract_proof
+      - complete_Gemini_three_path_shape_and_all_field_union_proof
+      - exactly_195_thought_bearing_records_default_denied
+      - review_pending_worktree_drift_preserve_only_readback
+      - zero_blocking_findings
+    completion_state: FRONTMOST_INCOMPLETE
+
+  - cell_id: KUSABI-ALPHA-OBS05-CAPTURE-SERVICE-RECONCILIATION-20260802-001
+    order: 50
+    cell_type: repo_owned_immutable_capture_service_and_manifest_reconciliation
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-A1-CORRECTION-AUDIT-20260802-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Implement a tracked, repo-owned capture service against canonical
+      saveRawEvent, deterministic authoritative-manifest reconciliation, and a
+      supported Gemini adapter or stop for the conditional owner disposition.
+    implementation_boundary: >-
+      Exact executor allowlist in the amended handoff, local and isolated test
+      fixtures only. No src/stores changes, DB schema changes, production
+      install, supervisor action, configuration/trust mutation, deploy, restart,
+      session injection, or TUI mutation.
+    verification_boundary: >-
+      Unit, TypeScript, schema, negative-fixture, SQLite/PostgreSQL parity,
+      privacy, immutable-artifact provenance, exact path, regression, and build
+      evidence; installed registry is never treated as target authority.
+    version_boundary:
+      service_contract: kusabi-raw-capture-service/v1
+      canonical_store_capability: saveRawEvent
+      authoritative_target_count: 35
+      immutable_runtime_source: exact_commit_tree_and_built_artifact_digest
+      mutable_workspace_dist_allowed: false
+    owner_decision_points:
+      - OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION
+    required_evidence:
+      - exact_changed_paths_and_commit_tree
+      - capture_service_contract_and_abi_regression
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
+      - immutable_artifact_digest_and_provenance
+      - sqlite_postgresql_normalized_parity
+      - zero_forbidden_telemetry_and_protected_effects
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-THREE-HOST-INTERRUPTION-E2E-20260802-001
+    order: 60
+    cell_type: codex_claude_gemini_interruption_continuation_e2e
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-CAPTURE-SERVICE-RECONCILIATION-20260802-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Prove on isolated fixtures that a new native Codex, Claude Code, and
+      Gemini CLI process receives a bounded data-only recovery pack and resumes
+      the latest durable objective after interruption without duplicate effects.
+    implementation_boundary: >-
+      Local and isolated E2E fixtures only; no production runtime, launchagent,
+      agent configuration, trust, database, restart, session, or TUI mutation.
+    verification_boundary: >-
+      Cover pre-output, post-visible/pre-capture, inflight tool,
+      post-file-write/pre-commit, temporary DB outage, capture crash/restart,
+      and identity mismatch. Ambiguous effects require an idempotency key or
+      external readback before retry; private reasoning and protected
+      instructions must never be captured.
+    version_boundary:
+      hosts: [codex, claude_code, gemini_cli]
+      continuation_definition: new_native_process_not_same_or_inflight_call
+      startup_timeout_seconds_max: 7
+      recovery_output_tokens_max: 1800
+      recovery_output_bytes_max: 8192
+    owner_decision_points: []
+    required_evidence:
+      - three_host_interruption_scenario_matrix_pass
+      - sentinel_capture_and_recovery_3_of_3
+      - private_and_protected_capture_count_zero
+      - duplicate_external_side_effect_count_zero
+      - temporary_database_and_capture_restart_recovery_pass
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-PREPRODUCTION-EXACT-HEAD-AUDIT-20260802-001
+    order: 70
+    cell_type: independent_preproduction_exact_head_and_scenario_audit
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-THREE-HOST-INTERRUPTION-E2E-20260802-001
+    active_function: evidence_audit_gate
+    primary_responsibility: >-
+      Independently audit the final implementation head/tree, immutable capture
+      artifact, truthful frozen R0 registry preimage, exact rollout plan, Gemini
+      disposition, interruption E2E, privacy boundaries, and protected-effect
+      count before owner production GO. This audit does not claim post-rollout
+      registry equality.
+    implementation_boundary: read_only_exact_ref_audit_only
+    verification_boundary: >-
+      One current shirube-audit/v1 PASS must bind exact refs and complete
+      evidence with zero blockers; maker self-audit is not accepted.
+    version_boundary:
+      audit_subject_source: exact_final_implementation_and_e2e_packet
+      graph_version: 1.2.2
+    owner_decision_points: []
+    required_evidence:
+      - independent_shirube_audit_v1
+      - exact_subject_commit_tree_and_artifact_digest_match
+      - capture_registry_preproduction_preimage_truthful_denominator_35_actual_covered_24_unmatched_24_missing_11_exact_equality_false
+      - three_host_interruption_matrix_pass
+      - zero_blocking_findings
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-OWNER-PRODUCTION-GO-20260801-001
+    order: 80
+    cell_type: exact_manifest_protected_surface_gate
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-PREPRODUCTION-EXACT-HEAD-AUDIT-20260802-001
+    active_function: protected_surface_gate
+    primary_responsibility: >-
+      Record one batched owner decision for the exact audited head, manifest,
+      build, configuration, binding, backend, and store-binding tuple.
+    implementation_boundary: decision_record_only
+    verification_boundary: >-
+      Authenticated owner decision explicitly names immutable refs and grants
+      or denies production configuration, trust, distribution, and activation.
+      The decision binds the audited preproduction mismatch tuple and rollout
+      plan; it does not inherit or assert a pre-rollout 35-of-35 result.
+    version_boundary:
+      decision_point: OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+      exact_subject_source: passing_independent_audit_packet
+    owner_decision_points:
+      - OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    required_evidence:
+      - authenticated_owner_decision
+      - exact_tuple_equality
+      - granted_operation_boundary
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-EXACT-HEAD-MERGE-20260801-001
+    order: 90
+    cell_type: separately_acted_exact_head_merge_and_ancestry
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-OWNER-PRODUCTION-GO-20260801-001
+    active_function: separate_merge_actor
+    primary_responsibility: >-
+      Merge only the owner-approved exact head through the normal protected
+      workflow and prove the merged tree and main ancestry.
+    implementation_boundary: exact_pr_281_merge_only
+    verification_boundary: >-
+      Approved head equals merged PR head, merged tree preserves the approved
+      tree, main contains the merge, required checks pass, and no bypass or
+      force push occurs.
+    version_boundary:
+      pull_request: https://github.com/watchout/agent-memory/pull/281
+      exact_subject_source: owner_go_exact_head_tree
+    owner_decision_points:
+      - OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    required_evidence:
+      - merge_commit_and_tree
+      - approved_head_to_merge_readback
+      - main_ancestry_pass
+      - bypass_and_force_push_zero
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-R1-CANARY-20260801-001
+    order: 100
+    cell_type: protected_three_host_canary
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-EXACT-HEAD-MERGE-20260801-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Apply and observe the exact approved Kusabi build on the canonical Kusabi
+      Codex, Claude Code, and Gemini CLI bindings.
+    implementation_boundary: >-
+      Exactly the three R1 manifest targets and the managed Kusabi host
+      definition; atomic writes and target-local rollback only.
+    verification_boundary: >-
+      3/3 exact deployment, 3/3 durable runtime evidence, exact identity
+      readback, recovery observation per host, alert smoke PASS, zero privacy
+      escapes, and zero forbidden effects.
+    version_boundary:
+      target_count: 3
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+      rollout_plan_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+      deployed_version_source: exact_merged_owner_approved_tuple
+    owner_decision_points:
+      - OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    required_evidence:
+      - r1_stage_report_3_of_3
+      - exact_and_durable_readback_3_of_3
+      - alert_smoke_pass
+      - rollback_and_forbidden_effect_report
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-R2-PILOT-20260801-001
+    order: 110
+    cell_type: protected_pilot_rollout_and_one_hour_gate
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-R1-CANARY-20260801-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Apply and observe the 11 pilot targets remaining after the Kusabi Codex
+      binding already included in R1, then sustain the one-hour pilot gate.
+    implementation_boundary: exactly_the_11_frozen_r2_manifest_targets
+    verification_boundary: >-
+      11/11 exact and durable, failed/drifted/not_observed zero, open P0/P1
+      zero, backend parity green, and no repeated degradation for one hour.
+    version_boundary:
+      target_count: 11
+      cumulative_target_count: 14
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+      deployed_version_source: exact_r1_tuple
+    owner_decision_points:
+      - OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    required_evidence:
+      - r2_stage_report_11_of_11
+      - one_hour_pilot_observation
+      - sqlite_postgresql_parity_pass
+      - zero_open_p0_p1_and_repeated_degradation
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-R3-FLEET-20260801-001
+    order: 120
+    cell_type: protected_remaining_fleet_rollout
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-R2-PILOT-20260801-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Apply the exact version to the remaining 21 targets in frozen
+      deterministic batches and produce the full-manifest OBS04 readback.
+    implementation_boundary: >-
+      Exactly the 21 frozen R3 targets, in rollout-plan order, with
+      affected-stage stop and target-local rollback.
+    verification_boundary: >-
+      Every batch and the final 35-target snapshot are 100% exact and durable;
+      failed, drifted, not_observed, privacy violations, and open P0/P1 are all
+      zero with exact target-key reconciliation.
+    version_boundary:
+      target_count: 21
+      cumulative_target_count: 35
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+      rollout_plan_sha256: d0e3b6a1d25239f6788c2a9fa183abfa98ab1cb106d11581f13ee26c20ebaab9
+      deployed_version_source: exact_r2_tuple
+    owner_decision_points:
+      - OD-OBS05-EXACT-MANIFEST-PRODUCTION-GO
+    required_evidence:
+      - deterministic_r3_batch_reports_21_of_21
+      - full_manifest_obs04_status_snapshot_35_of_35
+      - capture_registry_manifest_equality_35_of_35
+      - exact_and_durable_coverage_100_percent
+      - zero_blocker_privacy_and_forbidden_effect_report
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS05-POSTIMPLEMENTATION-AUDIT-20260801-001
+    order: 130
+    cell_type: independent_runtime_and_scenario_verification_gate
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-R3-FLEET-20260801-001
+    active_function: scenario_verification_gate
+    primary_responsibility: >-
+      Independently verify the exact merged runtime tuple and all R1/R2/R3
+      stage, rollback, privacy, parity, alert, and failure-isolation evidence.
+    implementation_boundary: read_only_exact_ref_verification_only
+    verification_boundary: >-
+      Exact-head/runtime audit PASS with zero blocking findings and no
+      self-authored evidence accepted without direct readback.
+    version_boundary:
+      audit_subject_source: exact_merged_and_observed_r3_tuple
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    owner_decision_points: []
+    required_evidence:
+      - independent_postimplementation_audit
+      - exact_runtime_identity_readback_35_of_35
+      - capture_registry_manifest_equality_35_of_35
+      - rollback_failure_isolation_and_privacy_pass
+      - zero_blocking_findings
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS06-SOAK-CLOSURE-20260801-001
+    order: 140
+    cell_type: continuous_fleet_soak_evidence
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS05-POSTIMPLEMENTATION-AUDIT-20260801-001
+    active_function: implementation_executor
+    primary_responsibility: >-
+      Sustain and record 24 continuous hours and 96 checkpoints for the exact
+      frozen 35-target version without changing the acceptance denominator.
+    implementation_boundary: >-
+      Read-only status, scheduled privacy-safe smoke probes, and closure packet
+      assembly; no unapproved mutation, restart, or missing-checkpoint waiver.
+    verification_boundary: >-
+      All 96 checkpoints meet 100% exact/durable coverage, zero failed,
+      drifted, not_observed, privacy escape, open P0/P1, and repeated
+      degradation; p95 alert generation is at most 60 seconds and backend
+      parity remains 100%.
+    version_boundary:
+      duration_hours: 24
+      checkpoint_count: 96
+      checkpoints_per_hour: 4
+      missing_checkpoint_behavior: reset_continuous_window
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+      observed_version_source: exact_postimplementation_audit_tuple
+    owner_decision_points: []
+    required_evidence:
+      - all_96_timestamped_checkpoints
+      - final_obs04_snapshot_35_of_35
+      - capture_registry_manifest_equality_35_of_35_at_all_96_checkpoints
+      - alert_latency_and_backend_parity_evidence
+      - complete_closure_packet
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS06-INDEPENDENT-CLOSURE-REVIEW-20260801-001
+    order: 150
+    cell_type: independent_closure_evidence_gate
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS06-SOAK-CLOSURE-20260801-001
+    active_function: evidence_audit_gate
+    primary_responsibility: >-
+      Independently verify the continuous soak window, all checkpoint
+      arithmetic, exact version identity, alerts, privacy, parity, and packet
+      completeness before owner closure.
+    implementation_boundary: read_only_closure_packet_audit_only
+    verification_boundary: >-
+      Independent closure PASS binds the exact 96-checkpoint packet digest and
+      final status snapshot with zero blocking findings.
+    version_boundary:
+      audit_subject_source: exact_obs06_closure_packet
+      checkpoint_count: 96
+      manifest_sha256: bd9ece41c95e1ee6dc092c528f0984b2552b2d1940a2a6a394ea588f557a1294
+    owner_decision_points: []
+    required_evidence:
+      - independent_closure_audit
+      - closure_packet_digest_and_readback
+      - continuous_window_and_checkpoint_count_pass
+      - zero_blocking_findings
+    completion_state: PENDING_DEPENDENCY
+
+  - cell_id: KUSABI-ALPHA-OBS06-OWNER-CLOSURE-20260801-001
+    order: 160
+    cell_type: final_owner_closure_gate
+    risk_class: R4
+    dependencies:
+      - KUSABI-ALPHA-OBS06-INDEPENDENT-CLOSURE-REVIEW-20260801-001
+    active_function: protected_surface_gate
+    primary_responsibility: >-
+      Record the final owner closure decision against the exact independently
+      accepted 24-hour closure packet.
+    implementation_boundary: decision_record_and_control_source_closure_only
+    verification_boundary: >-
+      Authenticated owner decision binds the exact packet and final snapshot;
+      only an explicit close yields terminal completion and next_action none.
+    version_boundary:
+      decision_point: OD-OBS06-FINAL-CLOSURE
+      exact_subject_source: passing_independent_closure_review
+    owner_decision_points:
+      - OD-OBS06-FINAL-CLOSURE
+    required_evidence:
+      - authenticated_final_owner_decision
+      - exact_closure_packet_binding
+      - durable_control_source_closure_record
+      - next_action_none
+    completion_state: PENDING_DEPENDENCY
+
+frontmost_incomplete:
+  cell_id: KUSABI-ALPHA-OBS05-PREPRODUCTION-EXACT-HEAD-AUDIT-20260802-001
+  active_function: evidence_audit_gate
+  actor_agent_id: codex-audit
+  reason: >-
+    The order-70 audit found that the candidate constructed equality from the
+    authoritative denominator instead of reporting actual coverage. Graph
+    v1.2.2 and the bounded service, schema, and test correction must pass a
+    fresh exact-ref audit before order 80 can begin.
+
+failure_modes:
+  - id: FM-GRAPH-DRIFT
+    detection: cell_or_dependency_not_in_graph_or_version_boundary_changes
+    response: block_and_require_recorded_graph_amendment_and_fresh_audit
+  - id: FM-INVENTORY-DRIFT
+    detection: any_inventory_manifest_count_key_predicate_or_digest_mismatch
+    response: block_before_owner_go_and_regenerate_r0_under_new_version
+  - id: FM-CAPTURE-ABI-MISMATCH
+    detection: capture_service_calls_a_store_capability_other_than_canonical_saveRawEvent
+    response: stop_capture_candidate_and_require_tracked_contract_regression_evidence
+  - id: FM-CAPTURE-REGISTRY-DRIFT
+    detection: >-
+      installed_capture_registry_preimage_differs_from_the_frozen_47_rows_24_actual_covered_24_unmatched_11_missing_exact_key_sets_or_digests
+    response: >-
+      block as unclassified drift; preserve the frozen truthful preproduction
+      tuple and exact key-set/digest evidence; never silently adopt, delete, or
+      redefine the authoritative denominator. Exact equality remains required
+      after the owner-approved rollout.
+  - id: FM-NET-DIFFERENCE-AS-ROW-SET
+    detection: arithmetic_47_minus_35_is_used_as_an_enumerable_registry_row_set
+    response: >-
+      block A2 and require complete bidirectional proof of all 24 unmatched
+      registry rows and all 11 missing manifest bindings
+  - id: FM-MUTABLE-RUNTIME-PROVENANCE
+    detection: startup_or_capture_runtime_resolves_to_mutable_workspace_dist
+    response: block_production_go_until_exact_commit_tree_and_artifact_digest_readback
+  - id: FM-GEMINI-CAPTURE-UNSUPPORTED
+    detection: supported_gemini_visible_event_adapter_cannot_meet_privacy_and_continuity_contract
+    response: >-
+      fail closed and require OD-OBS05-GEMINI-CAPTURE-UNSUPPORTED-DISPOSITION;
+      do not silently exclude Gemini or reduce the three-host acceptance scope
+  - id: FM-AMBIGUOUS-INTERRUPTION-REPLAY
+    detection: interrupted_external_effect_has_no_idempotency_key_or_external_readback
+    response: block_automatic_retry_and_require_external_state_reconciliation
+  - id: FM-PRIVATE-OR-PROTECTED-CAPTURE
+    detection: private_reasoning_system_or_developer_instruction_body_is_captured
+    response: stop_candidate_zero_production_effects_record_incident_and_reverify_redaction
+  - id: FM-GEMINI-UNCLASSIFIED-FIELD
+    detection: observed_or_unknown_Gemini_field_is_not_explicitly_allowlisted_or_denied
+    response: reject_field_by_default_record_only_credential_safe_schema_drift_and_block_candidate
+  - id: FM-REVIEW-PENDING-WORKTREE-DRIFT
+    detection: product_file_is_created_or_modified_before_the_required_evidence_gate_unlock
+    response: >-
+      stop; preserve byte state without deletion adoption staging commit testing
+      or continuation; require ARC disposition, fresh audit, and a new clean
+      isolated worktree under a separate explicit handoff
+  - id: FM-STALE-AUDIT
+    detection: audited_head_tree_or_artifact_digest_differs_from_current_subject
+    response: reject_verdict_as_superseded_and_route_one_current_exact_subject
+  - id: FM-PROTECTED-EFFECT-WITHOUT-GO
+    detection: configuration_trust_distribution_activation_or_merge_before_exact_owner_go
+    response: stop_zero_further_effects_record_incident_and_require_owner_disposition
+  - id: FM-STAGE-BLOCKER
+    detection: first_p0_p1_or_exact_identity_durable_evidence_privacy_or_parity_failure
+    response: stop_affected_stage_freeze_evidence_and_use_target_local_frozen_rollback
+  - id: FM-SOAK-GAP
+    detection: missing_checkpoint_or_threshold_failure_inside_continuous_window
+    response: reset_24_hour_window_after_resolution_and_new_required_authority
+  - id: FM-FALSE-CLOSURE
+    detection: ci_merge_queue_ack_or_deploy_receipt_used_as_completion
+    response: keep_cell_open_until_exact_required_evidence_and_owner_closure
+
+design_flow_conformance:
+  G1_sourced_intent:
+    result: PASS
+    evidence: Issue 280, the durable continuity plan, frozen KGI, owners, critical path, and explicit exclusions are mapped without expanding product behavior.
+  G2_ai_native_balance:
+    result: PASS
+    evidence: Deterministic inventory, hashes, gates, and state transitions remain machine-controlled; AI or agent judgment cannot grant protected effects.
+  G3_adapter_and_provenance_boundaries:
+    result: PASS
+    evidence: DB inventory, capture service, Codex/Claude/Gemini adapters, native host mutation, runtime observation, GitHub delivery, AUN routing, and owner decisions remain separate boundaries with immutable refs.
+  G4_measurable_acceptance:
+    result: PASS
+    evidence: 24 unmatched rows, 11 missing bindings, 988943-second lag excess, complete Gemini field classification/default deny, 35/35 equality, three-host interruption scenarios, zero private capture and duplicate effects, seven-second startup, bounded recovery output, 60-second alert p95, and 24-hour/96-checkpoint soak are explicit.
+  G5_failure_modes:
+    result: PASS
+    evidence: Graph and registry drift, false net-set arithmetic, ABI mismatch, mutable runtime, unclassified Gemini fields, review-pending worktree drift, ambiguous replay, privacy breach, stale audit, unauthorized effects, stage blockers, soak gaps, and false closure each have fail-closed recovery.
+  G6_protected_surface_and_function_gates:
+    result: PASS
+    evidence: Gemini unsupported disposition, production GO, and final closure are owner-only; amended-control, preproduction, and closure audits are independent; implementation cannot self-authorize.
+  G7_verified_handoff:
+    result: PASS
+    evidence: The frontmost incomplete cell, exact inputs, actor/function, delivery route, scope, deliverable, completion evidence, and blocking state are fixed below.
+
+next_action:
+  blocking: true
+  owner_agent: codex-audit
+  owner_function: evidence_audit_gate
+  action: >-
+    Independently audit the exact published control commit/tree containing this
+    successor containing graph v1.2.2 and the bounded registry correction;
+    reproduce denominator 35, actual coverage 24, installed rows 47, unmatched
+    rows 24, missing bindings 11, and exact equality false; verify final
+    post-rollout 35-of-35 remains mandatory; then return one current
+    shirube-audit/v1 verdict.
+  handoff_method: AUN anchored to the exact Issue 280 publication comment and PR 281 head.
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/issues/280
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154939613
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5154995955
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5155036148
+    - https://github.com/watchout/agent-memory/pull/281
+    - .shirube/cell-graphs/GRAPH-KUSABI-ALPHA-OBS05-OBS06-20260802-001.yaml
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-FLEET-ROLLOUT-20260801-001.yaml
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-A1-CAPTURE-FORENSICS-CORRECTED-20260802-001.yaml
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json
+    - predecessor-commit:c009e22d8e575c613a7114668afd12d4a5e3dc12
+    - predecessor-tree:9560028032ee53a51a7f33864f83025ee689ef9a
+    - corrected-A1-sha256:5d358a62f2bd84bb4019a264707db5e41e1aef493dcdf9742982dba87ee93dc5
+    - Gemini-field-surface-report-sha256:5fc7777a807f80eed4ef6f99748aef84576d2bbdc50081d8186f73f2558c26b9
+    - registry-sha256:365f599807376d1940970e123c1ae7fecc8dad3e30d93622139698eedc63d631
+    - state-sha256:93b10861d9e47bc730d4d9bd395037c312394ff00c687221be6e8c97d78aafd7
+    - R0-artifact-sha256:a1fa627df66b06d80e6e4105c876cdb7892ba79c206f70d415362b0a61855106
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5160508152
+    - predecessor-commit:3f7a481c485133fa77e2ee505b0bcb96ee3d21a4
+    - predecessor-tree:27a9202cda7ae1835993d9420965215bfeebb3f6
+    - publication_tuple:durable_issue_280_comment_for_graph_version_1.2.2
+  scope: >-
+    Read-only exact-ref evidence audit only; no product, control, runtime,
+    configuration, trust, DB, PR-state, label, Ready, merge, deployment,
+    restart, session, owner-decision, deletion, adoption, A2 continuation, or TUI mutation.
+  deliverable: One durable exact-head graph-v1.2/corrected-A1 shirube-audit/v1 record.
+  completion_evidence: >-
+    Issue 280 audit URL, exact successor commit/tree and four file digests, safe
+    graph parse, truthful 35/24/47/24/11/false reconciliation proof, schema
+    positive and negative fixtures, preserved post-rollout 35-of-35, protected-
+    effects attestation, verdict, and a complete next_action to the order-80
+    protected-surface gate only on PASS.

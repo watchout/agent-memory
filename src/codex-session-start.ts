@@ -27,7 +27,7 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const CODEX_SESSION_START_ADAPTER_ID = "wasurezu-codex-session-start" as const;
-export const CODEX_SESSION_START_ADAPTER_VERSION = "1.0.0" as const;
+export const CODEX_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
 export const CODEX_SESSION_START_EVIDENCE_SCHEMA = "codex-session-start-evidence/v1" as const;
 export const CODEX_SESSION_START_HOST_CONTRACT_VERSION = "0.144.2" as const;
 export const CODEX_SESSION_START_INPUT_MAX_BYTES = 65_536;
@@ -36,6 +36,7 @@ export const CODEX_SESSION_START_MAX_BYTES = 8_192;
 export const CODEX_SESSION_START_INTERNAL_TIMEOUT_MS = 7_000;
 export const CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
 export const CODEX_USER_CONFIG_RELATIVE_PATH = ".agent-memory/config.json" as const;
+export const KUSABI_STORE_BINDING_HASH_VERSION = "kusabi-store-binding/v1" as const;
 
 const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
 export type CodexSessionStartSource = typeof START_SOURCES[number];
@@ -184,6 +185,7 @@ export interface CodexStoreBindingEvidence {
   source: "environment" | "user_config" | "local_default" | "unknown";
   backend_intent: "postgres" | "sqlite" | "json" | "unknown";
   config_path_sha256: string | null;
+  binding_sha256: string | null;
   verified: boolean;
   credentials_embedded: false;
 }
@@ -246,6 +248,7 @@ function unknownStoreBinding(): CodexStoreBindingEvidence {
     source: "unknown",
     backend_intent: "unknown",
     config_path_sha256: null,
+    binding_sha256: null,
     verified: false,
     credentials_embedded: false,
   };
@@ -253,6 +256,24 @@ function unknownStoreBinding(): CodexStoreBindingEvidence {
 
 function postgresUrl(value: unknown): value is string {
   return typeof value === "string" && /^postgres(?:ql)?:\/\//.test(value);
+}
+
+export function kusabiStoreBindingSha256(
+  backend: "postgres" | "sqlite" | "json",
+  locator: string,
+): string {
+  return sha256(`${KUSABI_STORE_BINDING_HASH_VERSION}\0${backend}\0${locator}`);
+}
+
+function localStoreBindingSha256(
+  backend: "sqlite" | "json",
+  env: NodeJS.ProcessEnv,
+): string {
+  const defaultPath = backend === "sqlite"
+    ? join(homedir(), ".agent-memory", "memory.db")
+    : join(homedir(), ".agent-memory");
+  const configuredPath = backend === "sqlite" ? env.AGENT_MEMORY_DB_PATH : undefined;
+  return kusabiStoreBindingSha256(backend, resolve(configuredPath || defaultPath));
 }
 
 /**
@@ -271,6 +292,7 @@ export function resolveCodexStoreBinding(
       source: "environment",
       backend_intent: dbType,
       config_path_sha256: null,
+      binding_sha256: localStoreBindingSha256(dbType, env),
       verified: true,
       credentials_embedded: false,
     };
@@ -286,6 +308,7 @@ export function resolveCodexStoreBinding(
       source: "environment",
       backend_intent: "postgres",
       config_path_sha256: null,
+      binding_sha256: kusabiStoreBindingSha256("postgres", environmentUrl),
       verified: true,
       credentials_embedded: false,
     };
@@ -300,6 +323,7 @@ export function resolveCodexStoreBinding(
         source: "local_default",
         backend_intent: "sqlite",
         config_path_sha256: null,
+        binding_sha256: localStoreBindingSha256("sqlite", env),
         verified: true,
         credentials_embedded: false,
       };
@@ -325,6 +349,7 @@ export function resolveCodexStoreBinding(
       source: "local_default",
       backend_intent: "sqlite",
       config_path_sha256: sha256(resolve(configPath)),
+      binding_sha256: localStoreBindingSha256("sqlite", env),
       verified: true,
       credentials_embedded: false,
     };
@@ -335,6 +360,7 @@ export function resolveCodexStoreBinding(
     source: "user_config",
     backend_intent: "postgres",
     config_path_sha256: sha256(resolve(configPath)),
+    binding_sha256: kusabiStoreBindingSha256("postgres", configUrl),
     verified: true,
     credentials_embedded: false,
   };

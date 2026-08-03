@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/kusabi-fleet-rollout-plan-v1.schema.json",
+  "title": "Kusabi deterministic fleet rollout plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "rollout_id",
+    "manifest",
+    "implementation",
+    "inventory",
+    "batches",
+    "rollout_plan_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "kusabi-fleet-rollout-plan/v1" },
+    "rollout_id": { "$ref": "#/$defs/boundedId" },
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "implementation": { "$ref": "#/$defs/implementation" },
+    "inventory": { "$ref": "#/$defs/inventory" },
+    "batches": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/batch" }
+    },
+    "rollout_plan_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "boundedId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_id", "version", "manifest_sha256", "target_count"],
+      "properties": {
+        "manifest_id": { "$ref": "#/$defs/boundedId" },
+        "version": { "type": "integer", "minimum": 1 },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "target_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_sha", "tree_sha"],
+      "properties": {
+        "commit_sha": { "$ref": "#/$defs/gitSha" },
+        "tree_sha": { "$ref": "#/$defs/gitSha" }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_sha256",
+        "query_contract_sha256",
+        "primary_result_sha256",
+        "primary_binding_count",
+        "secondary_binding_count",
+        "target_count"
+      ],
+      "properties": {
+        "snapshot_sha256": { "$ref": "#/$defs/sha256" },
+        "query_contract_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_result_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_binding_count": { "type": "integer", "minimum": 0 },
+        "secondary_binding_count": { "type": "integer", "minimum": 0 },
+        "target_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "batch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["batch_id", "stage", "ordinal", "minimum_soak_seconds", "target_keys"],
+      "properties": {
+        "batch_id": { "$ref": "#/$defs/boundedId" },
+        "stage": { "enum": ["r1", "r2", "r3"] },
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "minimum_soak_seconds": { "type": "integer", "minimum": 0 },
+        "target_keys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    }
+  }
+}

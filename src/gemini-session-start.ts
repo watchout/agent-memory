@@ -33,7 +33,7 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const GEMINI_SESSION_START_ADAPTER_ID = "wasurezu-gemini-session-start" as const;
-export const GEMINI_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
+export const GEMINI_SESSION_START_ADAPTER_VERSION = "1.0.2" as const;
 export const GEMINI_SESSION_START_EVIDENCE_SCHEMA = "gemini-session-start-evidence/v1" as const;
 export const GEMINI_SESSION_START_HOST_CONTRACT_VERSION = "0.38.2" as const;
 export const GEMINI_SESSION_START_INPUT_MAX_BYTES = 65_536;
@@ -427,6 +427,7 @@ function buildEvidence(input: {
       source: "unknown",
       backend_intent: "unknown",
       config_path_sha256: null,
+      binding_sha256: null,
       verified: false,
       credentials_embedded: false,
     },

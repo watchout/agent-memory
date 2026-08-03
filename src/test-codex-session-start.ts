@@ -11,6 +11,7 @@ import {
   parseCodexSessionStartArgs,
   recoveryFromPack,
   resolveCodexStoreBinding,
+  kusabiStoreBindingSha256,
   runCodexSessionStart,
   type CodexSessionStartBinding,
   type CodexSessionStartInput,
@@ -74,6 +75,7 @@ function loaded(text?: string): LoadedCodexRecovery {
       source: "user_config",
       backend_intent: "postgres",
       config_path_sha256: "a".repeat(64),
+      binding_sha256: "b".repeat(64),
       verified: true,
       credentials_embedded: false,
     },
@@ -109,6 +111,7 @@ async function main(): Promise<void> {
     assert.equal(userConfigBinding.source, "user_config");
     assert.equal(userConfigBinding.backend_intent, "postgres");
     assert.match(userConfigBinding.config_path_sha256 ?? "", /^[a-f0-9]{64}$/);
+    assert.equal(userConfigBinding.binding_sha256, kusabiStoreBindingSha256("postgres", syntheticDatabaseUrl));
     assert.equal(userConfigBinding.credentials_embedded, false);
     assert.equal(userConfigEnv.AGENT_MEMORY_DATABASE_URL, syntheticDatabaseUrl);
     assert(!JSON.stringify(userConfigBinding).includes(syntheticDatabaseUrl));
@@ -120,16 +123,27 @@ async function main(): Promise<void> {
     assert.equal(explicitEnvironmentBinding.source, "environment");
     assert.equal(explicitEnvironmentBinding.backend_intent, "postgres");
     assert.equal(explicitEnvironmentBinding.config_path_sha256, null);
+    assert.equal(explicitEnvironmentBinding.binding_sha256, userConfigBinding.binding_sha256);
+    const distinctEnvironmentBinding = resolveCodexStoreBinding({
+      AGENT_MEMORY_DATABASE_URL: "postgresql:///fixture-other?host=/tmp",
+    }, join(root, "not-read-either.json"));
+    assert.notEqual(distinctEnvironmentBinding.binding_sha256, explicitEnvironmentBinding.binding_sha256);
 
-    const explicitLocalEnv: NodeJS.ProcessEnv = { AGENT_MEMORY_DB_TYPE: "sqlite" };
+    const explicitLocalPath = join(root, "explicit-memory.db");
+    const explicitLocalEnv: NodeJS.ProcessEnv = {
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: explicitLocalPath,
+    };
     const explicitLocalBinding = resolveCodexStoreBinding(explicitLocalEnv, configPath);
     assert.equal(explicitLocalBinding.source, "environment");
     assert.equal(explicitLocalBinding.backend_intent, "sqlite");
+    assert.equal(explicitLocalBinding.binding_sha256, kusabiStoreBindingSha256("sqlite", explicitLocalPath));
     assert.equal(explicitLocalEnv.AGENT_MEMORY_DATABASE_URL, undefined);
 
     const absentConfigBinding = resolveCodexStoreBinding({}, join(root, "absent-config.json"));
     assert.equal(absentConfigBinding.source, "local_default");
     assert.equal(absentConfigBinding.backend_intent, "sqlite");
+    assert.match(absentConfigBinding.binding_sha256 ?? "", /^[a-f0-9]{64}$/);
 
     const malformedConfigPath = join(configDir, "malformed.json");
     await writeFile(malformedConfigPath, "not-json");
