@@ -1,0 +1,290 @@
+{
+  "schema_version": "shirube-v4/goalrun-adoption-check/v1",
+  "verdict": "PASS",
+  "canonical_framework": {
+    "contract_pr": "https://github.com/watchout/ai-dev-framework/pull/564",
+    "validator_set_digest": "sha256:bdfbb441e13285ebca741b469d8b97f6a590da1006911708a8e9e5c99a8ae0a4"
+  },
+  "goal_validator": {
+    "script": "canonical-shirube:scripts/shirube/validate-goal-run.mjs",
+    "script_sha256": "3b6363f2506bd5b2b647fe282de2df4febc555cf8bf88c672089da6d7b33ebd1",
+    "exit_code": 0,
+    "report": {
+      "schema": "shirube-goal-run-validation/v1",
+      "verdict": "PASS",
+      "would_block": false,
+      "file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+      "previous_file": null,
+      "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+      "generation": 0,
+      "state_digest": "sha256:5a1e03b4856c74000360a305448eb5e355414bd499f8661ac8c8a5fe1b19aeb9",
+      "blockers": []
+    }
+  },
+  "work_item_validators": [
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:45c3cd00f5d303bbbbb9f453330df98cba03ad7bae575dc6582959acb768b01b",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:d880480941bbe9eac7c565e761e5d175aa6a7b5f7972b8591f7b602a70a06eeb",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:22280185056e7c1a0ed5542f8dd37b979639e44487ebfbaba0ad0737a4070662",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:d79871e565fee5789aa41760bd60203ea0e9e7d4152a5a351db7c3ee87dd3876",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-PR281-EXACT-MERGE.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:3f207bb4bcf9f2bbae56b7dbe76b1194b9c4685a16d4c44c65ea3f8a30eb78a3",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:9d8c352608f3ed9c4746b4236eb87cc60f4045e9ead5c5ac92634fad537348d2",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:e4d1453346f2d811c81a11cf3f15de367cf6847157fe6a768ce0b76f2ec102e2",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-OWNER-GO.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:c97e528e15159fc59131732abeb59b2363bdb1e980e38c68886bffe65d0f1645",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R1-CANARY-3-OF-3.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:377b7a8c8a77f0994748786a97467345d4af09b692bbdce3ec699c0b85b7c1a3",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R2-PILOT-11-OF-11.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R2-PILOT-11-OF-11",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:890e63f6b104e0a0700a46eb4c76ced5f6b65ad5b603a44c760744b9980bba24",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R3-FLEET-35-OF-35.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R3-FLEET-35-OF-35",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 0,
+        "state_digest": "sha256:c10e5e3c221986bcff5215b5422c259afd161559885b7dba635848137efedadd",
+        "blockers": []
+      }
+    }
+  ],
+  "execution_binding_validator": {
+    "script": "canonical-shirube:scripts/shirube/validate-execution-goal-binding.mjs",
+    "script_sha256": "aefab4f59f3640e737980afd4622016c19cd5d76464b59516e539c473422e9d0",
+    "exit_code": 0,
+    "report": {
+      "schema": "shirube-execution-goal-binding-validation/v1",
+      "verdict": "PASS",
+      "would_block": false,
+      "file": "repo:.shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json",
+      "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+      "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+      "generation": 0,
+      "state_digest": "sha256:5a1e03b4856c74000360a305448eb5e355414bd499f8661ac8c8a5fe1b19aeb9",
+      "blockers": []
+    }
+  },
+  "status": {
+    "schema_version": "shirube-v4/goal-status/v1",
+    "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+    "status": "BLOCKED",
+    "generation": 0,
+    "state_digest": "sha256:5a1e03b4856c74000360a305448eb5e355414bd499f8661ac8c8a5fe1b19aeb9",
+    "acceptance": {
+      "passed": 0,
+      "total": 11,
+      "percent": 0
+    },
+    "targets": {
+      "live_exact": 0,
+      "rollback_exact": 0,
+      "total": 35
+    },
+    "blockers": [
+      {
+        "blocker_id": "B-01-PR281-EXACT-MERGE",
+        "ordinal": 1,
+        "evidence_refs": [
+          "https://github.com/watchout/agent-memory/pull/281",
+          "aun://queue/147691"
+        ],
+        "removal_predicate": "Exact approved PR 281 head is normally merged, merge tree equals acda601d, and main ancestry is verified."
+      }
+    ],
+    "next_work_item": {
+      "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "required_operation": "FINAL_MERGE",
+      "required_evidence": [
+        "owner_decision_readback",
+        "exact_merge_readback",
+        "main_ancestry_readback"
+      ],
+      "control_handoff_ref": "aun://queue/147691/CH-KUSABI-OBS05-ORDER90-EXACT-HEAD-MERGE-20260803-001",
+      "dispatch_idempotency_key": "sha256:608e7409f36890f4aceeac6748c7614637157246c52abc0ae9165db83b6e9070"
+    },
+    "can_continue": true,
+    "next_action": {
+      "blocking": true,
+      "actor_agent_id": "ceo",
+      "active_function": "owner_decision",
+      "action": "API-read the approved PR 281 head/tree, perform the normal protected Ready/merge as the human merge actor, and return the immutable merge receipt.",
+      "deliver_via": "GitHub PR 281 normal protected workflow plus GoalRun terminal evidence",
+      "exact_input_refs": [
+        "aun://queue/147691/CH-KUSABI-OBS05-ORDER90-EXACT-HEAD-MERGE-20260803-001",
+        ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-PR281-EXACT-MERGE.json"
+      ],
+      "scope": "Only operation FINAL_MERGE; forbidden operations remain denied by WorkItem v2.",
+      "deliverable": [
+        "owner_decision_readback",
+        "exact_merge_readback",
+        "main_ancestry_readback"
+      ],
+      "completion_evidence": "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback."
+    }
+  },
+  "frozen_target_set_sha256": "69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec",
+  "production_effect_count": 0
+}

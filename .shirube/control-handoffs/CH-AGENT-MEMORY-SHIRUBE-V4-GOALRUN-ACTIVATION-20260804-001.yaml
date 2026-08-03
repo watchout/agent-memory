@@ -1,0 +1,71 @@
+schema_version: shirube-v3/control_handoff/v1
+control_handoff_id: CH-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001
+control_source:
+  kind: direct_owner_instruction
+  ref: conversation:2026-08-04:apply-existing-shirube-goalrun-before-development
+cell:
+  id: CELL-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001
+  cell_type: control_runtime_adoption
+  risk_class: R4
+  goal: >-
+    Apply the existing canonical Shirube V4 GoalRun, WorkItem v2, and
+    ExecutionGoalBinding contracts to the Kusabi OBS-05/06 35-target goal so
+    exact progress, blockers, targets, evidence, checkpoints, and the single
+    next WorkItem are machine-readable before protected rollout resumes.
+execution_context:
+  agent_id: kusabi
+  active_function: implementation_executor
+  workspace: repo:.
+allowed_paths:
+  - AGENTS.md
+  - .shirube/control-handoffs/CH-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001.yaml
+  - .shirube/goal-runs/**
+  - .shirube/work-items/**
+  - .shirube/execution-goal-bindings/**
+  - .shirube/target-manifests/**
+  - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
+  - scripts/shirube-v4-goal-control.mjs
+  - scripts/test-shirube-v4-goal-control.mjs
+  - package.json
+forbidden_operations:
+  - edit_product_runtime_src
+  - edit_database_or_migrations
+  - mutate_agent_identity_credentials_or_trust
+  - activate_or_restart_runtime
+  - write_tui_or_tmux
+  - change_PR_281_head_tree_state_or_checks
+  - merge_or_force_push
+  - perform_R1_R2_R3_or_R4_production_effects
+required_evidence:
+  - LLM_startup_binding_to_GoalRun_status_and_next
+  - canonical_goal_run_validator_PASS
+  - canonical_work_item_v2_validator_PASS_for_every_item
+  - canonical_execution_goal_binding_validator_PASS
+  - exact_35_target_digest_and_count
+  - deterministic_single_next_work_item
+  - false_completion_rejected
+  - checkpoint_restart_readback_exact
+  - production_effect_count_zero
+stop_conditions:
+  - canonical_shirube_contract_is_missing_or_incompatible
+  - target_identity_set_differs_from_the_frozen_35
+  - any_change_outside_allowed_paths
+  - any_protected_production_effect_is_required
+lifecycle_state: ISSUED
+gate_result:
+  verdict: GO_REPO_LOCAL_NON_PRODUCTION_ADOPTION
+  protected_production_effects_authorized: false
+next_action:
+  blocking: false
+  owner_agent: kusabi
+  owner_function: implementation_executor
+  action: Implement and verify the bounded repo-local GoalRun adoption, then resume the existing exact merge and R0 v3 path from the machine-selected WorkItem.
+  handoff_method: local isolated branch and durable Shirube evidence
+  input_refs:
+    - https://github.com/watchout/agent-memory/issues/280
+    - https://github.com/watchout/agent-memory/pull/281
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243
+    - https://github.com/watchout/ai-dev-framework/pull/564
+  scope: Exactly the allowed paths above; all listed forbidden operations remain forbidden.
+  deliverable: LLM startup binding, valid GoalRun, WorkItems, ExecutionGoalBinding, deterministic status command, tests, and adoption evidence.
+  completion_evidence: Canonical validator reports plus deterministic status and negative-test outputs.

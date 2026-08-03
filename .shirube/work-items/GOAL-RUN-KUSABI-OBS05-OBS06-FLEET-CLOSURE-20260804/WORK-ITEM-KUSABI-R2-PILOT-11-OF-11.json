@@ -1,0 +1,60 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-R2-PILOT-11-OF-11",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280",
+  "handoff_digest": "sha256:804282a13bf79ac4c0158bbbb1883ec0e0c0ef544bf2f70a14afbc2d5d4cd7ee",
+  "allowed_operations": [
+    "DEPLOY"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_AUDIT",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "LOCAL_DIRECT_ADAPTER",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "FINAL_MERGE",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "DEPLOY",
+  "required_evidence": [
+    "r2_stage_report",
+    "r2_one_hour_observation",
+    "r2_backend_parity_readback"
+  ],
+  "advances_acceptance_ids": [
+    "A-07-R2-PILOT-11-OF-11"
+  ],
+  "removes_blocker_ids": [],
+  "unmet_condition_id": "A-07-R2-PILOT-11-OF-11",
+  "acceptance_ordinal": 7,
+  "blocker_ordinal": 0,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:5efcd13cb1bb526919d9a3faf10a71aa32ae0b2c5010e2896a89088e88af8786",
+  "generation": 0,
+  "state_digest": "sha256:890e63f6b104e0a0700a46eb4c76ced5f6b65ad5b603a44c760744b9980bba24",
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
+  },
+  "terminal_evidence": []
+}

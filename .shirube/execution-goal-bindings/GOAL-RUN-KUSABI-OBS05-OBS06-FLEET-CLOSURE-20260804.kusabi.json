@@ -1,0 +1,38 @@
+{
+  "schema_version": "shirube-execution-goal-binding/v1",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "contract_digest": "sha256:37a383291fcdc3f3c77b06ec5b6ef3f07d9f2094e5f5333f4b87b44969e685c0",
+  "objective_digest": "sha256:9d62fb19932ee7626e69b17a04aa004dc2181e6c0051ec4811463632780bb8c1",
+  "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
+  "generation": 0,
+  "active_work_item_id": null,
+  "unmet_acceptance_ids": [
+    "A-01-PR281-EXACT-MERGE",
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+    "A-04-R0-V3-INDEPENDENT-AUDIT",
+    "A-05-R0-V3-OWNER-GO",
+    "A-06-R1-CANARY-3-OF-3",
+    "A-07-R2-PILOT-11-OF-11",
+    "A-08-R3-FLEET-35-OF-35",
+    "A-09-POSTIMPLEMENTATION-AUDIT",
+    "A-10-OBS06-24H-96-CHECKPOINTS",
+    "A-11-FINAL-OWNER-CLOSURE"
+  ],
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null
+  },
+  "state_digest": "sha256:5a1e03b4856c74000360a305448eb5e355414bd499f8661ac8c8a5fe1b19aeb9",
+  "adapter": {
+    "family": "codex",
+    "version": "agent-memory-shirube-v4-goal-control/v1",
+    "mode": "trusted_structured_binding",
+    "conformance_digest": "sha256:e257d94b850da91b908c0194d9f83717cfb86ddf60941da1d635df2aace11481"
+  },
+  "readback": {
+    "observed_at": "2026-08-03T22:04:40.885Z",
+    "observed_binding_digest": "sha256:247e10490367038b1ea555b02fd11451938a03d47ba376bb7f863de546198aa8",
+    "evidence_ref": ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json"
+  }
+}

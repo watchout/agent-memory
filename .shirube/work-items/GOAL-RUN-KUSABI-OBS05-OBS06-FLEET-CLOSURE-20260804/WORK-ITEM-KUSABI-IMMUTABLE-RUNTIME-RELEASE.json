@@ -1,0 +1,60 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "allowed_operations": [
+    "LOCAL_DIRECT_ADAPTER"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_AUDIT",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "FINAL_MERGE",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "LOCAL_DIRECT_ADAPTER",
+  "required_evidence": [
+    "clean_build_readback",
+    "content_addressed_release_readback",
+    "entrypoint_digest_readback"
+  ],
+  "advances_acceptance_ids": [
+    "A-02-IMMUTABLE-RUNTIME-RELEASE"
+  ],
+  "removes_blocker_ids": [],
+  "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+  "acceptance_ordinal": 2,
+  "blocker_ordinal": 0,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:f15498218348f94c95792119ddfdc355991bd2658afb19fd42e1b36c2eec0c37",
+  "generation": 0,
+  "state_digest": "sha256:d880480941bbe9eac7c565e761e5d175aa6a7b5f7972b8591f7b602a70a06eeb",
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
+  },
+  "terminal_evidence": []
+}

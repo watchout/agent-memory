@@ -1,0 +1,60 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "allowed_operations": [
+    "INDEPENDENT_AUDIT"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "LOCAL_DIRECT_ADAPTER",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "FINAL_MERGE",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "INDEPENDENT_AUDIT",
+  "required_evidence": [
+    "independent_audit_pass",
+    "audit_blocker_count_zero",
+    "protected_effect_count_zero"
+  ],
+  "advances_acceptance_ids": [
+    "A-04-R0-V3-INDEPENDENT-AUDIT"
+  ],
+  "removes_blocker_ids": [],
+  "unmet_condition_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
+  "acceptance_ordinal": 4,
+  "blocker_ordinal": 0,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:a505b0b0c8c9a1f5dde10fbbb85dd614a1ec175dee48a7e0ce8ce4d55fce7af8",
+  "generation": 0,
+  "state_digest": "sha256:e4d1453346f2d811c81a11cf3f15de367cf6847157fe6a768ce0b76f2ec102e2",
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
+  },
+  "terminal_evidence": []
+}

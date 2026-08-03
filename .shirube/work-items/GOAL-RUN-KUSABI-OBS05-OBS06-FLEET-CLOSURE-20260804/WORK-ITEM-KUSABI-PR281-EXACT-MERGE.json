@@ -1,0 +1,62 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "aun://queue/147691/CH-KUSABI-OBS05-ORDER90-EXACT-HEAD-MERGE-20260803-001",
+  "handoff_digest": "sha256:3d7ae6330093aabdba92f85901eb8d54c35a736349ffc4f74491e33fb3a65c4c",
+  "allowed_operations": [
+    "FINAL_MERGE"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_AUDIT",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "LOCAL_DIRECT_ADAPTER",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "FINAL_MERGE",
+  "required_evidence": [
+    "owner_decision_readback",
+    "exact_merge_readback",
+    "main_ancestry_readback"
+  ],
+  "advances_acceptance_ids": [
+    "A-01-PR281-EXACT-MERGE"
+  ],
+  "removes_blocker_ids": [
+    "B-01-PR281-EXACT-MERGE"
+  ],
+  "unmet_condition_id": "A-01-PR281-EXACT-MERGE",
+  "acceptance_ordinal": 1,
+  "blocker_ordinal": 1,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:608e7409f36890f4aceeac6748c7614637157246c52abc0ae9165db83b6e9070",
+  "generation": 0,
+  "state_digest": "sha256:3f207bb4bcf9f2bbae56b7dbe76b1194b9c4685a16d4c44c65ea3f8a30eb78a3",
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
+  },
+  "terminal_evidence": []
+}

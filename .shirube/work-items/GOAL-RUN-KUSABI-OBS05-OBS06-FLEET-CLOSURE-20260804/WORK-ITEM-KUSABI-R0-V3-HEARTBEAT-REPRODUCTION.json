@@ -1,0 +1,61 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "allowed_operations": [
+    "LOCAL_DIRECT_ADAPTER"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_AUDIT",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "FINAL_MERGE",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "LOCAL_DIRECT_ADAPTER",
+  "required_evidence": [
+    "r0_v3_capture_a",
+    "ordinary_heartbeat_separation",
+    "r0_v3_capture_b",
+    "r0_v3_equality_matrix"
+  ],
+  "advances_acceptance_ids": [
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION"
+  ],
+  "removes_blocker_ids": [],
+  "unmet_condition_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+  "acceptance_ordinal": 3,
+  "blocker_ordinal": 0,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:bc148489d1810696f40a6e638f9651d855fce490483904fd5824fab2dee1c218",
+  "generation": 0,
+  "state_digest": "sha256:9d8c352608f3ed9c4746b4236eb87cc60f4045e9ead5c5ac92634fad537348d2",
+  "checkpoint": {
+    "event_sequence": 0,
+    "last_event_id": null,
+    "last_idempotency_key": null
+  },
+  "terminal_evidence": []
+}
