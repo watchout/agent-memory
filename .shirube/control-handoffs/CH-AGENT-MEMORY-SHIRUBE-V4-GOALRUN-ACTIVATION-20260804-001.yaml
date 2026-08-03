@@ -7,6 +7,18 @@ framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2
 repo_spec_ref: .shirube/repo-spec.yaml
 repo: watchout/agent-memory
 repo_local_issue: https://github.com/watchout/agent-memory/issues/280
+repository:
+  name: watchout/agent-memory
+owner_confirmation_ref: .shirube/evidence/rps-confirmation.yaml
+spec_review_state: ready_for_implementation
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: implementation
+escalation_route: >-
+  Stop before any production configuration, trust, database, runtime, restart,
+  rollout, merge, or owner-decision effect; route the exact subject through the
+  independent audit and protected owner gates declared by the GoalRun.
 control_source:
   kind: direct_owner_instruction
   ref: conversation:2026-08-04:apply-existing-shirube-goalrun-before-development
@@ -20,18 +32,13 @@ cell:
     ExecutionGoalBinding contracts to the Kusabi OBS-05/06 35-target goal so
     exact progress, blockers, targets, evidence, checkpoints, and the single
     next WorkItem are machine-readable before protected rollout resumes.
-  forbidden_paths:
-    - src/**
-    - app/**
-    - api/**
-    - lib/**
-    - db/**
-    - migrations/**
-    - .github/workflows/**
-    - deploy/**
-    - .env
-    - .env.*
-    - secrets/**
+  non_scope:
+    - Product runtime source changes.
+    - Database or migration changes.
+    - Agent identity, credential, configuration, or trust mutation.
+    - Runtime activation, restart, rollout, deployment, or TUI input.
+    - PR 281 head, tree, checks, or merge mutation.
+    - R1, R2, R3, or OBS-06 production effects.
 execution_context:
   agent_id: kusabi
   active_function: implementation_executor
@@ -47,6 +54,18 @@ allowed_paths:
   - scripts/shirube-v4-goal-control.mjs
   - scripts/test-shirube-v4-goal-control.mjs
   - package.json
+forbidden_paths:
+  - src/**
+  - app/**
+  - api/**
+  - lib/**
+  - db/**
+  - migrations/**
+  - .github/workflows/**
+  - deploy/**
+  - .env
+  - .env.*
+  - secrets/**
 forbidden_operations:
   - edit_product_runtime_src
   - edit_database_or_migrations
@@ -66,6 +85,24 @@ required_evidence:
   - false_completion_rejected
   - checkpoint_restart_readback_exact
   - production_effect_count_zero
+acceptance_criteria:
+  - Canonical validators accept the GoalRun, all 11 WorkItems, and the ExecutionGoalBinding.
+  - The frozen target count is exactly 35 and its sorted-key digest remains 69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec.
+  - Status and next select exactly one machine-readable WorkItem after restart recovery.
+  - A false VERIFIED_COMPLETE claim is rejected until every acceptance predicate and target readback is satisfied.
+  - The adoption diff creates zero production configuration, trust, database, runtime, restart, or rollout effects.
+validation:
+  required_commands:
+    - npm run test:shirube-v4-goal
+    - npm run shirube:v4:goal:check
+    - npm test
+    - npm run build
+    - git diff --check
+  required_evidence:
+    - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
+    - .shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json
+    - .shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json
+    - https://github.com/watchout/agent-memory/pull/282#issuecomment-5172690200
 stop_conditions:
   - canonical_shirube_contract_is_missing_or_incompatible
   - target_identity_set_differs_from_the_frozen_35
