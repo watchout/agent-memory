@@ -1,9 +1,17 @@
 schema_version: shirube-v3/control_handoff/v1
+mode: rapid-lite
+profile: hotel-lite
 control_handoff_id: CH-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2b
+repo_spec_ref: .shirube/repo-spec.yaml
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/280
 control_source:
   kind: direct_owner_instruction
   ref: conversation:2026-08-04:apply-existing-shirube-goalrun-before-development
 cell:
+  CELL-ID: CELL-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001
   id: CELL-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001
   cell_type: control_runtime_adoption
   risk_class: R4
@@ -12,6 +20,18 @@ cell:
     ExecutionGoalBinding contracts to the Kusabi OBS-05/06 35-target goal so
     exact progress, blockers, targets, evidence, checkpoints, and the single
     next WorkItem are machine-readable before protected rollout resumes.
+  forbidden_paths:
+    - src/**
+    - app/**
+    - api/**
+    - lib/**
+    - db/**
+    - migrations/**
+    - .github/workflows/**
+    - deploy/**
+    - .env
+    - .env.*
+    - secrets/**
 execution_context:
   agent_id: kusabi
   active_function: implementation_executor
