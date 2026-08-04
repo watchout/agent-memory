@@ -1,0 +1,99 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "aun://queue/147691/CH-KUSABI-OBS05-ORDER90-EXACT-HEAD-MERGE-20260803-001",
+  "handoff_digest": "sha256:3d7ae6330093aabdba92f85901eb8d54c35a736349ffc4f74491e33fb3a65c4c",
+  "allowed_operations": [
+    "FINAL_MERGE"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_AUDIT",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "LOCAL_DIRECT_ADAPTER",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "FINAL_MERGE",
+  "required_evidence": [
+    "owner_decision_readback",
+    "exact_merge_readback",
+    "main_ancestry_readback"
+  ],
+  "advances_acceptance_ids": [
+    "A-01-PR281-EXACT-MERGE"
+  ],
+  "removes_blocker_ids": [
+    "B-01-PR281-EXACT-MERGE"
+  ],
+  "unmet_condition_id": "A-01-PR281-EXACT-MERGE",
+  "acceptance_ordinal": 1,
+  "blocker_ordinal": 1,
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:bf3cba77982894f0f1902d8d31475ebef645fd8e6675d395b701cf34397e5727",
+  "generation": 1,
+  "state_digest": "sha256:04de577d6593f0e2941572ae28e25552104fd4423e124f29a44d45bf70b116fa",
+  "checkpoint": {
+    "event_sequence": 1,
+    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
+    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+  },
+  "terminal_evidence": [
+    {
+      "evidence_ref": "conversation:2026-08-04:explicit-merge-approval",
+      "evidence_class": "owner_decision_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": "B-01-PR281-EXACT-MERGE",
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "git-commit:867b7be7feed82ebb8c57334867858f16b8da341",
+      "evidence_class": "exact_merge_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "evidence_class": "main_ancestry_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
+}

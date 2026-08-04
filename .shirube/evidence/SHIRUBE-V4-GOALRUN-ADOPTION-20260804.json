@@ -1,0 +1,280 @@
+{
+  "schema_version": "shirube-v4/goalrun-adoption-check/v1",
+  "verdict": "PASS",
+  "canonical_framework": {
+    "contract_pr": "https://github.com/watchout/ai-dev-framework/pull/564",
+    "validator_set_digest": "sha256:bdfbb441e13285ebca741b469d8b97f6a590da1006911708a8e9e5c99a8ae0a4"
+  },
+  "goal_validator": {
+    "script": "canonical-shirube:scripts/shirube/validate-goal-run.mjs",
+    "script_sha256": "3b6363f2506bd5b2b647fe282de2df4febc555cf8bf88c672089da6d7b33ebd1",
+    "exit_code": 0,
+    "report": {
+      "schema": "shirube-goal-run-validation/v1",
+      "verdict": "PASS",
+      "would_block": false,
+      "file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+      "previous_file": "repo:.shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-0.json",
+      "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+      "generation": 1,
+      "state_digest": "sha256:5c244402b03b1cc99d7d85602f538f6ecb6dbd6424fa5594cecc705d58c8f68e",
+      "blockers": []
+    }
+  },
+  "work_item_validators": [
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:3a693b08a99d015fee257c138af15df4f6e664c1bfa249d67e3ce38fb0e38a45",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:e4e22ff856c61e68faab0bbb14689cea83183e120822a00421211b3fbf1bb4a6",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:f9410c953d69235f9a975e360926d39c54fcd0d2114b2223d9fa4830dfffc8de",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:61854cc2a335ee41618f31afc1b8fbdd592d8dc1d7ba8e8ad14f2181ec9bdb83",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-PR281-EXACT-MERGE.json",
+        "goal_run_file": null,
+        "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:04de577d6593f0e2941572ae28e25552104fd4423e124f29a44d45bf70b116fa",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:090088eedd80f119b65a5f93a2df637d753828aa860a9e3d4ae918d724cef91d",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:660bf0a366cf873a31cc0a125f0076eeb4f82c2fb10b0249bd7779f274aaa176",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-OWNER-GO.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:081f1355da40cfc456075038e847600ccb3d4b9ad3e56de5f34f234f6446c0fc",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R1-CANARY-3-OF-3.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:0d0aaeb2b7ecfac2869b3827e4a86c2771e2c902ce927009003a776431fbb544",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R2-PILOT-11-OF-11.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R2-PILOT-11-OF-11",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:566f7ae3443d307e6c898c22f0da5f8cd95fcf1e87340b307667b61c14fb76aa",
+        "blockers": []
+      }
+    },
+    {
+      "script": "canonical-shirube:scripts/shirube/validate-work-item-v2.mjs",
+      "script_sha256": "76f19bb4f948fc5b33d689cf54076ac9da3190546391dfde8a9257918175f2b6",
+      "exit_code": 0,
+      "report": {
+        "schema": "shirube-work-item-v2-validation/v1",
+        "verdict": "PASS",
+        "would_block": false,
+        "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R3-FLEET-35-OF-35.json",
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        "work_item_id": "WORK-ITEM-KUSABI-R3-FLEET-35-OF-35",
+        "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+        "generation": 1,
+        "state_digest": "sha256:cc85f3fdb38b64ec7c1d192904c125e8593af4b30352bfc1ae29babc7978887c",
+        "blockers": []
+      }
+    }
+  ],
+  "execution_binding_validator": {
+    "script": "canonical-shirube:scripts/shirube/validate-execution-goal-binding.mjs",
+    "script_sha256": "aefab4f59f3640e737980afd4622016c19cd5d76464b59516e539c473422e9d0",
+    "exit_code": 0,
+    "report": {
+      "schema": "shirube-execution-goal-binding-validation/v1",
+      "verdict": "PASS",
+      "would_block": false,
+      "file": "repo:.shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json",
+      "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+      "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+      "generation": 1,
+      "state_digest": "sha256:5c244402b03b1cc99d7d85602f538f6ecb6dbd6424fa5594cecc705d58c8f68e",
+      "blockers": []
+    }
+  },
+  "status": {
+    "schema_version": "shirube-v4/goal-status/v1",
+    "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+    "status": "ACTIVE",
+    "generation": 1,
+    "state_digest": "sha256:5c244402b03b1cc99d7d85602f538f6ecb6dbd6424fa5594cecc705d58c8f68e",
+    "acceptance": {
+      "passed": 1,
+      "total": 11,
+      "percent": 9
+    },
+    "targets": {
+      "live_exact": 0,
+      "rollback_exact": 0,
+      "total": 35
+    },
+    "blockers": [],
+    "next_work_item": {
+      "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "required_operation": "LOCAL_DIRECT_ADAPTER",
+      "required_evidence": [
+        "clean_build_readback",
+        "content_addressed_release_readback",
+        "entrypoint_digest_readback"
+      ],
+      "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+      "dispatch_idempotency_key": "sha256:9ebbca80c5a8339bb297c5ed6b31decdc39e638b20c08b1231f07bbc9123e888"
+    },
+    "can_continue": true,
+    "next_action": {
+      "blocking": false,
+      "actor_agent_id": "kusabi",
+      "active_function": "implementation_executor",
+      "action": "Execute WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE within its exact control handoff and return all required evidence.",
+      "deliver_via": "WorkItem terminal evidence and GoalRun generation update",
+      "exact_input_refs": [
+        "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+        ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
+        ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json"
+      ],
+      "scope": "Only operation LOCAL_DIRECT_ADAPTER; forbidden operations remain denied by WorkItem v2.",
+      "deliverable": [
+        "clean_build_readback",
+        "content_addressed_release_readback",
+        "entrypoint_digest_readback"
+      ],
+      "completion_evidence": "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback."
+    }
+  },
+  "frozen_target_set_sha256": "69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec",
+  "production_effect_count": 0
+}

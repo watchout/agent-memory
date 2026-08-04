@@ -1,0 +1,60 @@
+{
+  "schema_version": "shirube-work-item/v2",
+  "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "parent_work_item_id": null,
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "allowed_operations": [
+    "INDEPENDENT_AUDIT"
+  ],
+  "forbidden_operations": [
+    "WORK_ITEM_DISPATCH",
+    "INDEPENDENT_REAUDIT",
+    "PARENT_RETURN",
+    "EVIDENCE_RECORD",
+    "INTERNAL_REPLY",
+    "GITHUB_WRITEBACK",
+    "DEPENDENCY_BYPASS",
+    "LOCAL_DIRECT_ADAPTER",
+    "EXACT_CONTROL_HANDOFF_ACQUISITION",
+    "DESIGN_GAP_RETURN",
+    "FINAL_MERGE",
+    "CONTROL_DOC_MERGE",
+    "PROTECTED_OWNER_DECISION",
+    "SCHEMA_MIGRATION",
+    "RUNTIME_RUNNER_ACTIVATION",
+    "PROVIDER_AUN_ACTIVATION",
+    "WORKFLOW_PROTECTION",
+    "SECRET_MUTATION",
+    "DEPLOY",
+    "EXTERNAL_SEND",
+    "ENROLLMENT_FLEET_CUTOVER",
+    "AUTHORITY_MUTATION",
+    "ROOT_CANCEL",
+    "ROOT_SUPERSEDE"
+  ],
+  "required_operation": "INDEPENDENT_AUDIT",
+  "required_evidence": [
+    "independent_audit_pass",
+    "audit_blocker_count_zero",
+    "protected_effect_count_zero"
+  ],
+  "advances_acceptance_ids": [
+    "A-04-R0-V3-INDEPENDENT-AUDIT"
+  ],
+  "removes_blocker_ids": [],
+  "unmet_condition_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
+  "acceptance_ordinal": 4,
+  "blocker_ordinal": 0,
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:fbaccc3eb54b3d42d62aa18e26f6ad3551f4422a109ebea0b960f46571fc2c89",
+  "generation": 1,
+  "state_digest": "sha256:660bf0a366cf873a31cc0a125f0076eeb4f82c2fb10b0249bd7779f274aaa176",
+  "checkpoint": {
+    "event_sequence": 1,
+    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
+    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+  },
+  "terminal_evidence": []
+}

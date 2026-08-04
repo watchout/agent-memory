@@ -1,0 +1,579 @@
+{
+  "schema_version": "shirube-goal-run/v1",
+  "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
+  "objective": "Distribute the exact PR 281 Kusabi implementation to all 35 frozen eligible production bindings, prove exact durable live and rollback state through R1/R2/R3, sustain OBS-06 for 24 continuous hours and 96 checkpoints, and close only with independent verification and authenticated owner closure; Shirube V4 application itself is control infrastructure, not completion evidence.",
+  "objective_digest": "sha256:9d62fb19932ee7626e69b17a04aa004dc2181e6c0051ec4811463632780bb8c1",
+  "acceptance_set": [
+    {
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "ordinal": 1,
+      "predicate": "PR 281 approved head 85c852cb and tree acda601d are normally merged, the merge tree equals acda601d, and the merge commit is an ancestor of main.",
+      "evidence_classes": [
+        "owner_decision_readback",
+        "exact_merge_readback",
+        "main_ancestry_readback"
+      ]
+    },
+    {
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "ordinal": 2,
+      "predicate": "A clean detached post-merge build is published once to the content-addressed runtime store with exact release, dist-tree, entrypoint, mode, and provenance readback.",
+      "evidence_classes": [
+        "clean_build_readback",
+        "content_addressed_release_readback",
+        "entrypoint_digest_readback"
+      ]
+    },
+    {
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "ordinal": 3,
+      "predicate": "Two read-only R0 v3 captures separated by ordinary heartbeat advance reproduce the same 35 target identities, stable binding refs, manifest, plan, expected postimages, rollback preimages, batch topology, and release descriptor.",
+      "evidence_classes": [
+        "r0_v3_capture_a",
+        "ordinary_heartbeat_separation",
+        "r0_v3_capture_b",
+        "r0_v3_equality_matrix"
+      ]
+    },
+    {
+      "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
+      "ordinal": 4,
+      "predicate": "An independent exact-ref audit verifies the immutable release and R0 v3 pack with zero blocking findings and zero protected rollout effects.",
+      "evidence_classes": [
+        "independent_audit_pass",
+        "audit_blocker_count_zero",
+        "protected_effect_count_zero"
+      ]
+    },
+    {
+      "acceptance_id": "A-05-R0-V3-OWNER-GO",
+      "ordinal": 5,
+      "predicate": "A new authenticated owner decision binds the exact merge, release, stable-binding contracts, manifest, plan, R0 hashes, 35-target set, batch topology, audit PASS, and explicit R1/R2/R3 grants.",
+      "evidence_classes": [
+        "owner_exact_subject_readback",
+        "owner_r1_r2_r3_grant"
+      ]
+    },
+    {
+      "acceptance_id": "A-06-R1-CANARY-3-OF-3",
+      "ordinal": 6,
+      "predicate": "The frozen Codex, Claude Code, and Gemini CLI canary targets pass exact deployment, durable event, identity, recovery, alert, privacy, and ordinary-use checks 3 of 3.",
+      "evidence_classes": [
+        "r1_stage_report",
+        "r1_exact_durable_readback",
+        "r1_alert_privacy_recovery_smoke"
+      ]
+    },
+    {
+      "acceptance_id": "A-07-R2-PILOT-11-OF-11",
+      "ordinal": 7,
+      "predicate": "All 11 frozen R2 targets are exact and durable with zero failed, drifted, not_observed, or open P0/P1, backend parity 100 percent, and one hour without repeated degradation.",
+      "evidence_classes": [
+        "r2_stage_report",
+        "r2_one_hour_observation",
+        "r2_backend_parity_readback"
+      ]
+    },
+    {
+      "acceptance_id": "A-08-R3-FLEET-35-OF-35",
+      "ordinal": 8,
+      "predicate": "All 21 frozen R3 targets complete in deterministic batches and the cumulative frozen manifest is exact and durable 35 of 35 with registry equality and zero blockers or privacy violations.",
+      "evidence_classes": [
+        "r3_batch_reports",
+        "full_manifest_obs04_readback",
+        "registry_manifest_equality_35_of_35"
+      ]
+    },
+    {
+      "acceptance_id": "A-09-POSTIMPLEMENTATION-AUDIT",
+      "ordinal": 9,
+      "predicate": "Independent postimplementation verification accepts the exact merged runtime and all rollout, rollback, privacy, parity, alert, and failure-isolation evidence with zero blockers.",
+      "evidence_classes": [
+        "postimplementation_audit_pass",
+        "postimplementation_blocker_count_zero"
+      ]
+    },
+    {
+      "acceptance_id": "A-10-OBS06-24H-96-CHECKPOINTS",
+      "ordinal": 10,
+      "predicate": "For 24 continuous hours and all 96 checkpoints, all 35 targets remain exact and durable with zero failed, drifted, not_observed, privacy escape, open P0/P1, or repeated degradation and with backend parity 100 percent.",
+      "evidence_classes": [
+        "obs06_96_checkpoint_packet",
+        "obs06_final_exact_snapshot",
+        "obs06_alert_latency_and_backend_parity"
+      ]
+    },
+    {
+      "acceptance_id": "A-11-FINAL-OWNER-CLOSURE",
+      "ordinal": 11,
+      "predicate": "Independent closure review passes with zero blockers and the authenticated owner closes the exact 96-checkpoint packet with next_action none.",
+      "evidence_classes": [
+        "independent_closure_review_pass",
+        "authenticated_owner_closure",
+        "next_action_none"
+      ]
+    }
+  ],
+  "acceptance_digest": "sha256:7b47b8d619de137c7be1ced0e5bae436e36cf798ff47a02ef9a58a51bd7286d0",
+  "target_manifest_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json#sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
+  "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
+  "status": "ACTIVE",
+  "generation": 1,
+  "state_digest": "sha256:5c244402b03b1cc99d7d85602f538f6ecb6dbd6424fa5594cecc705d58c8f68e",
+  "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+  "blocker_set": [],
+  "acceptance_states": [
+    {
+      "acceptance_id": "A-01-PR281-EXACT-MERGE",
+      "status": "VERIFIED_PASS",
+      "evidence_refs": [
+        "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+        "git-commit:867b7be7feed82ebb8c57334867858f16b8da341",
+        "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50"
+      ]
+    },
+    {
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-05-R0-V3-OWNER-GO",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-06-R1-CANARY-3-OF-3",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-07-R2-PILOT-11-OF-11",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-08-R3-FLEET-35-OF-35",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-09-POSTIMPLEMENTATION-AUDIT",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-10-OBS06-24H-96-CHECKPOINTS",
+      "status": "UNMET",
+      "evidence_refs": []
+    },
+    {
+      "acceptance_id": "A-11-FINAL-OWNER-CLOSURE",
+      "status": "UNMET",
+      "evidence_refs": []
+    }
+  ],
+  "target_states": [
+    {
+      "target_id": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "055ae80199cce2a5c7533e2f05e4e945844158df082c00b55a9c1246fa5de3e3",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "1a2f91d787c903093b286d195a91cd3c0bf6004ff655cff46ad4e2fb480119a9",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "1de95b3a2388e35f24870a9caf316b1adb8572e27990badf48eeea59629212ed",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "1e41ea72881e275538bd287644e803bccf61bcdd64be44fedad7e4a1338f93b7",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "210c4f7f8c7d8d8d928e141b883ef3f97289c431c7295fe7b34db63cd91675f1",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "2565d749b6d666d263c91ab4f8fbf7c7d0385daa5d4154eb026dce5537030c57",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "29b64b09026280d82cc59d84827e6dde731d3d4f4bce46f1204b7adbe4ca8cd1",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "2ba7a702a9980b252b6e0dca46ef711d08dd98c83b1a743529d6788e8521f367",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "3727410c88f6fe2f37ce6a33b63d2ae3909dce3947c45242f62090cfce9240c8",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "3c4696864b0a1d69c5f514efc5e85f9fce1d7581094065c40020fbb8542e1f91",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "3d2c918d728142fbc1b796fb9932e77c5c582001063daf3f0ff6e8a1d9378e0b",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "468ced53794a56f6948e651c0392d2d93e2252c9929f7be74f52af4f60496beb",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "53a562e805be00eff910774d611d932bd38f25b2fc4f892ff5c40108e92f83ec",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "62023fd5ffc83b27fcaac33c4ba30d111440117d807442111ab61a96c6b8e90a",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "703f9e3cff45648013f33085f36adf89cc8997a6ccd0bf7bd957888c3d60c641",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "73b56298fa2c985067c6a21485919605e6646fbbdd04911d678ada61b0f66e96",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "7c93308370a4320cf9e9f0ec612dac8a810471383afaff2cefe76580ba1de50a",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "7f42067bae8d79cfe8c27bb1e7a8d6f96dc2fca09864b6188c3afc3398d24ead",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "84a31591179202a7978ae47f75de8e678bec1c07f2f7c5004ba17dd2be1abc08",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "876d8eaa489b3d854dfa25a081d8eb2c9f836742f2a190e4fe61b71362ebb527",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "8e39779d4eeebc794f5396fc3eb9070ae3df20e7f89c6eeb0e0875a6b8426c35",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "9685df2ff2d96f56af89cf6e9a9ef5d6e42b567588cff9df9b0907945120f43b",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "99f895ae449f4608f42d7f89c83e2c5ff4b0a4ac7d9b189f74f490474785f2bb",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "b91a83d2690ab9d9e4950a24add03ad9aac57349ea45ed3cbec627397579b3f1",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "bb4e46cfb2f0518816c45a5645376c29a1c1565d0031383c09c9de58cd8ad77c",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "c7b5fbc47a79d95b96cfb641bac3c29fe2454414869f58343d6617044eb0f25a",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "cbe0be8c2424578f7e6e3d3571bdadfa7575c436751a39b9a69d58f773e86a6d",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "d2307337c759a1fb90ea88e8ea625b7d6ec2752b13438318e3a4221bee4a3a38",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "d30dfaa65c5b80ca461424da863f57a9a125ae9d1714eab8ba502e9c102c5be7",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "e6aa05d740a2a4fd72fe96e0a06bd6a0e64f567f55cb518e2cc0cfe948668135",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "e9bcf1d0e5d72cfa3a5dadeffceec06a50f0955fcd86f3d7ac7f38522ff219c2",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "ea1ffe420834bf827d94fa0922910b3ed2fa85e5c3d876456ecbde5c375c3d6d",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "f746298c9fa7050c2416becc693207bad5563c2d569adfb4aa94d911e0b692ce",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    },
+    {
+      "target_id": "fde846a9929a735b45ccea34ad019837f2e49c92f21fab8b8df031e1955c78a7",
+      "expected_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "live_exact_version": null,
+      "rollback_exact_version": null,
+      "live_evidence_ref": null,
+      "rollback_evidence_ref": null,
+      "live_observed_at": null,
+      "rollback_observed_at": null,
+      "evidence_fresh_until": null
+    }
+  ],
+  "checkpoint": {
+    "event_sequence": 1,
+    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
+    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+  },
+  "verified_completion_evidence": []
+}

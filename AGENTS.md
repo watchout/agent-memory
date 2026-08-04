@@ -49,3 +49,38 @@ Common DB alignment stays on
 https://github.com/watchout/agent-memory/issues/147. Wasurezu owns
 memory/recovery product state; common identity/runtime registries remain common
 infrastructure.
+
+## Wasurezu Startup Recovery
+
+The first tool call after startup, compaction, or restart must be
+`mcp__wasurezu__recover_context` with `project: "agent-memory"`. Use the result
+as the recovery baseline before shell commands, file reads, AUN checks, or
+agent-comms checks. If context is missing or ambiguous, call
+`mcp__wasurezu__search_memory` with `scope: "all"` and a concrete query.
+
+## Shirube V4 GoalRun Binding
+
+Shirube V3 remains the authority and function-boundary policy. For the active
+Kusabi OBS-05/06 fleet-closure goal, Shirube V4 GoalRun contracts are the
+machine-readable convergence layer inside those boundaries.
+
+After the mandatory Wasurezu recovery call and before acting on this goal:
+
+1. Run `npm run shirube:v4:goal:check`.
+2. Run `npm run shirube:v4:goal:status` and `npm run shirube:v4:goal:next`.
+3. Read the selected WorkItem and its exact `control_handoff_ref`.
+4. Continue immediately when `next_action` names the current agent/function
+   and the operation is allowed. Route the exact structured `next_action` when
+   another actor is named. Do not stop on progress reports, ACKs, queue receipts,
+   or declarations.
+
+The active artifacts are:
+
+- `.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json`
+- `.shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json`
+- `.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/`
+
+Do not claim closure from a message, queue state, green CI, or an unverified
+counter. Closure requires canonical validation, GoalRun
+`status=VERIFIED_COMPLETE`, all acceptance predicates verified, all 35 targets
+exact with required live/rollback evidence, and `next_action: none`.
