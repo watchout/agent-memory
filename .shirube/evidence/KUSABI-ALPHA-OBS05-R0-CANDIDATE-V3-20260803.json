@@ -3,7 +3,14 @@
   "control_source": {
     "ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5174906906",
     "body_sha256": "cb6d381472a02efe01e703343299bbc2c60f80650a00403f99e276c6e7ecf4e5",
-    "predecessor_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243"
+    "predecessor_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+    "publisher_convergence": {
+      "amendment_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5175129084",
+      "amendment_body_sha256": "a54c6b0f80e435480bf3fa176697dd5aa828e7be7df2846f1617496fc9417ca6",
+      "owner_decision_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5175361840",
+      "execution_evidence_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5175422365",
+      "readback_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5175453878"
+    }
   },
   "exact_subject": {
     "approved_head": "85c852cb527fc1c5f96deb0c2ebec35737dcd2c1",
@@ -12,6 +19,29 @@
     "merged_tree_sha": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
     "release_descriptor_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
     "dist_tree_sha256": "6c8b380f14814d2456db6b1afedafa8eea99223974919176d81d602e9cea508a"
+  },
+  "publisher_convergence": {
+    "verdict": "PASS_RUNTIME_CONVERGENCE",
+    "freshness_window_seconds": 300,
+    "retained_server_runtime_instance_ids": [
+      "97221021-6ecb-4f24-8e3f-ce7fdb60128f",
+      "26bdb59e-d4d9-4270-a550-dc32aec4785f",
+      "93148d09-2c1a-4e64-9b15-294dbe605b56"
+    ],
+    "aged_out_cli_runtime_instance_ids": [
+      "039a8d81-9c56-41ed-bf85-39cf66a78fc6",
+      "232be3f6-7e6d-443f-ac96-628cf7e025fe",
+      "b1f2698e-cafd-4797-a735-61a4c5f70d19"
+    ],
+    "heartbeat_launch_agent_post_sha256": {
+      "design": "acab149abacab9f9d040f3153757e70b645a5942d55e6882fed77843519d6980",
+      "devauditor": "158ad1e9bd2d23ea4c114c1631b420ed850243a4325c53be0586a4dbbc014e85",
+      "hotel-dev": "73f3172b6194415bf88bb3f79a3410b66874da44f629e9f596e27b47ae32fa0f"
+    },
+    "exact_one_fresh_server_runtime_per_target": true,
+    "direct_database_mutations": 0,
+    "non_target_restarts": 0,
+    "rollback_triggered": false
   },
   "stable_binding_contracts": {
     "primary": {
@@ -28,70 +58,70 @@
   "capture_a": {
     "schema_version": "kusabi-fleet-r0-preflight-capture/v3",
     "capture_label": "A",
-    "database_observed_at": "2026-08-04T05:43:17.122Z",
-    "logical_snapshot_captured_at": "2026-08-04T05:43:17.121Z",
+    "database_observed_at": "2026-08-04T06:35:23.640Z",
+    "logical_snapshot_captured_at": "2026-08-04T06:35:23.639Z",
     "release_descriptor_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
     "database_row_count": 33,
     "heartbeat_rows": [
       {
         "agent_id": "adf-lead",
-        "binding_updated_at": "2026-08-04T05:43:05.887Z",
-        "workspace_updated_at": "2026-08-04T05:43:05.887Z"
+        "binding_updated_at": "2026-08-04T06:33:05.775Z",
+        "workspace_updated_at": "2026-08-04T06:33:05.775Z"
       },
       {
         "agent_id": "arc",
-        "binding_updated_at": "2026-08-04T05:42:34.877Z",
-        "workspace_updated_at": "2026-08-04T05:42:34.877Z"
+        "binding_updated_at": "2026-08-04T06:32:34.765Z",
+        "workspace_updated_at": "2026-08-04T06:32:34.765Z"
       },
       {
         "agent_id": "aun",
-        "binding_updated_at": "2026-08-04T05:40:18.783Z",
-        "workspace_updated_at": "2026-08-04T05:40:18.782Z"
+        "binding_updated_at": "2026-08-04T06:35:18.682Z",
+        "workspace_updated_at": "2026-08-04T06:35:18.681Z"
       },
       {
         "agent_id": "check",
-        "binding_updated_at": "2026-08-04T05:38:55.942Z",
-        "workspace_updated_at": "2026-08-04T05:38:55.942Z"
+        "binding_updated_at": "2026-08-04T06:33:55.835Z",
+        "workspace_updated_at": "2026-08-04T06:33:55.834Z"
       },
       {
         "agent_id": "codex-audit",
-        "binding_updated_at": "2026-08-03T22:12:57.210Z",
-        "workspace_updated_at": "2026-08-03T22:12:57.209Z"
+        "binding_updated_at": "2026-08-04T06:05:36.975Z",
+        "workspace_updated_at": "2026-08-04T06:05:36.974Z"
       },
       {
         "agent_id": "codex-cto",
-        "binding_updated_at": "2026-08-04T05:38:49.998Z",
-        "workspace_updated_at": "2026-08-04T05:38:49.998Z"
+        "binding_updated_at": "2026-08-04T06:33:49.889Z",
+        "workspace_updated_at": "2026-08-04T06:33:49.888Z"
       },
       {
         "agent_id": "design",
-        "binding_updated_at": "2026-08-04T05:43:15.899Z",
-        "workspace_updated_at": "2026-08-04T05:43:15.898Z"
+        "binding_updated_at": "2026-08-04T06:35:12.060Z",
+        "workspace_updated_at": "2026-08-04T06:35:12.059Z"
       },
       {
         "agent_id": "dev-001",
-        "binding_updated_at": "2026-08-04T05:39:04.873Z",
-        "workspace_updated_at": "2026-08-04T05:39:04.872Z"
+        "binding_updated_at": "2026-08-04T06:34:04.765Z",
+        "workspace_updated_at": "2026-08-04T06:34:04.765Z"
       },
       {
         "agent_id": "devauditor",
-        "binding_updated_at": "2026-08-04T05:43:11.511Z",
-        "workspace_updated_at": "2026-08-04T05:43:11.510Z"
+        "binding_updated_at": "2026-08-04T06:30:24.890Z",
+        "workspace_updated_at": "2026-08-04T06:30:24.890Z"
       },
       {
         "agent_id": "haishin-dev",
-        "binding_updated_at": "2026-08-04T05:39:20.600Z",
-        "workspace_updated_at": "2026-08-04T05:39:20.599Z"
+        "binding_updated_at": "2026-08-04T06:34:20.500Z",
+        "workspace_updated_at": "2026-08-04T06:34:20.499Z"
       },
       {
         "agent_id": "hotel-dev",
-        "binding_updated_at": "2026-08-04T05:43:15.900Z",
-        "workspace_updated_at": "2026-08-04T05:43:15.900Z"
+        "binding_updated_at": "2026-08-04T06:33:39.021Z",
+        "workspace_updated_at": "2026-08-04T06:33:39.020Z"
       },
       {
         "agent_id": "hotel-lead",
-        "binding_updated_at": "2026-08-04T05:38:39.364Z",
-        "workspace_updated_at": "2026-08-04T05:38:39.364Z"
+        "binding_updated_at": "2026-08-04T06:33:39.263Z",
+        "workspace_updated_at": "2026-08-04T06:33:39.262Z"
       },
       {
         "agent_id": "kodama",
@@ -100,53 +130,53 @@
       },
       {
         "agent_id": "kusabi",
-        "binding_updated_at": "2026-08-04T05:38:36.037Z",
-        "workspace_updated_at": "2026-08-04T05:38:36.036Z"
+        "binding_updated_at": "2026-08-04T06:33:35.927Z",
+        "workspace_updated_at": "2026-08-04T06:33:35.926Z"
       },
       {
         "agent_id": "marketing-bot",
-        "binding_updated_at": "2026-08-04T05:38:52.055Z",
-        "workspace_updated_at": "2026-08-04T05:38:52.054Z"
+        "binding_updated_at": "2026-08-04T06:33:51.951Z",
+        "workspace_updated_at": "2026-08-04T06:33:51.951Z"
       },
       {
         "agent_id": "misell",
-        "binding_updated_at": "2026-08-04T05:38:45.082Z",
-        "workspace_updated_at": "2026-08-04T05:38:45.080Z"
+        "binding_updated_at": "2026-08-04T06:33:44.979Z",
+        "workspace_updated_at": "2026-08-04T06:33:44.979Z"
       },
       {
         "agent_id": "nyusatsu-dev",
-        "binding_updated_at": "2026-08-04T05:38:40.922Z",
-        "workspace_updated_at": "2026-08-04T05:38:40.921Z"
+        "binding_updated_at": "2026-08-04T06:33:40.810Z",
+        "workspace_updated_at": "2026-08-04T06:33:40.810Z"
       },
       {
         "agent_id": "org-build-dev",
-        "binding_updated_at": "2026-08-04T05:39:39.171Z",
-        "workspace_updated_at": "2026-08-04T05:39:39.171Z"
+        "binding_updated_at": "2026-08-04T06:34:39.072Z",
+        "workspace_updated_at": "2026-08-04T06:34:39.072Z"
       },
       {
         "agent_id": "pfaun",
-        "binding_updated_at": "2026-08-04T05:38:43.323Z",
-        "workspace_updated_at": "2026-08-04T05:38:43.322Z"
+        "binding_updated_at": "2026-08-04T06:33:43.223Z",
+        "workspace_updated_at": "2026-08-04T06:33:43.223Z"
       },
       {
         "agent_id": "qa",
-        "binding_updated_at": "2026-08-04T05:38:42.398Z",
-        "workspace_updated_at": "2026-08-04T05:38:42.396Z"
+        "binding_updated_at": "2026-08-04T06:33:42.286Z",
+        "workspace_updated_at": "2026-08-04T06:33:42.285Z"
       },
       {
         "agent_id": "research-lead",
-        "binding_updated_at": "2026-08-04T05:38:29.530Z",
-        "workspace_updated_at": "2026-08-04T05:38:29.520Z"
+        "binding_updated_at": "2026-08-04T06:33:29.424Z",
+        "workspace_updated_at": "2026-08-04T06:33:29.423Z"
       },
       {
         "agent_id": "sales-bot",
-        "binding_updated_at": "2026-08-04T05:38:55.598Z",
-        "workspace_updated_at": "2026-08-04T05:38:55.597Z"
+        "binding_updated_at": "2026-08-04T06:33:55.492Z",
+        "workspace_updated_at": "2026-08-04T06:33:55.492Z"
       },
       {
         "agent_id": "secretary",
-        "binding_updated_at": "2026-08-04T05:38:50.688Z",
-        "workspace_updated_at": "2026-08-04T05:38:50.688Z"
+        "binding_updated_at": "2026-08-04T06:33:50.582Z",
+        "workspace_updated_at": "2026-08-04T06:33:50.582Z"
       },
       {
         "agent_id": "spec",
@@ -155,23 +185,23 @@
       },
       {
         "agent_id": "suite-lead",
-        "binding_updated_at": "2026-08-04T05:38:47.622Z",
-        "workspace_updated_at": "2026-08-04T05:38:47.621Z"
+        "binding_updated_at": "2026-08-04T06:33:47.513Z",
+        "workspace_updated_at": "2026-08-04T06:33:47.512Z"
       },
       {
         "agent_id": "takumi",
-        "binding_updated_at": "2026-08-04T05:38:41.512Z",
-        "workspace_updated_at": "2026-08-04T05:38:41.511Z"
+        "binding_updated_at": "2026-08-04T06:33:41.401Z",
+        "workspace_updated_at": "2026-08-04T06:33:41.401Z"
       },
       {
         "agent_id": "upwork-dev",
-        "binding_updated_at": "2026-08-04T05:39:44.188Z",
-        "workspace_updated_at": "2026-08-04T05:39:44.187Z"
+        "binding_updated_at": "2026-08-04T06:34:44.090Z",
+        "workspace_updated_at": "2026-08-04T06:34:44.090Z"
       },
       {
         "agent_id": "versa",
-        "binding_updated_at": "2026-08-04T05:38:43.649Z",
-        "workspace_updated_at": "2026-08-04T05:38:43.649Z"
+        "binding_updated_at": "2026-08-04T06:33:43.537Z",
+        "workspace_updated_at": "2026-08-04T06:33:43.537Z"
       },
       {
         "agent_id": "vice",
@@ -180,23 +210,23 @@
       },
       {
         "agent_id": "wbs-dev",
-        "binding_updated_at": "2026-08-04T05:39:57.999Z",
-        "workspace_updated_at": "2026-08-04T05:39:57.998Z"
+        "binding_updated_at": "2026-08-04T06:34:57.896Z",
+        "workspace_updated_at": "2026-08-04T06:34:57.896Z"
       },
       {
         "agent_id": "webb-dev",
-        "binding_updated_at": "2026-08-04T05:40:04.365Z",
-        "workspace_updated_at": "2026-08-04T05:40:04.364Z"
+        "binding_updated_at": "2026-08-04T06:35:04.265Z",
+        "workspace_updated_at": "2026-08-04T06:35:04.265Z"
       },
       {
         "agent_id": "xmarketing-dev",
-        "binding_updated_at": "2026-08-04T05:40:11.119Z",
-        "workspace_updated_at": "2026-08-04T05:40:11.118Z"
+        "binding_updated_at": "2026-08-04T06:35:11.105Z",
+        "workspace_updated_at": "2026-08-04T06:35:11.104Z"
       },
       {
         "agent_id": "zumen",
-        "binding_updated_at": "2026-08-04T05:38:50.194Z",
-        "workspace_updated_at": "2026-08-04T05:38:50.193Z"
+        "binding_updated_at": "2026-08-04T06:33:50.085Z",
+        "workspace_updated_at": "2026-08-04T06:33:50.085Z"
       }
     ],
     "runtime_classification": {
@@ -207,8 +237,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:05.887Z",
-          "workspace_updated_at": "2026-08-04T05:43:05.887Z",
+          "binding_updated_at": "2026-08-04T06:33:05.775Z",
+          "workspace_updated_at": "2026-08-04T06:33:05.775Z",
           "stable_binding_ref_sha256": "ee7d059a38919012843ad3254d18caca4070534becc0f6adcf0e277a1a41e18e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -218,8 +248,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:42:34.877Z",
-          "workspace_updated_at": "2026-08-04T05:42:34.877Z",
+          "binding_updated_at": "2026-08-04T06:32:34.765Z",
+          "workspace_updated_at": "2026-08-04T06:32:34.765Z",
           "stable_binding_ref_sha256": "bf62e072845bc0cf9599b5586c6ce388df56e6776ba9bfbeb8ba9e50b2d4f996",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -229,8 +259,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:40:18.783Z",
-          "workspace_updated_at": "2026-08-04T05:40:18.782Z",
+          "binding_updated_at": "2026-08-04T06:35:18.682Z",
+          "workspace_updated_at": "2026-08-04T06:35:18.681Z",
           "stable_binding_ref_sha256": "3bad38720c27462d169c57c7323b6bc8bf11dcee86e44eae67bd935fcef6255f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -240,8 +270,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:55.942Z",
-          "workspace_updated_at": "2026-08-04T05:38:55.942Z",
+          "binding_updated_at": "2026-08-04T06:33:55.835Z",
+          "workspace_updated_at": "2026-08-04T06:33:55.834Z",
           "stable_binding_ref_sha256": "6c7e295a70e07b7e7ed403ced9cdbd144da276ece47adcb592360ede78e055a1",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -251,8 +281,8 @@
           "agent_runtime_status": "offline",
           "active_heartbeat_capable_runtime_instance_count": 0,
           "matching_active_runtime_instance_count": 0,
-          "binding_updated_at": "2026-08-03T22:12:57.210Z",
-          "workspace_updated_at": "2026-08-03T22:12:57.209Z",
+          "binding_updated_at": "2026-08-04T06:05:36.975Z",
+          "workspace_updated_at": "2026-08-04T06:05:36.974Z",
           "stable_binding_ref_sha256": "5cb445f852e9ea54f0589adff804b593cf58cae1bc8964e650cf08d030d6cb27",
           "classification": "offline_non_emitter",
           "reason_code": "OFFLINE_ZERO_ACTIVE_RUNTIME"
@@ -262,8 +292,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:49.998Z",
-          "workspace_updated_at": "2026-08-04T05:38:49.998Z",
+          "binding_updated_at": "2026-08-04T06:33:49.889Z",
+          "workspace_updated_at": "2026-08-04T06:33:49.888Z",
           "stable_binding_ref_sha256": "f60ffc4e9ebefd4096a119be637c9f01f3936057e843662d02b59f08066183cc",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -273,8 +303,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:15.899Z",
-          "workspace_updated_at": "2026-08-04T05:43:15.898Z",
+          "binding_updated_at": "2026-08-04T06:35:12.060Z",
+          "workspace_updated_at": "2026-08-04T06:35:12.059Z",
           "stable_binding_ref_sha256": "8dcbf4dd49f662d29ca1fae5f9e2fc487d197ff496e8d190bd3321c7f6c7b29f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -284,8 +314,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:39:04.873Z",
-          "workspace_updated_at": "2026-08-04T05:39:04.872Z",
+          "binding_updated_at": "2026-08-04T06:34:04.765Z",
+          "workspace_updated_at": "2026-08-04T06:34:04.765Z",
           "stable_binding_ref_sha256": "42de8c84d7f20c9fe9262e81486d8669d625596192d547dbefef23c942854f5e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -295,8 +325,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:11.511Z",
-          "workspace_updated_at": "2026-08-04T05:43:11.510Z",
+          "binding_updated_at": "2026-08-04T06:30:24.890Z",
+          "workspace_updated_at": "2026-08-04T06:30:24.890Z",
           "stable_binding_ref_sha256": "3fa3b4c74f5333bdcbc1c3887fe2361a18a950982e10bab0239a102b9d04512e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -306,8 +336,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:39:20.600Z",
-          "workspace_updated_at": "2026-08-04T05:39:20.599Z",
+          "binding_updated_at": "2026-08-04T06:34:20.500Z",
+          "workspace_updated_at": "2026-08-04T06:34:20.499Z",
           "stable_binding_ref_sha256": "762973aa1f6bcfa32320063823e306b5d268c36ba67656b7d88d3987942f3f18",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -317,8 +347,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:15.900Z",
-          "workspace_updated_at": "2026-08-04T05:43:15.900Z",
+          "binding_updated_at": "2026-08-04T06:33:39.021Z",
+          "workspace_updated_at": "2026-08-04T06:33:39.020Z",
           "stable_binding_ref_sha256": "bd7972eb222ecac61df6e25c41bc24c44a2a534e701e3a7d9a4c470615c3a747",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -328,8 +358,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:39.364Z",
-          "workspace_updated_at": "2026-08-04T05:38:39.364Z",
+          "binding_updated_at": "2026-08-04T06:33:39.263Z",
+          "workspace_updated_at": "2026-08-04T06:33:39.262Z",
           "stable_binding_ref_sha256": "91904fc2b8cd2c79bb5da8975ec65b675af3a9d3d82004feffb2b8895f01dfc0",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -350,8 +380,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:36.037Z",
-          "workspace_updated_at": "2026-08-04T05:38:36.036Z",
+          "binding_updated_at": "2026-08-04T06:33:35.927Z",
+          "workspace_updated_at": "2026-08-04T06:33:35.926Z",
           "stable_binding_ref_sha256": "1d91f0bf1621f91385ca422f31a3cba6f30b059b8c6c0338c00808472f3222f3",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -361,8 +391,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:52.055Z",
-          "workspace_updated_at": "2026-08-04T05:38:52.054Z",
+          "binding_updated_at": "2026-08-04T06:33:51.951Z",
+          "workspace_updated_at": "2026-08-04T06:33:51.951Z",
           "stable_binding_ref_sha256": "6125c2aa79176cef1af536a5b767021310c990ef59b4f89b51870a2fa056c353",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -372,8 +402,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:45.082Z",
-          "workspace_updated_at": "2026-08-04T05:38:45.080Z",
+          "binding_updated_at": "2026-08-04T06:33:44.979Z",
+          "workspace_updated_at": "2026-08-04T06:33:44.979Z",
           "stable_binding_ref_sha256": "025d6c55e8235fd35949b52d1ee75801db064668a5a7780d3fcad0f95d62ee6e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -383,8 +413,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:40.922Z",
-          "workspace_updated_at": "2026-08-04T05:38:40.921Z",
+          "binding_updated_at": "2026-08-04T06:33:40.810Z",
+          "workspace_updated_at": "2026-08-04T06:33:40.810Z",
           "stable_binding_ref_sha256": "fa05bd952915a2f49138752738c33cbb01f0b70dba210181b852a3e49908a14f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -394,8 +424,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:39:39.171Z",
-          "workspace_updated_at": "2026-08-04T05:39:39.171Z",
+          "binding_updated_at": "2026-08-04T06:34:39.072Z",
+          "workspace_updated_at": "2026-08-04T06:34:39.072Z",
           "stable_binding_ref_sha256": "d74f80318a13047b37a5f6c43f2f7ccbe9c8c408b413f7b125c497d4a6b3bed4",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -405,8 +435,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:43.323Z",
-          "workspace_updated_at": "2026-08-04T05:38:43.322Z",
+          "binding_updated_at": "2026-08-04T06:33:43.223Z",
+          "workspace_updated_at": "2026-08-04T06:33:43.223Z",
           "stable_binding_ref_sha256": "f1daa258fd9873cdf8237a89ea0a991b041ff480504054402ebc5cf7cc1caf7b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -416,8 +446,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:42.398Z",
-          "workspace_updated_at": "2026-08-04T05:38:42.396Z",
+          "binding_updated_at": "2026-08-04T06:33:42.286Z",
+          "workspace_updated_at": "2026-08-04T06:33:42.285Z",
           "stable_binding_ref_sha256": "7330f4c44035c03055204c7c4c9eae54bc9ab893d88d6f7efbcc8fa36bee66b3",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -427,8 +457,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:29.530Z",
-          "workspace_updated_at": "2026-08-04T05:38:29.520Z",
+          "binding_updated_at": "2026-08-04T06:33:29.424Z",
+          "workspace_updated_at": "2026-08-04T06:33:29.423Z",
           "stable_binding_ref_sha256": "c5852b3b0fd825a070ef98e2a164cdd80d259759add5dc31bbf29f8c3deb7d4b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -438,8 +468,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:55.598Z",
-          "workspace_updated_at": "2026-08-04T05:38:55.597Z",
+          "binding_updated_at": "2026-08-04T06:33:55.492Z",
+          "workspace_updated_at": "2026-08-04T06:33:55.492Z",
           "stable_binding_ref_sha256": "86cef87f1e2de949b769d368712e23dea118a82a697388ff33234946a5191863",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -449,8 +479,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:50.688Z",
-          "workspace_updated_at": "2026-08-04T05:38:50.688Z",
+          "binding_updated_at": "2026-08-04T06:33:50.582Z",
+          "workspace_updated_at": "2026-08-04T06:33:50.582Z",
           "stable_binding_ref_sha256": "12c45a497d816da54ce2d0e295b11b70dc063a6259020c7d5d9ad2b83644611b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -471,8 +501,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:47.622Z",
-          "workspace_updated_at": "2026-08-04T05:38:47.621Z",
+          "binding_updated_at": "2026-08-04T06:33:47.513Z",
+          "workspace_updated_at": "2026-08-04T06:33:47.512Z",
           "stable_binding_ref_sha256": "9cf80e9bb2dde05d643f8e6370ed8200272755f1b048c96842bb929a00f9bbbf",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -482,8 +512,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:41.512Z",
-          "workspace_updated_at": "2026-08-04T05:38:41.511Z",
+          "binding_updated_at": "2026-08-04T06:33:41.401Z",
+          "workspace_updated_at": "2026-08-04T06:33:41.401Z",
           "stable_binding_ref_sha256": "8b6dbf8e849f60b2176a7594caeb3b746820627e8c6a36bb2b00d92249506428",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -493,8 +523,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:39:44.188Z",
-          "workspace_updated_at": "2026-08-04T05:39:44.187Z",
+          "binding_updated_at": "2026-08-04T06:34:44.090Z",
+          "workspace_updated_at": "2026-08-04T06:34:44.090Z",
           "stable_binding_ref_sha256": "6a83c5dce45646586beeeff2065bb682983dda4658c0bf7921b5d59e9f6c9a4b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -504,8 +534,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:43.649Z",
-          "workspace_updated_at": "2026-08-04T05:38:43.649Z",
+          "binding_updated_at": "2026-08-04T06:33:43.537Z",
+          "workspace_updated_at": "2026-08-04T06:33:43.537Z",
           "stable_binding_ref_sha256": "ddc0f1ca95c9f01766ffed71859e84275dc8f82e64a4631d3f30d02d432b7a83",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -526,8 +556,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:39:57.999Z",
-          "workspace_updated_at": "2026-08-04T05:39:57.998Z",
+          "binding_updated_at": "2026-08-04T06:34:57.896Z",
+          "workspace_updated_at": "2026-08-04T06:34:57.896Z",
           "stable_binding_ref_sha256": "831e35afd06a33381f8a18bf5766f1444e09a3b8cb42d4dd65342627c4f3e98b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -537,8 +567,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:40:04.365Z",
-          "workspace_updated_at": "2026-08-04T05:40:04.364Z",
+          "binding_updated_at": "2026-08-04T06:35:04.265Z",
+          "workspace_updated_at": "2026-08-04T06:35:04.265Z",
           "stable_binding_ref_sha256": "cc951efdff5150905a3079cd7aa0b3b9a16026ae9f1f3bc8865bbe45948c8544",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -548,8 +578,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:40:11.119Z",
-          "workspace_updated_at": "2026-08-04T05:40:11.118Z",
+          "binding_updated_at": "2026-08-04T06:35:11.105Z",
+          "workspace_updated_at": "2026-08-04T06:35:11.104Z",
           "stable_binding_ref_sha256": "3e04f6f5432d153e71c74f02d73d609e4c4434bf2b35ad453de6a3554f2fcf20",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -559,8 +589,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:38:50.194Z",
-          "workspace_updated_at": "2026-08-04T05:38:50.193Z",
+          "binding_updated_at": "2026-08-04T06:33:50.085Z",
+          "workspace_updated_at": "2026-08-04T06:33:50.085Z",
           "stable_binding_ref_sha256": "3a4c3bcaefc017d00ba031c44d1310d8d9d30500c788a2dc7004d7528e91abc2",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -1517,7 +1547,7 @@
           "kind": "agent_comms_postgres",
           "query_contract_id": "kusabi-fleet-eligibility/v1",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
-          "captured_at": "2026-08-04T05:43:17.121Z",
+          "captured_at": "2026-08-04T06:35:23.639Z",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a"
         },
         "primary_binding_count": 33,
@@ -2224,13 +2254,13 @@
             "binding_key": "fec618791e11d5b34cecffe1b850d5cfef9976029d6215d4afd4ac51324f5500"
           }
         ],
-        "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d"
+        "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e"
       },
       "manifest": {
         "schema_version": "kusabi-fleet-manifest/v1",
         "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
         "version": 3,
-        "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+        "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
         "targets": [
           {
             "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
@@ -3118,7 +3148,7 @@
                 "adapter_version": "1.0.2"
               },
               "configuration": {
-                "config_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+                "config_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
                 "trust_fingerprint_sha256": "5c3c5d1616996b43f06fe0a42fa8f8576c3dd3e8b8a8ffa5b5fb7517933603e3",
                 "binding_source_ref_sha256": "6125c2aa79176cef1af536a5b767021310c990ef59b4f89b51870a2fa056c353"
               },
@@ -3290,7 +3320,7 @@
         "manifest": {
           "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
           "version": 3,
-          "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+          "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
           "target_count": 35
         },
         "implementation": {
@@ -3298,7 +3328,7 @@
           "tree_sha": "acda601dbb5ea14d7ef5db955b638eaece6cda50"
         },
         "inventory": {
-          "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+          "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
           "primary_binding_count": 33,
@@ -3398,26 +3428,26 @@
             ]
           }
         ],
-        "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31"
+        "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1"
       },
       "report": {
         "schema_version": "kusabi-fleet-r0-report/v1",
-        "captured_at": "2026-08-04T05:43:17.121Z",
+        "captured_at": "2026-08-04T06:35:23.639Z",
         "manifest": {
           "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
           "version": 3,
-          "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+          "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
           "target_count": 35
         },
         "inventory": {
-          "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+          "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
           "primary_binding_count": 33,
           "secondary_binding_count": 2,
           "target_count": 35
         },
-        "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31",
+        "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1",
         "target_count": 35,
         "targets": [
           {
@@ -3889,10 +3919,10 @@
             "host_runtime": "claude_code",
             "batch_id": "r3-04",
             "config_locator_sha256": "638f6377ee756848bac46e6e26b99a456783aced1953346d1400003777b87def",
-            "preimage_state": "absent",
-            "preimage_sha256": null,
-            "preimage_mode": null,
-            "expected_postimage_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+            "preimage_state": "file",
+            "preimage_sha256": "dae04b978c8029765529a675b96568da35aeda9cfa0e220c77bdbd83154e48cf",
+            "preimage_mode": "0644",
+            "expected_postimage_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
             "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
             "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
             "preimage_trust_fingerprint_sha256": "949f54cf4928390b8a913453e8952f354b236114508d8b501f95e1affa2dba43",
@@ -3983,10 +4013,10 @@
         ],
         "forbidden_value_count": 0,
         "production_mutation_count": 0,
-        "report_sha256": "ccc8f611b8380bdca65946f1da24637041d63ad95f402215d7a7fcc27c30ff61"
+        "report_sha256": "20fdecb7cb5095a6c75c7d8ce0ee054f5256762e8720ee1d4652163b6be7a4ee"
       }
     },
-    "internal_digest_sha256": "290ac3a590c8d1af9c7dfb03679354055122f0d4d89aca3eb1044119414f23fd"
+    "internal_digest_sha256": "7185ddc04cd9124a68593b227c5b8722f2fb5410fcd51d4b28759864badc50a4"
   },
   "heartbeat_separation": {
     "rule": "fresh_partitioned_emitter_advance_and_offline_non_emitter_stability_without_artificial_effect",
@@ -4379,70 +4409,70 @@
   "capture_b": {
     "schema_version": "kusabi-fleet-r0-preflight-capture/v3",
     "capture_label": "B",
-    "database_observed_at": "2026-08-04T05:48:13.489Z",
-    "logical_snapshot_captured_at": "2026-08-04T05:43:17.121Z",
+    "database_observed_at": "2026-08-04T06:40:28.214Z",
+    "logical_snapshot_captured_at": "2026-08-04T06:35:23.639Z",
     "release_descriptor_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
     "database_row_count": 33,
     "heartbeat_rows": [
       {
         "agent_id": "adf-lead",
-        "binding_updated_at": "2026-08-04T05:48:05.892Z",
-        "workspace_updated_at": "2026-08-04T05:48:05.891Z"
+        "binding_updated_at": "2026-08-04T06:38:05.781Z",
+        "workspace_updated_at": "2026-08-04T06:38:05.781Z"
       },
       {
         "agent_id": "arc",
-        "binding_updated_at": "2026-08-04T05:47:34.874Z",
-        "workspace_updated_at": "2026-08-04T05:47:34.874Z"
+        "binding_updated_at": "2026-08-04T06:37:34.773Z",
+        "workspace_updated_at": "2026-08-04T06:37:34.772Z"
       },
       {
         "agent_id": "aun",
-        "binding_updated_at": "2026-08-04T05:45:18.787Z",
-        "workspace_updated_at": "2026-08-04T05:45:18.787Z"
+        "binding_updated_at": "2026-08-04T06:40:18.688Z",
+        "workspace_updated_at": "2026-08-04T06:40:18.687Z"
       },
       {
         "agent_id": "check",
-        "binding_updated_at": "2026-08-04T05:43:55.944Z",
-        "workspace_updated_at": "2026-08-04T05:43:55.944Z"
+        "binding_updated_at": "2026-08-04T06:38:55.841Z",
+        "workspace_updated_at": "2026-08-04T06:38:55.840Z"
       },
       {
         "agent_id": "codex-audit",
-        "binding_updated_at": "2026-08-03T22:12:57.210Z",
-        "workspace_updated_at": "2026-08-03T22:12:57.209Z"
+        "binding_updated_at": "2026-08-04T06:05:36.975Z",
+        "workspace_updated_at": "2026-08-04T06:05:36.974Z"
       },
       {
         "agent_id": "codex-cto",
-        "binding_updated_at": "2026-08-04T05:43:50.003Z",
-        "workspace_updated_at": "2026-08-04T05:43:50.003Z"
+        "binding_updated_at": "2026-08-04T06:38:49.893Z",
+        "workspace_updated_at": "2026-08-04T06:38:49.893Z"
       },
       {
         "agent_id": "design",
-        "binding_updated_at": "2026-08-04T05:47:47.688Z",
-        "workspace_updated_at": "2026-08-04T05:47:47.687Z"
+        "binding_updated_at": "2026-08-04T06:40:12.065Z",
+        "workspace_updated_at": "2026-08-04T06:40:12.065Z"
       },
       {
         "agent_id": "dev-001",
-        "binding_updated_at": "2026-08-04T05:44:04.879Z",
-        "workspace_updated_at": "2026-08-04T05:44:04.878Z"
+        "binding_updated_at": "2026-08-04T06:39:04.770Z",
+        "workspace_updated_at": "2026-08-04T06:39:04.769Z"
       },
       {
         "agent_id": "devauditor",
-        "binding_updated_at": "2026-08-04T05:48:13.115Z",
-        "workspace_updated_at": "2026-08-04T05:48:13.114Z"
+        "binding_updated_at": "2026-08-04T06:40:24.896Z",
+        "workspace_updated_at": "2026-08-04T06:40:24.896Z"
       },
       {
         "agent_id": "haishin-dev",
-        "binding_updated_at": "2026-08-04T05:44:20.603Z",
-        "workspace_updated_at": "2026-08-04T05:44:20.602Z"
+        "binding_updated_at": "2026-08-04T06:39:20.504Z",
+        "workspace_updated_at": "2026-08-04T06:39:20.504Z"
       },
       {
         "agent_id": "hotel-dev",
-        "binding_updated_at": "2026-08-04T05:47:47.693Z",
-        "workspace_updated_at": "2026-08-04T05:47:47.693Z"
+        "binding_updated_at": "2026-08-04T06:38:39.031Z",
+        "workspace_updated_at": "2026-08-04T06:38:39.030Z"
       },
       {
         "agent_id": "hotel-lead",
-        "binding_updated_at": "2026-08-04T05:43:39.369Z",
-        "workspace_updated_at": "2026-08-04T05:43:39.369Z"
+        "binding_updated_at": "2026-08-04T06:38:39.266Z",
+        "workspace_updated_at": "2026-08-04T06:38:39.265Z"
       },
       {
         "agent_id": "kodama",
@@ -4451,53 +4481,53 @@
       },
       {
         "agent_id": "kusabi",
-        "binding_updated_at": "2026-08-04T05:43:36.041Z",
-        "workspace_updated_at": "2026-08-04T05:43:36.040Z"
+        "binding_updated_at": "2026-08-04T06:38:35.931Z",
+        "workspace_updated_at": "2026-08-04T06:38:35.931Z"
       },
       {
         "agent_id": "marketing-bot",
-        "binding_updated_at": "2026-08-04T05:43:52.057Z",
-        "workspace_updated_at": "2026-08-04T05:43:52.057Z"
+        "binding_updated_at": "2026-08-04T06:38:51.955Z",
+        "workspace_updated_at": "2026-08-04T06:38:51.954Z"
       },
       {
         "agent_id": "misell",
-        "binding_updated_at": "2026-08-04T05:43:45.082Z",
-        "workspace_updated_at": "2026-08-04T05:43:45.081Z"
+        "binding_updated_at": "2026-08-04T06:38:44.983Z",
+        "workspace_updated_at": "2026-08-04T06:38:44.982Z"
       },
       {
         "agent_id": "nyusatsu-dev",
-        "binding_updated_at": "2026-08-04T05:43:40.923Z",
-        "workspace_updated_at": "2026-08-04T05:43:40.923Z"
+        "binding_updated_at": "2026-08-04T06:38:40.815Z",
+        "workspace_updated_at": "2026-08-04T06:38:40.815Z"
       },
       {
         "agent_id": "org-build-dev",
-        "binding_updated_at": "2026-08-04T05:44:39.175Z",
-        "workspace_updated_at": "2026-08-04T05:44:39.174Z"
+        "binding_updated_at": "2026-08-04T06:39:39.077Z",
+        "workspace_updated_at": "2026-08-04T06:39:39.077Z"
       },
       {
         "agent_id": "pfaun",
-        "binding_updated_at": "2026-08-04T05:43:43.325Z",
-        "workspace_updated_at": "2026-08-04T05:43:43.325Z"
+        "binding_updated_at": "2026-08-04T06:38:43.224Z",
+        "workspace_updated_at": "2026-08-04T06:38:43.224Z"
       },
       {
         "agent_id": "qa",
-        "binding_updated_at": "2026-08-04T05:43:42.397Z",
-        "workspace_updated_at": "2026-08-04T05:43:42.396Z"
+        "binding_updated_at": "2026-08-04T06:38:42.288Z",
+        "workspace_updated_at": "2026-08-04T06:38:42.287Z"
       },
       {
         "agent_id": "research-lead",
-        "binding_updated_at": "2026-08-04T05:43:29.529Z",
-        "workspace_updated_at": "2026-08-04T05:43:29.528Z"
+        "binding_updated_at": "2026-08-04T06:38:29.425Z",
+        "workspace_updated_at": "2026-08-04T06:38:29.425Z"
       },
       {
         "agent_id": "sales-bot",
-        "binding_updated_at": "2026-08-04T05:43:55.601Z",
-        "workspace_updated_at": "2026-08-04T05:43:55.601Z"
+        "binding_updated_at": "2026-08-04T06:38:55.498Z",
+        "workspace_updated_at": "2026-08-04T06:38:55.497Z"
       },
       {
         "agent_id": "secretary",
-        "binding_updated_at": "2026-08-04T05:43:50.696Z",
-        "workspace_updated_at": "2026-08-04T05:43:50.695Z"
+        "binding_updated_at": "2026-08-04T06:38:50.590Z",
+        "workspace_updated_at": "2026-08-04T06:38:50.589Z"
       },
       {
         "agent_id": "spec",
@@ -4506,23 +4536,23 @@
       },
       {
         "agent_id": "suite-lead",
-        "binding_updated_at": "2026-08-04T05:43:47.626Z",
-        "workspace_updated_at": "2026-08-04T05:43:47.626Z"
+        "binding_updated_at": "2026-08-04T06:38:47.520Z",
+        "workspace_updated_at": "2026-08-04T06:38:47.519Z"
       },
       {
         "agent_id": "takumi",
-        "binding_updated_at": "2026-08-04T05:43:41.517Z",
-        "workspace_updated_at": "2026-08-04T05:43:41.516Z"
+        "binding_updated_at": "2026-08-04T06:38:41.406Z",
+        "workspace_updated_at": "2026-08-04T06:38:41.406Z"
       },
       {
         "agent_id": "upwork-dev",
-        "binding_updated_at": "2026-08-04T05:44:44.193Z",
-        "workspace_updated_at": "2026-08-04T05:44:44.193Z"
+        "binding_updated_at": "2026-08-04T06:39:44.096Z",
+        "workspace_updated_at": "2026-08-04T06:39:44.095Z"
       },
       {
         "agent_id": "versa",
-        "binding_updated_at": "2026-08-04T05:43:43.654Z",
-        "workspace_updated_at": "2026-08-04T05:43:43.653Z"
+        "binding_updated_at": "2026-08-04T06:38:43.540Z",
+        "workspace_updated_at": "2026-08-04T06:38:43.539Z"
       },
       {
         "agent_id": "vice",
@@ -4531,23 +4561,23 @@
       },
       {
         "agent_id": "wbs-dev",
-        "binding_updated_at": "2026-08-04T05:44:58.002Z",
-        "workspace_updated_at": "2026-08-04T05:44:58.001Z"
+        "binding_updated_at": "2026-08-04T06:39:57.902Z",
+        "workspace_updated_at": "2026-08-04T06:39:57.901Z"
       },
       {
         "agent_id": "webb-dev",
-        "binding_updated_at": "2026-08-04T05:45:04.369Z",
-        "workspace_updated_at": "2026-08-04T05:45:04.368Z"
+        "binding_updated_at": "2026-08-04T06:40:04.270Z",
+        "workspace_updated_at": "2026-08-04T06:40:04.269Z"
       },
       {
         "agent_id": "xmarketing-dev",
-        "binding_updated_at": "2026-08-04T05:45:11.125Z",
-        "workspace_updated_at": "2026-08-04T05:45:11.124Z"
+        "binding_updated_at": "2026-08-04T06:40:11.112Z",
+        "workspace_updated_at": "2026-08-04T06:40:11.111Z"
       },
       {
         "agent_id": "zumen",
-        "binding_updated_at": "2026-08-04T05:43:50.196Z",
-        "workspace_updated_at": "2026-08-04T05:43:50.195Z"
+        "binding_updated_at": "2026-08-04T06:38:50.088Z",
+        "workspace_updated_at": "2026-08-04T06:38:50.088Z"
       }
     ],
     "runtime_classification": {
@@ -4558,8 +4588,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:48:05.892Z",
-          "workspace_updated_at": "2026-08-04T05:48:05.891Z",
+          "binding_updated_at": "2026-08-04T06:38:05.781Z",
+          "workspace_updated_at": "2026-08-04T06:38:05.781Z",
           "stable_binding_ref_sha256": "ee7d059a38919012843ad3254d18caca4070534becc0f6adcf0e277a1a41e18e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4569,8 +4599,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:47:34.874Z",
-          "workspace_updated_at": "2026-08-04T05:47:34.874Z",
+          "binding_updated_at": "2026-08-04T06:37:34.773Z",
+          "workspace_updated_at": "2026-08-04T06:37:34.772Z",
           "stable_binding_ref_sha256": "bf62e072845bc0cf9599b5586c6ce388df56e6776ba9bfbeb8ba9e50b2d4f996",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4580,8 +4610,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:45:18.787Z",
-          "workspace_updated_at": "2026-08-04T05:45:18.787Z",
+          "binding_updated_at": "2026-08-04T06:40:18.688Z",
+          "workspace_updated_at": "2026-08-04T06:40:18.687Z",
           "stable_binding_ref_sha256": "3bad38720c27462d169c57c7323b6bc8bf11dcee86e44eae67bd935fcef6255f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4591,8 +4621,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:55.944Z",
-          "workspace_updated_at": "2026-08-04T05:43:55.944Z",
+          "binding_updated_at": "2026-08-04T06:38:55.841Z",
+          "workspace_updated_at": "2026-08-04T06:38:55.840Z",
           "stable_binding_ref_sha256": "6c7e295a70e07b7e7ed403ced9cdbd144da276ece47adcb592360ede78e055a1",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4602,8 +4632,8 @@
           "agent_runtime_status": "offline",
           "active_heartbeat_capable_runtime_instance_count": 0,
           "matching_active_runtime_instance_count": 0,
-          "binding_updated_at": "2026-08-03T22:12:57.210Z",
-          "workspace_updated_at": "2026-08-03T22:12:57.209Z",
+          "binding_updated_at": "2026-08-04T06:05:36.975Z",
+          "workspace_updated_at": "2026-08-04T06:05:36.974Z",
           "stable_binding_ref_sha256": "5cb445f852e9ea54f0589adff804b593cf58cae1bc8964e650cf08d030d6cb27",
           "classification": "offline_non_emitter",
           "reason_code": "OFFLINE_ZERO_ACTIVE_RUNTIME"
@@ -4613,8 +4643,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:50.003Z",
-          "workspace_updated_at": "2026-08-04T05:43:50.003Z",
+          "binding_updated_at": "2026-08-04T06:38:49.893Z",
+          "workspace_updated_at": "2026-08-04T06:38:49.893Z",
           "stable_binding_ref_sha256": "f60ffc4e9ebefd4096a119be637c9f01f3936057e843662d02b59f08066183cc",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4624,8 +4654,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:47:47.688Z",
-          "workspace_updated_at": "2026-08-04T05:47:47.687Z",
+          "binding_updated_at": "2026-08-04T06:40:12.065Z",
+          "workspace_updated_at": "2026-08-04T06:40:12.065Z",
           "stable_binding_ref_sha256": "8dcbf4dd49f662d29ca1fae5f9e2fc487d197ff496e8d190bd3321c7f6c7b29f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4635,8 +4665,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:44:04.879Z",
-          "workspace_updated_at": "2026-08-04T05:44:04.878Z",
+          "binding_updated_at": "2026-08-04T06:39:04.770Z",
+          "workspace_updated_at": "2026-08-04T06:39:04.769Z",
           "stable_binding_ref_sha256": "42de8c84d7f20c9fe9262e81486d8669d625596192d547dbefef23c942854f5e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4646,8 +4676,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:48:13.115Z",
-          "workspace_updated_at": "2026-08-04T05:48:13.114Z",
+          "binding_updated_at": "2026-08-04T06:40:24.896Z",
+          "workspace_updated_at": "2026-08-04T06:40:24.896Z",
           "stable_binding_ref_sha256": "3fa3b4c74f5333bdcbc1c3887fe2361a18a950982e10bab0239a102b9d04512e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4657,8 +4687,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:44:20.603Z",
-          "workspace_updated_at": "2026-08-04T05:44:20.602Z",
+          "binding_updated_at": "2026-08-04T06:39:20.504Z",
+          "workspace_updated_at": "2026-08-04T06:39:20.504Z",
           "stable_binding_ref_sha256": "762973aa1f6bcfa32320063823e306b5d268c36ba67656b7d88d3987942f3f18",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4668,8 +4698,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:47:47.693Z",
-          "workspace_updated_at": "2026-08-04T05:47:47.693Z",
+          "binding_updated_at": "2026-08-04T06:38:39.031Z",
+          "workspace_updated_at": "2026-08-04T06:38:39.030Z",
           "stable_binding_ref_sha256": "bd7972eb222ecac61df6e25c41bc24c44a2a534e701e3a7d9a4c470615c3a747",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4679,8 +4709,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:39.369Z",
-          "workspace_updated_at": "2026-08-04T05:43:39.369Z",
+          "binding_updated_at": "2026-08-04T06:38:39.266Z",
+          "workspace_updated_at": "2026-08-04T06:38:39.265Z",
           "stable_binding_ref_sha256": "91904fc2b8cd2c79bb5da8975ec65b675af3a9d3d82004feffb2b8895f01dfc0",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4701,8 +4731,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:36.041Z",
-          "workspace_updated_at": "2026-08-04T05:43:36.040Z",
+          "binding_updated_at": "2026-08-04T06:38:35.931Z",
+          "workspace_updated_at": "2026-08-04T06:38:35.931Z",
           "stable_binding_ref_sha256": "1d91f0bf1621f91385ca422f31a3cba6f30b059b8c6c0338c00808472f3222f3",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4712,8 +4742,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:52.057Z",
-          "workspace_updated_at": "2026-08-04T05:43:52.057Z",
+          "binding_updated_at": "2026-08-04T06:38:51.955Z",
+          "workspace_updated_at": "2026-08-04T06:38:51.954Z",
           "stable_binding_ref_sha256": "6125c2aa79176cef1af536a5b767021310c990ef59b4f89b51870a2fa056c353",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4723,8 +4753,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:45.082Z",
-          "workspace_updated_at": "2026-08-04T05:43:45.081Z",
+          "binding_updated_at": "2026-08-04T06:38:44.983Z",
+          "workspace_updated_at": "2026-08-04T06:38:44.982Z",
           "stable_binding_ref_sha256": "025d6c55e8235fd35949b52d1ee75801db064668a5a7780d3fcad0f95d62ee6e",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4734,8 +4764,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:40.923Z",
-          "workspace_updated_at": "2026-08-04T05:43:40.923Z",
+          "binding_updated_at": "2026-08-04T06:38:40.815Z",
+          "workspace_updated_at": "2026-08-04T06:38:40.815Z",
           "stable_binding_ref_sha256": "fa05bd952915a2f49138752738c33cbb01f0b70dba210181b852a3e49908a14f",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4745,8 +4775,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:44:39.175Z",
-          "workspace_updated_at": "2026-08-04T05:44:39.174Z",
+          "binding_updated_at": "2026-08-04T06:39:39.077Z",
+          "workspace_updated_at": "2026-08-04T06:39:39.077Z",
           "stable_binding_ref_sha256": "d74f80318a13047b37a5f6c43f2f7ccbe9c8c408b413f7b125c497d4a6b3bed4",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4756,8 +4786,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:43.325Z",
-          "workspace_updated_at": "2026-08-04T05:43:43.325Z",
+          "binding_updated_at": "2026-08-04T06:38:43.224Z",
+          "workspace_updated_at": "2026-08-04T06:38:43.224Z",
           "stable_binding_ref_sha256": "f1daa258fd9873cdf8237a89ea0a991b041ff480504054402ebc5cf7cc1caf7b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4767,8 +4797,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:42.397Z",
-          "workspace_updated_at": "2026-08-04T05:43:42.396Z",
+          "binding_updated_at": "2026-08-04T06:38:42.288Z",
+          "workspace_updated_at": "2026-08-04T06:38:42.287Z",
           "stable_binding_ref_sha256": "7330f4c44035c03055204c7c4c9eae54bc9ab893d88d6f7efbcc8fa36bee66b3",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4778,8 +4808,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:29.529Z",
-          "workspace_updated_at": "2026-08-04T05:43:29.528Z",
+          "binding_updated_at": "2026-08-04T06:38:29.425Z",
+          "workspace_updated_at": "2026-08-04T06:38:29.425Z",
           "stable_binding_ref_sha256": "c5852b3b0fd825a070ef98e2a164cdd80d259759add5dc31bbf29f8c3deb7d4b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4789,8 +4819,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:55.601Z",
-          "workspace_updated_at": "2026-08-04T05:43:55.601Z",
+          "binding_updated_at": "2026-08-04T06:38:55.498Z",
+          "workspace_updated_at": "2026-08-04T06:38:55.497Z",
           "stable_binding_ref_sha256": "86cef87f1e2de949b769d368712e23dea118a82a697388ff33234946a5191863",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4800,8 +4830,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:50.696Z",
-          "workspace_updated_at": "2026-08-04T05:43:50.695Z",
+          "binding_updated_at": "2026-08-04T06:38:50.590Z",
+          "workspace_updated_at": "2026-08-04T06:38:50.589Z",
           "stable_binding_ref_sha256": "12c45a497d816da54ce2d0e295b11b70dc063a6259020c7d5d9ad2b83644611b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4822,8 +4852,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:47.626Z",
-          "workspace_updated_at": "2026-08-04T05:43:47.626Z",
+          "binding_updated_at": "2026-08-04T06:38:47.520Z",
+          "workspace_updated_at": "2026-08-04T06:38:47.519Z",
           "stable_binding_ref_sha256": "9cf80e9bb2dde05d643f8e6370ed8200272755f1b048c96842bb929a00f9bbbf",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4833,8 +4863,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:41.517Z",
-          "workspace_updated_at": "2026-08-04T05:43:41.516Z",
+          "binding_updated_at": "2026-08-04T06:38:41.406Z",
+          "workspace_updated_at": "2026-08-04T06:38:41.406Z",
           "stable_binding_ref_sha256": "8b6dbf8e849f60b2176a7594caeb3b746820627e8c6a36bb2b00d92249506428",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4844,8 +4874,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:44:44.193Z",
-          "workspace_updated_at": "2026-08-04T05:44:44.193Z",
+          "binding_updated_at": "2026-08-04T06:39:44.096Z",
+          "workspace_updated_at": "2026-08-04T06:39:44.095Z",
           "stable_binding_ref_sha256": "6a83c5dce45646586beeeff2065bb682983dda4658c0bf7921b5d59e9f6c9a4b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4855,8 +4885,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:43.654Z",
-          "workspace_updated_at": "2026-08-04T05:43:43.653Z",
+          "binding_updated_at": "2026-08-04T06:38:43.540Z",
+          "workspace_updated_at": "2026-08-04T06:38:43.539Z",
           "stable_binding_ref_sha256": "ddc0f1ca95c9f01766ffed71859e84275dc8f82e64a4631d3f30d02d432b7a83",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4877,8 +4907,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:44:58.002Z",
-          "workspace_updated_at": "2026-08-04T05:44:58.001Z",
+          "binding_updated_at": "2026-08-04T06:39:57.902Z",
+          "workspace_updated_at": "2026-08-04T06:39:57.901Z",
           "stable_binding_ref_sha256": "831e35afd06a33381f8a18bf5766f1444e09a3b8cb42d4dd65342627c4f3e98b",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4888,8 +4918,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:45:04.369Z",
-          "workspace_updated_at": "2026-08-04T05:45:04.368Z",
+          "binding_updated_at": "2026-08-04T06:40:04.270Z",
+          "workspace_updated_at": "2026-08-04T06:40:04.269Z",
           "stable_binding_ref_sha256": "cc951efdff5150905a3079cd7aa0b3b9a16026ae9f1f3bc8865bbe45948c8544",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4899,8 +4929,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:45:11.125Z",
-          "workspace_updated_at": "2026-08-04T05:45:11.124Z",
+          "binding_updated_at": "2026-08-04T06:40:11.112Z",
+          "workspace_updated_at": "2026-08-04T06:40:11.111Z",
           "stable_binding_ref_sha256": "3e04f6f5432d153e71c74f02d73d609e4c4434bf2b35ad453de6a3554f2fcf20",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -4910,8 +4940,8 @@
           "agent_runtime_status": "online",
           "active_heartbeat_capable_runtime_instance_count": 1,
           "matching_active_runtime_instance_count": 1,
-          "binding_updated_at": "2026-08-04T05:43:50.196Z",
-          "workspace_updated_at": "2026-08-04T05:43:50.195Z",
+          "binding_updated_at": "2026-08-04T06:38:50.088Z",
+          "workspace_updated_at": "2026-08-04T06:38:50.088Z",
           "stable_binding_ref_sha256": "3a4c3bcaefc017d00ba031c44d1310d8d9d30500c788a2dc7004d7528e91abc2",
           "classification": "heartbeat_emitter",
           "reason_code": "ONLINE_SINGLE_ACTIVE_RUNTIME_IDENTITY_MATCH"
@@ -5868,7 +5898,7 @@
           "kind": "agent_comms_postgres",
           "query_contract_id": "kusabi-fleet-eligibility/v1",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
-          "captured_at": "2026-08-04T05:43:17.121Z",
+          "captured_at": "2026-08-04T06:35:23.639Z",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a"
         },
         "primary_binding_count": 33,
@@ -6575,13 +6605,13 @@
             "binding_key": "fec618791e11d5b34cecffe1b850d5cfef9976029d6215d4afd4ac51324f5500"
           }
         ],
-        "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d"
+        "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e"
       },
       "manifest": {
         "schema_version": "kusabi-fleet-manifest/v1",
         "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
         "version": 3,
-        "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+        "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
         "targets": [
           {
             "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
@@ -7469,7 +7499,7 @@
                 "adapter_version": "1.0.2"
               },
               "configuration": {
-                "config_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+                "config_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
                 "trust_fingerprint_sha256": "5c3c5d1616996b43f06fe0a42fa8f8576c3dd3e8b8a8ffa5b5fb7517933603e3",
                 "binding_source_ref_sha256": "6125c2aa79176cef1af536a5b767021310c990ef59b4f89b51870a2fa056c353"
               },
@@ -7641,7 +7671,7 @@
         "manifest": {
           "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
           "version": 3,
-          "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+          "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
           "target_count": 35
         },
         "implementation": {
@@ -7649,7 +7679,7 @@
           "tree_sha": "acda601dbb5ea14d7ef5db955b638eaece6cda50"
         },
         "inventory": {
-          "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+          "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
           "primary_binding_count": 33,
@@ -7749,26 +7779,26 @@
             ]
           }
         ],
-        "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31"
+        "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1"
       },
       "report": {
         "schema_version": "kusabi-fleet-r0-report/v1",
-        "captured_at": "2026-08-04T05:43:17.121Z",
+        "captured_at": "2026-08-04T06:35:23.639Z",
         "manifest": {
           "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
           "version": 3,
-          "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+          "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
           "target_count": 35
         },
         "inventory": {
-          "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+          "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
           "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
           "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
           "primary_binding_count": 33,
           "secondary_binding_count": 2,
           "target_count": 35
         },
-        "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31",
+        "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1",
         "target_count": 35,
         "targets": [
           {
@@ -8240,10 +8270,10 @@
             "host_runtime": "claude_code",
             "batch_id": "r3-04",
             "config_locator_sha256": "638f6377ee756848bac46e6e26b99a456783aced1953346d1400003777b87def",
-            "preimage_state": "absent",
-            "preimage_sha256": null,
-            "preimage_mode": null,
-            "expected_postimage_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+            "preimage_state": "file",
+            "preimage_sha256": "dae04b978c8029765529a675b96568da35aeda9cfa0e220c77bdbd83154e48cf",
+            "preimage_mode": "0644",
+            "expected_postimage_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
             "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
             "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
             "preimage_trust_fingerprint_sha256": "949f54cf4928390b8a913453e8952f354b236114508d8b501f95e1affa2dba43",
@@ -8334,10 +8364,10 @@
         ],
         "forbidden_value_count": 0,
         "production_mutation_count": 0,
-        "report_sha256": "ccc8f611b8380bdca65946f1da24637041d63ad95f402215d7a7fcc27c30ff61"
+        "report_sha256": "20fdecb7cb5095a6c75c7d8ce0ee054f5256762e8720ee1d4652163b6be7a4ee"
       }
     },
-    "internal_digest_sha256": "358009bf07e2876892de95e59adbb0c3b45bdb8b649889756f35b491aa65c850"
+    "internal_digest_sha256": "5e6d81a30ddf564e54489b3593dd8fc798ffedcc327f6977785e4f78ec5cb975"
   },
   "equality_matrix": {
     "entries": {
@@ -8366,7 +8396,7 @@
         "kind": "agent_comms_postgres",
         "query_contract_id": "kusabi-fleet-eligibility/v1",
         "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
-        "captured_at": "2026-08-04T05:43:17.121Z",
+        "captured_at": "2026-08-04T06:35:23.639Z",
         "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a"
       },
       "primary_binding_count": 33,
@@ -9073,13 +9103,13 @@
           "binding_key": "fec618791e11d5b34cecffe1b850d5cfef9976029d6215d4afd4ac51324f5500"
         }
       ],
-      "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d"
+      "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e"
     },
     "manifest": {
       "schema_version": "kusabi-fleet-manifest/v1",
       "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
       "version": 3,
-      "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+      "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
       "targets": [
         {
           "target_key": "03c6d0c98397575cad21f1ab93202469aa5658a00208523588f9bdf0c86fa0f9",
@@ -9967,7 +9997,7 @@
               "adapter_version": "1.0.2"
             },
             "configuration": {
-              "config_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+              "config_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
               "trust_fingerprint_sha256": "5c3c5d1616996b43f06fe0a42fa8f8576c3dd3e8b8a8ffa5b5fb7517933603e3",
               "binding_source_ref_sha256": "6125c2aa79176cef1af536a5b767021310c990ef59b4f89b51870a2fa056c353"
             },
@@ -10139,7 +10169,7 @@
       "manifest": {
         "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
         "version": 3,
-        "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+        "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
         "target_count": 35
       },
       "implementation": {
@@ -10147,7 +10177,7 @@
         "tree_sha": "acda601dbb5ea14d7ef5db955b638eaece6cda50"
       },
       "inventory": {
-        "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+        "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
         "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
         "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
         "primary_binding_count": 33,
@@ -10247,26 +10277,26 @@
           ]
         }
       ],
-      "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31"
+      "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1"
     },
     "report": {
       "schema_version": "kusabi-fleet-r0-report/v1",
-      "captured_at": "2026-08-04T05:43:17.121Z",
+      "captured_at": "2026-08-04T06:35:23.639Z",
       "manifest": {
         "manifest_id": "kusabi-alpha-obs05-fleet-20260803-v3-candidate",
         "version": 3,
-        "manifest_sha256": "bc86dbffc3e52c89dd547e17dca4b00ee91bd7f1c164196081a70249a2839ec5",
+        "manifest_sha256": "57b5836b89bb0fc8434432f591027b18176ea8453bb8b3870e2a1bfff842ca26",
         "target_count": 35
       },
       "inventory": {
-        "snapshot_sha256": "94dc19e107fe63937bd1f03ff2d8ebd8615b83afb3958304b511c3fa69d6c22d",
+        "snapshot_sha256": "2ddbb5ea8bb4dac9f95f58c9fef6b1e13928d4bfa5e9f5a5b38f9912a9b2424e",
         "query_contract_sha256": "33a5f2e0cfb82f911693505bf6e652b3164efdbe9838eda08cad256173f5f5a1",
         "primary_result_sha256": "5440d325596c2ac3719fb5748b5453c51245a7f1cd26d5f5b85c7092daa2005a",
         "primary_binding_count": 33,
         "secondary_binding_count": 2,
         "target_count": 35
       },
-      "rollout_plan_sha256": "3cdf35b52444473eb0b0d7f68a041313662bc0483dbcee8cfdb273a5dce1fd31",
+      "rollout_plan_sha256": "5cfa46ca6a12e0ce849708cff1c259f45d5c9dfaf3c29c07f1da6a6e05b797f1",
       "target_count": 35,
       "targets": [
         {
@@ -10738,10 +10768,10 @@
           "host_runtime": "claude_code",
           "batch_id": "r3-04",
           "config_locator_sha256": "638f6377ee756848bac46e6e26b99a456783aced1953346d1400003777b87def",
-          "preimage_state": "absent",
-          "preimage_sha256": null,
-          "preimage_mode": null,
-          "expected_postimage_sha256": "bc9e04992f73853afa088f92966cf8691e8701037edf932184ff58165597f71b",
+          "preimage_state": "file",
+          "preimage_sha256": "dae04b978c8029765529a675b96568da35aeda9cfa0e220c77bdbd83154e48cf",
+          "preimage_mode": "0644",
+          "expected_postimage_sha256": "60d98b699fab38d5206b06e5ec548205f7ad57723d06ad70febed5113fd73351",
           "artifact_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
           "trust_source_locator_sha256": "118ba8e6958e331b396055748831a578f3d6cbe754a5bf7fba4b20bbad3c699d",
           "preimage_trust_fingerprint_sha256": "949f54cf4928390b8a913453e8952f354b236114508d8b501f95e1affa2dba43",
@@ -10832,7 +10862,7 @@
       ],
       "forbidden_value_count": 0,
       "production_mutation_count": 0,
-      "report_sha256": "ccc8f611b8380bdca65946f1da24637041d63ad95f402215d7a7fcc27c30ff61"
+      "report_sha256": "20fdecb7cb5095a6c75c7d8ce0ee054f5256762e8720ee1d4652163b6be7a4ee"
     }
   },
   "topology": {
@@ -10928,5 +10958,5 @@
       "completion_evidence": "Durable Issue 280 audit URL with zero blocker count or exact blocker list."
     }
   },
-  "evidence_payload_sha256": "752fba9ca1d96dab92e5ad26941dfdf5ffae927b7ae37b4d5d75dc97fd654aac"
+  "evidence_payload_sha256": "12d9a0b33978dcd49d22eb723baff3f1ee00980c2849dc0827fa31c824ddd8a4"
 }
