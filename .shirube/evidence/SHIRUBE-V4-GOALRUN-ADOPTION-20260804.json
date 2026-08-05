@@ -17,7 +17,7 @@
       "previous_file": "repo:.shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-1.json",
       "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
       "generation": 2,
-      "state_digest": "sha256:00a05c71ac8933f61c4ff4d17abb61497eccd8dafb177c13b59ad193a99e2caa",
+      "state_digest": "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
       "blockers": []
     }
   },
@@ -35,7 +35,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:1477d2d19399c46680f6813894b5f112965636f9d6ad3d79b88f9a5937ef536d",
+        "state_digest": "sha256:95933374fe19933db1cb775f05ee51c8afc3cc5a2199e3caa53c4db5a8601d10",
         "blockers": []
       }
     },
@@ -48,11 +48,11 @@
         "verdict": "PASS",
         "would_block": false,
         "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json",
-        "goal_run_file": null,
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
         "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:3d593d0c3f5e83924e35ccbd4165bd8d611eb02f2ef7b0ea150550f984fbe179",
+        "state_digest": "sha256:586dd837617600a32ce2b0932d2b37be2d44c92ccb36d379b0254e29d99a3b7a",
         "blockers": []
       }
     },
@@ -69,7 +69,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:ecedf10e1b018f59f5b76e89c6fdec70e8c313efe71e11da6b3428f6632af194",
+        "state_digest": "sha256:b39d3bd350b996bc183f13420c2e774f1689626b447c5e75c7a629f7dd46ccf0",
         "blockers": []
       }
     },
@@ -86,7 +86,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:11d9dd49e9a54bcb6e11e12affe151ad4d19ded2f959a94bab1f974e5f3fc33c",
+        "state_digest": "sha256:ede8c6212c3ddecc77e3903e5ac820942fdba709b6011f93720d757b1a417186",
         "blockers": []
       }
     },
@@ -103,7 +103,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:912af98e754b64f23efcf4a45e7bcc559bce203bb10bb147ab4fe86ddbc83630",
+        "state_digest": "sha256:f2c9ac5301b70a1c1bae5b822296c3382db3eb9dd8cc07943d3c5821a101ae82",
         "blockers": []
       }
     },
@@ -116,11 +116,11 @@
         "verdict": "PASS",
         "would_block": false,
         "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION.json",
-        "goal_run_file": null,
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:a1d1b004ffcf7c979196cf206c0f4c4a44c2f5d22ed5a89f0d22c9a3790e84eb",
+        "state_digest": "sha256:f43159e85f9f99f8dbdcf175ecf80f2788cd93664a35c14fecffc852a26764ca",
         "blockers": []
       }
     },
@@ -133,11 +133,11 @@
         "verdict": "PASS",
         "would_block": false,
         "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT.json",
-        "goal_run_file": null,
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:db071640b4e0a00c72c73261336105569e9a751cc03d8fab156dbb7059075cf8",
+        "state_digest": "sha256:90f2aa522b3970c9271f42462916dc285db609cda8e767c8543d5e4ebb9462f3",
         "blockers": []
       }
     },
@@ -150,11 +150,11 @@
         "verdict": "PASS",
         "would_block": false,
         "file": "repo:.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-OWNER-GO.json",
-        "goal_run_file": null,
+        "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:da21bf1b6ecbce589bd420d0a8394a105d584f30e84d74424baf2e8c9ad2f09a",
+        "state_digest": "sha256:f7193a156789665739b64749e5ca0912badd9e6e28c17f8d3379b9c97749776a",
         "blockers": []
       }
     },
@@ -171,7 +171,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:3ef8a2f95c4bba45ae3ac25aea58a24653ebdc950f1fc30c0b11f6bf1fd7d9b7",
+        "state_digest": "sha256:e856fcedd960a23ad98dcdcff1b5c4c2156a4e0e7724e024c7bc2b22b8f15f8c",
         "blockers": []
       }
     },
@@ -188,7 +188,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R2-PILOT-11-OF-11",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:9f562645b078c7d1a43a8410928f6e6c4b6cf351083fe10b2aab5e7c3a730db1",
+        "state_digest": "sha256:e57ff555a93c7840d41bd81d8483632e2d75a1036a3ab3eabe3ae89f8c4c571d",
         "blockers": []
       }
     },
@@ -205,7 +205,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R3-FLEET-35-OF-35",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 2,
-        "state_digest": "sha256:4c394f94edbe22657698bd035dd9f6c4a4982f43415fdc390d1859038874649d",
+        "state_digest": "sha256:b2d79e09cee7500bc800be0fdf75a52bc7a1fbfa3636775573bde972037970b5",
         "blockers": []
       }
     }
@@ -222,55 +222,66 @@
       "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
       "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
       "generation": 2,
-      "state_digest": "sha256:00a05c71ac8933f61c4ff4d17abb61497eccd8dafb177c13b59ad193a99e2caa",
+      "state_digest": "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
       "blockers": []
     }
   },
   "status": {
     "schema_version": "shirube-v4/goal-status/v1",
     "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
-    "status": "ACTIVE",
+    "status": "BLOCKED",
     "generation": 2,
-    "state_digest": "sha256:00a05c71ac8933f61c4ff4d17abb61497eccd8dafb177c13b59ad193a99e2caa",
+    "state_digest": "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
     "acceptance": {
-      "passed": 5,
+      "passed": 1,
       "total": 11,
-      "percent": 45
+      "percent": 9
     },
     "targets": {
       "live_exact": 0,
       "rollback_exact": 0,
       "total": 35
     },
-    "blockers": [],
+    "blockers": [
+      {
+        "blocker_id": "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED",
+        "ordinal": 2,
+        "evidence_refs": [
+          "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+          "command:node-esm-import-smoke#ERR_MODULE_NOT_FOUND"
+        ],
+        "removal_predicate": "Publish a new content-addressed runtime release whose five required entrypoints pass side-effect-free ESM import smoke with all production dependencies resolved; regenerate exact R0 v3, independent audit, and owner GO before R1."
+      }
+    ],
     "next_work_item": {
-      "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
-      "required_operation": "DEPLOY",
+      "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "required_operation": "LOCAL_DIRECT_ADAPTER",
       "required_evidence": [
-        "r1_stage_report",
-        "r1_exact_durable_readback",
-        "r1_alert_privacy_recovery_smoke"
+        "clean_build_readback",
+        "content_addressed_release_readback",
+        "entrypoint_digest_readback"
       ],
-      "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280",
-      "dispatch_idempotency_key": "sha256:174d0c70bd3aab11f9c538df9bfc305061ecb1fb1b61a3490cfaa4912b455c21"
+      "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
+      "dispatch_idempotency_key": "sha256:9e41dad9966e2b3bcdc0e913481d48ae51a495e7e1e59a1b3c22557603c8427d",
+      "status": "BLOCKED"
     },
-    "can_continue": true,
+    "can_continue": false,
     "next_action": {
-      "blocking": false,
+      "blocking": true,
       "actor_agent_id": "kusabi",
       "active_function": "implementation_executor",
-      "action": "Execute WORK-ITEM-KUSABI-R1-CANARY-3-OF-3 within its exact control handoff and return all required evidence.",
+      "action": "Publish a new content-addressed runtime release whose five required entrypoints pass side-effect-free ESM import smoke with all production dependencies resolved; regenerate exact R0 v3, independent audit, and owner GO before R1.",
       "deliver_via": "WorkItem terminal evidence and GoalRun generation update",
       "exact_input_refs": [
-        "https://github.com/watchout/agent-memory/issues/280",
+        "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
         ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
-        ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R1-CANARY-3-OF-3.json"
+        ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json"
       ],
-      "scope": "Only operation DEPLOY; forbidden operations remain denied by WorkItem v2.",
+      "scope": "Only operation LOCAL_DIRECT_ADAPTER; forbidden operations remain denied by WorkItem v2.",
       "deliverable": [
-        "r1_stage_report",
-        "r1_exact_durable_readback",
-        "r1_alert_privacy_recovery_smoke"
+        "clean_build_readback",
+        "content_addressed_release_readback",
+        "entrypoint_digest_readback"
       ],
       "completion_evidence": "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback."
     }

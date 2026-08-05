@@ -5,8 +5,12 @@
   "objective_digest": "sha256:9d62fb19932ee7626e69b17a04aa004dc2181e6c0051ec4811463632780bb8c1",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "generation": 2,
-  "active_work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
+  "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "unmet_acceptance_ids": [
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+    "A-04-R0-V3-INDEPENDENT-AUDIT",
+    "A-05-R0-V3-OWNER-GO",
     "A-06-R1-CANARY-3-OF-3",
     "A-07-R2-PILOT-11-OF-11",
     "A-08-R3-FLEET-35-OF-35",
@@ -16,9 +20,9 @@
   ],
   "checkpoint": {
     "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80"
+    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7"
   },
-  "state_digest": "sha256:00a05c71ac8933f61c4ff4d17abb61497eccd8dafb177c13b59ad193a99e2caa",
+  "state_digest": "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
   "adapter": {
     "family": "codex",
     "version": "agent-memory-shirube-v4-goal-control/v1",
@@ -26,8 +30,8 @@
     "conformance_digest": "sha256:e257d94b850da91b908c0194d9f83717cfb86ddf60941da1d635df2aace11481"
   },
   "readback": {
-    "observed_at": "2026-08-05T00:03:04Z",
-    "observed_binding_digest": "sha256:e4ee7ad75d393b1e6c0019eb938f3e29343a37a03b68092c0fe45ad81f798d8a",
+    "observed_at": "2026-08-05T00:20:00Z",
+    "observed_binding_digest": "sha256:973254528eaba8f74af2293f54c2fdedae8d591743099b80f2082aa8bae80a1c",
     "evidence_ref": ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json"
   }
 }

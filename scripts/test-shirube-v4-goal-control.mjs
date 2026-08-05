@@ -58,16 +58,16 @@ check(checkReport.goal_validator.report.verdict === "PASS", "GoalRun validator m
 check(checkReport.work_item_validators.length === 11 && checkReport.work_item_validators.every((row) => row.report.verdict === "PASS"), "all 11 WorkItems must pass");
 check(checkReport.execution_binding_validator.report.verdict === "PASS", "ExecutionGoalBinding validator must pass");
 
-const statusA = run(["status"]);
-const statusB = run(["status"]);
+const statusA = run(["status"], 1);
+const statusB = run(["status"], 1);
 check(canonicalJson(statusA) === canonicalJson(statusB), "status readback must be deterministic across process restart");
 check(statusA.targets.total === 35 && statusA.targets.live_exact === 0, "frozen target denominator must be 35 with no false live completion");
-check(statusA.generation === 2 && statusA.status === "ACTIVE", "verified pre-rollout evidence must advance the GoalRun to active generation 2");
-check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 5, "pre-rollout reconciliation must pass exactly the first five predicates");
-check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3", "single next WorkItem must be R1 canary rollout");
-check(statusA.can_continue === true, "a known next WorkItem must remain machine-routable");
-check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "R1 must route back to Kusabi");
-check(statusA.next_action?.blocking === false, "R1 rollout must not create a declaration stall");
+check(statusA.generation === 2 && statusA.status === "BLOCKED", "release import failure must advance the GoalRun to an explicit blocked generation 2");
+check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "blocked release must not falsely advance pre-rollout predicates");
+check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "blocked WorkItem must remain the immutable runtime release");
+check(statusA.next_work_item?.status === "BLOCKED" && statusA.can_continue === false, "blocked release must prevent R1 continuation");
+check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "release correction must route to Kusabi");
+check(statusA.next_action?.blocking === true && statusA.next_action?.action.includes("five required entrypoints"), "release blocker must carry an exact removal action");
 
 const workItems = checkReport.work_item_validators.map((row) => JSON.parse(readFileSync(repoPath(row.report.file), "utf8")));
 const inMemoryStatus = buildStatus(JSON.parse(readFileSync(GOAL, "utf8")), workItems);
@@ -78,13 +78,13 @@ try {
   cpSync(join(ROOT, ".shirube"), join(reconcileScratch, ".shirube"), { recursive: true });
   run(["init", "--root", reconcileScratch, "--source-root", ROOT, "--framework-root", frameworkRoot()]);
   run(["advance-exact-merge", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
-  const reconcileReport = run(["reconcile-prerollout", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
-  check(reconcileReport.verdict === "PASS", "pre-rollout reconciliation must pass canonical validators");
-  const reconciledStatus = run(["status", "--root", reconcileScratch]);
-  check(reconciledStatus.generation === 2 && reconciledStatus.acceptance.passed === 5, "reconciliation must advance generation and five predicates atomically");
-  check(reconciledStatus.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3", "reconciliation must select exactly R1 next");
-  const replayReport = run(["reconcile-prerollout", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
-  check(replayReport.verdict === "PASS" && replayReport.status.generation === 2, "exact checkpoint replay must heal or no-op without advancing generation");
+  const rejected = spawnSync(process.execPath, [CONTROL, "reconcile-prerollout", "--root", reconcileScratch, "--framework-root", frameworkRoot()], { cwd: ROOT, encoding: "utf8" });
+  check(rejected.status === 1 && rejected.stderr.includes("not self-contained"), "reconciliation must reject a non-executable immutable release");
+  const blockReport = run(["record-prerollout-blocker", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
+  check(blockReport.verdict === "PASS", "recorded release blocker must remain canonically valid");
+  const blockedStatus = run(["status", "--root", reconcileScratch], 1);
+  check(blockedStatus.generation === 2 && blockedStatus.status === "BLOCKED", "release failure must be restart-readable as blocked generation 2");
+  check(blockedStatus.next_action?.blocking === true && blockedStatus.can_continue === false, "blocked status must stop protected rollout with an exact next action");
 } finally {
   rmSync(reconcileScratch, { recursive: true, force: true });
 }

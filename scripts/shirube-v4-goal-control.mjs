@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -509,6 +509,10 @@ function assertPreRolloutEvidence(repoRoot) {
     release?.gate_result?.verdict === "PASS" &&
     release?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.release_payload_sha256;
   if (!releasePass) throw new Error("immutable runtime release predicates are not all PASS");
+  const importSmokes = inspectReleaseRuntime(release);
+  if (!importSmokes.every((smoke) => smoke.pass)) {
+    throw new Error("immutable runtime release is not self-contained and import-executable");
+  }
 
   const r0Pass =
     r0?.schema_version === "kusabi-fleet-r0-candidate-pack/v3" &&
@@ -531,6 +535,88 @@ function assertPreRolloutEvidence(repoRoot) {
     protectedEffects.length === 6 && protectedEffects.every((value) => value === 0) &&
     r0?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.r0_v3_payload_sha256;
   if (!r0Pass) throw new Error("R0 v3 reproduction predicates are not all PASS");
+}
+
+function inspectReleaseRuntime(release) {
+  const runtimeRoot = release?.release?.runtime_root_realpath;
+  const entrypoints = Object.keys(release?.release?.required_entrypoint_readback ?? {}).sort();
+  if (typeof runtimeRoot !== "string" || entrypoints.length !== 5) {
+    return [{ entrypoint: "release-runtime-root", pass: false, exit_code: null, error_code: "RELEASE_RUNTIME_METADATA_INVALID" }];
+  }
+  return entrypoints.map((entrypoint) => {
+    const locator = pathToFileURL(join(runtimeRoot, entrypoint)).href;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", "await import(process.argv[1])", locator],
+      { encoding: "utf8", timeout: 10_000 },
+    );
+    const diagnostic = `${result.stderr ?? ""}\n${result.error?.message ?? ""}`;
+    const errorCode = diagnostic.match(/ERR_[A-Z_]+/)?.[0] ?? (result.error ? "SPAWN_ERROR" : null);
+    return { entrypoint, pass: result.status === 0, exit_code: result.status, error_code: errorCode };
+  });
+}
+
+function recordPreRolloutBlocker(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  if (
+    previous.generation !== 1 ||
+    previous.status !== "ACTIVE" ||
+    previous.active_work_item_id !== "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" ||
+    canonicalJson(passed) !== canonicalJson(["A-01-PR281-EXACT-MERGE"])
+  ) {
+    throw new Error("release blocker recording requires the exact generation-1 post-merge GoalRun");
+  }
+  const release = readJson(absolute(repoRoot, RELEASE_PATH));
+  const importSmokes = inspectReleaseRuntime(release);
+  if (importSmokes.every((smoke) => smoke.pass)) {
+    throw new Error("release import smoke is already PASS; no blocker may be recorded");
+  }
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`);
+  writeJson(previousPath, previous);
+  const eventId = `EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`;
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    release_file_sha256: PRE_ROLLOUT_RECONCILIATION.release_file_sha256,
+    import_smokes: importSmokes,
+  });
+  const checkpoint = {
+    event_sequence: previous.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const blockerId = "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED";
+  const goalRun = structuredClone(previous);
+  goalRun.status = "BLOCKED";
+  goalRun.generation = 2;
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
+  goalRun.blocker_set = [{
+    blocker_id: blockerId,
+    ordinal: 2,
+    evidence_refs: [
+      `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`,
+      "command:node-esm-import-smoke#ERR_MODULE_NOT_FOUND",
+    ],
+    removal_predicate: "Publish a new content-addressed runtime release whose five required entrypoints pass side-effect-free ESM import smoke with all production dependencies resolved; regenerate exact R0 v3, independent audit, and owner GO before R1.",
+  }];
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    if (item.unmet_condition_id === "A-02-IMMUTABLE-RUNTIME-RELEASE") item.status = "BLOCKED";
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath, importSmokes };
 }
 
 function preRolloutTerminalEvidence(item) {
@@ -738,7 +824,10 @@ export function buildStatus(goalRun, workItems) {
   const unmet = definitions.find((definition) => stateById.get(definition.acceptance_id)?.status !== "VERIFIED_PASS");
   const candidates = workItems.filter((item) => item.status === "READY" && item.unmet_condition_id === unmet?.acceptance_id)
     .sort((a, b) => a.acceptance_ordinal - b.acceptance_ordinal || a.blocker_ordinal - b.blocker_ordinal || a.work_item_id.localeCompare(b.work_item_id));
-  const next = candidates[0] ?? null;
+  const blocked = goalRun.status === "BLOCKED"
+    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id && item.status === "BLOCKED") ?? null
+    : null;
+  const next = candidates[0] ?? blocked;
   const route = next ? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id] : null;
   if (next && !route) throw new Error(`missing deterministic route for ${next.unmet_condition_id}`);
   const acceptancePassed = goalRun.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").length;
@@ -759,13 +848,16 @@ export function buildStatus(goalRun, workItems) {
       required_evidence: next.required_evidence,
       control_handoff_ref: next.control_handoff_ref,
       dispatch_idempotency_key: next.dispatch_idempotency_key,
+      status: next.status,
     } : null,
-    can_continue: Boolean(next),
+    can_continue: Boolean(next && next.status === "READY"),
     next_action: next ? {
-      blocking: route.blocking,
+      blocking: blocked ? true : route.blocking,
       actor_agent_id: route.actor_agent_id,
       active_function: route.active_function,
-      action: route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
+      action: blocked
+        ? goalRun.blocker_set[0]?.removal_predicate
+        : route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
       deliver_via: route.deliver_via || "WorkItem terminal evidence and GoalRun generation update",
       exact_input_refs: [next.control_handoff_ref, GOAL_PATH, `${WORK_ITEM_DIR}/${next.work_item_id}.json`],
       scope: `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
@@ -832,6 +924,13 @@ function main() {
   }
   if (command === "reconcile-prerollout") {
     reconcilePreRollout(repoRoot, options["observed-at"] || PRE_ROLLOUT_RECONCILIATION.merged_at);
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "record-prerollout-blocker") {
+    recordPreRolloutBlocker(repoRoot, options["observed-at"] || new Date().toISOString());
     const report = check(repoRoot, options["framework-root"], true);
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = report.verdict === "PASS" ? 0 : 1;

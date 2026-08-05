@@ -4,7 +4,7 @@
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
   "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
-  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "handoff_digest": "sha256:082ef77a246c1b519071a8d5d3d9f534d423741f3657f2d6461ffb2ca4b2c756",
   "allowed_operations": [
     "LOCAL_DIRECT_ADAPTER"
   ],
@@ -47,51 +47,14 @@
   "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
   "acceptance_ordinal": 2,
   "blocker_ordinal": 0,
-  "status": "VERIFIED_TERMINAL",
-  "dispatch_idempotency_key": "sha256:293d08480a4104c802ff19392a556994935bce44da463bc8ee95d2081513b225",
+  "status": "BLOCKED",
+  "dispatch_idempotency_key": "sha256:9e41dad9966e2b3bcdc0e913481d48ae51a495e7e1e59a1b3c22557603c8427d",
   "generation": 2,
-  "state_digest": "sha256:3d593d0c3f5e83924e35ccbd4165bd8d611eb02f2ef7b0ea150550f984fbe179",
+  "state_digest": "sha256:586dd837617600a32ce2b0932d2b37be2d44c92ccb36d379b0254e29d99a3b7a",
   "checkpoint": {
     "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
-    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
+    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "last_idempotency_key": "sha256:447296c5b381a51b07dd397505827f5c6ddaf471fdf85affa6c0acee52fbed76"
   },
-  "terminal_evidence": [
-    {
-      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525/build",
-      "evidence_class": "clean_build_readback",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-      "actor_id": "kusabi",
-      "active_function": "implementation_executor",
-      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
-      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    },
-    {
-      "evidence_ref": "release:sha256:4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
-      "evidence_class": "content_addressed_release_readback",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-      "actor_id": "kusabi",
-      "active_function": "implementation_executor",
-      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
-      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    },
-    {
-      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525/release/required_entrypoint_readback",
-      "evidence_class": "entrypoint_digest_readback",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-      "actor_id": "kusabi",
-      "active_function": "implementation_executor",
-      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
-      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    }
-  ]
+  "terminal_evidence": []
 }

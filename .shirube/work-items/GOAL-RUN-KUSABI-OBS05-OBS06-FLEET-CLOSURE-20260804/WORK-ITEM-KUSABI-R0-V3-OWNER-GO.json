@@ -4,7 +4,7 @@
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
   "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
-  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "handoff_digest": "sha256:082ef77a246c1b519071a8d5d3d9f534d423741f3657f2d6461ffb2ca4b2c756",
   "allowed_operations": [
     "PROTECTED_OWNER_DECISION"
   ],
@@ -46,39 +46,14 @@
   "unmet_condition_id": "A-05-R0-V3-OWNER-GO",
   "acceptance_ordinal": 5,
   "blocker_ordinal": 0,
-  "status": "VERIFIED_TERMINAL",
-  "dispatch_idempotency_key": "sha256:f76204a3b07b2f4318c15d1439d737fe05bff827d63a7a4bbdd2aa2cd196f390",
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:14f45bd92dbbe18b10b31cb597be9540f1c8de6d2c87d2140070fe36fd7e84e3",
   "generation": 2,
-  "state_digest": "sha256:da21bf1b6ecbce589bd420d0a8394a105d584f30e84d74424baf2e8c9ad2f09a",
+  "state_digest": "sha256:f7193a156789665739b64749e5ca0912badd9e6e28c17f8d3379b9c97749776a",
   "checkpoint": {
     "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
-    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
+    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "last_idempotency_key": "sha256:447296c5b381a51b07dd397505827f5c6ddaf471fdf85affa6c0acee52fbed76"
   },
-  "terminal_evidence": [
-    {
-      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
-      "evidence_class": "owner_exact_subject_readback",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
-      "actor_id": "watchout",
-      "active_function": "owner_decision",
-      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
-      "acceptance_id": "A-05-R0-V3-OWNER-GO",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    },
-    {
-      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
-      "evidence_class": "owner_r1_r2_r3_grant",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
-      "actor_id": "watchout",
-      "active_function": "owner_decision",
-      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
-      "acceptance_id": "A-05-R0-V3-OWNER-GO",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    }
-  ]
+  "terminal_evidence": []
 }

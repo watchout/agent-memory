@@ -4,7 +4,7 @@
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
   "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
-  "handoff_digest": "sha256:c69345182329af0e13a7898de9b2f96cb80ca543a38db01f0ea8a58ada6b4d81",
+  "handoff_digest": "sha256:082ef77a246c1b519071a8d5d3d9f534d423741f3657f2d6461ffb2ca4b2c756",
   "allowed_operations": [
     "INDEPENDENT_AUDIT"
   ],
@@ -47,51 +47,14 @@
   "unmet_condition_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
   "acceptance_ordinal": 4,
   "blocker_ordinal": 0,
-  "status": "VERIFIED_TERMINAL",
-  "dispatch_idempotency_key": "sha256:cb785c09c04c28414e553e1ed93c40abc30b96ff3e6b80d0f1a7d1a5268effce",
+  "status": "READY",
+  "dispatch_idempotency_key": "sha256:bfb7c8fa97cda7f055aab453713f579052b7296c101daef996144ffe826010ae",
   "generation": 2,
-  "state_digest": "sha256:db071640b4e0a00c72c73261336105569e9a751cc03d8fab156dbb7059075cf8",
+  "state_digest": "sha256:90f2aa522b3970c9271f42462916dc285db609cda8e767c8543d5e4ebb9462f3",
   "checkpoint": {
     "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
-    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
+    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "last_idempotency_key": "sha256:447296c5b381a51b07dd397505827f5c6ddaf471fdf85affa6c0acee52fbed76"
   },
-  "terminal_evidence": [
-    {
-      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
-      "evidence_class": "independent_audit_pass",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
-      "actor_id": "devauditor",
-      "active_function": "evidence_audit_gate",
-      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
-      "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    },
-    {
-      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756#blocker_count=0",
-      "evidence_class": "audit_blocker_count_zero",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
-      "actor_id": "devauditor",
-      "active_function": "evidence_audit_gate",
-      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
-      "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    },
-    {
-      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756#protected_effect_count=0",
-      "evidence_class": "protected_effect_count_zero",
-      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
-      "actor_id": "devauditor",
-      "active_function": "evidence_audit_gate",
-      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
-      "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
-      "blocker_id": null,
-      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
-      "predicate_verified": true
-    }
-  ]
+  "terminal_evidence": []
 }
