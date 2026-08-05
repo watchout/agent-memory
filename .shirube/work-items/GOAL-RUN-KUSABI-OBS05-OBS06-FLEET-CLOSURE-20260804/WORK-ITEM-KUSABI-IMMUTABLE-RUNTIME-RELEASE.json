@@ -47,14 +47,51 @@
   "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
   "acceptance_ordinal": 2,
   "blocker_ordinal": 0,
-  "status": "READY",
-  "dispatch_idempotency_key": "sha256:9ebbca80c5a8339bb297c5ed6b31decdc39e638b20c08b1231f07bbc9123e888",
-  "generation": 1,
-  "state_digest": "sha256:e4e22ff856c61e68faab0bbb14689cea83183e120822a00421211b3fbf1bb4a6",
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:293d08480a4104c802ff19392a556994935bce44da463bc8ee95d2081513b225",
+  "generation": 2,
+  "state_digest": "sha256:3d593d0c3f5e83924e35ccbd4165bd8d611eb02f2ef7b0ea150550f984fbe179",
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 2,
+    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
   },
-  "terminal_evidence": []
+  "terminal_evidence": [
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525/build",
+      "evidence_class": "clean_build_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "release:sha256:4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+      "evidence_class": "content_addressed_release_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525/release/required_entrypoint_readback",
+      "evidence_class": "entrypoint_digest_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
 }

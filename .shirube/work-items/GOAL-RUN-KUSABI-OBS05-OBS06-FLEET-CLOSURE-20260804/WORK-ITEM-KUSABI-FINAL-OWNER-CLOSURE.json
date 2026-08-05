@@ -48,13 +48,13 @@
   "acceptance_ordinal": 11,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:5e8404cd70fed277eba34482cb3ec93b54adf91a6f6cbdfeaa5d5bb14cf89157",
-  "generation": 1,
-  "state_digest": "sha256:3a693b08a99d015fee257c138af15df4f6e664c1bfa249d67e3ce38fb0e38a45",
+  "dispatch_idempotency_key": "sha256:7e142f5738ad28535de4058903bd45e6218cae5663d225a59f845ed9b008043a",
+  "generation": 2,
+  "state_digest": "sha256:1477d2d19399c46680f6813894b5f112965636f9d6ad3d79b88f9a5937ef536d",
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 2,
+    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
   },
   "terminal_evidence": []
 }

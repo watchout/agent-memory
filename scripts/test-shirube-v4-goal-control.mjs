@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -62,16 +62,32 @@ const statusA = run(["status"]);
 const statusB = run(["status"]);
 check(canonicalJson(statusA) === canonicalJson(statusB), "status readback must be deterministic across process restart");
 check(statusA.targets.total === 35 && statusA.targets.live_exact === 0, "frozen target denominator must be 35 with no false live completion");
-check(statusA.generation === 1 && statusA.status === "ACTIVE", "exact merge evidence must advance the GoalRun to active generation 1");
-check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "exact merge must advance exactly one acceptance predicate");
-check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "single next WorkItem must be immutable runtime release");
+check(statusA.generation === 2 && statusA.status === "ACTIVE", "verified pre-rollout evidence must advance the GoalRun to active generation 2");
+check(statusA.acceptance.total === 11 && statusA.acceptance.passed === 5, "pre-rollout reconciliation must pass exactly the first five predicates");
+check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3", "single next WorkItem must be R1 canary rollout");
 check(statusA.can_continue === true, "a known next WorkItem must remain machine-routable");
-check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "post-merge release must route back to Kusabi");
-check(statusA.next_action?.blocking === false, "post-merge local release work must not create a declaration stall");
+check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "R1 must route back to Kusabi");
+check(statusA.next_action?.blocking === false, "R1 rollout must not create a declaration stall");
 
 const workItems = checkReport.work_item_validators.map((row) => JSON.parse(readFileSync(repoPath(row.report.file), "utf8")));
 const inMemoryStatus = buildStatus(JSON.parse(readFileSync(GOAL, "utf8")), workItems);
 check(canonicalJson(inMemoryStatus) === canonicalJson(statusA), "checkpoint recovery must reproduce exact status");
+
+const reconcileScratch = mkdtempSync(join(tmpdir(), "shirube-v4-prerollout-reconcile-"));
+try {
+  cpSync(join(ROOT, ".shirube"), join(reconcileScratch, ".shirube"), { recursive: true });
+  run(["init", "--root", reconcileScratch, "--source-root", ROOT, "--framework-root", frameworkRoot()]);
+  run(["advance-exact-merge", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
+  const reconcileReport = run(["reconcile-prerollout", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
+  check(reconcileReport.verdict === "PASS", "pre-rollout reconciliation must pass canonical validators");
+  const reconciledStatus = run(["status", "--root", reconcileScratch]);
+  check(reconciledStatus.generation === 2 && reconciledStatus.acceptance.passed === 5, "reconciliation must advance generation and five predicates atomically");
+  check(reconciledStatus.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3", "reconciliation must select exactly R1 next");
+  const replayReport = run(["reconcile-prerollout", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
+  check(replayReport.verdict === "PASS" && replayReport.status.generation === 2, "exact checkpoint replay must heal or no-op without advancing generation");
+} finally {
+  rmSync(reconcileScratch, { recursive: true, force: true });
+}
 
 const scratch = mkdtempSync(join(tmpdir(), "shirube-v4-false-completion-"));
 try {

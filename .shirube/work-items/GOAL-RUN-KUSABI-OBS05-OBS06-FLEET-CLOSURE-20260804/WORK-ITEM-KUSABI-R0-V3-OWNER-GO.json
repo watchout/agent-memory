@@ -46,14 +46,39 @@
   "unmet_condition_id": "A-05-R0-V3-OWNER-GO",
   "acceptance_ordinal": 5,
   "blocker_ordinal": 0,
-  "status": "READY",
-  "dispatch_idempotency_key": "sha256:d7a17d7c3948e1fd8c7c67358f036bb443be5ee82cd2b7805ee297c300c9a73d",
-  "generation": 1,
-  "state_digest": "sha256:081f1355da40cfc456075038e847600ccb3d4b9ad3e56de5f34f234f6446c0fc",
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:f76204a3b07b2f4318c15d1439d737fe05bff827d63a7a4bbdd2aa2cd196f390",
+  "generation": 2,
+  "state_digest": "sha256:da21bf1b6ecbce589bd420d0a8394a105d584f30e84d74424baf2e8c9ad2f09a",
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 2,
+    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
   },
-  "terminal_evidence": []
+  "terminal_evidence": [
+    {
+      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+      "evidence_class": "owner_exact_subject_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+      "acceptance_id": "A-05-R0-V3-OWNER-GO",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+      "evidence_class": "owner_r1_r2_r3_grant",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
+      "actor_id": "watchout",
+      "active_function": "owner_decision",
+      "provenance_ref": "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+      "acceptance_id": "A-05-R0-V3-OWNER-GO",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
 }

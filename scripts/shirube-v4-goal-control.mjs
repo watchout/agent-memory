@@ -15,6 +15,8 @@ const BINDING_PATH = ".shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS
 const WORK_ITEM_DIR = ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804";
 const EVIDENCE_PATH = ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json";
 const R0_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json";
+const R0_V3_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json";
+const RELEASE_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json";
 const HANDOFF_PATH = ".shirube/control-handoffs/CH-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001.yaml";
 const EXPECTED_TREE = "acda601dbb5ea14d7ef5db955b638eaece6cda50";
 const EXPECTED_VERSION = `git-tree:${EXPECTED_TREE}`;
@@ -26,6 +28,24 @@ const EXACT_MERGE = {
   merge_commit: "867b7be7feed82ebb8c57334867858f16b8da341",
   merged_at: "2026-08-03T22:41:12Z",
   evidence_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+};
+const PRE_ROLLOUT_RECONCILIATION = {
+  generation: 2,
+  merge_commit: "8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+  merge_tree: "91a9bd882f53f92c9d2c9635ccb2a3f4dcf91ac9",
+  merged_at: "2026-08-05T00:03:04Z",
+  merge_evidence_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5185960713",
+  audit_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
+  owner_decision_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+  owner_control_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057",
+  release_file_sha256: "4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+  release_payload_sha256: "671dbdd4c9decc0845c3b46a985c48561106fb58c828113abbf185f751801057",
+  release_descriptor_sha256: "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+  dist_tree_sha256: "6c8b380f14814d2456db6b1afedafa8eea99223974919176d81d602e9cea508a",
+  r0_v3_file_sha256: "ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+  r0_v3_payload_sha256: "12d9a0b33978dcd49d22eb723baff3f1ee00980c2849dc0827fa31c824ddd8a4",
+  capture_a_sha256: "7185ddc04cd9124a68593b227c5b8722f2fb5410fcd51d4b28759864badc50a4",
+  capture_b_sha256: "5e6d81a30ddf564e54489b3593dd8fc798ffedcc327f6977785e4f78ec5cb975",
 };
 const ALL_OPERATIONS = [
   "WORK_ITEM_DISPATCH", "INDEPENDENT_AUDIT", "INDEPENDENT_REAUDIT", "PARENT_RETURN",
@@ -463,6 +483,212 @@ function advanceExactMerge(repoRoot, observedAt) {
   return { goalRun, workItems, binding, previousPath };
 }
 
+function assertPreRolloutEvidence(repoRoot) {
+  const releaseBytes = readFileSync(absolute(repoRoot, RELEASE_PATH));
+  const r0Bytes = readFileSync(absolute(repoRoot, R0_V3_PATH));
+  if (sha256Raw(releaseBytes) !== PRE_ROLLOUT_RECONCILIATION.release_file_sha256) {
+    throw new Error("immutable runtime release file digest mismatch");
+  }
+  if (sha256Raw(r0Bytes) !== PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256) {
+    throw new Error("R0 v3 evidence file digest mismatch");
+  }
+
+  const release = JSON.parse(releaseBytes);
+  const r0 = JSON.parse(r0Bytes);
+  const entrypoints = Object.values(release?.release?.required_entrypoint_readback ?? {});
+  const protectedEffects = Object.values(r0?.protected_effects ?? {});
+  const releasePass =
+    release?.schema_version === "kusabi-content-addressed-runtime-release-evidence/v1" &&
+    release?.build?.source_tree_sha256 === EXPECTED_TREE &&
+    release?.build?.source_status_before_install === "CLEAN" &&
+    release?.release?.release_descriptor_sha256 === PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256 &&
+    release?.release?.dist_tree_sha256 === PRE_ROLLOUT_RECONCILIATION.dist_tree_sha256 &&
+    release?.release?.publication === "PASS_ATOMIC_RENAME_FROM_SIBLING_STAGING" &&
+    release?.release?.final_tree_exact === "PASS_224_OF_224" &&
+    entrypoints.length === 5 && entrypoints.every((entry) => entry?.verdict === "PASS" && entry?.actual_sha256 === entry?.expected_sha256) &&
+    release?.gate_result?.verdict === "PASS" &&
+    release?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.release_payload_sha256;
+  if (!releasePass) throw new Error("immutable runtime release predicates are not all PASS");
+
+  const r0Pass =
+    r0?.schema_version === "kusabi-fleet-r0-candidate-pack/v3" &&
+    r0?.exact_subject?.approved_tree === EXPECTED_TREE &&
+    r0?.exact_subject?.merged_tree_sha === EXPECTED_TREE &&
+    r0?.exact_subject?.release_descriptor_sha256 === PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256 &&
+    r0?.capture_a?.internal_digest_sha256 === PRE_ROLLOUT_RECONCILIATION.capture_a_sha256 &&
+    r0?.capture_b?.internal_digest_sha256 === PRE_ROLLOUT_RECONCILIATION.capture_b_sha256 &&
+    r0?.heartbeat_separation?.verdict === "PASS_PARTITIONED_33_OF_33" &&
+    r0?.heartbeat_separation?.primary_binding_count === 33 &&
+    r0?.heartbeat_separation?.emitter_count === 29 &&
+    r0?.heartbeat_separation?.offline_non_emitter_count === 4 &&
+    r0?.heartbeat_separation?.ambiguous_count === 0 &&
+    r0?.equality_matrix?.verdict === "PASS" &&
+    r0?.equality_matrix?.pass_count === r0?.equality_matrix?.total_count &&
+    r0?.equality_matrix?.total_count === 13 &&
+    r0?.topology?.target_count === 35 &&
+    r0?.topology?.sorted_target_keys_lf_sha256 === EXPECTED_TARGET_SET_SHA256 &&
+    r0?.gate_result?.verdict === "PASS_R0_V3_HEARTBEAT_REPRODUCTION" &&
+    protectedEffects.length === 6 && protectedEffects.every((value) => value === 0) &&
+    r0?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.r0_v3_payload_sha256;
+  if (!r0Pass) throw new Error("R0 v3 reproduction predicates are not all PASS");
+}
+
+function preRolloutTerminalEvidence(item) {
+  const acceptanceId = item.unmet_condition_id;
+  const releaseRef = `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`;
+  const r0Ref = `file:${R0_V3_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256}`;
+  const evidenceByAcceptance = {
+    "A-02-IMMUTABLE-RUNTIME-RELEASE": {
+      actor_id: "kusabi",
+      active_function: "implementation_executor",
+      provenance_ref: releaseRef,
+      refs: {
+        clean_build_readback: `${releaseRef}/build`,
+        content_addressed_release_readback: `release:sha256:${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`,
+        entrypoint_digest_readback: `${releaseRef}/release/required_entrypoint_readback`,
+      },
+    },
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION": {
+      actor_id: "kusabi",
+      active_function: "implementation_executor",
+      provenance_ref: r0Ref,
+      refs: {
+        r0_v3_capture_a: `${r0Ref}/capture_a#sha256:${PRE_ROLLOUT_RECONCILIATION.capture_a_sha256}`,
+        ordinary_heartbeat_separation: `${r0Ref}/heartbeat_separation`,
+        r0_v3_capture_b: `${r0Ref}/capture_b#sha256:${PRE_ROLLOUT_RECONCILIATION.capture_b_sha256}`,
+        r0_v3_equality_matrix: `${r0Ref}/equality_matrix`,
+      },
+    },
+    "A-04-R0-V3-INDEPENDENT-AUDIT": {
+      actor_id: "devauditor",
+      active_function: "evidence_audit_gate",
+      provenance_ref: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+      refs: {
+        independent_audit_pass: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+        audit_blocker_count_zero: `${PRE_ROLLOUT_RECONCILIATION.audit_ref}#blocker_count=0`,
+        protected_effect_count_zero: `${PRE_ROLLOUT_RECONCILIATION.audit_ref}#protected_effect_count=0`,
+      },
+    },
+    "A-05-R0-V3-OWNER-GO": {
+      actor_id: "watchout",
+      active_function: "owner_decision",
+      provenance_ref: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+      refs: {
+        owner_exact_subject_readback: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+        owner_r1_r2_r3_grant: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+      },
+    },
+  };
+  const definition = evidenceByAcceptance[acceptanceId];
+  if (!definition) return null;
+  return item.required_evidence.map((evidenceClass) => ({
+    evidence_ref: definition.refs[evidenceClass],
+    evidence_class: evidenceClass,
+    subject_work_item_id: item.work_item_id,
+    actor_id: definition.actor_id,
+    active_function: definition.active_function,
+    provenance_ref: definition.provenance_ref,
+    acceptance_id: acceptanceId,
+    blocker_id: null,
+    exact_version: EXPECTED_VERSION,
+    predicate_verified: true,
+  }));
+}
+
+function reconcilePreRollout(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  const eventId = `EVENT-KUSABI-PREROLLOUT-RECONCILED-${PRE_ROLLOUT_RECONCILIATION.merge_commit}`;
+  const isExactReplay =
+    previous.generation === PRE_ROLLOUT_RECONCILIATION.generation &&
+    previous.status === "ACTIVE" &&
+    previous.active_work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3" &&
+    previous.checkpoint?.last_event_id === eventId &&
+    canonicalJson(passed) === canonicalJson([
+      "A-01-PR281-EXACT-MERGE",
+      "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "A-04-R0-V3-INDEPENDENT-AUDIT",
+      "A-05-R0-V3-OWNER-GO",
+    ]);
+  if (
+    !isExactReplay && (
+      previous.generation !== 1 ||
+      previous.status !== "ACTIVE" ||
+      previous.active_work_item_id !== "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" ||
+      canonicalJson(passed) !== canonicalJson(["A-01-PR281-EXACT-MERGE"])
+    )
+  ) {
+    throw new Error("pre-rollout reconciliation requires the exact generation-1 input or its exact generation-2 checkpoint");
+  }
+  assertPreRolloutEvidence(repoRoot);
+
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`);
+  if (!isExactReplay) writeJson(previousPath, previous);
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    merge_commit: PRE_ROLLOUT_RECONCILIATION.merge_commit,
+    merge_tree: PRE_ROLLOUT_RECONCILIATION.merge_tree,
+    release_file_sha256: PRE_ROLLOUT_RECONCILIATION.release_file_sha256,
+    r0_v3_file_sha256: PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256,
+    audit_ref: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+    owner_decision_ref: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+  });
+  const checkpoint = {
+    event_sequence: isExactReplay ? previous.checkpoint.event_sequence : previous.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const reconciledIds = new Set([
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+    "A-04-R0-V3-INDEPENDENT-AUDIT",
+    "A-05-R0-V3-OWNER-GO",
+  ]);
+  const evidenceRefs = {
+    "A-02-IMMUTABLE-RUNTIME-RELEASE": [
+      `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`,
+      `release:sha256:${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`,
+    ],
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION": [
+      `file:${R0_V3_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256}`,
+      PRE_ROLLOUT_RECONCILIATION.merge_evidence_ref,
+    ],
+    "A-04-R0-V3-INDEPENDENT-AUDIT": [PRE_ROLLOUT_RECONCILIATION.audit_ref],
+    "A-05-R0-V3-OWNER-GO": [PRE_ROLLOUT_RECONCILIATION.owner_decision_ref, PRE_ROLLOUT_RECONCILIATION.owner_control_ref],
+  };
+  const goalRun = structuredClone(previous);
+  if (!isExactReplay) {
+    goalRun.generation = PRE_ROLLOUT_RECONCILIATION.generation;
+    goalRun.active_work_item_id = "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3";
+    goalRun.acceptance_states = goalRun.acceptance_states.map((state) => reconciledIds.has(state.acceptance_id)
+      ? { ...state, status: "VERIFIED_PASS", evidence_refs: evidenceRefs[state.acceptance_id] }
+      : state);
+    goalRun.checkpoint = checkpoint;
+    goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+  }
+
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    const terminalEvidence = preRolloutTerminalEvidence(item);
+    if (terminalEvidence) {
+      item.status = "VERIFIED_TERMINAL";
+      item.terminal_evidence = terminalEvidence;
+    }
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath, replayed: isExactReplay };
+}
+
 function frameworkRoot(repoRoot, explicit) {
   const candidates = [
     explicit,
@@ -599,6 +825,13 @@ function main() {
   }
   if (command === "advance-exact-merge") {
     advanceExactMerge(repoRoot, options["observed-at"] || EXACT_MERGE.merged_at);
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "reconcile-prerollout") {
+    reconcilePreRollout(repoRoot, options["observed-at"] || PRE_ROLLOUT_RECONCILIATION.merged_at);
     const report = check(repoRoot, options["framework-root"], true);
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = report.verdict === "PASS" ? 0 : 1;

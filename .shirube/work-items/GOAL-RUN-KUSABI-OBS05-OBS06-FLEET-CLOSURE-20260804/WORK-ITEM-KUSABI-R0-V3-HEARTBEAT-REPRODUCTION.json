@@ -48,14 +48,63 @@
   "unmet_condition_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
   "acceptance_ordinal": 3,
   "blocker_ordinal": 0,
-  "status": "READY",
-  "dispatch_idempotency_key": "sha256:1a42ec389d41126e76a01c7601e300de9e789cd4791e274e853fec6190063282",
-  "generation": 1,
-  "state_digest": "sha256:090088eedd80f119b65a5f93a2df637d753828aa860a9e3d4ae918d724cef91d",
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:c64aa745046adc236ba0b7ee856359f102528e606c206f6d1d8dd436d4f31814",
+  "generation": 2,
+  "state_digest": "sha256:a1d1b004ffcf7c979196cf206c0f4c4a44c2f5d22ed5a89f0d22c9a3790e84eb",
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 2,
+    "last_event_id": "EVENT-KUSABI-PREROLLOUT-RECONCILED-8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+    "last_idempotency_key": "sha256:ca5eab1fac9541b7bb15b74f202def2f7f5410ab62bff13d96d3c5c497780a43"
   },
-  "terminal_evidence": []
+  "terminal_evidence": [
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed/capture_a#sha256:7185ddc04cd9124a68593b227c5b8722f2fb5410fcd51d4b28759864badc50a4",
+      "evidence_class": "r0_v3_capture_a",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed/heartbeat_separation",
+      "evidence_class": "ordinary_heartbeat_separation",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed/capture_b#sha256:5e6d81a30ddf564e54489b3593dd8fc798ffedcc327f6977785e4f78ec5cb975",
+      "evidence_class": "r0_v3_capture_b",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed/equality_matrix",
+      "evidence_class": "r0_v3_equality_matrix",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+      "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "blocker_id": null,
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
 }
