@@ -4,7 +4,7 @@
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
   "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280",
-  "handoff_digest": "sha256:804282a13bf79ac4c0158bbbb1883ec0e0c0ef544bf2f70a14afbc2d5d4cd7ee",
+  "handoff_digest": "sha256:989a1217ee1e39f17daa6171bedd8c209523383213386054e52d6a7cfa0d35bf",
   "allowed_operations": [
     "DEPLOY"
   ],
@@ -48,13 +48,13 @@
   "acceptance_ordinal": 6,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:28dfb5adf282ede3703b5ee763cf32ced5415e1dfcbd0a878efa7d9745f77eb9",
-  "generation": 1,
-  "state_digest": "sha256:0d0aaeb2b7ecfac2869b3827e4a86c2771e2c902ce927009003a776431fbb544",
+  "dispatch_idempotency_key": "sha256:fc129be35c1d7c2e00753763448e051fccb6de4d88dc00d75dda296fc27f1158",
+  "generation": 3,
+  "state_digest": "sha256:986583545bcb87032ca984d55cd72b572c667fc1060980f19417220daee10280",
   "checkpoint": {
-    "event_sequence": 1,
-    "last_event_id": "EVENT-KUSABI-PR281-EXACT-MERGE-867b7be7feed82ebb8c57334867858f16b8da341",
-    "last_idempotency_key": "sha256:6031fc3e6856563ea5213f1d473b9fbd671fc51a7a26a169a4872fcf3886864b"
+    "event_sequence": 3,
+    "last_event_id": "EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+    "last_idempotency_key": "sha256:4b98f2ecdcddff03e18fa407a47faaabba6e3133265142ca2f51d8c4dc355b58"
   },
   "terminal_evidence": []
 }

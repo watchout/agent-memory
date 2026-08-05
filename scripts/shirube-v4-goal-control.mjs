@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -15,6 +15,8 @@ const BINDING_PATH = ".shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS
 const WORK_ITEM_DIR = ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804";
 const EVIDENCE_PATH = ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json";
 const R0_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json";
+const R0_V3_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json";
+const RELEASE_PATH = ".shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json";
 const HANDOFF_PATH = ".shirube/control-handoffs/CH-AGENT-MEMORY-SHIRUBE-V4-GOALRUN-ACTIVATION-20260804-001.yaml";
 const EXPECTED_TREE = "acda601dbb5ea14d7ef5db955b638eaece6cda50";
 const EXPECTED_VERSION = `git-tree:${EXPECTED_TREE}`;
@@ -26,6 +28,44 @@ const EXACT_MERGE = {
   merge_commit: "867b7be7feed82ebb8c57334867858f16b8da341",
   merged_at: "2026-08-03T22:41:12Z",
   evidence_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5172517192",
+};
+const PRE_ROLLOUT_RECONCILIATION = {
+  generation: 2,
+  merge_commit: "8f9e4649e5bd40dd43a510bb3913cf690c428c80",
+  merge_tree: "91a9bd882f53f92c9d2c9635ccb2a3f4dcf91ac9",
+  merged_at: "2026-08-05T00:03:04Z",
+  merge_evidence_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5185960713",
+  audit_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185937756",
+  owner_decision_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185949544",
+  owner_control_ref: "https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057",
+  release_file_sha256: "4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525",
+  release_payload_sha256: "671dbdd4c9decc0845c3b46a985c48561106fb58c828113abbf185f751801057",
+  release_descriptor_sha256: "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+  dist_tree_sha256: "6c8b380f14814d2456db6b1afedafa8eea99223974919176d81d602e9cea508a",
+  r0_v3_file_sha256: "ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed",
+  r0_v3_payload_sha256: "12d9a0b33978dcd49d22eb723baff3f1ee00980c2849dc0827fa31c824ddd8a4",
+  capture_a_sha256: "7185ddc04cd9124a68593b227c5b8722f2fb5410fcd51d4b28759864badc50a4",
+  capture_b_sha256: "5e6d81a30ddf564e54489b3593dd8fc798ffedcc327f6977785e4f78ec5cb975",
+};
+const RELEASE_R0_SUCCESSOR = {
+  generation: 3,
+  release_handoff_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186287466",
+  release_handoff_body_sha256: "1a40fb0bd6b4f6ede3aae8c2d60f55640117f903d8a5873d0695bc8857318099",
+  amendment_ref: "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186307680",
+  amendment_body_sha256: "9d79ba783c1ad3bf9db3d352b2f1a7850e76b3dfe3f0e7383a9daa78b80c7594",
+  predecessor_head: "00504ca75f731e253e006db7a4a7390bb93afeb9",
+  predecessor_tree: "da07136f9cb32b45bc3c8be285d52f004ee50733",
+  failed_release_descriptor_sha256: "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+  release_file_sha256: "99bd980c7112b5090b4756c08d44c2b7e106af1a4744befb80700cb1a77b9f81",
+  release_payload_sha256: "034f0caad747bac3137e46e5d1b0083c7fdefffa80dd67ad2197af98964d4456",
+  release_descriptor_sha256: "f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+  runtime_tree_sha256: "95456b97362f06c38a6202e838b0d5eb07c2e925283c279257195b6d3a240436",
+  dependency_inventory_sha256: "d47e6ce7f5808dec56585e07e852e4596b8f8ebee59221cbecaadbc498740ffa",
+  import_smoke_results_sha256: "b952d57c5272b7e0ed4659045f6094ec14869b52b74793c82e1bb4617b6535d8",
+  r0_v3_file_sha256: "97f30a94ee4caa2ed215605ca6b3021ee5d4fe98e8b5e20d5b0baa9e54953a89",
+  r0_v3_payload_sha256: "3216ee051ea2d9ba89cab6717acdf2feba8799ae9f85d6bf9be5d46f51824b12",
+  capture_a_sha256: "620370c8df347335fd632f0e498409ce90876cfcb2f0b0775ad1e2293bb2c76b",
+  capture_b_sha256: "ce6107b65b938c9cdb86db4d69177e4392b26b782e223729df85075abb96ca41",
 };
 const ALL_OPERATIONS = [
   "WORK_ITEM_DISPATCH", "INDEPENDENT_AUDIT", "INDEPENDENT_REAUDIT", "PARENT_RETURN",
@@ -463,6 +503,537 @@ function advanceExactMerge(repoRoot, observedAt) {
   return { goalRun, workItems, binding, previousPath };
 }
 
+function assertPreRolloutEvidence(repoRoot) {
+  const releaseBytes = readFileSync(absolute(repoRoot, RELEASE_PATH));
+  const r0Bytes = readFileSync(absolute(repoRoot, R0_V3_PATH));
+  if (sha256Raw(releaseBytes) !== PRE_ROLLOUT_RECONCILIATION.release_file_sha256) {
+    throw new Error("immutable runtime release file digest mismatch");
+  }
+  if (sha256Raw(r0Bytes) !== PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256) {
+    throw new Error("R0 v3 evidence file digest mismatch");
+  }
+
+  const release = JSON.parse(releaseBytes);
+  const r0 = JSON.parse(r0Bytes);
+  const entrypoints = Object.values(release?.release?.required_entrypoint_readback ?? {});
+  const protectedEffects = Object.values(r0?.protected_effects ?? {});
+  const releasePass =
+    release?.schema_version === "kusabi-content-addressed-runtime-release-evidence/v1" &&
+    release?.build?.source_tree_sha256 === EXPECTED_TREE &&
+    release?.build?.source_status_before_install === "CLEAN" &&
+    release?.release?.release_descriptor_sha256 === PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256 &&
+    release?.release?.dist_tree_sha256 === PRE_ROLLOUT_RECONCILIATION.dist_tree_sha256 &&
+    release?.release?.publication === "PASS_ATOMIC_RENAME_FROM_SIBLING_STAGING" &&
+    release?.release?.final_tree_exact === "PASS_224_OF_224" &&
+    entrypoints.length === 5 && entrypoints.every((entry) => entry?.verdict === "PASS" && entry?.actual_sha256 === entry?.expected_sha256) &&
+    release?.gate_result?.verdict === "PASS" &&
+    release?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.release_payload_sha256;
+  if (!releasePass) throw new Error("immutable runtime release predicates are not all PASS");
+  const importSmokes = inspectReleaseRuntime(release);
+  if (!importSmokes.every((smoke) => smoke.pass)) {
+    throw new Error("immutable runtime release is not self-contained and import-executable");
+  }
+
+  const r0Pass =
+    r0?.schema_version === "kusabi-fleet-r0-candidate-pack/v3" &&
+    r0?.exact_subject?.approved_tree === EXPECTED_TREE &&
+    r0?.exact_subject?.merged_tree_sha === EXPECTED_TREE &&
+    r0?.exact_subject?.release_descriptor_sha256 === PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256 &&
+    r0?.capture_a?.internal_digest_sha256 === PRE_ROLLOUT_RECONCILIATION.capture_a_sha256 &&
+    r0?.capture_b?.internal_digest_sha256 === PRE_ROLLOUT_RECONCILIATION.capture_b_sha256 &&
+    r0?.heartbeat_separation?.verdict === "PASS_PARTITIONED_33_OF_33" &&
+    r0?.heartbeat_separation?.primary_binding_count === 33 &&
+    r0?.heartbeat_separation?.emitter_count === 29 &&
+    r0?.heartbeat_separation?.offline_non_emitter_count === 4 &&
+    r0?.heartbeat_separation?.ambiguous_count === 0 &&
+    r0?.equality_matrix?.verdict === "PASS" &&
+    r0?.equality_matrix?.pass_count === r0?.equality_matrix?.total_count &&
+    r0?.equality_matrix?.total_count === 13 &&
+    r0?.topology?.target_count === 35 &&
+    r0?.topology?.sorted_target_keys_lf_sha256 === EXPECTED_TARGET_SET_SHA256 &&
+    r0?.gate_result?.verdict === "PASS_R0_V3_HEARTBEAT_REPRODUCTION" &&
+    protectedEffects.length === 6 && protectedEffects.every((value) => value === 0) &&
+    r0?.evidence_payload_sha256 === PRE_ROLLOUT_RECONCILIATION.r0_v3_payload_sha256;
+  if (!r0Pass) throw new Error("R0 v3 reproduction predicates are not all PASS");
+}
+
+function assertReleaseR0SuccessorEvidence(repoRoot) {
+  const releaseBytes = readFileSync(absolute(repoRoot, RELEASE_PATH));
+  const r0Bytes = readFileSync(absolute(repoRoot, R0_V3_PATH));
+  if (sha256Raw(releaseBytes) !== RELEASE_R0_SUCCESSOR.release_file_sha256) {
+    throw new Error("successor immutable runtime release file digest mismatch");
+  }
+  if (sha256Raw(r0Bytes) !== RELEASE_R0_SUCCESSOR.r0_v3_file_sha256) {
+    throw new Error("successor R0 v3 evidence file digest mismatch");
+  }
+
+  const release = JSON.parse(releaseBytes);
+  const r0 = JSON.parse(r0Bytes);
+  const entrypoints = Object.values(release?.release?.required_entrypoint_readback ?? {});
+  const dependencies = release?.release?.production_dependency_inventory;
+  const stageImports = release?.release?.import_smoke_before_publish;
+  const finalImports = release?.release?.import_smoke_after_publish;
+  const releaseProtectedEffects = Object.values(release?.protected_effects ?? {});
+  const importPhasePass = (phase) =>
+    phase?.pass_count === 5 && phase?.total_count === 5 &&
+    phase?.sha256 === RELEASE_R0_SUCCESSOR.import_smoke_results_sha256 &&
+    phase?.results?.length === 5 && phase.results.every((result) =>
+      result.status === 0 && result.timed_out === false && result.isolated_path_effect_count === 0);
+  const releasePass =
+    release?.schema_version === "kusabi-content-addressed-runtime-release-evidence/v1" &&
+    release?.control_source?.ref === RELEASE_R0_SUCCESSOR.amendment_ref &&
+    release?.control_source?.body_sha256 === RELEASE_R0_SUCCESSOR.amendment_body_sha256 &&
+    release?.control_source?.release_handoff_ref === RELEASE_R0_SUCCESSOR.release_handoff_ref &&
+    release?.build?.source_tree_sha256 === EXPECTED_TREE &&
+    release?.build?.source_status_before_install === "CLEAN" &&
+    release?.build?.tracked_source_diff_before_and_after === "CLEAN" &&
+    release?.release?.release_descriptor_sha256 === RELEASE_R0_SUCCESSOR.release_descriptor_sha256 &&
+    release?.release?.runtime_tree_sha256 === RELEASE_R0_SUCCESSOR.runtime_tree_sha256 &&
+    release?.release?.production_dependency_inventory_sha256 === RELEASE_R0_SUCCESSOR.dependency_inventory_sha256 &&
+    release?.release?.import_smoke_results_sha256 === RELEASE_R0_SUCCESSOR.import_smoke_results_sha256 &&
+    release?.release?.complete_runtime_path_mode_sha256_ledger?.runtime_tree_sha256 === RELEASE_R0_SUCCESSOR.runtime_tree_sha256 &&
+    release?.release?.complete_runtime_path_mode_sha256_ledger?.files?.length === 4073 &&
+    dependencies?.canonical_sha256 === RELEASE_R0_SUCCESSOR.dependency_inventory_sha256 &&
+    dependencies?.installed_count === 107 && dependencies?.extraneous_missing_invalid_count === 0 &&
+    importPhasePass(stageImports) && importPhasePass(finalImports) &&
+    release?.release?.publication?.initial === "ATOMIC_RENAME_NEW_CAS" &&
+    release?.release?.publication?.final_conformance_readback === "IDEMPOTENT_SUCCESS_NO_WRITE" &&
+    entrypoints.length === 5 && entrypoints.every((entry) => entry?.verdict === "PASS" && entry?.actual_sha256 === entry?.expected_sha256) &&
+    releaseProtectedEffects.length >= 8 && releaseProtectedEffects.every((value) => value === 0) &&
+    release?.gate_result?.verdict === "PASS_SELF_CONTAINED_RELEASE_5_OF_5" &&
+    release?.gate_result?.blocker_count === 0 && release?.gate_result?.protected_effect_count === 0 &&
+    release?.evidence_payload_sha256 === RELEASE_R0_SUCCESSOR.release_payload_sha256;
+  if (!releasePass) throw new Error("successor immutable runtime release predicates are not all PASS");
+  const importSmokes = inspectReleaseRuntime(release);
+  if (!importSmokes.every((smoke) => smoke.pass)) {
+    throw new Error("successor immutable runtime release is not self-contained and import-executable");
+  }
+
+  const r0ProtectedEffects = Object.values(r0?.protected_effects ?? {});
+  const heartbeat = r0?.heartbeat_separation;
+  const r0Pass =
+    r0?.schema_version === "kusabi-fleet-r0-candidate-pack/v3" &&
+    r0?.control_source?.ref === RELEASE_R0_SUCCESSOR.amendment_ref &&
+    r0?.control_source?.body_sha256 === RELEASE_R0_SUCCESSOR.amendment_body_sha256 &&
+    r0?.exact_subject?.approved_tree === EXPECTED_TREE &&
+    r0?.exact_subject?.merged_tree_sha === EXPECTED_TREE &&
+    r0?.exact_subject?.release_descriptor_sha256 === RELEASE_R0_SUCCESSOR.release_descriptor_sha256 &&
+    r0?.exact_subject?.runtime_tree_sha256 === RELEASE_R0_SUCCESSOR.runtime_tree_sha256 &&
+    r0?.exact_subject?.production_dependency_inventory_sha256 === RELEASE_R0_SUCCESSOR.dependency_inventory_sha256 &&
+    r0?.exact_subject?.import_smoke_results_sha256 === RELEASE_R0_SUCCESSOR.import_smoke_results_sha256 &&
+    r0?.capture_a?.internal_digest_sha256 === RELEASE_R0_SUCCESSOR.capture_a_sha256 &&
+    r0?.capture_b?.internal_digest_sha256 === RELEASE_R0_SUCCESSOR.capture_b_sha256 &&
+    heartbeat?.verdict === "PASS_PARTITIONED_33_OF_33" &&
+    heartbeat?.primary_binding_count === 33 &&
+    heartbeat?.emitter_count + heartbeat?.offline_non_emitter_count === 33 &&
+    heartbeat?.ambiguous_count === 0 &&
+    r0?.equality_matrix?.verdict === "PASS" &&
+    r0?.equality_matrix?.pass_count === r0?.equality_matrix?.total_count &&
+    r0?.equality_matrix?.total_count === 13 &&
+    r0?.topology?.target_count === 35 && r0?.topology?.primary_binding_count === 33 && r0?.topology?.approved_secondary_binding_count === 2 &&
+    r0?.topology?.stage_counts?.r1 === 3 && r0?.topology?.stage_counts?.r2 === 11 && r0?.topology?.stage_counts?.r3 === 21 &&
+    r0?.topology?.sorted_target_keys_lf_sha256 === EXPECTED_TARGET_SET_SHA256 &&
+    r0?.gate_result?.verdict === "PASS_R0_V3_HEARTBEAT_REPRODUCTION" && r0?.gate_result?.R1_authorized === false &&
+    r0ProtectedEffects.length >= 7 && r0ProtectedEffects.every((value) => value === 0) &&
+    r0?.evidence_payload_sha256 === RELEASE_R0_SUCCESSOR.r0_v3_payload_sha256;
+  if (!r0Pass) throw new Error("successor R0 v3 reproduction predicates are not all PASS");
+  return { release, r0, importSmokes };
+}
+
+function inspectReleaseRuntime(release) {
+  const runtimeRoot = release?.release?.runtime_root_realpath;
+  const entrypoints = Object.keys(release?.release?.required_entrypoint_readback ?? {}).sort();
+  if (typeof runtimeRoot !== "string" || entrypoints.length !== 5) {
+    return [{ entrypoint: "release-runtime-root", pass: false, exit_code: null, error_code: "RELEASE_RUNTIME_METADATA_INVALID" }];
+  }
+  return entrypoints.map((entrypoint) => {
+    const locator = pathToFileURL(join(runtimeRoot, entrypoint)).href;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", "await import(process.argv[1])", locator],
+      { encoding: "utf8", timeout: 10_000 },
+    );
+    const diagnostic = `${result.stderr ?? ""}\n${result.error?.message ?? ""}`;
+    const errorCode = diagnostic.match(/ERR_[A-Z_]+/)?.[0] ?? (result.error ? "SPAWN_ERROR" : null);
+    return { entrypoint, pass: result.status === 0, exit_code: result.status, error_code: errorCode };
+  });
+}
+
+function recordPreRolloutBlocker(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  if (
+    previous.generation !== 1 ||
+    previous.status !== "ACTIVE" ||
+    previous.active_work_item_id !== "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" ||
+    canonicalJson(passed) !== canonicalJson(["A-01-PR281-EXACT-MERGE"])
+  ) {
+    throw new Error("release blocker recording requires the exact generation-1 post-merge GoalRun");
+  }
+  const release = readJson(absolute(repoRoot, RELEASE_PATH));
+  const importSmokes = inspectReleaseRuntime(release);
+  if (importSmokes.every((smoke) => smoke.pass)) {
+    throw new Error("release import smoke is already PASS; no blocker may be recorded");
+  }
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`);
+  writeJson(previousPath, previous);
+  const eventId = `EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`;
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    release_file_sha256: PRE_ROLLOUT_RECONCILIATION.release_file_sha256,
+    import_smokes: importSmokes,
+  });
+  const checkpoint = {
+    event_sequence: previous.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const blockerId = "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED";
+  const goalRun = structuredClone(previous);
+  goalRun.status = "BLOCKED";
+  goalRun.generation = 2;
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
+  goalRun.blocker_set = [{
+    blocker_id: blockerId,
+    ordinal: 2,
+    evidence_refs: [
+      `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`,
+      "command:node-esm-import-smoke#ERR_MODULE_NOT_FOUND",
+    ],
+    removal_predicate: "Publish a new content-addressed runtime release whose five required entrypoints pass side-effect-free ESM import smoke with all production dependencies resolved; regenerate exact R0 v3, independent audit, and owner GO before R1.",
+  }];
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    if (item.unmet_condition_id === "A-02-IMMUTABLE-RUNTIME-RELEASE") item.status = "BLOCKED";
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath, importSmokes };
+}
+
+function successorTerminalEvidence(item) {
+  const releaseRef = `file:${RELEASE_PATH}#sha256:${RELEASE_R0_SUCCESSOR.release_file_sha256}`;
+  const r0Ref = `file:${R0_V3_PATH}#sha256:${RELEASE_R0_SUCCESSOR.r0_v3_file_sha256}`;
+  const evidenceByAcceptance = {
+    "A-02-IMMUTABLE-RUNTIME-RELEASE": {
+      provenance_ref: RELEASE_R0_SUCCESSOR.release_handoff_ref,
+      refs: {
+        clean_build_readback: `${releaseRef}/build`,
+        content_addressed_release_readback: `release:sha256:${RELEASE_R0_SUCCESSOR.release_descriptor_sha256}`,
+        entrypoint_digest_readback: `${releaseRef}/release/import_smoke_before_publish#sha256:${RELEASE_R0_SUCCESSOR.import_smoke_results_sha256}`,
+      },
+    },
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION": {
+      provenance_ref: RELEASE_R0_SUCCESSOR.amendment_ref,
+      refs: {
+        r0_v3_capture_a: `${r0Ref}/capture_a#sha256:${RELEASE_R0_SUCCESSOR.capture_a_sha256}`,
+        ordinary_heartbeat_separation: `${r0Ref}/heartbeat_separation`,
+        r0_v3_capture_b: `${r0Ref}/capture_b#sha256:${RELEASE_R0_SUCCESSOR.capture_b_sha256}`,
+        r0_v3_equality_matrix: `${r0Ref}/equality_matrix`,
+      },
+    },
+  };
+  const definition = evidenceByAcceptance[item.unmet_condition_id];
+  if (!definition) return null;
+  return item.required_evidence.map((evidenceClass) => ({
+    evidence_ref: definition.refs[evidenceClass],
+    evidence_class: evidenceClass,
+    subject_work_item_id: item.work_item_id,
+    actor_id: "kusabi",
+    active_function: "implementation_executor",
+    provenance_ref: definition.provenance_ref,
+    acceptance_id: item.unmet_condition_id,
+    blocker_id: item.unmet_condition_id === "A-02-IMMUTABLE-RUNTIME-RELEASE" ? "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED" : null,
+    exact_version: EXPECTED_VERSION,
+    predicate_verified: true,
+  }));
+}
+
+function advanceReleaseR0Successor(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  const eventId = `EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-${RELEASE_R0_SUCCESSOR.release_descriptor_sha256}`;
+  const expectedPassed = [
+    "A-01-PR281-EXACT-MERGE",
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+  ];
+  const isExactReplay =
+    previous.generation === RELEASE_R0_SUCCESSOR.generation &&
+    previous.status === "ACTIVE" && previous.blocker_set.length === 0 &&
+    previous.active_work_item_id === "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT" &&
+    previous.checkpoint?.last_event_id === eventId && canonicalJson(passed) === canonicalJson(expectedPassed);
+  const exactPredecessor =
+    previous.generation === 2 && previous.status === "BLOCKED" &&
+    previous.active_work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" &&
+    previous.blocker_set.length === 1 && previous.blocker_set[0]?.blocker_id === "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED" &&
+    canonicalJson(passed) === canonicalJson(["A-01-PR281-EXACT-MERGE"]);
+  if (!isExactReplay && !exactPredecessor) {
+    throw new Error("release/R0 successor requires the exact blocked generation-2 predecessor or its exact generation-3 replay");
+  }
+  assertReleaseR0SuccessorEvidence(repoRoot);
+
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    predecessor_head: RELEASE_R0_SUCCESSOR.predecessor_head,
+    predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
+    release_file_sha256: RELEASE_R0_SUCCESSOR.release_file_sha256,
+    release_descriptor_sha256: RELEASE_R0_SUCCESSOR.release_descriptor_sha256,
+    runtime_tree_sha256: RELEASE_R0_SUCCESSOR.runtime_tree_sha256,
+    dependency_inventory_sha256: RELEASE_R0_SUCCESSOR.dependency_inventory_sha256,
+    import_smoke_results_sha256: RELEASE_R0_SUCCESSOR.import_smoke_results_sha256,
+    r0_v3_file_sha256: RELEASE_R0_SUCCESSOR.r0_v3_file_sha256,
+    amendment_ref: RELEASE_R0_SUCCESSOR.amendment_ref,
+  });
+  const checkpoint = {
+    event_sequence: isExactReplay ? previous.checkpoint.event_sequence : previous.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const releaseRef = `file:${RELEASE_PATH}#sha256:${RELEASE_R0_SUCCESSOR.release_file_sha256}`;
+  const r0Ref = `file:${R0_V3_PATH}#sha256:${RELEASE_R0_SUCCESSOR.r0_v3_file_sha256}`;
+  const goalRun = structuredClone(previous);
+  goalRun.status = "ACTIVE";
+  goalRun.generation = RELEASE_R0_SUCCESSOR.generation;
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT";
+  goalRun.blocker_set = [];
+  goalRun.acceptance_states = goalRun.acceptance_states.map((state) => {
+    if (state.acceptance_id === "A-02-IMMUTABLE-RUNTIME-RELEASE") {
+      return {
+        ...state,
+        status: "VERIFIED_PASS",
+        evidence_refs: [
+          releaseRef,
+          `release:sha256:${RELEASE_R0_SUCCESSOR.release_descriptor_sha256}`,
+          `${releaseRef}/release/import_smoke_after_publish#sha256:${RELEASE_R0_SUCCESSOR.import_smoke_results_sha256}`,
+        ],
+      };
+    }
+    if (state.acceptance_id === "A-03-R0-V3-HEARTBEAT-REPRODUCTION") {
+      return { ...state, status: "VERIFIED_PASS", evidence_refs: [r0Ref, RELEASE_R0_SUCCESSOR.amendment_ref] };
+    }
+    return state;
+  });
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+
+  const successorHandoffDigest = digestValue({
+    control_handoff_ref: RELEASE_R0_SUCCESSOR.amendment_ref,
+    amendment_body_sha256: RELEASE_R0_SUCCESSOR.amendment_body_sha256,
+    release_handoff_ref: RELEASE_R0_SUCCESSOR.release_handoff_ref,
+    release_handoff_body_sha256: RELEASE_R0_SUCCESSOR.release_handoff_body_sha256,
+  });
+  const successorIds = new Set([
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+    "A-04-R0-V3-INDEPENDENT-AUDIT",
+    "A-05-R0-V3-OWNER-GO",
+  ]);
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    if (successorIds.has(item.unmet_condition_id)) {
+      item.control_handoff_ref = RELEASE_R0_SUCCESSOR.amendment_ref;
+      item.handoff_digest = successorHandoffDigest;
+    }
+    if (item.unmet_condition_id === "A-02-IMMUTABLE-RUNTIME-RELEASE") {
+      item.removes_blocker_ids = ["B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED"];
+      item.blocker_ordinal = 2;
+    }
+    const terminalEvidence = successorTerminalEvidence(item);
+    if (terminalEvidence) {
+      item.status = "VERIFIED_TERMINAL";
+      item.terminal_evidence = terminalEvidence;
+    } else if (item.unmet_condition_id === "A-04-R0-V3-INDEPENDENT-AUDIT") {
+      item.status = "READY";
+      item.terminal_evidence = [];
+    }
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return {
+    goalRun,
+    workItems,
+    binding,
+    predecessor_history_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}`,
+    replayed: isExactReplay,
+  };
+}
+
+function preRolloutTerminalEvidence(item) {
+  const acceptanceId = item.unmet_condition_id;
+  const releaseRef = `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`;
+  const r0Ref = `file:${R0_V3_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256}`;
+  const evidenceByAcceptance = {
+    "A-02-IMMUTABLE-RUNTIME-RELEASE": {
+      actor_id: "kusabi",
+      active_function: "implementation_executor",
+      provenance_ref: releaseRef,
+      refs: {
+        clean_build_readback: `${releaseRef}/build`,
+        content_addressed_release_readback: `release:sha256:${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`,
+        entrypoint_digest_readback: `${releaseRef}/release/required_entrypoint_readback`,
+      },
+    },
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION": {
+      actor_id: "kusabi",
+      active_function: "implementation_executor",
+      provenance_ref: r0Ref,
+      refs: {
+        r0_v3_capture_a: `${r0Ref}/capture_a#sha256:${PRE_ROLLOUT_RECONCILIATION.capture_a_sha256}`,
+        ordinary_heartbeat_separation: `${r0Ref}/heartbeat_separation`,
+        r0_v3_capture_b: `${r0Ref}/capture_b#sha256:${PRE_ROLLOUT_RECONCILIATION.capture_b_sha256}`,
+        r0_v3_equality_matrix: `${r0Ref}/equality_matrix`,
+      },
+    },
+    "A-04-R0-V3-INDEPENDENT-AUDIT": {
+      actor_id: "devauditor",
+      active_function: "evidence_audit_gate",
+      provenance_ref: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+      refs: {
+        independent_audit_pass: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+        audit_blocker_count_zero: `${PRE_ROLLOUT_RECONCILIATION.audit_ref}#blocker_count=0`,
+        protected_effect_count_zero: `${PRE_ROLLOUT_RECONCILIATION.audit_ref}#protected_effect_count=0`,
+      },
+    },
+    "A-05-R0-V3-OWNER-GO": {
+      actor_id: "watchout",
+      active_function: "owner_decision",
+      provenance_ref: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+      refs: {
+        owner_exact_subject_readback: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+        owner_r1_r2_r3_grant: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+      },
+    },
+  };
+  const definition = evidenceByAcceptance[acceptanceId];
+  if (!definition) return null;
+  return item.required_evidence.map((evidenceClass) => ({
+    evidence_ref: definition.refs[evidenceClass],
+    evidence_class: evidenceClass,
+    subject_work_item_id: item.work_item_id,
+    actor_id: definition.actor_id,
+    active_function: definition.active_function,
+    provenance_ref: definition.provenance_ref,
+    acceptance_id: acceptanceId,
+    blocker_id: null,
+    exact_version: EXPECTED_VERSION,
+    predicate_verified: true,
+  }));
+}
+
+function reconcilePreRollout(repoRoot, observedAt) {
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  const eventId = `EVENT-KUSABI-PREROLLOUT-RECONCILED-${PRE_ROLLOUT_RECONCILIATION.merge_commit}`;
+  const isExactReplay =
+    previous.generation === PRE_ROLLOUT_RECONCILIATION.generation &&
+    previous.status === "ACTIVE" &&
+    previous.active_work_item_id === "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3" &&
+    previous.checkpoint?.last_event_id === eventId &&
+    canonicalJson(passed) === canonicalJson([
+      "A-01-PR281-EXACT-MERGE",
+      "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+      "A-04-R0-V3-INDEPENDENT-AUDIT",
+      "A-05-R0-V3-OWNER-GO",
+    ]);
+  if (
+    !isExactReplay && (
+      previous.generation !== 1 ||
+      previous.status !== "ACTIVE" ||
+      previous.active_work_item_id !== "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" ||
+      canonicalJson(passed) !== canonicalJson(["A-01-PR281-EXACT-MERGE"])
+    )
+  ) {
+    throw new Error("pre-rollout reconciliation requires the exact generation-1 input or its exact generation-2 checkpoint");
+  }
+  assertPreRolloutEvidence(repoRoot);
+
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`);
+  if (!isExactReplay) writeJson(previousPath, previous);
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    merge_commit: PRE_ROLLOUT_RECONCILIATION.merge_commit,
+    merge_tree: PRE_ROLLOUT_RECONCILIATION.merge_tree,
+    release_file_sha256: PRE_ROLLOUT_RECONCILIATION.release_file_sha256,
+    r0_v3_file_sha256: PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256,
+    audit_ref: PRE_ROLLOUT_RECONCILIATION.audit_ref,
+    owner_decision_ref: PRE_ROLLOUT_RECONCILIATION.owner_decision_ref,
+  });
+  const checkpoint = {
+    event_sequence: isExactReplay ? previous.checkpoint.event_sequence : previous.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const reconciledIds = new Set([
+    "A-02-IMMUTABLE-RUNTIME-RELEASE",
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
+    "A-04-R0-V3-INDEPENDENT-AUDIT",
+    "A-05-R0-V3-OWNER-GO",
+  ]);
+  const evidenceRefs = {
+    "A-02-IMMUTABLE-RUNTIME-RELEASE": [
+      `file:${RELEASE_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.release_file_sha256}`,
+      `release:sha256:${PRE_ROLLOUT_RECONCILIATION.release_descriptor_sha256}`,
+    ],
+    "A-03-R0-V3-HEARTBEAT-REPRODUCTION": [
+      `file:${R0_V3_PATH}#sha256:${PRE_ROLLOUT_RECONCILIATION.r0_v3_file_sha256}`,
+      PRE_ROLLOUT_RECONCILIATION.merge_evidence_ref,
+    ],
+    "A-04-R0-V3-INDEPENDENT-AUDIT": [PRE_ROLLOUT_RECONCILIATION.audit_ref],
+    "A-05-R0-V3-OWNER-GO": [PRE_ROLLOUT_RECONCILIATION.owner_decision_ref, PRE_ROLLOUT_RECONCILIATION.owner_control_ref],
+  };
+  const goalRun = structuredClone(previous);
+  if (!isExactReplay) {
+    goalRun.generation = PRE_ROLLOUT_RECONCILIATION.generation;
+    goalRun.active_work_item_id = "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3";
+    goalRun.acceptance_states = goalRun.acceptance_states.map((state) => reconciledIds.has(state.acceptance_id)
+      ? { ...state, status: "VERIFIED_PASS", evidence_refs: evidenceRefs[state.acceptance_id] }
+      : state);
+    goalRun.checkpoint = checkpoint;
+    goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+  }
+
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    const terminalEvidence = preRolloutTerminalEvidence(item);
+    if (terminalEvidence) {
+      item.status = "VERIFIED_TERMINAL";
+      item.terminal_evidence = terminalEvidence;
+    }
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath, replayed: isExactReplay };
+}
+
 function frameworkRoot(repoRoot, explicit) {
   const candidates = [
     explicit,
@@ -512,7 +1083,10 @@ export function buildStatus(goalRun, workItems) {
   const unmet = definitions.find((definition) => stateById.get(definition.acceptance_id)?.status !== "VERIFIED_PASS");
   const candidates = workItems.filter((item) => item.status === "READY" && item.unmet_condition_id === unmet?.acceptance_id)
     .sort((a, b) => a.acceptance_ordinal - b.acceptance_ordinal || a.blocker_ordinal - b.blocker_ordinal || a.work_item_id.localeCompare(b.work_item_id));
-  const next = candidates[0] ?? null;
+  const blocked = goalRun.status === "BLOCKED"
+    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id && item.status === "BLOCKED") ?? null
+    : null;
+  const next = candidates[0] ?? blocked;
   const route = next ? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id] : null;
   if (next && !route) throw new Error(`missing deterministic route for ${next.unmet_condition_id}`);
   const acceptancePassed = goalRun.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").length;
@@ -533,13 +1107,16 @@ export function buildStatus(goalRun, workItems) {
       required_evidence: next.required_evidence,
       control_handoff_ref: next.control_handoff_ref,
       dispatch_idempotency_key: next.dispatch_idempotency_key,
+      status: next.status,
     } : null,
-    can_continue: Boolean(next),
+    can_continue: Boolean(next && next.status === "READY"),
     next_action: next ? {
-      blocking: route.blocking,
+      blocking: blocked ? true : route.blocking,
       actor_agent_id: route.actor_agent_id,
       active_function: route.active_function,
-      action: route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
+      action: blocked
+        ? goalRun.blocker_set[0]?.removal_predicate
+        : route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
       deliver_via: route.deliver_via || "WorkItem terminal evidence and GoalRun generation update",
       exact_input_refs: [next.control_handoff_ref, GOAL_PATH, `${WORK_ITEM_DIR}/${next.work_item_id}.json`],
       scope: `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
@@ -578,6 +1155,26 @@ function check(repoRoot, explicitFrameworkRoot, writeEvidence) {
     work_item_validators: workItemReports,
     execution_binding_validator: binding,
     status,
+    generation_history: {
+      generation_1: {
+        evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
+        file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
+          ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
+          : null,
+      },
+      generation_2: goalDocument.generation >= 3 ? {
+        evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
+        predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
+        file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
+        state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
+        retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
+      } : null,
+      generation_3: goalDocument.generation >= 3 ? {
+        evidence_ref: `file:${GOAL_PATH}`,
+        state_digest: goalDocument.state_digest,
+        checkpoint: goalDocument.checkpoint,
+      } : null,
+    },
     frozen_target_set_sha256: EXPECTED_TARGET_SET_SHA256,
     production_effect_count: 0,
   };
@@ -599,6 +1196,27 @@ function main() {
   }
   if (command === "advance-exact-merge") {
     advanceExactMerge(repoRoot, options["observed-at"] || EXACT_MERGE.merged_at);
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "reconcile-prerollout") {
+    reconcilePreRollout(repoRoot, options["observed-at"] || PRE_ROLLOUT_RECONCILIATION.merged_at);
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "record-prerollout-blocker") {
+    recordPreRolloutBlocker(repoRoot, options["observed-at"] || new Date().toISOString());
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "advance-release-r0-successor") {
+    advanceReleaseR0Successor(repoRoot, options["observed-at"] || new Date().toISOString());
     const report = check(repoRoot, options["framework-root"], true);
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = report.verdict === "PASS" ? 0 : 1;
