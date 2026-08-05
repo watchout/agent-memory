@@ -51,6 +51,8 @@ allowed_paths:
   - .shirube/execution-goal-bindings/**
   - .shirube/target-manifests/**
   - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json
   - scripts/shirube-v4-goal-control.mjs
   - scripts/test-shirube-v4-goal-control.mjs
   - package.json
