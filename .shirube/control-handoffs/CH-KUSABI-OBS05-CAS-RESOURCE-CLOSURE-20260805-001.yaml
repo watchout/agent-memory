@@ -1,6 +1,21 @@
 schema_version: shirube-v3/local-control-handoff-binding/v1
+mode: rapid-lite
+profile: hotel-lite
 control_handoff_id: CH-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001
 lifecycle_state: ACTIVE_ATTEMPT_1_OF_1
+framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2b
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/285
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5187596002
+spec_review_state: ready_for_implementation
+next_role: evidence_audit_gate
+repository:
+  name: watchout/agent-memory
+owner:
+  role: repo_owner
+  actor: watchout
 control_source:
   plan_ref: https://github.com/watchout/agent-memory/issues/285
   plan_raw_body_sha256: 9c5a7381ed94bb6a32faee5098d88ea8d0beb49115ec9808023b32918dea936a
@@ -12,10 +27,59 @@ control_handoff:
   readonly_resource_addendum_raw_api_body_sha256_no_trailing_lf: 90720bc4ca2d74e1d09f86da941f31658f51335013dbb968ba576b38288edf11
   writable_allowlist_addendum_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5188410390
   writable_allowlist_addendum_raw_api_body_sha256_no_trailing_lf: 8d980f227e259ccfa60c4d90e19ee6072671b53b63d2c2ae330783106389ee94
+  goal_control_addendum_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5188808698
+  goal_control_addendum_raw_api_body_sha256_no_trailing_lf: 7e8f2e69f7ee3d9123eecef7eaa55fb9530b31e1f64e4d9e38bf41d45862332c
 cell:
+  CELL-ID: CELL-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001
   id: CELL-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001
+  cell_type: immutable_runtime_resource_closure
+  risk_class: R4
   root_goal_run_id: GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804
   goal: Produce a self-contained immutable Kusabi CAS candidate, fresh R0 subject, and bounded R1 retry evidence without product behavior change.
+  allowed_paths:
+    - scripts/build-kusabi-content-addressed-runtime-release.mjs
+    - scripts/test-kusabi-content-addressed-runtime-release.mjs
+    - scripts/shirube-v4-goal-control.mjs
+    - scripts/test-shirube-v4-goal-control.mjs
+    - package.json
+    - .shirube/control-handoffs/CH-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001.yaml
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V3-20260805.json
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V4-20260805.json
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R1-RETRY-20260805.json
+    - .shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json
+    - .shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-3.json
+    - .shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-PR281-EXACT-MERGE.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R0-V3-OWNER-GO.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R1-CANARY-3-OF-3.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R2-PILOT-11-OF-11.json
+    - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-R3-FLEET-35-OF-35.json
+  forbidden_paths:
+    - src/**
+    - tests/**
+    - docs/**
+    - .github/**
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - db/**
+    - migrations/**
+    - deploy/**
+    - deployment/**
+    - .agents/**
+    - .claude/**
+    - .codex/**
+    - .gemini/**
+    - .env
+    - .env.*
+    - private-config/**
+    - secrets/**
 execution_context:
   agent_id: kusabi
   active_function: implementation_executor
