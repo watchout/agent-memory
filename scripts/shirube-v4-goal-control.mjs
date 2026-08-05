@@ -1077,6 +1077,43 @@ function loadWorkItems(repoRoot) {
   return readdirSync(dir).filter((name) => name.endsWith(".json")).sort().map((name) => ({ path: join(dir, name), document: readJson(join(dir, name)) }));
 }
 
+function buildGenerationHistory(repoRoot, goalDocument) {
+  const history = {
+    generation_1: {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
+      file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
+        ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
+        : null,
+    },
+    generation_2: goalDocument.generation >= 3 ? {
+      evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
+      predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
+      file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
+      state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
+      retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
+    } : null,
+  };
+  for (let generation = 3; generation < goalDocument.generation; generation++) {
+    const historyPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`);
+    if (!existsSync(historyPath)) continue;
+    const document = readJson(historyPath);
+    history[`generation_${generation}`] = {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`,
+      file_sha256: sha256Raw(readFileSync(historyPath)),
+      state_digest: document.state_digest,
+      checkpoint: document.checkpoint,
+      retention: "IMMUTABLE_FILE_BACKED_PREDECESSOR",
+    };
+  }
+  history[`generation_${goalDocument.generation}`] = {
+    evidence_ref: `file:${GOAL_PATH}`,
+    state_digest: goalDocument.state_digest,
+    checkpoint: goalDocument.checkpoint,
+    retention: "CURRENT_MUTABLE_GOALRUN_STATE",
+  };
+  return history;
+}
+
 export function buildStatus(goalRun, workItems) {
   const definitions = [...goalRun.acceptance_set].sort((a, b) => a.ordinal - b.ordinal || a.acceptance_id.localeCompare(b.acceptance_id));
   const stateById = new Map(goalRun.acceptance_states.map((state) => [state.acceptance_id, state]));
@@ -1155,26 +1192,7 @@ function check(repoRoot, explicitFrameworkRoot, writeEvidence) {
     work_item_validators: workItemReports,
     execution_binding_validator: binding,
     status,
-    generation_history: {
-      generation_1: {
-        evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
-        file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
-          ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
-          : null,
-      },
-      generation_2: goalDocument.generation >= 3 ? {
-        evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
-        predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
-        file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
-        state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
-        retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
-      } : null,
-      generation_3: goalDocument.generation >= 3 ? {
-        evidence_ref: `file:${GOAL_PATH}`,
-        state_digest: goalDocument.state_digest,
-        checkpoint: goalDocument.checkpoint,
-      } : null,
-    },
+    generation_history: buildGenerationHistory(repoRoot, goalDocument),
     frozen_target_set_sha256: EXPECTED_TARGET_SET_SHA256,
     production_effect_count: 0,
   };
