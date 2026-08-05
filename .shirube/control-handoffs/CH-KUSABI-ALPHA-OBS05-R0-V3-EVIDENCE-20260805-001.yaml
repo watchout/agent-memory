@@ -1,0 +1,245 @@
+schema_version: shirube-v3/control_handoff/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001
+lifecycle_state: AUTHORIZED_EVIDENCE_ONLY_CORRECTION_PENDING_EXACT_HEAD_AUDIT
+framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2b
+matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
+repo_spec_ref: .shirube/repo-spec.yaml
+repo_local_issue: https://github.com/watchout/agent-memory/issues/280
+audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+owner_confirmation_ref: https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057
+spec_review_state: ready_for_implementation
+next_role: evidence_audit_gate
+
+repository:
+  name: watchout/agent-memory
+
+owner:
+  role: repo_owner
+  actor: watchout
+
+control_source:
+  kind: direct_owner_instruction
+  actor: watchout
+  observed_at: "2026-08-05"
+  decision_ref: https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057
+  issue_ref: https://github.com/watchout/agent-memory/issues/280
+  instruction: >-
+    Add exactly one OBS-05 R0 evidence control handoff to PR 283, bind only the
+    two existing evidence files, and prohibit product-code, runtime, and database
+    changes before fresh exact-head audit and owner approval.
+
+provenance:
+  owner_directive:
+    - https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057
+  accepted_control_decisions:
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5175129084
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5175361840
+  existing_evidence:
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5175422365
+    - https://github.com/watchout/agent-memory/issues/280#issuecomment-5175453878
+    - https://github.com/watchout/agent-memory/pull/283#issuecomment-5175511055
+  new_invention: none
+
+cell:
+  CELL-ID: CELL-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001
+  id: CELL-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001
+  cell_type: evidence_control_binding
+  risk_class: R4
+  goal: >-
+    Bind the already-produced OBS-05 R0 v3 and immutable runtime-release
+    evidence to one exact Rapid/Lite control boundary without changing either
+    evidence payload or causing a product, runtime, or database effect.
+  non_scope:
+    - Product source, tests, packages, workflows, deployment, and schemas.
+    - Editing either existing evidence payload.
+    - Runtime configuration, process, supervisor, agent identity, trust, or TUI state.
+    - Database records, profiles, credentials, migrations, or schemas.
+    - Ready, merge, activation, rollout, R1, R2, R3, or OBS-06 effects before gates pass.
+
+execution_context:
+  agent_id: kusabi
+  active_function: control_artifact_author
+  workspace: /Users/yuji/Developer/.wt-kusabi-obs05-r0-v3-evidence
+  repository: watchout/agent-memory
+  pull_request: https://github.com/watchout/agent-memory/pull/283
+  predecessor_head: 91c53ddabeb489da52b1f9512105ae0352d7c836
+  predecessor_tree: e86ae9db1128c8f1253f41296db65879a377a863
+
+allowed_paths:
+  - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001.yaml
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json
+  - .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+
+forbidden_paths:
+  - src/**
+  - tests/**
+  - scripts/**
+  - dist/**
+  - package.json
+  - package-lock.json
+  - .github/**
+  - db/**
+  - migrations/**
+  - deploy/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+  - .gemini/**
+  - .env
+  - .env.*
+  - secrets/**
+
+allowed_operations:
+  - Add only this control handoff file.
+  - Read and validate the two predecessor evidence files without modifying them.
+  - Run YAML, JSON, digest, changed-path, Git diff, and Rapid/Lite checks.
+  - Commit and push the exact three-path PR diff without force.
+  - Route one fresh exact-head independent audit through AUN.
+  - Record a new exact-head owner decision only after the fresh audit returns PASS with zero blockers.
+
+forbidden_operations:
+  - Modify either predecessor evidence file after head 91c53ddabeb489da52b1f9512105ae0352d7c836.
+  - Add, edit, delete, rename, or change mode on any fourth path.
+  - Change product code, tests, packages, workflows, deployment, runtime, database, schema, profile, identity, trust, credential, or configuration state.
+  - Restart, stop, start, inject, or write to an agent, session, TUI, tmux pane, supervisor, or connector.
+  - Mutate PR Ready state, merge, activate, roll out, or perform R1, R2, R3, or OBS-06 before the declared gates pass.
+  - Self-audit, fabricate owner approval, bypass a check, force-push, tag, release, or publish.
+
+stop_conditions:
+  - Either predecessor evidence file or embedded payload digest differs from the frozen value.
+  - The base-to-head changed-path set is not exactly the three allowed_paths entries.
+  - Rapid/Lite does not discover this exact handoff and CELL-ID.
+  - PR API, local branch, audit record, owner decision, or hosted checks bind different head or tree values.
+  - Fresh independent audit is not PASS or reports a nonzero blocker count.
+  - Any product, runtime, database, restart, TUI, Ready, merge, or rollout effect occurs before its gate.
+
+ai_native_conformance:
+  agent_first: PASS_machine_readable_handoff_and_next_action
+  contract_event_core: PASS_existing_evidence_contracts_remain_immutable
+  autonomy_tiers: PASS_owner_gated_exact_head_and_protected_effects
+  evidence_grade: PASS_exact_refs_digests_and_independent_audit_required
+  knowledge_grounded: PASS_issue_280_and_durable_PR_evidence_only
+  MCP_surface: NOT_APPLICABLE_no_MCP_surface_change
+  deterministic_skeleton: PASS_all_acceptance_and_gate_decisions_script_controlled
+  learning_loop_moat: NOT_APPLICABLE_no_learning_behavior_change
+  llm_authority: NONE_for_digests_paths_gate_verdicts_or_state_transitions
+
+boundary_and_provenance:
+  control_plane_change: one_new_handoff_file
+  evidence_payload_change: zero
+  product_runtime_change: zero
+  adapter_change: zero
+  database_change: zero
+  external_send: audit_and_control_routing_only
+  domain_element_provenance: owner_directive_or_existing_accepted_evidence
+
+immutable_predecessor_evidence:
+  r0:
+    path: .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json
+    file_sha256: ca795ae1028af8c6a1028103415ce4151c56ffec0cd9ab1ac714fc9b7d61e5ed
+    payload_sha256: 12d9a0b33978dcd49d22eb723baff3f1ee00980c2849dc0827fa31c824ddd8a4
+  runtime_release:
+    path: .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+    file_sha256: 4051f677b70472cbdf5ad902ff8d885c8df4e6cb63a79a472531a34d30855525
+    payload_sha256: 671dbdd4c9decc0845c3b46a985c48561106fb58c828113abbf185f751801057
+
+acceptance_criteria:
+  - The base-to-head changed-path set equals the three entries in allowed_paths and no others.
+  - Both predecessor evidence file SHA-256 values remain byte-identical to the values above.
+  - The embedded R0 and runtime-release payload SHA-256 values recompute exactly.
+  - YAML safe-load, JSON parse, canonical GoalRun validation, git diff --check, and hosted build-and-test pass.
+  - Rapid/Lite discovers this handoff and reports no path, boundary, validation, audit-bridge, owner, or exact-head blocker.
+  - A registered independent evidence_audit_gate actor publishes one exact-head shirube-audit/v1 PASS record with blocker_count zero.
+  - A separate authenticated owner APPROVED_EXACT_HEAD comment matches the resulting 40-character head.
+  - Product, runtime, database, restart, TUI, Ready, merge, and rollout effect counts remain zero until their later gates authorize them.
+
+validation:
+  required_commands:
+    - >-
+      ruby -e "require 'yaml'; YAML.safe_load(File.read(ARGV.fetch(0)), [], [], false)"
+      .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001.yaml
+    - jq empty .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json
+    - jq empty .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+    - shasum -a 256 .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+    - npm run test:shirube-v4-goal
+    - npm run shirube:v4:goal:check
+    - git diff --check
+  required_evidence:
+    - exact changed-path equality
+    - immutable predecessor file and payload digests
+    - canonical validator results
+    - hosted CI result
+    - fresh inline shirube-audit/v1 record
+    - new exact-head owner decision
+    - terminal Rapid/Lite hard-gate SUCCESS
+
+failure_modes:
+  - id: FM-EVIDENCE-DRIFT
+    detection: Either predecessor file or embedded payload digest differs.
+    recovery: Reject the candidate head and restore the byte-identical predecessor evidence before any audit request.
+  - id: FM-PATH-EXPANSION
+    detection: Base-to-head diff contains a path outside allowed_paths or a mode/rename delta.
+    recovery: Do not push or audit; remove the unauthorized candidate delta and rerun exact path equality.
+  - id: FM-EXACT-HEAD-DRIFT
+    detection: PR API head/tree differs from the audit or owner-decision subject.
+    recovery: Supersede the stale record and request a fresh independent audit and owner decision for the current exact subject.
+  - id: FM-GATE-INPUT-MISSING
+    detection: Rapid/Lite cannot discover this handoff, validation evidence, audit record, or owner decision.
+    recovery: Correct only the missing PR-visible control input without bypass and rerun the hard gate.
+  - id: FM-PARTIAL-PUBLICATION
+    detection: Local commit, remote branch, PR API head, or hosted check references differ.
+    recovery: Stop before owner approval and reconcile all four refs to one exact head/tree.
+  - id: FM-CORRELATED-ERROR
+    detection: Author evidence is not independently reproduced by a registered audit seat.
+    recovery: Fail closed and require an independent evidence_audit_gate PASS with zero blockers.
+
+protected_surfaces:
+  product_code: forbidden
+  runtime_configuration_or_process: forbidden
+  database_profile_or_schema: forbidden
+  secrets_identity_trust_or_credentials: forbidden
+  PR_ready_merge_or_rollout: owner_and_gate_required
+  author_actor: kusabi
+  author_function: control_artifact_author
+  audit_actor_must_differ: true
+  audit_function: evidence_audit_gate
+  owner_exact_head_decision_required: true
+
+owner_decision:
+  result: APPROVED_BOUNDED_CONTROL_HANDOFF_CORRECTION
+  actor: watchout
+  observed_at: "2026-08-05"
+  decision_ref: https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057
+  exact_head_approval: PENDING_AFTER_FRESH_AUDIT
+  merge_authorized: false
+  protected_runtime_or_database_effects_authorized: false
+
+gate_result:
+  verdict: GO_ONE_CONTROL_ARTIFACT_ONLY
+  G1_intent_capture: PASS
+  G2_AI_native_conformance: PASS
+  G3_boundary_and_provenance: PASS
+  G4_measurable_criteria: PASS
+  G5_failure_modes: PASS
+  G6_protected_surface_and_role: PASS
+  G7_reflection_and_handoff: PASS
+  production_effect_count: 0
+
+next_action:
+  blocking: true
+  actor_agent_id: codex-audit
+  active_function: evidence_audit_gate
+  action: Independently audit the resulting exact PR head/tree and publish one parser-compliant inline shirube-audit/v1 record with all Stage 9 items.
+  deliver_via: AUN terminal reply plus immutable PR #283 comment.
+  exact_input_refs:
+    - https://github.com/watchout/agent-memory/pull/283
+    - https://github.com/watchout/agent-memory/pull/283#issuecomment-5185828057
+    - .shirube/control-handoffs/CH-KUSABI-ALPHA-OBS05-R0-V3-EVIDENCE-20260805-001.yaml
+    - .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json
+    - .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json
+  scope: Read-only exact-head audit; no implementation, owner decision, PR-state, merge, runtime, database, restart, TUI, rollout, or activation effect.
+  deliverable: Exact-head PASS or itemized blockers, full Stage 9 item coverage, durable evidence refs, and protected-effect attestation.
+  completion_evidence: Immutable PR audit URL, comment-body digest, exact head/tree readback, aggregate verdict, blocker count, and complete next_action.

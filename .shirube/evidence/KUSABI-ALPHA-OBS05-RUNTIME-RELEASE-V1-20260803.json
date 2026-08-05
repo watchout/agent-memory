@@ -1,0 +1,88 @@
+{
+  "schema_version": "kusabi-content-addressed-runtime-release-evidence/v1",
+  "control_source": {
+    "ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5174906906",
+    "body_sha256": "cb6d381472a02efe01e703343299bbc2c60f80650a00403f99e276c6e7ecf4e5"
+  },
+  "exact_merge": {
+    "pull_request": "https://github.com/watchout/agent-memory/pull/281",
+    "approved_head": "85c852cb527fc1c5f96deb0c2ebec35737dcd2c1",
+    "approved_tree": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
+    "merged_commit_sha": "867b7be7feed82ebb8c57334867858f16b8da341",
+    "merged_tree_sha": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
+    "main_ancestry": "PASS",
+    "required_checks": "PASS_TERMINAL_SUCCESS",
+    "bypass_count": 0
+  },
+  "build": {
+    "source_root": "/Users/yuji/Developer/.wt-kusabi-obs05-r1-v3-release-build",
+    "source_tree_sha256": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
+    "source_status_before_install": "CLEAN",
+    "package_lock_sha256": "1114a19360135ccf9158be8017195b927b84fb390c1eaeac7dab8436e065ecb8",
+    "node_version": "v25.6.1",
+    "npm_version": "11.9.0",
+    "commands": [
+      "npm ci --ignore-scripts",
+      "npm run build"
+    ],
+    "regular_file_count": 224
+  },
+  "release": {
+    "runtime_root": "/Users/yuji/Developer/.kusabi-releases/sha256/4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "runtime_root_realpath": "/Users/yuji/Developer/.kusabi-releases/sha256/4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "runtime_root_locator_sha256": "b54db4a8d29d646a9be36dd8937e43c772029d1974caf2d82f66ba2ecccfaba0",
+    "release_descriptor_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "release_json_file_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+    "dist_tree_sha256": "6c8b380f14814d2456db6b1afedafa8eea99223974919176d81d602e9cea508a",
+    "normalized_file_mode": "0444",
+    "normalized_directory_mode": "0555",
+    "required_entrypoint_readback": {
+      "dist/codex-session-start.js": {
+        "mode": "0444",
+        "expected_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+        "actual_sha256": "36f4d138d5fd43320e7cfd063933045741e153276fdb35b16282a2722640c9fb",
+        "verdict": "PASS"
+      },
+      "dist/claude-session-start.js": {
+        "mode": "0444",
+        "expected_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+        "actual_sha256": "030ffd258cf4830eabc8a690e9dd0796df72d68f064327d336b2d8d0b58e2618",
+        "verdict": "PASS"
+      },
+      "dist/gemini-session-start.js": {
+        "mode": "0444",
+        "expected_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
+        "actual_sha256": "59b08bc90bbc43863843fcc121c44da76046d6976fd1e141f5e95e19e15779c8",
+        "verdict": "PASS"
+      },
+      "dist/raw-capture-service.js": {
+        "mode": "0444",
+        "expected_sha256": "dff2ec44309c5561cf3e5c25c2fee66fd9ef9af1cb992eb6f40b992a3644344a",
+        "actual_sha256": "dff2ec44309c5561cf3e5c25c2fee66fd9ef9af1cb992eb6f40b992a3644344a",
+        "verdict": "PASS"
+      },
+      "dist/kusabi-fleet-rollout.js": {
+        "mode": "0444",
+        "expected_sha256": "96db6d85351ca09348969aa7b40f6c6c61c9a439d2de93726e682af64c9e6ec9",
+        "actual_sha256": "96db6d85351ca09348969aa7b40f6c6c61c9a439d2de93726e682af64c9e6ec9",
+        "verdict": "PASS"
+      }
+    },
+    "publication": "PASS_ATOMIC_RENAME_FROM_SIBLING_STAGING",
+    "final_tree_exact": "PASS_224_OF_224"
+  },
+  "protected_effects": {
+    "production_configuration_writes": 0,
+    "production_trust_writes": 0,
+    "database_writes": 0,
+    "runtime_or_supervisor_actions": 0,
+    "restarts": 0,
+    "registry_or_network_publishes": 0
+  },
+  "gate_result": {
+    "verdict": "PASS",
+    "next_action": "GENERATE_TWO_HEARTBEAT_SEPARATED_R0_V3_CAPTURES",
+    "blocking": false
+  },
+  "evidence_payload_sha256": "671dbdd4c9decc0845c3b46a985c48561106fb58c828113abbf185f751801057"
+}
