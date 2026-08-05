@@ -3,8 +3,8 @@
   "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
-  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
-  "handoff_digest": "sha256:082ef77a246c1b519071a8d5d3d9f534d423741f3657f2d6461ffb2ca4b2c756",
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186307680",
+  "handoff_digest": "sha256:1673a875ecdcd013245facd74618511fbed93d31a0bef61bc8f290b506b55e55",
   "allowed_operations": [
     "LOCAL_DIRECT_ADAPTER"
   ],
@@ -43,18 +43,57 @@
   "advances_acceptance_ids": [
     "A-02-IMMUTABLE-RUNTIME-RELEASE"
   ],
-  "removes_blocker_ids": [],
+  "removes_blocker_ids": [
+    "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED"
+  ],
   "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
   "acceptance_ordinal": 2,
-  "blocker_ordinal": 0,
-  "status": "BLOCKED",
-  "dispatch_idempotency_key": "sha256:9e41dad9966e2b3bcdc0e913481d48ae51a495e7e1e59a1b3c22557603c8427d",
-  "generation": 2,
-  "state_digest": "sha256:586dd837617600a32ce2b0932d2b37be2d44c92ccb36d379b0254e29d99a3b7a",
+  "blocker_ordinal": 2,
+  "status": "VERIFIED_TERMINAL",
+  "dispatch_idempotency_key": "sha256:8cd21e980220a0050581b320fe60d1844ae9de4c442a92bc6a5cd09ad9292537",
+  "generation": 3,
+  "state_digest": "sha256:78066c82cf9d9e23cd6c4597fb406cb5e24c627f5a6487aadc03d84044e99a4b",
   "checkpoint": {
-    "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
-    "last_idempotency_key": "sha256:447296c5b381a51b07dd397505827f5c6ddaf471fdf85affa6c0acee52fbed76"
+    "event_sequence": 3,
+    "last_event_id": "EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+    "last_idempotency_key": "sha256:4b98f2ecdcddff03e18fa407a47faaabba6e3133265142ca2f51d8c4dc355b58"
   },
-  "terminal_evidence": []
+  "terminal_evidence": [
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:99bd980c7112b5090b4756c08d44c2b7e106af1a4744befb80700cb1a77b9f81/build",
+      "evidence_class": "clean_build_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186287466",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED",
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "release:sha256:f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+      "evidence_class": "content_addressed_release_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186287466",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED",
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    },
+    {
+      "evidence_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:99bd980c7112b5090b4756c08d44c2b7e106af1a4744befb80700cb1a77b9f81/release/import_smoke_before_publish#sha256:b952d57c5272b7e0ed4659045f6094ec14869b52b74793c82e1bb4617b6535d8",
+      "evidence_class": "entrypoint_digest_readback",
+      "subject_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
+      "actor_id": "kusabi",
+      "active_function": "implementation_executor",
+      "provenance_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186287466",
+      "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
+      "blocker_id": "B-02-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED",
+      "exact_version": "git-tree:acda601dbb5ea14d7ef5db955b638eaece6cda50",
+      "predicate_verified": true
+    }
+  ]
 }

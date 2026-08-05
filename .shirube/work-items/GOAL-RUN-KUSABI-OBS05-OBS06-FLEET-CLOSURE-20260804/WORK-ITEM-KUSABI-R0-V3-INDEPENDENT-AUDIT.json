@@ -3,8 +3,8 @@
   "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
-  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5165228243",
-  "handoff_digest": "sha256:082ef77a246c1b519071a8d5d3d9f534d423741f3657f2d6461ffb2ca4b2c756",
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186307680",
+  "handoff_digest": "sha256:1673a875ecdcd013245facd74618511fbed93d31a0bef61bc8f290b506b55e55",
   "allowed_operations": [
     "INDEPENDENT_AUDIT"
   ],
@@ -48,13 +48,13 @@
   "acceptance_ordinal": 4,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:bfb7c8fa97cda7f055aab453713f579052b7296c101daef996144ffe826010ae",
-  "generation": 2,
-  "state_digest": "sha256:90f2aa522b3970c9271f42462916dc285db609cda8e767c8543d5e4ebb9462f3",
+  "dispatch_idempotency_key": "sha256:a96935ea1f294e7e91c691f07272f8792b3060926301baac6fe18e2fc7447089",
+  "generation": 3,
+  "state_digest": "sha256:2b780e53680b80f367c2fc11028e1d3a0bb3bdf5307501e43980d0ecb421334c",
   "checkpoint": {
-    "event_sequence": 2,
-    "last_event_id": "EVENT-KUSABI-IMMUTABLE-RUNTIME-NOT-SELF-CONTAINED-4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
-    "last_idempotency_key": "sha256:447296c5b381a51b07dd397505827f5c6ddaf471fdf85affa6c0acee52fbed76"
+    "event_sequence": 3,
+    "last_event_id": "EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+    "last_idempotency_key": "sha256:4b98f2ecdcddff03e18fa407a47faaabba6e3133265142ca2f51d8c4dc355b58"
   },
   "terminal_evidence": []
 }
