@@ -69,16 +69,16 @@ check(checkReport.generation_history.generation_3.state_digest === JSON.parse(re
 check(checkReport.generation_history.generation_4.state_digest === checkReport.status.state_digest, "generation 4 history readback must bind the current GoalRun state");
 check(checkReport.generation_history.generation_4.evidence_ref === "file:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json", "generation 4 must be reported as current without relabeling it as generation 3");
 
-const statusA = run(["status"]);
-const statusB = run(["status"]);
+const statusA = run(["status"], 1);
+const statusB = run(["status"], 1);
 check(canonicalJson(statusA) === canonicalJson(statusB), "status readback must be deterministic across process restart");
 check(statusA.targets.total === 35 && statusA.targets.live_exact === 0, "frozen target denominator must be 35 with no false live completion");
-check(statusA.generation === 4 && statusA.status === "ACTIVE", "CAS correction successor must remain active at generation 4");
-check(statusA.blockers.length === 0 && statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "generation 4 must retain only A01 as verified before final CAS publication");
+check(statusA.generation === 4 && statusA.status === "BLOCKED", "effective external CAS gate must block generation 4");
+check(statusA.blockers.length === 1 && statusA.blockers[0]?.blocker_id === "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE" && statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "generation 4 must retain KUSABI-CAS-B01 and only A01 as verified");
 check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "candidate correction must keep immutable runtime release as the next WorkItem");
-check(statusA.next_work_item?.status === "READY" && statusA.next_work_item?.required_operation === "LOCAL_DIRECT_ADAPTER" && statusA.can_continue === true, "candidate routing must remain non-stalled under the local direct adapter");
-check(statusA.next_action?.actor_agent_id === "kusabi" && statusA.next_action?.active_function === "implementation_executor", "generation 4 must route to the current implementation executor");
-check(statusA.next_action?.blocking === false && statusA.next_action?.exact_input_refs?.includes("https://github.com/watchout/agent-memory/issues/285#issuecomment-5188410390"), "generation 4 routing must bind exact A2 and remain non-blocking");
+check(statusA.next_work_item?.status === "BLOCKED" && statusA.next_work_item?.required_operation === "LOCAL_DIRECT_ADAPTER" && statusA.can_continue === false, "effective external gate must dominate a locally executable adapter state");
+check(statusA.next_action?.actor_agent_id === "codex-audit" && statusA.next_action?.active_function === "evidence_audit_gate", "generation 4 must route the completed correction to the maker-separated auditor");
+check(statusA.next_action?.blocking === true && statusA.next_action?.exact_input_refs?.includes("file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"), "generation 4 routing must bind the exact bounded successor and remain blocking");
 
 const workItems = checkReport.work_item_validators.map((row) => JSON.parse(readFileSync(repoPath(row.report.file), "utf8")));
 const inMemoryStatus = buildStatus(JSON.parse(readFileSync(GOAL, "utf8")), workItems);
@@ -86,9 +86,18 @@ check(canonicalJson(inMemoryStatus) === canonicalJson(statusA), "checkpoint reco
 const releaseItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE");
 const r0Item = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION");
 const auditItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT");
-check(releaseItem?.status === "READY" && releaseItem.terminal_evidence.length === 0, "A02 must remain nonterminal before exact gates and final CAS publication");
+check(releaseItem?.status === "BLOCKED" && releaseItem.terminal_evidence.length === 0, "A02 must remain blocked and nonterminal before a fresh exact audit and final publication gates");
 check(r0Item?.status === "READY" && r0Item.terminal_evidence.length === 0, "A03 must remain nonterminal before final CAS readback");
 check(auditItem?.status === "READY" && auditItem.terminal_evidence.length === 0, "audit WorkItem must not contain inferred terminal evidence");
+
+const staleLocalGoal = structuredClone(JSON.parse(readFileSync(GOAL, "utf8")));
+staleLocalGoal.status = "ACTIVE";
+const staleLocalItems = workItems.map((item) => item.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE"
+  ? { ...item, status: "READY" }
+  : item);
+const reconciledExternalGate = buildStatus(staleLocalGoal, staleLocalItems);
+check(reconciledExternalGate.status === "BLOCKED" && reconciledExternalGate.can_continue === false, "effective external blocker must dominate stale local ACTIVE and READY fields");
+check(reconciledExternalGate.next_work_item?.status === "BLOCKED" && reconciledExternalGate.next_action?.blocking === true, "effective external blocker must expose a blocked WorkItem and blocking next_action");
 
 const releaseEvidence = JSON.parse(readFileSync(RELEASE, "utf8"));
 const r0Evidence = JSON.parse(readFileSync(R0_V3, "utf8"));
@@ -113,7 +122,7 @@ try {
   cpSync(join(ROOT, ".shirube"), join(reconcileScratch, ".shirube"), { recursive: true });
   const replayReport = run(["check", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
   check(replayReport.verdict === "PASS", "generation-4 candidate copy must remain canonical");
-  const replayStatus = run(["status", "--root", reconcileScratch]);
+  const replayStatus = run(["status", "--root", reconcileScratch], 1);
   check(canonicalJson(replayStatus) === canonicalJson(statusA), "generation-4 candidate must be portable and restart-readable");
 } finally {
   rmSync(reconcileScratch, { recursive: true, force: true });

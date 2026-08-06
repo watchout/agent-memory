@@ -43,6 +43,10 @@ const HOST_EVIDENCE_RESOURCES = {
   "FIX-CAS-GEMINI-POS": "docs/design/schemas/gemini-session-start-evidence-v1.schema.json",
 };
 const DEFAULT_STAGE_ROOT = "/Users/yuji/Developer/.kusabi-releases/.staging/KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001-attempt-1";
+const RELEASE_PARENT = "/Users/yuji/Developer/.kusabi-releases/sha256";
+const RELEASE_BUILDER = resolve("scripts/build-kusabi-content-addressed-runtime-release.mjs");
+const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
+const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
 
 function fail(code, detail) {
   const error = new Error(`${code}: ${detail}`);
@@ -90,6 +94,7 @@ function parseArgs(argv) {
   if (!result.root || !Number.isInteger(result.timeoutMs) || result.timeoutMs < 100 || result.timeoutMs > 10_000) {
     fail("ARGUMENT_INVALID", "--root and timeout 100..10000 are required");
   }
+  if (result.fixture === "publication-gates") return result;
   if (!existsSync(result.root) || lstatSync(result.root).isSymbolicLink() || !statSync(result.root).isDirectory()) {
     fail("RUNTIME_ROOT_INVALID", result.root);
   }
@@ -462,8 +467,294 @@ function negativeFixture(options, id, missingPath, fixtures) {
   return { id, missing_path: missingPath, expected_error: "RUNTIME_RESOURCE_MISSING", results, protected_effect_count: 0 };
 }
 
+function pathSnapshot(root) {
+  if (!existsSync(root)) return { state: "ABSENT" };
+  const entries = [];
+  const visit = (path, rel) => {
+    const info = lstatSync(path);
+    if (info.isSymbolicLink()) fail("PROTECTED_EFFECT_DETECTED", `${rel || "."} is a symlink`);
+    if (info.isDirectory()) {
+      entries.push({ path: rel || ".", type: "directory", mode: info.mode & 0o777 });
+      for (const name of readdirSync(path).sort(byteCompare)) visit(join(path, name), rel ? `${rel}/${name}` : name);
+      return;
+    }
+    if (!info.isFile()) fail("PROTECTED_EFFECT_DETECTED", `${rel} is a special node`);
+    entries.push({
+      path: rel,
+      type: "file",
+      mode: info.mode & 0o777,
+      bytes: info.size,
+      sha256: sha256(readFileSync(path)),
+    });
+  };
+  visit(root, "");
+  return { state: "PRESENT", entries };
+}
+
+function publicationProtectedState(releaseSha) {
+  return {
+    stage: pathSnapshot(DEFAULT_STAGE_ROOT),
+    final: pathSnapshot(join(RELEASE_PARENT, releaseSha)),
+  };
+}
+
+function runReleaseBuilder(args) {
+  return spawnSync(process.execPath, [RELEASE_BUILDER, ...args], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: 30_000,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+}
+
+function publicationReceiptBody(receipt) {
+  return `<!-- ${PUBLICATION_RECEIPT_MARKER} -->\n\`\`\`json\n${JSON.stringify(receipt, null, 2)}\n\`\`\``;
+}
+
+function publicationReceipt(type, subject, gateResult, sequence) {
+  return {
+    schema_version: PUBLICATION_RECEIPT_SCHEMA,
+    receipt_type: type,
+    authenticated_actor: "watchout",
+    exact_subject: structuredClone(subject),
+    gate_result: gateResult,
+    sequence: sequence,
+  };
+}
+
+function fixtureComment(id, body, createdAt, actor = "watchout", updatedAt = createdAt) {
+  return {
+    id,
+    html_url: `https://github.com/watchout/agent-memory/issues/285#issuecomment-${id}`,
+    issue_url: "https://api.github.com/repos/watchout/agent-memory/issues/285",
+    user: { login: actor, type: "User" },
+    created_at: createdAt,
+    updated_at: updatedAt,
+    body,
+  };
+}
+
+function buildPublicationApiFixture(subject, fixtureClass) {
+  const auditId = 9000000001;
+  const ownerId = 9000000002;
+  const hardGateId = 9000000003;
+  const runId = 9000000004;
+  const jobId = 9000000005;
+  const auditRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${auditId}`;
+  const ownerRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${ownerId}`;
+  const hardGateRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${hardGateId}`;
+  const runRef = `https://github.com/watchout/agent-memory/actions/runs/${runId}`;
+  const auditCreatedAt = "2026-08-05T07:15:00.000Z";
+  const ownerCreatedAt = fixtureClass === "reordered"
+    ? "2026-08-05T07:10:00.000Z"
+    : "2026-08-05T07:20:00.000Z";
+  const hardGateCreatedAt = "2026-08-05T07:27:00.000Z";
+  const auditReceipt = publicationReceipt("independent_audit", subject, {
+    verdict: fixtureClass === "non-PASS" ? "FAIL" : "PASS",
+    blocker_count: fixtureClass === "non-PASS" ? 1 : 0,
+    protected_effect_count: 0,
+    auditor_agent_id: "codex-audit",
+    active_function: "evidence_audit_gate",
+  }, {
+    ordinal: 1,
+    previous_receipt_ref: null,
+    previous_receipt_body_sha256: null,
+  });
+  const auditBody = publicationReceiptBody(auditReceipt);
+  const ownerReceipt = publicationReceipt("owner_go", subject, {
+    verdict: "GO_EXACT_CAS_PUBLICATION",
+    blocker_count: 0,
+    protected_effect_count: 0,
+    owner_actor: "watchout",
+    active_function: "protected_surface_gate",
+    final_CAS_publication_authorized: true,
+  }, {
+    ordinal: 2,
+    previous_receipt_ref: auditRef,
+    previous_receipt_body_sha256: sha256(auditBody),
+  });
+  const ownerBody = publicationReceiptBody(ownerReceipt);
+  const hardGateSubject = structuredClone(subject);
+  if (fixtureClass === "wrong-subject") hardGateSubject.release_descriptor_sha256 = "f".repeat(64);
+  const workflowHeadSha = "9".repeat(40);
+  const hardGateReceipt = publicationReceipt("hard_gate", hardGateSubject, {
+    verdict: "SUCCESS",
+    blocker_count: 0,
+    protected_effect_count: 0,
+    workflow_run_ref: runRef,
+    workflow_name: "Shirube Rapid/Lite Gate",
+    workflow_path: ".github/workflows/shirube-rapid-lite-gate.yml",
+    workflow_event: "issue_comment",
+    workflow_run_head_sha: workflowHeadSha,
+    workflow_run_attempt: 1,
+    workflow_job_id: jobId,
+    workflow_job_name: "rapid-lite-gate",
+  }, {
+    ordinal: 3,
+    previous_receipt_ref: ownerRef,
+    previous_receipt_body_sha256: sha256(ownerBody),
+    audit_receipt_ref: auditRef,
+    audit_receipt_body_sha256: sha256(auditBody),
+  });
+  const hardGateBody = publicationReceiptBody(hardGateReceipt);
+  const responses = {
+    [`/repos/watchout/agent-memory/issues/comments/${auditId}`]: fixtureComment(
+      auditId,
+      auditBody,
+      auditCreatedAt,
+      "watchout",
+      fixtureClass === "stale" ? "2026-08-05T07:16:00.000Z" : auditCreatedAt
+    ),
+    [`/repos/watchout/agent-memory/issues/comments/${ownerId}`]: fixtureComment(
+      ownerId,
+      ownerBody,
+      ownerCreatedAt,
+      fixtureClass === "wrong-actor" ? "mallory" : "watchout"
+    ),
+    [`/repos/watchout/agent-memory/issues/comments/${hardGateId}`]: fixtureComment(
+      hardGateId,
+      hardGateBody,
+      hardGateCreatedAt
+    ),
+    [`/repos/watchout/agent-memory/actions/runs/${runId}`]: {
+      id: runId,
+      html_url: runRef,
+      name: "Shirube Rapid/Lite Gate",
+      path: ".github/workflows/shirube-rapid-lite-gate.yml",
+      event: "issue_comment",
+      status: "completed",
+      conclusion: "success",
+      head_sha: workflowHeadSha,
+      run_attempt: 1,
+      actor: { login: "watchout" },
+      triggering_actor: { login: "watchout" },
+      created_at: "2026-08-05T07:24:00.000Z",
+      run_started_at: "2026-08-05T07:25:00.000Z",
+      updated_at: "2026-08-05T07:26:00.000Z",
+      repository: { full_name: "watchout/agent-memory" },
+    },
+    [`/repos/watchout/agent-memory/actions/runs/${runId}/jobs`]: {
+      total_count: 1,
+      jobs: [{
+        id: jobId,
+        name: "rapid-lite-gate",
+        status: "completed",
+        conclusion: "success",
+        started_at: "2026-08-05T07:25:05.000Z",
+        completed_at: "2026-08-05T07:25:55.000Z",
+        steps: [
+          { name: "Set up job", conclusion: "success" },
+          { name: "Resolve PR context", conclusion: "success" },
+          { name: "Checkout PR head", conclusion: "success" },
+          { name: "Collect PR comments", conclusion: "success" },
+          { name: "Run Shirube Rapid/Lite gate", conclusion: "success" },
+          { name: "Upload Shirube report", conclusion: "success" },
+          { name: "Complete job", conclusion: "success" },
+        ],
+      }],
+    },
+  };
+  if (fixtureClass === "unreadable") {
+    delete responses[`/repos/watchout/agent-memory/issues/comments/${auditId}`];
+  }
+  return {
+    refs: {
+      auditRef: fixtureClass === "counterfeit" ? "counterfeit-non-empty-receipt" : auditRef,
+      ownerRef,
+      hardGateRef,
+    },
+    fixture: {
+      schema_version: "kusabi-cas-publication-gate-api-fixture/v1",
+      responses,
+    },
+  };
+}
+
+function publicationGateFixtures() {
+  const subjectResult = runReleaseBuilder(["--mode", "gate-subject"]);
+  if (subjectResult.status !== 0) {
+    fail("GATE_SUBJECT_FAILED", (subjectResult.stderr || subjectResult.stdout).trim());
+  }
+  let subjectDocument;
+  try {
+    subjectDocument = JSON.parse(subjectResult.stdout.trim());
+  } catch {
+    fail("GATE_SUBJECT_FAILED", "gate subject output was not JSON");
+  }
+  const subject = subjectDocument.exact_subject;
+  const releaseSha = subject.release_descriptor_sha256;
+  const isolation = mkdtempSync(join(tmpdir(), "kusabi-cas-gate-fixture-"));
+  const fixturePath = join(isolation, "api-fixture.json");
+  const matrix = [
+    { id: "authenticated-positive", expected: "PASS_AUTHENTICATED_EXACT_ORDERED_GATES", success: true },
+    { id: "counterfeit", expected: "GATE_RECEIPT_COUNTERFEIT" },
+    { id: "stale", expected: "GATE_RECEIPT_STALE" },
+    { id: "wrong-subject", expected: "GATE_SUBJECT_MISMATCH" },
+    { id: "non-PASS", expected: "GATE_OUTCOME_REJECTED" },
+    { id: "wrong-actor", expected: "GATE_ACTOR_REJECTED" },
+    { id: "reordered", expected: "GATE_ORDER_REJECTED" },
+    { id: "unreadable", expected: "GATE_READBACK_UNREADABLE" },
+  ];
+  const protectedBefore = publicationProtectedState(releaseSha);
+  const results = [];
+  try {
+    for (const entry of matrix) {
+      const fixtureClass = entry.success ? "positive" : entry.id;
+      const built = buildPublicationApiFixture(subject, fixtureClass);
+      writeFileSync(fixturePath, `${JSON.stringify(built.fixture, null, 2)}\n`, { mode: 0o600 });
+      const result = runReleaseBuilder([
+        "--mode", "verify-gates",
+        "--audit-ref", built.refs.auditRef,
+        "--owner-go-ref", built.refs.ownerRef,
+        "--hard-gate-ref", built.refs.hardGateRef,
+        "--expected-release-sha", releaseSha,
+        "--gate-fixture-file", fixturePath,
+      ]);
+      if (entry.success) {
+        if (result.status !== 0) fail("GATE_POSITIVE_FALSE_BLOCK", (result.stderr || result.stdout).trim());
+        const report = JSON.parse(result.stdout.trim());
+        if (report.verdict !== entry.expected || report.protected_effect_count !== 0) {
+          fail("GATE_POSITIVE_INVALID", result.stdout.trim());
+        }
+      } else {
+        if (result.status === 0) fail("GATE_NEGATIVE_FALSE_PASS", entry.id);
+        if (!(result.stderr ?? "").includes(entry.expected)) {
+          fail("GATE_NEGATIVE_WRONG_FAILURE", `${entry.id}: ${(result.stderr || result.stdout).trim()}`);
+        }
+      }
+      const protectedAfter = publicationProtectedState(releaseSha);
+      if (canonicalJson(protectedAfter) !== canonicalJson(protectedBefore)) {
+        fail("PROTECTED_EFFECT_DETECTED", `${entry.id} changed staging or final CAS state`);
+      }
+      results.push({
+        fixture: entry.id,
+        expected: entry.expected,
+        result: entry.success ? "PASS" : "REJECTED_AS_EXPECTED",
+        protected_effect_count: 0,
+      });
+    }
+  } finally {
+    rmSync(isolation, { recursive: true, force: false });
+  }
+  const output = {
+    schema_version: "kusabi-cas-publication-gate-fixture-matrix/v1",
+    verdict: "PASS_1_AUTHENTICATED_POSITIVE_7_FAIL_CLOSED_NEGATIVES",
+    exact_subject_sha256: subjectDocument.exact_subject_sha256,
+    positive_count: 1,
+    negative_count: 7,
+    results,
+    final_CAS_state: protectedBefore.final.state,
+    protected_effect_count: 0,
+  };
+  process.stdout.write(`${JSON.stringify(output)}\n`);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.fixture === "publication-gates") {
+    publicationGateFixtures();
+    return;
+  }
   const fixtureSet = options.fixture === "all"
     ? [...ENTRYPOINTS.map((entrypoint) => `IMPORT:${entrypoint}`), ...POSITIVE_FIXTURES]
     : [options.fixture];

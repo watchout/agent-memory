@@ -117,11 +117,22 @@
   "acceptance_digest": "sha256:7b47b8d619de137c7be1ced0e5bae436e36cf798ff47a02ef9a58a51bd7286d0",
   "target_manifest_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json#sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
-  "status": "ACTIVE",
+  "status": "BLOCKED",
   "generation": 4,
-  "state_digest": "sha256:12dab4c86797d773cdad226a35e016b1ef62986d89426843182b749b35d8c1b2",
+  "state_digest": "sha256:3875db49e3ecc9b7cde8cfd92190af2264ed61ea6eb9e1cfa27299733fcc24cb",
   "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-  "blocker_set": [],
+  "blocker_set": [
+    {
+      "blocker_id": "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE",
+      "ordinal": 2,
+      "evidence_refs": [
+        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5189427170",
+        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5209573325",
+        "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"
+      ],
+      "removal_predicate": "A fresh maker-separated exact-head audit must verify the authenticated publication gate and its one positive plus seven protected-effect-zero negative fixtures with blocker_count 0; final CAS remains unpublished until a later authenticated exact Owner GO and hard-gate SUCCESS."
+    }
+  ],
   "acceptance_states": [
     {
       "acceptance_id": "A-01-PR281-EXACT-MERGE",

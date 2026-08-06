@@ -3,8 +3,8 @@
   "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
-  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/285#issuecomment-5188410390",
-  "handoff_digest": "sha256:d8eb807ac7a587372c1eb17db17cd17a1dcd3feaf42b0cf0674d707c702a4f11",
+  "control_handoff_ref": "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml",
+  "handoff_digest": "sha256:77cc75e65ac9c7be68d4560a98988e0bd04c42e0038d200ff02b5a18101ea6a9",
   "allowed_operations": [
     "LOCAL_DIRECT_ADAPTER"
   ],
@@ -47,10 +47,10 @@
   "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
   "acceptance_ordinal": 2,
   "blocker_ordinal": 0,
-  "status": "READY",
-  "dispatch_idempotency_key": "sha256:753a85ff923775f12e95fbc4a77ac8a14f0f98ae9168f66d1155cb95d07702e1",
+  "status": "BLOCKED",
+  "dispatch_idempotency_key": "sha256:21fbc55797427a493db219fe7faedad960df1e27a3d5a219095490c22cc5a4cf",
   "generation": 4,
-  "state_digest": "sha256:2595275ee84174ce6c420159172ab35272d4c7dc5d9f116d3520e61f4f9ee60e",
+  "state_digest": "sha256:babd4e362a6f5e2bca36b4aa72df49f541790501f3e1944f61d85ed2ccc6c63f",
   "checkpoint": {
     "event_sequence": 4,
     "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4",

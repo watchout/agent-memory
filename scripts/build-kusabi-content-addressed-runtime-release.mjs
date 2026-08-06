@@ -22,6 +22,21 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const REPOSITORY = "watchout/agent-memory";
+const PUBLICATION_PR = 286;
+const PUBLICATION_ISSUE = 285;
+const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
+const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
+const ALLOWED_GITHUB_ACTORS = new Set(["watchout"]);
+const HARD_GATE_WORKFLOW_NAME = "Shirube Rapid/Lite Gate";
+const HARD_GATE_WORKFLOW_PATH = ".github/workflows/shirube-rapid-lite-gate.yml";
+const HARD_GATE_JOB_NAME = "rapid-lite-gate";
+const HARD_GATE_REQUIRED_STEPS = [
+  "Resolve PR context",
+  "Checkout PR head",
+  "Collect PR comments",
+  "Run Shirube Rapid/Lite gate",
+  "Upload Shirube report",
+];
 const BASE_COMMIT = "40d91aaa58013048168d68ac0a51326f42e15db5";
 const BASE_TREE = "0b6420a58d29e910b249d404840cbed88e9070f9";
 const INVALID_RELEASE_SHA256 = "f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626";
@@ -78,6 +93,7 @@ const WRITABLE_PATHS = new Set([
   "scripts/test-kusabi-content-addressed-runtime-release.mjs",
   "package.json",
   ".shirube/control-handoffs/CH-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001.yaml",
+  ".shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml",
   ".shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V3-20260805.json",
   ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V4-20260805.json",
   ".shirube/evidence/KUSABI-ALPHA-OBS05-R1-RETRY-20260805.json",
@@ -153,7 +169,14 @@ function git(args) {
 }
 
 function parseArgs(argv) {
-  const options = { mode: "candidate", auditRef: null, ownerGoRef: null, hardGateRef: null, expectedReleaseSha: null };
+  const options = {
+    mode: "candidate",
+    auditRef: null,
+    ownerGoRef: null,
+    hardGateRef: null,
+    expectedReleaseSha: null,
+    gateFixtureFile: null,
+  };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     const next = () => {
@@ -166,10 +189,556 @@ function parseArgs(argv) {
     else if (arg === "--owner-go-ref") options.ownerGoRef = next();
     else if (arg === "--hard-gate-ref") options.hardGateRef = next();
     else if (arg === "--expected-release-sha") options.expectedReleaseSha = next();
+    else if (arg === "--gate-fixture-file") options.gateFixtureFile = resolve(next());
     else fail("ARGUMENT_INVALID", arg);
   }
-  if (!["candidate", "r0", "publish", "readback"].includes(options.mode)) fail("ARGUMENT_INVALID", `mode ${options.mode}`);
+  if (!["candidate", "r0", "publish", "readback", "gate-subject", "verify-gates"].includes(options.mode)) {
+    fail("ARGUMENT_INVALID", `mode ${options.mode}`);
+  }
+  if (options.mode === "publish" && options.gateFixtureFile) {
+    fail("GATE_FIXTURE_FORBIDDEN", "publish mode cannot use fixture readback");
+  }
   return options;
+}
+
+function assertExactKeys(value, expected, code, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail(code, `${label} must be an object`);
+  const observed = Object.keys(value).sort(byteCompare);
+  const wanted = [...expected].sort(byteCompare);
+  if (canonicalJson(observed) !== canonicalJson(wanted)) {
+    fail(code, `${label} keys expected ${wanted.join(",")} observed ${observed.join(",")}`);
+  }
+}
+
+function assertSha256(value, code, label) {
+  if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value)) fail(code, `${label} is not a sha256`);
+  return value;
+}
+
+function assertEvidencePayload(document, code, label) {
+  if (!document || typeof document !== "object" || Array.isArray(document)) fail(code, `${label} is not an object`);
+  const declared = assertSha256(document.evidence_payload_sha256, code, `${label}.evidence_payload_sha256`);
+  const payload = structuredClone(document);
+  delete payload.evidence_payload_sha256;
+  const observed = sha256(canonicalJson(payload));
+  if (observed !== declared) fail(code, `${label} payload ${observed} != ${declared}`);
+  return declared;
+}
+
+function loadPublicationSubject(expectedReleaseSha = null) {
+  if (!existsSync(EVIDENCE_PATH) || !existsSync(R0_EVIDENCE_PATH)) {
+    fail("EXACT_GATE_FAILURE", "candidate release and R0 evidence are required");
+  }
+  const evidenceBytes = readFileSync(EVIDENCE_PATH);
+  const r0Bytes = readFileSync(R0_EVIDENCE_PATH);
+  let evidence;
+  let r0;
+  try {
+    evidence = JSON.parse(evidenceBytes);
+    r0 = JSON.parse(r0Bytes);
+  } catch (error) {
+    fail("EXACT_GATE_FAILURE", `local evidence JSON is unreadable: ${error.message}`);
+  }
+  const releaseEvidencePayloadSha = assertEvidencePayload(evidence, "EXACT_GATE_FAILURE", "release evidence");
+  const r0EvidencePayloadSha = assertEvidencePayload(r0, "EXACT_GATE_FAILURE", "R0 evidence");
+  const descriptor = evidence.release?.descriptor;
+  const releaseDescriptorSha = assertSha256(
+    evidence.release?.release_descriptor_sha256,
+    "EXACT_GATE_FAILURE",
+    "release descriptor"
+  );
+  if (expectedReleaseSha && releaseDescriptorSha !== expectedReleaseSha) {
+    fail("BASE_OR_HEAD_DRIFT", "release SHA does not match candidate evidence");
+  }
+  if (!descriptor || sha256(canonicalJson(descriptor)) !== releaseDescriptorSha) {
+    fail("EXACT_GATE_FAILURE", "release descriptor canonical digest mismatch");
+  }
+  if (
+    r0.exact_subject?.release_descriptor_sha256 !== releaseDescriptorSha ||
+    r0.capture_a?.release_descriptor_sha256 !== releaseDescriptorSha ||
+    r0.capture_b?.release_descriptor_sha256 !== releaseDescriptorSha
+  ) {
+    fail("EXACT_GATE_FAILURE", "R0 release descriptor binding mismatch");
+  }
+  if (
+    r0.equality_matrix?.verdict !== "PASS" ||
+    r0.equality_matrix?.pass_count !== r0.equality_matrix?.total_count ||
+    r0.gate_result?.blocker_count !== 0
+  ) {
+    fail("EXACT_GATE_FAILURE", "R0 equality or blocker predicate failed");
+  }
+  if (
+    r0.topology?.sorted_target_keys_lf_sha256 !== FROZEN_TARGET_SET_SHA256 ||
+    r0.topology?.ordered_batch_membership_tsv_sha256 !== FROZEN_BATCH_MEMBERSHIP_SHA256
+  ) {
+    fail("EXACT_GATE_FAILURE", "R0 frozen target or ordered membership mismatch");
+  }
+  const resourceLedger = descriptor.runtime_resource_ledger;
+  const invocationLedgers = descriptor.invocation_ledgers;
+  if (
+    r0.exact_subject?.runtime_tree_sha256 !== descriptor.runtime_tree_sha256 ||
+    r0.exact_subject?.resource_ledger_sha256 !== resourceLedger?.ledger_sha256 ||
+    r0.exact_subject?.candidate_invocation_conformance_sha256 !== invocationLedgers?.candidate_conformance_sha256
+  ) {
+    fail("EXACT_GATE_FAILURE", "release descriptor and R0 resource/invocation binding mismatch");
+  }
+  const headSha = git(["rev-parse", "HEAD"]);
+  const treeSha = git(["rev-parse", "HEAD^{tree}"]);
+  const subject = {
+    repository: REPOSITORY,
+    pull_request: PUBLICATION_PR,
+    head_sha: headSha,
+    tree_sha: treeSha,
+    release_descriptor_sha256: releaseDescriptorSha,
+    release_evidence_payload_sha256: releaseEvidencePayloadSha,
+    resource_ledgers: {
+      ledger_sha256: assertSha256(resourceLedger?.ledger_sha256, "EXACT_GATE_FAILURE", "resource ledger"),
+      resource_tree_sha256: assertSha256(resourceLedger?.resource_tree_sha256, "EXACT_GATE_FAILURE", "resource tree"),
+      entrypoint_to_resource_map_sha256: assertSha256(
+        resourceLedger?.entrypoint_to_resource_map_sha256,
+        "EXACT_GATE_FAILURE",
+        "resource entrypoint map"
+      ),
+    },
+    invocation_ledgers: {
+      candidate_ledger_sha256: assertSha256(
+        invocationLedgers?.candidate_ledger_sha256,
+        "EXACT_GATE_FAILURE",
+        "candidate invocation ledger"
+      ),
+      candidate_conformance_sha256: assertSha256(
+        invocationLedgers?.candidate_conformance_sha256,
+        "EXACT_GATE_FAILURE",
+        "candidate invocation conformance"
+      ),
+      required_final_conformance_sha256: assertSha256(
+        invocationLedgers?.required_final_conformance_sha256,
+        "EXACT_GATE_FAILURE",
+        "required final invocation conformance"
+      ),
+    },
+    r0: {
+      evidence_payload_sha256: r0EvidencePayloadSha,
+      capture_a_internal_digest_sha256: assertSha256(
+        r0.capture_a?.internal_digest_sha256,
+        "EXACT_GATE_FAILURE",
+        "R0 capture A"
+      ),
+      capture_b_internal_digest_sha256: assertSha256(
+        r0.capture_b?.internal_digest_sha256,
+        "EXACT_GATE_FAILURE",
+        "R0 capture B"
+      ),
+      temporal_tuple: structuredClone(r0.temporal_window),
+    },
+    target_set: {
+      target_count: r0.topology?.target_count,
+      target_set_sha256: FROZEN_TARGET_SET_SHA256,
+      ordered_membership_sha256: FROZEN_BATCH_MEMBERSHIP_SHA256,
+      rollback_preimage_match_count: r0.topology?.rollback_preimage_match_count,
+    },
+  };
+  if (
+    !Number.isInteger(subject.target_set.target_count) ||
+    subject.target_set.target_count !== 35 ||
+    subject.target_set.rollback_preimage_match_count !== 35
+  ) {
+    fail("EXACT_GATE_FAILURE", "R0 target or rollback count mismatch");
+  }
+  assertExactKeys(subject.r0.temporal_tuple, [
+    "capture_a_generated_at",
+    "capture_b_generated_at",
+    "activation_at",
+    "planned_R1_start_at",
+    "durable_evidence_deadline_at",
+    "declared_margin_seconds",
+    "owner_go_created_at",
+  ], "EXACT_GATE_FAILURE", "R0 temporal tuple");
+  const captureA = parseTimestamp(
+    subject.r0.temporal_tuple.capture_a_generated_at,
+    "EXACT_GATE_FAILURE",
+    "R0 capture A"
+  );
+  const captureB = parseTimestamp(
+    subject.r0.temporal_tuple.capture_b_generated_at,
+    "EXACT_GATE_FAILURE",
+    "R0 capture B"
+  );
+  const activationAt = parseTimestamp(
+    subject.r0.temporal_tuple.activation_at,
+    "EXACT_GATE_FAILURE",
+    "R0 activation"
+  );
+  const plannedR1 = parseTimestamp(
+    subject.r0.temporal_tuple.planned_R1_start_at,
+    "EXACT_GATE_FAILURE",
+    "R0 planned R1"
+  );
+  const deadline = parseTimestamp(
+    subject.r0.temporal_tuple.durable_evidence_deadline_at,
+    "EXACT_GATE_FAILURE",
+    "R0 deadline"
+  );
+  if (
+    !(captureA <= captureB && captureB < activationAt && activationAt < plannedR1 && plannedR1 < deadline) ||
+    !Number.isInteger(subject.r0.temporal_tuple.declared_margin_seconds) ||
+    deadline - plannedR1 !== subject.r0.temporal_tuple.declared_margin_seconds * 1000 ||
+    subject.r0.temporal_tuple.owner_go_created_at !== null
+  ) {
+    fail("EXACT_GATE_FAILURE", "R0 temporal tuple is not the fresh pre-Owner candidate sequence");
+  }
+  return {
+    evidence,
+    r0,
+    subject,
+    source_state: {
+      head_sha: headSha,
+      tree_sha: treeSha,
+      release_evidence_file_sha256: sha256(evidenceBytes),
+      r0_evidence_file_sha256: sha256(r0Bytes),
+    },
+  };
+}
+
+function parseCommentReceiptRef(value) {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(
+    /^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:issues|pull)\/(\d+)#issuecomment-(\d+)$/
+  );
+  if (!match) return null;
+  return { repository: match[1], surface: Number(match[2]), comment_id: match[3], source_ref: value.trim() };
+}
+
+function parseHardGateRunRef(value) {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)$/);
+  if (!match) return null;
+  return { repository: match[1], run_id: match[2], source_ref: value.trim() };
+}
+
+function loadGateFixture(filePath) {
+  if (!filePath) return null;
+  let fixture;
+  try {
+    fixture = JSON.parse(readFileSync(filePath, "utf8"));
+  } catch (error) {
+    fail("GATE_READBACK_UNREADABLE", `fixture ${filePath}: ${error.message}`);
+  }
+  if (fixture?.schema_version !== "kusabi-cas-publication-gate-api-fixture/v1" || !fixture.responses) {
+    fail("GATE_READBACK_UNREADABLE", "invalid gate API fixture schema");
+  }
+  return fixture;
+}
+
+function readGithubApi(apiPath, fixture) {
+  if (fixture) {
+    if (!Object.hasOwn(fixture.responses, apiPath)) fail("GATE_READBACK_UNREADABLE", apiPath);
+    const response = fixture.responses[apiPath];
+    if (response?.fixture_error) fail("GATE_READBACK_UNREADABLE", `${apiPath}: ${response.fixture_error}`);
+    return structuredClone(response);
+  }
+  let output;
+  try {
+    output = run("gh", ["api", apiPath], { code: "GATE_READBACK_UNREADABLE", timeout: 30_000 });
+    return JSON.parse(output);
+  } catch (error) {
+    if (error.code === "GATE_READBACK_UNREADABLE") throw error;
+    fail("GATE_READBACK_UNREADABLE", `${apiPath}: ${error.message}`);
+  }
+}
+
+function extractPublicationReceipt(body) {
+  const marker = PUBLICATION_RECEIPT_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    "<!--\\s*" + marker + "\\s*-->\\s*```json\\s*\\n([\\s\\S]*?)```",
+    "gi"
+  );
+  const blocks = [];
+  let match;
+  while ((match = pattern.exec(String(body ?? ""))) !== null) blocks.push(match[1].trim());
+  if (blocks.length !== 1) fail("GATE_RECEIPT_COUNTERFEIT", `expected one marked receipt block, observed ${blocks.length}`);
+  try {
+    const receipt = JSON.parse(blocks[0]);
+    if (blocks[0] !== JSON.stringify(receipt, null, 2)) {
+      fail("GATE_RECEIPT_COUNTERFEIT", "receipt JSON must be duplicate-free canonical two-space JSON");
+    }
+    return receipt;
+  } catch (error) {
+    if (error.code === "GATE_RECEIPT_COUNTERFEIT") throw error;
+    fail("GATE_RECEIPT_COUNTERFEIT", `receipt JSON: ${error.message}`);
+  }
+}
+
+function parseTimestamp(value, code, label) {
+  const parsed = Date.parse(value);
+  if (typeof value !== "string" || !Number.isFinite(parsed)) fail(code, `${label} timestamp invalid`);
+  return parsed;
+}
+
+function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
+  const ref = parseCommentReceiptRef(sourceRef);
+  if (!ref || ref.repository !== REPOSITORY || ![PUBLICATION_ISSUE, PUBLICATION_PR].includes(ref.surface)) {
+    fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} ref is outside the exact repository/surface`);
+  }
+  const apiPath = `/repos/${REPOSITORY}/issues/comments/${ref.comment_id}`;
+  const comment = readGithubApi(apiPath, fixture);
+  const observedRepo = String(comment?.issue_url ?? "").match(/^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/issues\/(\d+)$/);
+  const observedHtml = String(comment?.html_url ?? "").match(
+    /^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:issues|pull)\/(\d+)#issuecomment-(\d+)$/
+  );
+  if (
+    String(comment?.id ?? "") !== ref.comment_id ||
+    !observedRepo || observedRepo[1] !== REPOSITORY || Number(observedRepo[2]) !== ref.surface ||
+    !observedHtml || observedHtml[1] !== REPOSITORY || Number(observedHtml[2]) !== ref.surface || observedHtml[3] !== ref.comment_id
+  ) {
+    fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} API identity mismatch`);
+  }
+  const actor = comment?.user?.login;
+  if (!ALLOWED_GITHUB_ACTORS.has(actor)) fail("GATE_ACTOR_REJECTED", `${receiptType} actor ${actor ?? "missing"}`);
+  const createdAt = parseTimestamp(comment.created_at, "GATE_RECEIPT_STALE", `${receiptType}.created_at`);
+  const updatedAt = parseTimestamp(comment.updated_at, "GATE_RECEIPT_STALE", `${receiptType}.updated_at`);
+  if (createdAt !== updatedAt || comment.created_at !== comment.updated_at) {
+    fail("GATE_RECEIPT_STALE", `${receiptType} comment was edited`);
+  }
+  const receipt = extractPublicationReceipt(comment.body);
+  assertExactKeys(receipt, [
+    "schema_version",
+    "receipt_type",
+    "authenticated_actor",
+    "exact_subject",
+    "gate_result",
+    "sequence",
+  ], "GATE_RECEIPT_COUNTERFEIT", `${receiptType} receipt`);
+  if (
+    receipt.schema_version !== PUBLICATION_RECEIPT_SCHEMA ||
+    receipt.receipt_type !== receiptType ||
+    receipt.authenticated_actor !== actor
+  ) {
+    fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} schema, type, or actor claim mismatch`);
+  }
+  if (canonicalJson(receipt.exact_subject) !== canonicalJson(expectedSubject)) {
+    fail(
+      "GATE_SUBJECT_MISMATCH",
+      `${receiptType} subject ${sha256(canonicalJson(receipt.exact_subject))} != ${sha256(canonicalJson(expectedSubject))}`
+    );
+  }
+  return {
+    source_ref: sourceRef,
+    comment_id: ref.comment_id,
+    actor,
+    created_at: comment.created_at,
+    created_at_ms: createdAt,
+    body_sha256: sha256(String(comment.body)),
+    receipt,
+  };
+}
+
+function assertAuditReceipt(audit) {
+  assertExactKeys(audit.receipt.gate_result, [
+    "verdict", "blocker_count", "protected_effect_count", "auditor_agent_id", "active_function",
+  ], "GATE_RECEIPT_COUNTERFEIT", "audit gate_result");
+  const result = audit.receipt.gate_result;
+  if (
+    result.verdict !== "PASS" || result.blocker_count !== 0 || result.protected_effect_count !== 0 ||
+    result.auditor_agent_id !== "codex-audit" || result.active_function !== "evidence_audit_gate"
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "independent audit must be codex-audit PASS with zero blockers/effects");
+  }
+  assertExactKeys(audit.receipt.sequence, [
+    "ordinal", "previous_receipt_ref", "previous_receipt_body_sha256",
+  ], "GATE_RECEIPT_COUNTERFEIT", "audit sequence");
+  if (
+    audit.receipt.sequence.ordinal !== 1 || audit.receipt.sequence.previous_receipt_ref !== null ||
+    audit.receipt.sequence.previous_receipt_body_sha256 !== null
+  ) {
+    fail("GATE_ORDER_REJECTED", "audit must be sequence origin");
+  }
+}
+
+function assertOwnerReceipt(owner, audit) {
+  assertExactKeys(owner.receipt.gate_result, [
+    "verdict", "blocker_count", "protected_effect_count", "owner_actor", "active_function",
+    "final_CAS_publication_authorized",
+  ], "GATE_RECEIPT_COUNTERFEIT", "owner gate_result");
+  const result = owner.receipt.gate_result;
+  if (
+    result.verdict !== "GO_EXACT_CAS_PUBLICATION" || result.blocker_count !== 0 ||
+    result.protected_effect_count !== 0 || result.owner_actor !== "watchout" ||
+    result.active_function !== "protected_surface_gate" || result.final_CAS_publication_authorized !== true
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "Owner receipt must grant exact final CAS GO with zero blockers/effects");
+  }
+  assertExactKeys(owner.receipt.sequence, [
+    "ordinal", "previous_receipt_ref", "previous_receipt_body_sha256",
+  ], "GATE_RECEIPT_COUNTERFEIT", "owner sequence");
+  if (
+    owner.receipt.sequence.ordinal !== 2 ||
+    owner.receipt.sequence.previous_receipt_ref !== audit.source_ref ||
+    owner.receipt.sequence.previous_receipt_body_sha256 !== audit.body_sha256
+  ) {
+    fail("GATE_ORDER_REJECTED", "Owner receipt does not chain to the exact audit body");
+  }
+}
+
+function assertHardGateReceipt(hardGate, owner, audit) {
+  assertExactKeys(hardGate.receipt.gate_result, [
+    "verdict", "blocker_count", "protected_effect_count", "workflow_run_ref", "workflow_name",
+    "workflow_path", "workflow_event", "workflow_run_head_sha", "workflow_run_attempt",
+    "workflow_job_id", "workflow_job_name",
+  ], "GATE_RECEIPT_COUNTERFEIT", "hard gate_result");
+  const result = hardGate.receipt.gate_result;
+  if (
+    result.verdict !== "SUCCESS" || result.blocker_count !== 0 || result.protected_effect_count !== 0 ||
+    result.workflow_name !== HARD_GATE_WORKFLOW_NAME || result.workflow_path !== HARD_GATE_WORKFLOW_PATH ||
+    result.workflow_event !== "issue_comment" || result.workflow_job_name !== HARD_GATE_JOB_NAME
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "hard gate receipt must record the exact successful workflow and job");
+  }
+  assertExactKeys(hardGate.receipt.sequence, [
+    "ordinal", "previous_receipt_ref", "previous_receipt_body_sha256", "audit_receipt_ref",
+    "audit_receipt_body_sha256",
+  ], "GATE_RECEIPT_COUNTERFEIT", "hard gate sequence");
+  if (
+    hardGate.receipt.sequence.ordinal !== 3 ||
+    hardGate.receipt.sequence.previous_receipt_ref !== owner.source_ref ||
+    hardGate.receipt.sequence.previous_receipt_body_sha256 !== owner.body_sha256 ||
+    hardGate.receipt.sequence.audit_receipt_ref !== audit.source_ref ||
+    hardGate.receipt.sequence.audit_receipt_body_sha256 !== audit.body_sha256
+  ) {
+    fail("GATE_ORDER_REJECTED", "hard gate receipt does not chain to exact Owner and audit bodies");
+  }
+}
+
+function verifyHardGateRun(hardGate, owner, fixture) {
+  const result = hardGate.receipt.gate_result;
+  const ref = parseHardGateRunRef(result.workflow_run_ref);
+  if (!ref || ref.repository !== REPOSITORY) fail("GATE_RECEIPT_COUNTERFEIT", "hard gate run ref invalid");
+  const run = readGithubApi(`/repos/${REPOSITORY}/actions/runs/${ref.run_id}`, fixture);
+  if (
+    String(run?.id ?? "") !== ref.run_id || run?.html_url !== ref.source_ref ||
+    run?.repository?.full_name !== REPOSITORY || run?.name !== HARD_GATE_WORKFLOW_NAME ||
+    run?.path !== HARD_GATE_WORKFLOW_PATH || run?.event !== "issue_comment" ||
+    run?.status !== "completed" || run?.conclusion !== "success" ||
+    !ALLOWED_GITHUB_ACTORS.has(run?.actor?.login) || !ALLOWED_GITHUB_ACTORS.has(run?.triggering_actor?.login) ||
+    run?.head_sha !== result.workflow_run_head_sha || run?.run_attempt !== result.workflow_run_attempt
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "authenticated hard gate run identity or SUCCESS predicate failed");
+  }
+  const runStarted = parseTimestamp(run.run_started_at, "GATE_RECEIPT_STALE", "hard gate run_started_at");
+  const runUpdated = parseTimestamp(run.updated_at, "GATE_RECEIPT_STALE", "hard gate updated_at");
+  if (runStarted <= owner.created_at_ms || runUpdated < runStarted || hardGate.created_at_ms < runUpdated) {
+    fail("GATE_ORDER_REJECTED", "hard gate run must start after Owner GO and complete before its receipt");
+  }
+  const jobs = readGithubApi(`/repos/${REPOSITORY}/actions/runs/${ref.run_id}/jobs`, fixture);
+  if (jobs?.total_count !== 1 || !Array.isArray(jobs.jobs) || jobs.jobs.length !== 1) {
+    fail("GATE_OUTCOME_REJECTED", "hard gate run must contain exactly one authenticated job");
+  }
+  const job = jobs.jobs[0];
+  if (
+    String(job?.id ?? "") !== String(result.workflow_job_id) || job?.name !== HARD_GATE_JOB_NAME ||
+    job?.status !== "completed" || job?.conclusion !== "success"
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "hard gate job identity or SUCCESS predicate failed");
+  }
+  const steps = new Map((job.steps ?? []).map((step) => [step.name, step.conclusion]));
+  for (const name of HARD_GATE_REQUIRED_STEPS) {
+    if (steps.get(name) !== "success") fail("GATE_OUTCOME_REJECTED", `hard gate step ${name} did not succeed`);
+  }
+  const jobStarted = parseTimestamp(job.started_at, "GATE_RECEIPT_STALE", "hard gate job.started_at");
+  const jobCompleted = parseTimestamp(job.completed_at, "GATE_RECEIPT_STALE", "hard gate job.completed_at");
+  if (jobStarted < runStarted || jobCompleted < jobStarted || hardGate.created_at_ms < jobCompleted) {
+    fail("GATE_ORDER_REJECTED", "hard gate job timing is not ordered");
+  }
+  return {
+    run_id: ref.run_id,
+    run_ref: ref.source_ref,
+    run_attempt: run.run_attempt,
+    run_started_at: run.run_started_at,
+    run_completed_at: run.updated_at,
+    job_id: String(job.id),
+    job_name: job.name,
+    required_step_count: HARD_GATE_REQUIRED_STEPS.length,
+  };
+}
+
+function assertPublicationInputsStable(context) {
+  if (
+    git(["rev-parse", "HEAD"]) !== context.source_state.head_sha ||
+    git(["rev-parse", "HEAD^{tree}"]) !== context.source_state.tree_sha ||
+    sha256(readFileSync(EVIDENCE_PATH)) !== context.source_state.release_evidence_file_sha256 ||
+    sha256(readFileSync(R0_EVIDENCE_PATH)) !== context.source_state.r0_evidence_file_sha256
+  ) {
+    fail("BASE_OR_HEAD_DRIFT", "publication subject changed during gate verification");
+  }
+}
+
+function verifyPublicationGates(options) {
+  for (const [name, value] of [
+    ["audit", options.auditRef],
+    ["owner GO", options.ownerGoRef],
+    ["hard gate", options.hardGateRef],
+    ["release SHA", options.expectedReleaseSha],
+  ]) {
+    if (!value) fail("EXACT_GATE_FAILURE", `${name} input missing`);
+  }
+  const context = loadPublicationSubject(options.expectedReleaseSha);
+  const fixture = loadGateFixture(options.gateFixtureFile);
+  const audit = readCommentReceipt(options.auditRef, "independent_audit", context.subject, fixture);
+  assertAuditReceipt(audit);
+  const owner = readCommentReceipt(options.ownerGoRef, "owner_go", context.subject, fixture);
+  assertOwnerReceipt(owner, audit);
+  const hardGate = readCommentReceipt(options.hardGateRef, "hard_gate", context.subject, fixture);
+  assertHardGateReceipt(hardGate, owner, audit);
+  if (!(audit.created_at_ms < owner.created_at_ms && owner.created_at_ms < hardGate.created_at_ms)) {
+    fail("GATE_ORDER_REJECTED", "receipt timestamps must be audit before Owner before hard gate");
+  }
+  const captureB = parseTimestamp(
+    context.subject.r0.temporal_tuple.capture_b_generated_at,
+    "EXACT_GATE_FAILURE",
+    "R0 capture B"
+  );
+  const activationAt = parseTimestamp(
+    context.subject.r0.temporal_tuple.activation_at,
+    "EXACT_GATE_FAILURE",
+    "R0 activation"
+  );
+  if (audit.created_at_ms < captureB || hardGate.created_at_ms >= activationAt) {
+    fail("GATE_RECEIPT_STALE", "receipts fall outside the exact fresh R0 capture-to-activation window");
+  }
+  const workflow = verifyHardGateRun(hardGate, owner, fixture);
+  assertPublicationInputsStable(context);
+  return {
+    schema_version: "kusabi-cas-publication-gate-verification/v1",
+    verdict: "PASS_AUTHENTICATED_EXACT_ORDERED_GATES",
+    exact_subject_sha256: sha256(canonicalJson(context.subject)),
+    exact_subject: context.subject,
+    receipts: {
+      independent_audit: {
+        ref: audit.source_ref,
+        comment_id: audit.comment_id,
+        actor: audit.actor,
+        created_at: audit.created_at,
+        raw_body_sha256: audit.body_sha256,
+      },
+      owner_go: {
+        ref: owner.source_ref,
+        comment_id: owner.comment_id,
+        actor: owner.actor,
+        created_at: owner.created_at,
+        raw_body_sha256: owner.body_sha256,
+      },
+      hard_gate: {
+        ref: hardGate.source_ref,
+        comment_id: hardGate.comment_id,
+        actor: hardGate.actor,
+        created_at: hardGate.created_at,
+        raw_body_sha256: hardGate.body_sha256,
+        workflow,
+      },
+    },
+    protected_effect_count: 0,
+    context,
+  };
 }
 
 function assertNoSymlinkOrSpecial(path, rel) {
@@ -886,14 +1455,14 @@ async function r0Candidate() {
 }
 
 function publish(options) {
-  for (const [name, value] of [["audit", options.auditRef], ["owner GO", options.ownerGoRef], ["hard gate", options.hardGateRef], ["release SHA", options.expectedReleaseSha]]) {
-    if (!value) fail("EXACT_GATE_FAILURE", `${name} input missing`);
-  }
-  if (!existsSync(EVIDENCE_PATH)) fail("EXACT_GATE_FAILURE", "candidate evidence missing");
-  const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8"));
-  const descriptorSha = evidence.release?.release_descriptor_sha256;
-  if (descriptorSha !== options.expectedReleaseSha) fail("BASE_OR_HEAD_DRIFT", "release SHA does not match candidate evidence");
+  if (statusPaths().length > 0) fail("BASE_OR_HEAD_DRIFT", "publish requires a clean exact-head worktree");
+  const gateVerification = verifyPublicationGates(options);
+  const { context, ...gateVerificationEvidence } = gateVerification;
+  const evidence = context.evidence;
+  const descriptorSha = context.subject.release_descriptor_sha256;
   const candidate = exactReadback(STAGE_ROOT, descriptorSha);
+  assertPublicationInputsStable(context);
+  if (statusPaths().length > 0) fail("BASE_OR_HEAD_DRIFT", "worktree changed before final CAS effect");
   const finalRoot = join(RELEASE_PARENT, descriptorSha);
   let publication;
   if (existsSync(finalRoot)) {
@@ -920,12 +1489,7 @@ function publish(options) {
     final_conformance_readback: "PASS_BYTE_MODE_LEDGER_INVOCATION_REALPATH_EXACT",
   };
   evidence.release.complete_runtime_path_mode_sha256_ledger = finalReadback.runtime;
-  evidence.gates = {
-    independent_audit_ref: options.auditRef,
-    owner_go_ref: options.ownerGoRef,
-    hard_gate_ref: options.hardGateRef,
-    exact_release_sha256: descriptorSha,
-  };
+  evidence.gates = gateVerificationEvidence;
   evidence.protected_effects.final_CAS_publication = publication === "ATOMIC_RENAME_NEW_CAS" ? 1 : 0;
   evidence.gate_result = {
     verdict: "PASS_SELF_CONTAINED_RELEASE_5_OF_5",
@@ -962,6 +1526,17 @@ try {
   if (options.mode === "candidate") candidate();
   else if (options.mode === "r0") await r0Candidate();
   else if (options.mode === "publish") publish(options);
+  else if (options.mode === "gate-subject") {
+    const context = loadPublicationSubject(options.expectedReleaseSha);
+    process.stdout.write(`${JSON.stringify({
+      schema_version: "kusabi-cas-publication-gate-subject/v1",
+      exact_subject_sha256: sha256(canonicalJson(context.subject)),
+      exact_subject: context.subject,
+    })}\n`);
+  } else if (options.mode === "verify-gates") {
+    const { context: _context, ...report } = verifyPublicationGates(options);
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+  }
   else readback(options);
 } catch (error) {
   process.stderr.write(`${error.code ?? "UNEXPECTED"}: ${error.stack ?? error.message}\n`);

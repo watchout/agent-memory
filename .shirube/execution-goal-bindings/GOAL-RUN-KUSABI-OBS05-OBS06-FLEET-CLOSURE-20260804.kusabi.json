@@ -22,7 +22,7 @@
     "event_sequence": 4,
     "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4"
   },
-  "state_digest": "sha256:12dab4c86797d773cdad226a35e016b1ef62986d89426843182b749b35d8c1b2",
+  "state_digest": "sha256:3875db49e3ecc9b7cde8cfd92190af2264ed61ea6eb9e1cfa27299733fcc24cb",
   "adapter": {
     "family": "codex",
     "version": "agent-memory-shirube-v4-goal-control/v1",
@@ -30,8 +30,8 @@
     "conformance_digest": "sha256:e257d94b850da91b908c0194d9f83717cfb86ddf60941da1d635df2aace11481"
   },
   "readback": {
-    "observed_at": "2026-08-05T06:35:32Z",
-    "observed_binding_digest": "sha256:f06249fbd68275d72108cb28eb3dabdbfeae9e5308bd01d6d21ede06253297e0",
-    "evidence_ref": "https://github.com/watchout/agent-memory/issues/285#issuecomment-5188410390"
+    "observed_at": "2026-08-06T22:48:48Z",
+    "observed_binding_digest": "sha256:742fa51e60bec07bd106d78829d764fd9c3e3072df5209282b7cf51b1b1fdb54",
+    "evidence_ref": "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"
   }
 }
