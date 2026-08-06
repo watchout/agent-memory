@@ -3,8 +3,8 @@
   "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
-  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/280",
-  "handoff_digest": "sha256:989a1217ee1e39f17daa6171bedd8c209523383213386054e52d6a7cfa0d35bf",
+  "control_handoff_ref": "https://github.com/watchout/agent-memory/issues/285#issuecomment-5188410390",
+  "handoff_digest": "sha256:d8eb807ac7a587372c1eb17db17cd17a1dcd3feaf42b0cf0674d707c702a4f11",
   "allowed_operations": [
     "DEPLOY"
   ],
@@ -48,13 +48,13 @@
   "acceptance_ordinal": 6,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:fc129be35c1d7c2e00753763448e051fccb6de4d88dc00d75dda296fc27f1158",
-  "generation": 3,
-  "state_digest": "sha256:986583545bcb87032ca984d55cd72b572c667fc1060980f19417220daee10280",
+  "dispatch_idempotency_key": "sha256:641dcc802a97c018931b443072495437216faf9b4d0d52289ba279dda737c657",
+  "generation": 4,
+  "state_digest": "sha256:c20009a3296d5dcb7f028b781e635148b04eb7c890f7a69a6eaf417ea2c8547a",
   "checkpoint": {
-    "event_sequence": 3,
-    "last_event_id": "EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
-    "last_idempotency_key": "sha256:4b98f2ecdcddff03e18fa407a47faaabba6e3133265142ca2f51d8c4dc355b58"
+    "event_sequence": 4,
+    "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4",
+    "last_idempotency_key": "sha256:b55efa20a08f49dccca7326dc85ffd818a8ccc87f667733ef25991d3feceb7fc"
   },
   "terminal_evidence": []
 }

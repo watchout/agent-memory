@@ -220,6 +220,25 @@ const ROUTE_BY_ACCEPTANCE_ID = {
   },
 };
 
+const ROUTE_BY_EFFECTIVE_BLOCKER_ID = {
+  "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE": {
+    actor_agent_id: "codex-audit",
+    active_function: "evidence_audit_gate",
+    blocking: true,
+    action: "Independently audit the exact PR 286 successor head/tree and the authenticated final-CAS publication verifier, including the one positive and seven protected-effect-zero negative receipt fixtures; return PASS with blocker_count 0 or exact findings.",
+    deliver_via: "Immutable Issue 285 audit comment and official AUN reply to kusabi.",
+    scope: "Read-only exact-head audit only; no implementation, final CAS publication, rollout, Ready transition, approval, or merge.",
+    deliverable: [
+      "independent_exact_head_audit",
+      "authenticated_gate_positive_fixture",
+      "seven_fail_closed_negative_fixtures",
+      "final_CAS_absence_readback",
+      "protected_effect_count_zero",
+    ],
+    completion_evidence: "Immutable audit URL/body digest, exact head/tree and CAS/R0 subject, PASS or exact blockers, and official AUN receipt.",
+  },
+};
+
 export function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -1077,17 +1096,58 @@ function loadWorkItems(repoRoot) {
   return readdirSync(dir).filter((name) => name.endsWith(".json")).sort().map((name) => ({ path: join(dir, name), document: readJson(join(dir, name)) }));
 }
 
+function buildGenerationHistory(repoRoot, goalDocument) {
+  const history = {
+    generation_1: {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
+      file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
+        ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
+        : null,
+    },
+    generation_2: goalDocument.generation >= 3 ? {
+      evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
+      predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
+      file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
+      state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
+      retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
+    } : null,
+  };
+  for (let generation = 3; generation < goalDocument.generation; generation++) {
+    const historyPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`);
+    if (!existsSync(historyPath)) continue;
+    const document = readJson(historyPath);
+    history[`generation_${generation}`] = {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`,
+      file_sha256: sha256Raw(readFileSync(historyPath)),
+      state_digest: document.state_digest,
+      checkpoint: document.checkpoint,
+      retention: "IMMUTABLE_FILE_BACKED_PREDECESSOR",
+    };
+  }
+  history[`generation_${goalDocument.generation}`] = {
+    evidence_ref: `file:${GOAL_PATH}`,
+    state_digest: goalDocument.state_digest,
+    checkpoint: goalDocument.checkpoint,
+    retention: "CURRENT_MUTABLE_GOALRUN_STATE",
+  };
+  return history;
+}
+
 export function buildStatus(goalRun, workItems) {
   const definitions = [...goalRun.acceptance_set].sort((a, b) => a.ordinal - b.ordinal || a.acceptance_id.localeCompare(b.acceptance_id));
   const stateById = new Map(goalRun.acceptance_states.map((state) => [state.acceptance_id, state]));
   const unmet = definitions.find((definition) => stateById.get(definition.acceptance_id)?.status !== "VERIFIED_PASS");
   const candidates = workItems.filter((item) => item.status === "READY" && item.unmet_condition_id === unmet?.acceptance_id)
     .sort((a, b) => a.acceptance_ordinal - b.acceptance_ordinal || a.blocker_ordinal - b.blocker_ordinal || a.work_item_id.localeCompare(b.work_item_id));
-  const blocked = goalRun.status === "BLOCKED"
-    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id && item.status === "BLOCKED") ?? null
+  const effectiveBlocker = goalRun.blocker_set[0] ?? null;
+  const effectiveBlocked = goalRun.status === "BLOCKED" || Boolean(effectiveBlocker);
+  const blocked = effectiveBlocked
+    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id) ?? null
     : null;
-  const next = candidates[0] ?? blocked;
-  const route = next ? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id] : null;
+  const next = effectiveBlocked ? blocked : candidates[0] ?? null;
+  const route = next
+    ? ROUTE_BY_EFFECTIVE_BLOCKER_ID[effectiveBlocker?.blocker_id] ?? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id]
+    : null;
   if (next && !route) throw new Error(`missing deterministic route for ${next.unmet_condition_id}`);
   const acceptancePassed = goalRun.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").length;
   const targetLiveExact = goalRun.target_states.filter((target) => target.live_exact_version === target.expected_version && target.live_evidence_ref).length;
@@ -1095,7 +1155,7 @@ export function buildStatus(goalRun, workItems) {
   return {
     schema_version: "shirube-v4/goal-status/v1",
     root_goal_run_id: goalRun.root_goal_run_id,
-    status: goalRun.status,
+    status: effectiveBlocked ? "BLOCKED" : goalRun.status,
     generation: goalRun.generation,
     state_digest: goalRun.state_digest,
     acceptance: { passed: acceptancePassed, total: goalRun.acceptance_states.length, percent: Math.floor((acceptancePassed / goalRun.acceptance_states.length) * 100) },
@@ -1107,21 +1167,26 @@ export function buildStatus(goalRun, workItems) {
       required_evidence: next.required_evidence,
       control_handoff_ref: next.control_handoff_ref,
       dispatch_idempotency_key: next.dispatch_idempotency_key,
-      status: next.status,
+      status: effectiveBlocked ? "BLOCKED" : next.status,
     } : null,
-    can_continue: Boolean(next && next.status === "READY"),
+    can_continue: Boolean(!effectiveBlocked && next && next.status === "READY"),
     next_action: next ? {
-      blocking: blocked ? true : route.blocking,
+      blocking: effectiveBlocked ? true : route.blocking,
       actor_agent_id: route.actor_agent_id,
       active_function: route.active_function,
-      action: blocked
-        ? goalRun.blocker_set[0]?.removal_predicate
+      action: effectiveBlocked
+        ? route.action || effectiveBlocker?.removal_predicate || `Resolve the effective blocker for ${next.work_item_id}.`
         : route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
       deliver_via: route.deliver_via || "WorkItem terminal evidence and GoalRun generation update",
-      exact_input_refs: [next.control_handoff_ref, GOAL_PATH, `${WORK_ITEM_DIR}/${next.work_item_id}.json`],
-      scope: `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
-      deliverable: next.required_evidence,
-      completion_evidence: "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback.",
+      exact_input_refs: [...new Set([
+        next.control_handoff_ref,
+        ...(effectiveBlocker?.evidence_refs ?? []),
+        GOAL_PATH,
+        `${WORK_ITEM_DIR}/${next.work_item_id}.json`,
+      ])],
+      scope: route.scope || `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
+      deliverable: route.deliverable || next.required_evidence,
+      completion_evidence: route.completion_evidence || "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback.",
     } : "none",
   };
 }
@@ -1155,26 +1220,7 @@ function check(repoRoot, explicitFrameworkRoot, writeEvidence) {
     work_item_validators: workItemReports,
     execution_binding_validator: binding,
     status,
-    generation_history: {
-      generation_1: {
-        evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
-        file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
-          ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
-          : null,
-      },
-      generation_2: goalDocument.generation >= 3 ? {
-        evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
-        predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
-        file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
-        state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
-        retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
-      } : null,
-      generation_3: goalDocument.generation >= 3 ? {
-        evidence_ref: `file:${GOAL_PATH}`,
-        state_digest: goalDocument.state_digest,
-        checkpoint: goalDocument.checkpoint,
-      } : null,
-    },
+    generation_history: buildGenerationHistory(repoRoot, goalDocument),
     frozen_target_set_sha256: EXPECTED_TARGET_SET_SHA256,
     production_effect_count: 0,
   };
