@@ -118,20 +118,19 @@
   "target_manifest_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json#sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "status": "BLOCKED",
-  "generation": 5,
-  "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+  "generation": 4,
+  "state_digest": "sha256:3875db49e3ecc9b7cde8cfd92190af2264ed61ea6eb9e1cfa27299733fcc24cb",
   "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "blocker_set": [
     {
-      "blocker_id": "B-04-PR286-EXACT-CORRECTION-MERGE",
+      "blocker_id": "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE",
       "ordinal": 2,
       "evidence_refs": [
-        "file:.shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json#sha256:92c5d2f91070b4e6e3707fd52f2b2a28d98485b2e0662e244fb22dc7ad706e47",
-        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
-        "https://github.com/watchout/agent-memory/actions/runs/31303252529",
-        "https://github.com/watchout/agent-memory/pull/286"
+        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5189427170",
+        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5209573325",
+        "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"
       ],
-      "removal_predicate": "PR #286 independently audited exact head/tree has authenticated Owner exact-head approval, all required checks SUCCESS, normal merge without bypass, merge result contains the approved head as parent, final tree/provenance readback passes, and merge commit is an ancestor of main."
+      "removal_predicate": "A fresh maker-separated exact-head audit must verify the authenticated publication gate and its one positive plus seven protected-effect-zero negative fixtures with blocker_count 0; final CAS remains unpublished until a later authenticated exact Owner GO and hard-gate SUCCESS."
     }
   ],
   "acceptance_states": [
@@ -583,9 +582,9 @@
     }
   ],
   "checkpoint": {
-    "event_sequence": 5,
-    "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
+    "event_sequence": 4,
+    "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4",
+    "last_idempotency_key": "sha256:b55efa20a08f49dccca7326dc85ffd818a8ccc87f667733ef25991d3feceb7fc"
   },
   "verified_completion_evidence": []
 }

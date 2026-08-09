@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -19,7 +19,23 @@ const R0_V3 = join(ROOT, ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-2
 const RELEASE_V3_CANDIDATE = join(ROOT, ".shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V3-20260805.json");
 const R0_V4_CANDIDATE = join(ROOT, ".shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V4-20260805.json");
 const GENERATION_3_HISTORY = join(ROOT, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-3.json");
+const GENERATION_4_HISTORY = join(ROOT, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json");
+const RECONCILIATION_EVIDENCE_RELATIVE = ".shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json";
+const RECONCILIATION_EVIDENCE = join(ROOT, RECONCILIATION_EVIDENCE_RELATIVE);
 const AGENTS = join(ROOT, "AGENTS.md");
+const PREDECESSOR_HEAD = "43724e69a3b40a2088cb4b0149c9ba618f1d4e65";
+const RECONCILE_ARGS = [
+  "reconcile-cas-b01-audit",
+  "--subject-head", PREDECESSOR_HEAD,
+  "--subject-tree", "10a3c1c5633743914082abddaec0cae20ee51f04",
+  "--audit-ref", "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
+  "--audit-body-sha256", "9016e826418c9c22234b821065c4cc1f6821a6c30eb1fdc37b2ddf5a31c100f9",
+  "--hard-gate-run-ref", "https://github.com/watchout/agent-memory/actions/runs/31303252529",
+  "--hard-gate-report-sha256", "5f488ded2bc28e4215e003f4d7f76eedef722ef9cf8ec897cdf37d1a1a15cb90",
+  "--hard-gate-receipt-ref", "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230557950",
+  "--hard-gate-receipt-body-sha256", "37f6fa0b2d14bc82fd569748b3a5d166dca09acfbdbb88a0c839c01d806cfbd7",
+  "--observed-at", "2026-08-09T22:27:28Z",
+];
 const FRAMEWORK_CANDIDATES = [
   process.env.SHIRUBE_FRAMEWORK_ROOT,
   resolve(ROOT, "../ai-dev-framework"),
@@ -36,6 +52,17 @@ function run(args, expected = 0) {
   const result = spawnSync(process.execPath, [CONTROL, ...args], { cwd: ROOT, encoding: "utf8" });
   check(result.status === expected, `${args.join(" ")} exit ${result.status}: ${result.stderr || result.stdout}`);
   return JSON.parse(result.stdout);
+}
+
+function runFailure(args, message) {
+  const result = spawnSync(process.execPath, [CONTROL, ...args], { cwd: ROOT, encoding: "utf8" });
+  check(result.status === 1 && result.stderr.includes(message), `${args.join(" ")} must fail with ${message}: ${result.stderr || result.stdout}`);
+}
+
+function gitFile(ref, relativePath) {
+  const result = spawnSync("git", ["show", `${ref}:${relativePath}`], { cwd: ROOT, encoding: "utf8" });
+  check(result.status === 0, `git show ${ref}:${relativePath} failed: ${result.stderr}`);
+  return result.stdout;
 }
 
 function repoPath(locator) {
@@ -66,19 +93,20 @@ check(checkReport.generation_history.generation_1.file_sha256 === "6b51df6c4c1af
 check(checkReport.generation_history.generation_2.file_sha256 === "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c", "generation 2 history must remain bound to the exact git predecessor");
 check(checkReport.generation_history.generation_3.file_sha256 === "141e00b311028dc119d837523084550c85bc0e8dda83d97dc478ed28d647b01b", "generation 3 history must remain immutable and file-backed");
 check(checkReport.generation_history.generation_3.state_digest === JSON.parse(readFileSync(GENERATION_3_HISTORY, "utf8")).state_digest, "generation 3 history report must bind the immutable predecessor state");
-check(checkReport.generation_history.generation_4.state_digest === checkReport.status.state_digest, "generation 4 history readback must bind the current GoalRun state");
-check(checkReport.generation_history.generation_4.evidence_ref === "file:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json", "generation 4 must be reported as current without relabeling it as generation 3");
+check(checkReport.generation_history.generation_4.state_digest === JSON.parse(readFileSync(GENERATION_4_HISTORY, "utf8")).state_digest, "generation 4 history must bind the immutable B-03 predecessor state");
+check(checkReport.generation_history.generation_5.state_digest === checkReport.status.state_digest, "generation 5 history readback must bind the current GoalRun state");
+check(checkReport.generation_history.generation_5.evidence_ref === "file:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json", "generation 5 must be reported as current without relabeling its predecessor");
 
 const statusA = run(["status"], 1);
 const statusB = run(["status"], 1);
 check(canonicalJson(statusA) === canonicalJson(statusB), "status readback must be deterministic across process restart");
 check(statusA.targets.total === 35 && statusA.targets.live_exact === 0, "frozen target denominator must be 35 with no false live completion");
-check(statusA.generation === 4 && statusA.status === "BLOCKED", "effective external CAS gate must block generation 4");
-check(statusA.blockers.length === 1 && statusA.blockers[0]?.blocker_id === "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE" && statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "generation 4 must retain KUSABI-CAS-B01 and only A01 as verified");
-check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "candidate correction must keep immutable runtime release as the next WorkItem");
+check(statusA.generation === 5 && statusA.status === "BLOCKED", "PR 286 exact correction merge gate must block generation 5");
+check(statusA.blockers.length === 1 && statusA.blockers[0]?.blocker_id === "B-04-PR286-EXACT-CORRECTION-MERGE" && statusA.acceptance.total === 11 && statusA.acceptance.passed === 1, "generation 5 must replace B-03 with only B-04 and keep only A01 verified");
+check(statusA.next_work_item?.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE", "merge-blocked correction must keep immutable runtime release as the next WorkItem");
 check(statusA.next_work_item?.status === "BLOCKED" && statusA.next_work_item?.required_operation === "LOCAL_DIRECT_ADAPTER" && statusA.can_continue === false, "effective external gate must dominate a locally executable adapter state");
-check(statusA.next_action?.actor_agent_id === "codex-audit" && statusA.next_action?.active_function === "evidence_audit_gate", "generation 4 must route the completed correction to the maker-separated auditor");
-check(statusA.next_action?.blocking === true && statusA.next_action?.exact_input_refs?.includes("file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"), "generation 4 routing must bind the exact bounded successor and remain blocking");
+check(statusA.next_action?.actor_agent_id === "codex-audit" && statusA.next_action?.active_function === "evidence_audit_gate", "generation 5 must route the new exact head to the maker-separated auditor");
+check(statusA.next_action?.blocking === true && statusA.next_action?.exact_input_refs?.includes("file:.shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml"), "generation 5 routing must bind the exact bounded successor and remain blocking");
 
 const workItems = checkReport.work_item_validators.map((row) => JSON.parse(readFileSync(repoPath(row.report.file), "utf8")));
 const inMemoryStatus = buildStatus(JSON.parse(readFileSync(GOAL, "utf8")), workItems);
@@ -86,7 +114,7 @@ check(canonicalJson(inMemoryStatus) === canonicalJson(statusA), "checkpoint reco
 const releaseItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE");
 const r0Item = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION");
 const auditItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT");
-check(releaseItem?.status === "BLOCKED" && releaseItem.terminal_evidence.length === 0, "A02 must remain blocked and nonterminal before a fresh exact audit and final publication gates");
+check(releaseItem?.status === "BLOCKED" && releaseItem.removes_blocker_ids.length === 0 && releaseItem.terminal_evidence.length === 0, "A02 must remain blocked and nonterminal without claiming that its later release operation removes B-03 or B-04");
 check(r0Item?.status === "READY" && r0Item.terminal_evidence.length === 0, "A03 must remain nonterminal before final CAS readback");
 check(auditItem?.status === "READY" && auditItem.terminal_evidence.length === 0, "audit WorkItem must not contain inferred terminal evidence");
 
@@ -117,15 +145,78 @@ check(r0Candidate.lifecycle_state === "FRESH_CANDIDATE_A_B_AWAITING_INDEPENDENT_
 check(r0Candidate.topology.target_count === 35 && canonicalJson(r0Candidate.topology.stage_counts) === canonicalJson({ r1: 3, r2: 11, r3: 21 }), "candidate R0 topology must remain frozen 35 and 3/11/21");
 check(r0Candidate.topology.rollback_preimage_match_count === 35 && r0Candidate.gate_result.R1_authorized === false, "candidate R0 must preserve 35 preimages and keep R1 closed");
 
-const reconcileScratch = mkdtempSync(join(tmpdir(), "shirube-v4-release-r0-successor-"));
+const reconcileScratch = mkdtempSync(join(tmpdir(), "shirube-v4-b04-portable-"));
 try {
   cpSync(join(ROOT, ".shirube"), join(reconcileScratch, ".shirube"), { recursive: true });
   const replayReport = run(["check", "--root", reconcileScratch, "--framework-root", frameworkRoot()]);
-  check(replayReport.verdict === "PASS", "generation-4 candidate copy must remain canonical");
+  check(replayReport.verdict === "PASS", "generation-5 B-04 copy must remain canonical");
   const replayStatus = run(["status", "--root", reconcileScratch], 1);
-  check(canonicalJson(replayStatus) === canonicalJson(statusA), "generation-4 candidate must be portable and restart-readable");
+  check(canonicalJson(replayStatus) === canonicalJson(statusA), "generation-5 B-04 state must be portable and restart-readable");
 } finally {
   rmSync(reconcileScratch, { recursive: true, force: true });
+}
+
+const predecessorScratch = mkdtempSync(join(tmpdir(), "shirube-v4-b03-predecessor-"));
+try {
+  cpSync(join(ROOT, ".shirube"), join(predecessorScratch, ".shirube"), { recursive: true });
+  const goalRelative = ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json";
+  const bindingRelative = ".shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json";
+  const itemRootRelative = ".shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804";
+  writeFileSync(join(predecessorScratch, goalRelative), gitFile(PREDECESSOR_HEAD, goalRelative));
+  writeFileSync(join(predecessorScratch, bindingRelative), gitFile(PREDECESSOR_HEAD, bindingRelative));
+  for (const name of readdirSync(ITEMS).filter((entry) => entry.endsWith(".json"))) {
+    const relativePath = `${itemRootRelative}/${name}`;
+    writeFileSync(join(predecessorScratch, relativePath), gitFile(PREDECESSOR_HEAD, relativePath));
+  }
+  unlinkSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"));
+  const transitioned = run([...RECONCILE_ARGS, "--root", predecessorScratch, "--framework-root", frameworkRoot()]);
+  check(transitioned.verdict === "PASS" && transitioned.status.generation === 5, "exact generation-4 predecessor must transition to generation 5");
+  check(transitioned.status.blockers.length === 1 && transitioned.status.blockers[0]?.blocker_id === "B-04-PR286-EXACT-CORRECTION-MERGE", "exact predecessor transition must replace B-03 with only B-04");
+  check(transitioned.status.acceptance.passed === 1 && transitioned.status.targets.live_exact === 0 && transitioned.production_effect_count === 0, "transition must not advance A-02 through A-11, targets, or protected effects");
+  const goalAfterFirst = readFileSync(join(predecessorScratch, goalRelative), "utf8");
+  const historyAfterFirst = readFileSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"), "utf8");
+  const replayed = run([...RECONCILE_ARGS, "--root", predecessorScratch, "--framework-root", frameworkRoot()]);
+  check(replayed.status.state_digest === transitioned.status.state_digest, "exact generation-5 replay must preserve the state digest");
+  check(readFileSync(join(predecessorScratch, goalRelative), "utf8") === goalAfterFirst && readFileSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"), "utf8") === historyAfterFirst, "exact replay must be byte-idempotent for GoalRun and predecessor history");
+} finally {
+  rmSync(predecessorScratch, { recursive: true, force: true });
+}
+
+const rejectionScratch = mkdtempSync(join(tmpdir(), "shirube-v4-b03-rejections-"));
+try {
+  cpSync(join(ROOT, ".shirube"), join(rejectionScratch, ".shirube"), { recursive: true });
+  const wrongHead = [...RECONCILE_ARGS];
+  wrongHead[wrongHead.indexOf("--subject-head") + 1] = "0000000000000000000000000000000000000000";
+  runFailure([...wrongHead, "--root", rejectionScratch], "subject-head must equal the authenticated exact value");
+  const wrongAuditDigest = [...RECONCILE_ARGS];
+  wrongAuditDigest[wrongAuditDigest.indexOf("--audit-body-sha256") + 1] = "0".repeat(64);
+  runFailure([...wrongAuditDigest, "--root", rejectionScratch], "audit-body-sha256 must equal the authenticated exact value");
+  const wrongGateRef = [...RECONCILE_ARGS];
+  wrongGateRef[wrongGateRef.indexOf("--hard-gate-run-ref") + 1] = "https://github.com/watchout/agent-memory/actions/runs/0";
+  runFailure([...wrongGateRef, "--root", rejectionScratch], "hard-gate-run-ref must equal the authenticated exact value");
+
+  const evidencePath = join(rejectionScratch, RECONCILIATION_EVIDENCE_RELATIVE);
+  const exactEvidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+  for (const mutate of [
+    (value) => { value.independent_audit.verdict = "FAIL"; },
+    (value) => { value.independent_audit.reviewer_agent_id = "kusabi"; },
+    (value) => { value.authenticated_hard_gate.verdict = "FAILURE"; },
+    (value) => { value.protected_effects.final_CAS_publication = 1; },
+  ]) {
+    const rejectedEvidence = structuredClone(exactEvidence);
+    mutate(rejectedEvidence);
+    writeFileSync(evidencePath, `${JSON.stringify(rejectedEvidence, null, 2)}\n`);
+    runFailure([...RECONCILE_ARGS, "--root", rejectionScratch], "B-03 audit/hard-gate reconciliation evidence is not exact PASS with zero protected effects");
+  }
+  writeFileSync(evidencePath, `${JSON.stringify(exactEvidence, null, 2)}\n`);
+  const wrongGenerationGoalPath = join(rejectionScratch, ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json");
+  const wrongGenerationGoal = JSON.parse(readFileSync(wrongGenerationGoalPath, "utf8"));
+  wrongGenerationGoal.generation = 6;
+  wrongGenerationGoal.state_digest = computeGoalRunStateDigest(wrongGenerationGoal);
+  writeFileSync(wrongGenerationGoalPath, `${JSON.stringify(wrongGenerationGoal, null, 2)}\n`);
+  runFailure([...RECONCILE_ARGS, "--root", rejectionScratch], "requires the exact blocked generation-4 predecessor or exact generation-5 B-04 replay");
+} finally {
+  rmSync(rejectionScratch, { recursive: true, force: true });
 }
 
 const scratch = mkdtempSync(join(tmpdir(), "shirube-v4-false-completion-"));

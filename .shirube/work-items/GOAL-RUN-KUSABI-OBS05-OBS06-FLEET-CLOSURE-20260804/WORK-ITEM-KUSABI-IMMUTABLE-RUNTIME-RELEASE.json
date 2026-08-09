@@ -3,8 +3,8 @@
   "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
-  "control_handoff_ref": "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml",
-  "handoff_digest": "sha256:77cc75e65ac9c7be68d4560a98988e0bd04c42e0038d200ff02b5a18101ea6a9",
+  "control_handoff_ref": "file:.shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml",
+  "handoff_digest": "sha256:1c1057d66a93a5ef970febc1c48729032f9ba4b545fd12215636a0e041f11dc9",
   "allowed_operations": [
     "LOCAL_DIRECT_ADAPTER"
   ],
@@ -46,15 +46,15 @@
   "removes_blocker_ids": [],
   "unmet_condition_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
   "acceptance_ordinal": 2,
-  "blocker_ordinal": 0,
+  "blocker_ordinal": 2,
   "status": "BLOCKED",
-  "dispatch_idempotency_key": "sha256:21fbc55797427a493db219fe7faedad960df1e27a3d5a219095490c22cc5a4cf",
-  "generation": 4,
-  "state_digest": "sha256:babd4e362a6f5e2bca36b4aa72df49f541790501f3e1944f61d85ed2ccc6c63f",
+  "dispatch_idempotency_key": "sha256:312841695467ee3066565671a192b18e8d0e936f685f0ca22702877120df6bab",
+  "generation": 5,
+  "state_digest": "sha256:819ea2489e5d3728c69c7ba560131a0ed8c67e6d4dc25c37059df35e1b80bed4",
   "checkpoint": {
-    "event_sequence": 4,
-    "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4",
-    "last_idempotency_key": "sha256:b55efa20a08f49dccca7326dc85ffd818a8ccc87f667733ef25991d3feceb7fc"
+    "event_sequence": 5,
+    "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
+    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
   },
   "terminal_evidence": []
 }

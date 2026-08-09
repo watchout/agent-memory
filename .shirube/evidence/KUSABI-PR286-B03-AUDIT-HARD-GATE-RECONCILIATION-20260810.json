@@ -1,0 +1,76 @@
+{
+  "schema_version": "kusabi-pr286-b03-audit-reconciliation/v1",
+  "lifecycle_state": "AUDIT_AND_AUTHENTICATED_HARD_GATE_VERIFIED_AWAITING_PR286_MERGE",
+  "created_at": "2026-08-09T22:27:28Z",
+  "exact_subject": {
+    "repository": "watchout/agent-memory",
+    "pull_request": 286,
+    "head_sha": "43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
+    "tree_sha": "10a3c1c5633743914082abddaec0cae20ee51f04",
+    "release_descriptor_sha256": "ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4",
+    "target_set_sha256": "69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec"
+  },
+  "independent_audit": {
+    "ref": "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
+    "raw_body_sha256": "9016e826418c9c22234b821065c4cc1f6821a6c30eb1fdc37b2ddf5a31c100f9",
+    "reviewer_agent_id": "codex-audit",
+    "active_function": "evidence_audit_gate",
+    "verdict": "PASS_EXACT_SUBJECT",
+    "blocker_count": 0,
+    "protected_effect_count": 0
+  },
+  "owner_exact_head_decision": {
+    "ref": "https://github.com/watchout/agent-memory/pull/286#issuecomment-5230551020",
+    "raw_body_sha256": "83ca2be538bb9f6e3039f6aca20d6f3a491ff8bdc25d07cc855b40f6f7af82af",
+    "actor": "watchout",
+    "verdict": "APPROVED_EXACT_HEAD"
+  },
+  "authenticated_hard_gate": {
+    "run_ref": "https://github.com/watchout/agent-memory/actions/runs/31303252529",
+    "report_sha256": "5f488ded2bc28e4215e003f4d7f76eedef722ef9cf8ec897cdf37d1a1a15cb90",
+    "receipt_ref": "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230557950",
+    "receipt_raw_body_sha256": "37f6fa0b2d14bc82fd569748b3a5d166dca09acfbdbb88a0c839c01d806cfbd7",
+    "workflow_name": "Shirube Rapid/Lite Gate",
+    "workflow_event": "issue_comment",
+    "job_id": "93219375955",
+    "job_name": "rapid-lite-gate",
+    "artifact_id": "9035139063",
+    "resolved_pr_head_sha": "43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
+    "verdict": "SUCCESS",
+    "blocker_count": 0,
+    "protected_effect_count": 0
+  },
+  "final_CAS": {
+    "descriptor_sha256": "ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4",
+    "status": "ABSENT"
+  },
+  "protected_effects": {
+    "final_CAS_publication": 0,
+    "distribution": 0,
+    "rollout": 0,
+    "ready_transition": 0,
+    "review_approval": 0,
+    "merge": 0
+  },
+  "gate_result": {
+    "verdict": "PASS_B03_REMOVAL_PREDICATE",
+    "B03_removed": true,
+    "B04_required": true,
+    "final_CAS_publication_authorized": false
+  },
+  "next_action": {
+    "blocking": true,
+    "actor_agent_id": "codex-audit",
+    "active_function": "evidence_audit_gate",
+    "action": "Audit the new exact PR 286 reconciliation head before any Owner merge decision.",
+    "deliver_via": "Immutable Issue 285 audit comment and official AUN reply to kusabi.",
+    "exact_input_refs": [
+      "https://github.com/watchout/agent-memory/pull/286",
+      "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
+      "https://github.com/watchout/agent-memory/actions/runs/31303252529"
+    ],
+    "scope": "Read-only exact-head audit; no implementation or protected effect.",
+    "deliverable": "PASS with blocker_count 0 or exact findings.",
+    "completion_evidence": "Immutable audit URL/body digest, exact head/tree, final CAS absent, and protected_effect_count zero."
+  }
+}

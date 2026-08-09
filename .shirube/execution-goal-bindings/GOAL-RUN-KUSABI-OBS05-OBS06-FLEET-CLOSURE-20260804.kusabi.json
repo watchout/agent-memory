@@ -4,7 +4,7 @@
   "contract_digest": "sha256:37a383291fcdc3f3c77b06ec5b6ef3f07d9f2094e5f5333f4b87b44969e685c0",
   "objective_digest": "sha256:9d62fb19932ee7626e69b17a04aa004dc2181e6c0051ec4811463632780bb8c1",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
-  "generation": 4,
+  "generation": 5,
   "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "unmet_acceptance_ids": [
     "A-02-IMMUTABLE-RUNTIME-RELEASE",
@@ -19,10 +19,10 @@
     "A-11-FINAL-OWNER-CLOSURE"
   ],
   "checkpoint": {
-    "event_sequence": 4,
-    "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4"
+    "event_sequence": 5,
+    "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65"
   },
-  "state_digest": "sha256:3875db49e3ecc9b7cde8cfd92190af2264ed61ea6eb9e1cfa27299733fcc24cb",
+  "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
   "adapter": {
     "family": "codex",
     "version": "agent-memory-shirube-v4-goal-control/v1",
@@ -30,8 +30,8 @@
     "conformance_digest": "sha256:e257d94b850da91b908c0194d9f83717cfb86ddf60941da1d635df2aace11481"
   },
   "readback": {
-    "observed_at": "2026-08-06T22:48:48Z",
-    "observed_binding_digest": "sha256:742fa51e60bec07bd106d78829d764fd9c3e3072df5209282b7cf51b1b1fdb54",
-    "evidence_ref": "file:.shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml"
+    "observed_at": "2026-08-09T22:27:28Z",
+    "observed_binding_digest": "sha256:1c751cbb0e45c46bb9037937b8989807d9362ce8aea7a2d7984821a94068e430",
+    "evidence_ref": ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json"
   }
 }

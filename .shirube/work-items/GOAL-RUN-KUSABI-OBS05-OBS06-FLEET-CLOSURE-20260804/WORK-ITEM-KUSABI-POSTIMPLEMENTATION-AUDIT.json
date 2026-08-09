@@ -47,13 +47,13 @@
   "acceptance_ordinal": 9,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:8b9a1a7330f8a67ff01396cf9dc53ffcdae3b1148099c08d342efd7d09b6c3c3",
-  "generation": 4,
-  "state_digest": "sha256:4861b518b601be2dbd901e25acdf94592db8e28d4852c7f1f15efd1ca5e01967",
+  "dispatch_idempotency_key": "sha256:5388a311f2a884b7cd6acb0f22aebeea85a5e77e21b81a8e85d697587abc3863",
+  "generation": 5,
+  "state_digest": "sha256:20b25c6358e6fd630fe4afca0fbba3c12912cd69856ba63116b6a383df5c9ef8",
   "checkpoint": {
-    "event_sequence": 4,
-    "last_event_id": "EVENT-KUSABI-CAS-RUNTIME-RESOURCE-CLOSURE-GENERATION-4",
-    "last_idempotency_key": "sha256:b55efa20a08f49dccca7326dc85ffd818a8ccc87f667733ef25991d3feceb7fc"
+    "event_sequence": 5,
+    "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
+    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
   },
   "terminal_evidence": []
 }

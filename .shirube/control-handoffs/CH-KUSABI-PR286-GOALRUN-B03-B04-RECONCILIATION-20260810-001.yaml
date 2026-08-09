@@ -1,0 +1,109 @@
+schema_version: shirube-v3/local-control-handoff-binding/v1
+control_handoff_id: CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001
+lifecycle_state: ACTIVE_BOUNDED_GOALRUN_RECONCILIATION
+control_source:
+  issue_ref: https://github.com/watchout/agent-memory/issues/285
+  pull_request_ref: https://github.com/watchout/agent-memory/pull/286
+  owner_directive_ref: conversation:2026-08-10:owner-direct-bounded-handoff-B03-B04
+  owner_actor: watchout
+  owner_directive_text: "PR #286 head 43724e69a3b40a2088cb4b0149c9ba618f1d4e65について、前回提示されたB-03からB-04への決定論的遷移用Owner direct bounded handoffを、記載されたallowed paths、必須テスト、禁止操作の範囲のまま承認する。"
+  owner_directive_sha256_utf8: a7cde7bfa7e7ddb9687cf60808e9a780849d5f4d69dd658c08bc7e91089089e6
+  prior_aun_handoff_request: aun-message:b9aac9b3-743a-4c7c-af09-63506bb5b0cb
+  deterministic_transition_addendum: aun-message:097aea13-7805-4a32-b7b6-0751000a32da
+  fail_closed_B04_addendum: aun-message:089a9ece-3104-4627-b4f0-638de115b5dd
+cell:
+  CELL-ID: CELL-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001
+  id: CELL-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001
+  cell_type: governance
+  risk_class: R3
+  root_goal_run_id: GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804
+  goal: Replace the satisfied B-03 audit gate with a fail-closed B-04 exact-correction-merge blocker without advancing A-02 through A-11 or performing a protected effect.
+execution_context:
+  controller_agent_id: watchout
+  controller_function: owner_directive
+  function_transition_recorded: coordination_recorder_to_implementation_executor
+  agent_id: kusabi
+  active_function: implementation_executor
+  repository: watchout/agent-memory
+  implementation_branch: fix/kusabi-obs05-cas-resource-closure
+  implementation_workspace: /Users/yuji/Developer/.wt-kusabi-obs05-cas-resource-closure
+  maker_checker_separation:
+    maker_agent_id: kusabi
+    required_audit_agent_id: codex-audit
+    self_audit_forbidden: true
+exact_subject:
+  predecessor_head: 43724e69a3b40a2088cb4b0149c9ba618f1d4e65
+  predecessor_tree: 10a3c1c5633743914082abddaec0cae20ee51f04
+  predecessor_generation: 4
+  predecessor_blocker: B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE
+  successor_generation: 5
+  successor_blocker: B-04-PR286-EXACT-CORRECTION-MERGE
+  release_descriptor_sha256: ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4
+  target_set_sha256: 69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec
+allowed_paths:
+  - scripts/shirube-v4-goal-control.mjs
+  - scripts/test-shirube-v4-goal-control.mjs
+  - .shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml
+  - .shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json
+  - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
+  - .shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json
+  - .shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json
+  - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/**
+  - .shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json
+allowed_operations:
+  - implement one deterministic and idempotent generation-4 B-03 to generation-5 B-04 transition
+  - run focused and aggregate validation
+  - commit and push the bounded change
+  - route one maker-separated exact-head audit through AUN
+forbidden_operations:
+  - acceptance_predicate_or_gate_threshold_change
+  - source_runtime_workflow_package_or_schema_change_outside_allowed_paths
+  - Owner_APPROVED_EXACT_HEAD_creation
+  - final_CAS_publication
+  - distribution_or_R1_R2_R3_rollout
+  - Draft_to_Ready_transition
+  - GitHub_review_approval
+  - merge
+  - branch_protection_secret_database_credential_profile_runtime_or_authority_mutation
+  - force_push
+  - self_audit
+stop_conditions:
+  - predecessor_generation_head_tree_or_blocker_mismatch
+  - audit_or_hard_gate_evidence_mismatch
+  - B04_not_the_only_successor_blocker
+  - A02_through_A11_status_advances
+  - final_CAS_present_or_protected_effect_nonzero
+  - path_scope_violation
+  - test_validator_or_CI_failure
+required_evidence:
+  - immutable_generation_4_history
+  - exact_audit_and_authenticated_hard_gate_reconciliation
+  - B03_removed_and_B04_only
+  - A02_through_A11_unmet
+  - final_CAS_absent
+  - protected_effect_count_zero
+  - focused_and_aggregate_test_PASS
+  - pushed_exact_head_and_tree
+  - maker_separated_audit_receipt
+gate_result:
+  bounded_goalrun_reconciliation: GO
+  final_CAS_publication_authorized: false
+  rollout_authorized: false
+  ready_authorized: false
+  approval_authorized: false
+  merge_authorized: false
+next_action:
+  blocking: false
+  actor_agent_id: kusabi
+  active_function: implementation_executor
+  action: Implement, validate, commit, and push the exact B-03 to B-04 transition, then route one maker-separated exact-head audit through AUN.
+  deliver_via: PR 286 branch, Issue 285 implementation evidence, and official AUN audit handoff.
+  exact_input_refs:
+    - conversation:2026-08-10:owner-direct-bounded-handoff-B03-B04
+    - https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349
+    - https://github.com/watchout/agent-memory/actions/runs/31303252529
+    - head:43724e69a3b40a2088cb4b0149c9ba618f1d4e65
+    - tree:10a3c1c5633743914082abddaec0cae20ee51f04
+  scope: Exact allowed paths and operations above; no protected effect.
+  deliverable: Pushed exact head/tree with generation 5 B-04 and an independent audit result.
+  completion_evidence: Clean exact branch, path-scope readback, validator/test PASS, final CAS absent, protected effects zero, and immutable audit URL/body digest.
