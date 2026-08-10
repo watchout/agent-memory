@@ -71,6 +71,7 @@ const CAS_B01_AUDIT_RECONCILIATION = {
   generation: 5,
   predecessor_head: "43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
   predecessor_tree: "10a3c1c5633743914082abddaec0cae20ee51f04",
+  predecessor_goal_file_sha256: "eed53588c7efaf328c02d03fd1c79429ebae55b8bd4f66515f2cd1a5eee89501",
   release_descriptor_sha256: "ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4",
   evidence_path: ".shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json",
   handoff_path: ".shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml",
@@ -573,13 +574,30 @@ function reconcileCasB01Audit(repoRoot, observedAt, options) {
     throw new Error("B-03 reconciliation requires the exact blocked generation-4 predecessor or exact generation-5 B-04 replay");
   }
   const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-4.json`);
+  let predecessor = previous;
   if (exactReplay) {
     if (!existsSync(previousPath)) throw new Error("generation-5 replay requires immutable generation-4 history");
+    predecessor = readJson(previousPath);
+    const predecessorPassed = predecessor.acceptance_states
+      .filter((state) => state.status === "VERIFIED_PASS")
+      .map((state) => state.acceptance_id);
+    const historyIsExactPredecessor =
+      predecessor.generation === 4 && predecessor.status === "BLOCKED" &&
+      predecessor.active_work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" &&
+      predecessor.blocker_set.length === 1 &&
+      predecessor.blocker_set[0]?.blocker_id === "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE" &&
+      canonicalJson(predecessorPassed) === canonicalJson(["A-01-PR281-EXACT-MERGE"]);
+    if (!historyIsExactPredecessor) {
+      throw new Error("generation-5 replay requires the exact immutable generation-4 B-03 predecessor");
+    }
   } else {
     if (existsSync(previousPath) && canonicalJson(readJson(previousPath)) !== canonicalJson(previous)) {
       throw new Error("existing generation-4 history does not equal the exact predecessor");
     }
     if (!existsSync(previousPath)) writeJson(previousPath, previous);
+  }
+  if (sha256Raw(readFileSync(previousPath)) !== CAS_B01_AUDIT_RECONCILIATION.predecessor_goal_file_sha256) {
+    throw new Error("immutable generation-4 history raw SHA-256 mismatch");
   }
   const idempotencyKey = digestValue({
     event_id: eventId,
@@ -592,31 +610,29 @@ function reconcileCasB01Audit(repoRoot, observedAt, options) {
     evidence_sha256: verified.evidence_sha256,
     handoff_sha256: verified.handoff_sha256,
   });
-  const checkpoint = exactReplay ? { ...previous.checkpoint } : {
-    event_sequence: previous.checkpoint.event_sequence + 1,
+  const checkpoint = {
+    event_sequence: predecessor.checkpoint.event_sequence + 1,
     last_event_id: eventId,
     last_idempotency_key: idempotencyKey,
   };
   const evidenceRef = `file:${CAS_B01_AUDIT_RECONCILIATION.evidence_path}#sha256:${verified.evidence_sha256}`;
-  const goalRun = structuredClone(previous);
-  if (!exactReplay) {
-    goalRun.generation = CAS_B01_AUDIT_RECONCILIATION.generation;
-    goalRun.status = "BLOCKED";
-    goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
-    goalRun.blocker_set = [{
-      blocker_id: "B-04-PR286-EXACT-CORRECTION-MERGE",
-      ordinal: 2,
-      evidence_refs: [
-        evidenceRef,
-        CAS_B01_AUDIT_RECONCILIATION.audit_ref,
-        CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref,
-        "https://github.com/watchout/agent-memory/pull/286",
-      ],
-      removal_predicate: "PR #286 independently audited exact head/tree has authenticated Owner exact-head approval, all required checks SUCCESS, normal merge without bypass, merge result contains the approved head as parent, final tree/provenance readback passes, and merge commit is an ancestor of main.",
-    }];
-    goalRun.checkpoint = checkpoint;
-    goalRun.state_digest = computeGoalRunStateDigest(goalRun);
-  }
+  const goalRun = structuredClone(predecessor);
+  goalRun.generation = CAS_B01_AUDIT_RECONCILIATION.generation;
+  goalRun.status = "BLOCKED";
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
+  goalRun.blocker_set = [{
+    blocker_id: "B-04-PR286-EXACT-CORRECTION-MERGE",
+    ordinal: 2,
+    evidence_refs: [
+      evidenceRef,
+      CAS_B01_AUDIT_RECONCILIATION.audit_ref,
+      CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref,
+      "https://github.com/watchout/agent-memory/pull/286",
+    ],
+    removal_predicate: "PR #286 independently audited exact head/tree has authenticated Owner exact-head approval, all required checks SUCCESS, normal merge without bypass, merge result contains the approved head as parent, final tree/provenance readback passes, and merge commit is an ancestor of main.",
+  }];
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
 
   const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
     const item = structuredClone(document);

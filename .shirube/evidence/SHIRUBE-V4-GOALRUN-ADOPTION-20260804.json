@@ -17,7 +17,7 @@
       "previous_file": "repo:.shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json",
       "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
       "generation": 5,
-      "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+      "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
       "blockers": []
     }
   },
@@ -35,7 +35,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:01c36da79c8d20dd73d7b89980e4d8a43a1b538d352028e915e68ddf059ee2f7",
+        "state_digest": "sha256:109116e85b9a454286676a3ab9a7af5c9d9e2c4a43774584bbbad48176a4fb4f",
         "blockers": []
       }
     },
@@ -52,7 +52,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:819ea2489e5d3728c69c7ba560131a0ed8c67e6d4dc25c37059df35e1b80bed4",
+        "state_digest": "sha256:203ea2fbb22e53a6a0699dd774bf68fde670b2be1e65d3df5c32ab787d6f0c58",
         "blockers": []
       }
     },
@@ -69,7 +69,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:e8c449457b48321497c9dc5d63a5cb01fe76d4f93f556ead64c0eb24c8ae7b82",
+        "state_digest": "sha256:3c85997a26b42a34f7ae32175f5564839430d6b381733de09ba2f4cd8e7263f2",
         "blockers": []
       }
     },
@@ -86,7 +86,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-POSTIMPLEMENTATION-AUDIT",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:20b25c6358e6fd630fe4afca0fbba3c12912cd69856ba63116b6a383df5c9ef8",
+        "state_digest": "sha256:784a65e5d5a0fbef195172abf255a3b777dd1e557f114fe0d4ecd9f2f9a1aa41",
         "blockers": []
       }
     },
@@ -103,7 +103,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-PR281-EXACT-MERGE",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:4d245fa74262be944ea925db486149053b2999970d8f32f165e1d69a6b9779fd",
+        "state_digest": "sha256:0f76833a4af837c535fc814076351a3f1373bd8982817ae0bbfa0939bfd50ad7",
         "blockers": []
       }
     },
@@ -120,7 +120,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:d2fbddd14f659029af905a36785918bcc884df6fadbfeb56050681c40851820e",
+        "state_digest": "sha256:8bfe5a7b916a9da63fc2086b8142e49d674e2766f213d1f23752b8bf05daae46",
         "blockers": []
       }
     },
@@ -137,7 +137,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:3092f864a21cc546bc46de8a8c1d5e47960c8f3eed26b5241acc48c677c6ee9b",
+        "state_digest": "sha256:f76b246a38037f7201e7d7969b1b838d48faf5758603b904dffc88e17281b348",
         "blockers": []
       }
     },
@@ -154,7 +154,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R0-V3-OWNER-GO",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:8acf5542fd8f1a387b5146a848d1d634563f89bcf42cd62edbbcacead63f97e2",
+        "state_digest": "sha256:b993478393720ed362392a04a97ef0f3bea6b3bb0b0f5e3dbafe233bbff7ee7e",
         "blockers": []
       }
     },
@@ -171,7 +171,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R1-CANARY-3-OF-3",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:42c13b6689456269c76370f381f11e790ea9a48d6ecef90f35e80009f8d7574a",
+        "state_digest": "sha256:29eaeae9063cdaad788cbd74c4077bed8c4b126bb48c87f23793a0a75b73258e",
         "blockers": []
       }
     },
@@ -188,7 +188,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R2-PILOT-11-OF-11",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:6c997bb0bfa753d971068851b9675a5e977bd4338b06b23c5c5dbabf96245cda",
+        "state_digest": "sha256:1a45967d1ab941613daf1e4ea155ae636dda7f260d325c1994202e004b59c7b3",
         "blockers": []
       }
     },
@@ -205,7 +205,7 @@
         "work_item_id": "WORK-ITEM-KUSABI-R3-FLEET-35-OF-35",
         "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
         "generation": 5,
-        "state_digest": "sha256:a939ce1abc313326c8ef04764b7ae3750037613e1de405bbaa102411f3ce0a75",
+        "state_digest": "sha256:111a78bad80883331b9bf56eb4dee70a1f2e1cf57f7df67a87a997a5c54dc104",
         "blockers": []
       }
     }
@@ -222,7 +222,7 @@
       "goal_run_file": "repo:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
       "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
       "generation": 5,
-      "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+      "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
       "blockers": []
     }
   },
@@ -231,7 +231,7 @@
     "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
     "status": "BLOCKED",
     "generation": 5,
-    "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+    "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
     "acceptance": {
       "passed": 1,
       "total": 11,
@@ -264,7 +264,7 @@
         "entrypoint_digest_readback"
       ],
       "control_handoff_ref": "file:.shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml",
-      "dispatch_idempotency_key": "sha256:312841695467ee3066565671a192b18e8d0e936f685f0ca22702877120df6bab",
+      "dispatch_idempotency_key": "sha256:f149dbba961836ce40b6ba6fd58b8731de1ff98252ff796c38e6c36bdbb31b2f",
       "status": "BLOCKED"
     },
     "can_continue": false,
@@ -331,11 +331,11 @@
     },
     "generation_5": {
       "evidence_ref": "file:.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json",
-      "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+      "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
       "checkpoint": {
         "event_sequence": 5,
         "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-        "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
+        "last_idempotency_key": "sha256:5a44ecbc4e0d9941328576586e124143176b85b99b20ecd1cf4a0d403537e904"
       },
       "retention": "CURRENT_MUTABLE_GOALRUN_STATE"
     }

@@ -48,13 +48,13 @@
   "acceptance_ordinal": 4,
   "blocker_ordinal": 0,
   "status": "READY",
-  "dispatch_idempotency_key": "sha256:abd02c40944ac782258638bbc917d2596beeefd18cdc26b18a88835b671dd7ae",
+  "dispatch_idempotency_key": "sha256:c3388e6e85a021b683922977cd55f05d8fbae37a30f4a54bb42f77508355194b",
   "generation": 5,
-  "state_digest": "sha256:3092f864a21cc546bc46de8a8c1d5e47960c8f3eed26b5241acc48c677c6ee9b",
+  "state_digest": "sha256:f76b246a38037f7201e7d7969b1b838d48faf5758603b904dffc88e17281b348",
   "checkpoint": {
     "event_sequence": 5,
     "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
+    "last_idempotency_key": "sha256:5a44ecbc4e0d9941328576586e124143176b85b99b20ecd1cf4a0d403537e904"
   },
   "terminal_evidence": []
 }

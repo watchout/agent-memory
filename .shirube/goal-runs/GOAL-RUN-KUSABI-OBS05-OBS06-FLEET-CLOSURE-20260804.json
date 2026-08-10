@@ -119,7 +119,7 @@
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "status": "BLOCKED",
   "generation": 5,
-  "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+  "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
   "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
   "blocker_set": [
     {
@@ -585,7 +585,7 @@
   "checkpoint": {
     "event_sequence": 5,
     "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
+    "last_idempotency_key": "sha256:5a44ecbc4e0d9941328576586e124143176b85b99b20ecd1cf4a0d403537e904"
   },
   "verified_completion_evidence": []
 }

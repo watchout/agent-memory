@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   buildStatus,
   canonicalJson,
   computeGoalRunStateDigest,
+  digestValue,
 } from "./shirube-v4-goal-control.mjs";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
@@ -22,6 +24,8 @@ const GENERATION_3_HISTORY = join(ROOT, ".shirube/goal-runs/history/GOAL-RUN-KUS
 const GENERATION_4_HISTORY = join(ROOT, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json");
 const RECONCILIATION_EVIDENCE_RELATIVE = ".shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json";
 const RECONCILIATION_EVIDENCE = join(ROOT, RECONCILIATION_EVIDENCE_RELATIVE);
+const RECONCILIATION_HANDOFF_RELATIVE = ".shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml";
+const RECONCILIATION_HANDOFF = join(ROOT, RECONCILIATION_HANDOFF_RELATIVE);
 const AGENTS = join(ROOT, "AGENTS.md");
 const PREDECESSOR_HEAD = "43724e69a3b40a2088cb4b0149c9ba618f1d4e65";
 const RECONCILE_ARGS = [
@@ -63,6 +67,30 @@ function gitFile(ref, relativePath) {
   const result = spawnSync("git", ["show", `${ref}:${relativePath}`], { cwd: ROOT, encoding: "utf8" });
   check(result.status === 0, `git show ${ref}:${relativePath} failed: ${result.stderr}`);
   return result.stdout;
+}
+
+function sha256Raw(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function byteManifest(root) {
+  const rows = [];
+  const walk = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile()) rows.push(`${relative(root, path)}\0${sha256Raw(readFileSync(path))}`);
+      else throw new Error(`unsupported manifest entry: ${path}`);
+    }
+  };
+  walk(root);
+  return `${rows.join("\n")}\n`;
+}
+
+function reconcileArg(name) {
+  const index = RECONCILE_ARGS.indexOf(`--${name}`);
+  if (index === -1 || index + 1 >= RECONCILE_ARGS.length) throw new Error(`missing reconciliation argument: ${name}`);
+  return RECONCILE_ARGS[index + 1];
 }
 
 function repoPath(locator) {
@@ -115,6 +143,7 @@ const releaseItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KU
 const r0Item = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-HEARTBEAT-REPRODUCTION");
 const auditItem = workItems.find((item) => item.work_item_id === "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT");
 check(releaseItem?.status === "BLOCKED" && releaseItem.removes_blocker_ids.length === 0 && releaseItem.terminal_evidence.length === 0, "A02 must remain blocked and nonterminal without claiming that its later release operation removes B-03 or B-04");
+check(releaseItem?.handoff_digest === `sha256:${sha256Raw(readFileSync(RECONCILIATION_HANDOFF))}`, "A02 must bind the exact current control-handoff bytes");
 check(r0Item?.status === "READY" && r0Item.terminal_evidence.length === 0, "A03 must remain nonterminal before final CAS readback");
 check(auditItem?.status === "READY" && auditItem.terminal_evidence.length === 0, "audit WorkItem must not contain inferred terminal evidence");
 
@@ -175,9 +204,28 @@ try {
   check(transitioned.status.acceptance.passed === 1 && transitioned.status.targets.live_exact === 0 && transitioned.production_effect_count === 0, "transition must not advance A-02 through A-11, targets, or protected effects");
   const goalAfterFirst = readFileSync(join(predecessorScratch, goalRelative), "utf8");
   const historyAfterFirst = readFileSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"), "utf8");
+  const handoffSha256 = sha256Raw(readFileSync(join(predecessorScratch, RECONCILIATION_HANDOFF_RELATIVE)));
+  const evidenceSha256 = sha256Raw(readFileSync(join(predecessorScratch, RECONCILIATION_EVIDENCE_RELATIVE)));
+  const expectedCheckpointKey = digestValue({
+    event_id: `EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-${PREDECESSOR_HEAD}`,
+    subject_head: reconcileArg("subject-head"),
+    subject_tree: reconcileArg("subject-tree"),
+    audit_ref: reconcileArg("audit-ref"),
+    audit_body_sha256: reconcileArg("audit-body-sha256"),
+    hard_gate_run_ref: reconcileArg("hard-gate-run-ref"),
+    hard_gate_report_sha256: reconcileArg("hard-gate-report-sha256"),
+    evidence_sha256: evidenceSha256,
+    handoff_sha256: handoffSha256,
+  });
+  const transitionedGoal = JSON.parse(goalAfterFirst);
+  const transitionedReleaseItem = JSON.parse(readFileSync(join(predecessorScratch, itemRootRelative, "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json"), "utf8"));
+  check(transitionedGoal.checkpoint.last_idempotency_key === expectedCheckpointKey, "generation-5 checkpoint must bind the final current handoff bytes");
+  check(transitionedReleaseItem.handoff_digest === `sha256:${handoffSha256}`, "generated A02 WorkItem must bind the final current handoff raw SHA");
+  const manifestAfterFirst = byteManifest(join(predecessorScratch, ".shirube"));
   const replayed = run([...RECONCILE_ARGS, "--root", predecessorScratch, "--framework-root", frameworkRoot()]);
   check(replayed.status.state_digest === transitioned.status.state_digest, "exact generation-5 replay must preserve the state digest");
   check(readFileSync(join(predecessorScratch, goalRelative), "utf8") === goalAfterFirst && readFileSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"), "utf8") === historyAfterFirst, "exact replay must be byte-idempotent for GoalRun and predecessor history");
+  check(byteManifest(join(predecessorScratch, ".shirube")) === manifestAfterFirst, "exact replay must be byte-idempotent for the complete generated .shirube manifest");
 } finally {
   rmSync(predecessorScratch, { recursive: true, force: true });
 }
@@ -209,6 +257,11 @@ try {
     runFailure([...RECONCILE_ARGS, "--root", rejectionScratch], "B-03 audit/hard-gate reconciliation evidence is not exact PASS with zero protected effects");
   }
   writeFileSync(evidencePath, `${JSON.stringify(exactEvidence, null, 2)}\n`);
+  const historyPath = join(rejectionScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json");
+  const exactHistory = readFileSync(historyPath, "utf8");
+  writeFileSync(historyPath, `${exactHistory}\n`);
+  runFailure([...RECONCILE_ARGS, "--root", rejectionScratch], "immutable generation-4 history raw SHA-256 mismatch");
+  writeFileSync(historyPath, exactHistory);
   const wrongGenerationGoalPath = join(rejectionScratch, ".shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json");
   const wrongGenerationGoal = JSON.parse(readFileSync(wrongGenerationGoalPath, "utf8"));
   wrongGenerationGoal.generation = 6;

@@ -22,7 +22,7 @@
     "event_sequence": 5,
     "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65"
   },
-  "state_digest": "sha256:baaea3ab389af9b41ff5d2021022ffaecd6549af7927e35d50eab16ab94d09ce",
+  "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
   "adapter": {
     "family": "codex",
     "version": "agent-memory-shirube-v4-goal-control/v1",
@@ -31,7 +31,7 @@
   },
   "readback": {
     "observed_at": "2026-08-09T22:27:28Z",
-    "observed_binding_digest": "sha256:1c751cbb0e45c46bb9037937b8989807d9362ce8aea7a2d7984821a94068e430",
+    "observed_binding_digest": "sha256:bb31c734a68b8d1cd5723b47aa23936d79a8b985b85b3e545bf301fd82fd7d6f",
     "evidence_ref": ".shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json"
   }
 }

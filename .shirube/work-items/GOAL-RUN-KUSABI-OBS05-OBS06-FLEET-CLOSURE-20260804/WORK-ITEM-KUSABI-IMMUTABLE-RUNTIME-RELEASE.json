@@ -4,7 +4,7 @@
   "root_goal_run_id": "GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804",
   "parent_work_item_id": null,
   "control_handoff_ref": "file:.shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml",
-  "handoff_digest": "sha256:1c1057d66a93a5ef970febc1c48729032f9ba4b545fd12215636a0e041f11dc9",
+  "handoff_digest": "sha256:aecafec06d40f65e81ae0bff300531c74c6e959e02998b892c1981a5923f8ff1",
   "allowed_operations": [
     "LOCAL_DIRECT_ADAPTER"
   ],
@@ -48,13 +48,13 @@
   "acceptance_ordinal": 2,
   "blocker_ordinal": 2,
   "status": "BLOCKED",
-  "dispatch_idempotency_key": "sha256:312841695467ee3066565671a192b18e8d0e936f685f0ca22702877120df6bab",
+  "dispatch_idempotency_key": "sha256:f149dbba961836ce40b6ba6fd58b8731de1ff98252ff796c38e6c36bdbb31b2f",
   "generation": 5,
-  "state_digest": "sha256:819ea2489e5d3728c69c7ba560131a0ed8c67e6d4dc25c37059df35e1b80bed4",
+  "state_digest": "sha256:203ea2fbb22e53a6a0699dd774bf68fde670b2be1e65d3df5c32ab787d6f0c58",
   "checkpoint": {
     "event_sequence": 5,
     "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-    "last_idempotency_key": "sha256:8e472e0111d534807f0f35056fd6c6ce777466bde218047431592ae612cea144"
+    "last_idempotency_key": "sha256:5a44ecbc4e0d9941328576586e124143176b85b99b20ecd1cf4a0d403537e904"
   },
   "terminal_evidence": []
 }
