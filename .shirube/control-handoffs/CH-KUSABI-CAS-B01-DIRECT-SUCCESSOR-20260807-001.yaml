@@ -1,6 +1,6 @@
 schema_version: shirube-v3/local-control-handoff-binding/v1
 control_handoff_id: CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001
-lifecycle_state: ACTIVE_BOUNDED_NONMERGE_REMEDIATION_ATTEMPT_1_OF_1
+lifecycle_state: ACTIVE_BOUNDED_NONMERGE_REMEDIATION_ATTEMPT_2_OF_2
 mode: rapid-lite
 profile: hotel-lite
 framework_ref: watchout/ai-dev-framework@1337b0d1c7c38480d90b186fd72b5c1ea5d21b2b
@@ -8,7 +8,7 @@ matrix_ref: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.y
 repo_spec_ref: .shirube/repo-spec.yaml
 repo_local_issue: https://github.com/watchout/agent-memory/issues/285
 audit_item_set_ref: .shirube/audit-item-sets/stage-9-rapid-lite-cell-audit.json
-owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5230262437
+owner_confirmation_ref: conversation:2026-08-11:owner-approved-pr286-six-nonmerge-blocker-remediation
 spec_review_state: ready_for_independent_audit
 next_role: evidence_audit_gate
 repository:
@@ -32,6 +32,13 @@ control_source:
   prior_exact_subject_independent_audit_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5223774234
   prior_authenticated_hard_gate_result_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5223820164
   prior_authenticated_hard_gate_run_ref: https://github.com/watchout/agent-memory/actions/runs/31232466812
+  cumulative_27_path_owner_directive_ref: conversation:2026-08-11:owner-approved-pr286-six-nonmerge-blocker-remediation
+  cumulative_27_path_owner_directive_actor: watchout
+  cumulative_27_path_owner_directive_text: "PR #286 head 878a3ced217a169dcf8de06002f527c145d28699で検出された非マージ系6 blockerの解消に限り、Kusabiが27-path cumulative handoff bindingの更新、回帰検証、commit/push、exact-head独立監査、PR audit bridge、hard gate再実行まで進めることを承認する。APPROVED_EXACT_HEAD、final CAS公開、Ready、GitHub review approval、merge、配布、rollout、runtime effectは含まない。"
+  cumulative_27_path_owner_directive_raw_utf8_bytes: 432
+  cumulative_27_path_owner_directive_sha256_utf8: a131d7c966395b873290d450975af05b87d9df33076d43d7900f85548ecc0c89
+  attempt_2_trigger_hard_gate_evidence_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5249009546
+  attempt_2_trigger_hard_gate_report_sha256: dad231404cd421eeb0be6a90b7569f41d749fbcfdceb50d9524e6fc9ef256420
 
 cell:
   CELL-ID: CELL-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001
@@ -40,8 +47,11 @@ cell:
   risk_class: R4
   root_goal_run_id: GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804
   goal: Fail closed before every final-CAS filesystem effect unless immutable exact audit, Owner GO, and hard-gate receipts are authenticated, exact-bound, and correctly ordered.
-  attempt_limit: 1
-  expiry: 2026-08-10T23:59:59+09:00
+  prior_attempt_limit: 1
+  prior_attempt_expiry: 2026-08-10T23:59:59+09:00
+  attempt_limit: 2
+  current_attempt: 2
+  current_authority_stop: exact_subject_drift_or_scope_completion
 
 exact_subject:
   repository: watchout/agent-memory
@@ -50,10 +60,12 @@ exact_subject:
   predecessor_tree: a3e68b35e2b4cee83e35aa6d905726fe7a78d792
   pre_remediation_head: 1eecabb29bca7470edee206729fd20431aeabd58
   pre_remediation_tree: 5bfb0e7a2a5598e4fde57b5e20837433dfa6e770
+  cumulative_binding_predecessor_head: 878a3ced217a169dcf8de06002f527c145d28699
+  cumulative_binding_predecessor_tree: 386700b846b16dd68bd59a72324e9109aef6a2ca
   release_descriptor_sha256: ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4
   target_set_sha256: 69be7fb005847676dd8821154508b9764716287226b7560ce274ef499dc1e2ec
-  cumulative_changed_path_count: 23
-  cumulative_changed_path_set_sha256_sorted_lf: 55685734106aa1df047ae64ce93e16223ca1711394efdafc659a1cf8e5d90836
+  cumulative_changed_path_count: 27
+  cumulative_changed_path_set_sha256_sorted_lf: 3bd149f8c71d12dfc3fbb61c614d05b451d3ae90f73c1e08afac16e4d7e6dd7c
 
 execution_context:
   controller_agent_id: kusabi
@@ -72,11 +84,15 @@ execution_context:
 allowed_paths:
   - .shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml
   - .shirube/control-handoffs/CH-KUSABI-OBS05-CAS-RESOURCE-CLOSURE-20260805-001.yaml
+  - .shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml
   - .shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V4-20260805.json
   - .shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V3-20260805.json
+  - .shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json
+  - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
   - .shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json
   - .shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json
   - .shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-3.json
+  - .shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json
   - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-FINAL-OWNER-CLOSURE.json
   - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE.json
   - .shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/WORK-ITEM-KUSABI-OBS06-24H-96-CHECKPOINTS.json
@@ -96,8 +112,8 @@ allowed_paths:
 
 cumulative_path_lineage:
   union:
-    path_count: 23
-    path_set_sha256_sorted_lf: 55685734106aa1df047ae64ce93e16223ca1711394efdafc659a1cf8e5d90836
+    path_count: 27
+    path_set_sha256_sorted_lf: 3bd149f8c71d12dfc3fbb61c614d05b451d3ae90f73c1e08afac16e4d7e6dd7c
     representation_only: true
     authority_laundering_forbidden: true
   baseline_resource_closure:
@@ -129,6 +145,22 @@ cumulative_path_lineage:
     changed_path: .shirube/control-handoffs/CH-KUSABI-CAS-B01-DIRECT-SUCCESSOR-20260807-001.yaml
     owner_decision_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5230262437
     scope: Parser-compatible metadata, cumulative path representation, independent audit bridge, validation, and hard-gate rerun only.
+  goalrun_reconciliation_and_manifest_digest_rework:
+    predecessor_head: 43724e69a3b40a2088cb4b0149c9ba618f1d4e65
+    cumulative_binding_input_head: 878a3ced217a169dcf8de06002f527c145d28699
+    commits:
+      - 7af8fef0688a09abb01bc3bba1d33ed96d974e57
+      - c509fbf8d28f6fb1ae6e8919da37bfc3f37b6cc9
+      - 878a3ced217a169dcf8de06002f527c145d28699
+    newly_authorized_cumulative_paths:
+      - .shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml
+      - .shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json
+      - .shirube/evidence/SHIRUBE-V4-GOALRUN-ADOPTION-20260804.json
+      - .shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json
+    owner_directive_ref: conversation:2026-08-11:owner-approved-pr286-six-nonmerge-blocker-remediation
+    prior_goalrun_owner_directive_ref: conversation:2026-08-10:owner-direct-bounded-handoff-B03-B04
+    prior_exact_head_audit_ref: https://github.com/watchout/agent-memory/issues/285#issuecomment-5248855433
+    scope: Representation-only cumulative union of paths already authorized by the direct-successor and B03-to-B04 handoffs; no new product, gate, protected, approval, or merge authority.
 
 forbidden_paths:
   - src/**
@@ -224,10 +256,12 @@ next_action:
     - https://github.com/watchout/agent-memory/issues/285#issuecomment-5209573325
     - https://github.com/watchout/agent-memory/issues/285#issuecomment-5189427170
     - https://github.com/watchout/agent-memory/pull/286
-    - head:1eecabb29bca7470edee206729fd20431aeabd58
-    - tree:5bfb0e7a2a5598e4fde57b5e20837433dfa6e770
+    - conversation:2026-08-11:owner-approved-pr286-six-nonmerge-blocker-remediation
+    - head:878a3ced217a169dcf8de06002f527c145d28699
+    - tree:386700b846b16dd68bd59a72324e9109aef6a2ca
+    - cumulative_path_set_sha256:3bd149f8c71d12dfc3fbb61c614d05b451d3ae90f73c1e08afac16e4d7e6dd7c
     - finding:KUSABI-CAS-B01
-  scope: One control-handoff path only; no gate logic, product code, protected effect, APPROVED_EXACT_HEAD, Ready, approval, or merge.
+  scope: "Two already-cumulative paths only: the control-handoff binding and its exact manifest regression assertion; no gate logic, product code, protected effect, APPROVED_EXACT_HEAD, Ready, approval, or merge."
   deliverable: New exact head and tree plus a fresh audit bridge and authenticated gate report with zero non-merge blockers; RL-MERGE-001 remains expected.
-  completion_evidence: Exact one-path diff, 23-path set match, handoff validation, final CAS absent, protected effects zero, fresh exact-head independent PASS, parser-compatible CELL audit bridge, and authenticated workflow report.
-  expiry: 2026-08-10T23:59:59+09:00
+  completion_evidence: Exact two-path incremental diff within the unchanged 27-path cumulative set, handoff and manifest regression validation, final CAS absent, protected effects zero, fresh exact-head independent PASS, parser-compatible CELL audit bridge, and authenticated workflow report.
+  expiry: exact_subject_drift_or_scope_completion

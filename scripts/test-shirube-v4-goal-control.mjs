@@ -30,7 +30,7 @@ const AGENTS = join(ROOT, "AGENTS.md");
 const PREDECESSOR_HEAD = "43724e69a3b40a2088cb4b0149c9ba618f1d4e65";
 const SHIRUBE_MANIFEST_SERIALIZATION = "shirube-manifest/v1:utf8-byte-order:path-nul-raw-sha256:lf-terminated";
 const EXPECTED_SHIRUBE_MANIFEST_FILE_COUNT = 168;
-const EXPECTED_SHIRUBE_MANIFEST_SHA256 = "fb25b8d420e7b5e2215c434c163ac7861ae0ed28a8d8cae2385bdabe2917e99e";
+const EXPECTED_SHIRUBE_MANIFEST_SHA256 = "540cf5060b5705f94c7fb22b2420cc4feb35e7baa18695f0aff3058637acd3b6";
 const RECONCILE_ARGS = [
   "reconcile-cas-b01-audit",
   "--subject-head", PREDECESSOR_HEAD,
