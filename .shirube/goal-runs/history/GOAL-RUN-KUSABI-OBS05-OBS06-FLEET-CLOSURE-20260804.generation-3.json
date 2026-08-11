@@ -117,23 +117,11 @@
   "acceptance_digest": "sha256:7b47b8d619de137c7be1ced0e5bae436e36cf798ff47a02ef9a58a51bd7286d0",
   "target_manifest_ref": "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-20260801.json#sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
   "target_digest": "sha256:bf75ebb60fdf0e4fcd5bcd8201cac3d6f0f74656647a4809d5652ff48570884b",
-  "status": "BLOCKED",
-  "generation": 5,
-  "state_digest": "sha256:83063c89c908d55f3568f7c11d94727592f9af24fae34d6436a6029e0e4be1dd",
-  "active_work_item_id": "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE",
-  "blocker_set": [
-    {
-      "blocker_id": "B-04-PR286-EXACT-CORRECTION-MERGE",
-      "ordinal": 2,
-      "evidence_refs": [
-        "file:.shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json#sha256:92c5d2f91070b4e6e3707fd52f2b2a28d98485b2e0662e244fb22dc7ad706e47",
-        "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
-        "https://github.com/watchout/agent-memory/actions/runs/31303252529",
-        "https://github.com/watchout/agent-memory/pull/286"
-      ],
-      "removal_predicate": "PR #286 independently audited exact head/tree has authenticated Owner exact-head approval, all required checks SUCCESS, normal merge without bypass, merge result contains the approved head as parent, final tree/provenance readback passes, and merge commit is an ancestor of main."
-    }
-  ],
+  "status": "ACTIVE",
+  "generation": 3,
+  "state_digest": "sha256:06a1d65e6e91a2f1292142d843622750c7069d0e86c86c7c13d1518a19c4d7a7",
+  "active_work_item_id": "WORK-ITEM-KUSABI-R0-V3-INDEPENDENT-AUDIT",
+  "blocker_set": [],
   "acceptance_states": [
     {
       "acceptance_id": "A-01-PR281-EXACT-MERGE",
@@ -146,13 +134,20 @@
     },
     {
       "acceptance_id": "A-02-IMMUTABLE-RUNTIME-RELEASE",
-      "status": "UNMET",
-      "evidence_refs": []
+      "status": "VERIFIED_PASS",
+      "evidence_refs": [
+        "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:99bd980c7112b5090b4756c08d44c2b7e106af1a4744befb80700cb1a77b9f81",
+        "release:sha256:f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+        "file:.shirube/evidence/KUSABI-ALPHA-OBS05-RUNTIME-RELEASE-V1-20260803.json#sha256:99bd980c7112b5090b4756c08d44c2b7e106af1a4744befb80700cb1a77b9f81/release/import_smoke_after_publish#sha256:b952d57c5272b7e0ed4659045f6094ec14869b52b74793c82e1bb4617b6535d8"
+      ]
     },
     {
       "acceptance_id": "A-03-R0-V3-HEARTBEAT-REPRODUCTION",
-      "status": "UNMET",
-      "evidence_refs": []
+      "status": "VERIFIED_PASS",
+      "evidence_refs": [
+        "file:.shirube/evidence/KUSABI-ALPHA-OBS05-R0-CANDIDATE-V3-20260803.json#sha256:97f30a94ee4caa2ed215605ca6b3021ee5d4fe98e8b5e20d5b0baa9e54953a89",
+        "https://github.com/watchout/agent-memory/issues/280#issuecomment-5186307680"
+      ]
     },
     {
       "acceptance_id": "A-04-R0-V3-INDEPENDENT-AUDIT",
@@ -583,9 +578,9 @@
     }
   ],
   "checkpoint": {
-    "event_sequence": 5,
-    "last_event_id": "EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
-    "last_idempotency_key": "sha256:5a44ecbc4e0d9941328576586e124143176b85b99b20ecd1cf4a0d403537e904"
+    "event_sequence": 3,
+    "last_event_id": "EVENT-KUSABI-SELF-CONTAINED-RELEASE-R0-SUCCESSOR-f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+    "last_idempotency_key": "sha256:4b98f2ecdcddff03e18fa407a47faaabba6e3133265142ca2f51d8c4dc355b58"
   },
   "verified_completion_evidence": []
 }

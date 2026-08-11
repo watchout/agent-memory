@@ -67,6 +67,23 @@ const RELEASE_R0_SUCCESSOR = {
   capture_a_sha256: "620370c8df347335fd632f0e498409ce90876cfcb2f0b0775ad1e2293bb2c76b",
   capture_b_sha256: "ce6107b65b938c9cdb86db4d69177e4392b26b782e223729df85075abb96ca41",
 };
+const CAS_B01_AUDIT_RECONCILIATION = {
+  generation: 5,
+  predecessor_head: "43724e69a3b40a2088cb4b0149c9ba618f1d4e65",
+  predecessor_tree: "10a3c1c5633743914082abddaec0cae20ee51f04",
+  predecessor_goal_file_sha256: "eed53588c7efaf328c02d03fd1c79429ebae55b8bd4f66515f2cd1a5eee89501",
+  release_descriptor_sha256: "ceb74adfd032aabfece0feb2cb50978551a68686c69bdbfd69649b367d07e9d4",
+  evidence_path: ".shirube/evidence/KUSABI-PR286-B03-AUDIT-HARD-GATE-RECONCILIATION-20260810.json",
+  handoff_path: ".shirube/control-handoffs/CH-KUSABI-PR286-GOALRUN-B03-B04-RECONCILIATION-20260810-001.yaml",
+  audit_ref: "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230368349",
+  audit_body_sha256: "9016e826418c9c22234b821065c4cc1f6821a6c30eb1fdc37b2ddf5a31c100f9",
+  owner_exact_head_ref: "https://github.com/watchout/agent-memory/pull/286#issuecomment-5230551020",
+  owner_exact_head_body_sha256: "83ca2be538bb9f6e3039f6aca20d6f3a491ff8bdc25d07cc855b40f6f7af82af",
+  hard_gate_run_ref: "https://github.com/watchout/agent-memory/actions/runs/31303252529",
+  hard_gate_report_sha256: "5f488ded2bc28e4215e003f4d7f76eedef722ef9cf8ec897cdf37d1a1a15cb90",
+  hard_gate_receipt_ref: "https://github.com/watchout/agent-memory/issues/285#issuecomment-5230557950",
+  hard_gate_receipt_body_sha256: "37f6fa0b2d14bc82fd569748b3a5d166dca09acfbdbb88a0c839c01d806cfbd7",
+};
 const ALL_OPERATIONS = [
   "WORK_ITEM_DISPATCH", "INDEPENDENT_AUDIT", "INDEPENDENT_REAUDIT", "PARENT_RETURN",
   "EVIDENCE_RECORD", "INTERNAL_REPLY", "GITHUB_WRITEBACK", "DEPENDENCY_BYPASS",
@@ -217,6 +234,42 @@ const ROUTE_BY_ACCEPTANCE_ID = {
     actor_agent_id: "ceo",
     active_function: "owner_decision",
     blocking: true,
+  },
+};
+
+const ROUTE_BY_EFFECTIVE_BLOCKER_ID = {
+  "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE": {
+    actor_agent_id: "codex-audit",
+    active_function: "evidence_audit_gate",
+    blocking: true,
+    action: "Independently audit the exact PR 286 successor head/tree and the authenticated final-CAS publication verifier, including the one positive and seven protected-effect-zero negative receipt fixtures; return PASS with blocker_count 0 or exact findings.",
+    deliver_via: "Immutable Issue 285 audit comment and official AUN reply to kusabi.",
+    scope: "Read-only exact-head audit only; no implementation, final CAS publication, rollout, Ready transition, approval, or merge.",
+    deliverable: [
+      "independent_exact_head_audit",
+      "authenticated_gate_positive_fixture",
+      "seven_fail_closed_negative_fixtures",
+      "final_CAS_absence_readback",
+      "protected_effect_count_zero",
+    ],
+    completion_evidence: "Immutable audit URL/body digest, exact head/tree and CAS/R0 subject, PASS or exact blockers, and official AUN receipt.",
+  },
+  "B-04-PR286-EXACT-CORRECTION-MERGE": {
+    actor_agent_id: "codex-audit",
+    active_function: "evidence_audit_gate",
+    blocking: true,
+    action: "Independently audit the new exact PR 286 GoalRun-reconciliation head/tree, including the generation-4 B-03 to generation-5 B-04 fail-closed transition; return PASS with blocker_count 0 or exact findings.",
+    deliver_via: "Immutable Issue 285 audit comment and official AUN reply to kusabi.",
+    scope: "Read-only exact-head audit only; no implementation, final CAS publication, rollout, Ready transition, approval, or merge.",
+    deliverable: [
+      "independent_exact_head_audit",
+      "generation_4_to_5_transition_readback",
+      "B03_removed_B04_only",
+      "A02_through_A11_unmet",
+      "final_CAS_absence_readback",
+      "protected_effect_count_zero",
+    ],
+    completion_evidence: "Immutable audit URL/body digest, exact head/tree and cumulative path lineage, blocker_count 0, final CAS absent, and official AUN receipt.",
   },
 };
 
@@ -437,6 +490,171 @@ function initialize(repoRoot, sourceRoot, observedAt) {
   for (const item of workItems) writeJson(absolute(repoRoot, `${WORK_ITEM_DIR}/${item.work_item_id}.json`), item);
   writeJson(absolute(repoRoot, BINDING_PATH), binding);
   return { goalRun, workItems, binding };
+}
+
+function requireExactOption(options, name, expected) {
+  const observed = options[name];
+  if (observed !== expected) {
+    throw new Error(`${name} must equal the authenticated exact value ${expected}; observed ${observed ?? "missing"}`);
+  }
+}
+
+function assertCasB01AuditReconciliationEvidence(repoRoot, options) {
+  requireExactOption(options, "subject-head", CAS_B01_AUDIT_RECONCILIATION.predecessor_head);
+  requireExactOption(options, "subject-tree", CAS_B01_AUDIT_RECONCILIATION.predecessor_tree);
+  requireExactOption(options, "audit-ref", CAS_B01_AUDIT_RECONCILIATION.audit_ref);
+  requireExactOption(options, "audit-body-sha256", CAS_B01_AUDIT_RECONCILIATION.audit_body_sha256);
+  requireExactOption(options, "hard-gate-run-ref", CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref);
+  requireExactOption(options, "hard-gate-report-sha256", CAS_B01_AUDIT_RECONCILIATION.hard_gate_report_sha256);
+  requireExactOption(options, "hard-gate-receipt-ref", CAS_B01_AUDIT_RECONCILIATION.hard_gate_receipt_ref);
+  requireExactOption(options, "hard-gate-receipt-body-sha256", CAS_B01_AUDIT_RECONCILIATION.hard_gate_receipt_body_sha256);
+
+  const evidencePath = absolute(repoRoot, CAS_B01_AUDIT_RECONCILIATION.evidence_path);
+  const handoffPath = absolute(repoRoot, CAS_B01_AUDIT_RECONCILIATION.handoff_path);
+  if (!existsSync(evidencePath) || !existsSync(handoffPath)) {
+    throw new Error("B-03 reconciliation evidence and bounded control handoff must both exist");
+  }
+  const evidence = readJson(evidencePath);
+  const subject = evidence?.exact_subject;
+  const audit = evidence?.independent_audit;
+  const owner = evidence?.owner_exact_head_decision;
+  const hardGate = evidence?.authenticated_hard_gate;
+  const protectedEffects = Object.values(evidence?.protected_effects ?? {});
+  const pass =
+    evidence?.schema_version === "kusabi-pr286-b03-audit-reconciliation/v1" &&
+    evidence?.lifecycle_state === "AUDIT_AND_AUTHENTICATED_HARD_GATE_VERIFIED_AWAITING_PR286_MERGE" &&
+    subject?.repository === "watchout/agent-memory" && subject?.pull_request === 286 &&
+    subject?.head_sha === CAS_B01_AUDIT_RECONCILIATION.predecessor_head &&
+    subject?.tree_sha === CAS_B01_AUDIT_RECONCILIATION.predecessor_tree &&
+    subject?.release_descriptor_sha256 === CAS_B01_AUDIT_RECONCILIATION.release_descriptor_sha256 &&
+    subject?.target_set_sha256 === EXPECTED_TARGET_SET_SHA256 &&
+    audit?.ref === CAS_B01_AUDIT_RECONCILIATION.audit_ref &&
+    audit?.raw_body_sha256 === CAS_B01_AUDIT_RECONCILIATION.audit_body_sha256 &&
+    audit?.reviewer_agent_id === "codex-audit" && audit?.active_function === "evidence_audit_gate" &&
+    audit?.verdict === "PASS_EXACT_SUBJECT" && audit?.blocker_count === 0 && audit?.protected_effect_count === 0 &&
+    owner?.ref === CAS_B01_AUDIT_RECONCILIATION.owner_exact_head_ref &&
+    owner?.raw_body_sha256 === CAS_B01_AUDIT_RECONCILIATION.owner_exact_head_body_sha256 &&
+    owner?.actor === "watchout" && owner?.verdict === "APPROVED_EXACT_HEAD" &&
+    hardGate?.run_ref === CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref &&
+    hardGate?.report_sha256 === CAS_B01_AUDIT_RECONCILIATION.hard_gate_report_sha256 &&
+    hardGate?.receipt_ref === CAS_B01_AUDIT_RECONCILIATION.hard_gate_receipt_ref &&
+    hardGate?.receipt_raw_body_sha256 === CAS_B01_AUDIT_RECONCILIATION.hard_gate_receipt_body_sha256 &&
+    hardGate?.workflow_name === "Shirube Rapid/Lite Gate" && hardGate?.workflow_event === "issue_comment" &&
+    hardGate?.job_name === "rapid-lite-gate" && hardGate?.resolved_pr_head_sha === CAS_B01_AUDIT_RECONCILIATION.predecessor_head &&
+    hardGate?.verdict === "SUCCESS" && hardGate?.blocker_count === 0 && hardGate?.protected_effect_count === 0 &&
+    evidence?.final_CAS?.status === "ABSENT" &&
+    evidence?.gate_result?.verdict === "PASS_B03_REMOVAL_PREDICATE" &&
+    evidence?.gate_result?.B04_required === true && evidence?.gate_result?.final_CAS_publication_authorized === false &&
+    protectedEffects.length >= 6 && protectedEffects.every((value) => value === 0);
+  if (!pass) throw new Error("B-03 audit/hard-gate reconciliation evidence is not exact PASS with zero protected effects");
+  return {
+    evidence,
+    evidence_sha256: sha256Raw(readFileSync(evidencePath)),
+    handoff_sha256: sha256Raw(readFileSync(handoffPath)),
+  };
+}
+
+function reconcileCasB01Audit(repoRoot, observedAt, options) {
+  const verified = assertCasB01AuditReconciliationEvidence(repoRoot, options);
+  const goalPath = absolute(repoRoot, GOAL_PATH);
+  const previous = readJson(goalPath);
+  const passed = previous.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").map((state) => state.acceptance_id);
+  const eventId = `EVENT-KUSABI-PR286-B03-AUDIT-RECONCILED-${CAS_B01_AUDIT_RECONCILIATION.predecessor_head}`;
+  const exactReplay =
+    previous.generation === CAS_B01_AUDIT_RECONCILIATION.generation &&
+    previous.status === "BLOCKED" && previous.active_work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" &&
+    previous.blocker_set.length === 1 && previous.blocker_set[0]?.blocker_id === "B-04-PR286-EXACT-CORRECTION-MERGE" &&
+    previous.checkpoint?.last_event_id === eventId && canonicalJson(passed) === canonicalJson(["A-01-PR281-EXACT-MERGE"]);
+  const exactPredecessor =
+    previous.generation === 4 && previous.status === "BLOCKED" &&
+    previous.active_work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" &&
+    previous.blocker_set.length === 1 && previous.blocker_set[0]?.blocker_id === "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE" &&
+    canonicalJson(passed) === canonicalJson(["A-01-PR281-EXACT-MERGE"]);
+  if (!exactReplay && !exactPredecessor) {
+    throw new Error("B-03 reconciliation requires the exact blocked generation-4 predecessor or exact generation-5 B-04 replay");
+  }
+  const previousPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-4.json`);
+  let predecessor = previous;
+  if (exactReplay) {
+    if (!existsSync(previousPath)) throw new Error("generation-5 replay requires immutable generation-4 history");
+    predecessor = readJson(previousPath);
+    const predecessorPassed = predecessor.acceptance_states
+      .filter((state) => state.status === "VERIFIED_PASS")
+      .map((state) => state.acceptance_id);
+    const historyIsExactPredecessor =
+      predecessor.generation === 4 && predecessor.status === "BLOCKED" &&
+      predecessor.active_work_item_id === "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE" &&
+      predecessor.blocker_set.length === 1 &&
+      predecessor.blocker_set[0]?.blocker_id === "B-03-KUSABI-CAS-B01-AUTHENTICATED-PUBLICATION-GATE" &&
+      canonicalJson(predecessorPassed) === canonicalJson(["A-01-PR281-EXACT-MERGE"]);
+    if (!historyIsExactPredecessor) {
+      throw new Error("generation-5 replay requires the exact immutable generation-4 B-03 predecessor");
+    }
+  } else {
+    if (existsSync(previousPath) && canonicalJson(readJson(previousPath)) !== canonicalJson(previous)) {
+      throw new Error("existing generation-4 history does not equal the exact predecessor");
+    }
+    if (!existsSync(previousPath)) writeJson(previousPath, previous);
+  }
+  if (sha256Raw(readFileSync(previousPath)) !== CAS_B01_AUDIT_RECONCILIATION.predecessor_goal_file_sha256) {
+    throw new Error("immutable generation-4 history raw SHA-256 mismatch");
+  }
+  const idempotencyKey = digestValue({
+    event_id: eventId,
+    subject_head: CAS_B01_AUDIT_RECONCILIATION.predecessor_head,
+    subject_tree: CAS_B01_AUDIT_RECONCILIATION.predecessor_tree,
+    audit_ref: CAS_B01_AUDIT_RECONCILIATION.audit_ref,
+    audit_body_sha256: CAS_B01_AUDIT_RECONCILIATION.audit_body_sha256,
+    hard_gate_run_ref: CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref,
+    hard_gate_report_sha256: CAS_B01_AUDIT_RECONCILIATION.hard_gate_report_sha256,
+    evidence_sha256: verified.evidence_sha256,
+    handoff_sha256: verified.handoff_sha256,
+  });
+  const checkpoint = {
+    event_sequence: predecessor.checkpoint.event_sequence + 1,
+    last_event_id: eventId,
+    last_idempotency_key: idempotencyKey,
+  };
+  const evidenceRef = `file:${CAS_B01_AUDIT_RECONCILIATION.evidence_path}#sha256:${verified.evidence_sha256}`;
+  const goalRun = structuredClone(predecessor);
+  goalRun.generation = CAS_B01_AUDIT_RECONCILIATION.generation;
+  goalRun.status = "BLOCKED";
+  goalRun.active_work_item_id = "WORK-ITEM-KUSABI-IMMUTABLE-RUNTIME-RELEASE";
+  goalRun.blocker_set = [{
+    blocker_id: "B-04-PR286-EXACT-CORRECTION-MERGE",
+    ordinal: 2,
+    evidence_refs: [
+      evidenceRef,
+      CAS_B01_AUDIT_RECONCILIATION.audit_ref,
+      CAS_B01_AUDIT_RECONCILIATION.hard_gate_run_ref,
+      "https://github.com/watchout/agent-memory/pull/286",
+    ],
+    removal_predicate: "PR #286 independently audited exact head/tree has authenticated Owner exact-head approval, all required checks SUCCESS, normal merge without bypass, merge result contains the approved head as parent, final tree/provenance readback passes, and merge commit is an ancestor of main.",
+  }];
+  goalRun.checkpoint = checkpoint;
+  goalRun.state_digest = computeGoalRunStateDigest(goalRun);
+
+  const workItems = loadWorkItems(repoRoot).map(({ path, document }) => {
+    const item = structuredClone(document);
+    item.generation = goalRun.generation;
+    item.checkpoint = { ...checkpoint };
+    if (item.unmet_condition_id === "A-02-IMMUTABLE-RUNTIME-RELEASE") {
+      item.control_handoff_ref = `file:${CAS_B01_AUDIT_RECONCILIATION.handoff_path}`;
+      item.handoff_digest = `sha256:${verified.handoff_sha256}`;
+      item.removes_blocker_ids = [];
+      item.blocker_ordinal = 2;
+      item.status = "BLOCKED";
+      item.terminal_evidence = [];
+    }
+    item.dispatch_idempotency_key = computeDispatchIdempotencyKey(item, goalRun.generation);
+    item.state_digest = computeWorkItemStateDigest(item);
+    writeJson(path, item);
+    return item;
+  });
+  writeJson(goalPath, goalRun);
+  const binding = buildBinding(goalRun, observedAt);
+  writeJson(absolute(repoRoot, BINDING_PATH), binding);
+  return { goalRun, workItems, binding, previousPath, replayed: exactReplay };
 }
 
 function advanceExactMerge(repoRoot, observedAt) {
@@ -1077,17 +1295,58 @@ function loadWorkItems(repoRoot) {
   return readdirSync(dir).filter((name) => name.endsWith(".json")).sort().map((name) => ({ path: join(dir, name), document: readJson(join(dir, name)) }));
 }
 
+function buildGenerationHistory(repoRoot, goalDocument) {
+  const history = {
+    generation_1: {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
+      file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
+        ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
+        : null,
+    },
+    generation_2: goalDocument.generation >= 3 ? {
+      evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
+      predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
+      file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
+      state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
+      retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
+    } : null,
+  };
+  for (let generation = 3; generation < goalDocument.generation; generation++) {
+    const historyPath = absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`);
+    if (!existsSync(historyPath)) continue;
+    const document = readJson(historyPath);
+    history[`generation_${generation}`] = {
+      evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-${generation}.json`,
+      file_sha256: sha256Raw(readFileSync(historyPath)),
+      state_digest: document.state_digest,
+      checkpoint: document.checkpoint,
+      retention: "IMMUTABLE_FILE_BACKED_PREDECESSOR",
+    };
+  }
+  history[`generation_${goalDocument.generation}`] = {
+    evidence_ref: `file:${GOAL_PATH}`,
+    state_digest: goalDocument.state_digest,
+    checkpoint: goalDocument.checkpoint,
+    retention: "CURRENT_MUTABLE_GOALRUN_STATE",
+  };
+  return history;
+}
+
 export function buildStatus(goalRun, workItems) {
   const definitions = [...goalRun.acceptance_set].sort((a, b) => a.ordinal - b.ordinal || a.acceptance_id.localeCompare(b.acceptance_id));
   const stateById = new Map(goalRun.acceptance_states.map((state) => [state.acceptance_id, state]));
   const unmet = definitions.find((definition) => stateById.get(definition.acceptance_id)?.status !== "VERIFIED_PASS");
   const candidates = workItems.filter((item) => item.status === "READY" && item.unmet_condition_id === unmet?.acceptance_id)
     .sort((a, b) => a.acceptance_ordinal - b.acceptance_ordinal || a.blocker_ordinal - b.blocker_ordinal || a.work_item_id.localeCompare(b.work_item_id));
-  const blocked = goalRun.status === "BLOCKED"
-    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id && item.status === "BLOCKED") ?? null
+  const effectiveBlocker = goalRun.blocker_set[0] ?? null;
+  const effectiveBlocked = goalRun.status === "BLOCKED" || Boolean(effectiveBlocker);
+  const blocked = effectiveBlocked
+    ? workItems.find((item) => item.work_item_id === goalRun.active_work_item_id) ?? null
     : null;
-  const next = candidates[0] ?? blocked;
-  const route = next ? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id] : null;
+  const next = effectiveBlocked ? blocked : candidates[0] ?? null;
+  const route = next
+    ? ROUTE_BY_EFFECTIVE_BLOCKER_ID[effectiveBlocker?.blocker_id] ?? ROUTE_BY_ACCEPTANCE_ID[next.unmet_condition_id]
+    : null;
   if (next && !route) throw new Error(`missing deterministic route for ${next.unmet_condition_id}`);
   const acceptancePassed = goalRun.acceptance_states.filter((state) => state.status === "VERIFIED_PASS").length;
   const targetLiveExact = goalRun.target_states.filter((target) => target.live_exact_version === target.expected_version && target.live_evidence_ref).length;
@@ -1095,7 +1354,7 @@ export function buildStatus(goalRun, workItems) {
   return {
     schema_version: "shirube-v4/goal-status/v1",
     root_goal_run_id: goalRun.root_goal_run_id,
-    status: goalRun.status,
+    status: effectiveBlocked ? "BLOCKED" : goalRun.status,
     generation: goalRun.generation,
     state_digest: goalRun.state_digest,
     acceptance: { passed: acceptancePassed, total: goalRun.acceptance_states.length, percent: Math.floor((acceptancePassed / goalRun.acceptance_states.length) * 100) },
@@ -1107,21 +1366,26 @@ export function buildStatus(goalRun, workItems) {
       required_evidence: next.required_evidence,
       control_handoff_ref: next.control_handoff_ref,
       dispatch_idempotency_key: next.dispatch_idempotency_key,
-      status: next.status,
+      status: effectiveBlocked ? "BLOCKED" : next.status,
     } : null,
-    can_continue: Boolean(next && next.status === "READY"),
+    can_continue: Boolean(!effectiveBlocked && next && next.status === "READY"),
     next_action: next ? {
-      blocking: blocked ? true : route.blocking,
+      blocking: effectiveBlocked ? true : route.blocking,
       actor_agent_id: route.actor_agent_id,
       active_function: route.active_function,
-      action: blocked
-        ? goalRun.blocker_set[0]?.removal_predicate
+      action: effectiveBlocked
+        ? route.action || effectiveBlocker?.removal_predicate || `Resolve the effective blocker for ${next.work_item_id}.`
         : route.action || `Execute ${next.work_item_id} within its exact control handoff and return all required evidence.`,
       deliver_via: route.deliver_via || "WorkItem terminal evidence and GoalRun generation update",
-      exact_input_refs: [next.control_handoff_ref, GOAL_PATH, `${WORK_ITEM_DIR}/${next.work_item_id}.json`],
-      scope: `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
-      deliverable: next.required_evidence,
-      completion_evidence: "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback.",
+      exact_input_refs: [...new Set([
+        next.control_handoff_ref,
+        ...(effectiveBlocker?.evidence_refs ?? []),
+        GOAL_PATH,
+        `${WORK_ITEM_DIR}/${next.work_item_id}.json`,
+      ])],
+      scope: route.scope || `Only operation ${next.required_operation}; forbidden operations remain denied by WorkItem v2.`,
+      deliverable: route.deliverable || next.required_evidence,
+      completion_evidence: route.completion_evidence || "Canonical WorkItem v2 terminal-evidence validation and GoalRun readback.",
     } : "none",
   };
 }
@@ -1155,26 +1419,7 @@ function check(repoRoot, explicitFrameworkRoot, writeEvidence) {
     work_item_validators: workItemReports,
     execution_binding_validator: binding,
     status,
-    generation_history: {
-      generation_1: {
-        evidence_ref: `file:${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`,
-        file_sha256: existsSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`))
-          ? sha256Raw(readFileSync(absolute(repoRoot, `${GOAL_HISTORY_DIR}/${GOAL_ID}.generation-1.json`)))
-          : null,
-      },
-      generation_2: goalDocument.generation >= 3 ? {
-        evidence_ref: `git-commit:${RELEASE_R0_SUCCESSOR.predecessor_head}:${GOAL_PATH}`,
-        predecessor_tree: RELEASE_R0_SUCCESSOR.predecessor_tree,
-        file_sha256: "6f39518dba6953f17b843ea2696611c3aaa5c360a6cfe8c3085cfdc1bac1f66c",
-        state_digest: "sha256:ad2029be0715d9d720fe513da1f6909af3df3756c87556b1a467391053f82e43",
-        retention: "IMMUTABLE_GIT_PREDECESSOR_AND_AUDIT_HISTORY",
-      } : null,
-      generation_3: goalDocument.generation >= 3 ? {
-        evidence_ref: `file:${GOAL_PATH}`,
-        state_digest: goalDocument.state_digest,
-        checkpoint: goalDocument.checkpoint,
-      } : null,
-    },
+    generation_history: buildGenerationHistory(repoRoot, goalDocument),
     frozen_target_set_sha256: EXPECTED_TARGET_SET_SHA256,
     production_effect_count: 0,
   };
@@ -1217,6 +1462,13 @@ function main() {
   }
   if (command === "advance-release-r0-successor") {
     advanceReleaseR0Successor(repoRoot, options["observed-at"] || new Date().toISOString());
+    const report = check(repoRoot, options["framework-root"], true);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = report.verdict === "PASS" ? 0 : 1;
+    return;
+  }
+  if (command === "reconcile-cas-b01-audit") {
+    reconcileCasB01Audit(repoRoot, observedAt, options);
     const report = check(repoRoot, options["framework-root"], true);
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = report.verdict === "PASS" ? 0 : 1;
