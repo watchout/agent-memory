@@ -49,6 +49,12 @@ const RELEASE_PARENT = "/Users/yuji/Developer/.kusabi-releases/sha256";
 const RELEASE_BUILDER = resolve("scripts/build-kusabi-content-addressed-runtime-release.mjs");
 const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
 const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
+const NATIVE_PUBLICATION_AUTHORITY = {
+  approved_base: "40d91aaa58013048168d68ac0a51326f42e15db5",
+  approved_head: "a96f8aa094e006a817dc4ae8c19802d0c367d21b",
+  head_sha: "a9ae4b29e2e5739a903926a27cb83a34593f0b44",
+  tree_sha: "44fd6ba56230380d7b07f4d36d3557457b7f3e48",
+};
 const { resolveR0RuntimeRoot } = await import(pathToFileURL(RELEASE_BUILDER).href);
 
 function fail(code, detail) {
@@ -674,10 +680,11 @@ function buildPublicationApiFixture(subject, fixtureClass) {
 }
 
 function nativePostmergeAuditBody(subject, refs, fixtureClass) {
-  const approvedBase = "a".repeat(40);
-  const approvedHead = "b".repeat(40);
-  const merge = subject.head_sha;
-  const tree = subject.tree_sha;
+  const approvedBase = NATIVE_PUBLICATION_AUTHORITY.approved_base;
+  const approvedHead = NATIVE_PUBLICATION_AUTHORITY.approved_head;
+  const aliasesExecution = fixtureClass === "authority-credited-as-execution";
+  const merge = aliasesExecution ? subject.head_sha : NATIVE_PUBLICATION_AUTHORITY.head_sha;
+  const tree = aliasesExecution ? subject.tree_sha : NATIVE_PUBLICATION_AUTHORITY.tree_sha;
   const verdict = fixtureClass === "non-PASS" ? "FAIL" : "PASS_EXACT_SUBJECT";
   const duplicate = fixtureClass === "counterfeit" ? "schema_version: shirube-v3/gate_result/v1\n" : "";
   return `${duplicate}schema_version: shirube-v3/gate_result/v1
@@ -743,7 +750,13 @@ gate_result:
 }
 
 function nativeOwnerDecisionBody(subject, refs, fixtureClass) {
-  const merge = fixtureClass === "wrong-subject" ? "f".repeat(40) : subject.head_sha;
+  const authorityMerge = fixtureClass === "authority-credited-as-execution"
+    ? subject.head_sha
+    : NATIVE_PUBLICATION_AUTHORITY.head_sha;
+  const authorityTree = fixtureClass === "authority-credited-as-execution"
+    ? subject.tree_sha
+    : NATIVE_PUBLICATION_AUTHORITY.tree_sha;
+  const merge = fixtureClass === "wrong-subject" ? "f".repeat(40) : authorityMerge;
   return `schema_version: shirube-v3/owner_decision/v1
 artifact_state: FINAL_IMMUTABLE
 lifecycle_state: APPROVED_A02_INTERNAL_IMMUTABLE_RELEASE
@@ -751,8 +764,8 @@ control_source: https://github.com/watchout/agent-memory/issues/285
 exact_subject:
   merged_pr: https://github.com/watchout/agent-memory/pull/286
   merge: ${merge}
-  tree: ${subject.tree_sha}
-  approved_head_parent: ${"b".repeat(40)}
+  tree: ${authorityTree}
+  approved_head_parent: ${NATIVE_PUBLICATION_AUTHORITY.approved_head}
   post_merge_audit: ${refs.auditRef}
   audit_verdict: PASS_EXACT_SUBJECT
   audit_blockers: 0
@@ -760,7 +773,7 @@ exact_subject:
 decision:
   result: GO
   authorized_sequence:
-    - create a clean detached checkout of exact merge ${subject.head_sha}
+    - create a clean detached checkout of exact merge ${authorityMerge}
     - build and validate the frozen release descriptor and invocation fixtures
     - publish exactly one immutable internal CAS object at the descriptor-derived path when absent
     - read back bytes/digest/provenance from the immutable path
@@ -814,7 +827,7 @@ function buildNativePublicationApiFixture(subject, fixtureClass) {
       event: "issue_comment",
       status: "completed",
       conclusion: "success",
-      head_sha: "a".repeat(40),
+      head_sha: NATIVE_PUBLICATION_AUTHORITY.approved_base,
       run_attempt: 1,
       actor: { login: "watchout" },
       triggering_actor: { login: "watchout" },
@@ -902,6 +915,12 @@ function publicationGateFixtures() {
     fail("GATE_SUBJECT_FAILED", "gate subject output was not JSON");
   }
   const subject = subjectDocument.exact_subject;
+  if (
+    subject.pull_request !== 287 || subjectDocument.execution_subject_sha256 !== subjectDocument.exact_subject_sha256 ||
+    canonicalJson(subjectDocument.execution_subject) !== canonicalJson(subject)
+  ) {
+    fail("GATE_SUBJECT_FAILED", "gate subject is not bound to the PR287 correction execution revision");
+  }
   const releaseSha = subject.release_descriptor_sha256;
   const isolation = mkdtempSync(join(tmpdir(), "kusabi-cas-gate-fixture-"));
   const fixturePath = join(isolation, "api-fixture.json");
@@ -925,6 +944,11 @@ function publicationGateFixtures() {
     { id: "native-reordered", fixtureClass: "reordered", expected: "GATE_ORDER_REJECTED" },
     { id: "native-unreadable", fixtureClass: "unreadable", expected: "GATE_READBACK_UNREADABLE" },
     { id: "native-hard-gate-drift", fixtureClass: "hard-gate-drift", expected: "GATE_SUBJECT_MISMATCH" },
+    {
+      id: "native-authority-credited-as-execution",
+      fixtureClass: "authority-credited-as-execution",
+      expected: "GATE_SUBJECT_MISMATCH",
+    },
   ];
   const protectedBefore = publicationProtectedState(releaseSha);
   const results = [];
@@ -981,7 +1005,18 @@ function publicationGateFixtures() {
         const report = JSON.parse(result.stdout.trim());
         if (
           report.verdict !== entry.expected || report.gate_format !== "shirube-v3-native-postmerge-audit-owner" ||
-          report.protected_effect_count !== 0
+          report.protected_effect_count !== 0 || report.artifact_credit_scope !== "PUBLICATION_AUTHORITY_ONLY" ||
+          report.execution_subject_approved_by_supplied_artifacts !== false ||
+          report.execution_subject_sha256 !== subjectDocument.exact_subject_sha256 ||
+          canonicalJson(report.execution_subject) !== canonicalJson(subject) ||
+          report.publication_authority_subject.pull_request !== 286 ||
+          report.publication_authority_subject.head_sha !== NATIVE_PUBLICATION_AUTHORITY.head_sha ||
+          report.publication_authority_subject.tree_sha !== NATIVE_PUBLICATION_AUTHORITY.tree_sha ||
+          report.subject_relationship.relationship !== "DISTINCT_PUBLICATION_AUTHORITY_AND_CORRECTION_EXECUTION" ||
+          report.subject_relationship.publication_authority_is_ancestor_of_execution !== true ||
+          report.subject_relationship.release_descriptor_sha256_equal !== true ||
+          report.receipts.independent_audit.execution_subject_approved !== false ||
+          report.receipts.owner_go.execution_subject_approved !== false
         ) {
           fail("GATE_POSITIVE_INVALID", result.stdout.trim());
         }
@@ -1008,10 +1043,10 @@ function publicationGateFixtures() {
   }
   const output = {
     schema_version: "kusabi-cas-publication-gate-fixture-matrix/v1",
-    verdict: "PASS_2_AUTHENTICATED_POSITIVES_15_FAIL_CLOSED_NEGATIVES",
+    verdict: "PASS_2_AUTHENTICATED_POSITIVES_16_FAIL_CLOSED_NEGATIVES",
     exact_subject_sha256: subjectDocument.exact_subject_sha256,
     positive_count: 2,
-    negative_count: 15,
+    negative_count: 16,
     results,
     r0_runtime_root: r0RuntimeRootFixtures(),
     final_CAS_state: protectedBefore.final.state,

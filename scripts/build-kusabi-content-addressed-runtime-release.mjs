@@ -23,6 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPOSITORY = "watchout/agent-memory";
 const PUBLICATION_PR = 286;
+const CORRECTION_PR = 287;
 const PUBLICATION_ISSUE = 285;
 const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
 const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
@@ -170,6 +171,18 @@ function git(args) {
   return run("git", args, { code: "BASE_OR_HEAD_DRIFT" });
 }
 
+function gitIsAncestor(ancestor, descendant) {
+  const result = spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  if (result.error) fail("BASE_OR_HEAD_DRIFT", result.error.message);
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  fail("BASE_OR_HEAD_DRIFT", `git merge-base --is-ancestor exited ${result.status}: ${(result.stderr || result.stdout).trim()}`);
+}
+
 function parseArgs(argv) {
   const options = {
     mode: "candidate",
@@ -288,7 +301,7 @@ function loadPublicationSubject(expectedReleaseSha = null) {
   const treeSha = git(["rev-parse", "HEAD^{tree}"]);
   const subject = {
     repository: REPOSITORY,
-    pull_request: PUBLICATION_PR,
+    pull_request: CORRECTION_PR,
     head_sha: headSha,
     tree_sha: treeSha,
     release_descriptor_sha256: releaseDescriptorSha,
@@ -752,8 +765,14 @@ function assertNativePostmergeAudit(audit, expectedSubject, fixture) {
     `https://github.com/${REPOSITORY}/pull/${PUBLICATION_PR}`,
     "GATE_SUBJECT_MISMATCH"
   );
-  assertArtifactValue(artifact, ["exact_subject", "approved_tree"], expectedSubject.tree_sha, "GATE_SUBJECT_MISMATCH");
-  assertArtifactValue(artifact, ["exact_subject", "merge_commit"], expectedSubject.head_sha, "GATE_SUBJECT_MISMATCH");
+  const authorityTree = artifactValue(artifact, ["exact_subject", "approved_tree"], "GATE_SUBJECT_MISMATCH");
+  const authorityHead = artifactValue(artifact, ["exact_subject", "merge_commit"], "GATE_SUBJECT_MISMATCH");
+  if (!/^[0-9a-f]{40}$/.test(authorityTree) || !/^[0-9a-f]{40}$/.test(authorityHead)) {
+    fail("GATE_SUBJECT_MISMATCH", "native publication authority head or tree SHA invalid");
+  }
+  if (authorityHead === expectedSubject.head_sha || authorityTree === expectedSubject.tree_sha) {
+    fail("GATE_SUBJECT_MISMATCH", "native publication authority was credited as the distinct correction execution subject");
+  }
   assertArtifactValue(
     artifact,
     ["exact_subject", "final_cas_descriptor_sha256"],
@@ -772,22 +791,29 @@ function assertNativePostmergeAudit(audit, expectedSubject, fixture) {
   assertArtifactValue(
     artifact,
     ["independent_postmerge_readback", "merge_commit", "tree"],
-    expectedSubject.tree_sha,
+    authorityTree,
     "GATE_SUBJECT_MISMATCH"
   );
   assertArtifactValue(artifact, ["independent_postmerge_readback", "merge_commit", "signature_verified"], true);
   assertArtifactValue(
     artifact,
     ["independent_postmerge_readback", "main", "exact_head"],
-    expectedSubject.head_sha,
+    authorityHead,
     "GATE_SUBJECT_MISMATCH"
   );
   assertArtifactValue(artifact, ["independent_postmerge_readback", "main", "protected"], true);
   assertArtifactValue(artifact, ["independent_postmerge_readback", "main", "approved_head_is_ancestor"], true);
   if (!fixture) {
-    const actualParents = git(["show", "-s", "--format=%P", "HEAD"]).split(" ").filter(Boolean);
+    const actualTree = git(["show", "-s", "--format=%T", authorityHead]);
+    if (actualTree !== authorityTree) {
+      fail("GATE_SUBJECT_MISMATCH", "native publication authority tree does not match its merge commit");
+    }
+    const actualParents = git(["show", "-s", "--format=%P", authorityHead]).split(" ").filter(Boolean);
     if (canonicalJson(actualParents) !== canonicalJson(orderedParents)) {
-      fail("GATE_SUBJECT_MISMATCH", "native audit parents do not match local merge commit");
+      fail("GATE_SUBJECT_MISMATCH", "native audit parents do not match the publication authority merge commit");
+    }
+    if (!gitIsAncestor(authorityHead, expectedSubject.head_sha)) {
+      fail("GATE_SUBJECT_MISMATCH", "publication authority merge is not an ancestor of the correction execution head");
     }
   }
 
@@ -803,10 +829,20 @@ function assertNativePostmergeAudit(audit, expectedSubject, fixture) {
   assertArtifactValue(artifact, ["gate_result", "protected_effect_count_by_checker"], 0, "GATE_OUTCOME_REJECTED");
   assertArtifactValue(artifact, ["gate_result", "successor"], "A-02-IMMUTABLE-RUNTIME-RELEASE");
   assertArtifactValue(artifact, ["gate_result", "successor_state"], "FROZEN_PENDING_SEPARATE_AUTHORITY");
-  return { approvedBase, approvedHead };
+  return {
+    approvedBase,
+    approvedHead,
+    authoritySubject: {
+      repository: REPOSITORY,
+      pull_request: PUBLICATION_PR,
+      head_sha: authorityHead,
+      tree_sha: authorityTree,
+      release_descriptor_sha256: expectedSubject.release_descriptor_sha256,
+    },
+  };
 }
 
-function assertNativeOwnerDecision(owner, audit, expectedSubject, approvedHead) {
+function assertNativeOwnerDecision(owner, audit, authoritySubject, approvedHead) {
   const artifact = owner.artifact;
   assertArtifactValue(artifact, ["artifact_state"], "FINAL_IMMUTABLE");
   assertArtifactValue(artifact, ["lifecycle_state"], "APPROVED_A02_INTERNAL_IMMUTABLE_RELEASE");
@@ -817,8 +853,8 @@ function assertNativeOwnerDecision(owner, audit, expectedSubject, approvedHead) 
     `https://github.com/${REPOSITORY}/pull/${PUBLICATION_PR}`,
     "GATE_SUBJECT_MISMATCH"
   );
-  assertArtifactValue(artifact, ["exact_subject", "merge"], expectedSubject.head_sha, "GATE_SUBJECT_MISMATCH");
-  assertArtifactValue(artifact, ["exact_subject", "tree"], expectedSubject.tree_sha, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(artifact, ["exact_subject", "merge"], authoritySubject.head_sha, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(artifact, ["exact_subject", "tree"], authoritySubject.tree_sha, "GATE_SUBJECT_MISMATCH");
   assertArtifactValue(artifact, ["exact_subject", "approved_head_parent"], approvedHead, "GATE_SUBJECT_MISMATCH");
   assertArtifactValue(artifact, ["exact_subject", "post_merge_audit"], audit.source_ref, "GATE_ORDER_REJECTED");
   assertArtifactValue(artifact, ["exact_subject", "audit_verdict"], "PASS_EXACT_SUBJECT", "GATE_OUTCOME_REJECTED");
@@ -826,13 +862,13 @@ function assertNativeOwnerDecision(owner, audit, expectedSubject, approvedHead) 
   assertArtifactValue(
     artifact,
     ["exact_subject", "release_descriptor_sha256"],
-    expectedSubject.release_descriptor_sha256,
+    authoritySubject.release_descriptor_sha256,
     "GATE_SUBJECT_MISMATCH"
   );
   assertArtifactValue(artifact, ["decision", "result"], "GO", "GATE_OUTCOME_REJECTED");
   assertArtifactValue(artifact, ["decision", "retry_limit"], 0, "GATE_OUTCOME_REJECTED");
   assertArtifactValue(artifact, ["decision", "authorized_sequence"], [
-    `create a clean detached checkout of exact merge ${expectedSubject.head_sha}`,
+    `create a clean detached checkout of exact merge ${authoritySubject.head_sha}`,
     "build and validate the frozen release descriptor and invocation fixtures",
     "publish exactly one immutable internal CAS object at the descriptor-derived path when absent",
     "read back bytes/digest/provenance from the immutable path",
@@ -996,6 +1032,9 @@ function verifyPublicationGates(options) {
   const owner = readCommentReceipt(options.ownerGoRef, "owner_go", context.subject, fixture);
   let gateFormat;
   let hardGateEvidence;
+  let publicationAuthoritySubject = context.subject;
+  let artifactCreditScope = "EXACT_EXECUTION_SUBJECT";
+  let executionSubjectApprovedBySuppliedArtifacts = true;
   if (audit.format === "marked-publication-receipt" && owner.format === "marked-publication-receipt") {
     if (!options.hardGateRef) fail("EXACT_GATE_FAILURE", "hard gate input missing for marked receipt flow");
     assertAuditReceipt(audit);
@@ -1032,8 +1071,8 @@ function verifyPublicationGates(options) {
       workflow,
     };
   } else if (audit.format === "shirube-v3-native" && owner.format === "shirube-v3-native") {
-    const { approvedBase, approvedHead } = assertNativePostmergeAudit(audit, context.subject, fixture);
-    assertNativeOwnerDecision(owner, audit, context.subject, approvedHead);
+    const { approvedBase, approvedHead, authoritySubject } = assertNativePostmergeAudit(audit, context.subject, fixture);
+    assertNativeOwnerDecision(owner, audit, authoritySubject, approvedHead);
     if (!(audit.created_at_ms < owner.created_at_ms)) {
       fail("GATE_ORDER_REJECTED", "native postmerge audit must precede Owner GO");
     }
@@ -1043,6 +1082,9 @@ function verifyPublicationGates(options) {
     }
     gateFormat = "shirube-v3-native-postmerge-audit-owner";
     hardGateEvidence = inherited;
+    publicationAuthoritySubject = authoritySubject;
+    artifactCreditScope = "PUBLICATION_AUTHORITY_ONLY";
+    executionSubjectApprovedBySuppliedArtifacts = false;
   } else {
     fail("GATE_RECEIPT_COUNTERFEIT", "audit and Owner GO must use the same recognized receipt format");
   }
@@ -1051,8 +1093,22 @@ function verifyPublicationGates(options) {
     schema_version: "kusabi-cas-publication-gate-verification/v1",
     verdict: "PASS_AUTHENTICATED_EXACT_ORDERED_GATES",
     gate_format: gateFormat,
+    artifact_credit_scope: artifactCreditScope,
+    execution_subject_approved_by_supplied_artifacts: executionSubjectApprovedBySuppliedArtifacts,
     exact_subject_sha256: sha256(canonicalJson(context.subject)),
     exact_subject: context.subject,
+    execution_subject_sha256: sha256(canonicalJson(context.subject)),
+    execution_subject: context.subject,
+    publication_authority_subject_sha256: sha256(canonicalJson(publicationAuthoritySubject)),
+    publication_authority_subject: publicationAuthoritySubject,
+    subject_relationship: {
+      relationship: publicationAuthoritySubject === context.subject
+        ? "IDENTICAL_EXACT_SUBJECT"
+        : "DISTINCT_PUBLICATION_AUTHORITY_AND_CORRECTION_EXECUTION",
+      publication_authority_is_ancestor_of_execution: publicationAuthoritySubject === context.subject ? null : true,
+      release_descriptor_sha256_equal:
+        publicationAuthoritySubject.release_descriptor_sha256 === context.subject.release_descriptor_sha256,
+    },
     receipts: {
       independent_audit: {
         ref: audit.source_ref,
@@ -1061,6 +1117,8 @@ function verifyPublicationGates(options) {
         created_at: audit.created_at,
         raw_body_sha256: audit.body_sha256,
         format: audit.format,
+        credit_scope: artifactCreditScope,
+        execution_subject_approved: executionSubjectApprovedBySuppliedArtifacts,
       },
       owner_go: {
         ref: owner.source_ref,
@@ -1069,6 +1127,8 @@ function verifyPublicationGates(options) {
         created_at: owner.created_at,
         raw_body_sha256: owner.body_sha256,
         format: owner.format,
+        credit_scope: artifactCreditScope,
+        execution_subject_approved: executionSubjectApprovedBySuppliedArtifacts,
       },
       hard_gate: hardGateEvidence,
     },
@@ -1944,10 +2004,13 @@ async function main() {
   else if (options.mode === "publish") publish(options);
   else if (options.mode === "gate-subject") {
     const context = loadPublicationSubject(options.expectedReleaseSha);
+    const executionSubjectSha256 = sha256(canonicalJson(context.subject));
     process.stdout.write(`${JSON.stringify({
       schema_version: "kusabi-cas-publication-gate-subject/v1",
-      exact_subject_sha256: sha256(canonicalJson(context.subject)),
+      exact_subject_sha256: executionSubjectSha256,
       exact_subject: context.subject,
+      execution_subject_sha256: executionSubjectSha256,
+      execution_subject: context.subject,
     })}\n`);
   } else if (options.mode === "verify-gates") {
     const { context: _context, ...report } = verifyPublicationGates(options);
