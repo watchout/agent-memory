@@ -3,7 +3,7 @@
 import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   buildStatus,
@@ -28,6 +28,9 @@ const RECONCILIATION_HANDOFF_RELATIVE = ".shirube/control-handoffs/CH-KUSABI-PR2
 const RECONCILIATION_HANDOFF = join(ROOT, RECONCILIATION_HANDOFF_RELATIVE);
 const AGENTS = join(ROOT, "AGENTS.md");
 const PREDECESSOR_HEAD = "43724e69a3b40a2088cb4b0149c9ba618f1d4e65";
+const SHIRUBE_MANIFEST_SERIALIZATION = "shirube-manifest/v1:utf8-byte-order:path-nul-raw-sha256:lf-terminated";
+const EXPECTED_SHIRUBE_MANIFEST_FILE_COUNT = 168;
+const EXPECTED_SHIRUBE_MANIFEST_SHA256 = "fb25b8d420e7b5e2215c434c163ac7861ae0ed28a8d8cae2385bdabe2917e99e";
 const RECONCILE_ARGS = [
   "reconcile-cas-b01-audit",
   "--subject-head", PREDECESSOR_HEAD,
@@ -75,16 +78,18 @@ function sha256Raw(value) {
 
 function byteManifest(root) {
   const rows = [];
-  const walk = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+  const walk = (directory, prefix = "") => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => Buffer.compare(Buffer.from(left.name, "utf8"), Buffer.from(right.name, "utf8")))) {
       const path = join(directory, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else if (entry.isFile()) rows.push(`${relative(root, path)}\0${sha256Raw(readFileSync(path))}`);
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(path, relativePath);
+      else if (entry.isFile()) rows.push(`${relativePath}\0${sha256Raw(readFileSync(path))}`);
       else throw new Error(`unsupported manifest entry: ${path}`);
     }
   };
   walk(root);
-  return `${rows.join("\n")}\n`;
+  const bytes = Buffer.from(`${rows.join("\n")}\n`, "utf8");
+  return { bytes, fileCount: rows.length, sha256: sha256Raw(bytes) };
 }
 
 function reconcileArg(name) {
@@ -222,10 +227,12 @@ try {
   check(transitionedGoal.checkpoint.last_idempotency_key === expectedCheckpointKey, "generation-5 checkpoint must bind the final current handoff bytes");
   check(transitionedReleaseItem.handoff_digest === `sha256:${handoffSha256}`, "generated A02 WorkItem must bind the final current handoff raw SHA");
   const manifestAfterFirst = byteManifest(join(predecessorScratch, ".shirube"));
+  check(manifestAfterFirst.fileCount === EXPECTED_SHIRUBE_MANIFEST_FILE_COUNT, `${SHIRUBE_MANIFEST_SERIALIZATION} must cover the complete 168-file .shirube manifest`);
+  check(manifestAfterFirst.sha256 === EXPECTED_SHIRUBE_MANIFEST_SHA256, `${SHIRUBE_MANIFEST_SERIALIZATION} digest must match immutable implementation evidence`);
   const replayed = run([...RECONCILE_ARGS, "--root", predecessorScratch, "--framework-root", frameworkRoot()]);
   check(replayed.status.state_digest === transitioned.status.state_digest, "exact generation-5 replay must preserve the state digest");
   check(readFileSync(join(predecessorScratch, goalRelative), "utf8") === goalAfterFirst && readFileSync(join(predecessorScratch, ".shirube/goal-runs/history/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.generation-4.json"), "utf8") === historyAfterFirst, "exact replay must be byte-idempotent for GoalRun and predecessor history");
-  check(byteManifest(join(predecessorScratch, ".shirube")) === manifestAfterFirst, "exact replay must be byte-idempotent for the complete generated .shirube manifest");
+  check(byteManifest(join(predecessorScratch, ".shirube")).bytes.equals(manifestAfterFirst.bytes), "exact replay must be byte-idempotent for the complete generated .shirube manifest");
 } finally {
   rmSync(predecessorScratch, { recursive: true, force: true });
 }
