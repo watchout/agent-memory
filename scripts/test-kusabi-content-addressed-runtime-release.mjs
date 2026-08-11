@@ -11,6 +11,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -18,6 +19,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const ENTRYPOINTS = [
@@ -47,6 +49,7 @@ const RELEASE_PARENT = "/Users/yuji/Developer/.kusabi-releases/sha256";
 const RELEASE_BUILDER = resolve("scripts/build-kusabi-content-addressed-runtime-release.mjs");
 const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
 const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
+const { resolveR0RuntimeRoot } = await import(pathToFileURL(RELEASE_BUILDER).href);
 
 function fail(code, detail) {
   const error = new Error(`${code}: ${detail}`);
@@ -670,6 +673,223 @@ function buildPublicationApiFixture(subject, fixtureClass) {
   };
 }
 
+function nativePostmergeAuditBody(subject, refs, fixtureClass) {
+  const approvedBase = "a".repeat(40);
+  const approvedHead = "b".repeat(40);
+  const merge = subject.head_sha;
+  const tree = subject.tree_sha;
+  const verdict = fixtureClass === "non-PASS" ? "FAIL" : "PASS_EXACT_SUBJECT";
+  const duplicate = fixtureClass === "counterfeit" ? "schema_version: shirube-v3/gate_result/v1\n" : "";
+  return `${duplicate}schema_version: shirube-v3/gate_result/v1
+artifact_state: FINAL_IMMUTABLE
+lifecycle_state: TERMINAL_INDEPENDENT_POSTMERGE_AUDIT
+control_source: https://github.com/watchout/agent-memory/issues/285
+execution_context:
+  actor_agent_id: codex-independent-checker
+  active_function: evidence_audit_gate
+  independent_from_maker: true
+  self_fix_or_implementation_performed: false
+exact_subject:
+  repository: watchout/agent-memory
+  pull_request: https://github.com/watchout/agent-memory/pull/286
+  approved_base: ${approvedBase}
+  approved_head: ${approvedHead}
+  approved_tree: ${tree}
+  merge_commit: ${merge}
+  final_cas_descriptor_sha256: ${subject.release_descriptor_sha256}
+immutable_input_readback:
+  hard_gate_receipt:
+    ref: ${refs.hardGateRef}
+    body_sha256_raw_utf8_no_trailing_lf: ${refs.hardGateBodySha}
+independent_postmerge_readback:
+  merge_commit:
+    tree: ${tree}
+    ordered_parents:
+      - ${approvedBase}
+      - ${approvedHead}
+    signature_verified: true
+  main:
+    exact_head: ${merge}
+    protected: true
+    approved_head_is_ancestor: true
+  authenticated_hard_gate:
+    run: ${refs.runRef}
+    event: issue_comment
+    run_attempt: 1
+    artifact_report_sha256: ${"c".repeat(64)}
+    report_head: ${approvedHead}
+    verdict: PASS_WITH_WARN
+    hard_block_count: 0
+    audit_bridge_status: pass
+    owner_decision_match: APPROVED_EXACT_HEAD_by_watchout_matched_current_head
+effect_and_scope_readback:
+  final_cas: ABSENT
+  candidate_stage: PRESENT
+  audit_effect:
+    cas_publication: 0
+goalrun_transition_evidence:
+  frozen_successor_acceptance: A-02-IMMUTABLE-RUNTIME-RELEASE
+  successor_current_state: UNMET
+findings:
+  blocker_count: 0
+gate_result:
+  verdict: ${verdict}
+  b04_postmerge_verification: PASS
+  b04_removal_predicate: SATISFIED
+  protected_effect_count_by_checker: 0
+  successor: A-02-IMMUTABLE-RUNTIME-RELEASE
+  successor_state: FROZEN_PENDING_SEPARATE_AUTHORITY
+`;
+}
+
+function nativeOwnerDecisionBody(subject, refs, fixtureClass) {
+  const merge = fixtureClass === "wrong-subject" ? "f".repeat(40) : subject.head_sha;
+  return `schema_version: shirube-v3/owner_decision/v1
+artifact_state: FINAL_IMMUTABLE
+lifecycle_state: APPROVED_A02_INTERNAL_IMMUTABLE_RELEASE
+control_source: https://github.com/watchout/agent-memory/issues/285
+exact_subject:
+  merged_pr: https://github.com/watchout/agent-memory/pull/286
+  merge: ${merge}
+  tree: ${subject.tree_sha}
+  approved_head_parent: ${"b".repeat(40)}
+  post_merge_audit: ${refs.auditRef}
+  audit_verdict: PASS_EXACT_SUBJECT
+  audit_blockers: 0
+  release_descriptor_sha256: ${subject.release_descriptor_sha256}
+decision:
+  result: GO
+  authorized_sequence:
+    - create a clean detached checkout of exact merge ${subject.head_sha}
+    - build and validate the frozen release descriptor and invocation fixtures
+    - publish exactly one immutable internal CAS object at the descriptor-derived path when absent
+    - read back bytes/digest/provenance from the immutable path
+    - run the already-frozen non-production R0 A/B temporal validation
+    - route a different Codex checker for exact release evidence
+  retry_limit: 0
+not_authorized:
+  - R1 production DEPLOY
+  - external distribution, customer effect, Ready, approval, merge, runtime production binding change
+  - database, queue, profile, schema, account, credential, secret, ruleset, or branch-protection mutation
+next_action:
+  blocking: true
+`;
+}
+
+function buildNativePublicationApiFixture(subject, fixtureClass) {
+  const auditId = 9100000001;
+  const ownerId = 9100000002;
+  const hardGateId = 9100000003;
+  const runId = 9100000004;
+  const jobId = 9100000005;
+  const auditRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${auditId}`;
+  const ownerRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${ownerId}`;
+  const hardGateRef = `https://github.com/watchout/agent-memory/issues/285#issuecomment-${hardGateId}`;
+  const runRef = `https://github.com/watchout/agent-memory/actions/runs/${runId}`;
+  const hardGateBody = "schema_version: shirube-v3/gate_result/v1\ngate_result:\n  verdict: PASS_WITH_WARN\n";
+  const refs = { auditRef, ownerRef, hardGateRef, runRef, hardGateBodySha: sha256(hardGateBody) };
+  const auditBody = nativePostmergeAuditBody(subject, refs, fixtureClass);
+  const ownerBody = nativeOwnerDecisionBody(subject, refs, fixtureClass);
+  const auditCreatedAt = "2026-08-11T22:42:55.000Z";
+  const ownerCreatedAt = fixtureClass === "reordered" ? "2026-08-11T22:40:00.000Z" : "2026-08-11T22:45:18.000Z";
+  const responses = {
+    [`/repos/watchout/agent-memory/issues/comments/${auditId}`]: fixtureComment(auditId, auditBody, auditCreatedAt),
+    [`/repos/watchout/agent-memory/issues/comments/${ownerId}`]: fixtureComment(
+      ownerId,
+      ownerBody,
+      ownerCreatedAt,
+      fixtureClass === "wrong-actor" ? "mallory" : "watchout",
+      fixtureClass === "stale" ? "2026-08-11T22:46:00.000Z" : ownerCreatedAt
+    ),
+    [`/repos/watchout/agent-memory/issues/comments/${hardGateId}`]: fixtureComment(
+      hardGateId,
+      fixtureClass === "hard-gate-drift" ? `${hardGateBody}drift: true\n` : hardGateBody,
+      "2026-08-11T09:41:25.000Z"
+    ),
+    [`/repos/watchout/agent-memory/actions/runs/${runId}`]: {
+      id: runId,
+      html_url: runRef,
+      name: "Shirube Rapid/Lite Gate",
+      path: ".github/workflows/shirube-rapid-lite-gate.yml",
+      event: "issue_comment",
+      status: "completed",
+      conclusion: "success",
+      head_sha: "a".repeat(40),
+      run_attempt: 1,
+      actor: { login: "watchout" },
+      triggering_actor: { login: "watchout" },
+      run_started_at: "2026-08-11T09:40:17.000Z",
+      updated_at: "2026-08-11T09:40:38.000Z",
+      repository: { full_name: "watchout/agent-memory" },
+    },
+    [`/repos/watchout/agent-memory/actions/runs/${runId}/jobs`]: {
+      total_count: 1,
+      jobs: [{
+        id: jobId,
+        name: "rapid-lite-gate",
+        status: "completed",
+        conclusion: "success",
+        steps: [
+          { name: "Resolve PR context", conclusion: "success" },
+          { name: "Checkout PR head", conclusion: "success" },
+          { name: "Collect PR comments", conclusion: "success" },
+          { name: "Run Shirube Rapid/Lite gate", conclusion: "success" },
+          { name: "Upload Shirube report", conclusion: "success" },
+        ],
+      }],
+    },
+  };
+  if (fixtureClass === "unreadable") delete responses[`/repos/watchout/agent-memory/issues/comments/${auditId}`];
+  return {
+    refs: { auditRef, ownerRef },
+    fixture: { schema_version: "kusabi-cas-publication-gate-api-fixture/v1", responses },
+  };
+}
+
+function r0RuntimeRootFixtures() {
+  const isolation = realpathSync(mkdtempSync(join(tmpdir(), "kusabi-r0-root-fixture-")));
+  const stageRoot = join(isolation, "stage");
+  const releaseParent = join(isolation, "sha256");
+  const descriptorSha = "a".repeat(64);
+  const finalRoot = join(releaseParent, descriptorSha);
+  const results = [];
+  try {
+    mkdirSync(releaseParent);
+    mkdirSync(stageRoot);
+    const candidate = resolveR0RuntimeRoot(descriptorSha, { stageRoot, releaseParent });
+    if (candidate.runtime_root !== stageRoot || candidate.runtime_locator_phase !== "candidate_stage") {
+      fail("R0_ROOT_FIXTURE_FALSE_PASS", "candidate stage was not selected");
+    }
+    results.push({ fixture: "candidate-stage", result: "PASS" });
+    renameSync(stageRoot, finalRoot);
+    const published = resolveR0RuntimeRoot(descriptorSha, { stageRoot, releaseParent });
+    if (published.runtime_root !== finalRoot || published.runtime_locator_phase !== "final_cas") {
+      fail("R0_ROOT_FIXTURE_FALSE_PASS", "final CAS was not selected after atomic rename");
+    }
+    results.push({ fixture: "postpublication-final-cas", result: "PASS" });
+    mkdirSync(stageRoot);
+    try {
+      resolveR0RuntimeRoot(descriptorSha, { stageRoot, releaseParent });
+      fail("R0_ROOT_FIXTURE_FALSE_PASS", "ambiguous roots were accepted");
+    } catch (error) {
+      if (error.code !== "CAS_PHASE_AMBIGUOUS") throw error;
+    }
+    results.push({ fixture: "ambiguous-stage-and-final", result: "REJECTED_AS_EXPECTED" });
+    rmSync(stageRoot, { recursive: true, force: false });
+    rmSync(finalRoot, { recursive: true, force: false });
+    try {
+      resolveR0RuntimeRoot(descriptorSha, { stageRoot, releaseParent });
+      fail("R0_ROOT_FIXTURE_FALSE_PASS", "absent roots were accepted");
+    } catch (error) {
+      if (error.code !== "RUNTIME_ROOT_INVALID") throw error;
+    }
+    results.push({ fixture: "absent-stage-and-final", result: "REJECTED_AS_EXPECTED" });
+  } finally {
+    rmSync(isolation, { recursive: true, force: false });
+  }
+  return { verdict: "PASS_POSTPUBLICATION_FINAL_CAS_ROOT_RESOLUTION", results, protected_effect_count: 0 };
+}
+
 function publicationGateFixtures() {
   const subjectResult = runReleaseBuilder(["--mode", "gate-subject"]);
   if (subjectResult.status !== 0) {
@@ -694,6 +914,17 @@ function publicationGateFixtures() {
     { id: "wrong-actor", expected: "GATE_ACTOR_REJECTED" },
     { id: "reordered", expected: "GATE_ORDER_REJECTED" },
     { id: "unreadable", expected: "GATE_READBACK_UNREADABLE" },
+  ];
+  const nativeMatrix = [
+    { id: "native-postmerge-positive", expected: "PASS_AUTHENTICATED_EXACT_ORDERED_GATES", success: true },
+    { id: "native-counterfeit", fixtureClass: "counterfeit", expected: "GATE_RECEIPT_COUNTERFEIT" },
+    { id: "native-stale", fixtureClass: "stale", expected: "GATE_RECEIPT_STALE" },
+    { id: "native-wrong-subject", fixtureClass: "wrong-subject", expected: "GATE_SUBJECT_MISMATCH" },
+    { id: "native-non-PASS", fixtureClass: "non-PASS", expected: "GATE_OUTCOME_REJECTED" },
+    { id: "native-wrong-actor", fixtureClass: "wrong-actor", expected: "GATE_ACTOR_REJECTED" },
+    { id: "native-reordered", fixtureClass: "reordered", expected: "GATE_ORDER_REJECTED" },
+    { id: "native-unreadable", fixtureClass: "unreadable", expected: "GATE_READBACK_UNREADABLE" },
+    { id: "native-hard-gate-drift", fixtureClass: "hard-gate-drift", expected: "GATE_SUBJECT_MISMATCH" },
   ];
   const protectedBefore = publicationProtectedState(releaseSha);
   const results = [];
@@ -728,6 +959,45 @@ function publicationGateFixtures() {
       }
       results.push({
         fixture: entry.id,
+        gate_format: "marked-publication-receipt-triplet",
+        expected: entry.expected,
+        result: entry.success ? "PASS" : "REJECTED_AS_EXPECTED",
+        protected_effect_count: 0,
+      });
+    }
+    for (const entry of nativeMatrix) {
+      const fixtureClass = entry.success ? "positive" : entry.fixtureClass;
+      const built = buildNativePublicationApiFixture(subject, fixtureClass);
+      writeFileSync(fixturePath, `${JSON.stringify(built.fixture, null, 2)}\n`, { mode: 0o600 });
+      const result = runReleaseBuilder([
+        "--mode", "verify-gates",
+        "--audit-ref", built.refs.auditRef,
+        "--owner-go-ref", built.refs.ownerRef,
+        "--expected-release-sha", releaseSha,
+        "--gate-fixture-file", fixturePath,
+      ]);
+      if (entry.success) {
+        if (result.status !== 0) fail("GATE_POSITIVE_FALSE_BLOCK", (result.stderr || result.stdout).trim());
+        const report = JSON.parse(result.stdout.trim());
+        if (
+          report.verdict !== entry.expected || report.gate_format !== "shirube-v3-native-postmerge-audit-owner" ||
+          report.protected_effect_count !== 0
+        ) {
+          fail("GATE_POSITIVE_INVALID", result.stdout.trim());
+        }
+      } else {
+        if (result.status === 0) fail("GATE_NEGATIVE_FALSE_PASS", entry.id);
+        if (!(result.stderr ?? "").includes(entry.expected)) {
+          fail("GATE_NEGATIVE_WRONG_FAILURE", `${entry.id}: ${(result.stderr || result.stdout).trim()}`);
+        }
+      }
+      const protectedAfter = publicationProtectedState(releaseSha);
+      if (canonicalJson(protectedAfter) !== canonicalJson(protectedBefore)) {
+        fail("PROTECTED_EFFECT_DETECTED", `${entry.id} changed staging or final CAS state`);
+      }
+      results.push({
+        fixture: entry.id,
+        gate_format: "shirube-v3-native-postmerge-audit-owner",
         expected: entry.expected,
         result: entry.success ? "PASS" : "REJECTED_AS_EXPECTED",
         protected_effect_count: 0,
@@ -738,11 +1008,12 @@ function publicationGateFixtures() {
   }
   const output = {
     schema_version: "kusabi-cas-publication-gate-fixture-matrix/v1",
-    verdict: "PASS_1_AUTHENTICATED_POSITIVE_7_FAIL_CLOSED_NEGATIVES",
+    verdict: "PASS_2_AUTHENTICATED_POSITIVES_15_FAIL_CLOSED_NEGATIVES",
     exact_subject_sha256: subjectDocument.exact_subject_sha256,
-    positive_count: 1,
-    negative_count: 7,
+    positive_count: 2,
+    negative_count: 15,
     results,
+    r0_runtime_root: r0RuntimeRootFixtures(),
     final_CAS_state: protectedBefore.final.state,
     protected_effect_count: 0,
   };
