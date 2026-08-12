@@ -19,13 +19,16 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPOSITORY = "watchout/agent-memory";
 const PUBLICATION_PR = 286;
+const CORRECTION_PR = 287;
 const PUBLICATION_ISSUE = 285;
 const PUBLICATION_RECEIPT_SCHEMA = "kusabi-cas-publication-gate-receipt/v1";
 const PUBLICATION_RECEIPT_MARKER = "kusabi-cas-publication-gate-receipt/v1";
+const SHIRUBE_GATE_RESULT_SCHEMA = "shirube-v3/gate_result/v1";
+const SHIRUBE_OWNER_DECISION_SCHEMA = "shirube-v3/owner_decision/v1";
 const ALLOWED_GITHUB_ACTORS = new Set(["watchout"]);
 const HARD_GATE_WORKFLOW_NAME = "Shirube Rapid/Lite Gate";
 const HARD_GATE_WORKFLOW_PATH = ".github/workflows/shirube-rapid-lite-gate.yml";
@@ -168,6 +171,18 @@ function git(args) {
   return run("git", args, { code: "BASE_OR_HEAD_DRIFT" });
 }
 
+function gitIsAncestor(ancestor, descendant) {
+  const result = spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  if (result.error) fail("BASE_OR_HEAD_DRIFT", result.error.message);
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  fail("BASE_OR_HEAD_DRIFT", `git merge-base --is-ancestor exited ${result.status}: ${(result.stderr || result.stdout).trim()}`);
+}
+
 function parseArgs(argv) {
   const options = {
     mode: "candidate",
@@ -286,7 +301,7 @@ function loadPublicationSubject(expectedReleaseSha = null) {
   const treeSha = git(["rev-parse", "HEAD^{tree}"]);
   const subject = {
     repository: REPOSITORY,
-    pull_request: PUBLICATION_PR,
+    pull_request: CORRECTION_PR,
     head_sha: headSha,
     tree_sha: treeSha,
     release_descriptor_sha256: releaseDescriptorSha,
@@ -456,6 +471,7 @@ function extractPublicationReceipt(body) {
   const blocks = [];
   let match;
   while ((match = pattern.exec(String(body ?? ""))) !== null) blocks.push(match[1].trim());
+  if (blocks.length === 0) return null;
   if (blocks.length !== 1) fail("GATE_RECEIPT_COUNTERFEIT", `expected one marked receipt block, observed ${blocks.length}`);
   try {
     const receipt = JSON.parse(blocks[0]);
@@ -469,13 +485,115 @@ function extractPublicationReceipt(body) {
   }
 }
 
+function parseYamlScalar(raw, label) {
+  const value = raw.trim();
+  if (!value) fail("GATE_RECEIPT_COUNTERFEIT", `${label} is empty`);
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (value === "null") return null;
+  if (/^-?(?:0|[1-9][0-9]*)$/.test(value)) return Number(value);
+  if (value.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (typeof parsed !== "string") fail("GATE_RECEIPT_COUNTERFEIT", `${label} quoted scalar is not a string`);
+      return parsed;
+    } catch (error) {
+      if (error.code === "GATE_RECEIPT_COUNTERFEIT") throw error;
+      fail("GATE_RECEIPT_COUNTERFEIT", `${label} quoted scalar is invalid`);
+    }
+  }
+  if (value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1).replaceAll("''", "'");
+  if (/^[&*!\[{]/.test(value)) fail("GATE_RECEIPT_COUNTERFEIT", `${label} uses unsupported YAML syntax`);
+  return value;
+}
+
+function parseShirubeArtifact(body) {
+  const source = String(body ?? "");
+  if (source.includes("\r") || source.includes("\t")) {
+    fail("GATE_RECEIPT_COUNTERFEIT", "native Shirube artifact must use LF and spaces only");
+  }
+  const lines = source.split("\n");
+  const root = {};
+  const stack = [{ indent: -1, container: root, path: [] }];
+  const nextContent = (from) => {
+    for (let index = from; index < lines.length; index++) {
+      if (!lines[index].trim() || lines[index].trimStart().startsWith("#")) continue;
+      const indent = lines[index].match(/^ */)[0].length;
+      return { indent, content: lines[index].slice(indent) };
+    }
+    return null;
+  };
+  for (let index = 0; index < lines.length; index++) {
+    const rawLine = lines[index];
+    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
+    const indent = rawLine.match(/^ */)[0].length;
+    if (indent % 2 !== 0) fail("GATE_RECEIPT_COUNTERFEIT", `native Shirube artifact indentation at line ${index + 1}`);
+    const content = rawLine.slice(indent);
+    while (stack.at(-1).indent >= indent) stack.pop();
+    const parent = stack.at(-1);
+    if (!parent) fail("GATE_RECEIPT_COUNTERFEIT", `native Shirube artifact hierarchy at line ${index + 1}`);
+    if (content.startsWith("- ")) {
+      if (!Array.isArray(parent.container)) fail("GATE_RECEIPT_COUNTERFEIT", `unexpected sequence at line ${index + 1}`);
+      parent.container.push(parseYamlScalar(content.slice(2), `${parent.path.join(".")}[${parent.container.length}]`));
+      continue;
+    }
+    if (Array.isArray(parent.container)) fail("GATE_RECEIPT_COUNTERFEIT", `sequence mapping unsupported at line ${index + 1}`);
+    const field = content.match(/^([A-Za-z_][A-Za-z0-9_-]*):(.*)$/);
+    if (!field) fail("GATE_RECEIPT_COUNTERFEIT", `native Shirube artifact syntax at line ${index + 1}`);
+    const [, key, remainder] = field;
+    if (Object.hasOwn(parent.container, key)) fail("GATE_RECEIPT_COUNTERFEIT", `duplicate native field ${[...parent.path, key].join(".")}`);
+    const value = remainder.trim();
+    if ([">", ">-", "|", "|-"].includes(value)) {
+      const block = [];
+      while (index + 1 < lines.length) {
+        const candidate = lines[index + 1];
+        const candidateIndent = candidate.match(/^ */)[0].length;
+        if (candidate.trim() && candidateIndent <= indent) break;
+        index += 1;
+        if (candidate.trim()) block.push(candidate.slice(Math.min(candidate.length, indent + 2)));
+      }
+      parent.container[key] = value.startsWith(">") ? block.join(" ") : block.join("\n");
+      continue;
+    }
+    if (value) {
+      parent.container[key] = parseYamlScalar(value, [...parent.path, key].join("."));
+      continue;
+    }
+    const following = nextContent(index + 1);
+    if (!following || following.indent <= indent) fail("GATE_RECEIPT_COUNTERFEIT", `empty native field ${[...parent.path, key].join(".")}`);
+    const container = following.content.startsWith("- ") ? [] : {};
+    parent.container[key] = container;
+    stack.push({ indent, container, path: [...parent.path, key] });
+  }
+  return root;
+}
+
+function artifactValue(artifact, path, code = "GATE_RECEIPT_COUNTERFEIT") {
+  let value = artifact;
+  for (const key of path) {
+    if (!value || typeof value !== "object" || !Object.hasOwn(value, key)) {
+      fail(code, `native artifact field ${path.join(".")} missing`);
+    }
+    value = value[key];
+  }
+  return value;
+}
+
+function assertArtifactValue(artifact, path, expected, code = "GATE_RECEIPT_COUNTERFEIT") {
+  const observed = artifactValue(artifact, path, code);
+  if (canonicalJson(observed) !== canonicalJson(expected)) {
+    fail(code, `native artifact field ${path.join(".")} mismatch`);
+  }
+  return observed;
+}
+
 function parseTimestamp(value, code, label) {
   const parsed = Date.parse(value);
   if (typeof value !== "string" || !Number.isFinite(parsed)) fail(code, `${label} timestamp invalid`);
   return parsed;
 }
 
-function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
+function readAuthenticatedComment(sourceRef, receiptType, fixture) {
   const ref = parseCommentReceiptRef(sourceRef);
   if (!ref || ref.repository !== REPOSITORY || ![PUBLICATION_ISSUE, PUBLICATION_PR].includes(ref.surface)) {
     fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} ref is outside the exact repository/surface`);
@@ -500,7 +618,31 @@ function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
   if (createdAt !== updatedAt || comment.created_at !== comment.updated_at) {
     fail("GATE_RECEIPT_STALE", `${receiptType} comment was edited`);
   }
-  const receipt = extractPublicationReceipt(comment.body);
+  return {
+    source_ref: sourceRef,
+    comment_id: ref.comment_id,
+    actor,
+    created_at: comment.created_at,
+    created_at_ms: createdAt,
+    body_sha256: sha256(String(comment.body)),
+    body: String(comment.body),
+  };
+}
+
+function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
+  const authenticated = readAuthenticatedComment(sourceRef, receiptType, fixture);
+  const receipt = extractPublicationReceipt(authenticated.body);
+  if (receipt === null) {
+    if (!["independent_audit", "owner_go"].includes(receiptType)) {
+      fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} requires a marked publication receipt`);
+    }
+    const artifact = parseShirubeArtifact(authenticated.body);
+    const expectedSchema = receiptType === "independent_audit" ? SHIRUBE_GATE_RESULT_SCHEMA : SHIRUBE_OWNER_DECISION_SCHEMA;
+    if (artifact.schema_version !== expectedSchema) {
+      fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} native Shirube schema mismatch`);
+    }
+    return { ...authenticated, format: "shirube-v3-native", artifact };
+  }
   assertExactKeys(receipt, [
     "schema_version",
     "receipt_type",
@@ -512,7 +654,7 @@ function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
   if (
     receipt.schema_version !== PUBLICATION_RECEIPT_SCHEMA ||
     receipt.receipt_type !== receiptType ||
-    receipt.authenticated_actor !== actor
+    receipt.authenticated_actor !== authenticated.actor
   ) {
     fail("GATE_RECEIPT_COUNTERFEIT", `${receiptType} schema, type, or actor claim mismatch`);
   }
@@ -523,12 +665,8 @@ function readCommentReceipt(sourceRef, receiptType, expectedSubject, fixture) {
     );
   }
   return {
-    source_ref: sourceRef,
-    comment_id: ref.comment_id,
-    actor,
-    created_at: comment.created_at,
-    created_at_ms: createdAt,
-    body_sha256: sha256(String(comment.body)),
+    ...authenticated,
+    format: "marked-publication-receipt",
     receipt,
   };
 }
@@ -609,6 +747,214 @@ function assertHardGateReceipt(hardGate, owner, audit) {
   }
 }
 
+function assertNativePostmergeAudit(audit, expectedSubject, fixture) {
+  const artifact = audit.artifact;
+  assertArtifactValue(artifact, ["artifact_state"], "FINAL_IMMUTABLE");
+  assertArtifactValue(artifact, ["lifecycle_state"], "TERMINAL_INDEPENDENT_POSTMERGE_AUDIT");
+  assertArtifactValue(artifact, ["control_source"], `https://github.com/${REPOSITORY}/issues/${PUBLICATION_ISSUE}`);
+  assertArtifactValue(artifact, ["execution_context", "active_function"], "evidence_audit_gate");
+  assertArtifactValue(artifact, ["execution_context", "independent_from_maker"], true);
+  assertArtifactValue(artifact, ["execution_context", "self_fix_or_implementation_performed"], false);
+  const checker = artifactValue(artifact, ["execution_context", "actor_agent_id"]);
+  if (checker !== "codex-independent-checker") fail("GATE_OUTCOME_REJECTED", "native audit checker identity mismatch");
+
+  assertArtifactValue(artifact, ["exact_subject", "repository"], REPOSITORY, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(
+    artifact,
+    ["exact_subject", "pull_request"],
+    `https://github.com/${REPOSITORY}/pull/${PUBLICATION_PR}`,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  const authorityTree = artifactValue(artifact, ["exact_subject", "approved_tree"], "GATE_SUBJECT_MISMATCH");
+  const authorityHead = artifactValue(artifact, ["exact_subject", "merge_commit"], "GATE_SUBJECT_MISMATCH");
+  if (!/^[0-9a-f]{40}$/.test(authorityTree) || !/^[0-9a-f]{40}$/.test(authorityHead)) {
+    fail("GATE_SUBJECT_MISMATCH", "native publication authority head or tree SHA invalid");
+  }
+  if (authorityHead === expectedSubject.head_sha || authorityTree === expectedSubject.tree_sha) {
+    fail("GATE_SUBJECT_MISMATCH", "native publication authority was credited as the distinct correction execution subject");
+  }
+  assertArtifactValue(
+    artifact,
+    ["exact_subject", "final_cas_descriptor_sha256"],
+    expectedSubject.release_descriptor_sha256,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  const approvedBase = artifactValue(artifact, ["exact_subject", "approved_base"], "GATE_SUBJECT_MISMATCH");
+  const approvedHead = artifactValue(artifact, ["exact_subject", "approved_head"], "GATE_SUBJECT_MISMATCH");
+  if (!/^[0-9a-f]{40}$/.test(approvedBase) || !/^[0-9a-f]{40}$/.test(approvedHead)) {
+    fail("GATE_SUBJECT_MISMATCH", "native audit approved parent SHA invalid");
+  }
+  const orderedParents = artifactValue(artifact, ["independent_postmerge_readback", "merge_commit", "ordered_parents"]);
+  if (canonicalJson(orderedParents) !== canonicalJson([approvedBase, approvedHead])) {
+    fail("GATE_SUBJECT_MISMATCH", "native audit ordered parents mismatch");
+  }
+  assertArtifactValue(
+    artifact,
+    ["independent_postmerge_readback", "merge_commit", "tree"],
+    authorityTree,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "merge_commit", "signature_verified"], true);
+  assertArtifactValue(
+    artifact,
+    ["independent_postmerge_readback", "main", "exact_head"],
+    authorityHead,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "main", "protected"], true);
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "main", "approved_head_is_ancestor"], true);
+  if (!fixture) {
+    const actualTree = git(["show", "-s", "--format=%T", authorityHead]);
+    if (actualTree !== authorityTree) {
+      fail("GATE_SUBJECT_MISMATCH", "native publication authority tree does not match its merge commit");
+    }
+    const actualParents = git(["show", "-s", "--format=%P", authorityHead]).split(" ").filter(Boolean);
+    if (canonicalJson(actualParents) !== canonicalJson(orderedParents)) {
+      fail("GATE_SUBJECT_MISMATCH", "native audit parents do not match the publication authority merge commit");
+    }
+    if (!gitIsAncestor(authorityHead, expectedSubject.head_sha)) {
+      fail("GATE_SUBJECT_MISMATCH", "publication authority merge is not an ancestor of the correction execution head");
+    }
+  }
+
+  assertArtifactValue(artifact, ["effect_and_scope_readback", "final_cas"], "ABSENT", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["effect_and_scope_readback", "candidate_stage"], "PRESENT", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["effect_and_scope_readback", "audit_effect", "cas_publication"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["goalrun_transition_evidence", "frozen_successor_acceptance"], "A-02-IMMUTABLE-RUNTIME-RELEASE");
+  assertArtifactValue(artifact, ["goalrun_transition_evidence", "successor_current_state"], "UNMET");
+  assertArtifactValue(artifact, ["findings", "blocker_count"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["gate_result", "verdict"], "PASS_EXACT_SUBJECT", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["gate_result", "b04_postmerge_verification"], "PASS", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["gate_result", "b04_removal_predicate"], "SATISFIED", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["gate_result", "protected_effect_count_by_checker"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["gate_result", "successor"], "A-02-IMMUTABLE-RUNTIME-RELEASE");
+  assertArtifactValue(artifact, ["gate_result", "successor_state"], "FROZEN_PENDING_SEPARATE_AUTHORITY");
+  return {
+    approvedBase,
+    approvedHead,
+    authoritySubject: {
+      repository: REPOSITORY,
+      pull_request: PUBLICATION_PR,
+      head_sha: authorityHead,
+      tree_sha: authorityTree,
+      release_descriptor_sha256: expectedSubject.release_descriptor_sha256,
+    },
+  };
+}
+
+function assertNativeOwnerDecision(owner, audit, authoritySubject, approvedHead) {
+  const artifact = owner.artifact;
+  assertArtifactValue(artifact, ["artifact_state"], "FINAL_IMMUTABLE");
+  assertArtifactValue(artifact, ["lifecycle_state"], "APPROVED_A02_INTERNAL_IMMUTABLE_RELEASE");
+  assertArtifactValue(artifact, ["control_source"], `https://github.com/${REPOSITORY}/issues/${PUBLICATION_ISSUE}`);
+  assertArtifactValue(
+    artifact,
+    ["exact_subject", "merged_pr"],
+    `https://github.com/${REPOSITORY}/pull/${PUBLICATION_PR}`,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  assertArtifactValue(artifact, ["exact_subject", "merge"], authoritySubject.head_sha, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(artifact, ["exact_subject", "tree"], authoritySubject.tree_sha, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(artifact, ["exact_subject", "approved_head_parent"], approvedHead, "GATE_SUBJECT_MISMATCH");
+  assertArtifactValue(artifact, ["exact_subject", "post_merge_audit"], audit.source_ref, "GATE_ORDER_REJECTED");
+  assertArtifactValue(artifact, ["exact_subject", "audit_verdict"], "PASS_EXACT_SUBJECT", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["exact_subject", "audit_blockers"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(
+    artifact,
+    ["exact_subject", "release_descriptor_sha256"],
+    authoritySubject.release_descriptor_sha256,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  assertArtifactValue(artifact, ["decision", "result"], "GO", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["decision", "retry_limit"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["decision", "authorized_sequence"], [
+    `create a clean detached checkout of exact merge ${authoritySubject.head_sha}`,
+    "build and validate the frozen release descriptor and invocation fixtures",
+    "publish exactly one immutable internal CAS object at the descriptor-derived path when absent",
+    "read back bytes/digest/provenance from the immutable path",
+    "run the already-frozen non-production R0 A/B temporal validation",
+    "route a different Codex checker for exact release evidence",
+  ], "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["not_authorized"], [
+    "R1 production DEPLOY",
+    "external distribution, customer effect, Ready, approval, merge, runtime production binding change",
+    "database, queue, profile, schema, account, credential, secret, ruleset, or branch-protection mutation",
+  ], "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["next_action", "blocking"], true, "GATE_OUTCOME_REJECTED");
+}
+
+function verifyNativeInheritedHardGate(audit, approvedBase, approvedHead, fixture) {
+  const artifact = audit.artifact;
+  const hardGateRef = artifactValue(artifact, ["immutable_input_readback", "hard_gate_receipt", "ref"]);
+  const expectedBodySha = artifactValue(
+    artifact,
+    ["immutable_input_readback", "hard_gate_receipt", "body_sha256_raw_utf8_no_trailing_lf"]
+  );
+  assertSha256(expectedBodySha, "GATE_RECEIPT_COUNTERFEIT", "native inherited hard gate body");
+  const hardGateComment = readAuthenticatedComment(hardGateRef, "inherited_hard_gate", fixture);
+  if (hardGateComment.body_sha256 !== expectedBodySha) {
+    fail("GATE_SUBJECT_MISMATCH", "native inherited hard gate body digest mismatch");
+  }
+  if (!(hardGateComment.created_at_ms < audit.created_at_ms)) {
+    fail("GATE_ORDER_REJECTED", "native inherited hard gate must precede postmerge audit");
+  }
+  const gate = artifactValue(artifact, ["independent_postmerge_readback", "authenticated_hard_gate"]);
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "authenticated_hard_gate", "event"], "issue_comment");
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "authenticated_hard_gate", "verdict"], "PASS_WITH_WARN", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "authenticated_hard_gate", "hard_block_count"], 0, "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(artifact, ["independent_postmerge_readback", "authenticated_hard_gate", "audit_bridge_status"], "pass", "GATE_OUTCOME_REJECTED");
+  assertArtifactValue(
+    artifact,
+    ["independent_postmerge_readback", "authenticated_hard_gate", "report_head"],
+    approvedHead,
+    "GATE_SUBJECT_MISMATCH"
+  );
+  if (typeof gate.owner_decision_match !== "string" || !gate.owner_decision_match.startsWith("APPROVED_EXACT_HEAD")) {
+    fail("GATE_OUTCOME_REJECTED", "native inherited hard gate owner decision mismatch");
+  }
+  assertSha256(gate.artifact_report_sha256, "GATE_RECEIPT_COUNTERFEIT", "native hard gate report");
+  const ref = parseHardGateRunRef(gate.run);
+  if (!ref || ref.repository !== REPOSITORY) fail("GATE_RECEIPT_COUNTERFEIT", "native hard gate run ref invalid");
+  const run = readGithubApi(`/repos/${REPOSITORY}/actions/runs/${ref.run_id}`, fixture);
+  if (
+    String(run?.id ?? "") !== ref.run_id || run?.html_url !== ref.source_ref || run?.repository?.full_name !== REPOSITORY ||
+    run?.name !== HARD_GATE_WORKFLOW_NAME || run?.path !== HARD_GATE_WORKFLOW_PATH || run?.event !== "issue_comment" ||
+    run?.status !== "completed" || run?.conclusion !== "success" || run?.head_sha !== approvedBase ||
+    run?.run_attempt !== gate.run_attempt || !ALLOWED_GITHUB_ACTORS.has(run?.actor?.login) ||
+    !ALLOWED_GITHUB_ACTORS.has(run?.triggering_actor?.login)
+  ) {
+    fail("GATE_OUTCOME_REJECTED", "native inherited hard gate run identity or SUCCESS predicate failed");
+  }
+  const runStarted = parseTimestamp(run.run_started_at, "GATE_RECEIPT_STALE", "native hard gate run_started_at");
+  const runUpdated = parseTimestamp(run.updated_at, "GATE_RECEIPT_STALE", "native hard gate updated_at");
+  if (runUpdated < runStarted || hardGateComment.created_at_ms < runUpdated) {
+    fail("GATE_ORDER_REJECTED", "native inherited hard gate run timing is not ordered");
+  }
+  const jobs = readGithubApi(`/repos/${REPOSITORY}/actions/runs/${ref.run_id}/jobs`, fixture);
+  if (jobs?.total_count !== 1 || !Array.isArray(jobs.jobs) || jobs.jobs.length !== 1) {
+    fail("GATE_OUTCOME_REJECTED", "native inherited hard gate must contain exactly one job");
+  }
+  const job = jobs.jobs[0];
+  if (job?.name !== HARD_GATE_JOB_NAME || job?.status !== "completed" || job?.conclusion !== "success") {
+    fail("GATE_OUTCOME_REJECTED", "native inherited hard gate job failed");
+  }
+  const steps = new Map((job.steps ?? []).map((step) => [step.name, step.conclusion]));
+  for (const name of HARD_GATE_REQUIRED_STEPS) {
+    if (steps.get(name) !== "success") fail("GATE_OUTCOME_REJECTED", `native hard gate step ${name} did not succeed`);
+  }
+  return {
+    receipt_ref: hardGateRef,
+    receipt_comment_id: hardGateComment.comment_id,
+    receipt_body_sha256: hardGateComment.body_sha256,
+    run_ref: ref.source_ref,
+    run_id: ref.run_id,
+    run_attempt: run.run_attempt,
+    job_id: String(job.id),
+    job_name: job.name,
+    required_step_count: HARD_GATE_REQUIRED_STEPS.length,
+  };
+}
+
 function verifyHardGateRun(hardGate, owner, fixture) {
   const result = hardGate.receipt.gate_result;
   const ref = parseHardGateRunRef(result.workflow_run_ref);
@@ -676,7 +1022,6 @@ function verifyPublicationGates(options) {
   for (const [name, value] of [
     ["audit", options.auditRef],
     ["owner GO", options.ownerGoRef],
-    ["hard gate", options.hardGateRef],
     ["release SHA", options.expectedReleaseSha],
   ]) {
     if (!value) fail("EXACT_GATE_FAILURE", `${name} input missing`);
@@ -684,34 +1029,86 @@ function verifyPublicationGates(options) {
   const context = loadPublicationSubject(options.expectedReleaseSha);
   const fixture = loadGateFixture(options.gateFixtureFile);
   const audit = readCommentReceipt(options.auditRef, "independent_audit", context.subject, fixture);
-  assertAuditReceipt(audit);
   const owner = readCommentReceipt(options.ownerGoRef, "owner_go", context.subject, fixture);
-  assertOwnerReceipt(owner, audit);
-  const hardGate = readCommentReceipt(options.hardGateRef, "hard_gate", context.subject, fixture);
-  assertHardGateReceipt(hardGate, owner, audit);
-  if (!(audit.created_at_ms < owner.created_at_ms && owner.created_at_ms < hardGate.created_at_ms)) {
-    fail("GATE_ORDER_REJECTED", "receipt timestamps must be audit before Owner before hard gate");
+  let gateFormat;
+  let hardGateEvidence;
+  let publicationAuthoritySubject = context.subject;
+  let artifactCreditScope = "EXACT_EXECUTION_SUBJECT";
+  let executionSubjectApprovedBySuppliedArtifacts = true;
+  if (audit.format === "marked-publication-receipt" && owner.format === "marked-publication-receipt") {
+    if (!options.hardGateRef) fail("EXACT_GATE_FAILURE", "hard gate input missing for marked receipt flow");
+    assertAuditReceipt(audit);
+    assertOwnerReceipt(owner, audit);
+    const hardGate = readCommentReceipt(options.hardGateRef, "hard_gate", context.subject, fixture);
+    if (hardGate.format !== "marked-publication-receipt") {
+      fail("GATE_RECEIPT_COUNTERFEIT", "marked receipt flow requires a marked hard gate receipt");
+    }
+    assertHardGateReceipt(hardGate, owner, audit);
+    if (!(audit.created_at_ms < owner.created_at_ms && owner.created_at_ms < hardGate.created_at_ms)) {
+      fail("GATE_ORDER_REJECTED", "receipt timestamps must be audit before Owner before hard gate");
+    }
+    const captureB = parseTimestamp(
+      context.subject.r0.temporal_tuple.capture_b_generated_at,
+      "EXACT_GATE_FAILURE",
+      "R0 capture B"
+    );
+    const activationAt = parseTimestamp(
+      context.subject.r0.temporal_tuple.activation_at,
+      "EXACT_GATE_FAILURE",
+      "R0 activation"
+    );
+    if (audit.created_at_ms < captureB || hardGate.created_at_ms >= activationAt) {
+      fail("GATE_RECEIPT_STALE", "receipts fall outside the exact fresh R0 capture-to-activation window");
+    }
+    const workflow = verifyHardGateRun(hardGate, owner, fixture);
+    gateFormat = "marked-publication-receipt-triplet";
+    hardGateEvidence = {
+      ref: hardGate.source_ref,
+      comment_id: hardGate.comment_id,
+      actor: hardGate.actor,
+      created_at: hardGate.created_at,
+      raw_body_sha256: hardGate.body_sha256,
+      workflow,
+    };
+  } else if (audit.format === "shirube-v3-native" && owner.format === "shirube-v3-native") {
+    const { approvedBase, approvedHead, authoritySubject } = assertNativePostmergeAudit(audit, context.subject, fixture);
+    assertNativeOwnerDecision(owner, audit, authoritySubject, approvedHead);
+    if (!(audit.created_at_ms < owner.created_at_ms)) {
+      fail("GATE_ORDER_REJECTED", "native postmerge audit must precede Owner GO");
+    }
+    const inherited = verifyNativeInheritedHardGate(audit, approvedBase, approvedHead, fixture);
+    if (options.hardGateRef && options.hardGateRef !== inherited.receipt_ref) {
+      fail("GATE_SUBJECT_MISMATCH", "explicit inherited hard gate ref differs from native audit binding");
+    }
+    gateFormat = "shirube-v3-native-postmerge-audit-owner";
+    hardGateEvidence = inherited;
+    publicationAuthoritySubject = authoritySubject;
+    artifactCreditScope = "PUBLICATION_AUTHORITY_ONLY";
+    executionSubjectApprovedBySuppliedArtifacts = false;
+  } else {
+    fail("GATE_RECEIPT_COUNTERFEIT", "audit and Owner GO must use the same recognized receipt format");
   }
-  const captureB = parseTimestamp(
-    context.subject.r0.temporal_tuple.capture_b_generated_at,
-    "EXACT_GATE_FAILURE",
-    "R0 capture B"
-  );
-  const activationAt = parseTimestamp(
-    context.subject.r0.temporal_tuple.activation_at,
-    "EXACT_GATE_FAILURE",
-    "R0 activation"
-  );
-  if (audit.created_at_ms < captureB || hardGate.created_at_ms >= activationAt) {
-    fail("GATE_RECEIPT_STALE", "receipts fall outside the exact fresh R0 capture-to-activation window");
-  }
-  const workflow = verifyHardGateRun(hardGate, owner, fixture);
   assertPublicationInputsStable(context);
   return {
     schema_version: "kusabi-cas-publication-gate-verification/v1",
     verdict: "PASS_AUTHENTICATED_EXACT_ORDERED_GATES",
+    gate_format: gateFormat,
+    artifact_credit_scope: artifactCreditScope,
+    execution_subject_approved_by_supplied_artifacts: executionSubjectApprovedBySuppliedArtifacts,
     exact_subject_sha256: sha256(canonicalJson(context.subject)),
     exact_subject: context.subject,
+    execution_subject_sha256: sha256(canonicalJson(context.subject)),
+    execution_subject: context.subject,
+    publication_authority_subject_sha256: sha256(canonicalJson(publicationAuthoritySubject)),
+    publication_authority_subject: publicationAuthoritySubject,
+    subject_relationship: {
+      relationship: publicationAuthoritySubject === context.subject
+        ? "IDENTICAL_EXACT_SUBJECT"
+        : "DISTINCT_PUBLICATION_AUTHORITY_AND_CORRECTION_EXECUTION",
+      publication_authority_is_ancestor_of_execution: publicationAuthoritySubject === context.subject ? null : true,
+      release_descriptor_sha256_equal:
+        publicationAuthoritySubject.release_descriptor_sha256 === context.subject.release_descriptor_sha256,
+    },
     receipts: {
       independent_audit: {
         ref: audit.source_ref,
@@ -719,6 +1116,9 @@ function verifyPublicationGates(options) {
         actor: audit.actor,
         created_at: audit.created_at,
         raw_body_sha256: audit.body_sha256,
+        format: audit.format,
+        credit_scope: artifactCreditScope,
+        execution_subject_approved: executionSubjectApprovedBySuppliedArtifacts,
       },
       owner_go: {
         ref: owner.source_ref,
@@ -726,15 +1126,11 @@ function verifyPublicationGates(options) {
         actor: owner.actor,
         created_at: owner.created_at,
         raw_body_sha256: owner.body_sha256,
+        format: owner.format,
+        credit_scope: artifactCreditScope,
+        execution_subject_approved: executionSubjectApprovedBySuppliedArtifacts,
       },
-      hard_gate: {
-        ref: hardGate.source_ref,
-        comment_id: hardGate.comment_id,
-        actor: hardGate.actor,
-        created_at: hardGate.created_at,
-        raw_body_sha256: hardGate.body_sha256,
-        workflow,
-      },
+      hard_gate: hardGateEvidence,
     },
     protected_effect_count: 0,
     context,
@@ -828,6 +1224,59 @@ function assertSourceBoundary() {
   const unauthorized = statusPaths().filter((path) => !WRITABLE_PATHS.has(path));
   if (unauthorized.length) fail("PATH_SCOPE_VIOLATION", unauthorized.join(","));
   if (!existsSync(INVALID_ROOT) || realpathSync(INVALID_ROOT) !== INVALID_ROOT) fail("BASE_OR_HEAD_DRIFT", "invalid historical CAS missing or redirected");
+}
+
+export function resolveR0RuntimeRoot(descriptorSha, roots = {}) {
+  assertSha256(descriptorSha, "RUNTIME_ROOT_INVALID", "R0 release descriptor");
+  const stageRoot = roots.stageRoot ?? STAGE_ROOT;
+  const releaseParent = roots.releaseParent ?? RELEASE_PARENT;
+  if (resolve(stageRoot) !== stageRoot || resolve(releaseParent) !== releaseParent) {
+    fail("RUNTIME_ROOT_INVALID", "R0 runtime roots must be absolute normalized paths");
+  }
+  const finalRoot = join(releaseParent, descriptorSha);
+  const stagePresent = existsSync(stageRoot);
+  const finalPresent = existsSync(finalRoot);
+  if (stagePresent && finalPresent) fail("CAS_PHASE_AMBIGUOUS", "candidate stage and final CAS both exist");
+  const runtimeRoot = finalPresent ? finalRoot : stagePresent ? stageRoot : null;
+  if (!runtimeRoot || lstatSync(runtimeRoot).isSymbolicLink() || !statSync(runtimeRoot).isDirectory() || realpathSync(runtimeRoot) !== runtimeRoot) {
+    fail("RUNTIME_ROOT_INVALID", "neither an exact final CAS nor candidate stage is available");
+  }
+  return {
+    runtime_root: runtimeRoot,
+    runtime_locator_phase: finalPresent ? "final_cas" : "candidate_stage",
+    final_root: finalRoot,
+  };
+}
+
+function assertR0SourceBoundary(runtimeBinding, releaseEvidence) {
+  if (runtimeBinding.runtime_locator_phase === "candidate_stage") {
+    assertSourceBoundary();
+    return;
+  }
+  if (git(["rev-parse", BASE_COMMIT]) !== BASE_COMMIT) fail("BASE_OR_HEAD_DRIFT", "base commit unavailable");
+  if (git(["rev-parse", `${BASE_COMMIT}^{tree}`]) !== BASE_TREE) fail("BASE_OR_HEAD_DRIFT", "base tree mismatch");
+  const productDiff = git(["diff", "--name-only", BASE_COMMIT, "--", "src", "package-lock.json", "docs/design/schemas"]);
+  if (productDiff) fail("PATH_SCOPE_VIOLATION", productDiff.replaceAll("\n", ","));
+  const releaseEvidencePath = relative(process.cwd(), EVIDENCE_PATH);
+  const unauthorized = statusPaths().filter((path) => path !== releaseEvidencePath);
+  if (unauthorized.length) fail("PATH_SCOPE_VIOLATION", unauthorized.join(","));
+  if (!existsSync(INVALID_ROOT) || realpathSync(INVALID_ROOT) !== INVALID_ROOT) fail("BASE_OR_HEAD_DRIFT", "invalid historical CAS missing or redirected");
+  if (
+    releaseEvidence.lifecycle_state !== "FINAL_CAS_PUBLISHED_AND_VERIFIED" ||
+    releaseEvidence.release?.runtime_root !== runtimeBinding.runtime_root ||
+    releaseEvidence.release?.runtime_root_realpath !== runtimeBinding.runtime_root ||
+    releaseEvidence.release?.publication?.status !== "PASS_FINAL_CAS_READBACK"
+  ) {
+    fail("BASE_OR_HEAD_DRIFT", "release evidence does not bind the exact final CAS");
+  }
+  const gateSubject = releaseEvidence.gates?.exact_subject;
+  if (
+    gateSubject?.head_sha !== git(["rev-parse", "HEAD"]) ||
+    gateSubject?.tree_sha !== git(["rev-parse", "HEAD^{tree}"]) ||
+    gateSubject?.release_descriptor_sha256 !== releaseEvidence.release?.release_descriptor_sha256
+  ) {
+    fail("BASE_OR_HEAD_DRIFT", "final CAS gate subject differs from the clean publication head");
+  }
 }
 
 function dependencyInventory(root, sourceLock) {
@@ -1237,12 +1686,23 @@ function comparePreimages(current, predecessor) {
   return { rows, exact_count: rows.filter(({ exact }) => exact).length, total_count: rows.length };
 }
 
-async function buildR0Capture({ label, observedAt, logicalCapturedAt, temporal, predecessor, releaseEvidence, inventory, targets, fleet }) {
+async function buildR0Capture({
+  label,
+  observedAt,
+  logicalCapturedAt,
+  temporal,
+  predecessor,
+  releaseEvidence,
+  inventory,
+  targets,
+  fleet,
+  runtimeBinding,
+}) {
   const result = await fleet.prepareKusabiFleetR0({
     manifest_id: "kusabi-alpha-obs05-fleet-20260805-v4-candidate",
     manifest_version: 4,
     rollout_id: "kusabi-alpha-obs05-rollout-20260805-v4-candidate",
-    runtime_root: STAGE_ROOT,
+    runtime_root: runtimeBinding.runtime_root,
     commit_sha: BASE_COMMIT,
     tree_sha: BASE_TREE,
     activation_at: temporal.activation_at,
@@ -1260,7 +1720,7 @@ async function buildR0Capture({ label, observedAt, logicalCapturedAt, temporal, 
     database_observed_at: observedAt,
     logical_snapshot_captured_at: logicalCapturedAt,
     release_descriptor_sha256: releaseEvidence.release.release_descriptor_sha256,
-    runtime_locator_phase: "candidate_stage",
+    runtime_locator_phase: runtimeBinding.runtime_locator_phase,
     primary_workspace_row_count: 33,
     result,
   };
@@ -1268,13 +1728,14 @@ async function buildR0Capture({ label, observedAt, logicalCapturedAt, temporal, 
 }
 
 async function r0Candidate() {
-  assertSourceBoundary();
   if (!existsSync(EVIDENCE_PATH) || !existsSync(PREDECESSOR_R0_PATH)) fail("R0_INPUT_MISSING", "release or predecessor evidence");
   const releaseEvidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8"));
   const descriptorSha = releaseEvidence.release?.release_descriptor_sha256;
-  const readback = exactReadback(STAGE_ROOT, descriptorSha);
+  const runtimeBinding = resolveR0RuntimeRoot(descriptorSha);
+  assertR0SourceBoundary(runtimeBinding, releaseEvidence);
+  const readback = exactReadback(runtimeBinding.runtime_root, descriptorSha);
   const predecessor = JSON.parse(readFileSync(PREDECESSOR_R0_PATH, "utf8"));
-  const fleet = await import(`${pathToFileURL(resolve("dist/kusabi-fleet-rollout.js")).href}?r0=${Date.now()}`);
+  const fleet = await import(`${pathToFileURL(join(runtimeBinding.runtime_root, "dist/kusabi-fleet-rollout.js")).href}?r0=${Date.now()}`);
   const rows = workspaceRows();
   const workspaceByIdentity = new Map(rows.map((row) => [`${row.agent_id}\n${row.project}`, row.local_path]));
   const stableRefs = new Map(predecessor.capture_b.stable_binding_refs.map((item) => [item.target_key, item]));
@@ -1315,12 +1776,14 @@ async function r0Candidate() {
   const captureA = await buildR0Capture({
     label: "A", observedAt: generatedAtA, logicalCapturedAt, predecessor, releaseEvidence, inventory, targets, fleet,
     temporal: { activation_at: activation.toISOString(), durable_evidence_deadline_at: deadline.toISOString() },
+    runtimeBinding,
   });
   let observedB = new Date().toISOString();
   while (observedB === generatedAtA) observedB = new Date().toISOString();
   const captureB = await buildR0Capture({
     label: "B", observedAt: observedB, logicalCapturedAt, predecessor, releaseEvidence, inventory, targets, fleet,
     temporal: { activation_at: activation.toISOString(), durable_evidence_deadline_at: deadline.toISOString() },
+    runtimeBinding,
   });
   const temporalWindow = {
     capture_a_generated_at: generatedAtA,
@@ -1329,9 +1792,14 @@ async function r0Candidate() {
     planned_R1_start_at: planned.toISOString(),
     durable_evidence_deadline_at: deadline.toISOString(),
     declared_margin_seconds: 21_600,
-    owner_go_created_at: null,
+    owner_go_created_at: runtimeBinding.runtime_locator_phase === "final_cas"
+      ? releaseEvidence.gates?.receipts?.owner_go?.created_at ?? null
+      : null,
   };
-  assertFreshWindow(temporalWindow);
+  if (runtimeBinding.runtime_locator_phase === "final_cas" && temporalWindow.owner_go_created_at === null) {
+    fail("EXACT_GATE_FAILURE", "postpublication R0 requires authenticated Owner GO time");
+  }
+  assertFreshWindow(temporalWindow, temporalWindow.owner_go_created_at);
   const aResult = captureA.result;
   const bResult = captureB.result;
   const targetDigestA = targetSetSha(aResult);
@@ -1361,7 +1829,9 @@ async function r0Candidate() {
   const payload = {
     schema_version: "kusabi-fleet-r0-candidate-pack/v3",
     lifecycle_version: 4,
-    lifecycle_state: "FRESH_CANDIDATE_A_B_AWAITING_INDEPENDENT_GATES",
+    lifecycle_state: runtimeBinding.runtime_locator_phase === "final_cas"
+      ? "FRESH_POSTPUBLICATION_R0_A_B_AWAITING_INDEPENDENT_CHECKER"
+      : "FRESH_CANDIDATE_A_B_AWAITING_INDEPENDENT_GATES",
     control_source: {
       plan_ref: "https://github.com/watchout/agent-memory/issues/285",
       plan_body_sha256: PLAN_SHA256,
@@ -1377,7 +1847,7 @@ async function r0Candidate() {
       resource_ledger_sha256: readback.resources.ledger_sha256,
       production_dependency_inventory_sha256: readback.dependencies.canonical_sha256,
       candidate_invocation_conformance_sha256: releaseEvidence.release.candidate_invocation_ledger.conformance_sha256,
-      runtime_locator_phase: "candidate_stage",
+      runtime_locator_phase: runtimeBinding.runtime_locator_phase,
       proposed_final_root: releaseEvidence.release.proposed_final_root,
     },
     temporal_window: temporalWindow,
@@ -1419,19 +1889,23 @@ async function r0Candidate() {
       R1_R2_R3_actions: 0,
     },
     gate_result: {
-      verdict: "PASS_FRESH_R0_A_B_TEMPORAL_CANDIDATE",
+      verdict: runtimeBinding.runtime_locator_phase === "final_cas"
+        ? "PASS_FRESH_POSTPUBLICATION_R0_A_B_TEMPORAL_VALIDATION"
+        : "PASS_FRESH_R0_A_B_TEMPORAL_CANDIDATE",
       blocker_count: 0,
       independent_audit_required: true,
-      owner_go_required_after_audit: true,
-      hard_gate_required_after_owner_go: true,
-      final_R0_regeneration_after_CAS_publication_required: true,
+      owner_go_required_after_audit: runtimeBinding.runtime_locator_phase !== "final_cas",
+      hard_gate_required_after_owner_go: runtimeBinding.runtime_locator_phase !== "final_cas",
+      final_R0_regeneration_after_CAS_publication_required: runtimeBinding.runtime_locator_phase !== "final_cas",
       R1_authorized: false,
     },
     next_action: {
       blocking: true,
       actor_agent_id: "codex-audit",
       active_function: "evidence_audit_gate",
-      action: "Audit the exact Draft head/tree, release candidate, invocation/resource ledgers, fresh R0 A/B equality, temporal window, and zero-effect evidence.",
+      action: runtimeBinding.runtime_locator_phase === "final_cas"
+        ? "Audit the exact final CAS, invocation/resource ledgers, fresh postpublication R0 A/B equality, temporal window, and zero-effect evidence."
+        : "Audit the exact Draft head/tree, release candidate, invocation/resource ledgers, fresh R0 A/B equality, temporal window, and zero-effect evidence.",
       deliver_via: "Immutable Draft PR comment and Issue 285 receipt",
       exact_input_refs: [A2_REF, `release:sha256:${descriptorSha}`, `file:${relative(process.cwd(), R0_EVIDENCE_PATH)}`],
       scope: "Read-only exact-subject audit; no implementation, owner decision, publication, or rollout.",
@@ -1442,7 +1916,9 @@ async function r0Candidate() {
   const document = { ...payload, evidence_payload_sha256: sha256(canonicalJson(payload)) };
   writeFileSync(R0_EVIDENCE_PATH, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o644 });
   process.stdout.write(`${JSON.stringify({
-    verdict: "PASS_R0_CANDIDATE",
+    verdict: runtimeBinding.runtime_locator_phase === "final_cas" ? "PASS_R0_FINAL_CAS" : "PASS_R0_CANDIDATE",
+    runtime_root: runtimeBinding.runtime_root,
+    runtime_locator_phase: runtimeBinding.runtime_locator_phase,
     evidence_path: R0_EVIDENCE_PATH,
     manifest_sha256: bResult.manifest.manifest_sha256,
     rollout_plan_sha256: bResult.rollout_plan.rollout_plan_sha256,
@@ -1498,12 +1974,12 @@ function publish(options) {
     final_publication_authorized: true,
   };
   evidence.next_action = {
-    blocking: false,
+    blocking: true,
     actor_agent_id: "kusabi",
     active_function: "implementation_executor",
     action: "Generate and verify the fresh R0 A/B temporal subject before R1.",
     deliver_via: "R0 v4 evidence and GoalRun successor",
-    exact_input_refs: [`release:sha256:${descriptorSha}`, options.auditRef, options.ownerGoRef, options.hardGateRef],
+    exact_input_refs: [`release:sha256:${descriptorSha}`, options.auditRef, options.ownerGoRef, options.hardGateRef].filter(Boolean),
     scope: "Exact frozen 35 targets and 3/11/21 membership; no rollout effect.",
     deliverable: "Fresh equal R0 A/B with non-stale owner-bound temporal window.",
     completion_evidence: "R0 v4 file digest and deterministic equality/temporal receipts.",
@@ -1521,24 +1997,33 @@ function readback(options) {
   process.stdout.write(`${JSON.stringify({ verdict: "PASS_READBACK", root, descriptor_sha256: descriptorSha, runtime_tree_sha256: result.runtime.tree_sha256, resource_ledger_sha256: result.resources.ledger_sha256 })}\n`);
 }
 
-try {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.mode === "candidate") candidate();
   else if (options.mode === "r0") await r0Candidate();
   else if (options.mode === "publish") publish(options);
   else if (options.mode === "gate-subject") {
     const context = loadPublicationSubject(options.expectedReleaseSha);
+    const executionSubjectSha256 = sha256(canonicalJson(context.subject));
     process.stdout.write(`${JSON.stringify({
       schema_version: "kusabi-cas-publication-gate-subject/v1",
-      exact_subject_sha256: sha256(canonicalJson(context.subject)),
+      exact_subject_sha256: executionSubjectSha256,
       exact_subject: context.subject,
+      execution_subject_sha256: executionSubjectSha256,
+      execution_subject: context.subject,
     })}\n`);
   } else if (options.mode === "verify-gates") {
     const { context: _context, ...report } = verifyPublicationGates(options);
     process.stdout.write(`${JSON.stringify(report)}\n`);
   }
   else readback(options);
-} catch (error) {
-  process.stderr.write(`${error.code ?? "UNEXPECTED"}: ${error.stack ?? error.message}\n`);
-  process.exitCode = 1;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await main();
+  } catch (error) {
+    process.stderr.write(`${error.code ?? "UNEXPECTED"}: ${error.stack ?? error.message}\n`);
+    process.exitCode = 1;
+  }
 }
