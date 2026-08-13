@@ -338,6 +338,57 @@ async function main(): Promise<void> {
     const failureReport = JSON.parse(await readFile(join(rollbackOutput, "direct-rollout-failure-report.json"), "utf8"));
     check(failureReport.status === "failed_rolled_back", "rollback result is persisted as JSON evidence");
 
+    const evidenceFailurePlan = join(root, "evidence-failure-plan");
+    const evidenceFailureFixed = {
+      ...fixed,
+      captured_at: "2026-08-13T11:01:30.000Z",
+      activation_at: "2026-08-13T11:01:30.000Z",
+    };
+    const beforeEvidenceFailure = await readAllConfigs(rows);
+    await runKusabiDirectFleetRollout({ ...evidenceFailureFixed, output_dir: evidenceFailurePlan });
+    const evidenceFailureSeal = JSON.parse(await readFile(join(evidenceFailurePlan, "plan-seal.json"), "utf8"));
+    const evidenceFailureAuthorizationFile = join(root, "evidence-failure-authorization.json");
+    await writeFile(evidenceFailureAuthorizationFile, JSON.stringify(sealKusabiDirectRolloutAuthorization({
+      expected_head: "1".repeat(40),
+      plan_seal_sha256: evidenceFailureSeal.plan_seal_sha256,
+      decision_id: "owner-direct-test-evidence-failure-20260813",
+      decision_ref_sha256: sha256("owner-directive:test-fixture-evidence-failure"),
+      independent_audit_sha256: sha256("independent-audit:fixture-evidence-failure-pass"),
+    })), { mode: 0o400 });
+    const evidenceFailureOutput = join(root, "evidence-failure-output");
+    let evidenceApplyAttemptCount = 0;
+    try {
+      await runKusabiDirectFleetRollout({
+        ...evidenceFailureFixed,
+        apply: true,
+        output_dir: evidenceFailureOutput,
+        plan_dir: evidenceFailurePlan,
+        authorization_file: evidenceFailureAuthorizationFile,
+        test_before_target_apply: async () => {
+          evidenceApplyAttemptCount++;
+          if (evidenceApplyAttemptCount !== 4) return;
+          await mkdir(join(evidenceFailureOutput, "apply-r2-pilot.json"));
+          throw new Error("fixture second-batch failure with blocked evidence path");
+        },
+      });
+      assert.fail("expected evidence-write failure rollback");
+    } catch (error) {
+      assert(error instanceof KusabiDirectFleetRolloutError);
+      check(error.report?.status === "failed_rolled_back" && error.report.summary.rollback_count === 4,
+        "evidence write failure cannot prevent rollback of a completed prior batch and partial effects");
+      check(error.report?.evidence_errors.some(({ artifact, code }) =>
+        artifact === "apply-r2-pilot.json" && code.length > 0),
+      "partial-report write failure is aggregated separately from configuration rollback");
+    }
+    const afterEvidenceFailure = await readAllConfigs(rows);
+    check([...beforeEvidenceFailure].every(([path, raw]) => afterEvidenceFailure.get(path)?.equals(raw)),
+      "partial batch is restored before failed evidence persistence is attempted");
+    const evidenceFailureReport = JSON.parse(await readFile(
+      join(evidenceFailureOutput, "direct-rollout-failure-report.json"), "utf8"));
+    check(evidenceFailureReport.status === "failed_rolled_back" &&
+      evidenceFailureReport.evidence_errors.some((item: any) => item.artifact === "apply-r2-pilot.json"),
+    "available failure evidence persists the separate evidence-write error");
+
     const conflictPlan = join(root, "conflict-plan");
     const conflictFixed = {
       ...fixed,

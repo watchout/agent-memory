@@ -240,6 +240,7 @@ export interface KusabiDirectFleetRolloutReport {
     rollback_error_count: number;
   };
   trust_blockers: Array<{ target_key: string; host_runtime: KusabiHostRuntime }>;
+  evidence_errors: Array<{ artifact: string; code: string }>;
   failure: { code: string; message: string } | null;
   report_sha256: string;
 }
@@ -1075,6 +1076,7 @@ export async function runKusabiDirectFleetRollout(
         target_key: target.target_key,
         host_runtime: target.host_runtime,
       })),
+      evidence_errors: [],
       failure: null,
     });
     if (outputDir) {
@@ -1211,16 +1213,18 @@ export async function runKusabiDirectFleetRollout(
         rollback_error_count: 0,
       },
       trust_blockers: trustBlockers,
+      evidence_errors: [],
       failure: null,
     });
     await writeJson(join(outputDir, "observations.json"), report.observations);
     await writeJson(join(outputDir, "direct-rollout-report.json"), report);
     return report;
   } catch (error) {
+    let partialApplyReport: KusabiFleetApplyBatchReport | undefined;
     if (error instanceof KusabiFleetRolloutError && error.apply_report !== undefined &&
       !applyReports.some(({ batch_id }) => batch_id === error.apply_report!.batch_id)) {
-      applyReports.push(error.apply_report);
-      await writeJson(join(outputDir, `apply-${error.apply_report.batch_id}.json`), error.apply_report);
+      partialApplyReport = error.apply_report;
+      applyReports.push(partialApplyReport);
     }
     const appliedPostimages = new Map(applyReports.flatMap((report) =>
       report.effect_targets.map((target) => [target.target_key, target.expected_postimage_sha256] as const)
@@ -1238,7 +1242,21 @@ export async function runKusabiDirectFleetRollout(
     const failure = error instanceof KusabiFleetRolloutError && error.apply_report?.failure_code
       ? { code: error.apply_report.failure_code, message: error.apply_report.failure_code }
       : failureDetails(error);
-    const report = sealDirectReport({
+    const evidenceErrors: KusabiDirectFleetRolloutReport["evidence_errors"] = [];
+    const partialArtifact = partialApplyReport === undefined ? null : `apply-${partialApplyReport.batch_id}.json`;
+    if (partialApplyReport !== undefined && partialArtifact !== null) {
+      try {
+        await writeJson(join(outputDir, partialArtifact), partialApplyReport);
+      } catch (evidenceError) {
+        evidenceErrors.push({
+          artifact: partialArtifact,
+          code: typeof (evidenceError as NodeJS.ErrnoException).code === "string"
+            ? String((evidenceError as NodeJS.ErrnoException).code)
+            : "KUSABI_DIRECT_EVIDENCE_WRITE_FAILED",
+        });
+      }
+    }
+    const buildFailureReport = () => sealDirectReport({
       schema_version: "kusabi-direct-fleet-rollout-report/v1",
       ...reportBase,
       status: rollbackErrors.length === 0 ? "failed_rolled_back" : "failed_rollback_incomplete",
@@ -1260,12 +1278,26 @@ export async function runKusabiDirectFleetRollout(
         target_key: observation.target_key,
         host_runtime: r0.manifest.targets.find(({ target_key }) => target_key === observation.target_key)!.identity.host_runtime,
       })),
+      evidence_errors: evidenceErrors,
       failure: rollbackErrors.length === 0 ? failure : {
         code: "KUSABI_DIRECT_ROLLBACK_INCOMPLETE",
         message: `${failure.message}; ${rollbackErrors.join(";")}`,
       },
     });
-    await writeJson(join(outputDir, "direct-rollout-failure-report.json"), report);
+    // Configuration recovery above never depends on evidence-directory
+    // availability. Persist only after every rollback attempt has completed.
+    let report = buildFailureReport();
+    try {
+      await writeJson(join(outputDir, "direct-rollout-failure-report.json"), report);
+    } catch (evidenceError) {
+      evidenceErrors.push({
+        artifact: "direct-rollout-failure-report.json",
+        code: typeof (evidenceError as NodeJS.ErrnoException).code === "string"
+          ? String((evidenceError as NodeJS.ErrnoException).code)
+          : "KUSABI_DIRECT_EVIDENCE_WRITE_FAILED",
+      });
+      report = buildFailureReport();
+    }
     throw new KusabiDirectFleetRolloutError(report.failure!.code, report.failure!.message, report);
   }
 }
