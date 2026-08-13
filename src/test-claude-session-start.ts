@@ -160,6 +160,7 @@ async function main(): Promise<void> {
       loadRecovery: async () => loaded(),
     });
     assert.equal(manualMode.evidence.hook.permission_mode, "manual");
+    assert(validateEvidence(manualMode.evidence), JSON.stringify(validateEvidence.errors));
 
     const invalidPermissionMode = await runClaudeSessionStart(
       JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "allowEverything" }),
