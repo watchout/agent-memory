@@ -242,7 +242,12 @@ async function createSourceFixtures(root: string): Promise<Record<"antigravity_c
   const claude = join(root, "claude");
   const gemini = join(root, "gemini");
   const antigravity = join(root, "antigravity");
-  const antigravityLogs = join(antigravity, "session-antigravity", ".system_generated", "logs");
+  const antigravityLogs = join(
+    antigravity,
+    "123e4567-e89b-42d3-a456-426614174000",
+    ".system_generated",
+    "logs",
+  );
   await Promise.all([mkdir(codex, { recursive: true }), mkdir(claude, { recursive: true }), mkdir(gemini, { recursive: true }), mkdir(antigravityLogs, { recursive: true })]);
   await writeFile(join(codex, "session-codex.jsonl"), `${JSON.stringify({
     timestamp: "2026-08-02T00:01:00.000Z",
