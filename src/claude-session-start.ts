@@ -43,9 +43,10 @@ import {
 import { createStore } from "./stores/index.js";
 
 export const CLAUDE_SESSION_START_ADAPTER_ID = "wasurezu-claude-session-start" as const;
-export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.2" as const;
+export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.3" as const;
 export const CLAUDE_SESSION_START_EVIDENCE_SCHEMA = "claude-session-start-evidence/v1" as const;
-export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2026-07-27" as const;
+export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2.1.220" as const;
+export const CLAUDE_SESSION_START_MODEL_UNSPECIFIED = "claude-code-host-unspecified" as const;
 export const CLAUDE_SESSION_START_INPUT_MAX_BYTES = CODEX_SESSION_START_INPUT_MAX_BYTES;
 export const CLAUDE_SESSION_START_MAX_TOKENS = CODEX_SESSION_START_MAX_TOKENS;
 export const CLAUDE_SESSION_START_MAX_BYTES = CODEX_SESSION_START_MAX_BYTES;
@@ -65,12 +66,11 @@ const PERMISSION_MODES = [
 const REQUIRED_FIELDS = [
   "cwd",
   "hook_event_name",
-  "model",
   "session_id",
   "source",
   "transcript_path",
 ] as const;
-const OPTIONAL_FIELDS = ["agent_type", "permission_mode"] as const;
+const OPTIONAL_FIELDS = ["agent_type", "model", "permission_mode"] as const;
 
 export type ClaudeSessionStartSource = typeof START_SOURCES[number];
 export type ClaudeSessionStartPermissionMode = typeof PERMISSION_MODES[number];
@@ -185,7 +185,7 @@ export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInp
     !nonEmptyString(input.session_id) ||
     !nonEmptyString(input.transcript_path) ||
     !nonEmptyString(input.cwd) ||
-    typeof input.model !== "string" ||
+    !(input.model === undefined || typeof input.model === "string") ||
     !(
       input.permission_mode === undefined ||
       (
@@ -202,7 +202,9 @@ export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInp
     transcript_path: input.transcript_path,
     cwd: input.cwd,
     hook_event_name: "SessionStart",
-    model: input.model,
+    // Claude Code 2.1.220 omits model from native SessionStart stdin. Do not
+    // infer a model from process state; normalize the omission explicitly.
+    model: typeof input.model === "string" ? input.model : CLAUDE_SESSION_START_MODEL_UNSPECIFIED,
     source: input.source as ClaudeSessionStartSource,
     ...(typeof input.permission_mode === "string"
       ? { permission_mode: input.permission_mode as ClaudeSessionStartPermissionMode }
