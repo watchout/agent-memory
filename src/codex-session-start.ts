@@ -78,6 +78,8 @@ export interface CodexSessionStartBinding {
   max_tokens: number;
   max_bytes: number;
   timeout_ms: number;
+  /** Optional immutable fleet manifest used for automatic durable runtime events. */
+  runtime_event_manifest_path?: string;
 }
 
 export interface CodexSessionStartOutput {
@@ -401,7 +403,16 @@ export function normalizeCodexSessionStartBinding(
     max_tokens: boundedInteger(binding.max_tokens, 500, CODEX_SESSION_START_MAX_TOKENS),
     max_bytes: boundedInteger(binding.max_bytes, 1_024, CODEX_SESSION_START_MAX_BYTES),
     timeout_ms: boundedInteger(binding.timeout_ms, 100, CODEX_SESSION_START_INTERNAL_TIMEOUT_MS),
+    ...(binding.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: normalizeRuntimeEventManifestPath(binding.runtime_event_manifest_path),
+    }),
   };
+}
+
+function normalizeRuntimeEventManifestPath(value: unknown): string {
+  const path = nonEmpty(value, "runtime_event_manifest_path");
+  if (!isAbsolute(path) || resolve(path) !== path) throw new HookDegradedError("IDENTITY_BINDING_INVALID");
+  return path;
 }
 
 export function parseCodexSessionStartInput(raw: string): CodexSessionStartInput {
@@ -632,6 +643,9 @@ function safeBindingForEvidence(binding: CodexSessionStartBinding): CodexSession
     timeout_ms: Number.isInteger(binding.timeout_ms) && binding.timeout_ms >= 100 && binding.timeout_ms <= CODEX_SESSION_START_INTERNAL_TIMEOUT_MS
       ? binding.timeout_ms
       : CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
+    ...(typeof binding.runtime_event_manifest_path === "string" ? {
+      runtime_event_manifest_path: binding.runtime_event_manifest_path,
+    } : {}),
   };
 }
 
@@ -879,6 +893,7 @@ export function parseCodexSessionStartArgs(
     project: env.AGENT_MEMORY_PROJECT,
     workspace: env.AGENT_MEMORY_WORKSPACE,
     binding_source_ref: env.AGENT_MEMORY_BINDING_SOURCE_REF,
+    runtime_event_manifest_path: undefined,
   };
   let maxTokens = CODEX_SESSION_START_MAX_TOKENS;
   let maxBytes = CODEX_SESSION_START_MAX_BYTES;
@@ -897,6 +912,7 @@ export function parseCodexSessionStartArgs(
     else if (arg === "--max-tokens") maxTokens = parsePositiveInteger(next(), arg);
     else if (arg === "--max-bytes") maxBytes = parsePositiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = parsePositiveInteger(next(), arg);
+    else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
     else if (arg === "--adapter-id") {
       if (next() !== CODEX_SESSION_START_ADAPTER_ID) throw new Error("unsupported adapter id");
     } else {
@@ -911,6 +927,9 @@ export function parseCodexSessionStartArgs(
     max_tokens: maxTokens,
     max_bytes: maxBytes,
     timeout_ms: timeoutMs,
+    ...(values.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: values.runtime_event_manifest_path,
+    }),
   };
 }
 
@@ -953,6 +972,7 @@ async function main(): Promise<void> {
       max_tokens: CODEX_SESSION_START_MAX_TOKENS,
       max_bytes: CODEX_SESSION_START_MAX_BYTES,
       timeout_ms: CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
+      runtime_event_manifest_path: undefined,
     };
     const reason = error instanceof HookDegradedError ? error.reason : "IDENTITY_BINDING_INVALID";
     const observedAt = Date.now();
@@ -969,12 +989,16 @@ async function main(): Promise<void> {
       }),
       exit_code: 0,
     };
-    await emitKusabiSessionStartRuntimeEvent(result.evidence);
+    await emitKusabiSessionStartRuntimeEvent(result.evidence, {
+      manifestPath: evidenceBinding.runtime_event_manifest_path,
+    });
     writeCliResult(result);
     return;
   }
   const result = await runCodexSessionStart(rawInput, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
+    manifestPath: binding.runtime_event_manifest_path,
+  });
   writeCliResult(result);
 }
 

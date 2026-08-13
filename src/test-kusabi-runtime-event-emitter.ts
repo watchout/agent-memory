@@ -1,17 +1,23 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
 import {
   buildKusabiSessionStartRuntimeEvent,
   emitKusabiSessionStartRuntimeEvent,
+  loadKusabiRuntimeEventTargetFromManifest,
   parseKusabiRuntimeEventTarget,
   type KusabiRuntimeEventTargetBinding,
   type KusabiSessionStartEvidence,
 } from "./kusabi-runtime-event-emitter.js";
+import {
+  kusabiFleetManifestSha256,
+  kusabiFleetTargetKey,
+  type KusabiFleetManifest,
+} from "./kusabi-fleet-status.js";
 import { kusabiStoreBindingSha256 } from "./codex-session-start.js";
 import { validateKusabiRuntimeEvent } from "./kusabi-runtime-event-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
@@ -39,6 +45,50 @@ function target(backend: "sqlite" | "postgres" = "sqlite"): KusabiRuntimeEventTa
       binding_sha256: "1".repeat(64),
     },
   };
+}
+
+function manifestFor(
+  identities: Array<{ agent_id: string; project: string; host_runtime: "codex" | "claude_code" | "gemini_cli"; workspace_sha256: string }>,
+  storageBinding = "1".repeat(64),
+): KusabiFleetManifest {
+  const value: KusabiFleetManifest = {
+    schema_version: "kusabi-fleet-manifest/v1",
+    manifest_id: "kusabi-immutable-manifest-test-v1",
+    version: 1,
+    manifest_sha256: "0".repeat(64),
+    targets: identities.map((identity) => ({
+      target_key: kusabiFleetTargetKey(identity),
+      identity,
+      expected: {
+        build: {
+          commit_sha: "b".repeat(40), tree_sha: "c".repeat(40),
+          artifact_sha256: "d".repeat(64), adapter_version: "1.0.1",
+        },
+        configuration: {
+          config_sha256: "e".repeat(64), trust_fingerprint_sha256: "f".repeat(64),
+          binding_source_ref_sha256: "2".repeat(64),
+        },
+        storage: { backend: "sqlite", binding_sha256: storageBinding },
+      },
+      activation_at: "2026-07-30T00:00:00.000Z",
+      durable_evidence_deadline_at: "2026-07-30T06:00:00.000Z",
+      stale_after_seconds: 900,
+      maintenance_windows: [],
+    })),
+  };
+  value.targets.sort((left, right) => left.target_key.localeCompare(right.target_key));
+  value.manifest_sha256 = kusabiFleetManifestSha256(value);
+  return value;
+}
+
+async function writeImmutableManifest(root: string, manifest: KusabiFleetManifest, name: string): Promise<string> {
+  const directory = join(root, name);
+  await mkdir(directory, { mode: 0o700 });
+  const path = join(directory, "fleet-manifest.json");
+  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+  await chmod(path, 0o400);
+  await chmod(directory, 0o500);
+  return path;
 }
 
 function evidence(
@@ -93,7 +143,7 @@ function fakeStore(
 }
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "kusabi-obs03-emitter-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "kusabi-obs03-emitter-")));
   try {
     const disabled = await emitKusabiSessionStartRuntimeEvent(evidence("codex"), { env: {} });
     assert.equal(disabled.status, "disabled");
@@ -104,6 +154,30 @@ async function main(): Promise<void> {
       () => parseKusabiRuntimeEventTarget({ ...target(), unknown: true } as unknown as KusabiRuntimeEventTargetBinding),
       /KUSABI_RUNTIME_EVENT_TARGET_INVALID/,
     );
+
+    const immutableManifest = manifestFor([{
+      agent_id: "kusabi", project: "agent-memory", host_runtime: "codex", workspace_sha256: "a".repeat(64),
+    }]);
+    const immutableManifestPath = await writeImmutableManifest(root, immutableManifest, "immutable-manifest");
+    assert.deepEqual(
+      await loadKusabiRuntimeEventTargetFromManifest(immutableManifestPath, evidence("codex")),
+      { ...target(), manifest_id: immutableManifest.manifest_id },
+    );
+    const manifestEvents: KusabiRuntimeEventDocument[] = [];
+    const manifestEmission = await emitKusabiSessionStartRuntimeEvent(evidence("codex"), {
+      manifestPath: immutableManifestPath,
+      env: { KUSABI_RUNTIME_EVENT_TARGET_JSON: "invalid ambient override" },
+      createStore: async () => fakeStore("sqlite", async (event) => { manifestEvents.push(event); }),
+    });
+    assert.equal(manifestEmission.status, "durable");
+    assert.equal(manifestEvents[0].manifest_id, immutableManifest.manifest_id);
+    const wrongManifest = await emitKusabiSessionStartRuntimeEvent(evidence("claude-code"), {
+      manifestPath: immutableManifestPath,
+      createStore: async () => { throw new Error("must not open store"); },
+      writeEmergency: () => undefined,
+    });
+    assert.equal(wrongManifest.status, "emergency_only");
+    assert.equal(wrongManifest.emergency?.normalized_error_code, "target_invalid");
     assert.throws(
       () => parseKusabiRuntimeEventTarget(JSON.stringify({ ...target(), storage: { backend: "json", binding_sha256: "1".repeat(64) } })),
       /KUSABI_RUNTIME_EVENT_TARGET_INVALID/,
@@ -337,12 +411,19 @@ async function main(): Promise<void> {
     const cliDbPath = join(root, "three-host-cli.db");
     const cliTargetValue = target();
     cliTargetValue.storage.binding_sha256 = kusabiStoreBindingSha256("sqlite", cliDbPath);
-    const cliTarget = JSON.stringify(cliTargetValue);
+    const workspaceSha256 = h(workspace);
+    const cliManifest = manifestFor([
+      { agent_id: "kusabi", project: "agent-memory", host_runtime: "codex", workspace_sha256: workspaceSha256 },
+      { agent_id: "kusabi", project: "agent-memory", host_runtime: "claude_code", workspace_sha256: workspaceSha256 },
+      { agent_id: "kusabi", project: "agent-memory", host_runtime: "gemini_cli", workspace_sha256: workspaceSha256 },
+    ], cliTargetValue.storage.binding_sha256);
+    const cliManifestPath = await writeImmutableManifest(root, cliManifest, "cli-manifest");
     const commonArgs = [
       "--agent-id", "kusabi",
       "--project", "agent-memory",
       "--workspace", workspace,
       "--binding-source-ref", "fixture:obs03-cli-binding",
+      "--runtime-event-manifest", cliManifestPath,
     ];
     const cliCases = [
       {
@@ -397,7 +478,6 @@ async function main(): Promise<void> {
           ...process.env,
           AGENT_MEMORY_DB_TYPE: "sqlite",
           AGENT_MEMORY_DB_PATH: cliDbPath,
-          KUSABI_RUNTIME_EVENT_TARGET_JSON: cliTarget,
         },
       });
       assert.equal(cli.status, 0, `${cliCase.source}: ${cli.stderr}`);
@@ -410,7 +490,7 @@ async function main(): Promise<void> {
     const cliStore = new SqliteStore(cliDbPath);
     await cliStore.initialize();
     const cliRecords = await cliStore.getKusabiRuntimeEvents({
-      manifest_id: target().manifest_id,
+      manifest_id: cliManifest.manifest_id,
       event_type: "session_start",
       limit: 10,
     });
@@ -438,6 +518,8 @@ async function main(): Promise<void> {
 
     console.log("Kusabi OBS-03 runtime-event emitter tests passed");
   } finally {
+    await chmod(join(root, "immutable-manifest"), 0o700).catch(() => undefined);
+    await chmod(join(root, "cli-manifest"), 0o700).catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   }
 }

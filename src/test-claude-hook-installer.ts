@@ -62,7 +62,10 @@ async function main(): Promise<void> {
     await mkdir(workspace, { recursive: true });
     await writeFile(join(runtimeRoot, "dist", "claude-session-start.js"), "// fixture\n", "utf8");
 
-    const exactBinding = binding(workspace);
+    const exactBinding = {
+      ...binding(workspace),
+      runtime_event_manifest_path: join(root, "immutable-plan", "fleet-manifest.json"),
+    };
     const command = buildClaudeHookCommand(runtimeRoot, exactBinding);
     const parsed = parseClaudeHookCommand(command);
     assert(parsed, "canonical command must parse");
@@ -71,6 +74,7 @@ async function main(): Promise<void> {
     assert.equal(parseClaudeHookCommand(`${command}; touch /tmp/nope`), null);
     assert.equal(parseClaudeHookCommand(command.replace("--agent-id", "--agent")), null);
     assert.equal(parseClaudeHookCommand(command.replace(String(CLAUDE_SESSION_START_MAX_TOKENS), "999999")), null);
+    assert.equal(parseClaudeHookCommand(command.replace("--runtime-event-manifest", "--manifest")), null);
 
     const group = buildClaudeSessionStartHookGroup(runtimeRoot, exactBinding);
     assert.equal(group.matcher, CLAUDE_HOOK_MATCHER);

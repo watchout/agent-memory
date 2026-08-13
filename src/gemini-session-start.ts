@@ -647,6 +647,7 @@ export function parseGeminiSessionStartArgs(
     project: env.AGENT_MEMORY_PROJECT,
     workspace: env.AGENT_MEMORY_WORKSPACE,
     binding_source_ref: env.AGENT_MEMORY_BINDING_SOURCE_REF,
+    runtime_event_manifest_path: undefined,
   };
   let maxTokens = GEMINI_SESSION_START_MAX_TOKENS;
   let maxBytes = GEMINI_SESSION_START_MAX_BYTES;
@@ -665,6 +666,7 @@ export function parseGeminiSessionStartArgs(
     else if (arg === "--max-tokens") maxTokens = parsePositiveInteger(next(), arg);
     else if (arg === "--max-bytes") maxBytes = parsePositiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = parsePositiveInteger(next(), arg);
+    else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
     else if (arg === "--adapter-id") {
       if (next() !== GEMINI_SESSION_START_ADAPTER_ID) throw new Error("unsupported adapter id");
     } else {
@@ -679,6 +681,9 @@ export function parseGeminiSessionStartArgs(
     max_tokens: maxTokens,
     max_bytes: maxBytes,
     timeout_ms: timeoutMs,
+    ...(values.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: values.runtime_event_manifest_path,
+    }),
   };
 }
 
@@ -721,6 +726,7 @@ async function main(): Promise<void> {
       max_tokens: GEMINI_SESSION_START_MAX_TOKENS,
       max_bytes: GEMINI_SESSION_START_MAX_BYTES,
       timeout_ms: GEMINI_SESSION_START_INTERNAL_TIMEOUT_MS,
+      runtime_event_manifest_path: undefined,
     };
     const reason = error instanceof GeminiHookDegradedError ? error.reason : "IDENTITY_BINDING_INVALID";
     const observedAt = Date.now();
@@ -737,12 +743,16 @@ async function main(): Promise<void> {
       }),
       exit_code: 0,
     };
-    await emitKusabiSessionStartRuntimeEvent(result.evidence);
+    await emitKusabiSessionStartRuntimeEvent(result.evidence, {
+      manifestPath: evidenceBinding.runtime_event_manifest_path,
+    });
     writeCliResult(result);
     return;
   }
   const result = await runGeminiSessionStart(rawInput, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
+    manifestPath: binding.runtime_event_manifest_path,
+  });
   writeCliResult(result);
 }
 

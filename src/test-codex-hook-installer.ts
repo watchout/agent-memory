@@ -206,9 +206,15 @@ async function main(): Promise<void> {
       max_tokens: 1200,
       max_bytes: 4096,
       timeout_ms: 6000,
+      runtime_event_manifest_path: join(root, "immutable-plan", "fleet-manifest.json"),
     } satisfies CodexSessionStartBinding);
     assert(quotedCommand.includes("'agent'\"'\"'quote'"));
     assert.equal(parseCodexHookCommand(quotedCommand)?.binding.agent_id, "agent'quote");
+    assert.equal(
+      parseCodexHookCommand(quotedCommand)?.binding.runtime_event_manifest_path,
+      join(root, "immutable-plan", "fleet-manifest.json"),
+    );
+    assert.equal(parseCodexHookCommand(quotedCommand.replace("--runtime-event-manifest", "--manifest")), null);
 
     console.log("codex native hook installer tests passed");
   } finally {
