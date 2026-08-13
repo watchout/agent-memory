@@ -20,6 +20,10 @@ export interface ClaudeConversationIngestInput {
   since?: string;
   root?: string;
   max_files?: number;
+  /** Exact, pre-validated transcript paths for bounded SessionStart ingest. */
+  files?: string[];
+  /** Exact bytes from a securely opened transcript; avoids path re-open TOCTOU. */
+  contents?: ReadonlyMap<string, string>;
 }
 
 export interface ClaudeConversationIngestResult {
@@ -84,7 +88,7 @@ export async function ingestClaudeConversationEvents(
 
   const root = input.root ?? getClaudeProjectsDir();
   const maxFiles = input.max_files ?? 200;
-  const files = findClaudeJsonlFiles(since, root).slice(0, maxFiles);
+  const files = (input.files ?? findClaudeJsonlFiles(since, root)).slice(0, maxFiles);
   const coverage = inspectRawCaptureCoverage({
     source: "claude_code",
     project: input.project,
@@ -92,6 +96,7 @@ export async function ingestClaudeConversationEvents(
     since: since.toISOString(),
     max_files: maxFiles,
     max_depth: CLAUDE_PROJECTS_MAX_DEPTH,
+    files: input.files,
   });
   const result: ClaudeConversationIngestResult = {
     source: "claude_code",
@@ -107,7 +112,7 @@ export async function ingestClaudeConversationEvents(
   for (const file of files) {
     let raw = "";
     try {
-      raw = readFileSync(file, "utf-8");
+      raw = input.contents?.get(file) ?? readFileSync(file, "utf-8");
     } catch {
       result.events_skipped++;
       continue;

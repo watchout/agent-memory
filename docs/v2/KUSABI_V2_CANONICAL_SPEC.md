@@ -1,5 +1,8 @@
 # Kusabi V2 Canonical Spec Draft
 
+> Historical draft: references to a present `.shirube/**` scaffold describe
+> removed artifacts. Current controls are defined in `AGENTS.md`.
+
 Status: draft
 Scope: product/design reset only
 Runtime impact: none in this branch
@@ -74,9 +77,9 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
 | Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |
-| Governance scaffold | `.shirube/repo-spec.yaml` |
-| Agent policy | `.shirube/agent-policy.yaml` |
-| Memory governance cells | `.shirube/cells/*.yaml` |
+| Historical governance scaffold | Removed on 2026-08-13 |
+| Current repository policy | `AGENTS.md` direct-delivery and recovery rules |
+| Current release controls | Clean exact HEAD, immutable CAS readback, independent audit, and rollback evidence |
 
 Existing `docs/design/*`, `docs/requirements/*`, `docs/operations/*`, and `docs/brand/*` remain evidence and legacy context. They are not automatically deleted or rewritten by this draft.
 
@@ -248,7 +251,7 @@ Deletion is allowed only after owner/domain-designer review and a replacement so
 
 The V2 planning slice is acceptable when:
 
-- `.shirube/` scaffold exists in warn-only mode;
+- the former `.shirube/` warn-only scaffold is historical and has been removed;
 - product name is `kusabi` in V2 draft docs;
 - product category is agent continuity substrate;
 - coding agents are first reference workload, not the final product boundary;

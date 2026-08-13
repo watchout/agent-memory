@@ -68,7 +68,7 @@ select behavior through an environment-variable switch.
 | Structured output | Return delivery status (`delivered`, `degraded`, `skipped`, or `error`), first-context confirmation, verified identity, pack ref, missing/degraded reason, T0-T4 timestamps, applied caps, redaction/omission counts, and evidence refs. Config or hook presence alone is `placed_not_delivered`. |
 | Redaction and caps | Apply Wasurezu redaction before host delivery. Declare numeric byte/token caps, record the applied values, and surface truncation or omission; never include secrets, private reasoning, base instructions, full transcript dumps, or an unredacted home path. |
 | Fail-safe | Recovery unavailable, disabled, untrusted, timed out, malformed, or over cap must leave the ordinary bare host launch usable. Emit a visible degraded warning and structured evidence; never fail silently or report startup recovery. |
-| Ownership | The adapter delivers context only. It does not own AUN lifecycle or queue state, restart policy, Shirube gates, merge, deploy, activation, or fleet rollout. |
+| Ownership | The adapter delivers context only. It does not own AUN lifecycle or queue state, restart policy, merge, deploy, activation, or fleet rollout. |
 
 ### Native host bindings for the alpha gate
 
@@ -328,8 +328,8 @@ or `format=host-invocation-context-v1` and then validate the returned JSON
 before host delivery.
 
 Wasurezu owns memory/recovery artifacts, confidence, missing context, and
-provenance. AUN, Shirube, or another installed runner owns lifecycle policy,
-CLI execution, queue behavior, and final close/requeue decisions.
+provenance. AUN or another installed runner may own lifecycle policy, CLI
+execution, queue behavior, and final close/requeue decisions.
 
 Company Dev OS phase-goal and runner-policy workflow is defined in
 `docs/operations/COMPANY_DEV_OS_PHASE_CONVEYOR.md`. Host adapter work must

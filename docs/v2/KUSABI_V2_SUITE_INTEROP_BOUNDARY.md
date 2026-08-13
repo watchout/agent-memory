@@ -1,5 +1,8 @@
 # Kusabi V2 Suite Interop Boundary Draft
 
+> Historical interoperability design. Shirube is not a current runtime,
+> approval, publication, or rollout dependency for this repository.
+
 Status: draft
 Scope: UAMP / AUN / Kodama / Shirube / MCP interop and ownership boundaries
 Runtime impact: none

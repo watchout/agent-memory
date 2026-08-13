@@ -21,6 +21,8 @@ export interface InspectRawCaptureCoverageInput {
   cursor_updated_at?: string;
   stale_after_ms?: number;
   pending_events?: number;
+  /** Exact transcript paths when a caller must avoid a recursive root scan. */
+  files?: string[];
 }
 
 export interface RawCaptureSourceRef {
@@ -121,6 +123,12 @@ function inspectRawCaptureSource(
   let scanFailed = false;
   if (!input.root || !existsSync(input.root)) {
     reasons.add("transcript_root_missing");
+  } else if (input.files) {
+    const scanned = inspectExplicitTranscriptFiles(input.files, input.source, sinceMs);
+    knownFiles = scanned.knownFiles;
+    unknownFiles = scanned.unknownFiles;
+    scanFailed = scanned.scanFailed;
+    if (scanFailed) reasons.add("capture_scan_error");
   } else {
     const scanned = scanTranscriptRoot(input.root, input.source, maxDepth, sinceMs);
     knownFiles = scanned.knownFiles;
@@ -172,6 +180,30 @@ function inspectRawCaptureSource(
     reasons: reasonList,
     source_refs: sourceRefs,
   };
+}
+
+function inspectExplicitTranscriptFiles(
+  files: string[],
+  source: RawCaptureCoverageSource,
+  sinceMs: number | null,
+): { knownFiles: string[]; unknownFiles: string[]; scanFailed: boolean } {
+  const knownFiles: string[] = [];
+  const unknownFiles: string[] = [];
+  let scanFailed = false;
+  for (const file of files) {
+    try {
+      const stat = statSync(file);
+      if (!stat.isFile() || (sinceMs !== null && stat.mtimeMs < sinceMs)) continue;
+      if (file.endsWith(".jsonl") || (source === "gemini_cli" && file.endsWith(".json"))) {
+        knownFiles.push(file);
+      } else {
+        unknownFiles.push(file);
+      }
+    } catch {
+      scanFailed = true;
+    }
+  }
+  return { knownFiles: knownFiles.sort(), unknownFiles: unknownFiles.sort(), scanFailed };
 }
 
 function scanTranscriptRoot(

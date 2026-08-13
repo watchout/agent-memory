@@ -374,7 +374,7 @@ async function main() {
   // ─── recover_context ───────────────────────────────────────────
   server.tool(
     "recover_context",
-    "Restore full session context at startup. Returns current task + recent completed tasks, active decisions, key knowledge, and recent messages (if agent-comms is installed). Limits are per-agent via recovery_config table. Called automatically by SessionStart hook.",
+    "Restore full session context at startup. Returns current task, active decisions, recent visible host conversation, key knowledge, and recent messages (if agent-comms is installed). Limits are per-agent via recovery_config table. Called automatically by SessionStart hook.",
     {
       project: z.string().optional().describe("Filter by project"),
     },
@@ -387,12 +387,17 @@ async function main() {
         const dbConfig = await store.getRecoveryConfig(AGENT_ID);
         const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
 
-        const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
+        const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages, conversationEvents] = await Promise.all([
           store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: 1, status: "in_progress" }),
           store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
           store.getDecisions({ agent_id: AGENT_ID, project: proj, limit: cfg.decisions_limit, status: "active" }),
           store.getKnowledge({ agent_id: AGENT_ID, project: proj, limit: cfg.knowledge_limit, status: "active" }),
           store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
+          store.getConversationEvents({
+            agent_id: AGENT_ID,
+            project: proj,
+            limit: Math.min(Math.max(cfg.messages_limit, 5), 20),
+          }),
         ]);
 
         // FEAT-026: Fetch Discord history if agent-comms is available
@@ -404,6 +409,7 @@ async function main() {
         const output = buildRecoveryOutput({
           agentId: AGENT_ID, project: proj, config: cfg,
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+          conversationEvents,
           discordHistory,
         });
 
@@ -422,6 +428,7 @@ async function main() {
           tasks_completed: completedTasks.length,
           knowledge: knowledgeItems.length,
           messages: messages.length,
+          conversation_events: conversationEvents.length,
           discord_history: discordHistory.length,
         });
 

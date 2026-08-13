@@ -45,6 +45,19 @@ jobs:
           KUSABI_INTEGRATED_BUILT_EXECUTION: "1"
         run: npx tsx src/test.ts
 
+      - name: Run native recovery and automatic receive tests
+        run: |
+          npm run test:codex-hook
+          npm run test:claude-hook
+          npm run test:gemini-hook
+          npm run test:gemini-conversation-ingest
+          npm run test:automatic-receive
+
+      - name: Run immutable publication and direct rollout tests
+        run: |
+          npm run test:kusabi-content-addressed-runtime-release
+          npm run test:kusabi-direct-fleet-rollout
+
       - name: Run spec-enforcement tests
         run: npx tsx tests/spec-enforcement/anti-regression-am027.ts
 

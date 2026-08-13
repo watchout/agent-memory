@@ -265,6 +265,8 @@ export interface KusabiFleetDeploymentObservationInput {
   binding_source_ref: string;
   trust_source: KusabiFleetTrustSource;
   observed_storage: KusabiFleetDeploymentIdentity["storage"];
+  /** False when no live store-binding probe was performed. */
+  storage_observed?: boolean;
   observed_commit_sha: string;
   observed_tree_sha: string;
   observed_at: string;
@@ -288,6 +290,24 @@ export interface KusabiFleetBatchGateReport {
   report_sha256: string;
 }
 
+/**
+ * A direct-delivery sequencing receipt. Unlike a durable health gate, this
+ * proves only that the preceding batch was placed and read back exactly. It
+ * must never be presented as soak, runtime-health, or durable-delivery proof.
+ */
+export interface KusabiFleetPlacementGateReport {
+  schema_version: "wasurezu-fleet-placement-gate/v1";
+  rollout_plan_sha256: string;
+  manifest_sha256: string;
+  batch_id: string;
+  stage: KusabiFleetRolloutStage;
+  target_count: number;
+  exact_observed_count: number;
+  verdict: "PASS" | "BLOCKED";
+  blockers: string[];
+  report_sha256: string;
+}
+
 export interface KusabiFleetApplyBatchOptions {
   plan: KusabiFleetRolloutPlan;
   manifest: KusabiFleetManifest;
@@ -296,7 +316,7 @@ export interface KusabiFleetApplyBatchOptions {
   batch_id: string;
   runtime_root: string;
   targets: KusabiFleetRolloutTargetInput[];
-  prior_gate_reports?: KusabiFleetBatchGateReport[];
+  prior_gate_reports?: Array<KusabiFleetBatchGateReport | KusabiFleetPlacementGateReport>;
 }
 
 export interface KusabiFleetApplyBatchReport {
@@ -817,7 +837,8 @@ export async function observeKusabiFleetDeployment(
   const buildExact = canonicalJson(deployment.build) === canonicalJson(input.target.expected.build);
   const trustExact = trust.verified && deployment.configuration.trust_fingerprint_sha256 ===
     input.target.expected.configuration.trust_fingerprint_sha256;
-  const storageExact = canonicalJson(deployment.storage) === canonicalJson(input.target.expected.storage);
+  const storageExact = input.storage_observed !== false &&
+    canonicalJson(deployment.storage) === canonicalJson(input.target.expected.storage);
   const withoutHash = {
     schema_version: "kusabi-fleet-observed-target/v1" as const,
     observed_at: input.observed_at,
@@ -945,7 +966,7 @@ export async function applyKusabiFleetRolloutBatch(
   const manifestMap = new Map(options.manifest.targets.map((target) => [target.target_key, target]));
   const preparedInputs = await Promise.all(options.targets.map((target) => prepareTarget(target, runtimeRoot)));
   const inputMap = new Map(preparedInputs.map((target) => [target.targetKey, target]));
-  const rollbacks: Array<{ snapshot: ConfigSnapshot }> = [];
+  const rollbacks: Array<{ snapshot: ConfigSnapshot; expectedPostimageSha256: string }> = [];
   const targetResults: KusabiFleetApplyBatchReport["target_results"] = [];
   try {
     for (const targetKey of batch.target_keys) {
@@ -956,8 +977,11 @@ export async function applyKusabiFleetRolloutBatch(
         prepared.artifactSha256 !== manifestTarget.expected.build.artifact_sha256) {
         fail("KUSABI_FLEET_APPLY_TARGET_MISMATCH");
       }
-      rollbacks.push({ snapshot: prepared.snapshot });
+      rollbacks.push({ snapshot: prepared.snapshot, expectedPostimageSha256: prepared.desiredSha256 });
       const report = await installForHost(prepared.input, runtimeRoot, prepared.workspace, "apply");
+      if (prepared.snapshot.mode !== null) {
+        await chmod(prepared.snapshot.configPath, Number.parseInt(prepared.snapshot.mode, 8));
+      }
       const postimage = await readConfigSnapshot(prepared.workspace, prepared.input.host_runtime);
       if (postimage.raw === null || postimage.sha256 !== prepared.desiredSha256) {
         fail("KUSABI_FLEET_APPLY_POSTIMAGE_MISMATCH");
@@ -970,7 +994,9 @@ export async function applyKusabiFleetRolloutBatch(
       });
     }
   } catch (error) {
-    for (const rollback of [...rollbacks].reverse()) await restoreConfigSnapshot(rollback.snapshot);
+    for (const rollback of [...rollbacks].reverse()) {
+      await restoreConfigSnapshot(rollback.snapshot, rollback.expectedPostimageSha256);
+    }
     if (error instanceof KusabiFleetRolloutError) throw error;
     fail("KUSABI_FLEET_APPLY_FAILED_ROLLED_BACK");
   }
@@ -1373,6 +1399,7 @@ async function installForHost(
     agent_id: target.agent_id,
     project: target.project,
     binding_source_ref: target.binding_source_ref,
+    create_backup: false,
   } as const;
   if (target.host_runtime === "codex") return installCodexSessionStartHook(options);
   if (target.host_runtime === "claude_code") return installClaudeSessionStartHook(options);
@@ -1384,9 +1411,23 @@ function wroteConfig(report: unknown): boolean {
   return report.wrote_hooks_file === true || report.wrote_settings_file === true;
 }
 
-async function restoreConfigSnapshot(snapshot: ConfigSnapshot): Promise<void> {
+async function restoreConfigSnapshot(snapshot: ConfigSnapshot, expectedPostimageSha256: string): Promise<void> {
+  let currentInfo;
+  let currentRaw: string | null = null;
+  try {
+    currentInfo = await lstat(snapshot.configPath);
+    if (!currentInfo.isFile() || currentInfo.isSymbolicLink()) fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
+    currentRaw = await readFile(snapshot.configPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const currentSha256 = currentRaw === null ? null : sha256(currentRaw);
+  const currentMode = currentInfo === undefined ? null : (currentInfo.mode & 0o777).toString(8).padStart(4, "0");
+  if ((snapshot.state === "absent" && currentRaw === null) ||
+    (snapshot.state === "file" && currentSha256 === snapshot.sha256 && currentMode === snapshot.mode)) return;
+  if (currentSha256 !== expectedPostimageSha256) fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
   if (snapshot.state === "absent") {
-    await rm(snapshot.configPath, { force: true });
+    await rm(snapshot.configPath);
     return;
   }
   if (snapshot.raw === null || snapshot.mode === null) fail("KUSABI_FLEET_ROLLBACK_PREIMAGE_INVALID");

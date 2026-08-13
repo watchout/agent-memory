@@ -62,10 +62,9 @@ GitHub、Next phase handoff を持つ。
 - `governed_manual_lane`: 曖昧、非自律、または human/gate 前提の作業。
 - `stop_lane`: unsafe/protected work。正しい role/gate まで停止。
 
-Protected gate: runtime recovery、memory semantics、common DB binding、
-launch/restart behavior、redaction/retention、production launchd、secrets、
-Discord gateway を変える作業は、issue 上の delegation と audit/qa/check/cto
-の該当 role を確認するまで止める。
+不可逆な外部作用、secret変更、破壊的データ操作、第三者への送信には明示的な
+user authorization を要求する。明示scope内のlocal implementation、validation、
+immutable release構築、rollback可能なconfiguration rolloutは直接進める。
 
 memory/recovery evidence contract は
 `docs/operations/COMPANY_DEV_OS_PHASE_CONVEYOR.md` を参照。成功は AUN ACK、

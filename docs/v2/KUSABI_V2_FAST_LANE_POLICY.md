@@ -1,5 +1,8 @@
 # Kusabi V2 Fast Lane Policy Draft
 
+> Historical policy note: the Shirube lanes described here are no longer an
+> active control plane. See `docs/v2/README.md` for the current boundary.
+
 Status: draft
 Scope: docs-only Lane A operating policy
 Base dependency: PR #182 and PR #183

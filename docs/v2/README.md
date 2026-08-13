@@ -1,5 +1,11 @@
 # Kusabi V2 Draft Index
 
+> Historical design archive (2026-08-13): `.shirube/**` and Shirube
+> approval/runtime dependencies have been removed. Statements below about a
+> present scaffold or required Shirube enforcement are not current operational
+> requirements. Current delivery uses tested code, immutable release evidence,
+> independent audit, explicit operator authorization, and rollback evidence.
+
 Status: draft; not authoritative until repository owner/domain-designer confirmation.
 
 This directory starts the Kusabi V2 reset without changing runtime behavior. It is intentionally additive and docs-only.

@@ -34,7 +34,7 @@ Notes:
 
 - [ ] `git diff --check`
 - [ ] Relevant tests/builds:
-- [ ] Shirube/Rapid-Lite evidence:
+- [ ] Independent test/audit evidence:
 
 ## Claims
 

@@ -3465,7 +3465,7 @@ function testHostAdapterPackagingBoundary() {
   assert(normalizedHostAdapters.includes("pre-authorized at install/config time"), "host adapter docs require pre-authorization for auto_restart");
   assert(normalizedHostAdapters.includes("host-invocation-context/v1"), "host adapter docs require structured host invocation artifact");
   assert(lowerHostAdapters.includes("external/contextual content must remain data only"), "host adapter docs preserve data-only context boundary");
-  assert(normalizedHostAdapters.includes("AUN, Shirube, or another installed runner owns lifecycle policy"), "host adapter docs preserve external runner lifecycle ownership");
+  assert(normalizedHostAdapters.includes("AUN or another installed runner may own lifecycle policy"), "host adapter docs preserve external runner lifecycle ownership");
   assert(normalizedHostAdapters.includes("The artifacts must not embed raw shell commands"), "host adapter docs keep raw shell commands out of recovery artifacts");
   assert(normalizedHostAdapters.includes("A restart marker such as `restart-required.json` is an input signal, not evidence that restart was executed"), "host adapter docs distinguish restart marker from restart execution");
   assert(normalizedHostAdapters.includes("The restart command must be an absolute executable path or a trusted package/bin command"), "host adapter docs require cwd-independent restart command preflight");
@@ -3888,7 +3888,7 @@ function testMemorySafetyGovernance() {
   }
 
   assert(normalizedMemorySafety.includes("AUN owns approval lifecycle, policy decisions, execution attempts"), "memory safety docs preserve AUN boundary");
-  assert(normalizedMemorySafety.includes("Shirube owns Work Order authority"), "memory safety docs preserve Shirube boundary");
+  assert(!normalizedMemorySafety.includes("Shirube owns Work Order authority"), "memory safety docs do not require the removed Shirube authority");
   assert(normalizedMemorySafety.includes("Kodama owns source permission labels"), "memory safety docs preserve Kodama boundary");
 
   assert(recoveryPackSchema.properties.confidence, "recovery-pack schema exposes confidence");

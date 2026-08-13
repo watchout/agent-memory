@@ -20,6 +20,10 @@ export interface CodexConversationIngestInput {
   since?: string;
   root?: string;
   max_files?: number;
+  /** Exact, pre-validated transcript paths for bounded SessionStart ingest. */
+  files?: string[];
+  /** Exact bytes from a securely opened transcript; avoids path re-open TOCTOU. */
+  contents?: ReadonlyMap<string, string>;
 }
 
 export interface CodexConversationIngestResult {
@@ -84,7 +88,7 @@ export async function ingestCodexConversationEvents(
 
   const root = input.root ?? getCodexSessionsDir();
   const maxFiles = input.max_files ?? 200;
-  const files = findCodexJsonlFiles(since, root).slice(0, maxFiles);
+  const files = (input.files ?? findCodexJsonlFiles(since, root)).slice(0, maxFiles);
   const coverage = inspectRawCaptureCoverage({
     source: "codex",
     project: input.project,
@@ -92,6 +96,7 @@ export async function ingestCodexConversationEvents(
     since: since.toISOString(),
     max_files: maxFiles,
     max_depth: CODEX_SESSIONS_MAX_DEPTH,
+    files: input.files,
   });
   const result: CodexConversationIngestResult = {
     source: "codex",
@@ -107,7 +112,7 @@ export async function ingestCodexConversationEvents(
   for (const file of files) {
     let raw = "";
     try {
-      raw = readFileSync(file, "utf-8");
+      raw = input.contents?.get(file) ?? readFileSync(file, "utf-8");
     } catch {
       result.events_skipped++;
       continue;

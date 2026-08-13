@@ -30,6 +30,7 @@ export interface ClaudeHookInstallOptions {
   max_tokens?: number;
   max_bytes?: number;
   timeout_ms?: number;
+  create_backup?: boolean;
 }
 
 export interface ClaudeHookInstallReport {
@@ -356,7 +357,7 @@ export async function installClaudeSessionStartHook(
   if (options.mode === "apply" && wouldChange) {
     await mkdir(claudeDir, { recursive: true });
     await assertNotSymlink(claudeDir, false);
-    if (existing.raw !== null) {
+    if (existing.raw !== null && options.create_backup !== false) {
       backupFile = `${settingsFile}.bak.wasurezu-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`;
       await copyFile(settingsFile, backupFile);
       await chmod(backupFile, 0o600);

@@ -22,9 +22,9 @@ Wasurezu owns memory/recovery product state:
 - redaction, retention, provenance, and missing-evidence reporting for its
   emitted artifacts
 
-Wasurezu does not own AUN queue lifecycle, Shirube Work Order authority, common
-identity/runtime registry ownership, or runtime execution attempts owned by an
-external runner. Common identity/runtime registry work stays on #147; Wasurezu
+Wasurezu does not own AUN queue lifecycle, common identity/runtime registry
+ownership, or runtime execution attempts owned by an external runner. Common
+identity/runtime registry work stays on #147; Wasurezu
 binds to canonical IDs when available and reports drift when they differ.
 
 ## 2. Phase Goal Contract

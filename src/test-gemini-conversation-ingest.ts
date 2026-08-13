@@ -207,6 +207,15 @@ async function main(): Promise<void> {
       assert(!persisted.includes(`\"${deniedKey}\"`), `denied field persisted: ${deniedKey}`);
     }
 
+    const compatibilityEvents = await store.getConversationEvents({
+      agent_id: "gemini-fixture-agent",
+      source: "gemini_cli",
+      limit: 100,
+    });
+    assert.equal(compatibilityEvents.length, 6);
+    assert(compatibilityEvents.every((event) => event.source === "gemini_cli"));
+    assert(compatibilityEvents.some((event) => event.content.includes("Visible Gemini response")));
+
     const second = await ingestGeminiConversationEvents(store, "gemini-fixture-agent", {
       project: "fixture-project",
       root,
@@ -220,6 +229,12 @@ async function main(): Promise<void> {
       limit: 100,
     });
     assert.equal(replay.length, 6);
+    const compatibilityReplay = await store.getConversationEvents({
+      agent_id: "gemini-fixture-agent",
+      source: "gemini_cli",
+      limit: 100,
+    });
+    assert.equal(compatibilityReplay.length, 6);
     console.log("Gemini default-deny raw-capture tests passed");
   } finally {
     await store.close();

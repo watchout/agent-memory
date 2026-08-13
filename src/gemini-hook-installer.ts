@@ -31,6 +31,7 @@ export interface GeminiHookInstallOptions {
   max_tokens?: number;
   max_bytes?: number;
   timeout_ms?: number;
+  create_backup?: boolean;
 }
 
 export interface GeminiHookInstallReport {
@@ -366,7 +367,7 @@ export async function installGeminiSessionStartHook(
   if (options.mode === "apply" && wouldChange) {
     await mkdir(geminiDir, { recursive: true });
     await assertNotSymlink(geminiDir, false);
-    if (existing.raw !== null) {
+    if (existing.raw !== null && options.create_backup !== false) {
       backupFile = `${settingsFile}.bak.wasurezu-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`;
       await copyFile(settingsFile, backupFile);
       await chmod(backupFile, 0o600);

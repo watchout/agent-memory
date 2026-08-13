@@ -1,5 +1,8 @@
 # Kusabi V2 Implementation Readiness Plan Draft
 
+> Historical readiness plan. Current implementation readiness does not depend
+> on Shirube; see `AGENTS.md` and the immutable release/independent-audit flow.
+
 Status: draft
 Scope: gap closure before implementation starts
 Runtime impact: none

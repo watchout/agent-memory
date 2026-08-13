@@ -13,8 +13,7 @@ safety taxonomy and promotion boundaries. SSOT-4 owns data-model/schema
 contracts. SSOT-3 owns API surfaces.
 
 Wasurezu provides recovery and memory evidence. It does not own AUN approval
-lifecycle, AUN execution attempts, Shirube Work Order authority, or Kodama
-source-permission authority.
+lifecycle, AUN execution attempts, or Kodama source-permission authority.
 
 ## Memory Safety Taxonomy
 
@@ -90,7 +89,6 @@ promotion evidence for approved memory.
 
 - AUN owns approval lifecycle, policy decisions, execution attempts, broker
   behavior, final close/requeue, retry/quarantine, and runtime lifecycle.
-- Shirube owns Work Order authority and governance gating.
 - Kodama owns source permission labels, sensitivity labels, allowed-use labels,
   prompt-injection risk labels, citations, and source omissions.
 - Wasurezu owns memory and recovery evidence, not organization-wide source
