@@ -392,7 +392,7 @@ async function main(): Promise<void> {
             event_type: "session_start",
             occurred_at: phase.at,
             manifest_id: manifest.manifest_id,
-            fixture_target_key: target.target_key,
+            target_key: target.target_key,
             producer: {
               ...target.identity,
               adapter_id: "fixture-adapter",
@@ -453,7 +453,7 @@ async function main(): Promise<void> {
             source_path: sourcePath,
           };
           rawRows.push({
-            target_key: target.target_key,
+            fixture_target_key: target.target_key,
             agent_id: target.identity.agent_id,
             session_id: sessionId,
             project: target.identity.project,
