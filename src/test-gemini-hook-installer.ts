@@ -215,9 +215,15 @@ async function main(): Promise<void> {
       max_tokens: 1200,
       max_bytes: 4096,
       timeout_ms: 6000,
+      runtime_event_manifest_path: join(root, "immutable-plan", "fleet-manifest.json"),
     } satisfies GeminiSessionStartBinding);
     assert(quoted.includes("'agent'\"'\"'quote'"));
     assert.equal(parseGeminiHookCommand(quoted)?.binding.agent_id, "agent'quote");
+    assert.equal(
+      parseGeminiHookCommand(quoted)?.binding.runtime_event_manifest_path,
+      join(root, "immutable-plan", "fleet-manifest.json"),
+    );
+    assert.equal(parseGeminiHookCommand(quoted.replace("--runtime-event-manifest", "--manifest")), null);
 
     console.log("gemini native hook installer tests passed");
   } finally {

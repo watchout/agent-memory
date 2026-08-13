@@ -453,6 +453,7 @@ function fallbackBinding(): ClaudeSessionStartBinding {
     max_tokens: CLAUDE_SESSION_START_MAX_TOKENS,
     max_bytes: CLAUDE_SESSION_START_MAX_BYTES,
     timeout_ms: CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS,
+    runtime_event_manifest_path: undefined,
   };
 }
 
@@ -476,7 +477,9 @@ async function main(): Promise<void> {
     // The normal runner below emits a structured, non-blocking degradation.
   }
   const result = await runClaudeSessionStart(raw, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence);
+  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
+    manifestPath: binding.runtime_event_manifest_path,
+  });
   writeCliResult(result);
 }
 

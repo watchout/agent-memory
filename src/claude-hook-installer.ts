@@ -31,6 +31,7 @@ export interface ClaudeHookInstallOptions {
   max_bytes?: number;
   timeout_ms?: number;
   create_backup?: boolean;
+  runtime_event_manifest_path?: string;
 }
 
 export interface ClaudeHookInstallReport {
@@ -171,13 +172,17 @@ export function buildClaudeHookCommand(
     String(binding.max_bytes),
     "--timeout-ms",
     String(binding.timeout_ms),
+    ...(binding.runtime_event_manifest_path === undefined ? [] : [
+      "--runtime-event-manifest",
+      shellQuote(binding.runtime_event_manifest_path),
+    ]),
   ].join(" ");
 }
 
 /** Parse only the byte-canonical command emitted by buildClaudeHookCommand. */
 export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand | null {
   const words = parseShellWords(command);
-  if (!words || words.length !== 18) return null;
+  if (!words || (words.length !== 18 && words.length !== 20)) return null;
   const flags = [
     [2, "--adapter-id"],
     [4, "--agent-id"],
@@ -201,6 +206,7 @@ export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand
     max_tokens: Number(words[13]),
     max_bytes: Number(words[15]),
     timeout_ms: Number(words[17]),
+    ...(words.length === 20 ? { runtime_event_manifest_path: words[19] } : {}),
   };
   try {
     requiredText(binding.agent_id, "agent_id");
@@ -210,6 +216,8 @@ export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand
     boundedInteger(binding.max_tokens, 500, CLAUDE_SESSION_START_MAX_TOKENS, "max_tokens");
     boundedInteger(binding.max_bytes, 1_024, CLAUDE_SESSION_START_MAX_BYTES, "max_bytes");
     boundedInteger(binding.timeout_ms, 100, CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS, "timeout_ms");
+    if (words.length === 20 && (words[18] !== "--runtime-event-manifest" ||
+      !isAbsolute(words[19]) || resolve(words[19]) !== words[19])) return null;
   } catch {
     return null;
   }
@@ -338,6 +346,9 @@ export async function installClaudeSessionStartHook(
     max_tokens: boundedInteger(options.max_tokens ?? CLAUDE_SESSION_START_MAX_TOKENS, 500, CLAUDE_SESSION_START_MAX_TOKENS, "max_tokens"),
     max_bytes: boundedInteger(options.max_bytes ?? CLAUDE_SESSION_START_MAX_BYTES, 1_024, CLAUDE_SESSION_START_MAX_BYTES, "max_bytes"),
     timeout_ms: boundedInteger(options.timeout_ms ?? CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS, 100, CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS, "timeout_ms"),
+    ...(options.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: requiredAbsolutePath(options.runtime_event_manifest_path, "runtime_event_manifest_path"),
+    }),
   };
   const claudeDir = join(workspace, ".claude");
   const settingsFile = join(claudeDir, "settings.json");
@@ -395,6 +406,12 @@ export async function installClaudeSessionStartHook(
   };
 }
 
+function requiredAbsolutePath(value: string, field: string): string {
+  requiredText(value, field);
+  if (!isAbsolute(value) || resolve(value) !== value) throw new Error(`${field} must be an absolute canonical path`);
+  return value;
+}
+
 function positiveInteger(value: string, field: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${field} must be a positive integer`);
@@ -425,6 +442,7 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     else if (arg === "--max-tokens") maxTokens = positiveInteger(next(), arg);
     else if (arg === "--max-bytes") maxBytes = positiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = positiveInteger(next(), arg);
+    else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
     else throw new Error(`unknown argument: ${arg}`);
   }
   return {
@@ -437,6 +455,9 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     ...(maxBytes === undefined ? {} : { max_bytes: maxBytes }),
     ...(timeoutMs === undefined ? {} : { timeout_ms: timeoutMs }),
+    ...(values.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: values.runtime_event_manifest_path,
+    }),
   };
 }
 

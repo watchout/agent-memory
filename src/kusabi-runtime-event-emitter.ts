@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { lstat, readFile, realpath } from "node:fs/promises";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ingestKusabiRuntimeEvent,
@@ -11,6 +12,11 @@ import {
 import { PgStore } from "./stores/pg-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import type { KusabiRuntimeEventDocument, Store } from "./stores/types.js";
+import {
+  assertKusabiFleetManifest,
+  kusabiFleetTargetKey,
+  type KusabiFleetManifest,
+} from "./kusabi-fleet-status.js";
 
 export const KUSABI_RUNTIME_EVENT_TARGET_ENV = "KUSABI_RUNTIME_EVENT_TARGET_JSON" as const;
 export const KUSABI_RUNTIME_EVENT_TARGET_SCHEMA = "kusabi-runtime-event-target/v1" as const;
@@ -18,6 +24,7 @@ export const KUSABI_RUNTIME_EVENT_EMISSION_TIMEOUT_MS = 500;
 
 const KUSABI_RUNTIME_EVENT_WORKER_ARG = "--kusabi-runtime-event-worker";
 const KUSABI_RUNTIME_EVENT_WORKER_MAX_BYTES = 16_384;
+const KUSABI_RUNTIME_EVENT_MANIFEST_MAX_BYTES = 4 * 1024 * 1024;
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const GIT_SHA_RE = /^[a-f0-9]{40}$/;
@@ -73,6 +80,8 @@ export interface KusabiRuntimeEventEmissionResult {
 
 export interface KusabiRuntimeEventEmissionOptions {
   target?: KusabiRuntimeEventTargetBinding | string | null;
+  /** Exact absolute path embedded by the rollout into the installed hook command. */
+  manifestPath?: string | null;
   env?: NodeJS.ProcessEnv;
   createStore?: (signal: AbortSignal) => Promise<Store>;
   writeEmergency?: (line: string) => void;
@@ -213,13 +222,19 @@ export async function emitKusabiSessionStartRuntimeEvent(
   try {
     const configured = options.target ?? options.env?.[KUSABI_RUNTIME_EVENT_TARGET_ENV] ??
       process.env[KUSABI_RUNTIME_EVENT_TARGET_ENV];
-    if (configured === undefined || configured === null || configured === "") {
+    const manifestPath = options.manifestPath;
+    if ((configured === undefined || configured === null || configured === "") &&
+      (manifestPath === undefined || manifestPath === null || manifestPath === "")) {
       return { status: "disabled", event_id: null, target_key: null, emergency: null };
     }
 
     let target: KusabiRuntimeEventTargetBinding;
     try {
-      target = parseKusabiRuntimeEventTarget(configured);
+      target = options.target !== undefined && options.target !== null && options.target !== ""
+        ? parseKusabiRuntimeEventTarget(options.target)
+        : manifestPath !== undefined && manifestPath !== null && manifestPath !== ""
+          ? await loadKusabiRuntimeEventTargetFromManifest(manifestPath, evidence)
+          : parseKusabiRuntimeEventTarget(configured!);
     } catch {
       return invalidTargetEmergency(evidence, options.writeEmergency);
     }
@@ -233,6 +248,67 @@ export async function emitKusabiSessionStartRuntimeEvent(
   } catch {
     return { status: "failed", event_id: null, target_key: null, emergency: null };
   }
+}
+
+export async function loadKusabiRuntimeEventTargetFromManifest(
+  path: string,
+  evidence: KusabiSessionStartEvidence,
+): Promise<KusabiRuntimeEventTargetBinding> {
+  if (!isAbsolute(path) || resolve(path) !== path) throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_INVALID");
+  const [fileInfo, parentInfo, resolvedPath] = await Promise.all([
+    lstat(path), lstat(dirname(path)), realpath(path),
+  ]);
+  if (resolvedPath !== path || !fileInfo.isFile() || fileInfo.isSymbolicLink() ||
+    (fileInfo.mode & 0o777) !== 0o400 || fileInfo.size < 1 || fileInfo.size > KUSABI_RUNTIME_EVENT_MANIFEST_MAX_BYTES ||
+    !parentInfo.isDirectory() || parentInfo.isSymbolicLink() || (parentInfo.mode & 0o777) !== 0o500) {
+    throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_INVALID");
+  }
+  const raw = await readFile(path, "utf8");
+  if (Buffer.byteLength(raw, "utf8") !== fileInfo.size) throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_INVALID");
+  const [readbackInfo, readbackPath] = await Promise.all([lstat(path), realpath(path)]);
+  if (readbackPath !== path || !readbackInfo.isFile() || readbackInfo.isSymbolicLink() ||
+    (readbackInfo.mode & 0o777) !== 0o400 || readbackInfo.dev !== fileInfo.dev ||
+    readbackInfo.ino !== fileInfo.ino || readbackInfo.size !== fileInfo.size) {
+    throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_DRIFT");
+  }
+  const value: unknown = JSON.parse(raw);
+  assertKusabiFleetManifest(value);
+  return selectKusabiRuntimeEventTarget(value, evidence);
+}
+
+export function selectKusabiRuntimeEventTarget(
+  manifest: KusabiFleetManifest,
+  evidence: KusabiSessionStartEvidence,
+): KusabiRuntimeEventTargetBinding {
+  assertKusabiFleetManifest(manifest);
+  const hostRuntime = normalizeHostRuntime(evidence.identity.runtime);
+  const targetKey = kusabiFleetTargetKey({
+    agent_id: evidence.identity.agent_id,
+    project: evidence.identity.project,
+    host_runtime: hostRuntime,
+    workspace_sha256: evidence.identity.workspace_sha256,
+  });
+  const matches = manifest.targets.filter((candidate) => candidate.target_key === targetKey &&
+    candidate.identity.agent_id === evidence.identity.agent_id &&
+    candidate.identity.project === evidence.identity.project &&
+    candidate.identity.host_runtime === hostRuntime &&
+    candidate.identity.workspace_sha256 === evidence.identity.workspace_sha256);
+  if (matches.length !== 1) throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_TARGET_INVALID");
+  const expected = matches[0].expected;
+  return parseKusabiRuntimeEventTarget({
+    schema_version: KUSABI_RUNTIME_EVENT_TARGET_SCHEMA,
+    manifest_id: manifest.manifest_id,
+    build: {
+      commit_sha: expected.build.commit_sha,
+      tree_sha: expected.build.tree_sha,
+      artifact_sha256: expected.build.artifact_sha256,
+    },
+    configuration: {
+      config_sha256: expected.configuration.config_sha256,
+      trust_fingerprint_sha256: expected.configuration.trust_fingerprint_sha256,
+    },
+    storage: { ...expected.storage },
+  });
 }
 
 async function emitPreparedEventInProcess(
@@ -452,7 +528,13 @@ async function createQuietStore(env: NodeJS.ProcessEnv, signal: AbortSignal): Pr
   };
   signal.addEventListener("abort", closeOnAbort, { once: true });
   try {
-    await store.initialize();
+    // SessionStart has a bounded observability budget and runs only after the
+    // normal recovery result is ready. The release/migration path is
+    // responsible for schema installation; replaying every PostgreSQL
+    // migration here can consume the entire 500 ms emission window. Keep the
+    // connection probe fail-closed, but do not run migrations in this worker.
+    if (store instanceof PgStore) await store.initialize({ run_migrations: false });
+    else await store.initialize();
     throwIfEmissionAborted(signal);
     return store;
   } catch (error) {

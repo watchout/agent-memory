@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
   installClaudeSessionStartHook,
   mergeClaudeSessionStartHook,
@@ -166,6 +166,8 @@ export interface KusabiFleetRolloutTargetInput {
   stage: KusabiFleetRolloutStage;
   batch_id: string;
   maintenance_windows?: Array<{ started_at: string; ended_at: string }>;
+  /** Immutable fleet manifest selected by the installed SessionStart hook. */
+  runtime_event_manifest_path?: string;
 }
 
 export type KusabiFleetTrustSource =
@@ -270,6 +272,7 @@ export interface KusabiFleetDeploymentObservationInput {
   observed_commit_sha: string;
   observed_tree_sha: string;
   observed_at: string;
+  runtime_event_manifest_path?: string;
 }
 
 export interface KusabiFleetBatchGateReport {
@@ -819,7 +822,12 @@ export async function observeKusabiFleetDeployment(
   if (kusabiFleetTargetKey(identity) !== input.target.target_key) fail("KUSABI_FLEET_OBSERVED_TARGET_MISMATCH");
   const snapshot = await readConfigSnapshot(workspace, input.target.identity.host_runtime);
   if (snapshot.raw === null || snapshot.sha256 === null) fail("KUSABI_FLEET_OBSERVED_CONFIG_ABSENT");
-  const expectedBinding = bindingFor(input.target.identity, workspace, input.binding_source_ref);
+  const expectedBinding = bindingFor(
+    input.target.identity,
+    workspace,
+    input.binding_source_ref,
+    input.runtime_event_manifest_path,
+  );
   const managedBindingExact = managedBindingMatches(
     input.target.identity.host_runtime,
     snapshot.raw,
@@ -1076,7 +1084,7 @@ async function prepareTarget(input: KusabiFleetRolloutTargetInput, runtimeRoot: 
   };
   const snapshot = await readConfigSnapshot(workspace, input.host_runtime);
   const desiredRaw = desiredConfigRaw(input.host_runtime, snapshot.raw,
-    runtimeRoot, bindingFor(identity, workspace, input.binding_source_ref));
+    runtimeRoot, bindingFor(identity, workspace, input.binding_source_ref, input.runtime_event_manifest_path));
   const expectedTrust = expectedTrustFingerprint(
     input.host_runtime,
     kusabiFleetTargetKey(identity),
@@ -1371,19 +1379,27 @@ function managedBindingMatches(
   });
   const expectedCount = host === "gemini_cli" ? 3 : 1;
   return managed.length === expectedCount && managed.every((result) =>
-    result.runtime_root === runtimeRoot && canonicalJson(result.binding) === canonicalJson(expectedBinding));
+    result.runtime_root === runtimeRoot && canonicalCompactJson(result.binding) === canonicalCompactJson(expectedBinding));
 }
 
 function bindingFor(
   identity: Pick<KusabiFleetIdentity, "agent_id" | "project" | "host_runtime">,
   workspace: string,
   bindingSourceRef: string,
+  runtimeEventManifestPath?: string,
 ): CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding {
+  if (runtimeEventManifestPath !== undefined &&
+    (!isAbsolute(runtimeEventManifestPath) || resolve(runtimeEventManifestPath) !== runtimeEventManifestPath)) {
+    fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
+  }
   const common = {
     agent_id: identity.agent_id,
     project: identity.project,
     workspace,
     binding_source_ref: bindingSourceRef,
+    ...(runtimeEventManifestPath === undefined ? {} : {
+      runtime_event_manifest_path: runtimeEventManifestPath,
+    }),
   };
   if (identity.host_runtime === "codex") return { ...common, max_tokens: 1_800, max_bytes: 8_192, timeout_ms: 7_000 };
   return { ...common, max_tokens: 1_800, max_bytes: 8_192, timeout_ms: 7_000 };
@@ -1452,6 +1468,9 @@ async function installForHost(
     project: target.project,
     binding_source_ref: target.binding_source_ref,
     create_backup: false,
+    ...(target.runtime_event_manifest_path === undefined ? {} : {
+      runtime_event_manifest_path: target.runtime_event_manifest_path,
+    }),
   } as const;
   if (target.host_runtime === "codex") return installCodexSessionStartHook(options);
   if (target.host_runtime === "claude_code") return installClaudeSessionStartHook(options);
@@ -1565,6 +1584,10 @@ function validateTargetInput(input: KusabiFleetRolloutTargetInput): void {
   if (!boundedId(input.agent_id) || !boundedId(input.project) ||
     !(input.host_runtime === "codex" || input.host_runtime === "claude_code" || input.host_runtime === "gemini_cli") ||
     !canonicalText(input.binding_source_ref) || !boundedId(input.batch_id) || !(input.stage in STAGE_ORDER)) {
+    fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
+  }
+  if (input.runtime_event_manifest_path !== undefined &&
+    (!isAbsolute(input.runtime_event_manifest_path) || resolve(input.runtime_event_manifest_path) !== input.runtime_event_manifest_path)) {
     fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
   }
   requireStorage(input.storage);
