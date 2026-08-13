@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import {
   KUSABI_FLEET_INVENTORY_QUERY_CONTRACT_SHA256,
+  KusabiFleetRolloutError,
   applyKusabiFleetRolloutBatch,
   observeKusabiFleetDeployment,
   prepareKusabiFleetR0,
@@ -151,6 +152,9 @@ export interface KusabiDirectFleetRolloutOptions {
   workspace_root?: string;
   /** Test-only seam; production CLI never exposes this override. */
   test_allow_external_deployer?: boolean;
+  /** Test-only effect seams; production CLI never exposes these callbacks. */
+  test_before_target_apply?: (targetKey: string, index: number) => void | Promise<void>;
+  test_before_target_rollback?: (targetKey: string, index: number) => void | Promise<void>;
   on_batch_applied?: (batchId: string, report: KusabiFleetApplyBatchReport) => void | Promise<void>;
 }
 
@@ -1137,6 +1141,8 @@ export async function runKusabiDirectFleetRollout(
         runtime_root: cas.runtime_root,
         targets: batchInputs,
         prior_gate_reports: placementGates,
+        test_before_target_apply: options.test_before_target_apply,
+        test_before_target_rollback: options.test_before_target_rollback,
       });
       applyReports.push(applyReport);
       await writeJson(join(outputDir, `apply-${batch.batch_id}.json`), applyReport);
@@ -1211,8 +1217,13 @@ export async function runKusabiDirectFleetRollout(
     await writeJson(join(outputDir, "direct-rollout-report.json"), report);
     return report;
   } catch (error) {
+    if (error instanceof KusabiFleetRolloutError && error.apply_report !== undefined &&
+      !applyReports.some(({ batch_id }) => batch_id === error.apply_report!.batch_id)) {
+      applyReports.push(error.apply_report);
+      await writeJson(join(outputDir, `apply-${error.apply_report.batch_id}.json`), error.apply_report);
+    }
     const appliedPostimages = new Map(applyReports.flatMap((report) =>
-      report.target_results.map((target) => [target.target_key, target.postimage_sha256] as const)
+      report.effect_targets.map((target) => [target.target_key, target.expected_postimage_sha256] as const)
     ));
     const preimageByKey = new Map(preimages.map((preimage) => [preimage.target_key, preimage]));
     for (const [targetKey, postimageSha256] of [...appliedPostimages].reverse()) {
@@ -1224,7 +1235,9 @@ export async function runKusabiDirectFleetRollout(
         rollbackErrors.push(`${targetKey}:${failureDetails(rollbackError).message}`);
       }
     }
-    const failure = failureDetails(error);
+    const failure = error instanceof KusabiFleetRolloutError && error.apply_report?.failure_code
+      ? { code: error.apply_report.failure_code, message: error.apply_report.failure_code }
+      : failureDetails(error);
     const report = sealDirectReport({
       schema_version: "kusabi-direct-fleet-rollout-report/v1",
       ...reportBase,

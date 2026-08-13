@@ -160,6 +160,24 @@ function modeString(mode) {
   return (mode & 0o7777).toString(8).padStart(4, "0");
 }
 
+export function assertImmutableModes(root) {
+  const visit = (path) => {
+    const info = lstatSync(path);
+    if (info.isSymbolicLink()) fail("FULL_READBACK_MISMATCH", "symlink: " + relative(root, path));
+    if (info.isDirectory()) {
+      if (modeString(info.mode) !== "0555") {
+        fail("FULL_READBACK_MISMATCH", "directory mode: " + (relative(root, path) || "."));
+      }
+      for (const name of readdirSync(path).sort(byteCompare)) visit(join(path, name));
+      return;
+    }
+    if (!info.isFile() || modeString(info.mode) !== "0444") {
+      fail("FULL_READBACK_MISMATCH", "file mode: " + relative(root, path));
+    }
+  };
+  visit(root);
+}
+
 function normalizeModes(root) {
   const directories = [];
   const visit = (directory) => {
@@ -285,6 +303,7 @@ export function exactReadback(root, expectedDescriptorSha) {
       !statSync(root).isDirectory() || realpathSync(root) !== root) {
     fail("FULL_READBACK_MISMATCH", root);
   }
+  assertImmutableModes(root);
   const bytes = readFileSync(join(root, "release.json"));
   if (sha256(bytes) !== expectedDescriptorSha) fail("FULL_READBACK_MISMATCH", "descriptor digest");
   const descriptor = JSON.parse(bytes);

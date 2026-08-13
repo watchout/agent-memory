@@ -338,6 +338,60 @@ async function main(): Promise<void> {
     const failureReport = JSON.parse(await readFile(join(rollbackOutput, "direct-rollout-failure-report.json"), "utf8"));
     check(failureReport.status === "failed_rolled_back", "rollback result is persisted as JSON evidence");
 
+    const conflictPlan = join(root, "conflict-plan");
+    const conflictFixed = {
+      ...fixed,
+      captured_at: "2026-08-13T11:02:00.000Z",
+      activation_at: "2026-08-13T11:02:00.000Z",
+    };
+    await runKusabiDirectFleetRollout({ ...conflictFixed, output_dir: conflictPlan });
+    const conflictSeal = JSON.parse(await readFile(join(conflictPlan, "plan-seal.json"), "utf8"));
+    const conflictManifest = JSON.parse(await readFile(join(conflictPlan, "fleet-manifest.json"), "utf8"));
+    const conflictAuthorizationFile = join(root, "conflict-authorization.json");
+    await writeFile(conflictAuthorizationFile, JSON.stringify(sealKusabiDirectRolloutAuthorization({
+      expected_head: "1".repeat(40),
+      plan_seal_sha256: conflictSeal.plan_seal_sha256,
+      decision_id: "owner-direct-test-conflict-20260813",
+      decision_ref_sha256: sha256("owner-directive:test-fixture-conflict"),
+      independent_audit_sha256: sha256("independent-audit:fixture-conflict-pass"),
+    })), { mode: 0o400 });
+    let firstEffectTarget = "";
+    const conflictOutput = join(root, "conflict-evidence");
+    try {
+      await runKusabiDirectFleetRollout({
+        ...conflictFixed,
+        apply: true,
+        output_dir: conflictOutput,
+        plan_dir: conflictPlan,
+        authorization_file: conflictAuthorizationFile,
+        test_before_target_apply: (targetKey, index) => {
+          if (index === 0) firstEffectTarget = targetKey;
+          if (index === 1) throw new Error("fixture mid-batch apply failure");
+        },
+        test_before_target_rollback: async (targetKey) => {
+          if (targetKey !== firstEffectTarget) return;
+          const target = conflictManifest.targets.find((item: any) => item.target_key === targetKey);
+          const host = target.identity.host_runtime as "codex" | "claude_code" | "gemini_cli";
+          await writeFile(configPath(kusabi, host), '{"foreign":"concurrent-drift"}\n');
+        },
+      });
+      assert.fail("expected incomplete rollback failure");
+    } catch (error) {
+      assert(error instanceof KusabiDirectFleetRolloutError);
+      const partial = error.report?.apply_reports.at(-1);
+      check(error.report?.status === "failed_rollback_incomplete" &&
+        error.report.summary.rollback_error_count >= 1,
+      "rollback conflict cannot be reported as failed_rolled_back");
+      check(partial?.placed_count === 1 && partial.effect_targets.length === 2 &&
+        partial.failure_code === "KUSABI_FLEET_APPLY_FAILED",
+      "mid-batch failure propagates successful and potentially effected targets to the direct layer");
+    }
+    const conflictFailureReport = JSON.parse(await readFile(
+      join(conflictOutput, "direct-rollout-failure-report.json"), "utf8"));
+    check(conflictFailureReport.status === "failed_rollback_incomplete" &&
+      conflictFailureReport.apply_reports.at(-1).effect_targets.length === 2,
+    "persisted evidence records partial apply and incomplete rollback");
+
     process.stdout.write(`kusabi direct fleet rollout tests passed (${assertions} assertions)\n`);
   } finally {
     await chmodTree(root, 0o700, 0o600).catch(() => undefined);

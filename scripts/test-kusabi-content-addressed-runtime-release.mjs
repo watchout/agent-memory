@@ -182,6 +182,22 @@ async function publisherUnit() {
       symlinkRejected = error.code === "RUNTIME_SYMLINK_FORBIDDEN";
     }
     if (!symlinkRejected) fail("PUBLISHER_UNIT_FAILED", "symlink was accepted");
+    const modeRoot = join(root, "mode-root");
+    mkdirSync(join(modeRoot, "nested"), { recursive: true });
+    writeFileSync(join(modeRoot, "nested", "payload"), "immutable", { mode: 0o444 });
+    chmodSync(join(modeRoot, "nested"), 0o555);
+    chmodSync(modeRoot, 0o555);
+    builder.assertImmutableModes(modeRoot);
+    chmodSync(join(modeRoot, "nested"), 0o755);
+    let directoryModeRejected = false;
+    try {
+      builder.assertImmutableModes(modeRoot);
+    } catch (error) {
+      directoryModeRejected = error.code === "FULL_READBACK_MISMATCH";
+    }
+    if (!directoryModeRejected) fail("PUBLISHER_UNIT_FAILED", "directory mode drift was accepted");
+    chmodSync(modeRoot, 0o755);
+    chmodSync(join(modeRoot, "nested"), 0o755);
     const stage = join(root, "rollback-stage");
     const final = join(root, "rollback-final");
     mkdirSync(final);
@@ -220,7 +236,8 @@ async function publisherUnit() {
     verdict: "PASS",
     checks: [
       "argument_boundary", "expected_head_required", "removed_gate_mode",
-      "deterministic_tree", "symlink_rejection", "owned_final_rollback", "foreign_final_preserved",
+      "deterministic_tree", "symlink_rejection", "directory_mode_drift_rejection",
+      "owned_final_rollback", "foreign_final_preserved",
     ],
     protected_effect_count: 0,
   };
