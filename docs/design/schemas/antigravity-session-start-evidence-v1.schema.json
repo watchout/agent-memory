@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/watchout/agent-memory/blob/main/docs/design/schemas/antigravity-session-start-evidence-v1.schema.json",
+  "title": "Antigravity CLI Pre/PostInvocation evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "adapter", "host_contract_version", "identity", "store_binding", "hook", "timing", "output", "recovery_pack", "auto_receive", "outcome", "degraded_reason", "recovery_quality_log_ref", "forbidden_effects"],
+  "properties": {
+    "schema_version": { "const": "antigravity-session-start-evidence/v1" },
+    "adapter": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version"],
+      "properties": { "id": { "const": "wasurezu-antigravity-session-start" }, "version": { "const": "1.0.0" } }
+    },
+    "host_contract_version": { "const": "1.1.12" },
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agent_id", "project", "workspace_sha256", "binding_source_ref", "runtime", "verified"],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 }, "project": { "type": "string", "minLength": 1 },
+        "workspace_sha256": { "$ref": "#/$defs/sha256" }, "binding_source_ref": { "type": "string", "minLength": 1 },
+        "runtime": { "const": "antigravity-cli" }, "verified": { "type": "boolean" }
+      }
+    },
+    "store_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "backend_intent", "config_path_sha256", "binding_sha256", "verified", "credentials_embedded"],
+      "properties": {
+        "source": { "enum": ["environment", "user_config", "local_default", "unknown"] },
+        "backend_intent": { "enum": ["postgres", "sqlite", "json", "unknown"] },
+        "config_path_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "binding_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "verified": { "type": "boolean" }, "credentials_embedded": { "const": false }
+      }
+    },
+    "hook": {
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "event", "invocation_num", "initial_num_steps", "model_name", "input_valid", "strict_json_stdout"],
+      "properties": {
+        "session_id": { "type": ["string", "null"] }, "event": { "enum": ["pre-invocation", "post-invocation"] },
+        "invocation_num": { "type": ["integer", "null"], "minimum": 0 }, "initial_num_steps": { "type": ["integer", "null"], "minimum": 0 },
+        "model_name": { "type": ["string", "null"] }, "input_valid": { "type": "boolean" }, "strict_json_stdout": { "const": true }
+      }
+    },
+    "timing": {
+      "type": "object", "additionalProperties": false, "required": ["started_at", "completed_at", "elapsed_ms"],
+      "properties": { "started_at": { "type": "string", "format": "date-time" }, "completed_at": { "type": "string", "format": "date-time" }, "elapsed_ms": { "type": "integer", "minimum": 0 } }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false, "required": ["token_estimate", "byte_count", "redaction_count", "injection_count"],
+      "properties": { "token_estimate": { "type": "integer", "minimum": 0 }, "byte_count": { "type": "integer", "minimum": 0 }, "redaction_count": { "type": "integer", "minimum": 0 }, "injection_count": { "enum": [0, 1] } }
+    },
+    "recovery_pack": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pack_ref", "schema_ref", "token_budget", "confidence", "missing_context", "source_refs", "policy_version"],
+      "properties": {
+        "pack_ref": { "type": ["string", "null"] },
+        "schema_ref": { "enum": ["wasurezu-recovery-pack/v1", null] },
+        "token_budget": { "anyOf": [{ "type": "integer", "minimum": 500, "maximum": 1800 }, { "type": "null" }] },
+        "confidence": { "enum": ["high", "medium", "low", null] },
+        "missing_context": { "type": "array", "items": { "type": "string" } },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_version": { "type": ["string", "null"] }
+      }
+    },
+    "auto_receive": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "reason", "events_saved", "events_duplicate"],
+      "properties": {
+        "status": { "enum": ["captured", "skipped", "failed_open"] },
+        "reason": { "enum": ["captured", "transcript_unavailable", "transcript_invalid", "transcript_too_large", "transcript_unstable", "workspace_mismatch", "session_mismatch", "ingest_failed"] },
+        "events_saved": { "type": "integer", "minimum": 0 },
+        "events_duplicate": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "outcome": { "enum": ["full", "degraded"] },
+    "degraded_reason": { "enum": ["MALFORMED_HOOK_INPUT", "IDENTITY_BINDING_INVALID", "WORKSPACE_IDENTITY_MISMATCH", "RECOVERY_TIMEOUT", "RECOVERY_UNAVAILABLE", "EVIDENCE_LOG_UNAVAILABLE", null] },
+    "recovery_quality_log_ref": { "type": ["string", "null"] },
+    "forbidden_effects": {
+      "type": "object", "additionalProperties": false,
+      "required": ["automatic_restart_count", "process_kill_count", "tui_write_count", "tmux_send_keys_count", "clipboard_write_count", "aun_queue_mutation_count", "running_session_injection_count"],
+      "properties": {
+        "automatic_restart_count": { "const": 0 }, "process_kill_count": { "const": 0 }, "tui_write_count": { "const": 0 },
+        "tmux_send_keys_count": { "const": 0 }, "clipboard_write_count": { "const": 0 }, "aun_queue_mutation_count": { "const": 0 }, "running_session_injection_count": { "const": 0 }
+      }
+    }
+  },
+  "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

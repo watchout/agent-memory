@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync, type Dirent } from "fs";
 import { join } from "path";
 import { normalizeHomePath, redactText } from "./redact.js";
 
-export type RawCaptureCoverageSource = "claude_code" | "codex" | "gemini_cli";
+export type RawCaptureCoverageSource = "antigravity_cli" | "claude_code" | "codex" | "gemini_cli";
 export type RawCaptureCoverageStatus = "clean" | "degraded" | "failed";
 export type RawCaptureCoverageReason =
   | "transcript_root_missing"

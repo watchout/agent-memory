@@ -201,7 +201,7 @@ async function exerciseBackend(
   store: Store,
   manifest: KusabiFleetManifest,
   registryRows: InstalledCaptureRegistryRow[],
-  roots: Record<"codex" | "claude_code" | "gemini_cli", string>,
+  roots: Record<"antigravity_cli" | "codex" | "claude_code" | "gemini_cli", string>,
   runtimeCandidate: RawCaptureRuntimeCandidate,
 ): Promise<RawCaptureServiceReport> {
   const input = {
@@ -211,35 +211,44 @@ async function exerciseBackend(
     registry_rows: registryRows,
     source_roots: roots,
     runtime_candidate: runtimeCandidate,
-    sources: ["codex", "claude_code", "gemini_cli"] as const,
+    sources: ["codex", "claude_code", "gemini_cli", "antigravity_cli"] as const,
     since: SINCE,
     run_id: "raw-capture-parity-run",
     generated_at: FIXED_AT,
   };
   const first = await runRawCaptureService(input);
-  assert.deepEqual(first.source_results.map((source) => source.events_saved), [1, 1, 1]);
+  assert.deepEqual(first.source_results.map((source) => source.events_saved), [1, 1, 1, 2]);
   assert(first.source_results.every((source) => source.coverage_status === "clean"));
   const raw = await store.getRawEvents({ agent_id: AGENT_ID, limit: 100 });
-  const native = raw.filter((event) => ["codex", "claude_code", "gemini_cli"].includes(event.source));
-  assert.equal(native.length, 3, `${store.backend} save/readback returns three native events`);
+  const native = raw.filter((event) => ["antigravity_cli", "codex", "claude_code", "gemini_cli"].includes(event.source));
+  assert.equal(native.length, 5, `${store.backend} save/readback returns five native events`);
   assert(native.every((event) => event.private_reasoning === false));
+  assert(native.some((event) => event.content === "Antigravity complete assistant parity fixture"));
+  assert(!JSON.stringify(native).includes("ANTIGRAVITY_COMPACT_TRUNCATED_MUST_NOT_PERSIST"));
   const second = await runRawCaptureService(input);
-  assert.deepEqual(second.source_results.map((source) => source.events_saved), [0, 0, 0]);
-  assert.deepEqual(second.source_results.map((source) => source.events_duplicate), [1, 1, 1]);
+  assert.deepEqual(second.source_results.map((source) => source.events_saved), [0, 0, 0, 0]);
+  assert.deepEqual(second.source_results.map((source) => source.events_duplicate), [1, 1, 1, 2]);
   const replay = await store.getRawEvents({ agent_id: AGENT_ID, limit: 100 });
   assert.equal(
-    replay.filter((event) => ["codex", "claude_code", "gemini_cli"].includes(event.source)).length,
-    3,
+    replay.filter((event) => ["antigravity_cli", "codex", "claude_code", "gemini_cli"].includes(event.source)).length,
+    5,
     `${store.backend} duplicate source refs create no duplicate native event`,
   );
   return first;
 }
 
-async function createSourceFixtures(root: string): Promise<Record<"codex" | "claude_code" | "gemini_cli", string>> {
+async function createSourceFixtures(root: string): Promise<Record<"antigravity_cli" | "codex" | "claude_code" | "gemini_cli", string>> {
   const codex = join(root, "codex");
   const claude = join(root, "claude");
   const gemini = join(root, "gemini");
-  await Promise.all([mkdir(codex, { recursive: true }), mkdir(claude, { recursive: true }), mkdir(gemini, { recursive: true })]);
+  const antigravity = join(root, "antigravity");
+  const antigravityLogs = join(
+    antigravity,
+    "123e4567-e89b-42d3-a456-426614174000",
+    ".system_generated",
+    "logs",
+  );
+  await Promise.all([mkdir(codex, { recursive: true }), mkdir(claude, { recursive: true }), mkdir(gemini, { recursive: true }), mkdir(antigravityLogs, { recursive: true })]);
   await writeFile(join(codex, "session-codex.jsonl"), `${JSON.stringify({
     timestamp: "2026-08-02T00:01:00.000Z",
     type: "response_item",
@@ -267,11 +276,19 @@ async function createSourceFixtures(root: string): Promise<Record<"codex" | "cla
     sessionId: "session-gemini",
     startTime: "2026-08-02T00:03:00.000Z",
   }));
-  return { codex, claude_code: claude, gemini_cli: gemini };
+  await writeFile(join(antigravityLogs, "transcript.jsonl"), [
+    JSON.stringify({ step_index: 0, source: "USER_EXPLICIT", type: "USER_INPUT", status: "DONE", content: "Antigravity user parity fixture", tool_calls: [] }),
+    JSON.stringify({ step_index: 1, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", content: "ANTIGRAVITY_COMPACT_TRUNCATED_MUST_NOT_PERSIST", tool_calls: [], is_truncated: true }),
+  ].join("\n"));
+  await writeFile(join(antigravityLogs, "transcript_full.jsonl"), [
+    JSON.stringify({ step_index: 0, source: "USER_EXPLICIT", type: "USER_INPUT", status: "DONE", content: "Antigravity user parity fixture", tool_calls: [] }),
+    JSON.stringify({ step_index: 1, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", content: "Antigravity complete assistant parity fixture", tool_calls: [], is_truncated: false }),
+  ].join("\n"));
+  return { antigravity_cli: antigravity, codex, claude_code: claude, gemini_cli: gemini };
 }
 
 function buildManifest(): KusabiFleetManifest {
-  const hosts = ["codex", "claude_code", "gemini_cli"] as const;
+  const hosts = ["codex", "claude_code", "gemini_cli", "antigravity_cli"] as const;
   const targets = Array.from({ length: 35 }, (_, index) => {
     const identity = {
       agent_id: `capture-agent-${String(index).padStart(2, "0")}`,

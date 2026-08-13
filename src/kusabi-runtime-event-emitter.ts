@@ -55,7 +55,7 @@ export interface KusabiSessionStartEvidence {
     project: string;
     workspace_sha256: string;
     binding_source_ref: string;
-    runtime: "codex" | "claude-code" | "gemini-cli";
+    runtime: "antigravity-cli" | "codex" | "claude-code" | "gemini-cli";
   };
   store_binding: {
     backend_intent: "postgres" | "sqlite" | "json" | "unknown";
@@ -721,7 +721,8 @@ function emissionResult(
 }
 
 function normalizeHostRuntime(runtime: KusabiSessionStartEvidence["identity"]["runtime"]):
-  "codex" | "claude_code" | "gemini_cli" {
+  "antigravity_cli" | "codex" | "claude_code" | "gemini_cli" {
+  if (runtime === "antigravity-cli") return "antigravity_cli";
   if (runtime === "claude-code") return "claude_code";
   if (runtime === "gemini-cli") return "gemini_cli";
   return "codex";

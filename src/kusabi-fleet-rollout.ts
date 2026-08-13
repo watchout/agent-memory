@@ -1,6 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import {
+  installAntigravityHooks,
+  mergeAntigravityHooks,
+  parseAntigravityHookCommand,
+  parseAntigravityHooks,
+  type ParsedAntigravityHookCommand,
+} from "./antigravity-hook-installer.js";
+import {
+  ANTIGRAVITY_SESSION_START_ADAPTER_VERSION,
+  type AntigravitySessionStartBinding,
+} from "./antigravity-session-start.js";
 import {
   installClaudeSessionStartHook,
   mergeClaudeSessionStartHook,
@@ -171,6 +183,7 @@ export interface KusabiFleetRolloutTargetInput {
 }
 
 export type KusabiFleetTrustSource =
+  | { kind: "antigravity_hook_state"; hooks_json: string }
   | { kind: "codex_hook_state"; config_toml: string }
   | { kind: "claude_project_state"; claude_state_json: string }
   | { kind: "gemini_hook_state"; trusted_folders_json: string; trusted_hooks_json: string };
@@ -473,7 +486,7 @@ export function assertKusabiFleetInventorySnapshot(
       "binding_source", "binding_source_ref_sha256", "eligibility",
     ]) || !boundedId(rawBinding.registered_agent_id) || !boundedId(rawBinding.canonical_agent_id) ||
       rawBinding.registered_agent_id !== rawBinding.canonical_agent_id || !boundedId(rawBinding.project) ||
-      !(rawBinding.host_runtime === "codex" || rawBinding.host_runtime === "claude_code" ||
+      !(rawBinding.host_runtime === "antigravity_cli" || rawBinding.host_runtime === "codex" || rawBinding.host_runtime === "claude_code" ||
         rawBinding.host_runtime === "gemini_cli") || !sha256Value(rawBinding.workspace_sha256) ||
       !(rawBinding.binding_source === "agent_comms_primary" ||
         rawBinding.binding_source === "owner_approved_secondary") ||
@@ -1116,6 +1129,13 @@ async function prepareTarget(input: KusabiFleetRolloutTargetInput, runtimeRoot: 
 }
 
 function trustSourceLocatorSha256(source: KusabiFleetTrustSource): string {
+  if (source.kind === "antigravity_hook_state") {
+    return sha256(canonicalCompactJson({
+      kind: source.kind,
+      hooks_json_sha256: sha256(source.hooks_json),
+      official_settings_json_sha256: sha256(getKusabiAntigravitySettingsPath()),
+    }));
+  }
   if (source.kind === "codex_hook_state") {
     return sha256(canonicalCompactJson({ kind: source.kind, config_toml_sha256: sha256(source.config_toml) }));
   }
@@ -1136,7 +1156,7 @@ function desiredConfigRaw(
   host: KusabiHostRuntime,
   raw: string | null,
   runtimeRoot: string,
-  binding: CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding,
+  binding: AntigravitySessionStartBinding | CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding,
 ): string {
   if (host === "codex") {
     const parsed = raw === null
@@ -1153,6 +1173,11 @@ function desiredConfigRaw(
       mergeClaudeSessionStartHook(parsed, runtimeRoot, binding as ClaudeSessionStartBinding).settings,
     );
     return raw !== null && canonicalJson(parsed) === desired ? raw : desired;
+  }
+  if (host === "antigravity_cli") {
+    const parsed = raw === null ? parseAntigravityHooks("{}") : parseAntigravityHooks(raw);
+    const desired = canonicalJson(mergeAntigravityHooks(parsed, runtimeRoot, binding as AntigravitySessionStartBinding));
+    return raw !== null && raw === desired ? raw : desired;
   }
   const parsed = raw === null ? parseGeminiSettings('{"hooks":{}}') : parseGeminiSettings(raw);
   const desired = canonicalJson(
@@ -1182,6 +1207,17 @@ function expectedTrustFingerprint(
       target_key: targetKey,
       workspace_sha256: workspaceSha256,
       trusted: true,
+    }));
+  }
+  if (host === "antigravity_cli") {
+    const commandHashes = antigravityManagedCommands(configRaw).map(sha256).sort();
+    if (commandHashes.length !== 2) fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_IDENTITY_INVALID");
+    return sha256(canonicalCompactJson({
+      schema_version: "kusabi-antigravity-workspace-hook-trust/v1",
+      target_key: targetKey,
+      workspace_sha256: workspaceSha256,
+      workspace_trusted: true,
+      managed_command_sha256: commandHashes,
     }));
   }
   const commandHashes = geminiManagedCommands(configRaw).map(sha256).sort();
@@ -1221,6 +1257,14 @@ async function observeTrustFingerprint(
     const projects = state.projects;
     const workspace = isRecord(projects) ? projects[dirname(dirname(configPath))] : undefined;
     verified = isRecord(workspace) && workspace.hasTrustDialogAccepted === true;
+  } else if (host === "antigravity_cli") {
+    if (source.kind !== "antigravity_hook_state") fail("KUSABI_FLEET_TRUST_SOURCE_MISMATCH");
+    const workspace = await realpath(dirname(dirname(configPath))).catch(() =>
+      fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID")
+    );
+    verified = resolve(source.hooks_json) === resolve(configPath) &&
+      antigravityManagedCommands(configRaw).length === 2 &&
+      await verifyKusabiAntigravityWorkspaceTrust(workspace);
   } else {
     if (source.kind !== "gemini_hook_state") fail("KUSABI_FLEET_TRUST_SOURCE_MISMATCH");
     const folders = parseJsonObject(await readTrustFile(
@@ -1245,6 +1289,51 @@ async function observeTrustFingerprint(
     })),
     verified,
   };
+}
+
+export function getKusabiAntigravitySettingsPath(): string {
+  const home = homedir();
+  if (!isAbsolute(home) || resolve(home) !== home || home.includes("\0")) {
+    fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  }
+  return join(home, ".gemini", "antigravity-cli", "settings.json");
+}
+
+export async function verifyKusabiAntigravityWorkspaceTrust(workspace: string): Promise<boolean> {
+  return verifyKusabiAntigravityWorkspaceTrustAtLocator(workspace, getKusabiAntigravitySettingsPath);
+}
+
+/** Test-only dependency seam; production observation never accepts a locator override. */
+export async function testOnlyVerifyKusabiAntigravityWorkspaceTrust(
+  workspace: string,
+  home: string,
+): Promise<boolean> {
+  if (!isAbsolute(home) || resolve(home) !== home || home.includes("\0")) {
+    fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  }
+  return verifyKusabiAntigravityWorkspaceTrustAtLocator(
+    workspace,
+    () => join(home, ".gemini", "antigravity-cli", "settings.json"),
+  );
+}
+
+async function verifyKusabiAntigravityWorkspaceTrustAtLocator(
+  workspace: string,
+  locateSettings: () => string,
+): Promise<boolean> {
+  let canonicalWorkspace: string;
+  try {
+    canonicalWorkspace = await realpath(workspace);
+  } catch {
+    fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  }
+  const state = parseJsonObject(await readTrustFile(
+    locateSettings(),
+    "KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID",
+  ), "KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  const trustedWorkspaces = state.trustedWorkspaces;
+  if (!Array.isArray(trustedWorkspaces) || trustedWorkspaces.some((item) => typeof item !== "string")) return false;
+  return trustedWorkspaces.includes(canonicalWorkspace);
 }
 
 interface CodexHookTrustEntry {
@@ -1311,6 +1400,23 @@ function geminiManagedCommands(configRaw: string): string[] {
   return [...commands].sort();
 }
 
+function antigravityManagedCommands(configRaw: string): string[] {
+  const parsed = parseAntigravityHooks(configRaw);
+  const namespace = parsed["wasurezu-antigravity-recovery"];
+  if (!isRecord(namespace)) return [];
+  const commands: string[] = [];
+  for (const surface of ["PreInvocation", "PostInvocation"] as const) {
+    const handlers = namespace[surface];
+    if (!Array.isArray(handlers)) continue;
+    for (const handler of handlers) {
+      if (isRecord(handler) && typeof handler.command === "string" && parseAntigravityHookCommand(handler.command)) {
+        commands.push(handler.command);
+      }
+    }
+  }
+  return [...new Set(commands)].sort();
+}
+
 function codexTrustedHash(configToml: string, expectedKey: string): string | null {
   let active = false;
   let result: string | null = null;
@@ -1366,10 +1472,14 @@ function managedBindingMatches(
   host: KusabiHostRuntime,
   raw: string,
   runtimeRoot: string,
-  expectedBinding: CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding,
+  expectedBinding: AntigravitySessionStartBinding | CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding,
 ): boolean {
-  const parsed = host === "codex" ? parseHooksFile(raw) :
-    host === "claude_code" ? parseClaudeSettings(raw) : parseGeminiSettings(raw);
+  if (host === "antigravity_cli") {
+    const parsed = antigravityManagedCommands(raw).map(parseAntigravityHookCommand).filter((item): item is ParsedAntigravityHookCommand => item !== null);
+    return parsed.length === 2 && parsed.every((item) => item.runtime_root === runtimeRoot &&
+      canonicalCompactJson(item.binding) === canonicalCompactJson(expectedBinding));
+  }
+  const parsed = host === "codex" ? parseHooksFile(raw) : host === "claude_code" ? parseClaudeSettings(raw) : parseGeminiSettings(raw);
   const hooks = (parsed.hooks.SessionStart ?? []).flatMap((group) => group.hooks);
   const commands = hooks.flatMap((hook) => typeof hook.command === "string" ? [hook.command] : []);
   const managed = commands.flatMap((command) => {
@@ -1387,7 +1497,7 @@ function bindingFor(
   workspace: string,
   bindingSourceRef: string,
   runtimeEventManifestPath?: string,
-): CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding {
+): AntigravitySessionStartBinding | CodexSessionStartBinding | ClaudeSessionStartBinding | GeminiSessionStartBinding {
   if (runtimeEventManifestPath !== undefined &&
     (!isAbsolute(runtimeEventManifestPath) || resolve(runtimeEventManifestPath) !== runtimeEventManifestPath)) {
     fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
@@ -1415,6 +1525,7 @@ async function readConfigSnapshot(workspace: string, host: KusabiHostRuntime): P
     // Parse now so malformed input never reaches an apply operation.
     if (host === "codex") parseHooksFile(raw);
     else if (host === "claude_code") parseClaudeSettings(raw);
+    else if (host === "antigravity_cli") parseAntigravityHooks(raw);
     else parseGeminiSettings(raw);
     return {
       state: "file",
@@ -1443,7 +1554,7 @@ async function assertDirectoryOrAbsent(path: string): Promise<void> {
 }
 
 async function readArtifactSha256(runtimeRoot: string, host: KusabiHostRuntime): Promise<string> {
-  const path = join(runtimeRoot, "dist", `${host === "codex" ? "codex" : host === "claude_code" ? "claude" : "gemini"}-session-start.js`);
+  const path = join(runtimeRoot, "dist", `${host === "codex" ? "codex" : host === "claude_code" ? "claude" : host === "antigravity_cli" ? "antigravity" : "gemini"}-session-start.js`);
   try {
     const info = await lstat(path);
     if (!info.isFile() || info.isSymbolicLink()) fail("KUSABI_FLEET_ARTIFACT_UNSAFE");
@@ -1474,6 +1585,7 @@ async function installForHost(
   } as const;
   if (target.host_runtime === "codex") return installCodexSessionStartHook(options);
   if (target.host_runtime === "claude_code") return installClaudeSessionStartHook(options);
+  if (target.host_runtime === "antigravity_cli") return installAntigravityHooks(options);
   return installGeminiSessionStartHook(options);
 }
 
@@ -1582,7 +1694,7 @@ function validateR0Options(options: KusabiFleetR0Options): void {
 
 function validateTargetInput(input: KusabiFleetRolloutTargetInput): void {
   if (!boundedId(input.agent_id) || !boundedId(input.project) ||
-    !(input.host_runtime === "codex" || input.host_runtime === "claude_code" || input.host_runtime === "gemini_cli") ||
+    !(input.host_runtime === "antigravity_cli" || input.host_runtime === "codex" || input.host_runtime === "claude_code" || input.host_runtime === "gemini_cli") ||
     !canonicalText(input.binding_source_ref) || !boundedId(input.batch_id) || !(input.stage in STAGE_ORDER)) {
     fail("KUSABI_FLEET_TARGET_INPUT_INVALID");
   }
@@ -1601,6 +1713,8 @@ function validateTargetInput(input: KusabiFleetRolloutTargetInput): void {
 
 function requireTrustSource(source: KusabiFleetTrustSource, host: KusabiHostRuntime): void {
   if (!isRecord(source) ||
+    (host === "antigravity_cli" && (!exactKeys(source, ["kind", "hooks_json"]) ||
+      source.kind !== "antigravity_hook_state" || !canonicalText(source.hooks_json))) ||
     (host === "codex" && (!exactKeys(source, ["kind", "config_toml"]) ||
       source.kind !== "codex_hook_state" || !canonicalText(source.config_toml))) ||
     (host === "claude_code" && (!exactKeys(source, ["kind", "claude_state_json"]) ||
@@ -1620,12 +1734,14 @@ function requireStorage(storage: KusabiFleetDeploymentIdentity["storage"]): void
 }
 
 function configRelativePath(host: KusabiHostRuntime): string {
+  if (host === "antigravity_cli") return ".agents/hooks.json";
   if (host === "codex") return ".codex/hooks.json";
   if (host === "claude_code") return ".claude/settings.json";
   return ".gemini/settings.json";
 }
 
 function adapterVersion(host: KusabiHostRuntime): string {
+  if (host === "antigravity_cli") return ANTIGRAVITY_SESSION_START_ADAPTER_VERSION;
   if (host === "codex") return CODEX_SESSION_START_ADAPTER_VERSION;
   if (host === "claude_code") return CLAUDE_SESSION_START_ADAPTER_VERSION;
   return GEMINI_SESSION_START_ADAPTER_VERSION;
