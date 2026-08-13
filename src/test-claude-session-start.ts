@@ -153,6 +153,14 @@ async function main(): Promise<void> {
     });
     assert.equal(defaultMode.evidence.hook.permission_mode, "default");
 
+    const manualModeInput = hookInput(child, "startup", "manual");
+    const parsedManualMode = parseClaudeSessionStartInput(manualModeInput);
+    assert.equal(parsedManualMode.permission_mode, "manual");
+    const manualMode = await runClaudeSessionStart(manualModeInput, binding(workspace), {
+      loadRecovery: async () => loaded(),
+    });
+    assert.equal(manualMode.evidence.hook.permission_mode, "manual");
+
     const invalidPermissionMode = await runClaudeSessionStart(
       JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "allowEverything" }),
       binding(workspace),

@@ -55,6 +55,7 @@ export const CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
 const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
 const PERMISSION_MODES = [
   "default",
+  "manual",
   "acceptEdits",
   "plan",
   "auto",
@@ -218,7 +219,7 @@ function toCodexInput(input: ClaudeSessionStartInput): CodexSessionStartInput {
     hook_event_name: "SessionStart",
     model: input.model,
     permission_mode:
-      input.permission_mode === undefined || input.permission_mode === "auto"
+      input.permission_mode === undefined || input.permission_mode === "auto" || input.permission_mode === "manual"
         ? "default"
         : input.permission_mode,
     source: input.source,
