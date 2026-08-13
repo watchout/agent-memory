@@ -24,7 +24,7 @@ const BOUNDED_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const DEGRADATION_WINDOW_MS = 15 * 60 * 1000;
 const STORE_QUERY_LIMIT = 500;
 
-export type KusabiHostRuntime = "codex" | "claude_code" | "gemini_cli";
+export type KusabiHostRuntime = "antigravity_cli" | "codex" | "claude_code" | "gemini_cli";
 export type KusabiFleetTargetState =
   | "healthy"
   | "degraded"
@@ -999,7 +999,7 @@ function compiledFleetStatusValidator(schemaDir: string): ValidateFunction {
 function isIdentity(value: unknown): value is KusabiFleetIdentity {
   if (!isRecord(value) || !exactKeys(value, ["agent_id", "project", "host_runtime", "workspace_sha256"])) return false;
   return boundedId(value.agent_id) && boundedId(value.project) &&
-    (value.host_runtime === "codex" || value.host_runtime === "claude_code" || value.host_runtime === "gemini_cli") &&
+    (value.host_runtime === "antigravity_cli" || value.host_runtime === "codex" || value.host_runtime === "claude_code" || value.host_runtime === "gemini_cli") &&
     sha256Value(value.workspace_sha256);
 }
 

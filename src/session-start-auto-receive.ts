@@ -16,6 +16,12 @@ import {
 } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import {
+  getAntigravityBrainDir,
+  ingestAntigravityConversationEvents,
+  readSelectedFullLines,
+  truncatedAntigravityLineNumbers,
+} from "./antigravity-conversation-ingest.js";
+import {
   getClaudeProjectsDir,
   ingestClaudeConversationEvents,
 } from "./claude-conversation-ingest.js";
@@ -32,7 +38,7 @@ import type { Store } from "./stores/types.js";
 export const SESSION_START_TRANSCRIPT_MAX_BYTES = 8 * 1024 * 1024;
 const INGEST_FROM_EPOCH = "1970-01-01T00:00:00.000Z";
 
-export type SessionStartTranscriptHost = "codex" | "claude_code" | "gemini_cli";
+export type SessionStartTranscriptHost = "antigravity_cli" | "codex" | "claude_code" | "gemini_cli";
 
 export interface SessionStartAutoReceiveInput {
   host: SessionStartTranscriptHost;
@@ -94,7 +100,19 @@ export async function receiveCurrentSessionTranscript(
       ? await ingestCodexConversationEvents(store, input.agent_id, common)
       : input.host === "claude_code"
         ? await ingestClaudeConversationEvents(store, input.agent_id, common)
-        : await ingestGeminiConversationEvents(store, input.agent_id, common);
+        : input.host === "gemini_cli"
+          ? await ingestGeminiConversationEvents(store, input.agent_id, common)
+          : await ingestAntigravityConversationEvents(store, input.agent_id, {
+            project: input.project,
+            root,
+            files: [transcript.path],
+            contents: new Map([[transcript.path, raw]]),
+            full_lines: new Map([[
+              transcript.path,
+              readSelectedFullLines(transcript.path, truncatedAntigravityLineNumbers(raw)),
+            ]]),
+            fallback_occurred_at: new Date(transcript.mtime_ms).toISOString(),
+          });
     return {
       status: "captured",
       reason: "captured",
@@ -118,6 +136,7 @@ export interface BoundedTranscriptSnapshot {
   device: number;
   inode: number;
   size: number;
+  mtime_ms: number;
 }
 
 export function readBoundedTranscriptSnapshot(
@@ -170,6 +189,7 @@ export function readBoundedTranscriptSnapshot(
       device: before.dev,
       inode: before.ino,
       size: before.size,
+      mtime_ms: before.mtimeMs,
     };
   } catch {
     return { status: "invalid", reason: "transcript_unavailable" };
@@ -184,7 +204,9 @@ function rootForHost(input: SessionStartAutoReceiveInput): string {
       ? getCodexSessionsDir()
       : input.host === "claude_code"
         ? getClaudeProjectsDir()
-        : getGeminiChatsDir()
+        : input.host === "gemini_cli"
+          ? getGeminiChatsDir()
+          : getAntigravityBrainDir()
   );
 }
 
@@ -204,10 +226,15 @@ function matchesCurrentSession(
     if (!isWithin(expectedProjectDir, transcript)) return false;
     return matchesClaudeSession(raw, transcript, input.session_id, workspace, cwd);
   }
+  if (input.host === "antigravity_cli") {
+    const expected = join(root, input.session_id, ".system_generated", "logs", "transcript.jsonl");
+    return transcript === expected;
+  }
   const expectedProjectDir = join(root, basename(resolve(input.cwd)));
   if (!isWithin(expectedProjectDir, transcript)) return false;
   return matchesGeminiSession(raw, input.session_id, workspace, cwd);
 }
+
 
 function matchesCodexSession(raw: string, sessionId: string, workspace: string, cwd: string): boolean {
   for (const record of jsonlRecords(raw)) {

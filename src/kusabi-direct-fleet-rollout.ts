@@ -39,6 +39,8 @@ const REQUIRED_ENTRYPOINTS = [
   "dist/claude-session-start.js",
   "dist/codex-session-start.js",
   "dist/gemini-session-start.js",
+  "dist/antigravity-session-start.js",
+  "dist/antigravity-hook-installer.js",
   "dist/kusabi-direct-fleet-rollout.js",
   "dist/kusabi-fleet-rollout.js",
   "dist/raw-capture-service.js",
@@ -109,6 +111,7 @@ interface EligiblePrimaryRow {
 }
 
 export interface KusabiDirectTrustPaths {
+  antigravity_settings_json: string;
   codex_config_toml: string;
   claude_state_json: string;
   gemini_trusted_folders_json: string;
@@ -486,7 +489,12 @@ function targetTuple(agentId: string, project: string, host: KusabiHostRuntime):
   return `${agentId}/${project}/${host}`;
 }
 
-function trustSource(host: KusabiHostRuntime, paths: KusabiDirectTrustPaths): KusabiFleetTrustSource {
+function trustSource(host: KusabiHostRuntime, paths: KusabiDirectTrustPaths, workspace: string): KusabiFleetTrustSource {
+  if (host === "antigravity_cli") return {
+    kind: "antigravity_hook_state",
+    hooks_json: join(workspace, ".agents", "hooks.json"),
+    settings_json: paths.antigravity_settings_json,
+  };
   if (host === "codex") return { kind: "codex_hook_state", config_toml: paths.codex_config_toml };
   if (host === "claude_code") return { kind: "claude_project_state", claude_state_json: paths.claude_state_json };
   return {
@@ -499,6 +507,7 @@ function trustSource(host: KusabiHostRuntime, paths: KusabiDirectTrustPaths): Ku
 function defaultTrustPaths(): KusabiDirectTrustPaths {
   const home = homedir();
   return {
+    antigravity_settings_json: join(home, ".gemini", "antigravity-cli", "settings.json"),
     codex_config_toml: join(home, ".codex", "config.toml"),
     claude_state_json: join(home, ".claude.json"),
     gemini_trusted_folders_json: join(home, ".gemini", "trustedFolders.json"),
@@ -521,7 +530,7 @@ function eligibility(): KusabiFleetInventoryBindingInput["eligibility"] {
 
 function batchAssignment(tuple: string, r3Tuples: string[]): { stage: "r1" | "r2" | "r3"; batch_id: string } {
   if (tuple === "kusabi/agent-memory/codex" || tuple === "kusabi/agent-memory/claude_code" ||
-    tuple === "kusabi/agent-memory/gemini_cli") return { stage: "r1", batch_id: "r1-kusabi" };
+    tuple === "kusabi/agent-memory/antigravity_cli") return { stage: "r1", batch_id: "r1-kusabi" };
   if (R2_PILOT_TUPLES.has(tuple)) return { stage: "r2", batch_id: "r2-pilot" };
   const index = r3Tuples.indexOf(tuple);
   if (index < 0) fail("KUSABI_DIRECT_BATCH_ASSIGNMENT_MISSING", tuple);
@@ -588,7 +597,7 @@ async function collectDirectTargets(
         workspace,
         binding_source_ref: bindingSourceRef,
         storage,
-        trust_source: trustSource(host, trustPaths),
+        trust_source: trustSource(host, trustPaths, workspace),
         ...batch,
       },
       inventory: {
@@ -607,7 +616,7 @@ async function collectDirectTargets(
 
   const kusabi = primary.find(({ row, host }) => row.agent_id === "kusabi" && row.project === "agent-memory" && host === "codex");
   if (!kusabi) fail("KUSABI_DIRECT_KUSABI_PRIMARY_MISSING");
-  for (const host of ["claude_code", "gemini_cli"] as const) {
+  for (const host of ["claude_code", "antigravity_cli"] as const) {
     const bindingSourceRef = canonicalJson({
       schema_version: "kusabi-direct-binding-source-ref/v1",
       binding_source: "owner_approved_secondary",
@@ -626,7 +635,7 @@ async function collectDirectTargets(
         workspace: kusabi.workspace,
         binding_source_ref: bindingSourceRef,
         storage,
-        trust_source: trustSource(host, trustPaths),
+        trust_source: trustSource(host, trustPaths, kusabi.workspace),
         stage: "r1",
         batch_id: "r1-kusabi",
       },
@@ -648,6 +657,7 @@ async function collectDirectTargets(
 }
 
 function configRelativePath(host: KusabiHostRuntime): string {
+  if (host === "antigravity_cli") return ".agents/hooks.json";
   if (host === "codex") return ".codex/hooks.json";
   if (host === "claude_code") return ".claude/settings.json";
   return ".gemini/settings.json";

@@ -14,6 +14,7 @@ import {
   type KusabiDirectTrustPaths,
 } from "./kusabi-direct-fleet-rollout.js";
 import { kusabiRuntimeEventSha256 } from "./kusabi-runtime-event-store.js";
+import { verifyKusabiAntigravityWorkspaceTrust } from "./kusabi-fleet-rollout.js";
 
 const FIXTURE_ROWS = [
   "adf-lead|ai-dev-framework|codex", "arc|iyasaka-arc|codex", "aun|codex-aun|codex",
@@ -31,6 +32,7 @@ const FIXTURE_ROWS = [
 ] as const;
 const ENTRYPOINTS = [
   "dist/claude-session-start.js", "dist/codex-session-start.js", "dist/gemini-session-start.js",
+  "dist/antigravity-session-start.js", "dist/antigravity-hook-installer.js",
   "dist/kusabi-direct-fleet-rollout.js", "dist/kusabi-fleet-rollout.js", "dist/raw-capture-service.js",
 ] as const;
 let assertions = 0;
@@ -184,6 +186,7 @@ async function createFleet(root: string): Promise<{
 }
 
 function configPath(row: FixtureRow, host = row.runtime_engine_preference): string {
+  if (host === "antigravity_cli") return join(row.workspace, ".agents", "hooks.json");
   if (host === "codex") return join(row.workspace, ".codex", "hooks.json");
   if (host === "claude-code" || host === "claude_code") return join(row.workspace, ".claude", "settings.json");
   return join(row.workspace, ".gemini", "settings.json");
@@ -192,6 +195,10 @@ function configPath(row: FixtureRow, host = row.runtime_engine_preference): stri
 async function seedUnrelated(row: FixtureRow, host = row.runtime_engine_preference): Promise<void> {
   const path = configPath(row, host);
   await mkdir(join(path, ".."), { recursive: true });
+  if (host === "antigravity_cli") {
+    await writeFile(path, `${JSON.stringify({ unrelated: { preserve: true }, "unrelated-hook": { PreInvocation: [{ type: "command", command: "true" }] } }, null, 2)}\n`, { mode: 0o640 });
+    return;
+  }
   const group = host === "gemini_cli"
     ? { matcher: "startup", sequential: true, hooks: [{ type: "command", name: "unrelated-hook", command: "true" }] }
     : { matcher: "startup", hooks: [{ type: "command", command: "unrelated-hook" }] };
@@ -201,13 +208,15 @@ async function seedUnrelated(row: FixtureRow, host = row.runtime_engine_preferen
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o640 });
 }
 
-async function createTrust(root: string): Promise<KusabiDirectTrustPaths> {
+async function createTrust(root: string, antigravityWorkspace: string): Promise<KusabiDirectTrustPaths> {
   const paths = {
+    antigravity_settings_json: join(root, "antigravity-settings.json"),
     codex_config_toml: join(root, "codex-config.toml"),
     claude_state_json: join(root, "claude-state.json"),
     gemini_trusted_folders_json: join(root, "gemini-folders.json"),
     gemini_trusted_hooks_json: join(root, "gemini-hooks.json"),
   };
+  await writeFile(paths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [antigravityWorkspace] }));
   await writeFile(paths.codex_config_toml, "");
   await writeFile(paths.claude_state_json, '{"projects":{}}');
   await writeFile(paths.gemini_trusted_folders_json, "{}");
@@ -227,10 +236,21 @@ async function expectCode(code: string, operation: () => Promise<unknown>): Prom
   assert.fail(`expected ${code}`);
 }
 
+async function expectFleetCode(code: string, operation: () => Promise<unknown>): Promise<void> {
+  try {
+    await operation();
+  } catch (error: any) {
+    assert.equal(error?.code, code);
+    assertions++;
+    return;
+  }
+  assert.fail(`expected ${code}`);
+}
+
 async function readAllConfigs(rows: FixtureRow[]): Promise<Map<string, Buffer>> {
   const paths = rows.map((row) => configPath(row));
   const kusabi = rows.find(({ agent_id }) => agent_id === "kusabi")!;
-  paths.push(configPath(kusabi, "claude_code"), configPath(kusabi, "gemini_cli"));
+  paths.push(configPath(kusabi, "claude_code"), configPath(kusabi, "antigravity_cli"));
   return new Map(await Promise.all(paths.map(async (path) => [path, await readFile(path)] as const)));
 }
 
@@ -248,8 +268,25 @@ async function main(): Promise<void> {
     for (const row of rows) await seedUnrelated(row);
     const kusabi = rows.find(({ agent_id }) => agent_id === "kusabi")!;
     await seedUnrelated(kusabi, "claude_code");
-    await seedUnrelated(kusabi, "gemini_cli");
-    const trustPaths = await createTrust(root);
+    await seedUnrelated(kusabi, "antigravity_cli");
+    const trustPaths = await createTrust(root, kusabi.workspace);
+    check(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace),
+      "Antigravity trust requires the canonical workspace in official settings");
+    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [join(root, "other-workspace")] }));
+    check(!(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)),
+      "Antigravity trust rejects a different workspace");
+    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: false }));
+    check(!(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)),
+      "Antigravity trust rejects false or non-array trustedWorkspaces");
+    await writeFile(trustPaths.antigravity_settings_json, "{malformed");
+    await expectFleetCode("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID", () =>
+      verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)
+    );
+    await rm(trustPaths.antigravity_settings_json);
+    await expectFleetCode("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID", () =>
+      verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)
+    );
+    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [kusabi.workspace] }));
     const beforeDryRun = await readAllConfigs(rows);
     const fixed = {
       cas_root: casRoot,
@@ -272,6 +309,14 @@ async function main(): Promise<void> {
     check(dryRun.rollout.batch_count === 7 && dryRun.summary.placed_count === 0, "dry-run plans seven staged batches and writes no configs");
     const afterDryRun = await readAllConfigs(rows);
     check([...beforeDryRun].every(([path, raw]) => afterDryRun.get(path)?.equals(raw)), "dry-run preserves every config byte");
+    const dryManifest = JSON.parse(await readFile(join(planDir, "fleet-manifest.json"), "utf8"));
+    const kusabiSecondaryHosts = dryManifest.targets
+      .filter((target: any) => target.identity.agent_id === "kusabi" && target.identity.host_runtime !== "codex")
+      .map((target: any) => target.identity.host_runtime).sort();
+    check(canonicalJson(kusabiSecondaryHosts) === canonicalJson(["antigravity_cli", "claude_code"]),
+      "35-target inventory replaces the Gemini secondary with canonical Antigravity CLI identity");
+    check(dryManifest.targets.every((target: any) => target.identity.host_runtime !== "gemini_cli"),
+      "direct 35-target manifest contains no masquerading Gemini identity");
 
     const planSeal = JSON.parse(await readFile(join(planDir, "plan-seal.json"), "utf8"));
     check(((await lstat(planDir)).mode & 0o777) === 0o500 &&
@@ -305,8 +350,8 @@ async function main(): Promise<void> {
     check(applied.phase_receipt?.batch_id === "r1-kusabi" && applied.phase_receipt.effect_targets.length === 3 &&
       applied.phase_receipt.durable_gate_reports.length === 0,
       "R1 phase receipt binds only its three placed effects and no fabricated durable gate");
-    check(applied.summary.trust_exact_count === 0 && applied.trust_blockers.length === 3,
-      "native trust remains user-owned and is reported separately");
+    check(applied.summary.trust_exact_count === 1 && applied.trust_blockers.length === 2,
+      "Antigravity hook state is exact while Codex and Claude native trust remain user-owned");
     for (const [, raw] of await readAllConfigs(rows)) {
       const parsed = JSON.parse(raw.toString("utf8"));
       check(parsed.unrelated?.preserve === true, "unrelated user hook configuration is preserved");
@@ -336,7 +381,7 @@ async function main(): Promise<void> {
       const raw = await readFile(configPath(row, target.identity.host_runtime), "utf8");
       const manifestFlagCount = raw.split("--runtime-event-manifest").length - 1;
       check(raw.includes(join(planDir, "fleet-manifest.json")) &&
-        manifestFlagCount === (target.identity.host_runtime === "gemini_cli" ? 3 : 1),
+        manifestFlagCount === (target.identity.host_runtime === "gemini_cli" ? 3 : target.identity.host_runtime === "antigravity_cli" ? 2 : 1),
       "each R1 native hook pins the immutable audited fleet manifest without ambient activation");
     }
     async function writeGateEvidence(
@@ -850,7 +895,7 @@ async function main(): Promise<void> {
         test_before_target_rollback: async (targetKey) => {
           if (targetKey !== firstEffectTarget) return;
           const target = conflictManifest.targets.find((item: any) => item.target_key === targetKey);
-          const host = target.identity.host_runtime as "codex" | "claude_code" | "gemini_cli";
+          const host = target.identity.host_runtime as "antigravity_cli" | "codex" | "claude_code" | "gemini_cli";
           await writeFile(configPath(kusabi, host), '{"foreign":"concurrent-drift"}\n');
         },
       });

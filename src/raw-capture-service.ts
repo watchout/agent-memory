@@ -19,6 +19,7 @@ import {
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestGeminiConversationEvents, type GeminiPrivacyCounters } from "./gemini-conversation-ingest.js";
+import { ingestAntigravityConversationEvents } from "./antigravity-conversation-ingest.js";
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/;
@@ -27,7 +28,7 @@ export const FROZEN_INSTALLED_REGISTRY_COUNT = 47;
 export const FROZEN_UNMATCHED_REGISTRY_COUNT = 24;
 export const FROZEN_MISSING_MANIFEST_BINDING_COUNT = 11;
 
-export type RawCaptureHost = "codex" | "claude_code" | "gemini_cli";
+export type RawCaptureHost = "antigravity_cli" | "codex" | "claude_code" | "gemini_cli";
 
 export interface InstalledCaptureRegistryRow {
   registry_row_sha256: string;
@@ -231,7 +232,7 @@ export async function runRawCaptureService(input: RunRawCaptureServiceInput): Pr
   if (
     sources.length === 0 ||
     new Set(sources).size !== sources.length ||
-    sources.some((source) => !["codex", "claude_code", "gemini_cli"].includes(source))
+    sources.some((source) => !["antigravity_cli", "codex", "claude_code", "gemini_cli"].includes(source))
   ) {
     throw new Error("KUSABI_RAW_CAPTURE_SOURCE_SELECTION_INVALID");
   }
@@ -265,7 +266,7 @@ export async function runRawCaptureService(input: RunRawCaptureServiceInput): Pr
         events_skipped: value.events_skipped,
         coverage_status: value.coverage.status,
       });
-    } else {
+    } else if (source === "gemini_cli") {
       const value = await ingestGeminiConversationEvents(input.store, target.identity.agent_id, common);
       sourceResults.push({
         source,
@@ -276,6 +277,21 @@ export async function runRawCaptureService(input: RunRawCaptureServiceInput): Pr
         events_skipped: value.events_skipped,
         coverage_status: value.coverage.status,
         privacy: value.privacy,
+      });
+    } else {
+      const value = await ingestAntigravityConversationEvents(input.store, target.identity.agent_id, {
+        project: target.identity.project,
+        root: common.root,
+        since: common.since ? new Date(common.since) : undefined,
+      });
+      sourceResults.push({
+        source,
+        files_scanned: value.files_scanned,
+        records_seen: value.records_seen,
+        events_saved: value.events_saved,
+        events_duplicate: value.events_duplicate,
+        events_skipped: value.events_skipped,
+        coverage_status: value.privacy.malformed_records_denied > 0 ? "degraded" : "clean",
       });
     }
   }

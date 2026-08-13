@@ -260,7 +260,7 @@
       "properties": {
         "agent_id": { "$ref": "#/$defs/boundedId" },
         "project": { "$ref": "#/$defs/boundedId" },
-        "host_runtime": { "enum": ["codex", "claude_code", "gemini_cli"] },
+        "host_runtime": { "enum": ["antigravity_cli", "codex", "claude_code", "gemini_cli"] },
         "adapter_id": { "$ref": "#/$defs/boundedId" },
         "adapter_version": { "$ref": "#/$defs/boundedId" },
         "workspace_sha256": { "$ref": "#/$defs/sha256" },

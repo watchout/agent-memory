@@ -38,7 +38,7 @@
     "source_results": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 3,
+      "maxItems": 4,
       "items": { "$ref": "#/$defs/sourceResult" }
     },
     "reconciliation": { "$ref": "#/$defs/reconciliation" },
@@ -54,7 +54,7 @@
     },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-    "host": { "enum": ["codex", "claude_code", "gemini_cli"] },
+    "host": { "enum": ["antigravity_cli", "codex", "claude_code", "gemini_cli"] },
     "nonNegativeInteger": { "type": "integer", "minimum": 0 },
     "privacy": {
       "type": "object",
