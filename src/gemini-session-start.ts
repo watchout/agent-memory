@@ -500,7 +500,7 @@ export async function loadGeminiRecoveryFromStore(
   input: GeminiSessionStartInput,
 ): Promise<LoadedGeminiRecovery> {
   const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore();
+  const store = await createStore({ skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "gemini_cli",
