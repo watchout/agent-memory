@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
   installAntigravityHooks,
@@ -182,7 +183,7 @@ export interface KusabiFleetRolloutTargetInput {
 }
 
 export type KusabiFleetTrustSource =
-  | { kind: "antigravity_hook_state"; hooks_json: string; settings_json: string }
+  | { kind: "antigravity_hook_state"; hooks_json: string }
   | { kind: "codex_hook_state"; config_toml: string }
   | { kind: "claude_project_state"; claude_state_json: string }
   | { kind: "gemini_hook_state"; trusted_folders_json: string; trusted_hooks_json: string };
@@ -1132,7 +1133,7 @@ function trustSourceLocatorSha256(source: KusabiFleetTrustSource): string {
     return sha256(canonicalCompactJson({
       kind: source.kind,
       hooks_json_sha256: sha256(source.hooks_json),
-      settings_json_sha256: sha256(source.settings_json),
+      official_settings_json_sha256: sha256(getKusabiAntigravitySettingsPath()),
     }));
   }
   if (source.kind === "codex_hook_state") {
@@ -1263,7 +1264,7 @@ async function observeTrustFingerprint(
     );
     verified = resolve(source.hooks_json) === resolve(configPath) &&
       antigravityManagedCommands(configRaw).length === 2 &&
-      await verifyKusabiAntigravityWorkspaceTrust(source.settings_json, workspace);
+      await verifyKusabiAntigravityWorkspaceTrust(workspace);
   } else {
     if (source.kind !== "gemini_hook_state") fail("KUSABI_FLEET_TRUST_SOURCE_MISMATCH");
     const folders = parseJsonObject(await readTrustFile(
@@ -1290,9 +1291,35 @@ async function observeTrustFingerprint(
   };
 }
 
-export async function verifyKusabiAntigravityWorkspaceTrust(
-  settingsPath: string,
+export function getKusabiAntigravitySettingsPath(): string {
+  const home = homedir();
+  if (!isAbsolute(home) || resolve(home) !== home || home.includes("\0")) {
+    fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  }
+  return join(home, ".gemini", "antigravity-cli", "settings.json");
+}
+
+export async function verifyKusabiAntigravityWorkspaceTrust(workspace: string): Promise<boolean> {
+  return verifyKusabiAntigravityWorkspaceTrustAtLocator(workspace, getKusabiAntigravitySettingsPath);
+}
+
+/** Test-only dependency seam; production observation never accepts a locator override. */
+export async function testOnlyVerifyKusabiAntigravityWorkspaceTrust(
   workspace: string,
+  home: string,
+): Promise<boolean> {
+  if (!isAbsolute(home) || resolve(home) !== home || home.includes("\0")) {
+    fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
+  }
+  return verifyKusabiAntigravityWorkspaceTrustAtLocator(
+    workspace,
+    () => join(home, ".gemini", "antigravity-cli", "settings.json"),
+  );
+}
+
+async function verifyKusabiAntigravityWorkspaceTrustAtLocator(
+  workspace: string,
+  locateSettings: () => string,
 ): Promise<boolean> {
   let canonicalWorkspace: string;
   try {
@@ -1301,7 +1328,7 @@ export async function verifyKusabiAntigravityWorkspaceTrust(
     fail("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
   }
   const state = parseJsonObject(await readTrustFile(
-    settingsPath,
+    locateSettings(),
     "KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID",
   ), "KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID");
   const trustedWorkspaces = state.trustedWorkspaces;
@@ -1686,9 +1713,8 @@ function validateTargetInput(input: KusabiFleetRolloutTargetInput): void {
 
 function requireTrustSource(source: KusabiFleetTrustSource, host: KusabiHostRuntime): void {
   if (!isRecord(source) ||
-    (host === "antigravity_cli" && (!exactKeys(source, ["kind", "hooks_json", "settings_json"]) ||
-      source.kind !== "antigravity_hook_state" || !canonicalText(source.hooks_json) ||
-      !canonicalText(source.settings_json))) ||
+    (host === "antigravity_cli" && (!exactKeys(source, ["kind", "hooks_json"]) ||
+      source.kind !== "antigravity_hook_state" || !canonicalText(source.hooks_json))) ||
     (host === "codex" && (!exactKeys(source, ["kind", "config_toml"]) ||
       source.kind !== "codex_hook_state" || !canonicalText(source.config_toml))) ||
     (host === "claude_code" && (!exactKeys(source, ["kind", "claude_state_json"]) ||

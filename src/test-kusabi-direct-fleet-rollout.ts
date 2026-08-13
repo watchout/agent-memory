@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
-import { basename, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import {
   KusabiDirectFleetRolloutError,
@@ -14,7 +14,11 @@ import {
   type KusabiDirectTrustPaths,
 } from "./kusabi-direct-fleet-rollout.js";
 import { kusabiRuntimeEventSha256 } from "./kusabi-runtime-event-store.js";
-import { verifyKusabiAntigravityWorkspaceTrust } from "./kusabi-fleet-rollout.js";
+import {
+  getKusabiAntigravitySettingsPath,
+  testOnlyVerifyKusabiAntigravityWorkspaceTrust,
+  verifyKusabiAntigravityWorkspaceTrust,
+} from "./kusabi-fleet-rollout.js";
 
 const FIXTURE_ROWS = [
   "adf-lead|ai-dev-framework|codex", "arc|iyasaka-arc|codex", "aun|codex-aun|codex",
@@ -208,20 +212,24 @@ async function seedUnrelated(row: FixtureRow, host = row.runtime_engine_preferen
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o640 });
 }
 
-async function createTrust(root: string, antigravityWorkspace: string): Promise<KusabiDirectTrustPaths> {
+async function createTrust(
+  root: string,
+  antigravityWorkspace: string,
+): Promise<{ paths: KusabiDirectTrustPaths; antigravitySettingsJson: string }> {
   const paths = {
-    antigravity_settings_json: join(root, "antigravity-settings.json"),
     codex_config_toml: join(root, "codex-config.toml"),
     claude_state_json: join(root, "claude-state.json"),
     gemini_trusted_folders_json: join(root, "gemini-folders.json"),
     gemini_trusted_hooks_json: join(root, "gemini-hooks.json"),
   };
-  await writeFile(paths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [antigravityWorkspace] }));
+  const antigravitySettingsJson = getKusabiAntigravitySettingsPath();
+  await mkdir(dirname(antigravitySettingsJson), { recursive: true });
+  await writeFile(antigravitySettingsJson, JSON.stringify({ trustedWorkspaces: [antigravityWorkspace] }));
   await writeFile(paths.codex_config_toml, "");
   await writeFile(paths.claude_state_json, '{"projects":{}}');
   await writeFile(paths.gemini_trusted_folders_json, "{}");
   await writeFile(paths.gemini_trusted_hooks_json, "{}");
-  return paths;
+  return { paths, antigravitySettingsJson };
 }
 
 async function expectCode(code: string, operation: () => Promise<unknown>): Promise<void> {
@@ -256,6 +264,8 @@ async function readAllConfigs(rows: FixtureRow[]): Promise<Map<string, Buffer>> 
 
 async function main(): Promise<void> {
   const root = await realpath(await mkdtemp(join(tmpdir(), "kusabi-direct-rollout-test-")));
+  const originalHome = process.env.HOME;
+  process.env.HOME = root;
   try {
     const casRoot = await createCas(root);
     const cas = await readImmutableKusabiCasRoot(casRoot);
@@ -269,24 +279,31 @@ async function main(): Promise<void> {
     const kusabi = rows.find(({ agent_id }) => agent_id === "kusabi")!;
     await seedUnrelated(kusabi, "claude_code");
     await seedUnrelated(kusabi, "antigravity_cli");
-    const trustPaths = await createTrust(root, kusabi.workspace);
-    check(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace),
+    const { paths: trustPaths, antigravitySettingsJson } = await createTrust(root, kusabi.workspace);
+    check(await verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace),
       "Antigravity trust requires the canonical workspace in official settings");
-    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [join(root, "other-workspace")] }));
-    check(!(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)),
+    check(await testOnlyVerifyKusabiAntigravityWorkspaceTrust(kusabi.workspace, root),
+      "Antigravity test seam derives the official locator from an explicit test home");
+    await writeFile(antigravitySettingsJson, JSON.stringify({ trustedWorkspaces: [join(root, "other-workspace")] }));
+    check(!(await verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace)),
       "Antigravity trust rejects a different workspace");
-    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: false }));
-    check(!(await verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)),
+    await writeFile(antigravitySettingsJson, JSON.stringify({ trustedWorkspaces: false }));
+    check(!(await verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace)),
       "Antigravity trust rejects false or non-array trustedWorkspaces");
-    await writeFile(trustPaths.antigravity_settings_json, "{malformed");
+    await writeFile(antigravitySettingsJson, "{malformed");
     await expectFleetCode("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID", () =>
-      verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)
+      verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace)
     );
-    await rm(trustPaths.antigravity_settings_json);
+    await rm(antigravitySettingsJson);
     await expectFleetCode("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID", () =>
-      verifyKusabiAntigravityWorkspaceTrust(trustPaths.antigravity_settings_json, kusabi.workspace)
+      verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace)
     );
-    await writeFile(trustPaths.antigravity_settings_json, JSON.stringify({ trustedWorkspaces: [kusabi.workspace] }));
+    const arbitrarySettings = join(root, "arbitrary-antigravity-settings.json");
+    await writeFile(arbitrarySettings, JSON.stringify({ trustedWorkspaces: [kusabi.workspace] }));
+    await expectFleetCode("KUSABI_FLEET_ANTIGRAVITY_TRUST_STATE_INVALID", () =>
+      verifyKusabiAntigravityWorkspaceTrust(kusabi.workspace)
+    );
+    await writeFile(antigravitySettingsJson, JSON.stringify({ trustedWorkspaces: [kusabi.workspace] }));
     const beforeDryRun = await readAllConfigs(rows);
     const fixed = {
       cas_root: casRoot,
@@ -918,6 +935,8 @@ async function main(): Promise<void> {
 
     process.stdout.write(`kusabi direct fleet rollout tests passed (${assertions} assertions)\n`);
   } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
     await chmodTree(root, 0o700, 0o600).catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   }

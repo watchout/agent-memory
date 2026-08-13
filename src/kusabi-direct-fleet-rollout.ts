@@ -111,7 +111,6 @@ interface EligiblePrimaryRow {
 }
 
 export interface KusabiDirectTrustPaths {
-  antigravity_settings_json: string;
   codex_config_toml: string;
   claude_state_json: string;
   gemini_trusted_folders_json: string;
@@ -493,7 +492,6 @@ function trustSource(host: KusabiHostRuntime, paths: KusabiDirectTrustPaths, wor
   if (host === "antigravity_cli") return {
     kind: "antigravity_hook_state",
     hooks_json: join(workspace, ".agents", "hooks.json"),
-    settings_json: paths.antigravity_settings_json,
   };
   if (host === "codex") return { kind: "codex_hook_state", config_toml: paths.codex_config_toml };
   if (host === "claude_code") return { kind: "claude_project_state", claude_state_json: paths.claude_state_json };
@@ -507,7 +505,6 @@ function trustSource(host: KusabiHostRuntime, paths: KusabiDirectTrustPaths, wor
 function defaultTrustPaths(): KusabiDirectTrustPaths {
   const home = homedir();
   return {
-    antigravity_settings_json: join(home, ".gemini", "antigravity-cli", "settings.json"),
     codex_config_toml: join(home, ".codex", "config.toml"),
     claude_state_json: join(home, ".claude.json"),
     gemini_trusted_folders_json: join(home, ".gemini", "trustedFolders.json"),

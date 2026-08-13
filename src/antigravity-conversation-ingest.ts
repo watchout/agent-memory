@@ -5,7 +5,7 @@ import {
   readdirSync, realpathSync, type Dirent,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Store } from "./stores/types.js";
 import { normalizeHomePath, redactText } from "./redact.js";
 
@@ -14,6 +14,7 @@ export const ANTIGRAVITY_TRANSCRIPT_FIELDS = [
 ] as const;
 export const ANTIGRAVITY_TRANSCRIPT_MAX_BYTES = 8 * 1024 * 1024;
 const TRANSCRIPT_FIELDS = new Set<string>(ANTIGRAVITY_TRANSCRIPT_FIELDS);
+const ANTIGRAVITY_CONVERSATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AntigravityConversationIngestInput {
   project?: string;
@@ -57,6 +58,54 @@ export function getAntigravityBrainDir(): string {
   return process.env.ANTIGRAVITY_BRAIN_DIR || join(homedir(), ".gemini", "antigravity-cli", "brain");
 }
 
+/** Antigravity conversation directories are UUID-shaped single path segments. */
+export function isAntigravityConversationId(value: unknown): value is string {
+  return typeof value === "string" && ANTIGRAVITY_CONVERSATION_ID.test(value) &&
+    value !== "." && value !== ".." && !value.includes("/") && !value.includes("\\") && !value.includes("\0");
+}
+
+/** Reject shell/home aliases and every lexical spelling changed by path normalization. */
+export function isCanonicalAbsoluteAntigravityPath(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && !value.includes("\0") &&
+    !value.startsWith("~") && isAbsolute(value) && resolve(value) === value;
+}
+
+/**
+ * Resolve a transcript only after every component from the supplied root has
+ * been lstat-verified. The root and leaf must not be symlinks, intermediate
+ * components must be real directories, and the leaf must be a regular file.
+ */
+export function secureAntigravityTranscriptPath(rootPath: string, transcriptPath: string): string | null {
+  try {
+    if (!isCanonicalAbsoluteAntigravityPath(rootPath) || !isCanonicalAbsoluteAntigravityPath(transcriptPath)) return null;
+    const rootInfo = lstatSync(rootPath);
+    if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) return null;
+    const canonicalRoot = realpathSync(rootPath);
+    const lexicalSuffix = relative(rootPath, transcriptPath);
+    const canonicalSuffix = relative(canonicalRoot, transcriptPath);
+    const suffix = isContainedRelativePath(lexicalSuffix) ? lexicalSuffix : canonicalSuffix;
+    if (!suffix || isAbsolute(suffix) || suffix === ".." || suffix.startsWith(`..${sep}`)) return null;
+    const segments = suffix.split(sep);
+    if (segments.some((segment) => !segment || segment === "." || segment === "..")) return null;
+
+    let current = canonicalRoot;
+    for (const [index, segment] of segments.entries()) {
+      current = join(current, segment);
+      const info = lstatSync(current);
+      if (info.isSymbolicLink()) return null;
+      const leaf = index === segments.length - 1;
+      if (leaf ? !info.isFile() : !info.isDirectory()) return null;
+    }
+    return realpathSync(transcriptPath) === current ? current : null;
+  } catch {
+    return null;
+  }
+}
+
+function isContainedRelativePath(value: string): boolean {
+  return value.length > 0 && !isAbsolute(value) && value !== ".." && !value.startsWith(`..${sep}`);
+}
+
 export function findAntigravityConversationFiles(
   since: Date,
   root: string = getAntigravityBrainDir(),
@@ -65,16 +114,17 @@ export function findAntigravityConversationFiles(
   if (!existsSync(root)) return [];
   const result: string[] = [];
   let conversations: Dirent[];
-  try { conversations = readdirSync(root, { withFileTypes: true }) as Dirent[]; } catch { return []; }
+  try {
+    const rootInfo = lstatSync(root);
+    if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) return [];
+    conversations = readdirSync(root, { withFileTypes: true }) as Dirent[];
+  } catch { return []; }
   for (const entry of conversations) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || !isAntigravityConversationId(entry.name)) continue;
     const transcript = join(root, entry.name, ".system_generated", "logs", "transcript.jsonl");
     try {
-      const info = lstatSync(transcript);
-      if (!info.isFile() || info.isSymbolicLink() || info.mtimeMs < since.getTime()) continue;
-      const resolved = realpathSync(transcript);
-      const expectedSessionRoot = realpathSync(join(root, entry.name));
-      if (!resolved.startsWith(`${expectedSessionRoot}/`)) continue;
+      const resolved = secureAntigravityTranscriptPath(root, transcript);
+      if (resolved === null || lstatSync(resolved).mtimeMs < since.getTime()) continue;
       result.push(resolved);
     } catch { /* A transcript can disappear during a bounded inventory. */ }
   }
@@ -117,10 +167,18 @@ export async function ingestAntigravityConversationEvents(
     },
   };
   for (const file of files) {
-    let raw = input.contents?.get(file);
+    const sourceRoot = input.root ?? getAntigravityBrainDir();
+    const secureFile = secureAntigravityTranscriptPath(sourceRoot, file);
+    const sessionId = secureFile === null ? null : inferSessionId(secureFile, sourceRoot);
+    if (secureFile === null || sessionId === null) {
+      result.events_skipped++;
+      result.privacy.malformed_records_denied++;
+      continue;
+    }
+    let raw = input.contents?.get(file) ?? input.contents?.get(secureFile);
     let fileOccurredAt = validTimestamp(input.fallback_occurred_at);
     if (raw === undefined) {
-      const snapshot = readSecureCompactTranscript(file);
+      const snapshot = readSecureCompactTranscript(secureFile, sourceRoot);
       raw = snapshot?.raw;
       fileOccurredAt ??= snapshot ? new Date(snapshot.mtimeMs).toISOString() : undefined;
     }
@@ -129,8 +187,11 @@ export async function ingestAntigravityConversationEvents(
       result.privacy.malformed_records_denied++;
       continue;
     }
-    const sessionId = inferSessionId(file);
-    const fullLines = input.full_lines?.get(file) ?? readSelectedFullLines(file, truncatedAntigravityLineNumbers(raw));
+    const fullLines = input.full_lines?.get(file) ?? input.full_lines?.get(secureFile) ?? readSelectedFullLines(
+      secureFile,
+      truncatedAntigravityLineNumbers(raw),
+      input.root ?? getAntigravityBrainDir(),
+    );
     for (const [lineNumber, compactLine] of raw.split("\n").entries()) {
       if (!compactLine.trim()) continue;
       result.records_seen++;
@@ -148,7 +209,7 @@ export async function ingestAntigravityConversationEvents(
         usedFullLine = true;
         result.full_line_fallback_count++;
       }
-      const event = visibleEvent(line, lineNumber, sessionId, file, fileOccurredAt ?? new Date(0).toISOString(), usedFullLine, result);
+      const event = visibleEvent(line, lineNumber, sessionId, secureFile, fileOccurredAt ?? new Date(0).toISOString(), usedFullLine, result);
       if (!event) continue;
       const duplicate = await hasExistingRawEvent(store, agentId, event.source_event_id, event.occurred_at);
       await store.saveRawEvent({
@@ -190,9 +251,10 @@ export async function ingestAntigravityConversationEvents(
   return result;
 }
 
-function readSecureCompactTranscript(path: string): { raw: string; mtimeMs: number } | null {
+function readSecureCompactTranscript(path: string, rootPath: string): { raw: string; mtimeMs: number } | null {
   let descriptor: number | undefined;
   try {
+    if (secureAntigravityTranscriptPath(rootPath, path) !== path) return null;
     const supplied = lstatSync(path);
     if (!supplied.isFile() || supplied.isSymbolicLink() || supplied.size < 1 || supplied.size > ANTIGRAVITY_TRANSCRIPT_MAX_BYTES) return null;
     descriptor = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
@@ -206,26 +268,32 @@ function readSecureCompactTranscript(path: string): { raw: string; mtimeMs: numb
       offset += count;
     }
     const after = fstatSync(descriptor);
-    if (offset !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size) return null;
+    const pathAfter = lstatSync(path);
+    if (offset !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+      pathAfter.dev !== before.dev || pathAfter.ino !== before.ino ||
+      secureAntigravityTranscriptPath(rootPath, path) !== path) return null;
     return { raw: bytes.toString("utf8"), mtimeMs: before.mtimeMs };
   } catch { return null; }
   finally { if (descriptor !== undefined) closeSync(descriptor); }
 }
 
 /** Securely reads only selected physical lines from the full sibling transcript. */
-export function readSelectedFullLines(compactPath: string, selectedLineNumbers: number[]): ReadonlyMap<number, string> {
+export function readSelectedFullLines(
+  compactPath: string,
+  selectedLineNumbers: number[],
+  rootPath: string = getAntigravityBrainDir(),
+): ReadonlyMap<number, string> {
   const selected = new Set(selectedLineNumbers);
   const found = new Map<number, string>();
   if (selected.size === 0) return found;
   const fullPath = join(compactPath, "..", "transcript_full.jsonl");
   let descriptor: number | undefined;
   try {
-    const canonicalCompact = realpathSync(compactPath);
-    if (canonicalCompact !== compactPath) return found;
+    const canonicalCompact = secureAntigravityTranscriptPath(rootPath, compactPath);
+    const canonicalFull = secureAntigravityTranscriptPath(rootPath, fullPath);
+    if (canonicalCompact === null || canonicalFull === null ||
+      join(canonicalFull, "..") !== join(canonicalCompact, "..")) return found;
     const supplied = lstatSync(fullPath);
-    if (!supplied.isFile() || supplied.isSymbolicLink()) return found;
-    const canonicalFull = realpathSync(fullPath);
-    if (canonicalFull !== fullPath || join(canonicalFull, "..") !== join(canonicalCompact, "..")) return found;
     descriptor = openSync(fullPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
     const before = fstatSync(descriptor);
     if (!before.isFile() || before.dev !== supplied.dev || before.ino !== supplied.ino) return found;
@@ -252,7 +320,9 @@ export function readSelectedFullLines(compactPath: string, selectedLineNumbers: 
     }
     if (lineNumber <= maxSelected && pending && selected.has(lineNumber)) found.set(lineNumber, pending);
     const after = fstatSync(descriptor);
-    if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size) return new Map();
+    if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+      secureAntigravityTranscriptPath(rootPath, compactPath) !== canonicalCompact ||
+      secureAntigravityTranscriptPath(rootPath, fullPath) !== canonicalFull) return new Map();
     return found;
   } catch { return new Map(); }
   finally { if (descriptor !== undefined) closeSync(descriptor); }
@@ -318,9 +388,11 @@ function visibleEvent(
   };
 }
 
-function inferSessionId(file: string): string {
-  const match = file.replaceAll("\\", "/").match(/\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/);
-  return match?.[1] ?? `unknown:${sha256(file).slice(0, 16)}`;
+function inferSessionId(file: string, rootPath: string): string | null {
+  const segments = relative(realpathSync(rootPath), file).split(sep);
+  if (segments.length !== 4 || segments[1] !== ".system_generated" || segments[2] !== "logs" ||
+    segments[3] !== "transcript.jsonl") return null;
+  return isAntigravityConversationId(segments[0]) ? segments[0] : null;
 }
 
 async function hasExistingRawEvent(store: Store, agentId: string, sourceEventId: string, occurredAt: string): Promise<boolean> {

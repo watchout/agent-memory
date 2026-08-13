@@ -14,6 +14,8 @@ import {
 } from "./antigravity-session-start.js";
 import type { RecoveryOutputWithMetrics } from "./codex-session-start.js";
 
+const CONVERSATION_ID = "123e4567-e89b-42d3-a456-426614174000";
+
 function binding(workspace: string): AntigravitySessionStartBinding {
   return {
     agent_id: "kusabi", project: "agent-memory", workspace,
@@ -24,7 +26,7 @@ function binding(workspace: string): AntigravitySessionStartBinding {
 
 function input(workspace: string, transcript: string, invocationNum = 0): string {
   return JSON.stringify({
-    conversationId: "ag-conversation-1", workspacePaths: [workspace], transcriptPath: transcript,
+    conversationId: CONVERSATION_ID, workspacePaths: [workspace], transcriptPath: transcript,
     artifactDirectoryPath: join(workspace, "artifacts"), modelName: "auto", invocationNum, initialNumSteps: 0,
   });
 }
@@ -68,19 +70,42 @@ async function main(): Promise<void> {
     await writeFile(transcript, "{}\n");
 
     const parsedWithoutModel = parseAntigravityHookInput(JSON.stringify({
-      conversationId: "c", workspacePaths: [workspace], transcriptPath: transcript,
+      conversationId: CONVERSATION_ID, workspacePaths: [workspace], transcriptPath: transcript,
       artifactDirectoryPath: join(workspace, "artifacts"), invocationNum: 0, initialNumSteps: 0,
     }), "pre-invocation");
     assert.equal(parsedWithoutModel.modelName, undefined);
     const futureInput = parseAntigravityHookInput(JSON.stringify({
       ...JSON.parse(input(workspace, transcript)), futureHarmlessField: { private: "ignored" },
     }), "pre-invocation");
-    assert.equal(futureInput.conversationId, "ag-conversation-1");
+    assert.equal(futureInput.conversationId, CONVERSATION_ID);
     assert(!JSON.stringify(futureInput).includes("futureHarmlessField"));
+
+    for (const invalidConversationId of [".", "..", "not-a-uuid", "a/b", "a\\b"]) {
+      assert.throws(() => parseAntigravityHookInput(JSON.stringify({
+        ...JSON.parse(input(workspace, transcript)), conversationId: invalidConversationId,
+      }), "pre-invocation"), undefined, `reject conversationId ${invalidConversationId}`);
+    }
+    for (const invalidTranscriptPath of [
+      "relative/transcript.jsonl",
+      "~/.gemini/antigravity-cli/brain/transcript.jsonl",
+      `${root}/./transcript.jsonl`,
+      `${root}/nested/../transcript.jsonl`,
+      `${transcript}\0suffix`,
+    ]) {
+      assert.throws(() => parseAntigravityHookInput(JSON.stringify({
+        ...JSON.parse(input(workspace, transcript)), transcriptPath: invalidTranscriptPath,
+      }), "pre-invocation"), undefined, `reject transcriptPath ${JSON.stringify(invalidTranscriptPath)}`);
+    }
+    assert.throws(() => parseAntigravityHookInput(JSON.stringify({
+      ...JSON.parse(input(workspace, transcript)), workspacePaths: ["relative-workspace"],
+    }), "pre-invocation"), undefined, "reject relative workspacePaths entry");
+    assert.throws(() => parseAntigravityHookInput(JSON.stringify({
+      ...JSON.parse(input(workspace, transcript)), artifactDirectoryPath: `${workspace}/artifacts/../artifacts`,
+    }), "pre-invocation"), undefined, "reject non-canonical artifactDirectoryPath");
 
     const first = await runAntigravityHook(input(workspace, transcript), binding(workspace), "pre-invocation", {
       load: async (_binding, hookInput, event) => {
-        assert.equal(hookInput.conversationId, "ag-conversation-1");
+        assert.equal(hookInput.conversationId, CONVERSATION_ID);
         assert.equal(event, "pre-invocation");
         return loaded(true);
       },

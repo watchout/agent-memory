@@ -17,6 +17,10 @@ import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitt
 import { redactText } from "./redact.js";
 import { receiveCurrentSessionTranscript, type SessionStartAutoReceiveResult } from "./session-start-auto-receive.js";
 import {
+  isAntigravityConversationId,
+  isCanonicalAbsoluteAntigravityPath,
+} from "./antigravity-conversation-ingest.js";
+import {
   RECOVERY_PACK_SCHEMA_REF,
   buildRecoveryPackArtifact,
   buildRestartPack,
@@ -154,9 +158,10 @@ export function parseAntigravityHookInput(raw: string, event: AntigravityHookEve
   if (event === "pre-invocation" && (Object.hasOwn(value, "modelOutput") || Object.hasOwn(value, "modelThinking"))) {
     throw new AntigravityHookError("MALFORMED_HOOK_INPUT");
   }
-  if (!canonicalText(value.conversationId) || !canonicalText(value.transcriptPath) ||
-    !canonicalText(value.artifactDirectoryPath) || !Array.isArray(value.workspacePaths) ||
-    value.workspacePaths.length < 1 || value.workspacePaths.some((path) => !canonicalText(path)) ||
+  if (!isAntigravityConversationId(value.conversationId) ||
+    !isCanonicalAbsoluteAntigravityPath(value.transcriptPath) ||
+    !isCanonicalAbsoluteAntigravityPath(value.artifactDirectoryPath) || !Array.isArray(value.workspacePaths) ||
+    value.workspacePaths.length < 1 || value.workspacePaths.some((path) => !isCanonicalAbsoluteAntigravityPath(path)) ||
     !nonNegativeInteger(value.invocationNum) || !nonNegativeInteger(value.initialNumSteps) ||
     (value.modelName !== undefined && typeof value.modelName !== "string")) {
     throw new AntigravityHookError("MALFORMED_HOOK_INPUT");

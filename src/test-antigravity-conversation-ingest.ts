@@ -9,6 +9,14 @@ import {
 } from "./antigravity-conversation-ingest.js";
 import { JsonStore } from "./stores/json-store.js";
 
+const CONVERSATION_ID = "123e4567-e89b-42d3-a456-426614174000";
+const OTHER_CONVERSATION_ID = "223e4567-e89b-42d3-a456-426614174001";
+const SYMLINK_FILE_ID = "323e4567-e89b-42d3-a456-426614174002";
+const OVERSIZED_ID = "423e4567-e89b-42d3-a456-426614174003";
+const SYMLINK_CONVERSATION_ID = "523e4567-e89b-42d3-a456-426614174004";
+const SYMLINK_SYSTEM_ID = "623e4567-e89b-42d3-a456-426614174005";
+const SYMLINK_LOGS_ID = "723e4567-e89b-42d3-a456-426614174006";
+
 async function main(): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "antigravity-ingest-"));
   const storeRoot = await mkdtemp(join(tmpdir(), "antigravity-ingest-store-"));
@@ -17,7 +25,7 @@ async function main(): Promise<void> {
   try {
     const workspace = join(root, "workspace");
     const brain = join(root, "brain");
-    const conversationId = "antigravity-visible-conversation";
+    const conversationId = CONVERSATION_ID;
     const logs = join(brain, conversationId, ".system_generated", "logs");
     await Promise.all([mkdir(workspace), mkdir(logs, { recursive: true })]);
     const transcript = join(logs, "transcript.jsonl");
@@ -52,6 +60,25 @@ async function main(): Promise<void> {
     assert(!persisted.includes("SYSTEM_PRIVATE"));
     assert(!persisted.includes("TOOL_RESULT"));
 
+    for (const invalidPath of [
+      "relative/transcript.jsonl",
+      "~/.gemini/antigravity-cli/brain/transcript.jsonl",
+      `${logs}/./transcript.jsonl`,
+      `${logs}/../logs/transcript.jsonl`,
+      `${transcript}\0suffix`,
+    ]) {
+      const invalidPathResult = await receiveCurrentSessionTranscript(store, {
+        host: "antigravity_cli", agent_id: "kusabi", project: "agent-memory", workspace, cwd: workspace,
+        session_id: conversationId, transcript_path: invalidPath, roots: { antigravity_cli: brain },
+      });
+      assert.equal(invalidPathResult.reason, "transcript_invalid", `receive rejects ${JSON.stringify(invalidPath)}`);
+    }
+    const invalidConversationResult = await receiveCurrentSessionTranscript(store, {
+      host: "antigravity_cli", agent_id: "kusabi", project: "agent-memory", workspace, cwd: workspace,
+      session_id: "../not-a-session", transcript_path: transcript, roots: { antigravity_cli: brain },
+    });
+    assert.equal(invalidConversationResult.reason, "transcript_invalid", "receive rejects non-UUID conversationId");
+
     const projected = await store.getConversationEvents({ agent_id: "kusabi", project: "agent-memory", source: "antigravity_cli", limit: 100 });
     assert.deepEqual(projected.map((event) => event.role).sort(), ["assistant", "user"]);
 
@@ -64,15 +91,79 @@ async function main(): Promise<void> {
 
     const wrongSession = await receiveCurrentSessionTranscript(store, {
       host: "antigravity_cli", agent_id: "kusabi", project: "agent-memory", workspace, cwd: workspace,
-      session_id: "different", transcript_path: transcript, roots: { antigravity_cli: brain },
+      session_id: OTHER_CONVERSATION_ID, transcript_path: transcript, roots: { antigravity_cli: brain },
     });
     assert.equal(wrongSession.reason, "session_mismatch");
 
-    const symlinkLogs = join(brain, "symlink-session", ".system_generated", "logs");
-    const oversizedLogs = join(brain, "oversized-session", ".system_generated", "logs");
+    const symlinkLogs = join(brain, SYMLINK_FILE_ID, ".system_generated", "logs");
+    const oversizedLogs = join(brain, OVERSIZED_ID, ".system_generated", "logs");
     await Promise.all([mkdir(symlinkLogs, { recursive: true }), mkdir(oversizedLogs, { recursive: true })]);
     await symlink(transcript, join(symlinkLogs, "transcript.jsonl"));
     await writeFile(join(oversizedLogs, "transcript.jsonl"), Buffer.alloc(ANTIGRAVITY_TRANSCRIPT_MAX_BYTES + 1, 0x78));
+    const directSymlinkResult = await ingestAntigravityConversationEvents(store, "kusabi", {
+      project: "agent-memory", root: brain, files: [join(symlinkLogs, "transcript.jsonl")], since: new Date(0),
+    });
+    assert.equal(directSymlinkResult.events_saved, 0, "direct ingester rejects a symlink transcript");
+    assert.equal(directSymlinkResult.events_skipped, 1);
+
+    const oneVisibleRecord = `${JSON.stringify(compactRecords[0])}\n`;
+    const invalidIdTranscript = join(brain, "not-a-uuid", ".system_generated", "logs", "transcript.jsonl");
+    await mkdir(join(invalidIdTranscript, ".."), { recursive: true });
+    await writeFile(invalidIdTranscript, oneVisibleRecord);
+    const invalidIdResult = await ingestAntigravityConversationEvents(store, "kusabi", {
+      project: "agent-memory", root: brain, files: [invalidIdTranscript], since: new Date(0),
+    });
+    assert.equal(invalidIdResult.events_saved, 0, "direct ingester rejects non-UUID session directories");
+    assert.equal(invalidIdResult.events_skipped, 1);
+
+    const externalDirect = join(root, "external", "brain", OTHER_CONVERSATION_ID, ".system_generated", "logs", "transcript.jsonl");
+    await mkdir(join(externalDirect, ".."), { recursive: true });
+    await writeFile(externalDirect, oneVisibleRecord);
+    const externalDirectResult = await ingestAntigravityConversationEvents(store, "kusabi", {
+      project: "agent-memory", root: brain, files: [externalDirect], since: new Date(0),
+    });
+    assert.equal(externalDirectResult.events_saved, 0, "direct ingester rejects a regular transcript outside its root");
+    assert.equal(externalDirectResult.events_skipped, 1);
+
+    const externalConversation = join(root, "external-conversation");
+    const externalConversationLogs = join(externalConversation, ".system_generated", "logs");
+    await mkdir(externalConversationLogs, { recursive: true });
+    await writeFile(join(externalConversationLogs, "transcript.jsonl"), oneVisibleRecord);
+    await symlink(externalConversation, join(brain, SYMLINK_CONVERSATION_ID));
+
+    const externalSystem = join(root, "external-system-generated");
+    await mkdir(join(externalSystem, "logs"), { recursive: true });
+    await writeFile(join(externalSystem, "logs", "transcript.jsonl"), oneVisibleRecord);
+    await mkdir(join(brain, SYMLINK_SYSTEM_ID));
+    await symlink(externalSystem, join(brain, SYMLINK_SYSTEM_ID, ".system_generated"));
+
+    const externalLogs = join(root, "external-logs");
+    await mkdir(externalLogs);
+    await writeFile(join(externalLogs, "transcript.jsonl"), oneVisibleRecord);
+    await mkdir(join(brain, SYMLINK_LOGS_ID, ".system_generated"), { recursive: true });
+    await symlink(externalLogs, join(brain, SYMLINK_LOGS_ID, ".system_generated", "logs"));
+
+    for (const unsafe of [
+      { id: SYMLINK_CONVERSATION_ID, path: join(brain, SYMLINK_CONVERSATION_ID, ".system_generated", "logs", "transcript.jsonl") },
+      { id: SYMLINK_SYSTEM_ID, path: join(brain, SYMLINK_SYSTEM_ID, ".system_generated", "logs", "transcript.jsonl") },
+      { id: SYMLINK_LOGS_ID, path: join(brain, SYMLINK_LOGS_ID, ".system_generated", "logs", "transcript.jsonl") },
+    ]) {
+      const unsafeResult = await receiveCurrentSessionTranscript(store, {
+        host: "antigravity_cli", agent_id: "kusabi", project: "agent-memory", workspace, cwd: workspace,
+        session_id: unsafe.id, transcript_path: unsafe.path, roots: { antigravity_cli: brain },
+      });
+      assert.equal(unsafeResult.reason, "transcript_invalid", `reject symlink component for ${unsafe.id}`);
+    }
+    const brainSymlink = join(root, "brain-symlink");
+    await symlink(brain, brainSymlink);
+    const symlinkRootResult = await receiveCurrentSessionTranscript(store, {
+      host: "antigravity_cli", agent_id: "kusabi", project: "agent-memory", workspace, cwd: workspace,
+      session_id: conversationId,
+      transcript_path: join(brainSymlink, conversationId, ".system_generated", "logs", "transcript.jsonl"),
+      roots: { antigravity_cli: brainSymlink },
+    });
+    assert.equal(symlinkRootResult.reason, "transcript_invalid", "reject a symlink transcript root");
+
     const boundedSweep = await ingestAntigravityConversationEvents(store, "kusabi", {
       project: "agent-memory", root: brain, since: new Date(0),
     });
