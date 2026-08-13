@@ -9,6 +9,7 @@ import {
   CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS,
   CLAUDE_SESSION_START_MAX_BYTES,
   CLAUDE_SESSION_START_MAX_TOKENS,
+  CLAUDE_SESSION_START_MODEL_UNSPECIFIED,
   parseClaudeSessionStartArgs,
   parseClaudeSessionStartInput,
   runClaudeSessionStart,
@@ -162,6 +163,55 @@ async function main(): Promise<void> {
     assert.equal(manualMode.evidence.hook.permission_mode, "manual");
     assert(validateEvidence(manualMode.evidence), JSON.stringify(validateEvidence.errors));
 
+    // Live Claude Code 2.1.220 SessionStart stdin contains exactly these five
+    // fields and omits model and permission_mode.
+    const liveHostInput = JSON.stringify({
+      cwd: child,
+      hook_event_name: "SessionStart",
+      session_id: "live-claude-2-1-220",
+      source: "startup",
+      transcript_path: "/tmp/live-claude-2-1-220.jsonl",
+    });
+    const parsedLiveHost = parseClaudeSessionStartInput(liveHostInput);
+    assert.equal(parsedLiveHost.model, CLAUDE_SESSION_START_MODEL_UNSPECIFIED);
+    assert.equal(parsedLiveHost.permission_mode, undefined);
+    assert.deepEqual(Object.keys(parsedLiveHost).sort(), [
+      "cwd", "hook_event_name", "model", "session_id", "source", "transcript_path",
+    ]);
+    const liveHost = await runClaudeSessionStart(liveHostInput, binding(workspace), {
+      loadRecovery: async (_binding, input) => {
+        assert.equal(input.model, CLAUDE_SESSION_START_MODEL_UNSPECIFIED);
+        assert.equal(input.permission_mode, undefined);
+        return loaded();
+      },
+    });
+    assert.equal(liveHost.evidence.outcome, "full");
+    assert.equal(liveHost.evidence.hook.input_valid, true);
+    assert.equal(liveHost.evidence.hook.permission_mode, null);
+    assert.equal(liveHost.evidence.adapter.version, "1.0.3");
+    assert.equal(liveHost.evidence.adapter.host_contract_version, "2.1.220");
+    assert(validateEvidence(liveHost.evidence), JSON.stringify(validateEvidence.errors));
+    for (const [field, value] of [
+      ["cwd", ""],
+      ["session_id", ""],
+      ["transcript_path", ""],
+      ["permission_mode", "allowEverything"],
+      ["model", null],
+    ] as const) {
+      assert.throws(
+        () => parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), [field]: value })),
+        /MALFORMED_HOOK_INPUT/,
+      );
+    }
+    assert.throws(
+      () => parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), source: "unknown" })),
+      /UNSUPPORTED_START_SOURCE/,
+    );
+    assert.throws(
+      () => parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), unexpected: true })),
+      /MALFORMED_HOOK_INPUT/,
+    );
+
     const invalidPermissionMode = await runClaudeSessionStart(
       JSON.stringify({ ...JSON.parse(hookInput(child)), permission_mode: "allowEverything" }),
       binding(workspace),
@@ -192,12 +242,15 @@ async function main(): Promise<void> {
     );
     assert.match(additionalProperty.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
 
-    for (const field of ["cwd", "hook_event_name", "model", "session_id", "source", "transcript_path"]) {
+    for (const field of ["cwd", "hook_event_name", "session_id", "source", "transcript_path"]) {
       const input = JSON.parse(hookInput(child));
       delete input[field];
       const result = await runClaudeSessionStart(JSON.stringify(input), binding(workspace));
       assert.match(result.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
     }
+    const omittedModel = JSON.parse(hookInput(child));
+    delete omittedModel.model;
+    assert.equal(parseClaudeSessionStartInput(JSON.stringify(omittedModel)).model, CLAUDE_SESSION_START_MODEL_UNSPECIFIED);
 
     const oversized = await runClaudeSessionStart(" ".repeat(65_537), binding(workspace));
     assert.match(oversized.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
