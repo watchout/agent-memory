@@ -198,6 +198,17 @@ async function publisherUnit() {
     if (!directoryModeRejected) fail("PUBLISHER_UNIT_FAILED", "directory mode drift was accepted");
     chmodSync(modeRoot, 0o755);
     chmodSync(join(modeRoot, "nested"), 0o755);
+    const immutableStage = join(root, "immutable-rename-stage");
+    const immutableFinal = join(root, "immutable-rename-final");
+    mkdirSync(immutableStage, { mode: 0o755 });
+    writeFileSync(join(immutableStage, "payload"), "immutable", { mode: 0o444 });
+    chmodSync(immutableStage, 0o555);
+    builder.renameImmutableDirectory(immutableStage, immutableFinal);
+    if (existsSync(immutableStage) || !existsSync(immutableFinal) ||
+        (lstatSync(immutableFinal).mode & 0o777) !== 0o555) {
+      fail("PUBLISHER_UNIT_FAILED", "immutable directory rename did not close the final root");
+    }
+    chmodSync(immutableFinal, 0o755);
     const stage = join(root, "rollback-stage");
     const final = join(root, "rollback-final");
     mkdirSync(final);
@@ -237,6 +248,7 @@ async function publisherUnit() {
     checks: [
       "argument_boundary", "expected_head_required", "removed_gate_mode",
       "deterministic_tree", "symlink_rejection", "directory_mode_drift_rejection",
+      "immutable_directory_atomic_rename",
       "owned_final_rollback", "foreign_final_preserved",
     ],
     protected_effect_count: 0,

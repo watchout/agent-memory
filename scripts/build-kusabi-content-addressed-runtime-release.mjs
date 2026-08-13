@@ -394,6 +394,35 @@ export function rollbackOwnedFinal(finalRoot, stageRoot, ownership) {
   renameSync(finalRoot, stageRoot);
 }
 
+export function renameImmutableDirectory(stageRoot, finalRoot) {
+  const stageInfo = lstatSync(stageRoot);
+  if (!stageInfo.isDirectory() || stageInfo.isSymbolicLink() || modeString(stageInfo.mode) !== "0555") {
+    fail("STAGE_ROOT_NOT_IMMUTABLE", stageRoot);
+  }
+  // macOS denies renaming a directory whose own mode is 0555, even when both
+  // parents are writable. Only the root is opened for the rename syscall;
+  // all descendants remain immutable, and the final root is closed again
+  // before it is read back or exposed as a successful publication.
+  chmodSync(stageRoot, 0o755);
+  try {
+    renameSync(stageRoot, finalRoot);
+  } catch (error) {
+    chmodSync(stageRoot, 0o555);
+    throw error;
+  }
+  try {
+    chmodSync(finalRoot, 0o555);
+  } catch (error) {
+    try {
+      renameSync(finalRoot, stageRoot);
+      chmodSync(stageRoot, 0o555);
+    } catch (rollbackError) {
+      fail("FINAL_MODE_ROLLBACK_FAILED", `${String(error)}; ${String(rollbackError)}`);
+    }
+    throw error;
+  }
+}
+
 function candidate(options) {
   const source = sourceSnapshot(options.expectedHead);
   const built = buildStage(options.releaseRoot, source);
@@ -429,7 +458,7 @@ function publish(options) {
       removeStage(built.stageRoot, join(options.releaseRoot, ".staging"));
       publication = "IDEMPOTENT_SUCCESS_NO_WRITE";
     } else {
-      renameSync(built.stageRoot, built.finalRoot);
+      renameImmutableDirectory(built.stageRoot, built.finalRoot);
       createdFinal = true;
       ownedFinal = finalIdentity(built.finalRoot, built.descriptorSha);
     }
