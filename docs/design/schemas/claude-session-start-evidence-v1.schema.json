@@ -118,7 +118,7 @@
         "source": { "enum": ["startup", "resume", "clear", "compact", null] },
         "cwd_sha256": { "anyOf": [{ "type": "string", "pattern": "^[a-f0-9]{64}$" }, { "type": "null" }] },
         "input_valid": { "type": "boolean" },
-        "permission_mode": { "enum": ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions", null] },
+        "permission_mode": { "enum": ["default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions", null] },
         "agent_type": { "type": ["string", "null"] },
         "strict_json_stdout": { "const": true }
       }
