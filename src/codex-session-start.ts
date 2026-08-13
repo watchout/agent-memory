@@ -727,7 +727,7 @@ export async function loadCodexRecoveryFromStore(
   input: CodexSessionStartInput,
 ): Promise<LoadedCodexRecovery> {
   const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore();
+  const store = await createStore({ skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "codex",

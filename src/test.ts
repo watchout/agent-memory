@@ -5,7 +5,7 @@
  */
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
-import { createStore } from "./stores/index.js";
+import { createStore, type CreateStoreOptions } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { join } from "path";
 import { execFileSync } from "child_process";
@@ -1319,10 +1319,10 @@ function testRedaction() {
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
 }
 
-async function assertCreateStoreFailsClosed(label: string) {
+async function assertCreateStoreFailsClosed(label: string, options?: CreateStoreOptions) {
   let failedClosed = false;
   try {
-    await createStore();
+    await createStore(options);
   } catch {
     failedClosed = true;
   }
@@ -1357,6 +1357,11 @@ async function testPostgresStoreIntentFailsClosed() {
     delete process.env.AGENT_MEMORY_DATABASE_URL;
     process.env.PGCONNECT_TIMEOUT = "1";
     await assertCreateStoreFailsClosed("explicit postgres mode refuses SQLite fallback on connection failure");
+
+    await assertCreateStoreFailsClosed(
+      "SessionStart migration-skip path still fails closed on PostgreSQL connection failure",
+      { skipPostgresMigrations: true },
+    );
 
     delete process.env.AGENT_MEMORY_DB_TYPE;
     delete process.env.DATABASE_URL;

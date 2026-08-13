@@ -3,6 +3,15 @@ import { PgStore } from "./pg-store.js";
 import { JsonStore } from "./json-store.js";
 import { SqliteStore } from "./sqlite-store.js";
 
+export interface CreateStoreOptions {
+  /**
+   * Native SessionStart hooks have a strict 7-second deadline. Their schema is
+   * provisioned by the ordinary MCP/CLI startup path, so they verify the
+   * PostgreSQL connection without replaying every idempotent migration.
+   */
+  skipPostgresMigrations?: boolean;
+}
+
 /**
  * Factory selecting the storage backend based on environment.
  *
@@ -12,7 +21,7 @@ import { SqliteStore } from "./sqlite-store.js";
  *   3. DATABASE_URL → postgres intent; fail closed on connection failure
  *   4. no configured PostgreSQL URL → sqlite (OSS default)
  */
-export async function createStore(): Promise<Store> {
+export async function createStore(options: CreateStoreOptions = {}): Promise<Store> {
   const dbType = (process.env.AGENT_MEMORY_DB_TYPE || "").toLowerCase();
   const dbUrl =
     process.env.AGENT_MEMORY_DATABASE_URL || process.env.DATABASE_URL || "";
@@ -50,7 +59,7 @@ export async function createStore(): Promise<Store> {
     }
     try {
       const store = new PgStore(dbUrl);
-      await store.initialize();
+      await store.initialize({ run_migrations: !options.skipPostgresMigrations });
       console.error("[agent-memory] Connected to PostgreSQL");
       return store;
     } catch (err) {

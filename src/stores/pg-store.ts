@@ -73,11 +73,13 @@ export class PgStore implements Store {
     this.pool = new Pool({ connectionString });
   }
 
-  async initialize(): Promise<void> {
+  async initialize(options: { run_migrations?: boolean } = {}): Promise<void> {
     const client = await this.pool.connect();
     try {
-      for (const sql of PG_MIGRATIONS) {
-        await client.query(sql);
+      if (options.run_migrations !== false) {
+        for (const sql of PG_MIGRATIONS) {
+          await client.query(sql);
+        }
       }
     } finally {
       client.release();

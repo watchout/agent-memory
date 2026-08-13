@@ -274,7 +274,7 @@ export async function loadClaudeRecoveryFromStore(
   input: ClaudeSessionStartInput,
 ): Promise<LoadedCodexRecovery> {
   const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore();
+  const store = await createStore({ skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "claude_code",
