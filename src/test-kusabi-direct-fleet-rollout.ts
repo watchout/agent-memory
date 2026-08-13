@@ -693,6 +693,39 @@ async function main(): Promise<void> {
     check(appliedR3Batches.join(",") === "r3-wave-01,r3-wave-02,r3-wave-03,r3-wave-04,r3-wave-05",
       "all five R3 waves advance one immutable durable-gated phase at a time");
 
+    const finalGate = await writeGateEvidence(priorDir, "r3-final-gate", 0);
+    await expectCode("KUSABI_DIRECT_FINALIZE_PHASE_INVALID", () => runKusabiDirectFleetRollout({
+      ...fixed,
+      apply: true,
+      finalize: true,
+      output_dir: join(root, "premature-finalize"),
+      plan_dir: planDir,
+      authorization_file: authorizationFile,
+      prior_apply_dir: r2Dir,
+      gate_observations_file: finalGate.observationsFile,
+      gate_status_file: finalGate.statusFile,
+    }));
+    const finalDir = join(root, "final-closure");
+    const finalized = await runKusabiDirectFleetRollout({
+      ...fixed,
+      apply: true,
+      finalize: true,
+      output_dir: finalDir,
+      plan_dir: planDir,
+      authorization_file: authorizationFile,
+      prior_apply_dir: priorDir,
+      gate_observations_file: finalGate.observationsFile,
+      gate_status_file: finalGate.statusFile,
+    });
+    check(finalized.status === "applied" && finalized.apply_reports.length === 0 &&
+      finalized.final_durable_gate_reports.length === 7 &&
+      finalized.final_durable_gate_reports.every(({ verdict }) => verdict === "PASS"),
+    "gate-only finalize seals all seven durable gates without another configuration effect");
+    check(finalized.phase_receipt?.batch_id === "r3-wave-05" && finalized.summary.placed_count === 0 &&
+      (await readdir(finalDir)).includes("final-closure-report.json") &&
+      ((await lstat(finalDir)).mode & 0o777) === 0o500,
+    "final closure remains bound to the last phase and persists immutable zero-effect evidence");
+
     await writeFile(configPath(kusabi), beforeDryRun.get(configPath(kusabi))!);
     const beforeRollback = await readAllConfigs(rows);
     const rollbackPlan = join(root, "rollback-plan");

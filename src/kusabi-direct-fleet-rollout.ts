@@ -139,6 +139,7 @@ export interface KusabiImmutableCasReadback {
 export interface KusabiDirectFleetRolloutOptions {
   cas_root: string;
   apply?: boolean;
+  finalize?: boolean;
   expected_head?: string;
   output_dir?: string;
   plan_dir?: string;
@@ -297,6 +298,7 @@ export interface KusabiDirectFleetRolloutReport {
   failure: { code: string; message: string } | null;
   phase_receipt: KusabiDirectPhaseReceipt | null;
   prior_batch_gate: KusabiDirectBatchGateEvidence | null;
+  final_durable_gate_reports: KusabiFleetBatchGateReport[];
   report_sha256: string;
 }
 
@@ -1379,13 +1381,16 @@ export async function runKusabiDirectFleetRollout(
   options: KusabiDirectFleetRolloutOptions,
 ): Promise<KusabiDirectFleetRolloutReport> {
   const apply = options.apply === true;
+  const finalize = options.finalize === true;
   const resumeBatch = options.resume_batch;
+  if (finalize && !apply) fail("KUSABI_DIRECT_FINALIZE_REQUIRES_APPLY");
+  if (finalize && resumeBatch !== undefined) fail("KUSABI_DIRECT_FINALIZE_WITH_RESUME_INVALID");
   if (resumeBatch !== undefined && !apply) fail("KUSABI_DIRECT_RESUME_REQUIRES_APPLY");
   if (apply && options.output_dir === undefined) fail("KUSABI_DIRECT_APPLY_OUTPUT_DIR_REQUIRED");
   if (apply && (!options.plan_dir || !options.authorization_file)) {
     fail("KUSABI_DIRECT_FROZEN_PLAN_AND_AUTHORIZATION_REQUIRED");
   }
-  if (resumeBatch !== undefined &&
+  if ((resumeBatch !== undefined || finalize) &&
     (!options.prior_apply_dir || !options.gate_observations_file || !options.gate_status_file)) {
     fail("KUSABI_DIRECT_RESUME_EVIDENCE_REQUIRED");
   }
@@ -1424,7 +1429,9 @@ export async function runKusabiDirectFleetRollout(
       cas,
     )
     : undefined;
-  const priorPhase = resumeBatch === undefined ? undefined : await loadPhaseApplyArtifacts(options.prior_apply_dir!);
+  const priorPhase = resumeBatch === undefined && !finalize
+    ? undefined
+    : await loadPhaseApplyArtifacts(options.prior_apply_dir!);
   if (priorPhase) validatePhaseBindings(priorPhase, loadedPlan!, cas, directAuthorization!);
   const ownedDatabase = options.database === undefined;
   const database = options.database ?? new Client({
@@ -1492,9 +1499,14 @@ export async function runKusabiDirectFleetRollout(
     (priorPhase === undefined && canonicalJson(r0.report) !== canonicalJson(loadedPlan.r0Report))
   )) fail("KUSABI_DIRECT_FROZEN_PLAN_REPRODUCTION_MISMATCH");
 
-  if (priorPhase && loadedPlan!.rolloutPlan.batches[priorPhase.receipt.batch_ordinal]?.batch_id !== resumeBatch) {
-    fail("KUSABI_DIRECT_RESUME_BATCH_NOT_NEXT", `${resumeBatch}:${
-      loadedPlan!.rolloutPlan.batches[priorPhase.receipt.batch_ordinal]?.batch_id ?? "complete"}`);
+  const nextBatch = priorPhase
+    ? loadedPlan!.rolloutPlan.batches[priorPhase.receipt.batch_ordinal]
+    : undefined;
+  if (priorPhase && finalize !== (nextBatch === undefined)) {
+    fail("KUSABI_DIRECT_FINALIZE_PHASE_INVALID");
+  }
+  if (priorPhase && !finalize && nextBatch?.batch_id !== resumeBatch) {
+    fail("KUSABI_DIRECT_RESUME_BATCH_NOT_NEXT", `${resumeBatch}:${nextBatch?.batch_id ?? "complete"}`);
   }
   const priorBatchGate = priorPhase
     ? await validatePriorBatchGateWithDatabase(options, loadedPlan!, priorPhase)
@@ -1579,6 +1591,7 @@ export async function runKusabiDirectFleetRollout(
       failure: null,
       phase_receipt: null,
       prior_batch_gate: null,
+      final_durable_gate_reports: [],
     });
     if (outputDir) {
       const preimageManifest = await persistPreimages(outputDir, preimages);
@@ -1619,6 +1632,47 @@ export async function runKusabiDirectFleetRollout(
   await writeJson(join(outputDir, "direct-authorization.json"), directAuthorization);
   await writeJson(join(outputDir, "rollout-authorization.json"), authorization);
   if (priorBatchGate) await writeJson(join(outputDir, "prior-batch-gate.json"), priorBatchGate.evidence);
+
+  if (finalize) {
+    const durableGateReports = [
+      ...priorPhase!.receipt.durable_gate_reports,
+      priorBatchGate!.evidence.gate,
+    ];
+    if (durableGateReports.length !== r0.rollout_plan.batches.length ||
+      durableGateReports.some((gate, index) => gate.batch_id !== r0.rollout_plan.batches[index].batch_id ||
+        gate.verdict !== "PASS")) {
+      fail("KUSABI_DIRECT_FINALIZE_GATE_HISTORY_INVALID");
+    }
+    await assertCasUnchanged(cas);
+    const report = sealDirectReport({
+      schema_version: "kusabi-direct-fleet-rollout-report/v1",
+      ...reportBase,
+      status: "applied",
+      apply_reports: [],
+      placement_gate_reports: [],
+      observations: priorBatchGate!.observations,
+      summary: {
+        planned_count: targets.length,
+        placed_count: 0,
+        postimage_exact_count: priorBatchGate!.observations.length,
+        trust_exact_count: priorBatchGate!.observations.filter(({ trust_exact }) => trust_exact).length,
+        automatic_receive_ready_count: priorBatchGate!.observations.filter(({ exact }) => exact).length,
+        storage_observed_count: priorBatchGate!.observations.filter(({ storage_exact }) => storage_exact).length,
+        rollback_count: 0,
+        rollback_error_count: 0,
+      },
+      trust_blockers: [],
+      evidence_errors: [],
+      failure: null,
+      phase_receipt: priorPhase!.receipt,
+      prior_batch_gate: priorBatchGate!.evidence,
+      final_durable_gate_reports: durableGateReports,
+    });
+    await writeJson(join(outputDir, "final-closure-report.json"), report);
+    await writeJson(join(outputDir, "direct-rollout-report.json"), report);
+    await makePlanImmutable(outputDir);
+    return report;
+  }
 
   const applyReports: KusabiFleetApplyBatchReport[] = [];
   const placementGates: KusabiFleetPlacementGateReport[] = [];
@@ -1757,6 +1811,7 @@ export async function runKusabiDirectFleetRollout(
       failure: null,
       phase_receipt: receipt,
       prior_batch_gate: priorBatchGate?.evidence ?? null,
+      final_durable_gate_reports: [],
     });
     await writeJson(join(outputDir, "phase-receipt.json"), receipt);
     await writeJson(join(outputDir, "observations.json"), report.observations);
@@ -1829,6 +1884,7 @@ export async function runKusabiDirectFleetRollout(
       },
       phase_receipt: priorPhase?.receipt ?? null,
       prior_batch_gate: priorBatchGate?.evidence ?? null,
+      final_durable_gate_reports: [],
     });
     // Configuration recovery above never depends on evidence-directory
     // availability. Persist only after every rollback attempt has completed.
@@ -1868,11 +1924,12 @@ interface CliArgs {
   decision_ref?: string;
   storage_binding_sha256?: string;
   apply: boolean;
+  finalize: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const parsed: CliArgs = { apply: false, help: false };
+  const parsed: CliArgs = { apply: false, finalize: false, help: false };
   const valueKeys = new Set([
     "cas-root", "expected-head", "output-dir", "plan-dir", "authorization-file", "database-url",
     "resume-batch", "prior-apply-dir", "gate-observations-file", "gate-status-file",
@@ -1883,6 +1940,10 @@ function parseArgs(argv: string[]): CliArgs {
     const arg = argv[index];
     if (arg === "--apply") {
       parsed.apply = true;
+      continue;
+    }
+    if (arg === "--finalize") {
+      parsed.finalize = true;
       continue;
     }
     if (arg === "--help" || arg === "-h") {
@@ -1905,6 +1966,7 @@ function usage(): string {
     "Plan is the default. Apply consumes an immutable, independently audited plan.",
     "",
     "  --apply                         Apply the frozen plan in staged configuration batches",
+    "  --finalize                      Gate and seal the final phase without applying another batch",
     "  --expected-head <40-hex>        Exact authorized release HEAD (required with --apply)",
     "  --output-dir <absolute-path>    New evidence/backup directory (required with --apply)",
     "  --plan-dir <absolute-path>      Immutable plan directory (required with --apply)",
@@ -1933,6 +1995,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const report = await runKusabiDirectFleetRollout({
     cas_root: args.cas_root,
     apply: args.apply,
+    finalize: args.finalize,
     expected_head: args.expected_head,
     output_dir: args.output_dir,
     plan_dir: args.plan_dir,
