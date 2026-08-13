@@ -1,5 +1,8 @@
 # Kusabi V2 Migration Boundary Draft
 
+> Historical migration plan: the former `.shirube/**` scaffold has been
+> removed and is not a current implementation surface.
+
 Status: draft
 Scope: migration planning only
 Runtime impact: none in this branch

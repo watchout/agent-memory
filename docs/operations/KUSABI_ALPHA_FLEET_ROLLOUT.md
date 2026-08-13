@@ -1,7 +1,7 @@
 # Kusabi Alpha Fleet Observability and Rollout Runbook
 
-Status: design only; no runtime, configuration, trust, activation, or fleet
-distribution is authorized by this document
+Status: operational runbook; use the repository-owned dry-run-first release
+and fleet commands
 
 Control source: `ODR-KUSABI-ALPHA-OBSERVABILITY-DESIGN-20260728-006`
 
@@ -11,9 +11,8 @@ Contract: [`KUSABI_FLEET_OBSERVABILITY_CONTRACT.md`](../design/KUSABI_FLEET_OBSE
 
 This runbook defines how to implement observability first and then distribute
 the merged Kusabi alpha without losing exact version identity or creating an
-unobservable fleet. It does not authorize those later actions. Each execution
-cell requires its own Shirube handoff, allowed paths, stop conditions, evidence,
-and owner gate.
+unobservable fleet. Execution uses an immutable CAS release, explicit apply
+mode, per-target rollback snapshots, independent audit, and durable evidence.
 
 The rollout closes only when every target in one frozen manifest is observable
 on the expected build/configuration/backend and the fleet has passed a
@@ -36,8 +35,8 @@ sub-agents are not auditors. AUN may route independent work but is not the
 runtime dependency of Kusabi observability.
 
 Progress, FYI, ACK, queue receipt, and intermediate evidence are non-blocking.
-A stop occurs only for an explicit `next_action.blocking: true` with an allowed
-Shirube stop reason, an owner gate, or a runbook stop condition.
+A stop occurs on a failed invariant, a runbook stop condition, or an explicit
+operator cancellation.
 
 ## 3. Frozen inputs
 
@@ -384,9 +383,8 @@ Each open alert provides:
 - expected/observed identity hashes;
 - first/last seen time and occurrence count;
 - privacy-safe fingerprint and evidence-reference hashes;
-- a complete Shirube `next_action` identifying actor, active function,
-  delivery route, exact input-reference hashes, scope, deliverable, completion
-  evidence, and blocking status.
+- a complete remediation action identifying the target, reason, exact input
+  references, deliverable, completion evidence, and blocking status.
 
 Do not attach raw errors, paths, prompts, recovered work, or credentials. The
 responsible actor resolves the hashed references inside the authorized evidence

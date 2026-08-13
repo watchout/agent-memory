@@ -421,7 +421,7 @@ The target may change only through a new owner decision and contract version.
 ## 11. Completion boundary
 
 This design cell is complete when the contract, both schemas, rollout runbook,
-and Shirube artifacts are in one exact-head PR; positive and negative schema
+and independent audit artifacts are bound to one exact-head PR; positive and negative schema
 fixtures pass; repository tests pass; an independent R2 design audit has no
 blocking finding; and the owner accepts the exact head.
 

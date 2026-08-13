@@ -24,10 +24,10 @@ For every non-trivial task:
   `codex_native_fast_lane`, `claude_code_autonomous_lane`,
   `headless_runtime_adapter_lane`, `governed_manual_lane`, or `stop_lane`.
 - Write evidence back to GitHub in the issue or PR. Local success is not enough.
-- Stop at protected gates for the correct owner/role. Runtime recovery,
-  memory semantics, common DB binding, launch/restart behavior, redaction,
-  retention, production launchd, secrets, and Discord gateway changes are
-  protected unless the issue explicitly delegates the lane.
+- Require explicit user authorization for irreversible external effects,
+  secret changes, destructive data operations, and third-party sends. Local
+  implementation, validation, immutable release construction, and reversible
+  configuration rollout proceed directly when they are explicitly in scope.
 
 ## Memory/Recovery Evidence Rule
 
@@ -58,29 +58,10 @@ as the recovery baseline before shell commands, file reads, AUN checks, or
 agent-comms checks. If context is missing or ambiguous, call
 `mcp__wasurezu__search_memory` with `scope: "all"` and a concrete query.
 
-## Shirube V4 GoalRun Binding
+## Direct Delivery Rule
 
-Shirube V3 remains the authority and function-boundary policy. For the active
-Kusabi OBS-05/06 fleet-closure goal, Shirube V4 GoalRun contracts are the
-machine-readable convergence layer inside those boundaries.
-
-After the mandatory Wasurezu recovery call and before acting on this goal:
-
-1. Run `npm run shirube:v4:goal:check`.
-2. Run `npm run shirube:v4:goal:status` and `npm run shirube:v4:goal:next`.
-3. Read the selected WorkItem and its exact `control_handoff_ref`.
-4. Continue immediately when `next_action` names the current agent/function
-   and the operation is allowed. Route the exact structured `next_action` when
-   another actor is named. Do not stop on progress reports, ACKs, queue receipts,
-   or declarations.
-
-The active artifacts are:
-
-- `.shirube/goal-runs/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.json`
-- `.shirube/execution-goal-bindings/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804.kusabi.json`
-- `.shirube/work-items/GOAL-RUN-KUSABI-OBS05-OBS06-FLEET-CLOSURE-20260804/`
-
-Do not claim closure from a message, queue state, green CI, or an unverified
-counter. Closure requires canonical validation, GoalRun
-`status=VERIFIED_COMPLETE`, all acceptance predicates verified, all 35 targets
-exact with required live/rollback evidence, and `next_action: none`.
+Release and fleet delivery use repository-owned Wasurezu commands. They do not
+depend on external approval comments, queue receipts, or a separate governance
+runtime. A release must still be built from a clean exact HEAD, published into
+the content-addressed store, read back byte-for-byte, independently audited,
+and deployed with per-target rollback evidence.

@@ -35,6 +35,7 @@ export interface CodexHookInstallOptions {
   max_tokens?: number;
   max_bytes?: number;
   timeout_ms?: number;
+  create_backup?: boolean;
 }
 
 export interface CodexHookInstallReport {
@@ -369,7 +370,7 @@ export async function installCodexSessionStartHook(
   if (options.mode === "apply" && wouldChange) {
     await mkdir(codexDir, { recursive: true });
     await assertNotSymlink(codexDir, false);
-    if (existing.raw !== null) {
+    if (existing.raw !== null && options.create_backup !== false) {
       backupFile = `${hooksFile}.bak.wasurezu-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`;
       await copyFile(hooksFile, backupFile);
       await chmod(backupFile, 0o600);

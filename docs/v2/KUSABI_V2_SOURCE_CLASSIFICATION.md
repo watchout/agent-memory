@@ -1,5 +1,8 @@
 # Kusabi V2 Source Classification Draft
 
+> Historical classification: all `.shirube/**` entries below describe removed
+> artifacts retained only to explain the V2 design provenance.
+
 Status: draft
 Scope: source classification only
 Base dependency: PR #182 (`v2/kusabi-reset`)

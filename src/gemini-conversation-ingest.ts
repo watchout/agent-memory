@@ -52,6 +52,10 @@ export interface GeminiConversationIngestInput {
   since?: string;
   root?: string;
   max_files?: number;
+  /** Exact, pre-validated transcript paths for bounded SessionStart ingest. */
+  files?: string[];
+  /** Exact bytes from a securely opened transcript; avoids path re-open TOCTOU. */
+  contents?: ReadonlyMap<string, string>;
 }
 
 export interface GeminiPrivacyCounters {
@@ -147,7 +151,7 @@ export async function ingestGeminiConversationEvents(
   if (Number.isNaN(since.getTime())) throw new Error(`Invalid since timestamp: ${input.since}`);
   const root = input.root ?? getGeminiChatsDir();
   const maxFiles = input.max_files ?? 200;
-  const files = findGeminiConversationFiles(since, root).slice(0, maxFiles);
+  const files = (input.files ?? findGeminiConversationFiles(since, root)).slice(0, maxFiles);
   const result: GeminiConversationIngestResult = {
     source: "gemini_cli",
     files_scanned: files.length,
@@ -169,6 +173,7 @@ export async function ingestGeminiConversationEvents(
       since: since.toISOString(),
       max_files: maxFiles,
       max_depth: GEMINI_CHATS_MAX_DEPTH,
+      files: input.files,
     }),
   };
 
@@ -177,7 +182,7 @@ export async function ingestGeminiConversationEvents(
     result.path_shapes[pathShape]++;
     let raw: string;
     try {
-      raw = readFileSync(file, "utf8");
+      raw = input.contents?.get(file) ?? readFileSync(file, "utf8");
     } catch {
       result.events_skipped++;
       result.privacy.malformed_records_denied++;
@@ -210,6 +215,19 @@ export async function ingestGeminiConversationEvents(
         source_path: event.source_path,
         redaction_level: "complete",
         private_reasoning: false,
+        metadata: event.metadata,
+        occurred_at: event.occurred_at,
+      });
+      // Preserve the same compatibility projection used by the Codex and
+      // Claude adapters so restart packs and recover_context can consume it.
+      await store.saveConversationEvent({
+        agent_id: agentId,
+        project: input.project,
+        source: "gemini_cli",
+        source_event_id: event.source_event_id,
+        source_path: event.source_path,
+        role: event.role,
+        content: event.content,
         metadata: event.metadata,
         occurred_at: event.occurred_at,
       });

@@ -23,6 +23,7 @@ import {
 } from "./codex-session-start.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
+import { receiveCurrentSessionTranscript } from "./session-start-auto-receive.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
   buildRecoveryPackArtifact,
@@ -501,6 +502,15 @@ export async function loadGeminiRecoveryFromStore(
   const storeBinding = resolveCodexStoreBinding();
   const store = await createStore();
   try {
+    const autoReceive = await receiveCurrentSessionTranscript(store, {
+      host: "gemini_cli",
+      agent_id: binding.agent_id,
+      project: binding.project,
+      workspace: binding.workspace,
+      cwd: input.cwd,
+      session_id: input.session_id,
+      transcript_path: input.transcript_path,
+    });
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
     const packData = await loadRestartPackData(store, {
       agent_id: binding.agent_id,
@@ -527,6 +537,7 @@ export async function loadGeminiRecoveryFromStore(
         start_source: input.source,
         binding_source_ref: redactText(binding.binding_source_ref).text,
         workspace_sha256: sha256(binding.workspace),
+        auto_receive: autoReceive,
         recovery_pack: recoveryPack,
         output: outputMetrics(recovery, binding),
         delivery_status: "degraded",

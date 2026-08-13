@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const ONE_SEAT_MANIFEST = Object.freeze({
-  schema_version: "shirube-v3/explicit_enrollment_target_manifest/v1",
+  schema_version: "wasurezu/explicit-enrollment-target-manifest/v1",
   manifest_id: "TARGET-MANIFEST-SPEC-KUSABI-001-GEN-1",
   generation: 1,
   canonical_sha256: "873f1915720604383ab4779d26d3f3aecfe2a3d26aac97cf408b4b3ce9a09612",

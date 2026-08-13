@@ -265,6 +265,8 @@ export interface KusabiFleetDeploymentObservationInput {
   binding_source_ref: string;
   trust_source: KusabiFleetTrustSource;
   observed_storage: KusabiFleetDeploymentIdentity["storage"];
+  /** False when no live store-binding probe was performed. */
+  storage_observed?: boolean;
   observed_commit_sha: string;
   observed_tree_sha: string;
   observed_at: string;
@@ -288,6 +290,24 @@ export interface KusabiFleetBatchGateReport {
   report_sha256: string;
 }
 
+/**
+ * A direct-delivery sequencing receipt. Unlike a durable health gate, this
+ * proves only that the preceding batch was placed and read back exactly. It
+ * must never be presented as soak, runtime-health, or durable-delivery proof.
+ */
+export interface KusabiFleetPlacementGateReport {
+  schema_version: "wasurezu-fleet-placement-gate/v1";
+  rollout_plan_sha256: string;
+  manifest_sha256: string;
+  batch_id: string;
+  stage: KusabiFleetRolloutStage;
+  target_count: number;
+  exact_observed_count: number;
+  verdict: "PASS" | "BLOCKED";
+  blockers: string[];
+  report_sha256: string;
+}
+
 export interface KusabiFleetApplyBatchOptions {
   plan: KusabiFleetRolloutPlan;
   manifest: KusabiFleetManifest;
@@ -296,7 +316,11 @@ export interface KusabiFleetApplyBatchOptions {
   batch_id: string;
   runtime_root: string;
   targets: KusabiFleetRolloutTargetInput[];
-  prior_gate_reports?: KusabiFleetBatchGateReport[];
+  prior_gate_reports?: Array<KusabiFleetBatchGateReport | KusabiFleetPlacementGateReport>;
+  /** Test-only effect seam; the production CLI never exposes it. */
+  test_before_target_apply?: (targetKey: string, index: number) => void | Promise<void>;
+  /** Test-only conflict seam; the production CLI never exposes it. */
+  test_before_target_rollback?: (targetKey: string, index: number) => void | Promise<void>;
 }
 
 export interface KusabiFleetApplyBatchReport {
@@ -307,6 +331,16 @@ export interface KusabiFleetApplyBatchReport {
   attempted_count: number;
   placed_count: number;
   rolled_back: boolean;
+  rollback_error_count: number;
+  rollback_errors: Array<{
+    target_key: string;
+    code: string;
+  }>;
+  failure_code: string | null;
+  effect_targets: Array<{
+    target_key: string;
+    expected_postimage_sha256: string;
+  }>;
   target_results: Array<{
     target_key: string;
     preimage_sha256: string | null;
@@ -318,11 +352,13 @@ export interface KusabiFleetApplyBatchReport {
 
 export class KusabiFleetRolloutError extends Error {
   readonly code: string;
+  readonly apply_report?: KusabiFleetApplyBatchReport;
 
-  constructor(code: string) {
+  constructor(code: string, applyReport?: KusabiFleetApplyBatchReport) {
     super(code);
     this.name = "KusabiFleetRolloutError";
     this.code = code;
+    this.apply_report = applyReport;
   }
 }
 
@@ -817,7 +853,8 @@ export async function observeKusabiFleetDeployment(
   const buildExact = canonicalJson(deployment.build) === canonicalJson(input.target.expected.build);
   const trustExact = trust.verified && deployment.configuration.trust_fingerprint_sha256 ===
     input.target.expected.configuration.trust_fingerprint_sha256;
-  const storageExact = canonicalJson(deployment.storage) === canonicalJson(input.target.expected.storage);
+  const storageExact = input.storage_observed !== false &&
+    canonicalJson(deployment.storage) === canonicalJson(input.target.expected.storage);
   const withoutHash = {
     schema_version: "kusabi-fleet-observed-target/v1" as const,
     observed_at: input.observed_at,
@@ -945,10 +982,11 @@ export async function applyKusabiFleetRolloutBatch(
   const manifestMap = new Map(options.manifest.targets.map((target) => [target.target_key, target]));
   const preparedInputs = await Promise.all(options.targets.map((target) => prepareTarget(target, runtimeRoot)));
   const inputMap = new Map(preparedInputs.map((target) => [target.targetKey, target]));
-  const rollbacks: Array<{ snapshot: ConfigSnapshot }> = [];
+  const rollbacks: Array<{ targetKey: string; snapshot: ConfigSnapshot; expectedPostimageSha256: string }> = [];
+  const effectTargets: KusabiFleetApplyBatchReport["effect_targets"] = [];
   const targetResults: KusabiFleetApplyBatchReport["target_results"] = [];
   try {
-    for (const targetKey of batch.target_keys) {
+    for (const [targetIndex, targetKey] of batch.target_keys.entries()) {
       const prepared = inputMap.get(targetKey);
       const manifestTarget = manifestMap.get(targetKey);
       if (!prepared || !manifestTarget || prepared.input.batch_id !== batch.batch_id ||
@@ -956,8 +994,13 @@ export async function applyKusabiFleetRolloutBatch(
         prepared.artifactSha256 !== manifestTarget.expected.build.artifact_sha256) {
         fail("KUSABI_FLEET_APPLY_TARGET_MISMATCH");
       }
-      rollbacks.push({ snapshot: prepared.snapshot });
+      rollbacks.push({ targetKey, snapshot: prepared.snapshot, expectedPostimageSha256: prepared.desiredSha256 });
+      effectTargets.push({ target_key: targetKey, expected_postimage_sha256: prepared.desiredSha256 });
+      await options.test_before_target_apply?.(targetKey, targetIndex);
       const report = await installForHost(prepared.input, runtimeRoot, prepared.workspace, "apply");
+      if (prepared.snapshot.mode !== null) {
+        await chmod(prepared.snapshot.configPath, Number.parseInt(prepared.snapshot.mode, 8));
+      }
       const postimage = await readConfigSnapshot(prepared.workspace, prepared.input.host_runtime);
       if (postimage.raw === null || postimage.sha256 !== prepared.desiredSha256) {
         fail("KUSABI_FLEET_APPLY_POSTIMAGE_MISMATCH");
@@ -970,9 +1013,40 @@ export async function applyKusabiFleetRolloutBatch(
       });
     }
   } catch (error) {
-    for (const rollback of [...rollbacks].reverse()) await restoreConfigSnapshot(rollback.snapshot);
-    if (error instanceof KusabiFleetRolloutError) throw error;
-    fail("KUSABI_FLEET_APPLY_FAILED_ROLLED_BACK");
+    const rollbackErrors: KusabiFleetApplyBatchReport["rollback_errors"] = [];
+    for (const [rollbackIndex, rollback] of [...rollbacks].reverse().entries()) {
+      try {
+        await options.test_before_target_rollback?.(rollback.targetKey, rollbackIndex);
+        await restoreConfigSnapshot(rollback.snapshot, rollback.expectedPostimageSha256);
+      } catch (rollbackError) {
+        rollbackErrors.push({
+          target_key: rollback.targetKey,
+          code: rollbackError instanceof KusabiFleetRolloutError
+            ? rollbackError.code
+            : "KUSABI_FLEET_ROLLBACK_FAILED",
+        });
+      }
+    }
+    const failureCode = error instanceof KusabiFleetRolloutError ? error.code : "KUSABI_FLEET_APPLY_FAILED";
+    const withoutHash = {
+      schema_version: "kusabi-fleet-apply-batch-report/v1" as const,
+      rollout_plan_sha256: options.plan.rollout_plan_sha256,
+      manifest_sha256: options.manifest.manifest_sha256,
+      batch_id: batch.batch_id,
+      attempted_count: batch.target_keys.length,
+      placed_count: targetResults.length,
+      rolled_back: rollbackErrors.length === 0,
+      rollback_error_count: rollbackErrors.length,
+      rollback_errors: rollbackErrors,
+      failure_code: failureCode,
+      effect_targets: effectTargets,
+      target_results: targetResults,
+    };
+    const report = { ...withoutHash, report_sha256: sha256(canonicalJson(withoutHash)) };
+    throw new KusabiFleetRolloutError(
+      rollbackErrors.length === 0 ? failureCode : "KUSABI_FLEET_APPLY_ROLLBACK_INCOMPLETE",
+      report,
+    );
   }
   const withoutHash = {
     schema_version: "kusabi-fleet-apply-batch-report/v1" as const,
@@ -982,6 +1056,10 @@ export async function applyKusabiFleetRolloutBatch(
     attempted_count: batch.target_keys.length,
     placed_count: targetResults.length,
     rolled_back: false,
+    rollback_error_count: 0,
+    rollback_errors: [],
+    failure_code: null,
+    effect_targets: effectTargets,
     target_results: targetResults,
   };
   return { ...withoutHash, report_sha256: sha256(canonicalJson(withoutHash)) };
@@ -1373,6 +1451,7 @@ async function installForHost(
     agent_id: target.agent_id,
     project: target.project,
     binding_source_ref: target.binding_source_ref,
+    create_backup: false,
   } as const;
   if (target.host_runtime === "codex") return installCodexSessionStartHook(options);
   if (target.host_runtime === "claude_code") return installClaudeSessionStartHook(options);
@@ -1384,17 +1463,56 @@ function wroteConfig(report: unknown): boolean {
   return report.wrote_hooks_file === true || report.wrote_settings_file === true;
 }
 
-async function restoreConfigSnapshot(snapshot: ConfigSnapshot): Promise<void> {
+async function restoreConfigSnapshot(snapshot: ConfigSnapshot, expectedPostimageSha256: string): Promise<void> {
+  let currentInfo;
+  let currentRaw: string | null = null;
+  try {
+    currentInfo = await lstat(snapshot.configPath);
+    if (!currentInfo.isFile() || currentInfo.isSymbolicLink()) fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
+    currentRaw = await readFile(snapshot.configPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const currentSha256 = currentRaw === null ? null : sha256(currentRaw);
+  const currentMode = currentInfo === undefined ? null : (currentInfo.mode & 0o777).toString(8).padStart(4, "0");
+  if ((snapshot.state === "absent" && currentRaw === null) ||
+    (snapshot.state === "file" && currentSha256 === snapshot.sha256 && currentMode === snapshot.mode)) return;
+  if (currentSha256 !== expectedPostimageSha256) fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
   if (snapshot.state === "absent") {
-    await rm(snapshot.configPath, { force: true });
+    const beforeRemove = await readConfigSnapshotByPath(snapshot.configPath);
+    if (beforeRemove.raw === null || beforeRemove.sha256 !== expectedPostimageSha256) {
+      fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
+    }
+    await rm(snapshot.configPath);
     return;
   }
   if (snapshot.raw === null || snapshot.mode === null) fail("KUSABI_FLEET_ROLLBACK_PREIMAGE_INVALID");
   await mkdir(dirname(snapshot.configPath), { recursive: true });
   const temporary = join(dirname(snapshot.configPath), `.wasurezu-rollback-${randomUUID()}.tmp`);
   await writeFile(temporary, snapshot.raw, { encoding: "utf8", mode: 0o600, flag: "wx" });
-  await rename(temporary, snapshot.configPath);
-  await chmod(snapshot.configPath, Number.parseInt(snapshot.mode, 8));
+  try {
+    const beforeReplace = await readConfigSnapshotByPath(snapshot.configPath);
+    if (beforeReplace.raw === null || beforeReplace.sha256 !== expectedPostimageSha256) {
+      fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
+    }
+    await rename(temporary, snapshot.configPath);
+    await chmod(snapshot.configPath, Number.parseInt(snapshot.mode, 8));
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+async function readConfigSnapshotByPath(configPath: string): Promise<Pick<ConfigSnapshot, "raw" | "sha256">> {
+  try {
+    const info = await lstat(configPath);
+    if (!info.isFile() || info.isSymbolicLink()) fail("KUSABI_FLEET_ROLLBACK_CONFLICT");
+    const raw = await readFile(configPath, "utf8");
+    return { raw, sha256: sha256(raw) };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { raw: null, sha256: null };
+    throw error;
+  }
 }
 
 function assertAuthorizationMatches(

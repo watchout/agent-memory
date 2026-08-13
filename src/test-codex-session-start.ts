@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { chmod, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import {
@@ -310,6 +310,7 @@ async function main(): Promise<void> {
     assert.match(capped.text, /cap applied/);
 
     const secret = "sk-abcdefghijklmnopqrstuvwxyz123456";
+    const privateWorkspacePath = join(homedir(), "Developer", "agent-memory");
     const packData: RestartPackData = {
       agentId: "kusabi",
       project: "agent-memory",
@@ -318,7 +319,7 @@ async function main(): Promise<void> {
         id: "task-1",
         agent_id: "kusabi",
         project: "agent-memory",
-        task: `Continue ${secret} from /Users/yuji/Developer/agent-memory`,
+        task: `Continue ${secret} from ${privateWorkspacePath}`,
         status: "in_progress",
         progress: "ready",
         next_steps: "run the native hook test",
@@ -338,7 +339,7 @@ async function main(): Promise<void> {
     });
     const built = recoveryFromPack(buildRestartPack(packData), pack, binding(workspace));
     assert(!built.text.includes(secret));
-    assert(!built.text.includes("/Users/yuji"));
+    assert(!built.text.includes(homedir()));
     assert(built.text.includes("~/Developer/agent-memory"));
     assert(built.redaction_count >= 1);
     assert.equal(typeof built.omitted_section_count, "number");

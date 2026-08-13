@@ -220,7 +220,7 @@ async function main(): Promise<void> {
       "R1 returns only hashed config evidence");
     for (const target of targets.slice(0, 3)) {
       const mode = (await lstat(configPath(target))).mode & 0o777;
-      check(mode === 0o600, `${target.host_runtime} config is mode 0600`);
+      check(mode === 0o644, `${target.host_runtime} config preserves its preimage mode`);
       const raw = await readFile(configPath(target), "utf8");
       check(raw.includes("unrelated-hook"), `${target.host_runtime} unrelated hook is preserved`);
     }

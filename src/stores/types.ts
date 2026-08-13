@@ -151,7 +151,7 @@ export interface ConversationEvent {
   id: string;
   agent_id: string;
   project?: string;
-  source: "claude_code" | "codex" | "manual";
+  source: "claude_code" | "codex" | "gemini_cli" | "manual";
   source_event_id?: string;
   source_path?: string;
   role?: string;
@@ -330,7 +330,7 @@ export interface SaveCatchUpLogInput {
 export interface SaveConversationEventInput {
   agent_id: string;
   project?: string;
-  source: "claude_code" | "codex" | "manual";
+  source: "claude_code" | "codex" | "gemini_cli" | "manual";
   source_event_id?: string;
   source_path?: string;
   role?: string;
@@ -343,7 +343,7 @@ export interface SaveConversationEventInput {
 export interface GetConversationEventsInput {
   agent_id: string;
   project?: string;
-  source?: "claude_code" | "codex" | "manual";
+  source?: "claude_code" | "codex" | "gemini_cli" | "manual";
   since?: string;
   limit?: number;
 }
