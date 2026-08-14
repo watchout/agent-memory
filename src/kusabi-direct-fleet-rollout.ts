@@ -38,6 +38,8 @@ const GIT_SHA_RE = /^[a-f0-9]{40}$/;
 const REQUIRED_ENTRYPOINTS = [
   "dist/claude-session-start.js",
   "dist/codex-session-start.js",
+  "dist/transcript-stop-capture.js",
+  "dist/fleet-conversation-backfill.js",
   "dist/gemini-session-start.js",
   "dist/antigravity-session-start.js",
   "dist/antigravity-hook-installer.js",

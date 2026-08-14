@@ -61,6 +61,7 @@ async function main(): Promise<void> {
     await mkdir(join(runtimeRoot, "dist"), { recursive: true });
     await writeFile(join(runtimeRoot, "dist", "codex-session-start.js"), "codex-artifact-v1\n");
     await writeFile(join(runtimeRoot, "dist", "claude-session-start.js"), "claude-artifact-v1\n");
+    await writeFile(join(runtimeRoot, "dist", "transcript-stop-capture.js"), "capture-artifact-v1\n");
     await writeFile(join(runtimeRoot, "dist", "gemini-session-start.js"), "gemini-artifact-v1\n");
     await writeFile(join(root, "codex-config.toml"), "[hooks.state]\n");
     await writeFile(join(root, "claude-state.json"), '{"projects":{}}');

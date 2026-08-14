@@ -12,6 +12,8 @@ import { pathToFileURL } from "node:url";
 const ENTRYPOINTS = [
   "dist/codex-session-start.js",
   "dist/claude-session-start.js",
+  "dist/transcript-stop-capture.js",
+  "dist/fleet-conversation-backfill.js",
   "dist/gemini-session-start.js",
   "dist/antigravity-session-start.js",
   "dist/antigravity-hook-installer.js",
@@ -34,6 +36,8 @@ const RESOURCES = [
 const REQUIRED_EXPORTS = {
   "dist/codex-session-start.js": ["runCodexSessionStart", "loadCodexRecoveryFromStore"],
   "dist/claude-session-start.js": ["runClaudeSessionStart", "loadClaudeRecoveryFromStore"],
+  "dist/transcript-stop-capture.js": ["runTranscriptStopCapture", "parseTranscriptStopInput"],
+  "dist/fleet-conversation-backfill.js": ["runFleetConversationBackfill", "assignTranscriptFiles"],
   "dist/gemini-session-start.js": ["runGeminiSessionStart", "loadGeminiRecoveryFromStore"],
   "dist/antigravity-session-start.js": ["runAntigravityHook", "loadAntigravityHookDataFromStore"],
   "dist/antigravity-hook-installer.js": ["installAntigravityHooks", "mergeAntigravityHooks"],

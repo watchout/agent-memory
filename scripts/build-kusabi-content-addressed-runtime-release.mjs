@@ -18,6 +18,8 @@ const STAGING_DEPENDENCY_COMMAND = "npm ci --omit=dev --ignore-scripts --no-bin-
 const ENTRYPOINTS = [
   "dist/codex-session-start.js",
   "dist/claude-session-start.js",
+  "dist/transcript-stop-capture.js",
+  "dist/fleet-conversation-backfill.js",
   "dist/gemini-session-start.js",
   "dist/antigravity-session-start.js",
   "dist/antigravity-hook-installer.js",

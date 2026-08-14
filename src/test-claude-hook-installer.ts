@@ -23,6 +23,7 @@ import {
   CLAUDE_SESSION_START_MAX_TOKENS,
   type ClaudeSessionStartBinding,
 } from "./claude-session-start.js";
+import { CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
     await mkdir(join(runtimeRoot, "dist"), { recursive: true });
     await mkdir(workspace, { recursive: true });
     await writeFile(join(runtimeRoot, "dist", "claude-session-start.js"), "// fixture\n", "utf8");
+    await writeFile(join(runtimeRoot, "dist", "transcript-stop-capture.js"), "// fixture\n", "utf8");
 
     const exactBinding = {
       ...binding(workspace),
@@ -163,6 +165,13 @@ async function main(): Promise<void> {
     assert.equal((await stat(created.settings_file)).mode & 0o777, 0o600);
     const createdSettings = parseClaudeSettings(await readFile(created.settings_file, "utf8"));
     assert.equal(createdSettings.hooks.SessionStart?.length, 1);
+    assert.equal(createdSettings.hooks.Stop?.length, 1);
+    assert.equal(
+      (createdSettings.hooks.Stop?.[0]?.hooks[0]?.command as string).includes(CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID),
+      true,
+    );
+    assert.equal(createdSettings.hooks.UserPromptSubmit?.length, 1);
+    assert.equal(createdSettings.hooks.Stop?.[0]?.hooks[0]?.async, true);
     const checked = await installClaudeSessionStartHook(options(createWorkspace, runtimeRoot, "check"));
     assert.equal(checked.config_match, "exact");
     assert.equal(checked.would_change, false);

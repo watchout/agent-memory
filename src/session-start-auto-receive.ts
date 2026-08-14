@@ -53,6 +53,8 @@ export interface SessionStartAutoReceiveInput {
   transcript_path: string | null;
   roots?: Partial<Record<SessionStartTranscriptHost, string>>;
   max_bytes?: number;
+  snapshot_mode?: "full" | "tail";
+  tail_bytes?: number;
 }
 
 export interface SessionStartAutoReceiveResult {
@@ -81,12 +83,15 @@ export async function receiveCurrentSessionTranscript(
       return skipped("transcript_invalid");
     }
     const requestedRoot = rootForHost(input);
-    const transcript = readBoundedTranscriptSnapshot(
-      input.host,
-      input.transcript_path,
-      input.max_bytes,
-      input.host === "antigravity_cli" ? requestedRoot : undefined,
-    );
+    const transcript = input.snapshot_mode === "tail" &&
+        (input.host === "codex" || input.host === "claude_code")
+      ? readBoundedTranscriptTailSnapshot(input.host, input.transcript_path, input.tail_bytes)
+      : readBoundedTranscriptSnapshot(
+        input.host,
+        input.transcript_path,
+        input.max_bytes,
+        input.host === "antigravity_cli" ? requestedRoot : undefined,
+      );
     if (transcript.status !== "valid") return skipped(transcript.reason);
 
     const workspace = realpathSync(resolve(input.workspace));
@@ -97,7 +102,7 @@ export async function receiveCurrentSessionTranscript(
     if (!isWithin(root, transcript.path)) return skipped("transcript_invalid");
 
     const raw = transcript.raw;
-    if (!matchesCurrentSession(input, transcript.path, raw, workspace, cwd, root)) {
+    if (!matchesCurrentSession(input, transcript.path, transcript.validation_raw ?? raw, workspace, cwd, root)) {
       return skipped("session_mismatch");
     }
 
@@ -150,6 +155,74 @@ export interface BoundedTranscriptSnapshot {
   inode: number;
   size: number;
   mtime_ms: number;
+  validation_raw?: string;
+}
+
+export function readBoundedTranscriptTailSnapshot(
+  host: "codex" | "claude_code",
+  transcriptPath: string,
+  tailBytes: number = 1024 * 1024,
+): BoundedTranscriptSnapshot | { status: "invalid"; reason: SessionStartAutoReceiveResult["reason"] } {
+  let descriptor: number | undefined;
+  try {
+    const requested = resolve(transcriptPath);
+    const supplied = lstatSync(requested);
+    if (supplied.isSymbolicLink() || !supplied.isFile()) {
+      return { status: "invalid", reason: "transcript_invalid" };
+    }
+    descriptor = openSync(requested, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+    const before = fstatSync(descriptor);
+    if (!before.isFile() || before.dev !== supplied.dev || before.ino !== supplied.ino) {
+      return { status: "invalid", reason: "transcript_unstable" };
+    }
+    if (before.size <= 0) return { status: "invalid", reason: "transcript_unavailable" };
+    const boundedTailBytes = Math.max(1, Math.min(tailBytes, 8 * 1024 * 1024));
+    if (before.size <= boundedTailBytes) {
+      closeSync(descriptor);
+      descriptor = undefined;
+      return readBoundedTranscriptSnapshot(host, requested, boundedTailBytes);
+    }
+    const path = realpathSync(requested);
+    const pathBefore = lstatSync(path);
+    if (pathBefore.isSymbolicLink() || pathBefore.dev !== before.dev || pathBefore.ino !== before.ino ||
+      !path.endsWith(".jsonl")) {
+      return { status: "invalid", reason: "transcript_unstable" };
+    }
+    const headSize = Math.min(before.size, 256 * 1024);
+    const head = Buffer.alloc(headSize);
+    if (readSync(descriptor, head, 0, head.length, 0) !== head.length) {
+      return { status: "invalid", reason: "transcript_unstable" };
+    }
+    const tail = Buffer.alloc(boundedTailBytes);
+    const tailOffset = before.size - boundedTailBytes;
+    if (readSync(descriptor, tail, 0, tail.length, tailOffset) !== tail.length) {
+      return { status: "invalid", reason: "transcript_unstable" };
+    }
+    const after = fstatSync(descriptor);
+    const pathAfter = lstatSync(path);
+    if (after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino ||
+      pathAfter.dev !== before.dev || pathAfter.ino !== before.ino) {
+      return { status: "invalid", reason: "transcript_unstable" };
+    }
+    const tailText = tail.toString("utf8");
+    const firstNewline = tailText.indexOf("\n");
+    const alignedTail = firstNewline < 0 ? "" : tailText.slice(firstNewline + 1);
+    const headText = head.toString("utf8");
+    return {
+      status: "valid",
+      path,
+      raw: alignedTail,
+      validation_raw: `${headText}\n${alignedTail}`,
+      device: before.dev,
+      inode: before.ino,
+      size: before.size,
+      mtime_ms: before.mtimeMs,
+    };
+  } catch {
+    return { status: "invalid", reason: "transcript_unavailable" };
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
 export function readBoundedTranscriptSnapshot(
