@@ -35,7 +35,9 @@ const FIXTURE_ROWS = [
   "xmarketing-dev|x-marketing-engine|claude-code", "zumen|zumen|claude-code",
 ] as const;
 const ENTRYPOINTS = [
-  "dist/claude-session-start.js", "dist/codex-session-start.js", "dist/gemini-session-start.js",
+  "dist/claude-session-start.js", "dist/codex-session-start.js", "dist/transcript-stop-capture.js",
+  "dist/fleet-conversation-backfill.js",
+  "dist/gemini-session-start.js",
   "dist/antigravity-session-start.js", "dist/antigravity-hook-installer.js",
   "dist/kusabi-direct-fleet-rollout.js", "dist/kusabi-fleet-rollout.js", "dist/raw-capture-service.js",
 ] as const;
@@ -398,7 +400,7 @@ async function main(): Promise<void> {
       const raw = await readFile(configPath(row, target.identity.host_runtime), "utf8");
       const manifestFlagCount = raw.split("--runtime-event-manifest").length - 1;
       check(raw.includes(join(planDir, "fleet-manifest.json")) &&
-        manifestFlagCount === (target.identity.host_runtime === "gemini_cli" ? 3 : target.identity.host_runtime === "antigravity_cli" ? 2 : 1),
+        manifestFlagCount === (target.identity.host_runtime === "antigravity_cli" ? 2 : 3),
       "each R1 native hook pins the immutable audited fleet manifest without ambient activation");
     }
     async function writeGateEvidence(

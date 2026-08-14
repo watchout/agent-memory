@@ -461,6 +461,27 @@ not broaden raw capture policy: unknown files are surfaced as redacted
 provenance refs only, not imported as transcript content. AUN and other
 supervisors remain responsible for runtime lifecycle and queue state.
 
+Codex and Claude Code installations also place fail-open asynchronous
+`UserPromptSubmit` and `Stop` capture hooks. They ingest a securely validated,
+bounded tail of the current native transcript after each visible user/assistant
+turn, while `SessionStart` receives the bounded full transcript on startup or
+resume. This keeps long-running sessions current without restarting them and
+does not add latency to the model turn. “Full text” means the complete visible
+utterance after secret redaction; private reasoning and protected system or
+developer instruction bodies are never persisted.
+
+After first placement, operators can backfill the gap since an exact timestamp
+without assigning the shared transcript root to one agent:
+
+```bash
+wasurezu-fleet-conversation-backfill --dry-run --since 2026-08-13T12:00:00Z
+wasurezu-fleet-conversation-backfill --apply --since 2026-08-13T12:00:00Z
+```
+
+The backfill maps each file to exactly one canonical primary workspace, rejects
+ambiguous mappings, caps files and bytes, and reports content-free PostgreSQL
+readback counts by `agent_id + source`.
+
 ## Support Levels
 
 | Level | Name | Requirement | Recovery Claim |

@@ -13,10 +13,15 @@ import {
   CLAUDE_SESSION_START_MAX_TOKENS,
   type ClaudeSessionStartBinding,
 } from "./claude-session-start.js";
+import {
+  CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID,
+  TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS,
+} from "./transcript-stop-capture.js";
 
 export const CLAUDE_HOOK_CONFIG_RELATIVE_PATH = ".claude/settings.json" as const;
 export const CLAUDE_HOOK_MATCHER = "startup|resume|clear|compact" as const;
 export const CLAUDE_HOOK_STATUS_MESSAGE = "Recovering prior work with Wasurezu" as const;
+export const CLAUDE_TRANSCRIPT_STOP_STATUS_MESSAGE = "Saving conversation with Wasurezu" as const;
 
 export type ClaudeHookInstallMode = "check" | "dry-run" | "apply";
 
@@ -44,7 +49,7 @@ export interface ClaudeHookInstallReport {
   would_change: boolean;
   wrote_settings_file: boolean;
   backup_file: string | null;
-  managed_hook_group_count: 1;
+  managed_hook_group_count: 3;
   unrelated_hook_handler_count_before: number;
   unrelated_hook_handler_count_after: number;
   trust_verified: false;
@@ -77,6 +82,8 @@ interface HookGroup extends Record<string, unknown> {
 export type ClaudeSettingsFile = Record<string, unknown> & {
   hooks: Record<string, unknown> & {
     SessionStart?: HookGroup[];
+    Stop?: HookGroup[];
+    UserPromptSubmit?: HookGroup[];
   };
 };
 
@@ -240,10 +247,55 @@ export function buildClaudeSessionStartHookGroup(
   };
 }
 
+export function buildClaudeTranscriptStopHookGroup(
+  runtimeRoot: string,
+  binding: ClaudeSessionStartBinding,
+): HookGroup {
+  const runner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
+  return {
+    matcher: "",
+    hooks: [{
+      type: "command",
+      command: [
+        shellQuote(process.execPath),
+        shellQuote(runner),
+        "--adapter-id",
+        shellQuote(CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID),
+        "--agent-id",
+        shellQuote(binding.agent_id),
+        "--project",
+        shellQuote(binding.project),
+        "--workspace",
+        shellQuote(binding.workspace),
+        "--binding-source-ref",
+        shellQuote(binding.binding_source_ref),
+        "--max-tokens",
+        String(binding.max_tokens),
+        "--max-bytes",
+        String(binding.max_bytes),
+        "--timeout-ms",
+        String(binding.timeout_ms),
+        ...(binding.runtime_event_manifest_path === undefined ? [] : [
+          "--runtime-event-manifest",
+          shellQuote(binding.runtime_event_manifest_path),
+        ]),
+      ].join(" "),
+      timeout: TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS,
+      statusMessage: CLAUDE_TRANSCRIPT_STOP_STATUS_MESSAGE,
+      async: true,
+    } satisfies HookHandler],
+  };
+}
+
 function isManagedHandler(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.command === "string" &&
     parseClaudeHookCommand(value.command) !== null;
+}
+
+function isManagedTranscriptStopHandler(value: unknown): boolean {
+  return isRecord(value) && typeof value.command === "string" &&
+    value.command.includes(CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID);
 }
 
 function normalizeGroup(value: unknown, index: number): HookGroup {
@@ -277,12 +329,26 @@ export function parseClaudeSettings(raw: string): ClaudeSettingsFile {
   if (sessionStart !== undefined && !Array.isArray(sessionStart)) {
     throw new Error("hooks.SessionStart must be an array");
   }
+  const stop = hooks.Stop;
+  if (stop !== undefined && !Array.isArray(stop)) {
+    throw new Error("hooks.Stop must be an array");
+  }
+  const userPromptSubmit = hooks.UserPromptSubmit;
+  if (userPromptSubmit !== undefined && !Array.isArray(userPromptSubmit)) {
+    throw new Error("hooks.UserPromptSubmit must be an array");
+  }
   return {
     ...parsed,
     hooks: {
       ...hooks,
       ...(Array.isArray(sessionStart)
         ? { SessionStart: sessionStart.map((group, index) => normalizeGroup(group, index)) }
+        : {}),
+      ...(Array.isArray(stop)
+        ? { Stop: stop.map((group, index) => normalizeGroup(group, index)) }
+        : {}),
+      ...(Array.isArray(userPromptSubmit)
+        ? { UserPromptSubmit: userPromptSubmit.map((group, index) => normalizeGroup(group, index)) }
         : {}),
     },
   };
@@ -301,14 +367,38 @@ export function mergeClaudeSessionStartHook(
     unrelatedBefore += unrelated.length;
     if (unrelated.length > 0) preserved.push({ ...group, hooks: unrelated });
   }
+  const stopGroups = existing.hooks.Stop ?? [];
+  const preservedStop: HookGroup[] = [];
+  for (const group of stopGroups) {
+    const unrelated = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
+    unrelatedBefore += unrelated.length;
+    if (unrelated.length > 0) preservedStop.push({ ...group, hooks: unrelated });
+  }
+  const promptGroups = existing.hooks.UserPromptSubmit ?? [];
+  const preservedPrompt: HookGroup[] = [];
+  for (const group of promptGroups) {
+    const unrelated = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
+    unrelatedBefore += unrelated.length;
+    if (unrelated.length > 0) preservedPrompt.push({ ...group, hooks: unrelated });
+  }
   const nextGroups = [...preserved, buildClaudeSessionStartHookGroup(runtimeRoot, binding)];
+  const nextStopGroups = [...preservedStop, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding)];
+  const nextPromptGroups = [...preservedPrompt, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding)];
   return {
     settings: {
       ...existing,
-      hooks: { ...existing.hooks, SessionStart: nextGroups },
+      hooks: {
+        ...existing.hooks,
+        SessionStart: nextGroups,
+        Stop: nextStopGroups,
+        UserPromptSubmit: nextPromptGroups,
+      },
     },
     unrelatedBefore,
-    unrelatedAfter: nextGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedHandler(handler)).length,
+    unrelatedAfter:
+      nextGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedHandler(handler)).length +
+      nextStopGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedTranscriptStopHandler(handler)).length +
+      nextPromptGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedTranscriptStopHandler(handler)).length,
   };
 }
 
@@ -338,6 +428,11 @@ export async function installClaudeSessionStartHook(
   const runner = join(runtimeRoot, "dist", "claude-session-start.js");
   const runnerInfo = await lstat(runner);
   if (!runnerInfo.isFile() || runnerInfo.isSymbolicLink()) throw new Error(`invalid hook runner: ${runner}`);
+  const captureRunner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
+  const captureRunnerInfo = await lstat(captureRunner);
+  if (!captureRunnerInfo.isFile() || captureRunnerInfo.isSymbolicLink()) {
+    throw new Error(`invalid hook runner: ${captureRunner}`);
+  }
   const binding: ClaudeSessionStartBinding = {
     agent_id: requiredText(options.agent_id, "agent_id"),
     project: requiredText(options.project, "project"),
@@ -390,7 +485,7 @@ export async function installClaudeSessionStartHook(
     would_change: wouldChange,
     wrote_settings_file: wroteSettingsFile,
     backup_file: backupFile,
-    managed_hook_group_count: 1,
+    managed_hook_group_count: 3,
     unrelated_hook_handler_count_before: merged.unrelatedBefore,
     unrelated_hook_handler_count_after: merged.unrelatedAfter,
     trust_verified: false,

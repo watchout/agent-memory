@@ -202,6 +202,7 @@ async function testCodexNativeSessionStart() {
     mkdirSync(workspace, { recursive: true });
     mkdirSync(join(runtimeRoot, "dist"), { recursive: true });
     writeFileSync(join(runtimeRoot, "dist", "codex-session-start.js"), "#!/usr/bin/env node\n");
+    writeFileSync(join(runtimeRoot, "dist", "transcript-stop-capture.js"), "#!/usr/bin/env node\n");
     const binding = {
       agent_id: "kusabi",
       project: "agent-memory",

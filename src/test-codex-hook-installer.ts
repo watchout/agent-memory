@@ -17,6 +17,7 @@ import {
   CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
   type CodexSessionStartBinding,
 } from "./codex-session-start.js";
+import { CODEX_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
     await mkdir(join(runtimeRoot, "dist"), { recursive: true });
     await mkdir(workspace, { recursive: true });
     await writeFile(join(runtimeRoot, "dist", "codex-session-start.js"), "#!/usr/bin/env node\n");
+    await writeFile(join(runtimeRoot, "dist", "transcript-stop-capture.js"), "#!/usr/bin/env node\n");
     const hooksFile = join(workspace, CODEX_HOOK_CONFIG_RELATIVE_PATH);
 
     const absent = await installCodexSessionStartHook(options(workspace, runtimeRoot, "check"));
@@ -91,6 +93,15 @@ async function main(): Promise<void> {
     assert.equal(parsedCommand.binding.agent_id, "kusabi");
     assert.equal(parseCodexHookCommand(command.replace(process.execPath, "/bin/false")), null);
     assert.equal(parseCodexHookCommand(`${command} ; touch /tmp/forbidden`), null);
+    const stopGroups = parsed.hooks.Stop ?? [];
+    assert.equal(stopGroups.length, 1);
+    assert.equal(stopGroups[0].matcher, "");
+    assert.equal(stopGroups[0].hooks.length, 1);
+    assert(String(stopGroups[0].hooks[0].command).includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID));
+    assert.equal(stopGroups[0].hooks[0].async, true);
+    const promptGroups = parsed.hooks.UserPromptSubmit ?? [];
+    assert.equal(promptGroups.length, 1);
+    assert(String(promptGroups[0].hooks[0].command).includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID));
 
     const exactCheck = await installCodexSessionStartHook(options(workspace, runtimeRoot, "check"));
     assert.equal(exactCheck.config_match, "exact");
@@ -136,6 +147,12 @@ async function main(): Promise<void> {
     assert.equal(unrelatedGroup.hooks[0].customHandlerField, "keep");
     assert(after.hooks.SessionStart.some((group: { hooks: Array<{ command: string }> }) =>
       group.hooks.some((handler) => handler.command.includes(CODEX_SESSION_START_ADAPTER_ID))
+    ));
+    assert(after.hooks.Stop.some((group: { hooks: Array<{ command: string }> }) =>
+      group.hooks.some((handler) => handler.command.includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID))
+    ));
+    assert(after.hooks.UserPromptSubmit.some((group: { hooks: Array<{ command: string }> }) =>
+      group.hooks.some((handler) => handler.command.includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID))
     ));
 
     const changedBinding = options(preservationWorkspace, runtimeRoot, "apply");

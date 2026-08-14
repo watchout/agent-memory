@@ -18,10 +18,15 @@ import {
   CODEX_SESSION_START_MAX_TOKENS,
   type CodexSessionStartBinding,
 } from "./codex-session-start.js";
+import {
+  CODEX_TRANSCRIPT_STOP_ADAPTER_ID,
+  TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS,
+} from "./transcript-stop-capture.js";
 
 export const CODEX_HOOK_CONFIG_RELATIVE_PATH = ".codex/hooks.json" as const;
 export const CODEX_HOOK_MATCHER = "startup|resume|clear|compact" as const;
 export const CODEX_HOOK_STATUS_MESSAGE = "Recovering prior work with Wasurezu" as const;
+export const CODEX_TRANSCRIPT_STOP_STATUS_MESSAGE = "Saving conversation with Wasurezu" as const;
 
 export type CodexHookInstallMode = "check" | "dry-run" | "apply";
 
@@ -81,6 +86,8 @@ type HooksFile = Record<string, unknown> & {
   description?: string;
   hooks: Record<string, unknown> & {
     SessionStart?: HookGroup[];
+    Stop?: HookGroup[];
+    UserPromptSubmit?: HookGroup[];
   };
 };
 
@@ -248,8 +255,53 @@ export function buildCodexSessionStartHookGroup(
   };
 }
 
+export function buildCodexTranscriptStopHookGroup(
+  runtimeRoot: string,
+  binding: CodexSessionStartBinding,
+): HookGroup {
+  const runner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
+  return {
+    matcher: "",
+    hooks: [{
+      type: "command",
+      command: [
+        shellQuote(process.execPath),
+        shellQuote(runner),
+        "--adapter-id",
+        shellQuote(CODEX_TRANSCRIPT_STOP_ADAPTER_ID),
+        "--agent-id",
+        shellQuote(binding.agent_id),
+        "--project",
+        shellQuote(binding.project),
+        "--workspace",
+        shellQuote(binding.workspace),
+        "--binding-source-ref",
+        shellQuote(binding.binding_source_ref),
+        "--max-tokens",
+        String(binding.max_tokens),
+        "--max-bytes",
+        String(binding.max_bytes),
+        "--timeout-ms",
+        String(binding.timeout_ms),
+        ...(binding.runtime_event_manifest_path === undefined ? [] : [
+          "--runtime-event-manifest",
+          shellQuote(binding.runtime_event_manifest_path),
+        ]),
+      ].join(" "),
+      timeout: TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS,
+      statusMessage: CODEX_TRANSCRIPT_STOP_STATUS_MESSAGE,
+      async: true,
+    } satisfies HookHandler],
+  };
+}
+
 function isManagedHandler(value: unknown): boolean {
   return isRecord(value) && typeof value.command === "string" && value.command.includes(CODEX_SESSION_START_ADAPTER_ID);
+}
+
+function isManagedTranscriptStopHandler(value: unknown): boolean {
+  return isRecord(value) && typeof value.command === "string" &&
+    value.command.includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID);
 }
 
 function normalizeHookGroup(value: unknown, index: number): HookGroup {
@@ -283,12 +335,26 @@ export function parseHooksFile(raw: string): HooksFile {
   if (sessionStart !== undefined && !Array.isArray(sessionStart)) {
     throw new Error("hooks.SessionStart must be an array");
   }
+  const stop = hooks.Stop;
+  if (stop !== undefined && !Array.isArray(stop)) {
+    throw new Error("hooks.Stop must be an array");
+  }
+  const userPromptSubmit = hooks.UserPromptSubmit;
+  if (userPromptSubmit !== undefined && !Array.isArray(userPromptSubmit)) {
+    throw new Error("hooks.UserPromptSubmit must be an array");
+  }
   return {
     ...parsed,
     hooks: {
       ...hooks,
       ...(Array.isArray(sessionStart)
         ? { SessionStart: sessionStart.map((group, index) => normalizeHookGroup(group, index)) }
+        : {}),
+      ...(Array.isArray(stop)
+        ? { Stop: stop.map((group, index) => normalizeHookGroup(group, index)) }
+        : {}),
+      ...(Array.isArray(userPromptSubmit)
+        ? { UserPromptSubmit: userPromptSubmit.map((group, index) => normalizeHookGroup(group, index)) }
         : {}),
     },
   };
@@ -307,7 +373,23 @@ export function mergeCodexSessionStartHook(
     unrelatedBefore += unrelatedHandlers.length;
     if (unrelatedHandlers.length > 0) preserved.push({ ...group, hooks: unrelatedHandlers });
   }
+  const stopGroups = existing.hooks.Stop ?? [];
+  const preservedStop: HookGroup[] = [];
+  for (const group of stopGroups) {
+    const unrelatedHandlers = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
+    unrelatedBefore += unrelatedHandlers.length;
+    if (unrelatedHandlers.length > 0) preservedStop.push({ ...group, hooks: unrelatedHandlers });
+  }
+  const promptGroups = existing.hooks.UserPromptSubmit ?? [];
+  const preservedPrompt: HookGroup[] = [];
+  for (const group of promptGroups) {
+    const unrelatedHandlers = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
+    unrelatedBefore += unrelatedHandlers.length;
+    if (unrelatedHandlers.length > 0) preservedPrompt.push({ ...group, hooks: unrelatedHandlers });
+  }
   const nextGroups = [...preserved, buildCodexSessionStartHookGroup(runtimeRoot, binding)];
+  const nextStopGroups = [...preservedStop, buildCodexTranscriptStopHookGroup(runtimeRoot, binding)];
+  const nextPromptGroups = [...preservedPrompt, buildCodexTranscriptStopHookGroup(runtimeRoot, binding)];
   const hooksFile: HooksFile = {
     ...existing,
     description: typeof existing.description === "string"
@@ -316,12 +398,17 @@ export function mergeCodexSessionStartHook(
     hooks: {
       ...existing.hooks,
       SessionStart: nextGroups,
+      Stop: nextStopGroups,
+      UserPromptSubmit: nextPromptGroups,
     },
   };
   return {
     hooksFile,
     unrelatedBefore,
-    unrelatedAfter: nextGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedHandler(handler)).length,
+    unrelatedAfter:
+      nextGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedHandler(handler)).length +
+      nextStopGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedTranscriptStopHandler(handler)).length +
+      nextPromptGroups.flatMap((group) => group.hooks).filter((handler) => !isManagedTranscriptStopHandler(handler)).length,
   };
 }
 
@@ -351,6 +438,11 @@ export async function installCodexSessionStartHook(
   const runner = join(runtimeRoot, "dist", "codex-session-start.js");
   const runnerInfo = await lstat(runner);
   if (!runnerInfo.isFile() || runnerInfo.isSymbolicLink()) throw new Error(`invalid hook runner: ${runner}`);
+  const captureRunner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
+  const captureRunnerInfo = await lstat(captureRunner);
+  if (!captureRunnerInfo.isFile() || captureRunnerInfo.isSymbolicLink()) {
+    throw new Error(`invalid hook runner: ${captureRunner}`);
+  }
   const binding: CodexSessionStartBinding = {
     agent_id: requiredText(options.agent_id, "agent_id"),
     project: requiredText(options.project, "project"),

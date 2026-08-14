@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { buildRecoveryOutput, DEFAULT_RECOVERY_CONFIG } from "./constants.js";
@@ -94,6 +94,35 @@ async function main(): Promise<void> {
     });
     assert.equal(bounded.status, "skipped");
     assert.equal(bounded.reason, "transcript_too_large");
+
+    await appendFile(codexTranscript, `\n${JSON.stringify({
+      timestamp: "2026-08-13T01:01:30.000Z",
+      type: "event_msg",
+      payload: { type: "token_count", padding: "x".repeat(128 * 1024) },
+    })}\n${JSON.stringify({
+      timestamp: "2026-08-13T01:02:00.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        id: "codex-tail-assistant-1",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Codex tail capture sentinel" }],
+      },
+    })}\n`);
+    const tailCaptured = await receiveCurrentSessionTranscript(store, {
+      host: "codex",
+      agent_id: AGENT_ID,
+      project: PROJECT,
+      workspace,
+      cwd: workspace,
+      session_id: codexSession,
+      transcript_path: codexTranscript,
+      roots,
+      snapshot_mode: "tail",
+      tail_bytes: 64 * 1024,
+    });
+    assert.equal(tailCaptured.status, "captured");
+    assert.equal(tailCaptured.events_saved, 1);
 
     const failingStore = new Proxy(store, {
       get(target, property, receiver) {
