@@ -1,0 +1,108 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-C01-CODEX-HOME-BINDING
+parent_ssot: watchout/agent-memory#299
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/299#issuecomment-5306510481
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/299#issuecomment-5306510481
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/299
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces: []
+rps_scope:
+  shirube_owns:
+    - Codex session-start control-plane record content in this repository.
+  shirube_does_not_own:
+    - Runtime, API, database, package, deploy, or production behaviour in this cell.
+cell:
+  CELL-ID: C-01-CODEX-HOME-EVIDENCE-BINDING
+  cell_type: defect_repair
+  risk_class: R1
+  goal: Record the Codex home on the session-start control-plane record so a seat bound to a profile can be restarted.
+  non_scope:
+    - the evidence JSON Schema, which describes a different artifact
+    - agent-comms-mcp and restart-bot.sh
+    - existing agent_runtime_session_bindings rows
+    - any runtime effect
+  allowed_paths:
+    - src/codex-session-start.ts
+    - src/test-codex-session-start.ts
+    - .shirube/execution-context.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - app/**
+    - api/**
+    - lib/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+  protected_surfaces:
+    declared:
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: false
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a redaction rule other than the telephone rule changes
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Emit codex_home on the record the control plane consumes, and cover resolution and record shape with fixtures.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm test
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#299
