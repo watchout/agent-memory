@@ -5,7 +5,7 @@ primary:
   repo: watchout/agent-memory
   product: Kusabi
   work_order: watchout/agent-memory#301
-  pr: watchout/agent-memory#297
+  pr: watchout/agent-memory#300
 active_role: dev
 roles:
   lead:

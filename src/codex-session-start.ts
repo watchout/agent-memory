@@ -736,6 +736,58 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
+// The control plane binds a Codex session to a runtime profile by matching this
+// value against a registered profile config home, so it must stay a literal
+// absolute path. A home-normalized or hashed form cannot be matched and leaves
+// the binding without a profile, which makes the seat unrestartable.
+const CODEX_HOME_SAFE_RE = /^\/[A-Za-z0-9._/-]+$/;
+
+export function resolveCodexHome(env: NodeJS.ProcessEnv = process.env): string | null {
+  const declared = typeof env.CODEX_HOME === "string" ? env.CODEX_HOME.trim() : "";
+  const home = homedir();
+  const candidate = declared !== "" ? declared : home ? join(home, ".codex") : "";
+  if (candidate === "" || !isAbsolute(candidate)) return null;
+  const normalized = resolve(candidate).replace(/\/+$/, "");
+  if (normalized === "" || !CODEX_HOME_SAFE_RE.test(normalized)) return null;
+  if (/(^|\/)\.\.(\/|$)/.test(normalized)) return null;
+  return normalized;
+}
+
+export function buildCodexSessionStartRecordNotes(input: {
+  binding: CodexSessionStartBinding;
+  startSource: CodexSessionStartSource;
+  storeBinding: CodexStoreBindingEvidence;
+  autoReceive: unknown;
+  recoveryPack: CodexRecoveryPackEvidence;
+  recovery: RecoveryOutputWithMetrics;
+  codexHome: string | null;
+}): Record<string, unknown> {
+  return {
+    schema_version: CODEX_SESSION_START_EVIDENCE_SCHEMA,
+    source: "codex_native_session_start",
+    host_adapter: CODEX_SESSION_START_ADAPTER_ID,
+    host_adapter_level: 2,
+    host_contract_version: CODEX_SESSION_START_HOST_CONTRACT_VERSION,
+    native_start_surface: "SessionStart",
+    start_source: input.startSource,
+    binding_source_ref: redactText(input.binding.binding_source_ref).text,
+    workspace_sha256: sha256(input.binding.workspace),
+    codex_home: input.codexHome,
+    store_binding: input.storeBinding,
+    auto_receive: input.autoReceive,
+    recovery_pack: input.recoveryPack,
+    output: outputMetrics(input.recovery, input.binding),
+    delivery_status: "degraded",
+    emission_status: "emitted",
+    first_context_delivery_confirmed: false,
+    recovery_deadline_ms: input.binding.timeout_ms,
+    ordinary_launch_usable: true,
+    automatic_restart: false,
+    tui_write_count: 0,
+    aun_queue_mutation_count: 0,
+  };
+}
+
 export async function loadCodexRecoveryFromStore(
   binding: CodexSessionStartBinding,
   input: CodexSessionStartInput,
@@ -768,29 +820,15 @@ export async function loadCodexRecoveryFromStore(
       agent_id: binding.agent_id,
       session_id: input.session_id,
       recovered_tokens: recovery.token_estimate,
-      notes: JSON.stringify({
-        schema_version: CODEX_SESSION_START_EVIDENCE_SCHEMA,
-        source: "codex_native_session_start",
-        host_adapter: CODEX_SESSION_START_ADAPTER_ID,
-        host_adapter_level: 2,
-        host_contract_version: CODEX_SESSION_START_HOST_CONTRACT_VERSION,
-        native_start_surface: "SessionStart",
-        start_source: input.source,
-        binding_source_ref: redactText(binding.binding_source_ref).text,
-        workspace_sha256: sha256(binding.workspace),
-        store_binding: storeBinding,
-        auto_receive: autoReceive,
-        recovery_pack: packEvidence,
-        output: outputMetrics(recovery, binding),
-        delivery_status: "degraded",
-        emission_status: "emitted",
-        first_context_delivery_confirmed: false,
-        recovery_deadline_ms: binding.timeout_ms,
-        ordinary_launch_usable: true,
-        automatic_restart: false,
-        tui_write_count: 0,
-        aun_queue_mutation_count: 0,
-      }),
+      notes: JSON.stringify(buildCodexSessionStartRecordNotes({
+        binding,
+        startSource: input.source,
+        storeBinding,
+        autoReceive,
+        recoveryPack: packEvidence,
+        recovery,
+        codexHome: resolveCodexHome(),
+      })),
     });
     return {
       recovery,
