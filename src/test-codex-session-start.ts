@@ -8,8 +8,10 @@ import {
   CODEX_SESSION_START_MAX_BYTES,
   CODEX_SESSION_START_MAX_TOKENS,
   enforceCodexRecoveryCaps,
+  buildCodexSessionStartRecordNotes,
   parseCodexSessionStartArgs,
   recoveryFromPack,
+  resolveCodexHome,
   resolveCodexStoreBinding,
   kusabiStoreBindingSha256,
   runCodexSessionStart,
@@ -360,6 +362,72 @@ async function main(): Promise<void> {
     assert.equal(parsed.max_tokens, 1200);
     assert.equal(parsed.max_bytes, 4096);
     assert.equal(parsed.timeout_ms, 6000);
+
+    // HOME-01: a declared Codex home is emitted as the exact absolute path the
+    // control plane matches against a registered profile config home.
+    assert.equal(
+      resolveCodexHome({ CODEX_HOME: "/Users/fixture/.codex-profiles/kaneko" }),
+      "/Users/fixture/.codex-profiles/kaneko",
+    );
+    assert.equal(
+      resolveCodexHome({ CODEX_HOME: "/Users/fixture/.codex-profiles/kaneko/" }),
+      "/Users/fixture/.codex-profiles/kaneko",
+      "a trailing separator never changes the matched value",
+    );
+
+    // HOME-02: with no declared home the documented default is resolved.
+    const fallbackHome = resolveCodexHome({});
+    assert.equal(fallbackHome, join(homedir(), ".codex"));
+
+    // HOME-03: unusable values yield null instead of a value the control plane
+    // would reject, and never throw.
+    assert.equal(resolveCodexHome({ CODEX_HOME: "   " }), join(homedir(), ".codex"));
+    assert.equal(resolveCodexHome({ CODEX_HOME: "relative/.codex" }), null);
+    assert.equal(resolveCodexHome({ CODEX_HOME: "/Users/fixture/co dex" }), null);
+    assert.equal(resolveCodexHome({ CODEX_HOME: "/Users/fixture/.codex " }), null);
+    assert.equal(resolveCodexHome({ CODEX_HOME: "/" }), null);
+
+    // HOME-04: the value is never home-normalized to a tilde form, because the
+    // control plane predicate requires an absolute path.
+    for (const candidate of [resolveCodexHome({ CODEX_HOME: "/Users/fixture/.codex" }), fallbackHome]) {
+      assert.ok(candidate !== null && candidate.startsWith("/"), "resolved Codex home stays absolute");
+      assert.ok(!candidate.includes("~"), "resolved Codex home is never tilde-normalized");
+      assert.ok(/^\/[A-Za-z0-9._/-]+$/.test(candidate), "resolved Codex home satisfies the control-plane predicate");
+    }
+
+    // HOME-05: the recovery-quality record the control plane consumes carries
+    // the field alongside the identity keys it validates.
+    const notesFixture = loaded();
+    const notes = buildCodexSessionStartRecordNotes({
+      binding: binding(workspace),
+      startSource: "startup",
+      storeBinding: notesFixture.store_binding,
+      autoReceive: null,
+      recoveryPack: notesFixture.recovery_pack,
+      recovery: notesFixture.recovery,
+      codexHome: "/Users/fixture/.codex",
+    });
+    assert.equal(notes.schema_version, "codex-session-start-evidence/v1");
+    assert.equal(notes.source, "codex_native_session_start");
+    assert.equal(notes.host_adapter, CODEX_SESSION_START_ADAPTER_ID);
+    assert.equal(notes.codex_home, "/Users/fixture/.codex");
+    assert.equal(
+      buildCodexSessionStartRecordNotes({
+        binding: binding(workspace),
+        startSource: "startup",
+        storeBinding: notesFixture.store_binding,
+        autoReceive: null,
+        recoveryPack: notesFixture.recovery_pack,
+        recovery: notesFixture.recovery,
+        codexHome: null,
+      }).codex_home,
+      null,
+      "an unresolvable home is recorded as null rather than omitted",
+    );
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(notes, "codex_home"),
+      "the control-plane record always carries the codex_home key",
+    );
 
     console.log("codex native SessionStart adapter tests passed");
   } finally {
