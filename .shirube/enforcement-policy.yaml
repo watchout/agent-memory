@@ -1,0 +1,43 @@
+schema_version: shirube-enforcement-policy/v1
+policy_id: ENFORCEMENT-POLICY-KUSABI-001
+repo: watchout/agent-memory
+mode: report_only
+profile: hotel-lite
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+updated_at: 2026-08-16T22:05:59.472Z
+stale_after_days: 90
+owner_observed: true
+owner:
+  role: repo_owner
+  actor: watchout
+required_checks:
+  enabled: false
+branch_protection:
+  unchanged: true
+rulesets:
+  unchanged: true
+calibration:
+  started_at: 2026-08-16T22:05:59.472Z
+  minimum_prs: 3
+  false_positive_review_required: true
+report_only_semantics:
+  aggregate_would_block_sets_owner_must_not_merge: true
+  ci_should_fail: false
+  owner_must_not_merge_without_exception: true
+promotion:
+  from: report_only
+  next:
+    - owner_block
+    - ci_hard_block
+    - required_check
+  required_evidence:
+    - stable report-only findings
+    - owner accepts warning/block policy
+    - explicit protected-settings Cell before required checks
+non_scope:
+  - branch protection mutation
+  - ruleset mutation
+  - required check activation
+  - CI hard-blocking
+  - external repository mutation
+  - runtime/API/DB/package/deploy behavior
