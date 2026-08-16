@@ -1318,6 +1318,40 @@ function testRedaction() {
   const standalone = redactText("aws AKIAIOSFODNN7EXAMPLE openai sk-abcdefghijklmnopqrstuvwxyz123456");
   assert(!standalone.text.includes("AKIAIOSFODNN7EXAMPLE"), "standalone AWS key redacted");
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
+
+  const opaqueIdentifiers: [string, string][] = [
+    ["GitHub comment id", "issue_comment: 5304928252"],
+    ["GitHub comment url", "https://github.com/watchout/agent-memory/issues/285#issuecomment-5304928252"],
+    ["epoch milliseconds", "observed_at_ms: 1755302731000"],
+    ["epoch second suffix", "settings.json.boris-bak-1778141492"],
+    ["Discord snowflake", "author_id: 1508977231106670703"],
+    ["queue id", "queue_id: 162026"],
+    ["sha-256 digest", "sha256: 905a193a1625dcb45cf2f07c425ca72bb4f3d8d0171900086b93828a4cc61b4a"],
+    ["byte count", "bytes: 17843"],
+    ["iso timestamp", "created_at: 2026-08-16T00:25:31Z"],
+    ["semantic version", "claude 2.1.220"],
+  ];
+  for (const [label, input] of opaqueIdentifiers) {
+    const result = redactText(input);
+    assert(result.text === input, `${label} survives redaction unchanged`);
+    assert(result.redaction_count === 0, `${label} records no redaction`);
+  }
+
+  const telephoneNumbers: [string, string][] = [
+    ["dashed north american number", "call 555-123-4567 now"],
+    ["parenthesized area code", "(555) 123-4567"],
+    ["international plus prefix", "tel +81 90-1234-5678"],
+    ["japanese landline", "03-1234-5678"],
+    ["extension suffix", "555-123-4567 x89"],
+    ["labeled bare digits", "TEL 09012345678"],
+    ["labeled japanese bare digits", "電話 09012345678"],
+  ];
+  for (const [label, input] of telephoneNumbers) {
+    const result = redactText(input);
+    assert(result.text.includes("[REDACTED_PHONE]"), `${label} is redacted`);
+    assert(!/\d{4}/.test(result.text), `${label} leaves no four-digit remnant`);
+    assert(result.redaction_count === 1, `${label} records exactly one redaction`);
+  }
 }
 
 async function assertCreateStoreFailsClosed(label: string, options?: CreateStoreOptions) {
