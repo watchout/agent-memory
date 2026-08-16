@@ -36,6 +36,8 @@ cell:
     - src/codex-session-start.ts
     - src/test-codex-session-start.ts
     - .shirube/execution-context.yaml
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-C01-CODEX-HOME-BINDING.yaml
   forbidden_paths:
     - scripts/shirube/**
     - app/**
