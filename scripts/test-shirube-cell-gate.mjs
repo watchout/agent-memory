@@ -4,7 +4,7 @@
  * Control source: https://github.com/watchout/agent-memory/issues/301
  */
 import assert from "node:assert/strict";
-import { evaluateCellGate, matchesGlob, isTestPath, HANDOFF_SCHEMA } from "./shirube-cell-gate.mjs";
+import { evaluateCellGate, matchesGlob, isTestPath, selectHandoff, HANDOFF_SCHEMA } from "./shirube-cell-gate.mjs";
 
 const BASE = "b".repeat(40);
 const HEAD = "h".repeat(40);
@@ -107,6 +107,30 @@ run("GATE-03 a base mismatch blocks even when the head is unbound", () => {
   const r = evaluateCellGate({ handoff: h, policy: POLICY, observed: observed({ base: "z".repeat(40) }) });
   assert.equal(r.verdict, "BLOCK");
   assert.ok(r.blockers.some(x => x.code === "EXACT_SUBJECT_MISMATCH"));
+});
+
+// handoff selection
+run("SELECT a head-bound handoff wins", () => {
+  const bound = handoff();
+  const other = handoff({ cell: { cell_id: "OTHER", exact_subject: { base_sha: BASE } } });
+  assert.equal(selectHandoff([other, bound], { base: BASE, head: HEAD }).handoff, bound);
+});
+run("SELECT a single base-bound handoff is used when no head is declared", () => {
+  const h = handoff();
+  delete h.cell.exact_subject.head_sha;
+  const r = selectHandoff([h], { base: BASE, head: HEAD });
+  assert.equal(r.handoff, h);
+  assert.equal(r.reason, "base_bound");
+});
+run("SELECT two unbound handoffs for the same base are ambiguous, not silently resolved", () => {
+  const a = handoff(); delete a.cell.exact_subject.head_sha;
+  const b = handoff({ cell: { cell_id: "B", exact_subject: { base_sha: BASE } } });
+  const r = selectHandoff([a, b], { base: BASE, head: HEAD });
+  assert.equal(r.handoff, null);
+  assert.equal(r.reason, "ambiguous");
+});
+run("SELECT no candidate reports absent", () => {
+  assert.equal(selectHandoff([], { base: BASE, head: HEAD }).reason, "absent");
 });
 
 // GATE-04 protected surfaces

@@ -172,19 +172,39 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function discoverHandoff(dir, head) {
-  if (!existsSync(dir)) return null;
-  const candidates = readdirSync(dir).filter(f => f.endsWith(".json"));
-  for (const file of candidates) {
+/**
+ * Selects the handoff governing this change from already-parsed candidates.
+ * A handoff bound to this exact head wins. Otherwise a handoff that names this
+ * base and leaves the head unbound is used, but only when exactly one does, so
+ * an ambiguous set is reported rather than silently resolved.
+ */
+export function selectHandoff(candidates, { base, head }) {
+  const exact = candidates.filter(c => c?.cell?.exact_subject?.head_sha === head);
+  if (exact.length === 1) return { handoff: exact[0], reason: "head_bound" };
+  if (exact.length > 1) return { handoff: null, reason: "ambiguous" };
+
+  const unbound = candidates.filter(c => {
+    const subject = c?.cell?.exact_subject ?? {};
+    return subject.base_sha === base && (subject.head_sha === undefined || subject.head_sha === "");
+  });
+  if (unbound.length === 1) return { handoff: unbound[0], reason: "base_bound" };
+  if (unbound.length > 1) return { handoff: null, reason: "ambiguous" };
+
+  return { handoff: null, reason: "absent" };
+}
+
+function discoverHandoff(dir, base, head) {
+  if (!existsSync(dir)) return { handoff: null, reason: "absent" };
+  const candidates = [];
+  for (const file of readdirSync(dir).filter(f => f.endsWith(".json"))) {
     try {
-      const parsed = readJson(join(dir, file));
-      if (parsed?.cell?.exact_subject?.head_sha === head) return parsed;
+      candidates.push(readJson(join(dir, file)));
     } catch {
       // An unparseable sibling must not mask a valid handoff; a wholly absent
-      // handoff is reported by the caller as HANDOFF_ABSENT.
+      // handoff is reported to the caller as absent.
     }
   }
-  return null;
+  return selectHandoff(candidates, { base, head });
 }
 
 function parseArgs(argv) {
@@ -204,7 +224,14 @@ function main() {
     .split("\n").map(s => s.trim()).filter(Boolean);
   const commitCount = execFileSync("git", ["rev-list", "--count", `${base}..${head}`], { encoding: "utf8" }).trim();
 
-  const handoff = args.handoff ? readJson(args.handoff) : discoverHandoff(DEFAULT_HANDOFF_DIR, head);
+  const selected = args.handoff
+    ? { handoff: readJson(args.handoff), reason: "explicit" }
+    : discoverHandoff(DEFAULT_HANDOFF_DIR, base, head);
+  if (selected.reason === "ambiguous") {
+    process.stderr.write("more than one control handoff matches this change; name one with --handoff\n");
+    process.exit(1);
+  }
+  const handoff = selected.handoff;
   const policyPath = args.policy ?? DEFAULT_POLICY_PATH;
   const policy = existsSync(policyPath) ? readJson(policyPath) : { protected_surfaces: [] };
 
