@@ -93,7 +93,9 @@
     "publish:kusabi-content-addressed-runtime-release": "node scripts/build-kusabi-content-addressed-runtime-release.mjs --mode publish",
     "test:kusabi-content-addressed-runtime-release": "node scripts/test-kusabi-content-addressed-runtime-release.mjs --fixture publisher-unit",
     "readback:kusabi-content-addressed-runtime-release": "node scripts/build-kusabi-content-addressed-runtime-release.mjs --mode readback",
-    "measure:kusabi-functional": "tsx src/measure-kusabi-functional.ts"
+    "measure:kusabi-functional": "tsx src/measure-kusabi-functional.ts",
+    "gate:cell": "node scripts/shirube-cell-gate.mjs",
+    "test:cell-gate": "node scripts/test-shirube-cell-gate.mjs"
   },
   "keywords": [
     "mcp",

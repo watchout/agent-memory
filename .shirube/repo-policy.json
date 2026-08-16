@@ -1,0 +1,15 @@
+{
+  "schema_version": "shirube-repo-policy/v1",
+  "repository": "watchout/agent-memory",
+  "note": "Protected surfaces are paths whose change always requires an exact-head owner decision, regardless of the deterministic cell gate. The gate blocks a change that touches one without declaring it in the governing handoff, and records the owner requirement when it is declared.",
+  "protected_surfaces": [
+    ".github/workflows/**",
+    ".github/**",
+    "db/migrations/**",
+    "docs/design/schemas/**",
+    "docs/design/core/**",
+    ".shirube/repo-policy.json",
+    "package.json",
+    "package-lock.json"
+  ]
+}

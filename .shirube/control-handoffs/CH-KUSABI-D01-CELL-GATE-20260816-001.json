@@ -1,0 +1,36 @@
+{
+  "schema_version": "shirube-control-handoff/rapid-lite/v1",
+  "control_handoff_id": "CH-KUSABI-D01-CELL-GATE-20260816-001",
+  "repository": "watchout/agent-memory",
+  "control_source": {
+    "kind": "direct_owner_instruction",
+    "actor": "watchout",
+    "observed_at": "2026-08-16",
+    "decision_ref": "https://github.com/watchout/agent-memory/issues/301",
+    "instruction": "2+3 を先に入れましょう。そして aun や shirube も同じ基準にして運用したい"
+  },
+  "lifecycle_state": "IMPLEMENTATION_ACTIVE",
+  "execution_context": {
+    "agent_id": "kusabi",
+    "active_function": "implementation_executor"
+  },
+  "cell": {
+    "cell_id": "D-01-DETERMINISTIC-CELL-CONFORMANCE-GATE",
+    "cell_type": "deterministic_gate_introduction",
+    "risk_class": "R2",
+    "goal": "Run the mechanical half of a cell audit on every push so a relay outage delays only semantic judgment instead of stopping all work.",
+    "exact_subject": {
+      "base_sha": "fdda199c7d686b0a8b9b90a7621ee6fdaab35621"
+    },
+    "allowed_paths": [
+      "scripts/shirube-cell-gate.mjs",
+      "scripts/test-shirube-cell-gate.mjs",
+      ".github/workflows/ci.yml",
+      ".shirube/repo-policy.json",
+      ".shirube/control-handoffs/**",
+      "package.json"
+    ],
+    "test_coupling_exempt": "no src/ file is touched; the gate and its fixtures live under scripts/",
+    "owner_gate_expected": "This pull request declares .github/workflows/ci.yml, package.json and .shirube/repo-policy.json, which are protected surfaces in this repository, so it requires an exact-head owner decision regardless of the gate verdict."
+  }
+}
