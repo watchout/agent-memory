@@ -37,6 +37,7 @@ cell:
     - src/test.ts
     - .shirube/execution-context.yaml
     - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-B01-REDACTION-BOUNDARY.yaml
   forbidden_paths:
     - scripts/shirube/**
     - app/**
