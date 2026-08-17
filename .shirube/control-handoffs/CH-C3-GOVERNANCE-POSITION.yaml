@@ -19,7 +19,7 @@ next_role: owner_review
 protected_surfaces: []
 rps_scope:
   shirube_owns:
-    - Redaction boundary behaviour at the recovery output surface in this repository.
+    - The statement of which controls govern this repository and what authority each one holds.
   shirube_does_not_own:
     - Runtime, API, database, package, deploy, or production behaviour in this cell.
 cell:
@@ -28,11 +28,17 @@ cell:
   risk_class: R1
   goal: Re-declare current governance in one place so the V2 design set stops contradicting main.
   non_scope:
-    - secret, credential, email, webhook and database-URL rules
-    - REDACTION_VERSION, tracked separately as issue 298
-    - stored rows and any migration
-    - every call site of redactText
+    - merge authority for the Shirube overlay, which stays report-only
+    - branch protection, required checks and ruleset changes
+    - C1 and C2 of the same verdict, each tracked as its own PR
+    - the API, data and release contracts, which keep their own canonical documents
   test_coupling_exempt: documentation-only cell; no src file is touched
+  acceptance_criteria:
+    - docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md exists and names each control together with the authority it holds.
+    - The Shirube Rapid/Lite overlay is recorded as report-only, with no merge authority and no required check.
+    - The banners of KUSABI_V2_CANONICAL_SPEC.md and KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md point at that file instead of restating governance, and neither one still calls .shirube/** a removed artifact.
+    - The canonical spec control table records the overlay as present in main rather than removed.
+    - No file outside docs/v2/** and this cell's Shirube control artifacts is changed.
   allowed_paths:
     - docs/v2/**
     - .shirube/execution-context.yaml
@@ -63,10 +69,10 @@ cell:
   stop_conditions:
     - changed file outside allowed_paths
     - forbidden path touched
-    - a redaction rule other than the telephone rule changes
+    - a control other than the governance position statement changes
     - exact-head owner decision missing before merge
 implementation_boundary:
-  summary: Replace the telephone predicate and cover both directions with fixtures.
+  summary: State the current controls once in docs/v2 and point the contradicting banners at that statement.
   expected_pr_count: 1
   forbidden_operations:
     - merge
