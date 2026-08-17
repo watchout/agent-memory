@@ -1,16 +1,16 @@
 schema_version: shirube-control-handoff/rapid-lite/v1
 mode: rapid-lite
 profile: hotel-lite
-control_handoff_id: CH-B01-REDACTION-BOUNDARY
-parent_ssot: watchout/agent-memory#296
+control_handoff_id: CH-C3-GOVERNANCE-POSITION
+parent_ssot: watchout/agent-memory#304
 framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
 repo_spec_ref: .shirube/repo-spec.yaml
 premise_ref: .shirube/repo-spec.yaml
-owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/296#issuecomment-5305121034
-premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/296#issuecomment-5305121034
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313699737
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313699737
 spec_review_state: ready_for_implementation
 repo: watchout/agent-memory
-repo_local_issue: https://github.com/watchout/agent-memory/issues/296
+repo_local_issue: https://github.com/watchout/agent-memory/issues/304
 source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
 owner:
   role: repo_owner
@@ -19,25 +19,31 @@ next_role: owner_review
 protected_surfaces: []
 rps_scope:
   shirube_owns:
-    - Redaction boundary behaviour at the recovery output surface in this repository.
+    - The statement of which controls govern this repository and what authority each one holds.
   shirube_does_not_own:
     - Runtime, API, database, package, deploy, or production behaviour in this cell.
 cell:
-  CELL-ID: B-01-REDACTION-NUMERIC-IDENTIFIER-BOUNDARY
+  CELL-ID: C3-GOVERNANCE-POSITION-REDECLARATION
   cell_type: defect_repair
   risk_class: R1
-  goal: Stop the phone rule from erasing opaque numeric identifiers, and start redacting international numbers it previously leaked.
+  goal: Re-declare current governance in one place so the V2 design set stops contradicting main.
   non_scope:
-    - secret, credential, email, webhook and database-URL rules
-    - REDACTION_VERSION, tracked separately as issue 298
-    - stored rows and any migration
-    - every call site of redactText
+    - merge authority for the Shirube overlay, which stays report-only
+    - branch protection, required checks and ruleset changes
+    - C1 and C2 of the same verdict, each tracked as its own PR
+    - the API, data and release contracts, which keep their own canonical documents
+  test_coupling_exempt: documentation-only cell; no src file is touched
+  acceptance_criteria:
+    - docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md exists and names each control together with the authority it holds.
+    - The Shirube Rapid/Lite overlay is recorded as report-only, with no merge authority and no required check.
+    - The banners of KUSABI_V2_CANONICAL_SPEC.md and KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md point at that file instead of restating governance, and neither one still calls .shirube/** a removed artifact.
+    - The canonical spec control table records the overlay as present in main rather than removed.
+    - No file outside docs/v2/** and this cell's Shirube control artifacts is changed.
   allowed_paths:
-    - src/redact.ts
-    - src/test.ts
+    - docs/v2/**
     - .shirube/execution-context.yaml
     - .shirube/control-handoffs/**
-    - .shirube/control-handoffs/CH-B01-REDACTION-BOUNDARY.yaml
+    - .shirube/control-handoffs/CH-C3-GOVERNANCE-POSITION.yaml
   forbidden_paths:
     - scripts/shirube/**
     - app/**
@@ -63,10 +69,10 @@ cell:
   stop_conditions:
     - changed file outside allowed_paths
     - forbidden path touched
-    - a redaction rule other than the telephone rule changes
+    - a control other than the governance position statement changes
     - exact-head owner decision missing before merge
 implementation_boundary:
-  summary: Replace the telephone predicate and cover both directions with fixtures.
+  summary: State the current controls once in docs/v2 and point the contradicting banners at that statement.
   expected_pr_count: 1
   forbidden_operations:
     - merge
@@ -107,28 +113,4 @@ post_merge:
 legacy_source_boundary:
   legacy_sources_may_inform: true
   legacy_sources_are_truth: false
-  required_current_truth_ref: watchout/agent-memory#296
-design_rule_exceptions:
-  - rule_id: DR-DATA-001
-    scope:
-      - src/test.ts
-    reason: >-
-      The hard-delete patterns this rule matches are pre-existing content of
-      src/test.ts, a 4700-line suite that already exercises deletion paths. This
-      cell adds redaction fixtures to that file and introduces no delete
-      operation. Verified by comparison: PR 300 touches src/codex-session-start.ts
-      and its own test file under the same rule pack and returns PASS_WITH_WARN,
-      which isolates the finding to the legacy file rather than to this change.
-    approved_by: kusabi/implementation_executor
-    expires_at: "2026-09-30"
-  - rule_id: DR-CODE-001
-    scope:
-      - src/test.ts
-    reason: >-
-      The duplicate blocks are the fixture tables this cell adds, where each row
-      is an independent input/expectation pair. Extracting them into a helper
-      would hide which input produced which verdict and make a failing fixture
-      harder to read. Duplication here is the readable form for table-driven
-      fixtures.
-    approved_by: kusabi/implementation_executor
-    expires_at: "2026-09-30"
+  required_current_truth_ref: watchout/agent-memory#304
