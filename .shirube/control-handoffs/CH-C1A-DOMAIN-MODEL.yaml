@@ -1,0 +1,116 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-C1A-DOMAIN-MODEL
+parent_ssot: watchout/agent-memory#304
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313815134
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313699737
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/304
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces: []
+rps_scope:
+  shirube_owns:
+    - The canonical object model of the V2 design set in this repository.
+  shirube_does_not_own:
+    - Runtime, API, database, package, deploy, or production behaviour in this cell.
+cell:
+  CELL-ID: C1A-DOMAIN-MODEL-RELOCATION
+  cell_type: defect_repair
+  risk_class: R1
+  goal: Move the V2 domain model into the canonical set so the design SSOT stops being split between docs/ and docs/v2/.
+  non_scope:
+    - the architecture document and the legacy concept audit from the same draft, each its own PR under C1
+    - the API and CLI contract of PR #253 and the migration and done definition of PR #254
+    - closing PR #252, which happens once its three documents are all relocated
+    - any schema, runtime or storage change; this document is a design statement, not a persistence claim
+  test_coupling_exempt: documentation-only cell; no src file is touched
+  acceptance_criteria:
+    - docs/v2/KUSABI_V2_DOMAIN_MODEL.md exists and defines all ten canonical objects with identity, provenance, storage lifecycle, mutation, compaction, redaction/retention and ordering semantics.
+    - The document is registered in the canonical source set table of KUSABI_V2_CANONICAL_SPEC.md and in docs/v2/README.md, so no reader has to guess whether it is canonical.
+    - promotion_event states control_source_ref{url, sha256} as the human-authority reference, matching the citation contract, and keeps source_refs and promotion_evidence_refs as evidence pointers.
+    - The header records both the current control source (#304 C1) and the draft origin (#252, #180), so the relocation is traceable.
+    - No file outside docs/v2/** and this cell's Shirube control artifacts is changed.
+  allowed_paths:
+    - docs/v2/**
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-C1A-DOMAIN-MODEL.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - src/**
+    - app/**
+    - api/**
+    - lib/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+  protected_surfaces:
+    declared:
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: false
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a canonical document other than the domain model changes in substance
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Relocate the domain model into docs/v2, register it as canonical, and align its human-authority vocabulary with the citation contract.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm test
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#304
