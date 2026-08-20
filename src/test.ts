@@ -25,6 +25,11 @@ import {
 } from "./raw-capture-coverage.js";
 import { PG_MIGRATIONS } from "./stores/pg-migrations.js";
 import {
+  judgeContextHealth,
+  normalizeModelAlias,
+  resolveModelFromTranscriptLines,
+} from "./context-window-resolution.js";
+import {
   HOST_INVOCATION_CONTEXT_ALLOWED_KEYS,
   RECOVERY_PACK_POLICY_VERSION,
   RECOVERY_PACK_SCHEMA_REF,
@@ -4758,6 +4763,85 @@ async function testKusabiIntegratedCell123() {
   }
 }
 
+function testContextWindowResolution() {
+  console.log("\n── Context Window Resolution Tests ──");
+  const noEnv = {} as NodeJS.ProcessEnv;
+  const judge = (
+    measuredContextTokens: number,
+    model: string | null,
+    extra: Partial<Parameters<typeof judgeContextHealth>[0]> = {}
+  ) => judgeContextHealth({ measuredContextTokens, model, host: "claude", env: noEnv, ...extra });
+
+  // THR-01: the live reading that motivated the cell. Resolves from the model table.
+  const thr01 = judge(652656, "claude-opus-5");
+  assert(thr01.context_window_tokens === 1_000_000, "THR-01 opus-5 resolves to a 1M window");
+  assert(thr01.window_source === "table", "THR-01 window comes from the model table");
+  assert(thr01.used_ratio === 0.6527, "THR-01 ratio is 0.6527");
+  // 0.6527 sits below the 0.70 prepare threshold, so the verdict is ok. The point of
+  // this fixture is that the reading resolves at all; before this cell it was unknown.
+  assert(thr01.band === "ok", "THR-01 band is ok");
+  assert(thr01.resolution_status === "resolved", "THR-01 resolves");
+  assert(thr01.restart_required === false, "THR-01 does not require restart");
+
+  // THR-02: the largest reading in the recorded corpus.
+  const thr02 = judge(934840, "claude-opus-5");
+  assert(thr02.band === "recommend", "THR-02 corpus maximum lands in recommend");
+  assert(thr02.restart_recommended === true, "THR-02 recommends restart");
+  assert(thr02.restart_required === false, "THR-02 stops short of require");
+
+  // THR-03: a model whose window is not established fails closed rather than guessing.
+  const thr03 = judge(120000, "gpt-5.6-sol", { host: "codex" });
+  assert(thr03.band === "unknown", "THR-03 unestablished window yields band unknown");
+  assert(thr03.reason === "context_window_unresolved", "THR-03 names the unresolved window");
+  assert(thr03.resolution_status === "unresolved", "THR-03 is visibly unresolved");
+  assert(thr03.restart_required === false, "THR-03 does not require restart");
+
+  // THR-04: an explicit env override outranks the table.
+  const thr04 = judge(190000, "claude-opus-5", { env: { AGENT_MEMORY_CLAUDE_CONTEXT_WINDOW_TOKENS: "200000" } as NodeJS.ProcessEnv });
+  assert(thr04.window_source === "env", "THR-04 env override wins over the table");
+  assert(thr04.band === "require", "THR-04 ratio 0.95 reaches require");
+  assert(thr04.restart_required === true, "THR-04 requires restart");
+
+  // THR-05: a dated model id normalizes to its catalog alias. Three corpus runs depend on this.
+  assert(normalizeModelAlias("claude-haiku-4-5-20251001") === "claude-haiku-4-5", "THR-05 dated id normalizes to the alias");
+  const thr05 = judge(49746, "claude-haiku-4-5-20251001");
+  assert(thr05.context_window_tokens === 200_000, "THR-05 haiku resolves to a 200K window");
+  assert(thr05.band === "ok", "THR-05 band is ok");
+  assert(thr05.resolution_status === "resolved", "THR-05 resolves");
+
+  // THR-06: a healthy session reports ok, not unknown.
+  const thr06 = judge(51593, "claude-opus-5");
+  assert(thr06.band === "ok", "THR-06 low usage reports ok rather than unknown");
+  assert(thr06.resolution_status === "resolved", "THR-06 ok is a resolved verdict");
+
+  // THR-08: the model comes from the structured field, not from prose that mentions another model.
+  const transcript = [
+    JSON.stringify({ type: "user", message: { role: "user", content: "the catalog lists claude-haiku-4-5 at 200K" } }),
+    JSON.stringify({ type: "assistant", message: { role: "assistant", model: "claude-opus-5" } }),
+    JSON.stringify({ type: "assistant", message: { role: "assistant", model: "claude-opus-5" } }),
+    JSON.stringify({ type: "summary", model: "<synthetic>" }),
+    "not json at all",
+  ];
+  assert(resolveModelFromTranscriptLines(transcript) === "claude-opus-5", "THR-08 prose mentioning another model does not change the resolved model");
+  assert(resolveModelFromTranscriptLines([JSON.stringify({ model: "<synthetic>" })]) === null, "THR-08 synthetic placeholder is not a model");
+
+  // THR-09: a table entry with more than one candidate is not silently chosen between.
+  const thr09 = judge(150000, "model-with-two-windows", { candidates: { "model-with-two-windows": [200_000, 1_000_000] } });
+  assert(thr09.band === "unknown", "THR-09 ambiguous candidates yield band unknown");
+  assert(thr09.reason === "context_window_ambiguous", "THR-09 names the ambiguity");
+  assert(thr09.window_candidates.length === 2, "THR-09 reports both candidates for diagnosis");
+
+  // THR-10: a measurement above the window means the table is wrong, not that a restart is due.
+  const thr10 = judge(250000, "claude-haiku-4-5");
+  assert(thr10.band === "unknown", "THR-10 measurement above the window does not clamp to require");
+  assert(thr10.reason === "window_table_stale", "THR-10 records the table as stale");
+  assert(thr10.restart_required === false, "THR-10 declines to require a restart on a stale window");
+
+  // A model that cannot be determined at all is distinct from an unknown window.
+  const noModel = judge(100000, null);
+  assert(noModel.reason === "model_unresolved", "unresolvable model is reported distinctly");
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -4803,6 +4887,7 @@ async function run() {
   testMemorySafetyGovernance();
   await testSqliteSupersedeKnowledgeAgentIsolation();
   await testSqliteMigrationIdempotency();
+  testContextWindowResolution();
 
   await cleanup();
 
