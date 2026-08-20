@@ -1,0 +1,117 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-C1F-DONE-DEFINITION
+parent_ssot: watchout/agent-memory#304
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313815134
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313699737
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/304
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces: []
+rps_scope:
+  shirube_owns:
+    - The completion predicate of the V2 design set in this repository.
+  shirube_does_not_own:
+    - Runtime, API, database, package, deploy, or production behaviour in this cell.
+cell:
+  CELL-ID: C1F-DONE-DEFINITION-RELOCATION
+  cell_type: defect_repair
+  risk_class: R1
+  goal: Move the measurable done definition into the canonical set and state how it layers with the release claim ladder, completing the relocation of PR #254.
+  non_scope:
+    - the migration plan from the same draft, relocated by the sibling C1 PR
+    - the API and CLI contract of PR #253 and the migration and done definition of PR #254
+    - closing PR #254, which becomes possible once this PR and the migration plan PR both merge
+    - any schema, runtime or storage change; this document is a design statement, not a persistence claim
+  test_coupling_exempt: documentation-only cell; no src file is touched
+  acceptance_criteria:
+    - docs/v2/KUSABI_V2_DONE_DEFINITION.md exists with all fourteen binary gates D01 to D14, each carrying its PASS predicate and its minimum completion evidence.
+    - The decision rule is preserved verbatim in substance - v2_done is true only on one frozen exact head with every gate PASS, content-addressed read-back proof, zero blockers and all required independent and owner decisions, and PASS_WITH_STOP, SKIP, UNKNOWN, prose, an ACK or green CI cannot satisfy a gate.
+    - The rule that a zero computed over an incomplete inventory is UNKNOWN rather than PASS is preserved.
+    - A section 0 states that the gates layer with KUSABI_V2_RELEASE_CLAIM_LADDER.md rather than competing with it, records that the dependency runs one way through gate D12, and states that reaching a ladder level does not make v2_done true.
+    - The document is registered in the canonical source set table of KUSABI_V2_CANONICAL_SPEC.md and in docs/v2/README.md.
+    - No file outside docs/v2/** and this cell's Shirube control artifacts is changed.
+  allowed_paths:
+    - docs/v2/**
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-C1F-DONE-DEFINITION.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - src/**
+    - app/**
+    - api/**
+    - lib/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+  protected_surfaces:
+    declared:
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: false
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a canonical document other than the done definition changes in substance
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Relocate the measurable done definition into docs/v2, layer it explicitly with the release claim ladder, and register it as canonical.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm test
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#304
