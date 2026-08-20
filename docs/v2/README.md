@@ -13,6 +13,7 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 ## Draft source set
 
 - `KUSABI_V2_CANONICAL_SPEC.md` — proposed V2 product/design authority.
+- `KUSABI_V2_ARCHITECTURE.md` — plane ownership, core boundary, ports and adapters, the deterministic processing path, and failure/recovery rules.
 - `KUSABI_V2_MIGRATION_BOUNDARY.md` — rename, compatibility, repo-split, and implementation boundaries.
 - `KUSABI_V2_REPO_AUDIT.md` — current read-coverage notes, known design drift, and cleanup backlog.
 - `KUSABI_V2_SOURCE_CLASSIFICATION.md` — draft classification of V1/transitional sources before deletion or rewrite.
