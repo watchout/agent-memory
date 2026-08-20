@@ -82,6 +82,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
 | Domain model | `docs/v2/KUSABI_V2_DOMAIN_MODEL.md` |
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
+| Measurable done definition | `docs/v2/KUSABI_V2_DONE_DEFINITION.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
 | Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |
 | Shirube Rapid/Lite overlay | Present in `main` since PR #303; report-only, not a required check |
