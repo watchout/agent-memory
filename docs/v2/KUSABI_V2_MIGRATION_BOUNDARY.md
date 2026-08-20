@@ -13,6 +13,8 @@ This document separates the Kusabi V2 design reset from runtime, package, MCP, d
 
 The goal is to let the repository start using `kusabi` as the V2 product name without accidentally breaking existing users or overstating migration completion.
 
+This document governs **naming surfaces**. The realization work — canonical adapter, persistence, consumer cohorts, sunset evidence — is phased separately in `KUSABI_V2_MIGRATION_PLAN.md`, whose M0 to M5 are a different sequence from the Phase 0 to 5 below. That document's section 0 states the division and which one binds when both speak about removing an alias.
+
 ## 2. Current boundary
 
 Existing operational surfaces are compatibility surfaces until a later approved PR changes them.
