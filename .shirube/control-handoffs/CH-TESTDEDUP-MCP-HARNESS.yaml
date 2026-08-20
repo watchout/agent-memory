@@ -1,0 +1,155 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-TESTDEDUP-MCP-HARNESS
+parent_ssot: watchout/agent-memory#250
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/pull/314
+premise_confirmation_ref: https://github.com/watchout/agent-memory/pull/315
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/250
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces:
+  - runtime code
+rps_scope:
+  shirube_owns:
+    - Removing the duplicated MCP stdio harness from the test suite so DR-CODE-001 stops blocking every PR that adds a test.
+  shirube_does_not_own:
+    - Test coverage, test semantics, product behaviour, file layout, package scripts, workflows or the design rule pack.
+cell:
+  CELL-ID: TESTDEDUP-MCP-HARNESS
+  cell_type: refactor
+  risk_class: R1
+  goal: Bring the longest duplicate block in src/test.ts below the DR-CODE-001 block threshold by extracting the duplicated invocations, changing no test behaviour.
+  non_scope:
+    - adding, removing or altering any assertion; the suite must pass with an unchanged count
+    - moving test files out of src/, which would touch package.json and the CI workflow
+    - editing the design rule pack, its thresholds or its ignore_paths
+    - eliminating every warn-level duplicate; the tail is bounded and reported rather than chased
+    - any product source file outside src/test.ts
+  test_coupling_exempt: false
+  acceptance_criteria:
+    - The longest exact duplicate block in src/test.ts is below 12 lines, so DR-CODE-001 no longer blocks.
+    - The three MCP stdio client set-ups are produced by one helper, and the helper keeps deleting the inherited PostgreSQL variables so an isolation test cannot read the real database.
+    - The duplicated codex hook argv and the duplicated recovery-quality recorder stub are each declared once.
+    - npx tsx src/test.ts passes with the same assertion count as the base commit, 1569, and zero failures.
+    - No file other than src/test.ts and this cell's Shirube control artifact is changed.
+  allowed_paths:
+    - src/test.ts
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-TESTDEDUP-MCP-HARNESS.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - .shirube/runtime/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+    - dist/**
+  protected_surfaces:
+    declared:
+      - runtime code
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: true
+    touched_detail: >-
+      runtime code only, and only the test suite file src/test.ts. No product source, hook,
+      database, migration, workflow, package or deploy surface is touched, and no dist is
+      rebuilt.
+  stop_conditions:
+    - assertion count changes from 1569
+    - any assertion is added, removed or weakened
+    - changed file outside allowed_paths
+    - the refactor requires moving a file or editing package scripts
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Extract the duplicated invocations that DR-CODE-001 surfaces; change no test behaviour.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+    - design rule pack mutation
+    - runtime restart
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npx tsx src/test.ts
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#250
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    scope:
+      - src/test.ts
+    reason: >-
+      The hard-delete patterns this rule matches are pre-existing content of src/test.ts, a
+      suite that already exercises deletion paths, and this cell introduces no delete
+      operation - it only extracts duplicated invocations. Same finding and same attribution
+      as CH-S1A-CONTEXT-WINDOW-RESOLUTION, where a gate run scoped to a single new file
+      returned zero blockers and isolated the finding to this legacy file.
+    approved_by: kusabi/implementation_executor
+    expires_at: "2026-09-30"
+design_rule_notes:
+  - rule_id: DR-CODE-001
+    scope:
+      - src/test.ts
+    severity: WARN
+    response: >-
+      No exception is declared, because the finding is fixed rather than excepted. The longest
+      duplicate block drops from 16 lines to 8, below the 12-line block threshold. Sixteen
+      pairs remain at warn level - one of 8 lines, four of 7 and eleven of 6 - and are
+      deliberately left. They are a long tail across a 4,800-line suite, and each extraction
+      moves the longest block by one or two lines while the next pair takes its place, so
+      chasing them converts a bounded cell into an open-ended rewrite.
+  - rule_id: DR-CONFIG-001
+    scope:
+      - src/test.ts
+    severity: WARN
+    response: >-
+      Repeated fixture literals are pre-existing. This cell removes three of them as a side
+      effect of extracting the invocations that carried them and adds none.
