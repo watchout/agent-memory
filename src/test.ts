@@ -128,6 +128,7 @@ import {
 } from "./claude-start.js";
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
+import { measureCodexContextFromTranscriptLines } from "./codex-context-measurement.js";
 
 const TEST_DIR = join(homedir(), ".agent-memory");
 let passed = 0;
@@ -4758,6 +4759,129 @@ async function testKusabiIntegratedCell123() {
   }
 }
 
+function testCodexContextMeasurement() {
+  console.log("\n── Codex Context Measurement Tests ──");
+
+  const meta = (sessionId: string) =>
+    JSON.stringify({ type: "session_meta", payload: { session_id: sessionId, cwd: "/Users/yuji/Developer/dev-auditor" } });
+  const turn = (model: string) =>
+    JSON.stringify({ type: "turn_context", payload: { turn_id: "t1", model, approval_policy: "never" } });
+  const tokenCount = (
+    lastUsage: Record<string, number>,
+    window: number | null,
+    totalUsage: Record<string, number> = lastUsage
+  ) =>
+    JSON.stringify({
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          total_token_usage: totalUsage,
+          last_token_usage: lastUsage,
+          ...(window === null ? {} : { model_context_window: window }),
+        },
+      },
+    });
+
+  // CTX-01 — the shape observed in every August rollout on this host.
+  const observed = measureCodexContextFromTranscriptLines([
+    meta("01a01c77-c286-7d91-b7ec-61178b1a0b88"),
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 18379, cached_input_tokens: 9984, output_tokens: 368, reasoning_output_tokens: 224, total_tokens: 18747 }, 258400),
+  ]);
+  assert(observed.status === "measured", "CTX-01 a well-formed rollout measures");
+  assert(observed.measured_context_tokens === 18379, "CTX-01 context size is last_token_usage.input_tokens");
+  assert(observed.context_window_tokens === 258400, "CTX-01 window comes from the host");
+  assert(observed.window_source === "host_reported", "CTX-01 window source is the host, not a table");
+  assert(observed.model === "gpt-5.6-sol", "CTX-01 model comes from turn_context");
+  assert(observed.session_id === "01a01c77-c286-7d91-b7ec-61178b1a0b88", "CTX-01 session id comes from session_meta");
+  assert(observed.reason === null, "CTX-01 measured results carry no reason");
+
+  // CTX-02 — cached_input_tokens is a subset of input_tokens on this host. Summing them
+  // the way a claude transcript requires would report 30791 instead of 19783, +56%.
+  const cached = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 19783, cached_input_tokens: 11008, cache_write_input_tokens: 0, output_tokens: 253, total_tokens: 20036 }, 258400),
+  ]);
+  assert(cached.measured_context_tokens === 19783, "CTX-02 cached tokens are not added to the input count");
+
+  // CTX-03 — total_token_usage accumulates over the session. One observed session reached
+  // 207,705,683 against a 258,400 window; reading it as context is three orders out.
+  const cumulative = measureCodexContextFromTranscriptLines([
+    tokenCount(
+      { input_tokens: 82442, cached_input_tokens: 80640, output_tokens: 769, total_tokens: 83211 },
+      258400,
+      { input_tokens: 207705683, cached_input_tokens: 203298560, output_tokens: 508623, total_tokens: 208214306 }
+    ),
+  ]);
+  assert(cumulative.measured_context_tokens === 82442, "CTX-03 session totals are never used as the context size");
+
+  // CTX-04 — the last record wins, which is what survives a compaction: the prompt shrinks
+  // and the earlier, larger figure no longer describes any live context.
+  const compacted = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 244689, total_tokens: 245000 }, 258400),
+    JSON.stringify({ type: "compacted", payload: { type: "compacted" } }),
+    tokenCount({ input_tokens: 31204, total_tokens: 31500 }, 258400),
+  ]);
+  assert(compacted.measured_context_tokens === 31204, "CTX-04 the newest record wins after a compaction");
+  assert(compacted.token_count_records === 2, "CTX-04 every token_count record is counted");
+
+  // CTX-05 — no window means the denominator is absent, not that the measurement is wrong.
+  const noWindow = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 40000, total_tokens: 40100 }, null),
+  ]);
+  assert(noWindow.measured_context_tokens === 40000, "CTX-05 a missing window keeps the measurement");
+  assert(noWindow.context_window_tokens === null, "CTX-05 no window is reported");
+  assert(noWindow.window_source === null, "CTX-05 no window source is claimed");
+  assert(noWindow.reason === "window_missing", "CTX-05 the missing denominator is named");
+  assert(noWindow.status === "unmeasured", "CTX-05 an unusable pair is not reported as measured");
+
+  // CTX-06 — a rollout with no token_count record at all.
+  const empty = measureCodexContextFromTranscriptLines([meta("s"), turn("gpt-5.6-sol")]);
+  assert(empty.status === "unmeasured", "CTX-06 a rollout without usage is unmeasured");
+  assert(empty.reason === "no_token_count_record", "CTX-06 the absent record is named");
+  assert(empty.measured_context_tokens === null, "CTX-06 no context size is invented");
+  assert(empty.model === "gpt-5.6-sol", "CTX-06 the model is still reported");
+
+  // CTX-07 — the file is appended while the session runs, so the final line can be a
+  // partial write. A truncated tail must not discard the records already read.
+  const truncated = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 55000, total_tokens: 55100 }, 258400),
+    '{"type":"event_msg","payload":{"type":"token_c',
+  ]);
+  assert(truncated.measured_context_tokens === 55000, "CTX-07 a partial final line is skipped, not fatal");
+  assert(truncated.status === "measured", "CTX-07 earlier records still produce a measurement");
+
+  // CTX-08 — the model is read from turn_context, never from a substring of the prompt.
+  const prose = measureCodexContextFromTranscriptLines([
+    JSON.stringify({ type: "response_item", payload: { type: "message", text: "compare gpt-5.6-luna and claude-haiku-4-5 here" } }),
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 1234, total_tokens: 1300 }, 258400),
+  ]);
+  assert(prose.model === "gpt-5.6-sol", "CTX-08 prose naming other models does not change the model");
+
+  // CTX-09 — a later turn_context wins, so a mid-session model switch is reflected.
+  const switched = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    turn("gpt-5.6-luna"),
+    tokenCount({ input_tokens: 2048, total_tokens: 2100 }, 258400),
+  ]);
+  assert(switched.model === "gpt-5.6-luna", "CTX-09 the newest turn_context model wins");
+
+  // CTX-10 — a measurement above the window is reported as-is. Declining or clamping is
+  // the judgment layer's decision; the adapter does not silently repair the input.
+  const over = measureCodexContextFromTranscriptLines([
+    turn("gpt-5.6-sol"),
+    tokenCount({ input_tokens: 260000, total_tokens: 260500 }, 258400),
+  ]);
+  assert(over.measured_context_tokens === 260000, "CTX-10 an over-window measurement is not clamped");
+  assert(over.context_window_tokens === 258400, "CTX-10 the host window is still reported");
+  assert(over.status === "measured", "CTX-10 the adapter extracts and leaves the verdict to the caller");
+}
+
 // Run all tests
 async function run() {
   console.log("agent-memory test suite\n");
@@ -4803,6 +4927,8 @@ async function run() {
   testMemorySafetyGovernance();
   await testSqliteSupersedeKnowledgeAgentIsolation();
   await testSqliteMigrationIdempotency();
+
+  testCodexContextMeasurement();
 
   await cleanup();
 
