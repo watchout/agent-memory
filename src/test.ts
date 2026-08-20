@@ -303,14 +303,15 @@ async function testCodexNativeSessionStart() {
       const installerLink = join(binDir, "wasurezu-codex-hook-install");
       symlinkSync(distHook, hookLink);
       symlinkSync(distInstaller, installerLink);
-      const hookStdout = execFileSync(process.execPath, [
+      const hookArgs = [
         hookLink,
         "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
         "--agent-id", "fixture-agent",
         "--project", "fixture-project",
         "--workspace", workspace,
         "--binding-source-ref", "fixture:bin-symlink",
-      ], {
+      ];
+      const hookStdout = execFileSync(process.execPath, hookArgs, {
         encoding: "utf8",
         input: rawInput,
         env: {
@@ -323,14 +324,7 @@ async function testCodexNativeSessionStart() {
       });
       const hookWire = JSON.parse(hookStdout);
       assert(hookWire.hookSpecificOutput?.hookEventName === "SessionStart", "native Codex hook npm-bin symlink executes the CLI");
-      const oversizedWire = JSON.parse(execFileSync(process.execPath, [
-        hookLink,
-        "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
-        "--agent-id", "fixture-agent",
-        "--project", "fixture-project",
-        "--workspace", workspace,
-        "--binding-source-ref", "fixture:bin-symlink",
-      ], {
+      const oversizedWire = JSON.parse(execFileSync(process.execPath, hookArgs, {
         encoding: "utf8",
         input: "x".repeat(CODEX_SESSION_START_INPUT_MAX_BYTES + 1),
       }));
@@ -383,6 +377,50 @@ function inheritedEnv(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)
   );
+}
+
+interface McpStdioSessionOptions {
+  tmpHome: string;
+  dbPath: string;
+  agentId: string;
+  project: string;
+  sessionId: string;
+  clientName: string;
+}
+
+/**
+ * Start an MCP client against the server over stdio, isolated to a temporary HOME and
+ * SQLite file.
+ *
+ * The inherited PostgreSQL variables are removed rather than overridden: leaving either one
+ * set makes the server open the real database instead of the temporary one, so an isolation
+ * test would pass while reading production rows.
+ */
+function createMcpStdioSession(options: McpStdioSessionOptions): {
+  transport: StdioClientTransport;
+  client: Client;
+} {
+  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+  const env = inheritedEnv();
+  delete env.AGENT_MEMORY_DATABASE_URL;
+  delete env.DATABASE_URL;
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cli, "src/index.ts"],
+    cwd: process.cwd(),
+    stderr: "pipe",
+    env: {
+      ...env,
+      HOME: options.tmpHome,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: options.dbPath,
+      AGENT_MEMORY_AGENT_ID: options.agentId,
+      AGENT_MEMORY_PROJECT: options.project,
+      CLAUDE_SESSION_ID: options.sessionId,
+    },
+  });
+  const client = new Client({ name: options.clientName, version: "0.0.0" }, { capabilities: {} });
+  return { transport, client };
 }
 
 async function cleanup() {
@@ -2202,26 +2240,18 @@ async function testCodexStartupBridge() {
   assert(printAfterLaunch.launch !== true, "Codex --print does not count as launched startup evidence");
 
   const qualityLogs: LogRecoveryQualityInput[] = [];
-  await logCodexStartupQuality(
-    {
-      async logRecoveryQuality(input: LogRecoveryQualityInput) {
-        qualityLogs.push(input);
-        return `log-${qualityLogs.length}`;
-      },
+  const qualityRecorder = {
+    async logRecoveryQuality(input: LogRecoveryQualityInput) {
+      qualityLogs.push(input);
+      return `log-${qualityLogs.length}`;
     },
-    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
-    { launchRequested: true }
-  );
-  await logCodexStartupQuality(
-    {
-      async logRecoveryQuality(input: LogRecoveryQualityInput) {
-        qualityLogs.push(input);
-        return `log-${qualityLogs.length}`;
-      },
-    },
-    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
-    { launchRequested: true, launchedCodex: true }
-  );
+  };
+  const launchTelemetryPack = "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry";
+  await logCodexStartupQuality(qualityRecorder, launchTelemetryPack, { launchRequested: true });
+  await logCodexStartupQuality(qualityRecorder, launchTelemetryPack, {
+    launchRequested: true,
+    launchedCodex: true,
+  });
   const requestedNotes = JSON.parse(qualityLogs[0].notes ?? "{}");
   const launchedNotes = JSON.parse(qualityLogs[1].notes ?? "{}");
   assert(requestedNotes.launch_requested === true, "Codex startup telemetry records launch request");
@@ -3950,27 +3980,14 @@ async function testCoreMcpToolRegression() {
   const agentId = "mcp-core-agent-a";
   const otherAgentId = "mcp-core-agent-b";
   const project = "mcp-core-project";
-  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
-  const baseEnv = inheritedEnv();
-  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
-  delete baseEnv.DATABASE_URL;
-
-  const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [cli, "src/index.ts"],
-    cwd: process.cwd(),
-    stderr: "pipe",
-    env: {
-      ...baseEnv,
-      HOME: tmpHome,
-      AGENT_MEMORY_DB_TYPE: "sqlite",
-      AGENT_MEMORY_DB_PATH: dbPath,
-      AGENT_MEMORY_AGENT_ID: agentId,
-      AGENT_MEMORY_PROJECT: project,
-      CLAUDE_SESSION_ID: "mcp-core-regression-session",
-    },
+  const { transport, client } = createMcpStdioSession({
+    tmpHome,
+    dbPath,
+    agentId,
+    project,
+    sessionId: "mcp-core-regression-session",
+    clientName: "agent-memory-core-mcp-test",
   });
-  const client = new Client({ name: "agent-memory-core-mcp-test", version: "0.0.0" }, { capabilities: {} });
 
   const readLatestRecoveryQuality = async (): Promise<Record<string, unknown>> => {
     const verificationStore = new SqliteStore(dbPath);
@@ -4087,22 +4104,14 @@ async function testCoreMcpToolRegression() {
     assert(searchText.includes("KNOWLEDGE"), "search_memory returns knowledge section");
     assert(searchText.includes("Core MCP regression coverage"), "search_memory returns seeded task");
 
-    const otherTransport = new StdioClientTransport({
-      command: process.execPath,
-      args: [cli, "src/index.ts"],
-      cwd: process.cwd(),
-      stderr: "pipe",
-      env: {
-        ...baseEnv,
-        HOME: tmpHome,
-        AGENT_MEMORY_DB_TYPE: "sqlite",
-        AGENT_MEMORY_DB_PATH: dbPath,
-        AGENT_MEMORY_AGENT_ID: otherAgentId,
-        AGENT_MEMORY_PROJECT: project,
-        CLAUDE_SESSION_ID: "mcp-core-regression-other-session",
-      },
+    const { transport: otherTransport, client: otherClient } = createMcpStdioSession({
+      tmpHome,
+      dbPath,
+      agentId: otherAgentId,
+      project,
+      sessionId: "mcp-core-regression-other-session",
+      clientName: "agent-memory-core-mcp-other-agent-test",
     });
-    const otherClient = new Client({ name: "agent-memory-core-mcp-other-agent-test", version: "0.0.0" }, { capabilities: {} });
     try {
       await otherClient.connect(otherTransport);
       const isolated = await otherClient.callTool({
@@ -4203,27 +4212,14 @@ async function testRestartRecoverySmokeEvidence() {
   const dbPath = join(tmpHome, "memory.db");
   const agentId = "recovery-smoke-agent";
   const project = "recovery-smoke-project";
-  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
-  const baseEnv = inheritedEnv();
-  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
-  delete baseEnv.DATABASE_URL;
-
-  const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [cli, "src/index.ts"],
-    cwd: process.cwd(),
-    stderr: "pipe",
-    env: {
-      ...baseEnv,
-      HOME: tmpHome,
-      AGENT_MEMORY_DB_TYPE: "sqlite",
-      AGENT_MEMORY_DB_PATH: dbPath,
-      AGENT_MEMORY_AGENT_ID: agentId,
-      AGENT_MEMORY_PROJECT: project,
-      CLAUDE_SESSION_ID: "recovery-smoke-mcp-session",
-    },
+  const { transport, client } = createMcpStdioSession({
+    tmpHome,
+    dbPath,
+    agentId,
+    project,
+    sessionId: "recovery-smoke-mcp-session",
+    clientName: "agent-memory-recovery-smoke-test",
   });
-  const client = new Client({ name: "agent-memory-recovery-smoke-test", version: "0.0.0" }, { capabilities: {} });
 
   let codexRestartPackText = "";
   let codexSmokeOutput = "";
