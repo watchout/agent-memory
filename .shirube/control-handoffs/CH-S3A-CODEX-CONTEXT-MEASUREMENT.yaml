@@ -1,0 +1,162 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-S3A-CODEX-CONTEXT-MEASUREMENT
+parent_ssot: watchout/agent-memory#250
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/250#issuecomment-5355362386
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/250#issuecomment-5357934571
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/250
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces:
+  - runtime code
+rps_scope:
+  shirube_owns:
+    - Extracting the current context size and the host-reported window from a codex rollout transcript in this repository.
+  shirube_does_not_own:
+    - Hook registration, emitter wiring, database, migration, deploy, workflow, package or restart behaviour in this cell.
+cell:
+  CELL-ID: S3A-CODEX-CONTEXT-MEASUREMENT
+  cell_type: capability_addition
+  risk_class: R1
+  goal: Give the codex host a correct context measurement and denominator, so its seats stop being unmeasurable, without registering or changing any hook.
+  non_scope:
+    - registering, editing or rebuilding any Stop hook or its dist; that is stage S3b and is owner-gated
+    - writing context-health records; this cell extracts and returns a value
+    - the gemini adapter, which is blocked on THR-OPEN-5
+    - restart_events and any other schema change; that is OG-CTXR-01 and remains gated
+    - package.json, .github/workflows and every host config file
+  test_coupling_exempt: false
+  acceptance_criteria:
+    - src/codex-context-measurement.ts reads the current context size from the last token_count record's last_token_usage.input_tokens and never from total_token_usage.
+    - cached_input_tokens is never added to the input count, because on this host it is a subset of it rather than a separate bucket as on claude.
+    - The context window is taken from the host-reported model_context_window and is labelled window_source host_reported, so no model table entry is consulted.
+    - The last token_count record wins, so a compacted session reports its post-compaction context rather than a size that no longer exists.
+    - A malformed or partially written final line is skipped rather than discarding the records already read.
+    - The model is read from the structured turn_context model field, never from a substring of the transcript.
+    - Every unmeasured path names its reason - no_token_count_record, usage_field_missing or window_missing - and invents no context size.
+    - A measurement above the window is reported unchanged; declining or clamping belongs to the judgment layer.
+    - Fixtures CTX-01 through CTX-10 run inside src/test.ts, which the CI core-test step already executes.
+    - No file outside src/ and this cell's Shirube control artifacts is changed.
+  allowed_paths:
+    - src/**
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-S3A-CODEX-CONTEXT-MEASUREMENT.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+    - dist/**
+  protected_surfaces:
+    declared:
+      - runtime code
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: true
+    touched_detail: >-
+      runtime code only. src/codex-context-measurement.ts is new and pure; src/test.ts gains
+      an import, a test function and one call. No hook, database, migration, workflow,
+      package or deploy surface is touched, and no dist is rebuilt.
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a hook registration or dist rebuild becomes necessary to land the extraction
+    - a restart is executed by any code path in this cell
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Add the pure codex measurement adapter with its fixtures; hook wiring and record writing stay out.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+    - hook registration or mutation
+    - runtime restart
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npx tsx src/test.ts
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#250
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    scope:
+      - src/test.ts
+    reason: >-
+      The hard-delete patterns this rule matches are pre-existing content of src/test.ts, a
+      4,800-line suite that already exercises deletion paths. This cell adds fixtures to that
+      file and introduces no delete operation. Verified by re-running the same gate with only
+      the new file in scope, which returns zero blockers, isolating the finding to the legacy
+      file. Same finding and same attribution as CH-S1A-CONTEXT-WINDOW-RESOLUTION.
+    approved_by: kusabi/implementation_executor
+    expires_at: "2026-09-30"
+  - rule_id: DR-CODE-001
+    scope:
+      - src/test.ts
+    reason: >-
+      Pre-existing duplication in the legacy suite, reproduced on unmodified main during the
+      S1-A cell and unchanged by this one. Recorded for completeness; note that
+      evaluateDuplicateRule does not consult design_rule_exceptions, so this declaration
+      cannot clear the finding and the blocker persists until the owner rules on the landing
+      option raised in PR 314.
+    approved_by: kusabi/implementation_executor
+    expires_at: "2026-09-30"
+design_rule_notes:
+  - rule_id: DR-ARCH-001
+    scope:
+      - src/codex-context-measurement.ts
+    severity: WARN
+    response: >-
+      No domain shape is carried in this source file. The context window is read from the
+      transcript at runtime rather than declared anywhere, which is the specific defect this
+      cell exists to avoid: a model table would have recorded two entries for gpt-5.6-sol and
+      gpt-5.5 and both would have been wrong, because the observed 258,400 window is imposed
+      by the Codex CLI rather than by the model.
