@@ -1,7 +1,7 @@
 name: Shirube Rapid/Lite Gates Report
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - synchronize
@@ -13,33 +13,65 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
   issues: write
+
+concurrency:
+  group: shirube-rapid-lite-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: "20"
-  RESULT_DIR: .shirube-rapid-lite
+  RESULT_DIR_NAME: shirube-rapid-lite-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   shirube-rapid-lite-gates-report:
     name: Shirube Rapid/Lite Gates Report
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout target head
-        uses: actions/checkout@v4
+      - name: Prepare trusted result directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_temp_real="$(realpath "$RUNNER_TEMP")"
+          result_candidate="$RUNNER_TEMP/$RESULT_DIR_NAME"
+          result_parent_real="$(realpath "$(dirname "$result_candidate")")"
+          result_name="$(basename "$result_candidate")"
+          if [[ "$result_parent_real" != "$runner_temp_real" || -z "$result_name" || "$result_name" == "." || "$result_name" == ".." ]]; then
+            echo "EVALUATOR_UNAVAILABLE: result path is outside the runner-owned temporary directory" >&2
+            exit 2
+          fi
+          if [[ -e "$result_candidate" || -L "$result_candidate" ]]; then
+            echo "EVALUATOR_UNAVAILABLE: trusted result path was pre-seeded" >&2
+            exit 2
+          fi
+          mkdir -m 0700 "$result_candidate"
+          result_real="$(realpath "$result_candidate")"
+          if [[ -L "$result_candidate" || "$result_real" != "$result_parent_real/$result_name" ]]; then
+            echo "EVALUATOR_UNAVAILABLE: trusted result path failed containment validation" >&2
+            exit 2
+          fi
+          echo "RESULT_DIR=$result_real" >> "$GITHUB_ENV"
+
+      - name: Checkout target head as untrusted data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           path: target
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Checkout trusted base runtime
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
           fetch-depth: 1
           sparse-checkout: .shirube/runtime/rapid-lite
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -102,19 +134,22 @@ jobs:
           node trusted/.shirube/runtime/rapid-lite/run-rapid-lite-workflow.mjs \
             --target-dir target \
             --result-dir "$RESULT_DIR"
-          cat "target/$RESULT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          cat "target/$RESULT_DIR/aggregate.json"
+          cat "$RESULT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RESULT_DIR/aggregate.json"
 
       - name: Upsert PR comment
         if: always()
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require("fs");
+            const path = require("path");
             const marker = "<!-- shirube-rapid-lite-gates-report/v1 -->";
-            const summary = "target/.shirube-rapid-lite/summary.md";
-            const body = fs.existsSync(summary)
+            const summary = process.env.RESULT_DIR
+              ? path.join(process.env.RESULT_DIR, "summary.md")
+              : null;
+            const body = summary && fs.existsSync(summary)
               ? fs.readFileSync(summary, "utf8")
               : `${marker}\n\n## Shirube Rapid/Lite Gates Report\n\nRuntime was unavailable before summary creation.`;
             const { owner, repo } = context.repo;
@@ -128,11 +163,11 @@ jobs:
             }
 
       - name: Upload Rapid/Lite gate JSON artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: ${{ always() && env.RESULT_DIR != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: shirube-rapid-lite-gates-${{ github.event.pull_request.number }}
-          path: target/${{ env.RESULT_DIR }}
+          path: ${{ env.RESULT_DIR }}
           if-no-files-found: warn
           retention-days: 14
           include-hidden-files: true
@@ -142,7 +177,9 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require("fs");
-          const reportPath = `target/${process.env.RESULT_DIR}/aggregate.json`;
+          const path = require("path");
+          if (!process.env.RESULT_DIR) throw new Error("EVALUATOR_UNAVAILABLE: trusted result directory was not prepared");
+          const reportPath = path.join(process.env.RESULT_DIR, "aggregate.json");
           if (!fs.existsSync(reportPath)) throw new Error("EVALUATOR_UNAVAILABLE: missing Rapid/Lite aggregate");
           const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
           const gate = report.gates?.find((entry) => entry.gate === "flow-safety");
@@ -153,8 +190,43 @@ jobs:
           console.log(`Flow-safety activation: ${gate.status}/${gate.verdict}`);
           NODE
 
-      - name: Report-only completion
+      - name: Enforce Rapid/Lite hard block
         if: always()
         run: |
-          echo "Rapid/Lite gates other than flow-safety remain report-only."
-          echo "Required-check and branch-protection settings are unchanged."
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          if (!process.env.RESULT_DIR) throw new Error("EVALUATOR_UNAVAILABLE: trusted result directory was not prepared");
+          const reportPath = path.join(process.env.RESULT_DIR, "aggregate.json");
+          if (!fs.existsSync(reportPath)) {
+            throw new Error("EVALUATOR_UNAVAILABLE: missing Rapid/Lite aggregate");
+          }
+          const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+          if (report.schema !== "shirube-rapid-lite-report/v1") {
+            throw new Error(`EVALUATOR_UNAVAILABLE: unexpected aggregate schema ${String(report.schema)}`);
+          }
+          if (
+            !["PASS", "PASS_WITH_WARN"].includes(report.verdict) ||
+            report.report_failed !== false ||
+            report.would_block !== false
+          ) {
+            throw new Error(
+              `RAPID_LITE_HARD_BLOCK: verdict=${String(report.verdict)} report_failed=${String(report.report_failed)} would_block=${String(report.would_block)}`,
+            );
+          }
+          const enforcement = report.gates?.find((entry) => entry.gate === "enforcement-policy");
+          if (!enforcement || enforcement.status !== "ran") {
+            throw new Error("EVALUATOR_UNAVAILABLE: enforcement-policy gate did not run");
+          }
+          if (
+            !["PASS", "PASS_WITH_WARN"].includes(enforcement.verdict) ||
+            enforcement.report_failed !== false ||
+            enforcement.would_block !== false
+          ) {
+            throw new Error(
+              `RAPID_LITE_ENFORCEMENT_BLOCK: verdict=${String(enforcement.verdict)} report_failed=${String(enforcement.report_failed)} would_block=${String(enforcement.would_block)}`,
+            );
+          }
+          console.log(`Rapid/Lite hard block PASS: ${report.verdict}`);
+          console.log("Required-check and branch-protection settings remain unchanged pending separate owner authorization.");
+          NODE

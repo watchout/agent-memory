@@ -1,10 +1,10 @@
 schema_version: shirube-enforcement-policy/v1
 policy_id: ENFORCEMENT-POLICY-KUSABI-001
 repo: watchout/agent-memory
-mode: report_only
+mode: ci_hard_block
 profile: hotel-lite
-framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
-updated_at: 2026-08-16T22:05:59.472Z
+framework_ref: watchout/ai-dev-framework@d3c3be1394f509839db83c6ed57482178ebbaecd
+updated_at: 2026-08-26T00:30:00.000Z
 stale_after_days: 90
 owner_observed: true
 owner:
@@ -20,24 +20,30 @@ calibration:
   started_at: 2026-08-16T22:05:59.472Z
   minimum_prs: 3
   false_positive_review_required: true
-report_only_semantics:
-  aggregate_would_block_sets_owner_must_not_merge: true
-  ci_should_fail: false
+ci_hard_block_semantics:
+  aggregate_would_block_fails_ci: true
+  ci_should_fail: true
   owner_must_not_merge_without_exception: true
-promotion:
+graduation:
   from: report_only
+  to: ci_hard_block
+  owner_approval_ref: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5418793071
+  evidence_refs:
+    - https://github.com/watchout/agent-memory/actions/runs/32375366045
+    - https://github.com/watchout/agent-memory/actions/runs/32391453168
+    - https://github.com/watchout/agent-memory/actions/runs/32397085709
+  required_check_activation: false
+promotion:
+  from: ci_hard_block
   next:
-    - owner_block
-    - ci_hard_block
     - required_check
   required_evidence:
-    - stable report-only findings
-    - owner accepts warning/block policy
+    - stable CI hard-block findings
+    - owner accepts required-check activation
     - explicit protected-settings Cell before required checks
 non_scope:
   - branch protection mutation
   - ruleset mutation
   - required check activation
-  - CI hard-blocking
   - external repository mutation
   - runtime/API/DB/package/deploy behavior
