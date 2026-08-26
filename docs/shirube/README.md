@@ -12,7 +12,7 @@ The source mirror at `.shirube/source-mirrors/control-issue.yaml` is a machine-r
 
 ## Merge Discipline
 
-`BLOCKED` or `would_block=true` means the owner must not merge unless an explicit exact-head pilot exception is recorded.
+`BLOCKED` or `would_block=true` fails the repository-local Rapid/Lite workflow, and the owner must not merge. An owner exception alone is insufficient, and this policy permits no CI-hard-block waiver.
 
 `PASS_WITH_WARN` requires owner acknowledgement before promotion or enforcement graduation.
 
