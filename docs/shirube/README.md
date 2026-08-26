@@ -2,7 +2,7 @@
 
 This repository uses a Shirube Rapid/Lite control-plane overlay.
 
-This overlay is report-only at adoption time. It records machine-readable control state under `.shirube/**` and local guidance under `docs/shirube/**`.
+This overlay has graduated from report-only calibration to CI hard-block enforcement for the repository-local Rapid/Lite workflow. It records machine-readable control state under `.shirube/**` and local guidance under `docs/shirube/**`.
 
 ## Authority
 
@@ -18,9 +18,9 @@ The source mirror at `.shirube/source-mirrors/control-issue.yaml` is a machine-r
 
 ## Enforcement State
 
-`report_only` is not the final enforcement state. Graduation to `owner_block`, `ci_hard_block`, or `required_check` requires later owner-approved work.
+`ci_hard_block` is active for the repository-local Rapid/Lite workflow. A blocking aggregate now fails that workflow. Graduation to a required check still requires separate owner-approved protected-settings work.
 
-This overlay does not enable required checks, branch protection, rulesets, CI hard-blocking, production behavior, AUN automation, or external repo mutation.
+This overlay does not enable required checks, branch protection, rulesets, production behavior, AUN automation, or external repo mutation.
 
 ## Control State Completeness
 
