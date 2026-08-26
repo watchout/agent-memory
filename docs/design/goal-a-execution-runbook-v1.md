@@ -50,9 +50,28 @@ BUILT → PLACED → ACTIVATED → EFFECT_PROVEN → CLOSED
   cell id + 状態 + evidence digest で一意)。
 - **並行**: cell は同時に 1 つだけ ACTIVATED 作業を持てる(WIP=1)。graph 上の
   後続 cell の準備作業(BUILT まで)は先行して良い。
-- **retry / expiry / escalation / halt**: 遷移の失敗は 3 回で typed 停止し、#307 に
+- **retry**: 遷移の失敗は同一遷移につき 3 回で typed failed として記録し、#307 に
   1 回だけ escalation を publish して待機する。owner gate 待ちは 1 回通知して停止
-  (待機中の成果物量産は禁止)。連続非進捗 3 評価で HALT。
+  (待機中の成果物量産は禁止)。
+- **no-progress halt(gen2 改訂 = F-02 是正)**: 同一 cell・同一操作・同一 subject に
+  対する評価が typed 遷移(状態前進、typed failed、typed stop のいずれかの新規記録)を
+  生まなかった場合、その評価を no-progress と数える。**証拠 digest が直前の評価と
+  同一か否かに関係なく**、連続 no-progress 評価 3 回で typed 停止する(同一 digest の
+  無限反復こそ canonical な無限ループであり、必ず 3 で停止に到達する)。counter は
+  typed 遷移の新規記録で 0 にリセットされる。同一評価イベント id の再送は 1 回として
+  数える(冪等)。counter の scope は cell id + 操作 + subject digest の組。
+- **expiry(gen2 追加 = F-02 是正)**: 非終端状態(BUILT / PLACED / ACTIVATED /
+  EFFECT_PROVEN)の記録は expires_at(既定 = 記録時刻 + 7 日、cell の bounded handoff で
+  上書き可)を持つ。expires_at 経過時に出口 predicate が未成立なら typed EXPIRED を
+  記録する。回復 actor は orchestrator(arc)であり、再計画するか #307 に 1 回だけ
+  escalation を publish して停止する。EXPIRED の readback = typed 記録の URL + raw
+  sha256。expiry は状態を逆行させない(記録が増えるだけで、回復遷移は cited 決定 or
+  再計画の typed 記録で行う)。
+- **typed failed 後の前進範囲(gen2 明確化 = F-02 是正)**: 先行 cell が typed
+  failed / typed stop / EXPIRED のまま CLOSED でない間、graph 順序上の後続 cell に
+  許されるのは **BUILT までの order-safe な準備のみ**。後続 cell の PLACED 以降は、
+  先行 cell が CLOSED になるか、cited waiver または recovery の typed 記録が先行 cell を
+  閉じるまで開始できない(§1 の順序規則と矛盾しない)。
 - **evidence identity**: すべての遷移 evidence は「URL(不変 comment または
   commit/path)+ raw sha256」で一意化する。**URL + sha256 を欠く引用は権限として
   無効であり、typed 拒否する**(#307 設計チェック C2 の是正。8/16 の 315 tick
@@ -64,6 +83,17 @@ BUILT → PLACED → ACTIVATED → EFFECT_PROVEN → CLOSED
 
 - **意味の核は 1 つ**: 上記 lifecycle・遷移権限・evidence identity・terminal
   admission が唯一の意味論であり、3 adapter はこれを共有する。
+- **semantic core digest の導出(gen2 追加 = F-04 是正)**: adapter が携行する
+  semantic core digest は宣言値ではなく、次の canonical serialization からの再現可能な
+  導出値である:
+  `semantic_core_digest = sha256("GOAL-A-CORE:" + <本 runbook の sha256:… digest> + ":" + <cell graph の sha256:… digest>)`
+  導出コマンド(何にも依存しない 1 行):
+  ```sh
+  python3 -c "import hashlib,sys; r=lambda p:'sha256:'+hashlib.sha256(open(p,'rb').read()).hexdigest(); print('sha256:'+hashlib.sha256(('GOAL-A-CORE:'+r('docs/design/goal-a-execution-runbook-v1.md')+':'+r('docs/design/goal-a-derived-cell-graph-v1.json')).encode()).hexdigest())"
+  ```
+  runbook または graph の内容が 1 byte でも変われば digest が変わり、旧 digest を保持した
+  adapter 記録は不一致として機械検出される(negative fixture = 入力 digest を 1 つ変えて
+  導出値が変わることを測る)。
 - adapter が翻訳してよいのは **transport と format のみ**(CLI 呼出形式・session の
   起動方法・出力の包み方)。状態・権限・gate・reason code・evidence 意味論の
   再定義は禁止(検出時 typed 拒否)。
@@ -80,8 +110,10 @@ owner 指示「できるかぎり止まらずに進んでほしいが、破壊�
   場合(連続非進捗 3 評価)/ subject digest 不一致。
 - 停止は #307 への 1 comment(typed reason + 現在地 + 再開条件)で行い、以後
   artifacts を作らない。
-- それ以外の障害は typed failed として記録し、graph 順序の次に進める仕事があれば
-  進む(全体を止めない)。
+- それ以外の障害は typed failed として記録する。その後に進めてよいのは §2 の
+  「typed failed 後の前進範囲」のとおり、後続 cell の BUILT までの order-safe な
+  準備のみ(先行 cell を CLOSED にする recovery / cited waiver なしに後続の
+  PLACED 以降へは進まない)。
 
 ## 5. 前提 1-5 と本書の対応
 
