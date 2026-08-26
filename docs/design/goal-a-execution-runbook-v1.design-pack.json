@@ -1,0 +1,1554 @@
+{
+ "schema_version": "DesignPack/v2",
+ "pack_id": "DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001",
+ "generation": 1,
+ "status": "DESIGN_AUTHORED",
+ "subject": {
+  "id": "watchout/agent-memory#307:goal-a-prerequisites",
+  "stable_identifier": "watchout/agent-memory#307/OD-KUSABI-307-GOAL-A-PREREQUISITES-A1-START-20260826-001",
+  "kind": "bounded_system_design",
+  "digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+  "generation": 1,
+  "baseline_refs": [
+   "git:watchout/agent-memory@f7fcd0f181e032e740036d8ee31733c18019d31d"
+  ],
+  "source_refs": [
+   "SRC-307-BODY",
+   "SRC-307-OD",
+   "SRC-307-HANDOFF",
+   "SRC-A5B-AMENDMENT",
+   "SRC-SHIRUBE-POLICY",
+   "SRC-FUNCTION-BINDINGS",
+   "SRC-RUNBOOK-V1",
+   "SRC-CELL-GRAPH-V1"
+  ]
+ },
+ "admission": {
+  "mode": "author",
+  "actor_agent_id": "arc/control_artifact_author",
+  "active_function": "control_artifact_author",
+  "maker_history": [
+   "arc/control_artifact_author"
+  ],
+  "authority": [
+   "author DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001 generation 1 in exactly the three allowed paths under SRC-307-OD and SRC-307-HANDOFF",
+   "publish one design-only PR and one candidate receipt on issue 307",
+   "request one maker-history-external gate (reserved checker qa); implement nothing and merge nothing"
+  ],
+  "protected_surfaces": [
+   "product, runtime, API, DB, UI, deploy, and config files of watchout/agent-memory",
+   "A1 implementation and any A4/A6/A8 runtime change",
+   "fleet restart, schema migration, DB mutation, secrets",
+   "merge, Ready, deploy, release, branch protection"
+  ],
+  "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+  "validation_version": "1.2.0",
+  "admitted_at": "2026-08-26T11:50:58Z"
+ },
+ "owner_outcome": {
+  "statement": "Complete prerequisite designs 1-5 — the Goal A execution runbook, the machine-readable A1-A11 plus A5b cell graph, the five-state common lifecycle, the Codex/Claude/Gemini adapter contract, and a fresh maker-separated Design Flow v2 gate — then advance the frozen Goal A order from A1, proceeding without stopping except for destructive operations or infinite loops, which stop immediately.",
+  "success_boundary": "This pack closes when the three committed artifacts validate, the independent gate passes with P0 and P1 at zero, and the candidate receipt is published on issue 307. Non-goals: no A1 implementation, no runtime or fleet change, no merge or deploy, no redefinition of frozen roadmap decisions.",
+  "source_refs": [
+   "SRC-307-OD",
+   "SRC-307-BODY"
+  ]
+ },
+ "sources": [
+  {
+   "id": "SRC-307-BODY",
+   "kind": "frozen_control_source",
+   "url": "https://github.com/watchout/agent-memory/issues/307",
+   "digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "evidence_ref": "EV-307-BODY",
+   "authority_limit": "Frozen Goal A roadmap body; the only advancement order and cell definitions; changes only via amendment comments."
+  },
+  {
+   "id": "SRC-307-OD",
+   "kind": "owner_decision",
+   "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422741627",
+   "digest": "sha256:e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf",
+   "evidence_ref": "EV-307-OD",
+   "authority_limit": "Authorizes prerequisite design 1-5 plus an independent gate, then A1; authorizes zero protected effects and zero implementation now."
+  },
+  {
+   "id": "SRC-307-HANDOFF",
+   "kind": "control_handoff",
+   "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "digest": "sha256:ee69f832d5f5ebda8f6ca7c07eb593f4164c424d5c624270328ef72ded9ddc45",
+   "evidence_ref": "EV-307-HANDOFF",
+   "authority_limit": "Binds maker arc, three allowed paths, exact baseline f7fcd0f1, validators, generation limit 1 plus 1 corrective."
+  },
+  {
+   "id": "SRC-A5B-AMENDMENT",
+   "kind": "roadmap_amendment",
+   "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502",
+   "digest": "sha256:b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0",
+   "evidence_ref": "EV-A5B-AMENDMENT",
+   "authority_limit": "Adds A5b (interim fleet deployment) after A5, its frozen steps, machine-checkable DoD, and the conditional owner gate on schema migration."
+  },
+  {
+   "id": "SRC-SHIRUBE-POLICY",
+   "kind": "runtime_policy",
+   "url": "file:/Users/yuji/Developer/iyasaka-org/docs/shirube/shirube-v3-runtime-policy.md",
+   "digest": "sha256:617951a0744f81dea233525c9edf4e923367ea5aa62abab569be2868d0764ba9",
+   "evidence_ref": "EV-SHIRUBE-POLICY",
+   "authority_limit": "Canonical function vocabulary and gate semantics; this pack introduces no new functions."
+  },
+  {
+   "id": "SRC-FUNCTION-BINDINGS",
+   "kind": "function_catalog",
+   "url": "file:/Users/yuji/Developer/iyasaka-org/docs/shirube/function-bindings.yaml",
+   "digest": "sha256:422248288a16e702f78f25ba9d0d49b53eb50a28154a5638c02eb3b02bfc65e0",
+   "evidence_ref": "EV-FUNCTION-BINDINGS",
+   "authority_limit": "Registered seat/function bindings; maker arc and reserved checker qa are bound identities."
+  },
+  {
+   "id": "SRC-RUNBOOK-V1",
+   "kind": "authored_design_artifact",
+   "url": "repo:docs/design/goal-a-execution-runbook-v1.md",
+   "digest": "sha256:2db0324fe1104b3879689ced3150cb882e3d1b07c8b2c7cd4da5dd5047d0b6e4",
+   "evidence_ref": "EV-RUNBOOK-V1",
+   "authority_limit": "The prerequisite-1 runbook authored in this same commit; the pack binds its exact digest."
+  },
+  {
+   "id": "SRC-CELL-GRAPH-V1",
+   "kind": "authored_design_artifact",
+   "url": "repo:docs/design/goal-a-derived-cell-graph-v1.json",
+   "digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535",
+   "evidence_ref": "EV-CELL-GRAPH-V1",
+   "authority_limit": "The prerequisite-2 machine-readable cell graph authored in this same commit; the pack binds its exact digest."
+  }
+ ],
+ "non_goals": [
+  "implementing A1 or any A4/A6/A8 runtime change during prerequisite authoring",
+  "mutating the frozen issue 307 body or redefining its cell decisions",
+  "editing product, runtime, API, DB, UI, deploy, or config files",
+  "merge, Ready, deploy, release, or branch-protection changes",
+  "inventing new Shirube functions or governance vocabulary"
+ ],
+ "assumptions": [
+  {
+   "id": "ASM-GA-01",
+   "statement": "The frozen issue body plus its citable amendments are the sole semantic source for cell content; per-cell implementation detail lives in the referenced issues and is bound at each cell's own handoff time.",
+   "source_ref": "SRC-307-BODY"
+  },
+  {
+   "id": "ASM-GA-02",
+   "statement": "qa remains the reserved maker-history-external checker; if qa is unavailable another registered evidence_audit_gate seat outside the maker history may be bound by the orchestrator.",
+   "source_ref": "SRC-307-HANDOFF"
+  }
+ ],
+ "unknowns": [
+  {
+   "id": "UNK-GA-01",
+   "statement": "Whether the A5b 187-commit delta contains a DB schema migration is unknown until the machine enumeration in A5b step 1 runs; the conditional owner gate covers both outcomes.",
+   "disposition": "resolved_by_a5b_step1_enumeration"
+  }
+ ],
+ "inventions": [
+  {
+   "id": "INV-GA-01",
+   "statement": "A five-state lifecycle with per-state entry and exit predicates as the single advancement semantics for all 12 cells.",
+   "source_ref": "SRC-307-HANDOFF",
+   "rationale": "The handoff freezes the state names; this pack adds the machine predicates so that EFFECT_PROVEN and CLOSED are measured, never asserted.",
+   "owner_ruling_required": false
+  },
+  {
+   "id": "INV-GA-02",
+   "statement": "The citation contract (authority requires URL plus raw sha256; missing either is typed-rejected) as a lifecycle-level invariant.",
+   "source_ref": "SRC-307-BODY",
+   "rationale": "Issue 307 names the missing citation contract as design hole C2 and the root of the 2026-08-16 315-tick no-progress incident; the runbook closes it as an enforceable predicate (GA-07).",
+   "owner_ruling_required": false
+  }
+ ],
+ "domain_model": {
+  "entities": [
+   {
+    "id": "GoalACell",
+    "description": "one of the 12 frozen cells (A1..A11, A5b) with control sources, dependencies, and an effect predicate",
+    "source_ref": "SRC-307-BODY"
+   },
+   {
+    "id": "CellGraph",
+    "description": "the machine-readable derived graph binding exact order, owner gates, and the A5b nonterminal rule",
+    "source_ref": "SRC-CELL-GRAPH-V1"
+   },
+   {
+    "id": "LifecycleTransition",
+    "description": "a typed state change with authority, evidence identity, and idempotency key",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "AuthorityCitation",
+    "description": "a URL plus raw sha256 pair that makes a decision citable as authority",
+    "source_ref": "SRC-307-BODY"
+   },
+   {
+    "id": "AdapterBinding",
+    "description": "a transport/format translation record for Codex, Claude, or Gemini carrying the core semantic digest",
+    "source_ref": "SRC-307-HANDOFF"
+   }
+  ],
+  "values": [
+   {
+    "id": "LifecycleState",
+    "description": "closed set: BUILT, PLACED, ACTIVATED, EFFECT_PROVEN, CLOSED",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "TypedStopReason",
+    "description": "closed set: DESTRUCTIVE_OP_STOP, NO_PROGRESS_HALT, ORDER_VIOLATION, OWNER_GATE_REQUIRED, CITATION_UNCITABLE, EVIDENCE_NOT_REDERIVABLE, SUBJECT_BINDING_MISMATCH",
+    "source_ref": "SRC-307-OD"
+   }
+  ],
+  "invariants": [
+   {
+    "id": "INV-ORDER",
+    "predicate": "cell_advancement_follows_exact_order_or_cited_owner_waiver",
+    "source_ref": "SRC-307-OD"
+   },
+   {
+    "id": "INV-A5B",
+    "predicate": "a5b_closed_never_substitutes_a1_or_any_cell",
+    "source_ref": "SRC-A5B-AMENDMENT"
+   },
+   {
+    "id": "INV-CITATION",
+    "predicate": "authority_requires_url_plus_sha256_or_typed_reject",
+    "source_ref": "SRC-307-BODY"
+   },
+   {
+    "id": "INV-EFFECT",
+    "predicate": "effect_proven_requires_machine_measurement_never_assertion",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "INV-AUN",
+    "predicate": "aun_queue_state_never_terminalizes_a_cell",
+    "source_ref": "SRC-307-HANDOFF"
+   }
+  ],
+  "commands": [
+   {
+    "id": "advance_cell_state",
+    "description": "applies one typed lifecycle transition with evidence identity and idempotency",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "verify_citation",
+    "description": "validates URL plus sha256 and re-hashes the readback",
+    "source_ref": "SRC-307-BODY"
+   },
+   {
+    "id": "evaluate_effect",
+    "description": "measures a cell's effect predicate by machine output",
+    "source_ref": "SRC-CELL-GRAPH-V1"
+   },
+   {
+    "id": "halt_no_progress",
+    "description": "typed halt after 3 no-progress evaluations with one escalation",
+    "source_ref": "SRC-307-OD"
+   }
+  ],
+  "ownership": [
+   {
+    "id": "semantics_ownership",
+    "description": "lifecycle, order, citation, and terminal semantics live in the runbook and graph in watchout/agent-memory docs/design",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "cell_content_ownership",
+    "description": "per-cell implementation content lives in each cell's referenced issue and later bounded handoffs",
+    "source_ref": "SRC-307-BODY"
+   }
+  ]
+ },
+ "state_and_event_model": {
+  "states": [
+   {
+    "id": "BUILT",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "PLACED",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "ACTIVATED",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "EFFECT_PROVEN",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "CLOSED",
+    "source_ref": "SRC-307-HANDOFF"
+   }
+  ],
+  "events": [
+   {
+    "id": "artifact_built",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "artifact_placed",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "activation_verified",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "effect_measured",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "closure_audited",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "no_progress_bound_reached",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "destructive_class_detected",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "owner_decision_cited",
+    "source_ref": "SRC-RUNBOOK-V1"
+   }
+  ],
+  "transitions": [
+   {
+    "id": "T1",
+    "from": "BUILT",
+    "event": "artifact_placed",
+    "to": "PLACED",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "T2",
+    "from": "PLACED",
+    "event": "activation_verified",
+    "to": "ACTIVATED",
+    "guard": "owner-gate cells require a cited fresh owner decision",
+    "source_ref": "SRC-307-OD"
+   },
+   {
+    "id": "T3",
+    "from": "ACTIVATED",
+    "event": "effect_measured",
+    "to": "EFFECT_PROVEN",
+    "source_ref": "SRC-CELL-GRAPH-V1"
+   },
+   {
+    "id": "T4",
+    "from": "EFFECT_PROVEN",
+    "event": "closure_audited",
+    "to": "CLOSED",
+    "guard": "maker-history-external audit evidence",
+    "source_ref": "SRC-RUNBOOK-V1"
+   }
+  ],
+  "invalid_transitions": [
+   {
+    "id": "IT1",
+    "from": "any",
+    "event": "state_skip_or_reverse",
+    "reason": "typed reject; states advance one step forward only",
+    "source_ref": "SRC-RUNBOOK-V1"
+   },
+   {
+    "id": "IT2",
+    "from": "any",
+    "event": "aun_ack_or_done",
+    "reason": "AUN transport state never advances lifecycle (GA-06)",
+    "source_ref": "SRC-307-HANDOFF"
+   },
+   {
+    "id": "IT3",
+    "from": "PLACED",
+    "event": "uncited_owner_gate_advance",
+    "reason": "OWNER_GATE_REQUIRED for A6, A7, A10, and conditional A5b (GA-08)",
+    "source_ref": "SRC-307-OD"
+   },
+   {
+    "id": "IT4",
+    "from": "any",
+    "event": "advance_with_uncitable_authority",
+    "reason": "CITATION_UNCITABLE (GA-07)",
+    "source_ref": "SRC-307-BODY"
+   }
+  ],
+  "idempotency": "one transition per cell id plus state plus evidence digest; duplicates admit zero effects",
+  "concurrency": "one ACTIVATED work stream per cell; later cells may pre-build only",
+  "transaction": "a transition records its evidence digest and the new state atomically; a failed evidence write leaves the prior state",
+  "consistency": "the graph file plus issue 307 comments are the durable record; session memory and queue state are never authoritative"
+ },
+ "options_and_decisions": {
+  "decisions": [
+   {
+    "id": "DESIGN_ADMISSION",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-01"
+    ],
+    "evidence_refs": [
+     "EV-307-OD"
+    ],
+    "source_ref": "SRC-307-OD",
+    "note": "subject = frozen issue 307 body digest; author mode; exact baseline f7fcd0f1; three allowed paths only"
+   },
+   {
+    "id": "DESIGN_STRUCTURE",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-01",
+     "GA-03",
+     "GA-05"
+    ],
+    "evidence_refs": [
+     "EV-CELL-GRAPH-V1",
+     "EV-RUNBOOK-V1"
+    ],
+    "source_ref": "SRC-307-HANDOFF",
+    "note": "graph and runbook are the two committed structure artifacts, digest-bound into this pack"
+   },
+   {
+    "id": "DESIGN_TRACE",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-10"
+    ],
+    "evidence_refs": [
+     "EV-RUNBOOK-V1"
+    ],
+    "source_ref": "SRC-RUNBOOK-V1",
+    "note": "10 predicates map 1:1 to fixtures and edges; evidence identity is URL plus sha256"
+   },
+   {
+    "id": "DESIGN_AUTHORITY",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-07",
+     "GA-08"
+    ],
+    "evidence_refs": [
+     "EV-307-BODY"
+    ],
+    "source_ref": "SRC-307-BODY",
+    "note": "citation contract closes design hole C2; owner gates enumerated"
+   },
+   {
+    "id": "DESIGN_HANDOFF",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-06"
+    ],
+    "evidence_refs": [
+     "EV-307-HANDOFF"
+    ],
+    "source_ref": "SRC-307-HANDOFF",
+    "note": "delivery handoff complete and implementation-inactive until gate pass plus per-cell handoffs"
+   },
+   {
+    "id": "DESIGN_TERMINAL_ADMISSION",
+    "verdict": "PASS",
+    "reason_codes": [],
+    "predicate_refs": [
+     "GA-02",
+     "GA-04",
+     "GA-09"
+    ],
+    "evidence_refs": [
+     "EV-307-OD",
+     "EV-A5B-AMENDMENT"
+    ],
+    "source_ref": "SRC-307-OD",
+    "note": "terminal admission is machine-measured; A5b nonterminal; halt and destructive stops are immediate"
+   }
+  ]
+ },
+ "architecture_and_adapters": {
+  "canonical_semantic_core": "GOAL-A-CORE: five-state lifecycle, exact order, citation contract, evidence identity, terminal admission — one semantics defined by the runbook and graph",
+  "semantic_core_digest": "sha256:60c9b856be3878d61c425c4c18be6c9e90073bb529d7d043686ed8e638bda6c8",
+  "components": [
+   {
+    "name": "goal-a-runbook",
+    "repo": "watchout/agent-memory",
+    "role": "human-readable frozen execution rules (prerequisite 1)"
+   },
+   {
+    "name": "goal-a-cell-graph",
+    "repo": "watchout/agent-memory",
+    "role": "machine-readable order, gates, and effect predicates (prerequisite 2)"
+   },
+   {
+    "name": "lifecycle-validators",
+    "repo": "watchout/agent-memory",
+    "role": "first-implementation validators for GA-01..GA-10 (built under later cell handoffs)"
+   }
+  ],
+  "adapters": [
+   {
+    "id": "codex_adapter",
+    "semantic_digest": "sha256:60c9b856be3878d61c425c4c18be6c9e90073bb529d7d043686ed8e638bda6c8",
+    "translates": "transport and format for Codex CLI execution; no semantic redefinition"
+   },
+   {
+    "id": "claude_adapter",
+    "semantic_digest": "sha256:60c9b856be3878d61c425c4c18be6c9e90073bb529d7d043686ed8e638bda6c8",
+    "translates": "transport and format for Claude Code execution; no semantic redefinition"
+   },
+   {
+    "id": "gemini_adapter",
+    "semantic_digest": "sha256:60c9b856be3878d61c425c4c18be6c9e90073bb529d7d043686ed8e638bda6c8",
+    "translates": "transport and format for Gemini execution; no semantic redefinition"
+   }
+  ]
+ },
+ "trust_data_and_authority": {
+  "inputs": [
+   "issue 307 body and citable comments (digest-bound)",
+   "cell transition requests from executors (untrusted until validated)",
+   "AUN-transported work and results (transport only)"
+  ],
+  "data_sensitivity": "no secrets in design artifacts; evidence references artifacts by digest",
+  "trust_boundaries": [
+   "executor and adapter output is untrusted until the lifecycle validator admits it",
+   "authority exists only as citable published comments (URL plus sha256)",
+   "closure requires maker-history-external audit"
+  ],
+  "permissions": [
+   "the lifecycle validator reads evidence and writes state records only",
+   "adapters hold no state-advancement authority"
+  ],
+  "protected_effects": [
+   "owner-gate advancement (A6, A7, A10, conditional A5b)",
+   "any destructive operation class (immediate stop)"
+  ],
+  "decision_owners": [
+   "owner: gates, waivers, resume after halt",
+   "maker-history-external gate: closure audit evidence",
+   "semantic core: every transition verdict"
+  ],
+  "non_model_enforcement": "order, gates, citations, evidence identity, halt bounds, and terminal admission are deterministic validator checks; no LLM output decides any of them"
+ },
+ "ai_native_conformance": {
+  "model_role": "LLM seats execute cell work and author artifacts; they never decide lifecycle transitions or closure",
+  "deterministic_boundary": "order checker, lifecycle validator, citation validator, evidence re-hash, halt counter",
+  "authority": "advancement authority is validator-computed; owner gates require cited decisions (GA-07, GA-08)",
+  "tool_boundary": "adapters expose execute-and-report; no adapter tool writes lifecycle state",
+  "context_retrieval": "validators read digest-bound artifacts and issue 307 comments; prose is never state",
+  "failure_degradation": "AUN outage degrades to direct execution with identical semantics; validator outage fails closed leaving states unchanged",
+  "evaluation": "GA-01..GA-10 fixture suites run per cell advancement and in CI once implemented",
+  "human_oversight": "owner gates at A6, A7, A10, conditional A5b, waivers, and halt resume"
+ },
+ "acceptance_predicates": [
+  {
+   "id": "GA-01",
+   "predicate": "the committed cell graph file re-hashes to sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535 and contains exact_order equal to the 12-element array A1,A2,A3,A4,A5,A5b,A6,A7,A8,A9,A10,A11 with every cell carrying id, control_sources, depends_on, and effect_predicate",
+   "source_ref": "SRC-CELL-GRAPH-V1",
+   "decision_ref": "DESIGN_STRUCTURE",
+   "fixture_ref": "FX-GA-01",
+   "evidence_ref": "EV-GA-01",
+   "evidence_producer": "graph checker script over the committed graph file",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "checker exits 0: digest equals the recorded digest, exact_order equals the frozen array, and zero cells miss a required field",
+   "fail_rule": "digest differs, order differs, or any cell misses a required field"
+  },
+  {
+   "id": "GA-02",
+   "predicate": "A5b is recorded nonterminal: the graph contains terminal_substitution_forbidden equals true for A5b, A5b sits between A5 and A6 in exact_order, and a fixture asserting A5b CLOSED leaves A1 state unchanged",
+   "source_ref": "SRC-A5B-AMENDMENT",
+   "decision_ref": "DESIGN_ADMISSION",
+   "fixture_ref": "FX-GA-02",
+   "evidence_ref": "EV-GA-02",
+   "evidence_producer": "graph checker plus lifecycle fixture for the A5b substitution attempt",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "the A5b-substitution fixture returns typed ORDER_VIOLATION and A1 state reads back unchanged",
+   "fail_rule": "A5b CLOSED admits any A1 transition or the graph misses the nonterminal marker"
+  },
+  {
+   "id": "GA-03",
+   "predicate": "the runbook defines an entry predicate and an exit predicate for every lifecycle state; the count of states with both predicates equals 5 for BUILT, PLACED, ACTIVATED, EFFECT_PROVEN, CLOSED",
+   "source_ref": "SRC-RUNBOOK-V1",
+   "decision_ref": "DESIGN_STRUCTURE",
+   "fixture_ref": "FX-GA-03",
+   "evidence_ref": "EV-GA-03",
+   "evidence_producer": "lifecycle table checker over the committed runbook",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "checker reads the lifecycle table and measures 5 states each with entry and exit predicates present",
+   "fail_rule": "any state misses an entry or exit predicate"
+  },
+  {
+   "id": "GA-04",
+   "predicate": "state-skip, reverse, and adapter-state transitions are rejected: fixtures for skip, reverse, and AUN-ack-driven transitions each return a typed reason code with cell state unchanged",
+   "source_ref": "SRC-RUNBOOK-V1",
+   "decision_ref": "DESIGN_TERMINAL_ADMISSION",
+   "fixture_ref": "FX-GA-04",
+   "evidence_ref": "EV-GA-04",
+   "evidence_producer": "lifecycle transition validator over invalid-transition fixtures",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "all three invalid-transition fixtures return typed reject and readback shows state unchanged",
+   "fail_rule": "any invalid transition mutates state or returns without a typed reason"
+  },
+  {
+   "id": "GA-05",
+   "predicate": "the Codex, Claude, and Gemini adapter records carry the identical semantic core digest and zero adapter redefines state, authority, gate, reason-code, or evidence semantics",
+   "source_ref": "SRC-307-HANDOFF",
+   "decision_ref": "DESIGN_STRUCTURE",
+   "fixture_ref": "FX-GA-05",
+   "evidence_ref": "EV-GA-05",
+   "evidence_producer": "adapter contract checker over the three adapter records",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "all three adapter semantic digests equal the core digest and the redefinition scan measures zero findings",
+   "fail_rule": "any adapter digest differs or a redefinition is detected"
+  },
+  {
+   "id": "GA-06",
+   "predicate": "an AUN queue close, ACK, or done event over a transported work item leaves the cell lifecycle state unchanged and terminal admission still requires the effect predicate",
+   "source_ref": "SRC-307-HANDOFF",
+   "decision_ref": "DESIGN_AUTHORITY",
+   "fixture_ref": "FX-GA-06",
+   "evidence_ref": "EV-GA-06",
+   "evidence_producer": "AUN boundary fixture replaying ack and done events against a PLACED cell",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "after replaying ack and done the cell state reads back PLACED and terminal admission returns nonterminal with typed missing evidence",
+   "fail_rule": "any AUN event advances lifecycle state or reaches a terminal"
+  },
+  {
+   "id": "GA-07",
+   "predicate": "an authority citation that misses the URL or the raw sha256 is rejected with typed reason CITATION_UNCITABLE and zero effects; a citation with both fields whose readback re-hash equals the recorded sha256 is accepted",
+   "source_ref": "SRC-307-BODY",
+   "decision_ref": "DESIGN_AUTHORITY",
+   "fixture_ref": "FX-GA-07",
+   "evidence_ref": "EV-GA-07",
+   "evidence_producer": "citation contract validator over four fixtures: missing url, missing hash, hash mismatch, valid",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "fixture 1, fixture 2, and fixture 3 each return CITATION_UNCITABLE with zero effects and fixture 4 is accepted",
+   "fail_rule": "any citation missing the url or sha256 fields is accepted, or the citation whose readback digest matches is rejected"
+  },
+  {
+   "id": "GA-08",
+   "predicate": "owner-gate cells A6, A7, and A10 cannot leave PLACED without a cited fresh owner decision: the fixture without a citation returns typed OWNER_GATE_REQUIRED and the fixture with a citation that re-hashes equal advances",
+   "source_ref": "SRC-307-OD",
+   "decision_ref": "DESIGN_AUTHORITY",
+   "fixture_ref": "FX-GA-08",
+   "evidence_ref": "EV-GA-08",
+   "evidence_producer": "owner-gate fixture pair per gated cell",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "all uncited gate fixtures return OWNER_GATE_REQUIRED with state unchanged and all cited fixtures advance",
+   "fail_rule": "any gated cell advances with zero owner decisions cited"
+  },
+  {
+   "id": "GA-09",
+   "predicate": "three consecutive no-progress evaluations for one cell halt the loop: the fixture measures halt_at_evaluation less than or equal to 3, notification_count equals 1, and artifact_count after halt equals 0",
+   "source_ref": "SRC-307-OD",
+   "decision_ref": "DESIGN_TERMINAL_ADMISSION",
+   "fixture_ref": "FX-GA-09",
+   "evidence_ref": "EV-GA-09",
+   "evidence_producer": "no-progress halt fixture replaying a blocked cell",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "the fixture measures halt at or before evaluation 3 with exactly 1 notification and 0 artifacts afterward",
+   "fail_rule": "the loop exceeds 3 evaluations, emits more than 1 notification, or artifact_count after halt is nonzero"
+  },
+  {
+   "id": "GA-10",
+   "predicate": "every transition evidence record re-derives on readback: the fixture re-hashes each recorded artifact and a mismatch blocks the transition with typed reason EVIDENCE_NOT_REDERIVABLE",
+   "source_ref": "SRC-RUNBOOK-V1",
+   "decision_ref": "DESIGN_TRACE",
+   "fixture_ref": "FX-GA-10",
+   "evidence_ref": "EV-GA-10",
+   "evidence_producer": "evidence identity fixture with one intact and one mutated evidence record",
+   "proof_tier": "first_implementation_fixture_commitment",
+   "pass_rule": "the unchanged entry re-hashes equal and passes; the mutated entry returns EVIDENCE_NOT_REDERIVABLE and blocks",
+   "fail_rule": "a mutated evidence digest passes readback or an unchanged digest blocks"
+  }
+ ],
+ "fixtures": [
+  {
+   "id": "FX-GA-01",
+   "predicate_ref": "GA-01",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-01",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-02",
+   "predicate_ref": "GA-02",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-02",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-03",
+   "predicate_ref": "GA-03",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-03",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-04",
+   "predicate_ref": "GA-04",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-04",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-05",
+   "predicate_ref": "GA-05",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-05",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-06",
+   "predicate_ref": "GA-06",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-06",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-07",
+   "predicate_ref": "GA-07",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-07",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-08",
+   "predicate_ref": "GA-08",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-08",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-09",
+   "predicate_ref": "GA-09",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-09",
+   "fixture_kind": "first_implementation_commitment"
+  },
+  {
+   "id": "FX-GA-10",
+   "predicate_ref": "GA-10",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "expected": "PASS",
+   "evidence_ref": "EV-GA-10",
+   "fixture_kind": "first_implementation_commitment"
+  }
+ ],
+ "traceability": {
+  "predicate_registry_digest": "sha256:ec75485ec8184946f30959dfd832577bae743d18cc4cc2e07a88b4db34b70cbb",
+  "edges": [
+   {
+    "source_ref": "SRC-CELL-GRAPH-V1",
+    "decision_ref": "DESIGN_STRUCTURE",
+    "predicate_ref": "GA-01",
+    "fixture_ref": "FX-GA-01",
+    "evidence_ref": "EV-GA-01"
+   },
+   {
+    "source_ref": "SRC-A5B-AMENDMENT",
+    "decision_ref": "DESIGN_ADMISSION",
+    "predicate_ref": "GA-02",
+    "fixture_ref": "FX-GA-02",
+    "evidence_ref": "EV-GA-02"
+   },
+   {
+    "source_ref": "SRC-RUNBOOK-V1",
+    "decision_ref": "DESIGN_STRUCTURE",
+    "predicate_ref": "GA-03",
+    "fixture_ref": "FX-GA-03",
+    "evidence_ref": "EV-GA-03"
+   },
+   {
+    "source_ref": "SRC-RUNBOOK-V1",
+    "decision_ref": "DESIGN_TERMINAL_ADMISSION",
+    "predicate_ref": "GA-04",
+    "fixture_ref": "FX-GA-04",
+    "evidence_ref": "EV-GA-04"
+   },
+   {
+    "source_ref": "SRC-307-HANDOFF",
+    "decision_ref": "DESIGN_STRUCTURE",
+    "predicate_ref": "GA-05",
+    "fixture_ref": "FX-GA-05",
+    "evidence_ref": "EV-GA-05"
+   },
+   {
+    "source_ref": "SRC-307-HANDOFF",
+    "decision_ref": "DESIGN_AUTHORITY",
+    "predicate_ref": "GA-06",
+    "fixture_ref": "FX-GA-06",
+    "evidence_ref": "EV-GA-06"
+   },
+   {
+    "source_ref": "SRC-307-BODY",
+    "decision_ref": "DESIGN_AUTHORITY",
+    "predicate_ref": "GA-07",
+    "fixture_ref": "FX-GA-07",
+    "evidence_ref": "EV-GA-07"
+   },
+   {
+    "source_ref": "SRC-307-OD",
+    "decision_ref": "DESIGN_AUTHORITY",
+    "predicate_ref": "GA-08",
+    "fixture_ref": "FX-GA-08",
+    "evidence_ref": "EV-GA-08"
+   },
+   {
+    "source_ref": "SRC-307-OD",
+    "decision_ref": "DESIGN_TERMINAL_ADMISSION",
+    "predicate_ref": "GA-09",
+    "fixture_ref": "FX-GA-09",
+    "evidence_ref": "EV-GA-09"
+   },
+   {
+    "source_ref": "SRC-RUNBOOK-V1",
+    "decision_ref": "DESIGN_TRACE",
+    "predicate_ref": "GA-10",
+    "fixture_ref": "FX-GA-10",
+    "evidence_ref": "EV-GA-10"
+   }
+  ]
+ },
+ "failure_threat_recovery": [
+  {
+   "id": "FT-GA-01",
+   "specimen": "destructive_operation_attempt",
+   "cause": "a cell's work appears to require delete, reset, force-kill, fleet restart, schema migration, or secret access",
+   "trigger": "implementation discovers a destructive dependency",
+   "protected_invariant": "owner verbatim: destructive operations stop immediately",
+   "detection": "the operation class matches the frozen forbidden list before execution",
+   "containment": "typed immediate stop published once to issue 307 with current position and resume condition",
+   "recovery": "owner decides; work resumes only under a cited fresh decision",
+   "rollback": "none; nothing destructive executed",
+   "evidence_ref": "EV-FT-GA-01",
+   "residual_risk": "novel destructive classes outside the list; mitigated by fail-closed classification",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-02",
+   "specimen": "infinite_loop",
+   "cause": "a cell loop repeats the same evaluation without state change",
+   "trigger": "blocked dependency or misconfiguration",
+   "protected_invariant": "owner verbatim: loops stop immediately; halt bound 3 (GA-09)",
+   "detection": "consecutive no-progress counter over distinct evidence digests reaches 3",
+   "containment": "typed halt with exactly one escalation and zero further artifacts",
+   "recovery": "authorized resume after the blocker clears",
+   "rollback": "none; halting mutates nothing",
+   "evidence_ref": "EV-FT-GA-02",
+   "residual_risk": "flapping progress signals; mitigated by counting distinct evidence digests only",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-03",
+   "specimen": "citation_without_hash",
+   "cause": "an authority is cited by prose or bare URL without a raw sha256",
+   "trigger": "a decision exists locally or in memory but not as a citable comment",
+   "protected_invariant": "citation contract (GA-07): URL plus sha256 or the citation is void",
+   "detection": "citation validator returns CITATION_UNCITABLE",
+   "containment": "the citing transition blocks with zero effects",
+   "recovery": "publish the decision to the control source, then cite it with both fields",
+   "rollback": "none; nothing advanced on the void citation",
+   "evidence_ref": "EV-FT-GA-03",
+   "residual_risk": "a published comment later edited; mitigated because the recorded sha256 no longer matches on readback",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-04",
+   "specimen": "owner_gate_bypass",
+   "cause": "an owner-gate cell attempts to advance on momentum or delegated claim",
+   "trigger": "schedule pressure or a non-owner approval mistaken for authority",
+   "protected_invariant": "A6/A7/A10 advance only on a cited fresh owner decision (GA-08)",
+   "detection": "gate check finds no citable owner decision for the exact cell",
+   "containment": "typed OWNER_GATE_REQUIRED block with state unchanged",
+   "recovery": "request the decision once, then wait halted",
+   "rollback": "none; the gate blocked before any effect",
+   "evidence_ref": "EV-FT-GA-04",
+   "residual_risk": "a real but stale decision reused; mitigated by freshness binding in the citation",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-05",
+   "specimen": "adapter_semantic_drift",
+   "cause": "one adapter starts translating semantics instead of transport",
+   "trigger": "adapter change lands without symmetry re-verification",
+   "protected_invariant": "one canonical semantic core (GA-05)",
+   "detection": "adapter symmetry check finds digest or semantics divergence",
+   "containment": "the diverging adapter is non-authoritative; its transitions block",
+   "recovery": "restore transport-only translation and re-verify symmetry",
+   "rollback": "revert the adapter change",
+   "evidence_ref": "EV-FT-GA-05",
+   "residual_risk": "drift in surfaces without fixtures; mitigated by a fixture per adapter capability",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-06",
+   "specimen": "aun_state_substitution",
+   "cause": "AUN queue close, ACK, or done is treated as cell completion",
+   "trigger": "operator or executor reads adapter state as progress",
+   "protected_invariant": "AUN transports; it never terminalizes (GA-06)",
+   "detection": "lifecycle validator rejects adapter-state transitions with a typed reason",
+   "containment": "cell state unchanged; the event is recorded as transport evidence only",
+   "recovery": "the effect predicate must be measured for real advancement",
+   "rollback": "none; no state was mutated",
+   "evidence_ref": "EV-FT-GA-06",
+   "residual_risk": "human reporting may still cite ACKs; reports without effect evidence carry no authority",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-07",
+   "specimen": "evidence_loss",
+   "cause": "a transition evidence artifact becomes unreadable or mutated",
+   "trigger": "storage loss or edit after recording",
+   "protected_invariant": "evidence re-derivability (GA-10)",
+   "detection": "readback re-hash differs from the recorded digest",
+   "containment": "the dependent transition blocks with EVIDENCE_NOT_REDERIVABLE",
+   "recovery": "re-derive from the source artifact or re-produce the evidence",
+   "rollback": "revert the dependent state until evidence re-derives",
+   "evidence_ref": "EV-FT-GA-07",
+   "residual_risk": "simultaneous source loss; mitigated by publishing evidence to issue 307",
+   "owner": "semantic_core"
+  },
+  {
+   "id": "FT-GA-08",
+   "specimen": "order_violation",
+   "cause": "a later cell starts before an earlier cell closes, including A5b substituting A1",
+   "trigger": "parallel enthusiasm or misread of the amendment",
+   "protected_invariant": "exact_order is the only advancement order; A5b is nonterminal (GA-01, GA-02)",
+   "detection": "order checker finds an open predecessor for the starting cell",
+   "containment": "typed ORDER_VIOLATION block with zero effects",
+   "recovery": "close the predecessor or obtain a cited owner waiver",
+   "rollback": "none; the violating start was blocked",
+   "evidence_ref": "EV-FT-GA-08",
+   "residual_risk": "waivers accumulating; each waiver requires its own citable decision",
+   "owner": "semantic_core"
+  }
+ ],
+ "operations_migration_rollback": {
+  "operation": "the runbook and graph are docs-only artifacts versioned in git; validators ship under later cell handoffs pinned to this pack digest",
+  "migration": "no runtime or data migration exists in this design; A5b's conditional migration case is typed-stopped to an owner gate by design",
+  "rollback": "reverting the design branch restores the prior docs state; no runtime effect exists to roll back",
+  "evidence_ref": "EV-GA-01"
+ },
+ "delivery_handoff": {
+  "goal": "give every Goal A cell one shared machine-enforceable advancement semantics so A1 can start under a bounded handoff",
+  "definition_of_done": [
+   "GA-01..GA-10 fixture suites implemented and green under the first consuming cell handoff",
+   "the independent gate on this pack passes with P0 and P1 at zero",
+   "the candidate receipt on issue 307 records commit, path, raw sha256, and pack digest"
+  ],
+  "plan": [
+   "1: independent gate on this pack (reserved checker qa)",
+   "2: after gate pass, orchestrator issues the A1 bounded handoff citing this pack digest",
+   "3: lifecycle validators are built as part of the first consuming cell and re-used by all later cells"
+  ],
+  "checklist": [
+   "every advancement cites this pack digest and the graph digest",
+   "no cell starts out of order without a cited waiver",
+   "every closure carries maker-history-external audit evidence"
+  ],
+  "tests": [
+   "node /Users/yuji/.claude/skills/applying-design-flow/scripts/validate-design-pack.mjs --validate-pack docs/design/goal-a-execution-runbook-v1.design-pack.json",
+   "jq -e '.exact_order == [\"A1\",\"A2\",\"A3\",\"A4\",\"A5\",\"A5b\",\"A6\",\"A7\",\"A8\",\"A9\",\"A10\",\"A11\"]' docs/design/goal-a-derived-cell-graph-v1.json",
+   "jq -e '[.cells[] | select(.id==\"A5b\") | .terminal_substitution_forbidden] == [true]' docs/design/goal-a-derived-cell-graph-v1.json"
+  ],
+  "test_environment_requirements": "offline deterministic checks only; no DB, no AUN, no fleet access",
+  "trace_refs": [
+   "GA-01",
+   "GA-02",
+   "GA-03",
+   "GA-04",
+   "GA-05",
+   "GA-06",
+   "GA-07",
+   "GA-08",
+   "GA-09",
+   "GA-10"
+  ],
+  "allowed_paths": [
+   "docs/design/goal-a-execution-runbook-v1.md",
+   "docs/design/goal-a-execution-runbook-v1.design-pack.json",
+   "docs/design/goal-a-derived-cell-graph-v1.json"
+  ],
+  "allowed_operations": [
+   "author the three design artifacts",
+   "run offline validators",
+   "open one design-only PR",
+   "publish one candidate receipt on issue 307"
+  ],
+  "forbidden_paths": [
+   "everything outside the three allowed design paths"
+  ],
+  "forbidden_operations": [
+   "A1 implementation",
+   "runtime, DB, fleet, config, or secret mutation",
+   "merge, Ready, deploy, release",
+   "self-gate"
+  ],
+  "stop_conditions": [
+   "subject or baseline digest mismatch",
+   "any change requires a path outside the three allowed paths",
+   "destructive operation class detected",
+   "no-progress halt bound reached"
+  ],
+  "required_evidence": [
+   "validator PASS transcript",
+   "two byte-identical eval runs",
+   "PR URL with exact head and path digests",
+   "candidate receipt URL on issue 307"
+  ],
+  "subject_identity": {
+   "pack_id": "DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001",
+   "generation": 1,
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0"
+  },
+  "independent_audit_boundary": "the gate actor must be outside maker history [arc/control_artifact_author]; reserved checker is qa (evidence_audit_gate)",
+  "owner_decision_boundary": "A1 start after gate pass is already owner-authorized (SRC-307-OD); owner gates A6, A7, A10, conditional A5b, waivers, and halt resume each require their own cited decision",
+  "activation": "IMPLEMENTATION_INACTIVE: this pack authorizes design artifacts only; each cell requires its own bounded handoff"
+ },
+ "lens_results": [
+  {
+   "lens_id": "L01",
+   "verdict": "PASS",
+   "findings": [
+    "owner outcome verbatim-bound; prerequisites 1-5, non-goals, assumptions, unknowns, inventions separated and sourced"
+   ],
+   "predicate_refs": [
+    "GA-01"
+   ],
+   "evidence_refs": [
+    "EV-307-OD"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L02",
+   "verdict": "PASS",
+   "findings": [
+    "all advancement decisions are deterministic validator checks; LLM output decides nothing"
+   ],
+   "predicate_refs": [
+    "GA-04"
+   ],
+   "evidence_refs": [
+    "EV-RUNBOOK-V1"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L03",
+   "verdict": "PASS",
+   "findings": [
+    "entities, closed value sets, invariants, commands, ownership, and the 5-state machine with invalid transitions defined and sourced"
+   ],
+   "predicate_refs": [
+    "GA-03"
+   ],
+   "evidence_refs": [
+    "EV-RUNBOOK-V1"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L04",
+   "verdict": "PASS",
+   "findings": [
+    "10 predicates, 10 fixtures, 10 edges, 100 percent trace with executable producers"
+   ],
+   "predicate_refs": [
+    "GA-01",
+    "GA-10"
+   ],
+   "evidence_refs": [
+    "EV-GA-01"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L05",
+   "verdict": "PASS",
+   "findings": [
+    "8 failure specimens including both owner-named stop classes (destructive op, infinite loop) plus citation, gate-bypass, drift, substitution, evidence-loss, order classes"
+   ],
+   "predicate_refs": [
+    "GA-09"
+   ],
+   "evidence_refs": [
+    "EV-FT-GA-01"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L06",
+   "verdict": "PASS",
+   "findings": [
+    "owner gates enumerated; maker history preserved; reserved checker qa is outside maker history"
+   ],
+   "predicate_refs": [
+    "GA-08"
+   ],
+   "evidence_refs": [
+    "EV-307-OD"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L07",
+   "verdict": "PASS",
+   "findings": [
+    "delivery handoff complete and IMPLEMENTATION_INACTIVE; every stop has a reachable resolution"
+   ],
+   "predicate_refs": [
+    "GA-06"
+   ],
+   "evidence_refs": [
+    "EV-307-HANDOFF"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L08",
+   "verdict": "PASS",
+   "findings": [
+    "three adapters carry the identical core digest; transport-only translation; AUN boundary explicit"
+   ],
+   "predicate_refs": [
+    "GA-05",
+    "GA-06"
+   ],
+   "evidence_refs": [
+    "EV-307-HANDOFF"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L09",
+   "verdict": "PASS",
+   "findings": [
+    "frozen issue body and baseline preserved; changes only via citable amendments"
+   ],
+   "predicate_refs": [
+    "GA-01"
+   ],
+   "evidence_refs": [
+    "EV-307-BODY"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L10",
+   "verdict": "PASS",
+   "findings": [
+    "the citation contract makes every authority machine-verifiable, closing design hole C2 and the 315-tick incident class"
+   ],
+   "predicate_refs": [
+    "GA-07"
+   ],
+   "evidence_refs": [
+    "EV-307-BODY"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L11",
+   "verdict": "PASS",
+   "findings": [
+    "measured AUN transport realities covered as boundary tolerances without leaking into cell semantics"
+   ],
+   "predicate_refs": [
+    "GA-06"
+   ],
+   "evidence_refs": [
+    "EV-307-HANDOFF"
+   ],
+   "required_resolution": "none"
+  },
+  {
+   "lens_id": "L12",
+   "verdict": "PASS",
+   "findings": [
+    "reuses frozen roadmap decisions and Shirube vocabulary; no new functions or review layers"
+   ],
+   "predicate_refs": [
+    "GA-02"
+   ],
+   "evidence_refs": [
+    "EV-A5B-AMENDMENT"
+   ],
+   "required_resolution": "none"
+  }
+ ],
+ "gate_results": [
+  {
+   "gate_id": "G1",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-307-OD",
+    "EV-307-BODY"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G2"
+  },
+  {
+   "gate_id": "G2",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-307-HANDOFF"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G3"
+  },
+  {
+   "gate_id": "G3",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-CELL-GRAPH-V1",
+    "EV-RUNBOOK-V1"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G4"
+  },
+  {
+   "gate_id": "G4",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-GA-01",
+    "EV-GA-10"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G5"
+  },
+  {
+   "gate_id": "G5",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-FT-GA-01",
+    "EV-FT-GA-02"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G6"
+  },
+  {
+   "gate_id": "G6",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-307-OD"
+   ],
+   "unresolved_items": [],
+   "next_transition": "G7"
+  },
+  {
+   "gate_id": "G7",
+   "verdict": "PASS",
+   "reason_codes": [],
+   "evidence_refs": [
+    "EV-307-HANDOFF"
+   ],
+   "unresolved_items": [],
+   "next_transition": "INDEPENDENT_GATE"
+  }
+ ],
+ "next_action": {
+  "actor_agent_id": "qa",
+  "active_function": "evidence_audit_gate",
+  "action": "Independently gate DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001 generation 1 exact bytes: DESIGN_ADMISSION, G1-G7, 12 lenses, prerequisite 1-4 representation, A5b nonterminal rule, citation contract, and the frozen-baseline binding. The gate actor must be outside maker history [arc/control_artifact_author].",
+  "handoff_method": "read the committed exact bytes at the published PR head, verify raw sha256 and pack digest, publish the gate result on issue 307",
+  "input_refs": [
+   "SRC-307-OD",
+   "SRC-307-HANDOFF",
+   "SRC-307-BODY",
+   "SRC-A5B-AMENDMENT"
+  ],
+  "scope": "design gate only; no implementation, merge, or protected effect",
+  "deliverable": "one immutable gate result comment on issue 307",
+  "completion_evidence": "gate result URL plus API-read raw-body sha256",
+  "completion_evidence_destination": "https://github.com/watchout/agent-memory/issues/307",
+  "blocking": true,
+  "stop_reason": "AWAITING_INDEPENDENT_DESIGN_GATE",
+  "retry_policy": "one corrective generation bounded to exact blocking findings; no unchanged resubmission; no automatic retry",
+  "expiry": "2026-09-02T00:00:00Z",
+  "escalation": "arc publishes one owner decision request on issue 307 if the gate cannot run; one notification then stop",
+  "authorized_exhaustion_disposition": "keep issue 307 active; publish typed exhaustion; no implementation"
+ },
+ "pack_digest": "sha256:93bf3c4c8c135ae7426928578e2b641efc8dc12710e357207bb251316f7a148d",
+ "evidence_registry": [
+  {
+   "id": "EV-307-BODY",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "readback_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-307-OD",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf",
+   "readback_digest": "sha256:e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422741627",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-307-HANDOFF",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:ee69f832d5f5ebda8f6ca7c07eb593f4164c424d5c624270328ef72ded9ddc45",
+   "readback_digest": "sha256:ee69f832d5f5ebda8f6ca7c07eb593f4164c424d5c624270328ef72ded9ddc45",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-A5B-AMENDMENT",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0",
+   "readback_digest": "sha256:b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-SHIRUBE-POLICY",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:617951a0744f81dea233525c9edf4e923367ea5aa62abab569be2868d0764ba9",
+   "readback_digest": "sha256:617951a0744f81dea233525c9edf4e923367ea5aa62abab569be2868d0764ba9",
+   "evidence_ref": "file:/Users/yuji/Developer/iyasaka-org/docs/shirube/shirube-v3-runtime-policy.md",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-FUNCTION-BINDINGS",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:422248288a16e702f78f25ba9d0d49b53eb50a28154a5638c02eb3b02bfc65e0",
+   "readback_digest": "sha256:422248288a16e702f78f25ba9d0d49b53eb50a28154a5638c02eb3b02bfc65e0",
+   "evidence_ref": "file:/Users/yuji/Developer/iyasaka-org/docs/shirube/function-bindings.yaml",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-RUNBOOK-V1",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:2db0324fe1104b3879689ced3150cb882e3d1b07c8b2c7cd4da5dd5047d0b6e4",
+   "readback_digest": "sha256:2db0324fe1104b3879689ced3150cb882e3d1b07c8b2c7cd4da5dd5047d0b6e4",
+   "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.md",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-CELL-GRAPH-V1",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535",
+   "readback_digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535",
+   "evidence_ref": "repo:docs/design/goal-a-derived-cell-graph-v1.json",
+   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
+   "status": "VERIFIED"
+  },
+  {
+   "id": "EV-GA-01",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:5d9345ad703ee9f8998b2b803f045c7bcee6980637c9aef76960fe6313962a61",
+   "readback_digest": "sha256:5d9345ad703ee9f8998b2b803f045c7bcee6980637c9aef76960fe6313962a61",
+   "evidence_ref": "fixture:evidence:EV-GA-01",
+   "receipt_ref": "fixture:receipt:EV-GA-01",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-02",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:53a42633cd16b8746dc674f6184ffa592320a8e4509a3d65a850c64a596bdd11",
+   "readback_digest": "sha256:53a42633cd16b8746dc674f6184ffa592320a8e4509a3d65a850c64a596bdd11",
+   "evidence_ref": "fixture:evidence:EV-GA-02",
+   "receipt_ref": "fixture:receipt:EV-GA-02",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-03",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:91c1054d3d1f01ebea46d153ae45341efba0ad56facb04b6faf6e2ed8571ebfa",
+   "readback_digest": "sha256:91c1054d3d1f01ebea46d153ae45341efba0ad56facb04b6faf6e2ed8571ebfa",
+   "evidence_ref": "fixture:evidence:EV-GA-03",
+   "receipt_ref": "fixture:receipt:EV-GA-03",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-04",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:98c29564533188943e78060646c3cc55225a3d2cf8ad1447183857f5c8062341",
+   "readback_digest": "sha256:98c29564533188943e78060646c3cc55225a3d2cf8ad1447183857f5c8062341",
+   "evidence_ref": "fixture:evidence:EV-GA-04",
+   "receipt_ref": "fixture:receipt:EV-GA-04",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-05",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:9d539647d0a638ae0896cac084e1dc77939dcfbf61b9ad557ca050fc4c17efae",
+   "readback_digest": "sha256:9d539647d0a638ae0896cac084e1dc77939dcfbf61b9ad557ca050fc4c17efae",
+   "evidence_ref": "fixture:evidence:EV-GA-05",
+   "receipt_ref": "fixture:receipt:EV-GA-05",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-06",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:736b52ca65c8d26d477088fba3713afed0d08aa20435f24ef46f0e8e6e84b586",
+   "readback_digest": "sha256:736b52ca65c8d26d477088fba3713afed0d08aa20435f24ef46f0e8e6e84b586",
+   "evidence_ref": "fixture:evidence:EV-GA-06",
+   "receipt_ref": "fixture:receipt:EV-GA-06",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-07",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:7030f478c9155303bf839f76e2bcd36cc942acc7134f7f673a957fd3ff035fa7",
+   "readback_digest": "sha256:7030f478c9155303bf839f76e2bcd36cc942acc7134f7f673a957fd3ff035fa7",
+   "evidence_ref": "fixture:evidence:EV-GA-07",
+   "receipt_ref": "fixture:receipt:EV-GA-07",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-08",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:18fc137d95019b08406ac14301e44125c7af09a6ba9fdfb0eee98abfeea8a70b",
+   "readback_digest": "sha256:18fc137d95019b08406ac14301e44125c7af09a6ba9fdfb0eee98abfeea8a70b",
+   "evidence_ref": "fixture:evidence:EV-GA-08",
+   "receipt_ref": "fixture:receipt:EV-GA-08",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-09",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:6c44dd092a789d904041c9c6a6de04cb4ba945507c2eee06324ec116c482d14a",
+   "readback_digest": "sha256:6c44dd092a789d904041c9c6a6de04cb4ba945507c2eee06324ec116c482d14a",
+   "evidence_ref": "fixture:evidence:EV-GA-09",
+   "receipt_ref": "fixture:receipt:EV-GA-09",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-GA-10",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:9899fa1347d271bd60853b55dbb1fc79fe3d9b1bb644df26de5791286af21a58",
+   "readback_digest": "sha256:9899fa1347d271bd60853b55dbb1fc79fe3d9b1bb644df26de5791286af21a58",
+   "evidence_ref": "fixture:evidence:EV-GA-10",
+   "receipt_ref": "fixture:receipt:EV-GA-10",
+   "status": "VERIFIED",
+   "fixture_scope": "first_implementation_fixture_commitment"
+  },
+  {
+   "id": "EV-FT-GA-01",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:3f74c93ea2c4a06074b032dca9fcf5ea8434f579a5bc2a7dc102ff5b8c232335",
+   "readback_digest": "sha256:3f74c93ea2c4a06074b032dca9fcf5ea8434f579a5bc2a7dc102ff5b8c232335",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-01",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-01",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-02",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:e4f6100f9d3a145366511d7696398083edaba2c8e804404aa3b1b8ccc3188916",
+   "readback_digest": "sha256:e4f6100f9d3a145366511d7696398083edaba2c8e804404aa3b1b8ccc3188916",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-02",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-02",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-03",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:5c023cd44dbd1005c37f76790fcf6c57be34f219ab5a80706c626cfef89ed4d5",
+   "readback_digest": "sha256:5c023cd44dbd1005c37f76790fcf6c57be34f219ab5a80706c626cfef89ed4d5",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-03",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-03",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-04",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:16e3e08ce071d802e452b145a309984436e600eed1b40911360c97f6118306ac",
+   "readback_digest": "sha256:16e3e08ce071d802e452b145a309984436e600eed1b40911360c97f6118306ac",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-04",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-04",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-05",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:50d1e796ffa812a95c9fcb6602dd6ba0ce4f5cd48023ca68ed42d783393a3e6f",
+   "readback_digest": "sha256:50d1e796ffa812a95c9fcb6602dd6ba0ce4f5cd48023ca68ed42d783393a3e6f",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-05",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-05",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-06",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:48b7af28d0c757fedd91933149ab74aa450d02eb6df34f620f654f6582588508",
+   "readback_digest": "sha256:48b7af28d0c757fedd91933149ab74aa450d02eb6df34f620f654f6582588508",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-06",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-06",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-07",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:d82d28b7f97687b4183745b2de2b6e3ef3c43034877feb1db05902031f60be6e",
+   "readback_digest": "sha256:d82d28b7f97687b4183745b2de2b6e3ef3c43034877feb1db05902031f60be6e",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-07",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-07",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  },
+  {
+   "id": "EV-FT-GA-08",
+   "subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+   "declared_digest": "sha256:987e6a8f1ce82ce4b42f490f8b0b19f691f4b9571b2560b5e702fe83c102d392",
+   "readback_digest": "sha256:987e6a8f1ce82ce4b42f490f8b0b19f691f4b9571b2560b5e702fe83c102d392",
+   "evidence_ref": "fixture:evidence:EV-FT-GA-08",
+   "receipt_ref": "fixture:receipt:EV-FT-GA-08",
+   "status": "VERIFIED",
+   "fixture_scope": "failure_specimen"
+  }
+ ]
+}
