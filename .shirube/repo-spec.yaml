@@ -2,7 +2,7 @@ schema_version: shirube-repo-spec/v1
 repo: "watchout/agent-memory"
 repo_id: "watchout/agent-memory"
 owner: "watchout"
-canonical_core: "watchout/agent-memory@<PINNED_TARGET_HEAD>"
+canonical_core: "watchout/agent-memory@a1d753e070122c8b8673a49a9aaa48321ce87931"
 purpose: >
   Adopt Shirube Rapid/Lite as a report-only control-plane overlay for Kusabi
   while keeping product runtime, API, DB, package, deploy, required checks, branch
