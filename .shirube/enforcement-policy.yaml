@@ -33,6 +33,15 @@ graduation:
     - https://github.com/watchout/agent-memory/actions/runs/32391453168
     - https://github.com/watchout/agent-memory/actions/runs/32397085709
   required_check_activation: false
+graduation_provenance:
+  established_mode: ci_hard_block
+  exact_head_sha: f5c604cce7976acc7176b5c3115bc4b2e5a9f3fc
+  control_source_ref:
+    url: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5418793071
+    raw_body_sha256: 5c8baa5a321938edf8228467732e9e5768daf344d20a770af2af59e9e32095f4
+  exact_subject_projection_ref:
+    url: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5423695925
+    raw_body_sha256: 5a91c56580ebe1f39d475615aa04eb7e36b617b39048347b29a9213bee803fc4
 promotion:
   from: ci_hard_block
   next:
