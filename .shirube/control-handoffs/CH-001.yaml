@@ -3,6 +3,14 @@ mode: rapid-lite
 profile: hotel-lite
 control_handoff_id: CH-001
 parent_ssot: watchout/agent-memory#301
+successor_authority:
+  control_source_ref:
+    url: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5437151406
+    raw_body_sha256: 637bce22f5a7ee426c99e67f5f3a045ebf69f50f7666a4b3c79a723d416dfb02
+  frozen_definition_ref:
+    url: https://github.com/watchout/ai-dev-framework/issues/576#issuecomment-5436151448
+    raw_body_sha256: 4113f1ceb5d901914cd371ba2c550ad392e7e52789da05a2e07c2fc2282e907c
+  scope: Materialize only the AC-001 role source selected by the fixed-five owner mapping.
 matrix_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
 matrix_location_in_framework: .shirube/gate-contracts/shirube-v3-rapid-lite-gate-contract-matrix.yaml
 framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
@@ -23,6 +31,7 @@ protected_surfaces:
 rps_scope:
   shirube_owns:
     - Report-only control-plane overlay metadata in this repository.
+    - The AC-001 role-source selector in .framework/config.json; it selects recipients but grants no authority.
   shirube_does_not_own:
     - Runtime/API/DB/product behavior in this adoption PR.
     - Required checks, branch protection, rulesets, deploy, production, or package files in this adoption PR.
@@ -30,7 +39,7 @@ cell:
   CELL-ID: CELL-KUSABI-SHIRUBE-ADOPTION-001
   cell_type: adoption_overlay
   risk_class: R2
-  goal: Install the minimal Shirube Rapid/Lite overlay for Kusabi.
+  goal: Install the minimal Shirube Rapid/Lite overlay and materialize the bounded AC-001 role source for Kusabi.
   non_scope:
     - runtime code
     - API handlers
@@ -41,10 +50,12 @@ cell:
     - branch protection or ruleset mutation
     - production or deploy changes
     - external repository mutation
+    - authority grant, enrollment, activation, projection, or protected runtime effect
   allowed_paths:
     - .shirube/**
     - docs/shirube/**
     - .github/workflows/shirube-rapid-lite-gates-report.yml
+    - .framework/config.json
   forbidden_paths:
     - scripts/shirube/**
     - src/**
@@ -82,7 +93,7 @@ cell:
     - exact-head owner decision missing before merge
     - control-state completeness blocks
 implementation_boundary:
-  summary: Render and commit target repo overlay metadata only.
+  summary: Render target repo overlay metadata and the owner-authorized AC-001 role-source config only.
   expected_pr_count: 1
   forbidden_operations:
     - copy ADF scripts into target repo
@@ -97,6 +108,7 @@ validation:
   required_commands:
     - git diff --check
     - YAML parse for .shirube/**/*.yaml
+    - jq -e . .framework/config.json
   required_evidence:
     - PR_head_SHA
     - changed_files
