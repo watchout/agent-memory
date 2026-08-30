@@ -91,7 +91,83 @@ The following tools are preserved by V2 planning docs:
 | `trusted_instruction` | control-plane-authored host instruction | Shell-free, no raw context interpolation | Must not be copied from stored text. |
 | `untrusted_context` | chat, file, web, queue, external source context | Data-only | Never becomes argv/env/path/branch/flag content. |
 
-## 7. Store/backend boundary
+## 7. Decision and claim citation contract
+
+Frozen requirement. Control source: #304, CTO verdict
+`CH-CTO-KUSABI-V2-DESIGN-VERDICT-20260817-002`, finding C2. Rule of record:
+`~/.claude/rules/authority-and-waiting.md` R1, in force since 2026-08-16.
+
+### 7.1 Stored decisions and claims are evidence, never authority
+
+A row in `decisions`, `task_states` or `knowledge` is a mirror of something that
+was decided elsewhere. It records that a decision exists. It does not make the
+decision binding, and no amount of retrieval upgrades it.
+
+Authority lives in the control source: the GitHub issue or pull request of the
+case, at a published comment. A decision that has not been published there is not
+yet authority, however complete its stored copy looks. This is not a theoretical
+boundary — on 2026-08-16 a stored owner decision was real, unexpired, present in
+both the local file and this store, and absent from the control source. An
+independent audit seat read the control source, found nothing, and blocked
+correctly; an automated executor spent 315 ticks on that single gap.
+
+### 7.2 Authority citation requires `control_source_ref`
+
+Any read path whose result is used to justify an action must take a
+`control_source_ref` and must verify it:
+
+```ts
+interface ControlSourceRef {
+  url: string;     // exact published location, e.g. .../issues/602#issuecomment-5313813392
+  sha256: string;  // digest of the published body bytes at that location
+}
+```
+
+The `url` identifies a single published comment, not an issue or a pull request as
+a whole. The `sha256` is taken over the published body, so a later edit of that
+comment is detectable rather than silent.
+
+Evidence-only reads — `get_decisions`, `get_knowledge`, `search_memory`,
+`recover_context`, `restart_pack` — are unchanged and require no ref. They return
+`candidate_memory` and `approved_memory` as evidence. A caller that turns such a
+result into a reason to act has left the evidence path and owes the contract in
+this section.
+
+### 7.3 Missing or mismatched refs fail closed with a typed error
+
+The citing side fails closed. It does not wait for an auditor to catch the gap.
+
+| Condition | Typed error | Behaviour |
+| --- | --- | --- |
+| `control_source_ref` absent on an authority read | `missing_control_source_ref` | Reject the call. Do not return the row with a warning, and do not degrade silently to an evidence-only result. |
+| `url` is not an exact published-comment location | `control_source_ref_not_exact` | Reject the call. |
+| `sha256` does not match the published body | `control_source_ref_digest_mismatch` | Reject the call. The stored copy and the control source have diverged; the divergence is the finding. |
+| Control source unreachable | `control_source_unavailable` | Reject the call. Unreachable is not approved. |
+
+Every one of these is an error, not an empty result. A caller that cannot tell
+"no authority" from "no answer" reproduces the 2026-08-16 failure.
+
+### 7.4 One vocabulary for human authority
+
+`control_source_ref` is the single name and shape for a citation of human
+authority across V2. Where an artifact carries human authority — promotion of
+`candidate_memory` to `approved_memory`, and the human authority reference of a
+promotion event — it carries a `ControlSourceRef`, not a bare string.
+
+The existing `source_refs` and `promotion_evidence_refs` arrays in
+`KUSABI_V2_UAMP_DRAFT_SPEC.md` keep their meaning: they are evidence pointers.
+They stay `string[]` and they never carry authority on their own. A design that
+needs a second name for "the published thing that authorises this" has drifted
+from this contract; `~/.claude/rules/term-discipline.md` applies.
+
+### 7.5 Reference implementation
+
+`codex-aun`'s `validate-owner-decisions.zsh` is the same checker in another
+workspace: it walks every decision record, judges whether each one is citable,
+and exits non-zero if a single record is not. V2 is expected to carry an
+equivalent check rather than to rely on reviewers noticing.
+
+## 8. Store/backend boundary
 
 | Backend | V2 support stance | Claim boundary |
 | --- | --- | --- |
@@ -104,7 +180,7 @@ Known boundary for V2 planning: catch-up log behavior is not yet cross-backend
 complete while PostgreSQL support remains TODO/stub. V2 docs must not claim
 complete catch-up parity until PG implementation and tests exist.
 
-## 8. Recovery artifact boundary
+## 9. Recovery artifact boundary
 
 Structured recovery artifacts are valuable and should be preserved. The V2 rule
 is compatibility-first:
@@ -121,7 +197,7 @@ is compatibility-first:
 | item `redaction_state` | Required for safety evidence. |
 | `promotion_evidence` | Required for `approved_memory`; otherwise downgrade to candidate. |
 
-## 9. Host lifecycle boundary
+## 10. Host lifecycle boundary
 
 Kusabi owns memory and recovery evidence. It does not own all runtime lifecycle.
 
@@ -134,7 +210,7 @@ Kusabi owns memory and recovery evidence. It does not own all runtime lifecycle.
 
 No V2 doc should claim automatic host restart from plain MCP config.
 
-## 10. Future alias/migration design
+## 11. Future alias/migration design
 
 Future aliases should be additive:
 
@@ -147,7 +223,7 @@ Future aliases should be additive:
 | `kusabi-recovery-pack/v1` | Prefer schema alias/version plan; preserve existing schema refs. |
 | `~/.kusabi` | Avoid unless compelling; storage migrations require backup and rollback. |
 
-## 11. Acceptance criteria for this boundary
+## 12. Acceptance criteria for this boundary
 
 This API/data boundary is acceptable when:
 
@@ -156,9 +232,12 @@ This API/data boundary is acceptable when:
 - data classes map to current tables/artifacts;
 - recovery artifact evidence requirements are explicit;
 - host lifecycle ownership is not overstated;
-- future alias/migration is separated from docs-only V2 planning.
+- future alias/migration is separated from docs-only V2 planning;
+- authority citation is contracted: an authority read requires a verified
+  `control_source_ref`, each failure mode has a typed error, and no evidence-only
+  read is described as conferring authority.
 
-## 12. Stop conditions
+## 13. Stop conditions
 
 Stop and create a separate owner-approved migration PR if a change would:
 
@@ -169,4 +248,6 @@ Stop and create a separate owner-approved migration PR if a change would:
 - change schema refs emitted by runtime;
 - modify host lifecycle behavior;
 - broaden ingest or cross-agent reads;
-- treat stored source text as trusted instruction.
+- treat stored source text as trusted instruction;
+- let a stored decision or claim act as authority without a verified
+  `control_source_ref`.

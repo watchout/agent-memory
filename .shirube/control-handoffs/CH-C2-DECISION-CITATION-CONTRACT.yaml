@@ -1,0 +1,116 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-C2-DECISION-CITATION-CONTRACT
+parent_ssot: watchout/agent-memory#304
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313815134
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/304#issuecomment-5313699737
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/304
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces: []
+rps_scope:
+  shirube_owns:
+    - The contract by which a stored decision or claim may be cited as authority in this repository's V2 design set.
+  shirube_does_not_own:
+    - Runtime, API, database, package, deploy, or production behaviour in this cell.
+cell:
+  CELL-ID: C2-DECISION-CITATION-CONTRACT
+  cell_type: defect_repair
+  risk_class: R1
+  goal: Freeze the decision and claim citation contract in the V2 design set so authority cannot be taken from an unpublished mirror.
+  non_scope:
+    - runtime, store, MCP tool and schema changes, which need their own owner-approved migration
+    - C1 and C3 of the same verdict, each tracked as its own PR
+    - the redaction, retention and federation boundaries, which keep their own sections
+    - Phase 4 enterprise identity, which is a separate design lane
+  test_coupling_exempt: documentation-only cell; no src file is touched
+  acceptance_criteria:
+    - KUSABI_V2_API_AND_DATA_BOUNDARY.md states that stored decisions and claims are evidence and never authority on their own.
+    - An authority read requires a control_source_ref of shape {url, sha256}, with the url naming an exact published comment and the sha256 taken over the published body.
+    - Absent, inexact, mismatched and unreachable refs each have a named typed error and reject the call rather than returning a degraded result.
+    - The contract names control_source_ref as the single vocabulary for human authority and keeps source_refs and promotion_evidence_refs as evidence pointers.
+    - KUSABI_V2_UAMP_FIXTURE_CATALOG.md carries a negative fixture for the missing ref and for the digest mismatch.
+    - No file outside docs/v2/** and this cell's Shirube control artifacts is changed.
+  allowed_paths:
+    - docs/v2/**
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-C2-DECISION-CITATION-CONTRACT.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - app/**
+    - api/**
+    - lib/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+  protected_surfaces:
+    declared:
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: false
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a runtime, store or schema change is required to state the contract
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: State the citation contract once in the API and data boundary, and give it two negative fixtures.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm test
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#304
