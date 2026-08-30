@@ -1,0 +1,169 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-S1A-CONTEXT-WINDOW-RESOLUTION
+parent_ssot: watchout/agent-memory#250
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/250#issuecomment-5355362386
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/250#issuecomment-5355676482
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/250
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces:
+  - runtime code
+rps_scope:
+  shirube_owns:
+    - The judgment that turns a measured context reading into a restart band in this repository.
+  shirube_does_not_own:
+    - Database, migration, deploy, workflow, package or restart-execution behaviour in this cell.
+cell:
+  CELL-ID: S1A-CONTEXT-WINDOW-RESOLUTION
+  cell_type: defect_repair
+  risk_class: R1
+  goal: Give the context-threshold chain a working denominator so band stops being unknown, without touching storage or restarting anything.
+  non_scope:
+    - restart_events and any other schema change; that is OG-CTXR-01 and remains gated
+    - writing evidence rows; the judgment is pure and returns a value
+    - rewiring the SessionStart hook or rebuilding any dist
+    - the supervisor and actual restart execution, which are stage S2
+    - package.json, .github/workflows and every host config file
+  test_coupling_exempt: false
+  acceptance_criteria:
+    - src/context-window-resolution.ts resolves a context window in the order env override, marker, model table, and returns exactly one window or an unresolved verdict.
+    - The band ladder keeps the current ratios and separates ok from unknown, so a healthy session is distinguishable from one that could not be judged.
+    - A model id is taken from the structured model field of transcript records, never from a substring search, and a dated id normalizes to its catalog alias.
+    - Every unresolved path names its reason - model_unresolved, context_window_unresolved, context_window_ambiguous, window_table_stale or measured_exceeds_window - and leaves restart_required false.
+    - A measurement above the resolved window declines to judge rather than clamping the ratio to 1 and reporting require.
+    - Fixtures THR-01 through THR-10 run inside src/test.ts, which the CI core-test step already executes, so the checks are a gate rather than a file nothing runs.
+    - No file outside src/ and this cell's Shirube control artifacts is changed.
+  allowed_paths:
+    - src/**
+    - .shirube/control-handoffs/**
+    - .shirube/control-handoffs/CH-S1A-CONTEXT-WINDOW-RESOLUTION.yaml
+  forbidden_paths:
+    - scripts/shirube/**
+    - db/**
+    - migrations/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+    - dist/**
+  protected_surfaces:
+    declared:
+      - runtime code
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: true
+    touched_detail: >-
+      runtime code only. src/context-window-resolution.ts is new and pure; src/test.ts gains
+      an import, a test function and one call. No database, migration, workflow, package or
+      deploy surface is touched.
+  stop_conditions:
+    - changed file outside allowed_paths
+    - forbidden path touched
+    - a schema or migration change becomes necessary to land the judgment
+    - a restart is executed by any code path in this cell
+    - exact-head owner decision missing before merge
+implementation_boundary:
+  summary: Add the pure window-resolution and band judgment with its fixtures; store and restart stay out.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - database or package mutation
+    - runtime restart
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npx tsx src/test.ts
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#250
+design_rule_exceptions:
+  - rule_id: DR-DATA-001
+    scope:
+      - src/test.ts
+    reason: >-
+      The hard-delete patterns this rule matches are pre-existing content of src/test.ts, a
+      4,800-line suite that already exercises deletion paths. This cell adds fixtures to that
+      file and introduces no delete operation: main's copy matches 24 such lines and the added
+      block matches 0. Verified by re-running the same gate with only the new file in scope,
+      which returns zero blockers, isolating both findings to the legacy file.
+    approved_by: kusabi/implementation_executor
+    expires_at: "2026-09-30"
+  - rule_id: DR-CODE-001
+    scope:
+      - src/test.ts
+    reason: >-
+      Duplication in the added block was fixed rather than excepted: the eight repeated
+      judgeContextHealth call shapes were extracted into a local judge helper before this
+      exception was written. The finding persisted afterwards, which localizes it to
+      pre-existing content of the same legacy file, confirmed by the new-file-only gate run
+      above returning zero blockers.
+    approved_by: kusabi/implementation_executor
+    expires_at: "2026-09-30"
+design_rule_notes:
+  - rule_id: DR-ARCH-001
+    scope:
+      - src/context-window-resolution.ts
+    severity: WARN
+    response: >-
+      The required action is to move the domain shape to DB/config or document why source
+      ownership is acceptable. It is acceptable here because CONTEXT_WINDOW_CANDIDATES is a
+      mirror of an external model catalog, not a value this repository owns. The module states
+      the source and its cache date, names the Models API as the live authority, and carries a
+      staleness guard that declines to judge when a measurement exceeds the recorded window
+      rather than clamping. Moving it into the database is exactly what OG-CTXR-01 gates, and
+      a new config file would add a surface this cell is scoped out of.
+  - rule_id: DR-CONFIG-001
+    scope:
+      - src/context-window-resolution.ts
+    severity: WARN
+    response: >-
+      The band ratios and window values are carried in source deliberately: the ratios are
+      unchanged from the values already hardcoded in restart-prepare.ts, so introducing a
+      config surface here would fork one ladder into two. Re-tuning is deferred until the band
+      distribution can be observed, per the design note on issue 250.
