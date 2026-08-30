@@ -71,6 +71,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
 | V1 intent traceability | `docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md` |
 | Naming inventory | `docs/v2/KUSABI_V2_NAMING_SURFACE_INVENTORY.md` |
+| Legacy concept audit | `docs/v2/KUSABI_V2_LEGACY_CONCEPT_AUDIT.md` |
 | Fast-lane policy | `docs/v2/KUSABI_V2_FAST_LANE_POLICY.md` |
 | Feature preservation | `docs/v2/KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md` |
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
