@@ -66,6 +66,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Compliance attestation boundary | `docs/v2/KUSABI_V2_COMPLIANCE_ATTESTATION_BOUNDARY.md` |
 | Recovery score contract | `docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` |
 | Backend parity matrix | `docs/v2/KUSABI_V2_BACKEND_PARITY_MATRIX.md` |
+| API and CLI contract | `docs/v2/KUSABI_V2_API_CLI_CONTRACT.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
