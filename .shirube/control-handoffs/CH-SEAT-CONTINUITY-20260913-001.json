@@ -64,7 +64,8 @@
     "src/test-kusabi-runtime-event-store.ts",
     ".shirube/control-handoffs/CH-SEAT-CONTINUITY-20260913-001.json",
     ".shirube/execution-contexts/seat-continuity-20260913.json",
-    ".shirube/evidence/seat-continuity-machine-evidence.json"
+    ".shirube/evidence/seat-continuity-machine-evidence.json",
+    "src/test-codex-session-start.ts"
   ],
   "forbidden_paths": [
     ".github/**",
@@ -91,7 +92,8 @@
     "actual compiled native delivery and registered MCP lookup",
     "latest attempt invalidation across processes",
     "same seat/project work across providers and cwd",
-    "independent code and evidence verdict"
+    "independent code and evidence verdict",
+    "Actual Linux Node18/20/22 native kernel process/reciprocal pipe tests through existing Codex caller; no parser-only or Mac-only Linux claim"
   ],
   "required_checks": [
     "npm run build",
@@ -141,13 +143,14 @@
     "blocking": true,
     "owner_agent": "codex-cto/reboot_evidence",
     "owner_function": "code_audit_gate",
-    "action": "Independently audit the corrected exact candidate after maker resolves SC3-CA-01 and supplies source evidence.",
+    "action": "Independently audit the exact native kernel collector correction with actual Linux Node18/20/22 and Mac native process/pipe evidence.",
     "handoff_method": "Native collaboration and exact-source gate evidence.",
     "input_refs": [
       "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
       "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650379038",
       "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650788595",
-      "commit:7a9f8774fd4695e625c8ef2f79cbf609f8853136"
+      "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
+      "commit:7d7addf139788547f7a15cf8a77ffe555fb3df5a"
     ],
     "scope": "Independent SC3 source and isolated evidence review only.",
     "deliverable": "Exact-head verdict and prioritized findings.",
@@ -181,5 +184,9 @@
     "latest attempt invalidation across processes",
     "same seat/project work across providers and cwd",
     "independent code and evidence verdict"
-  ]
+  ],
+  "native_kernel_correction_scope_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
+    "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
+  }
 }

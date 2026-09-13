@@ -48,5 +48,14 @@
     "owner_decision_required_for_merge_ready": true,
     "exact_head_required_for_merge_ready": true,
     "llm_final_authority_forbidden": true
+  },
+  "native_kernel_correction_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
+    "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
+  },
+  "current_implementation_subject": {
+    "source_head": "7d7addf139788547f7a15cf8a77ffe555fb3df5a",
+    "source_tree": "27342f7debae1283139ac6b9b9441317536aff21",
+    "linux_CI_and_independent_acceptance": "PENDING"
   }
 }
