@@ -1,0 +1,76 @@
+{
+  "schema_version": "shirube-execution-context/v1",
+  "mode": "bounded_product_implementation",
+  "active_function": "implementation_executor",
+  "active_role": "dev",
+  "primary": {
+    "repo": "watchout/agent-memory",
+    "product": "Kusabi",
+    "work_order": "watchout/agent-memory#321",
+    "pr": "watchout/agent-memory#321"
+  },
+  "control_source_ref": {
+    "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+    "sha256": "068864d3f38656952d4b07ca6669e7547f7bdb17b9f560ad2bae68b5f54227b4"
+  },
+  "control_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651009515",
+    "sha256": "3286a73238a9d9e41069e268be7e5d7fac6c820ca01bf37f203800032adc2847"
+  },
+  "repo_relations": [
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "primary",
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "approve_merge",
+        "self_approve"
+      ]
+    },
+    {
+      "repo": "watchout/agent-comms-mcp",
+      "relation": "control_source",
+      "allowed": [
+        "read",
+        "cite"
+      ],
+      "forbidden": [
+        "implementation_target_in_this_context"
+      ]
+    }
+  ],
+  "common_contract": {
+    "owner_decision_required_for_merge_ready": true,
+    "exact_head_required_for_merge_ready": true,
+    "llm_final_authority_forbidden": true
+  },
+  "native_kernel_correction_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
+    "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
+  },
+  "current_implementation_subject": {
+    "parent_source_head": "e919c6112185a2fe6637ac5d585fb2e65f567f8e",
+    "execution_subject": "Final precommit worktree file bytes listed below; historical tests are not relabeled as a committed-head execution.",
+    "source_file_sha256": {
+      "src/stores/sqlite-store.ts": "8c89435ac70bd0a9f50cb7b02401cec889c98b2289bdc34ee26fa297493ebe8a",
+      "src/test-native-context-delivery.ts": "b0f83a33d004e02983d8e76ff1b2376463b591e9c4c2f107c8a4bc14622280cf",
+      "docs/design/core/SSOT-3_API_CONTRACT.md": "f045a297fdccbc49c44c3925af80fa841ae3aed92191a3f39663da8c0b99c097",
+      "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": "2cdcc90d7a7944bc4a8e0693fae2538b63448b2f11e61c979e7805ae3244ad0f"
+    },
+    "linux_CI_and_independent_acceptance": "PENDING"
+  },
+  "historical_implementation_subject": {
+    "source_head": "7d7addf139788547f7a15cf8a77ffe555fb3df5a",
+    "source_tree": "27342f7debae1283139ac6b9b9441317536aff21",
+    "linux_CI_and_independent_acceptance": "PENDING"
+  },
+  "sqlite_initialization_correction_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5652295616",
+    "sha256": "18ce4332cb5a80e4e75b87dfddc693c51fc9a7b876eb39a10683a9d4fa1281cd"
+  }
+}

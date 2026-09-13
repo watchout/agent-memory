@@ -22,6 +22,194 @@
     "forbidden_effects"
   ],
   "properties": {
+    "native_invocation_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "verified",
+        "argv_sha256",
+        "binding_source_ref_sha256",
+        "workspace_sha256",
+        "configuration_sha256",
+        "trust_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "native-invocation-binding/v1"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "argv_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "binding_source_ref_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "workspace_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "configuration_sha256": {
+          "type": "null"
+        },
+        "trust_status": {
+          "const": "native-invocation-only"
+        }
+      }
+    },
+    "native_context_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "phase",
+        "attempt_started_at",
+        "hook_pid",
+        "hook_started_at",
+        "provider_pid",
+        "provider_started_at",
+        "host_session_id"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "native-context-attempt/v1"
+        },
+        "attempt_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "phase": {
+          "enum": [
+            "started",
+            "finished"
+          ]
+        },
+        "attempt_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "hook_pid": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "hook_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "provider_pid": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "provider_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "host_session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "native_context_delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "agent_id",
+        "project",
+        "target_runtime",
+        "host_session_id",
+        "provider_pid",
+        "provider_started_at",
+        "provider_executable_sha256",
+        "workspace_sha256",
+        "pipe_sha256",
+        "input_sha256",
+        "work_sha256",
+        "pack_ref",
+        "delivered_at",
+        "attempt_id",
+        "attempt_started_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "native-context-delivery/v1"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_runtime": {
+          "enum": [
+            "codex",
+            "claude"
+          ]
+        },
+        "host_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_pid": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "provider_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "provider_executable_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "workspace_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pipe_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "work_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pack_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delivered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attempt_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "attempt_started_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "schema_version": { "const": "codex-session-start-evidence/v1" },
     "adapter": {
       "type": "object",
