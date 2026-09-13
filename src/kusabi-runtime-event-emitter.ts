@@ -1,3 +1,4 @@
+import type { NativeAttempt, NativeContextDelivery, NativeInvocationBinding } from './native-context-delivery.js';
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { lstat, readFile, realpath } from "node:fs/promises";
@@ -31,6 +32,7 @@ const GIT_SHA_RE = /^[a-f0-9]{40}$/;
 const BOUNDED_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 export interface KusabiRuntimeEventTargetBinding {
+  native_manifest_provenance?: { original_target_key: string; original_workspace_sha256: string; current_workspace_sha256: string; exact_rollout_target_match: false; configuration_trust: "original-reference-only" };
   schema_version: typeof KUSABI_RUNTIME_EVENT_TARGET_SCHEMA;
   manifest_id: string;
   build: {
@@ -49,6 +51,9 @@ export interface KusabiRuntimeEventTargetBinding {
 }
 
 export interface KusabiSessionStartEvidence {
+  native_invocation_binding?: NativeInvocationBinding;
+  native_context_attempt?: NativeAttempt;
+  native_context_delivery?: NativeContextDelivery;
   adapter: { id: string; version: string };
   identity: {
     agent_id: string;
@@ -148,11 +153,15 @@ export function buildKusabiSessionStartRuntimeEvent(
     evidence.identity.workspace_sha256,
   ].join("\n"));
   const sessionRefSha256 = evidence.hook.session_id === null ? null : digest(evidence.hook.session_id);
-  const eventIdentity = digest(`${target.manifest_id}\n${targetKey}\nsession_start\n${sessionRefSha256 ?? "none"}`);
+  const eventIdentity = digest(`${target.manifest_id}\n${targetKey}\nsession_start\n${evidence.native_context_attempt ? `${evidence.native_context_attempt.attempt_id}:${evidence.native_context_attempt.phase}` : sessionRefSha256 ?? "none"}`);
   const degradedReason = normalizeReason(evidence.degraded_reason);
   const evidenceLocator = evidence.recovery_quality_log_ref ?? evidence.recovery_pack.pack_ref ??
     `${evidence.adapter.id}:${sessionRefSha256 ?? "none"}`;
   return {
+    ...(evidence.native_invocation_binding ? { native_invocation_binding: evidence.native_invocation_binding } : {}),
+    ...(target.native_manifest_provenance ? { native_manifest_provenance: target.native_manifest_provenance } : {}),
+    ...(evidence.native_context_attempt ? { native_context_attempt: evidence.native_context_attempt } : {}),
+    ...(evidence.native_context_delivery ? { native_context_delivery: evidence.native_context_delivery } : {}),
     schema_version: "kusabi-runtime-event/v1",
     event_id: uuidFromSha256(eventIdentity),
     event_type: "session_start",
@@ -240,11 +249,14 @@ export async function emitKusabiSessionStartRuntimeEvent(
     }
 
     const event = buildKusabiSessionStartRuntimeEvent(evidence, target);
+    // Extra provenance belongs to the event; the worker's immutable target
+    // binding retains its existing strict shape.
+    const { native_manifest_provenance: _provenance, ...workerTarget } = target;
     const timeoutMs = boundedTimeout(options.timeoutMs);
     if (options.createStore !== undefined) {
-      return emitPreparedEventInProcess(event, evidence, target, options, timeoutMs);
+      return emitPreparedEventInProcess(event, evidence, workerTarget, options, timeoutMs);
     }
-    return emitPreparedEventInWorker(event, evidence, target, options, timeoutMs);
+    return emitPreparedEventInWorker(event, evidence, workerTarget, options, timeoutMs);
   } catch {
     return { status: "failed", event_id: null, target_key: null, emergency: null };
   }
@@ -288,14 +300,24 @@ export function selectKusabiRuntimeEventTarget(
     host_runtime: hostRuntime,
     workspace_sha256: evidence.identity.workspace_sha256,
   });
-  const matches = manifest.targets.filter((candidate) => candidate.target_key === targetKey &&
+  let matches = manifest.targets.filter((candidate) => candidate.target_key === targetKey &&
     candidate.identity.agent_id === evidence.identity.agent_id &&
     candidate.identity.project === evidence.identity.project &&
     candidate.identity.host_runtime === hostRuntime &&
     candidate.identity.workspace_sha256 === evidence.identity.workspace_sha256);
+  let provenance: KusabiRuntimeEventTargetBinding['native_manifest_provenance'];
+  if (matches.length === 0 && evidence.native_context_attempt && evidence.native_invocation_binding?.verified === true
+    && evidence.native_invocation_binding.workspace_sha256 === evidence.identity.workspace_sha256
+    && evidence.native_invocation_binding.binding_source_ref_sha256 === digest(evidence.identity.binding_source_ref)) {
+    matches = manifest.targets.filter(candidate => candidate.identity.agent_id === evidence.identity.agent_id
+      && candidate.identity.project === evidence.identity.project && candidate.identity.host_runtime === hostRuntime);
+    if (matches.length === 1) provenance = { original_target_key: matches[0].target_key,
+      original_workspace_sha256: matches[0].identity.workspace_sha256, current_workspace_sha256: evidence.identity.workspace_sha256,
+      exact_rollout_target_match: false, configuration_trust: 'original-reference-only' };
+  }
   if (matches.length !== 1) throw new Error("KUSABI_RUNTIME_EVENT_MANIFEST_TARGET_INVALID");
   const expected = matches[0].expected;
-  return parseKusabiRuntimeEventTarget({
+  const selected = parseKusabiRuntimeEventTarget({
     schema_version: KUSABI_RUNTIME_EVENT_TARGET_SCHEMA,
     manifest_id: manifest.manifest_id,
     build: {
@@ -309,6 +331,7 @@ export function selectKusabiRuntimeEventTarget(
     },
     storage: { ...expected.storage },
   });
+  return provenance ? { ...selected, native_manifest_provenance: provenance } : selected;
 }
 
 async function emitPreparedEventInProcess(

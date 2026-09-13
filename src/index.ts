@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { registerNativeContextDeliveryTool } from "./native-context-delivery.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -462,6 +463,8 @@ async function main() {
       }
     }
   );
+
+  registerNativeContextDeliveryTool(server, store, AGENT_ID);
 
   // ─── restart_pack (AM-031 PR D) ───────────────────────────────
   server.tool(
