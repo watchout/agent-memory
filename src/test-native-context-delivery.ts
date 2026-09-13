@@ -3,7 +3,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, realpath, rm, readFile, writeFile, unlink, readdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, readFile, writeFile, unlink, readdir, stat } from 'node:fs/promises';
+import initSqlJs from 'sql.js';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { SqliteStore } from './stores/sqlite-store.js';
@@ -62,6 +63,98 @@ async function registeredToolReadback(env: Record<string,string>, args: Record<s
     return JSON.parse((result.content as Array<{text:string}>)[0].text);
   } finally {await client.close();}
 }
+async function withForeignWriteLock<T>(dbPath: string, action: () => Promise<T>): Promise<T> {
+  const program = `
+    import {openSync,writeFileSync,unlinkSync,closeSync} from 'node:fs';
+    const path=process.argv[1],fd=openSync(path,'wx',0o600);
+    writeFileSync(fd,JSON.stringify({pid:process.pid,token:'owned-native-initialization-fixture'}));
+    process.send({locked:true});process.once('message',()=>{unlinkSync(path);closeSync(fd);process.disconnect();});
+  `;
+  const child=spawn(process.execPath,['--input-type=module','-e',program,dbPath+'.write-lock'],
+    {env:{PATH:process.env.PATH??''},stdio:['ignore','ignore','pipe','ipc']});
+  let stderr='';child.stderr!.on('data',bytes=>{stderr+=String(bytes);});
+  try {
+    await new Promise<void>((done,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('owned lock startup timeout')),5000);
+      child.once('message',()=>{clearTimeout(timer);done();});
+      child.once('error',error=>{clearTimeout(timer);reject(error);});
+      child.once('exit',code=>{clearTimeout(timer);reject(new Error(`owned lock startup failed ${code}: ${stderr}`));});
+    });
+    return await action();
+  } finally {
+    if(child.connected) {
+      const closed=new Promise<void>((done,reject)=>{
+        const timer=setTimeout(()=>{child.kill();reject(new Error('owned lock shutdown timeout'));},5000);
+        child.once('close',code=>{clearTimeout(timer);code===0?done():reject(new Error(`owned lock shutdown failed ${code}`));});
+      });
+      child.send('release');await closed;
+    } else if(child.exitCode===null)child.kill();
+  }
+}
+async function initializationChecks(root: string): Promise<number> {
+  let checks=0;
+  const SQL=await initSqlJs();
+  const dbPath=join(root,'initialization.db');
+  // These are actual old nullable schemas, not empty modern tables. Migration
+  // must add columns/indexes, backfill values and retain the last duplicate task.
+  const legacy=new SQL.Database();
+  legacy.run(`CREATE TABLE task_states(id TEXT PRIMARY KEY,agent_id TEXT NOT NULL,project TEXT,task TEXT,status TEXT,progress TEXT,files_modified TEXT DEFAULT '[]',next_steps TEXT,created_at TEXT,embedding TEXT);
+    INSERT INTO task_states VALUES('old','seat','project','TASK','in_progress','old','[]','NEXT','2026-01-01',NULL);
+    INSERT INTO task_states VALUES('new','seat','project','TASK','in_progress','keep','[]','NEXT','2026-01-02',NULL);
+    CREATE TABLE conversation_events(id TEXT PRIMARY KEY,agent_id TEXT,project TEXT,source TEXT,created_at TEXT);
+    INSERT INTO conversation_events VALUES('conversation','seat','project','fixture','2026-01-03');
+    INSERT INTO conversation_events VALUES('nullable-conversation','seat','project','fixture',NULL);
+    CREATE TABLE raw_events(id TEXT PRIMARY KEY,agent_id TEXT,project TEXT,source TEXT,event_at TEXT,ingested_at TEXT);
+    INSERT INTO raw_events VALUES('raw','seat','project','fixture','2026-01-04','2026-01-05');
+    INSERT INTO raw_events VALUES('nullable-raw','seat','project','fixture',NULL,NULL);
+    CREATE TABLE _fts5_probe(sentinel TEXT);INSERT INTO _fts5_probe VALUES('DURABLE_USER_TABLE');`);
+  await writeFile(dbPath,legacy.export());legacy.close();
+  const oldBytes=await readFile(dbPath);
+  await withForeignWriteLock(dbPath,async()=>{
+    const locked=new SqliteStore(dbPath);
+    await assert.rejects(()=>locked.initialize(),/SQLITE_WRITE_LOCKED/);checks++;
+    await locked.close();assert.deepEqual(await readFile(dbPath),oldBytes);checks++;
+  });
+  const migrated=new SqliteStore(dbPath);await migrated.initialize();await migrated.close();
+  assert.notDeepEqual(await readFile(dbPath),oldBytes);checks++;
+  const currentBytes=await readFile(dbPath);const current=new SQL.Database(currentBytes);
+  assert.deepEqual(current.exec('SELECT id,task_id,updated_at,progress FROM task_states')[0].values,[['new','TASK','2026-01-02','keep']]);checks++;
+  assert.deepEqual(current.exec("SELECT occurred_at,created_at FROM conversation_events WHERE id='conversation'")[0].values,[['2026-01-03','2026-01-03']]);checks++;
+  assert.deepEqual(current.exec("SELECT occurred_at,created_at FROM raw_events WHERE id='raw'")[0].values,[['2026-01-04','2026-01-05']]);checks++;
+  assert.equal(current.exec("SELECT name FROM sqlite_master WHERE name='uq_task_states_agent_task_id'")[0].values[0][0],'uq_task_states_agent_task_id');checks++;
+  // The original table must survive migration itself; do not repair a missing
+  // sentinel before testing that later current-file initialization preserves it.
+  assert.equal(current.exec('SELECT sentinel FROM _fts5_probe')[0].values[0][0],'DURABLE_USER_TABLE');checks++;
+  current.run("INSERT INTO task_states(id,agent_id,project,task,status,created_at) VALUES('nullable-task','seat','project',NULL,'in_progress',NULL)");
+  await writeFile(dbPath,current.export());current.close();
+  const before=await readFile(dbPath);const identity=await stat(dbPath);
+  await withForeignWriteLock(dbPath,async()=>{
+    const lockPath=dbPath+'.write-lock',lockBytes=await readFile(lockPath),lockIdentity=await stat(lockPath);
+    const opened=new SqliteStore(dbPath);await opened.initialize();
+    assert((await opened.getTaskStates({agent_id:'seat',project:'project'})).some(task=>task.next_steps==='NEXT'));checks++;
+    await assert.rejects(()=>opened.logDecision({agent_id:'seat',project:'project',decision:'MUST_NOT_WRITE'}),/SQLITE_WRITE_LOCKED/);checks++;
+    await opened.close();
+    assert.deepEqual(await readFile(dbPath),before);assert.equal((await stat(dbPath)).ino,identity.ino);checks+=2;
+    assert.deepEqual(await readFile(lockPath),lockBytes);assert.equal((await stat(lockPath)).ino,lockIdentity.ino);checks+=2;
+    assert.notEqual(JSON.parse(lockBytes.toString()).pid,process.pid);checks++;
+  });
+  const reopened=new SqliteStore(dbPath);await reopened.initialize();await reopened.close();
+  assert.deepEqual(await readFile(dbPath),before);checks++;
+  const inspect=new SQL.Database(await readFile(dbPath));
+  assert.equal(inspect.exec('SELECT sentinel FROM _fts5_probe')[0].values[0][0],'DURABLE_USER_TABLE');checks++;
+  assert.deepEqual(inspect.exec("SELECT occurred_at,created_at FROM raw_events WHERE id='nullable-raw'")[0].values,[[null,null]]);checks++;
+  assert.deepEqual(inspect.exec("SELECT occurred_at,created_at FROM conversation_events WHERE id='nullable-conversation'")[0].values,[[null,null]]);checks++;
+  assert.deepEqual(inspect.exec("SELECT task_id,updated_at FROM task_states WHERE id='nullable-task'")[0].values,[[null,null]]);checks++;
+  inspect.close();
+  const freshPath=join(root,'fresh-locked.db');
+  await withForeignWriteLock(freshPath,async()=>{
+    const locked=new SqliteStore(freshPath);await assert.rejects(()=>locked.initialize(),/SQLITE_WRITE_LOCKED/);checks++;
+    await locked.close();await assert.rejects(()=>readFile(freshPath),{code:'ENOENT'});checks++;
+  });
+  const fresh=new SqliteStore(freshPath);await fresh.initialize();await fresh.close();
+  assert((await readFile(freshPath)).length>0);checks++;
+  return checks;
+}
 async function concurrentMemoryWriters(dbPath: string, root: string) {
   const program = `
     import { SqliteStore } from './dist/stores/sqlite-store.js';
@@ -73,8 +166,9 @@ async function concurrentMemoryWriters(dbPath: string, root: string) {
   const children: ReturnType<typeof spawn>[]=[];
   const results: Promise<any>[]=[];
   try {
-    // Both snapshots are initialized before either mutation. Initialization
-    // itself legitimately acquires the same file lock, so serialize that phase.
+    // Both snapshots are initialized before either mutation; this separate
+    // fixture isolates overlapping writes. Parallel initialization is exercised
+    // by the registered MCP clients under a foreign writer lock below.
     for (const writer of ['one','two']) {
       const child=spawn(process.execPath,['--input-type=module','-e',program],{cwd:resolve('.'),
         env:{PATH:process.env.PATH??'',HOME:root,AGENT_MEMORY_DB_PATH:dbPath,WRITER:writer},stdio:['ignore','ignore','pipe','ipc']});
@@ -195,8 +289,9 @@ async function main() {
   const agent='seat-continuity-fixture', project='product-fixture';
   const objective='OWNER VERBATIM: preserve unfinished seat work';
   const next='Next action stays attached to this seat';
-  let checks=0; let kernelChecks=0;
+  let checks=0; let kernelChecks=0;let initializationCheckCount=0;
   try {
+    initializationCheckCount=await initializationChecks(root);checks+=initializationCheckCount;
     kernelChecks = await kernelBoundaryChecks(root); checks += kernelChecks;
     const seed=new SqliteStore(dbPath); await seed.initialize();
     for(const [seat,proj,text] of [[agent,project,objective],['decoy-agent',project,'FOREIGN_AGENT_SENTINEL'],[agent,'decoy-project','FOREIGN_PROJECT_SENTINEL']]) {
@@ -223,6 +318,13 @@ async function main() {
       const mcpArgs={project,target_runtime:runtime,provider_pid:process.pid,provider_started_at:receipt.provider_started_at,workspace_sha256:h(workspace),host_session_id:receipt.host_session_id};
       const mcpEnv={PATH:process.env.PATH??'',HOME:root,AGENT_MEMORY_DB_PATH:dbPath,AGENT_MEMORY_AGENT_ID:agent};
       assert.deepEqual(await registeredToolReadback(mcpEnv,mcpArgs),receipt); checks++;
+      await withForeignWriteLock(dbPath,async()=>{
+        const bytes=await readFile(dbPath),lock=await readFile(dbPath+'.write-lock'),identity=await stat(dbPath+'.write-lock');
+        const concurrent=await Promise.all([registeredToolReadback(mcpEnv,mcpArgs),registeredToolReadback(mcpEnv,mcpArgs)]);
+        for(const observed of concurrent){assert.deepEqual(observed,receipt);checks++;}
+        assert.deepEqual(await readFile(dbPath),bytes);assert.deepEqual(await readFile(dbPath+'.write-lock'),lock);
+        assert.equal((await stat(dbPath+'.write-lock')).ino,identity.ino);checks+=3;
+      });
       assert.equal((await registeredToolReadback({...mcpEnv,AGENT_MEMORY_AGENT_ID:'decoy-agent'},mcpArgs)).status,'unavailable'); checks++;
 
       const rows=await store.getKusabiRuntimeEvents({target_key:h([agent,project,runtime==='claude'?'claude_code':'codex',h(workspace)].join('\n')),event_type:'session_start',limit:20});
@@ -267,6 +369,11 @@ async function main() {
     assert((await store.getDecisions({agent_id:agent,project})).some(d=>d.decision==='OVERLAPPING_WINNER'));checks++;
     const sameReader = await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid));
     assert.equal(sameReader.status,'unavailable');checks++;
+    await withForeignWriteLock(dbPath,async()=>{
+      const env={PATH:process.env.PATH??'',HOME:root,AGENT_MEMORY_DB_PATH:dbPath,AGENT_MEMORY_AGENT_ID:agent};
+      const observed=await Promise.all([registeredToolReadback(env,input),registeredToolReadback({...env,AGENT_MEMORY_AGENT_ID:'decoy-agent'},input)]);
+      assert.equal(observed[0].status,'unavailable');assert.equal(observed[1].status,'unavailable');checks+=2;
+    });
     const concurrent=await concurrentMemoryWriters(dbPath,root);
     assert(concurrent.filter(value=>value.status==='saved').length>=1);
     assert(concurrent.filter(value=>value.status==='rejected').every(value=>['SQLITE_STALE_SNAPSHOT','SQLITE_WRITE_LOCKED'].includes(value.code)));checks+=2;
@@ -326,7 +433,7 @@ async function main() {
         scratchpad_dir:'/tmp/scratch',session_title:'fixture',seconds_since_last_response:30,context_tokens:100,prompt_cache_likely_expired:false,estimated_cache_write_usd:0.01}));
       assert.equal(parsed.source,source);checks++;
     }
-    console.log(JSON.stringify({status:'PASS',checks,platform:process.platform,node:process.version,kernel_boundary_checks:kernelChecks,
+    console.log(JSON.stringify({status:'PASS',checks,platform:process.platform,node:process.version,kernel_boundary_checks:kernelChecks,initialization_checks:initializationCheckCount,
       kernel_pipe_kinds:process.platform==='linux'?['unix','FIFO']:['PIPE'],native_input_protocols:['codex','claude','codex'],one_store:true,
       semantic_digest:receipts[0].work_sha256,input_digests:receipts.map(r=>r.input_sha256),provider_api_calls:0,
       observation_scope:'real OS peer pipe with independently read fixture parent process; provider classification injected only in test',

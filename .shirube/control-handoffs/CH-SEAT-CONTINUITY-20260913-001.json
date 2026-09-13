@@ -140,22 +140,20 @@
     }
   ],
   "next_action": {
-    "blocking": true,
-    "owner_agent": "codex-cto/reboot_evidence",
-    "owner_function": "code_audit_gate",
-    "action": "Independently audit the exact native kernel collector correction with actual Linux Node18/20/22 and Mac native process/pipe evidence.",
-    "handoff_method": "Native collaboration and exact-source gate evidence.",
+    "owner_agent": "codex-cto/restore_inventory",
+    "required_function": "implementation_executor",
+    "action": "Correct no-change SQLite initialization under this exact bounded source handoff, preserving native and stale-writer safety, then return changed source and test evidence",
+    "handoff_method": "Existing PR321 source commit plus local evidence and native collaboration return",
     "input_refs": [
-      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
-      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650379038",
-      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650788595",
-      "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
-      "commit:7d7addf139788547f7a15cf8a77ffe555fb3df5a"
+      {
+        "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+        "sha256": "068864d3f38656952d4b07ca6669e7547f7bdb17b9f560ad2bae68b5f54227b4"
+      }
     ],
-    "scope": "Independent SC3 source and isolated evidence review only.",
-    "deliverable": "Exact-head verdict and prioritized findings.",
-    "completion_evidence": "Exact source/tree, executed assertions, cross-process freshness discriminator and limitations.",
-    "stop_reason": "INDEPENDENT_REVIEW_REQUIRED"
+    "scope": "Existing 20 allowed paths retained; only sqlite_initialization_correction.allowed_delta_paths may change for this correction",
+    "deliverable": "Current Was source candidate, aligned existing SSOT, deterministic regression and actual existing CI",
+    "completion_evidence": "Exact source/tree/diff hashes, old fail/new pass and meaningful test counts, current CI outcome; independent review separate",
+    "blocking": false
   },
   "implementation_actor": "codex-cto/restore_inventory",
   "pr": "https://github.com/watchout/agent-memory/pull/321",
@@ -188,5 +186,45 @@
   "native_kernel_correction_scope_ref": {
     "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
     "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
+  },
+  "sqlite_initialization_correction": {
+    "parent_head": "e919c6112185a2fe6637ac5d585fb2e65f567f8e",
+    "actual_failure": {
+      "aun_head": "5d4f50018f41df2451acecf9bcc3cc85c949aa9c",
+      "run": "https://github.com/watchout/agent-comms-mcp/actions/runs/34747419808",
+      "result": "3114 pass, 1 fail, 59 skip; B5 concurrent readiness NO_GO_MEMORY_RECOVERY",
+      "raw_log_sha256": "9f753f291c1f07a1fbb82b194843a3ad3ac72de1ac16d2dafdee6b29d04d5435"
+    },
+    "discriminator": {
+      "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/aun-candidate/5d4-b5-concurrency/diagnosis.json",
+      "sha256": "2b9bc6c2f564517a0481b2d7d45b300ee622ac74083dda783838ff281f2ccb9e",
+      "result": "Private concurrent real MCP initializer overlap reproduced SQLITE_WRITE_LOCKED then MEMORY_TRANSPORT_UNAVAILABLE before connect; matching error-class hash does not prove original CI subtype."
+    },
+    "change": "An already-current existing SQLite store whose initialization makes no durable schema or data changes must open without persistence or acquiring the write lock. New store creation and actual existing migrations/backfills still persist with unchanged ownership/CAS/atomic-replacement fences. Amend the existing SC3-CA-01 API and binding paragraphs before code to state this bound.",
+    "allowed_delta_paths": [
+      "src/stores/sqlite-store.ts",
+      "src/test-native-context-delivery.ts",
+      "docs/design/core/SSOT-3_API_CONTRACT.md",
+      "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
+      ".shirube/control-handoffs/CH-SEAT-CONTINUITY-20260913-001.json",
+      ".shirube/execution-contexts/seat-continuity-20260913.json",
+      ".shirube/evidence/seat-continuity-machine-evidence.json"
+    ],
+    "required_evidence": [
+      "Deterministic old-source failure and changed-source success for already-current initialization while another process owns the write lock; DB bytes and lock owner preserved.",
+      "Concurrent independent real MCP initializers/native receipt reads succeed on already-current file; no fake receipt, serialized readiness or added timeout.",
+      "New database and real legacy migration/backfill changes still persist and reopening retains durable work.",
+      "Actual writes still reject lock contention/stale snapshots and preserve foreign locks; existing native/SQLite regression suites remain valid.",
+      "One changed-candidate local build and relevant existing tests; publish commit to existing draft PR and capture its existing Linux CI Node matrix. No unchanged retry or threshold relaxation."
+    ],
+    "forbidden": [
+      "No SQLite lock/CAS weakening or automatic retry/spin/lock stealing",
+      "No bypassing store initialization in fixture or fake native identity/receipt",
+      "No production DB/config/runtime/native/account/queue effects",
+      "No merge/Ready/deploy or self audit",
+      "No unrelated schema migration or new dependency/workflow"
+    ],
+    "expiry": "2026-09-14T00:00:00+09:00",
+    "attempt_bound": "One implementation candidate with deterministic red/green, required focused regression and normal CI; any actual failure returns precise facts for bounded correction, no unchanged retry."
   }
 }

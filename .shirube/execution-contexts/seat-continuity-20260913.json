@@ -54,8 +54,23 @@
     "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
   },
   "current_implementation_subject": {
+    "parent_source_head": "e919c6112185a2fe6637ac5d585fb2e65f567f8e",
+    "execution_subject": "Final precommit worktree file bytes listed below; historical tests are not relabeled as a committed-head execution.",
+    "source_file_sha256": {
+      "src/stores/sqlite-store.ts": "8c89435ac70bd0a9f50cb7b02401cec889c98b2289bdc34ee26fa297493ebe8a",
+      "src/test-native-context-delivery.ts": "b0f83a33d004e02983d8e76ff1b2376463b591e9c4c2f107c8a4bc14622280cf",
+      "docs/design/core/SSOT-3_API_CONTRACT.md": "f045a297fdccbc49c44c3925af80fa841ae3aed92191a3f39663da8c0b99c097",
+      "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": "2cdcc90d7a7944bc4a8e0693fae2538b63448b2f11e61c979e7805ae3244ad0f"
+    },
+    "linux_CI_and_independent_acceptance": "PENDING"
+  },
+  "historical_implementation_subject": {
     "source_head": "7d7addf139788547f7a15cf8a77ffe555fb3df5a",
     "source_tree": "27342f7debae1283139ac6b9b9441317536aff21",
     "linux_CI_and_independent_acceptance": "PENDING"
+  },
+  "sqlite_initialization_correction_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5652295616",
+    "sha256": "18ce4332cb5a80e4e75b87dfddc693c51fc9a7b876eb39a10683a9d4fa1281cd"
   }
 }

@@ -385,6 +385,11 @@ export class SqliteStore implements Store {
       this.db = new SQL.Database();
     }
 
+    // Idempotent DDL and NULL-to-NULL backfills are not durable changes.
+    // Track real schema changes and value-changing DML, not export bytes (which
+    // include SQLite bookkeeping). Backfill predicates below exclude no-ops.
+    const schemaBefore = this.db.exec("PRAGMA schema_version")[0].values[0][0];
+    const changesBefore = this.db.exec("SELECT total_changes()")[0].values[0][0];
     for (const sql of MIGRATIONS) {
       this.db.run(sql);
       if (sql.includes("CREATE TABLE IF NOT EXISTS conversation_events")) {
@@ -409,8 +414,8 @@ export class SqliteStore implements Store {
     // Back-fill: existing rows have task='AM-006' (the ticket id, per
     // pre-AM-023 hook behavior). Copy that into task_id verbatim so
     // the UNIQUE index has something to key on.
-    this.db.run(`UPDATE task_states SET task_id = task WHERE task_id IS NULL`);
-    this.db.run(`UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`);
+    this.db.run(`UPDATE task_states SET task_id = task WHERE task_id IS NULL AND task IS NOT NULL`);
+    this.db.run(`UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL AND created_at IS NOT NULL`);
     // Dedup: keep only the most recently inserted row per
     // (agent_id, task_id). SQLite has no DISTINCT ON, so we use rowid
     // (monotonic with insert order) which is a good proxy here because
@@ -425,17 +430,23 @@ export class SqliteStore implements Store {
          ON task_states (agent_id, task_id)`
     );
 
-    // FTS5 detection — sql.js default build does not include FTS5,
-    // but we probe so we are forward-compatible with custom builds.
+    const initializationChanged = this.baseDigest === null
+      || schemaBefore !== this.db.exec("PRAGMA schema_version")[0].values[0][0]
+      || changesBefore !== this.db.exec("SELECT total_changes()")[0].values[0][0];
+
+    // Capability probing must not change the durable database's schema/header
+    // or remove a user table with the probe name, even on an FTS-enabled build.
+    const probe = new SQL.Database();
     try {
-      this.db.run("CREATE VIRTUAL TABLE IF NOT EXISTS _fts5_probe USING fts5(c)");
-      this.db.run("DROP TABLE IF EXISTS _fts5_probe");
+      probe.run("CREATE VIRTUAL TABLE _fts5_probe USING fts5(c)");
       this.fts5Available = true;
     } catch {
       this.fts5Available = false;
+    } finally {
+      probe.close();
     }
 
-    this.persist();
+    if (initializationChanged) this.persist();
   }
 
   private snapshotDigest(bytes: Uint8Array): string {
@@ -545,8 +556,8 @@ export class SqliteStore implements Store {
     this.alterAddColumnIfMissing("conversation_events", "metadata", "TEXT NOT NULL DEFAULT '{}'");
     this.alterAddColumnIfMissing("conversation_events", "occurred_at", "TEXT");
     this.alterAddColumnIfMissing("conversation_events", "created_at", "TEXT");
-    this.db.run("UPDATE conversation_events SET occurred_at = coalesce(occurred_at, created_at) WHERE occurred_at IS NULL");
-    this.db.run("UPDATE conversation_events SET created_at = coalesce(created_at, occurred_at) WHERE created_at IS NULL");
+    this.db.run("UPDATE conversation_events SET occurred_at = created_at WHERE occurred_at IS NULL AND created_at IS NOT NULL");
+    this.db.run("UPDATE conversation_events SET created_at = occurred_at WHERE created_at IS NULL AND occurred_at IS NOT NULL");
   }
 
   private ensureRawEventsCompatibilityColumns(): void {
@@ -557,8 +568,8 @@ export class SqliteStore implements Store {
     this.alterAddColumnIfMissing("raw_events", "metadata", "TEXT NOT NULL DEFAULT '{}'");
     this.alterAddColumnIfMissing("raw_events", "occurred_at", "TEXT");
     this.alterAddColumnIfMissing("raw_events", "created_at", "TEXT");
-    this.db.run("UPDATE raw_events SET occurred_at = coalesce(occurred_at, event_at) WHERE occurred_at IS NULL");
-    this.db.run("UPDATE raw_events SET created_at = coalesce(created_at, ingested_at) WHERE created_at IS NULL");
+    this.db.run("UPDATE raw_events SET occurred_at = event_at WHERE occurred_at IS NULL AND event_at IS NOT NULL");
+    this.db.run("UPDATE raw_events SET created_at = ingested_at WHERE created_at IS NULL AND ingested_at IS NOT NULL");
   }
 
   private allRows(sql: string, params: unknown[] = [], database = this.db): Record<string, unknown>[] {
