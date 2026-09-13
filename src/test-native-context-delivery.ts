@@ -150,8 +150,9 @@ async function kernelBoundaryChecks(root: string): Promise<number> {
       // The reader reports its real PID before the writer observes either end.
       const pidFile = join(root, 'anonymous-pipe-reader.json');
       const readerProgram = `
-        import {writeFileSync} from 'node:fs';
-        writeFileSync(${JSON.stringify(pidFile)}, JSON.stringify({pid:process.pid}), {flag:'wx'});
+        import {writeFileSync,renameSync} from 'node:fs';
+        writeFileSync(${JSON.stringify(pidFile + '.pending')}, JSON.stringify({pid:process.pid}), {flag:'wx'});
+        renameSync(${JSON.stringify(pidFile + '.pending')}, ${JSON.stringify(pidFile)});
         let bytes='';for await(const chunk of process.stdin)bytes+=chunk;
         process.stdout.write(bytes);
       `;
