@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { chmod, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -435,7 +437,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
+main().then(() => {
+  // This caller is already selected by all three Linux CI Node versions.
+  // The existing native suite owns its synthetic processes and temporary store.
+  execFileSync(process.execPath, ["--import", "tsx", fileURLToPath(new URL("./test-native-context-delivery.ts", import.meta.url))], {
+    cwd: fileURLToPath(new URL("..", import.meta.url)), stdio: "inherit", timeout: 120_000,
+    env: { ...process.env, DATABASE_URL: "", AGENT_MEMORY_DATABASE_URL: "" },
+  });
+}).catch((error) => {
   console.error(error);
   process.exit(1);
 });

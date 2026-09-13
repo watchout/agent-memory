@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, readFile, writeFile, unlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { SqliteStore } from './stores/sqlite-store.js';
 import { lookupNativeContextDelivery, observeNativeProcess, observeNativeProvider, type NativeContextDelivery, type NativeAttempt } from './native-context-delivery.js';
 import { buildKusabiSessionStartRuntimeEvent, type KusabiRuntimeEventTargetBinding, type KusabiSessionStartEvidence } from './kusabi-runtime-event-emitter.js';
@@ -92,6 +92,65 @@ async function concurrentMemoryWriters(dbPath: string, root: string) {
   } finally {children.forEach(child=>{if(child.connected)child.disconnect();if(child.exitCode===null)child.kill();});}
 
 }
+async function kernelBoundaryChecks(root: string): Promise<number> {
+  const modulePath = resolve('dist/native-context-delivery.js');
+  const program = `
+    import assert from 'node:assert/strict';
+    import { openSync, closeSync, realpathSync } from 'node:fs';
+    import { observeNativeProcess, observeNativePipe, observeNativeProvider } from ${JSON.stringify(modulePath)};
+    process.title = 'untrusted-process-label';
+    const self = observeNativeProcess(process.pid);
+    assert.equal(self.executable, realpathSync(process.execPath));
+    assert.equal(self.pid, process.pid);
+    assert.equal(self.ppid, process.ppid);
+    assert.match(self.startedAt, /^\\d{4}-.*\\.000Z$/);
+    assert.throws(() => observeNativeProcess(2147483647));
+    assert.throws(() => observeNativeProvider(process.pid, 'codex'));
+    assert.throws(() => observeNativePipe(Number(process.env.WRONG_PEER)));
+    assert.throws(() => observeNativePipe(process.pid));
+    assert.throws(() => observeNativePipe(process.ppid, process.ppid));
+    const nullFd = openSync('/dev/null', 'w');
+    try { assert.throws(() => observeNativePipe(process.ppid, process.pid, nullFd), /NATIVE_STDOUT_NOT_PIPE/); }
+    finally { closeSync(nullFd); }
+    const pipe = observeNativePipe(process.ppid);
+    assert.match(pipe, /^[a-f0-9]{64}$/);
+    await new Promise((resolve, reject) => process.stdout.write('verified-native-input\\n', error => error ? reject(error) : resolve()));
+    assert.equal(observeNativePipe(process.ppid), pipe);
+    assert.deepEqual(observeNativeProcess(process.pid), self);
+    process.stderr.write(JSON.stringify({kernel_checks:13,platform:process.platform,pipe_verified:true,executable_verified:true})+'\\n');
+  `;
+  // An unrelated live process cannot stand in for the actual stdout reader.
+  const wrongPeer = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' });
+  await new Promise<void>((done, reject) => { wrongPeer.once('spawn', done); wrongPeer.once('error', reject); });
+  try {
+    // A cwd entry and a mutable process label must never be executable evidence.
+    await writeFile(join(root, 'node'), 'not the executing native binary');
+    let checks = 0;
+    for (const command of [process.execPath, 'node']) {
+      const report = await new Promise<{ output: string; stderr: string }>((done, reject) => {
+        const child = spawn(command, ['--input-type=module', '-e', program], { cwd: root,
+          env: { PATH: `${dirname(process.execPath)}:${process.env.PATH ?? ''}`, HOME: root, WRONG_PEER: String(wrongPeer.pid) },
+          stdio: ['ignore', 'pipe', 'pipe'] });
+        let output = ''; let stderr = '';
+        child.stdout.on('data', bytes => { output += String(bytes); });
+        child.stderr.on('data', bytes => { stderr += String(bytes); });
+        const timer = setTimeout(() => { child.kill(); reject(new Error('kernel boundary fixture timeout')); }, 15_000);
+        child.once('error', error => { clearTimeout(timer); reject(error); });
+        child.once('close', (code, signal) => { clearTimeout(timer);
+          if (code !== 0 || signal) reject(new Error(`kernel boundary fixture failed ${code}/${signal}: ${stderr}`));
+          else done({ output, stderr }); });
+      });
+      assert.equal(report.output, 'verified-native-input\n');
+      const proof = JSON.parse(report.stderr.trim().split('\n').at(-1)!);
+      assert.equal(proof.kernel_checks, 13); assert.equal(proof.platform, process.platform);
+      checks += proof.kernel_checks + 3;
+    }
+    return checks;
+  } finally {
+    const closed = new Promise<void>(done => wrongPeer.once('close', () => done()));
+    wrongPeer.kill(); await closed;
+  }
+}
 async function main() {
   const root = await realpath(await mkdtemp(join(tmpdir(),'native-seat-context-')));
   const dbPath = join(root,'one-store.db');
@@ -100,6 +159,7 @@ async function main() {
   const next='Next action stays attached to this seat';
   let checks=0;
   try {
+    checks += await kernelBoundaryChecks(root);
     const seed=new SqliteStore(dbPath); await seed.initialize();
     for(const [seat,proj,text] of [[agent,project,objective],['decoy-agent',project,'FOREIGN_AGENT_SENTINEL'],[agent,'decoy-project','FOREIGN_PROJECT_SENTINEL']]) {
       await seed.saveTaskState({agent_id:seat,project:proj,task:text,status:'in_progress',progress:'checkpoint 3',next_steps:next});
@@ -228,7 +288,7 @@ async function main() {
         scratchpad_dir:'/tmp/scratch',session_title:'fixture',seconds_since_last_response:30,context_tokens:100,prompt_cache_likely_expired:false,estimated_cache_write_usd:0.01}));
       assert.equal(parsed.source,source);checks++;
     }
-    console.log(JSON.stringify({status:'PASS',checks,native_input_protocols:['codex','claude','codex'],one_store:true,
+    console.log(JSON.stringify({status:'PASS',checks,platform:process.platform,node:process.version,kernel_boundary_checks:32,native_input_protocols:['codex','claude','codex'],one_store:true,
       semantic_digest:receipts[0].work_sha256,input_digests:receipts.map(r=>r.input_sha256),provider_api_calls:0,
       observation_scope:'real OS peer pipe with independently read fixture parent process; provider classification injected only in test',
       live_application:false}));

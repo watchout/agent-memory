@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { Writable } from 'node:stream';
@@ -29,16 +29,86 @@ const hex = (value: unknown): value is string => typeof value === 'string' && /^
 const iso = (value: unknown): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const unavailable = (code: string) => ({ status: 'unavailable' as const, code });
 
-export function observeNativeProcess(pid: number): ProviderObservation & { executable: string } {
-  const output = execFileSync('/bin/ps', ['-p', String(pid), '-o', 'pid=,ppid=,lstart=,comm='],
+function processTuple(pid: number) {
+  if (!Number.isSafeInteger(pid) || pid <= 1) throw new Error('NATIVE_PROCESS_UNVERIFIED');
+  const output = execFileSync('/bin/ps', ['-p', String(pid), '-o', 'pid=,ppid=,lstart='],
     { encoding: 'utf8', timeout: 1500, env: { ...process.env, LC_ALL: 'C' } }).trim();
-  const match = output.match(/^(\d+)\s+(\d+)\s+(.{24})\s+(.+)$/);
+  const match = output.match(/^(\d+)\s+(\d+)\s+(.{24})$/);
   if (!match || Number(match[1]) !== pid || !iso(match[3])) throw new Error('NATIVE_PROCESS_UNVERIFIED');
-  const executable = realpathSync(match[4]);
+  const startTicks = process.platform === 'linux'
+    ? readFileSync(`/proc/${pid}/stat`, 'utf8').split(/\)\s+/).at(-1)!.trim().split(/\s+/)[19] : null;
+  if (process.platform === 'linux' && !/^\d+$/.test(startTicks ?? '')) throw new Error('NATIVE_PROCESS_UNVERIFIED');
+  return { pid, ppid: Number(match[2]), startedAt: new Date(match[3]).toISOString(), startTicks };
+}
+
+// lsof's Darwin text mappings include libraries. Only a unique MH_EXECUTE
+// mapping establishes the executable; neither its position nor its name does.
+function isMachExecutable(file: string): boolean {
+  let fd: number | undefined;
+  try {
+    fd = openSync(file, 'r');
+    const size = fstatSync(fd).size;
+    const read = (offset: number, length: number) => {
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset + length > size) throw new Error('MACH_HEADER_INVALID');
+      const bytes = Buffer.alloc(length);
+      if (readSync(fd!, bytes, 0, length, offset) !== length) throw new Error('MACH_HEADER_INVALID');
+      return bytes;
+    };
+    const thin = (offset: number) => {
+      const header = read(offset, 16);
+      const magic = header.readUInt32LE(0);
+      if ([0xfeedface, 0xfeedfacf].includes(magic)) return header.readUInt32LE(12) === 2;
+      if ([0xcefaedfe, 0xcffaedfe].includes(magic)) return header.readUInt32BE(12) === 2;
+      return false;
+    };
+    const header = read(0, 8); const magic = header.readUInt32BE(0);
+    if (![0xcafebabe, 0xcafebabf].includes(magic)) return thin(0);
+    const count = header.readUInt32BE(4); const width = magic === 0xcafebabf ? 32 : 20;
+    if (count === 0 || count > 32) return false;
+    return Array.from({ length: count }, (_, index) => {
+      const arch = read(8 + index * width, width);
+      return thin(width === 32 ? Number(arch.readBigUInt64BE(8)) : arch.readUInt32BE(8));
+    }).every(Boolean);
+  } catch { return false; }
+  finally { if (fd !== undefined) closeSync(fd); }
+}
+
+function kernelExecutable(pid: number): string {
+  if (process.platform === 'linux') {
+    const kernelPath = `/proc/${pid}/exe`;
+    const executable = realpathSync(kernelPath);
+    const mapped = statSync(kernelPath); const file = statSync(executable);
+    if (mapped.dev !== file.dev || mapped.ino !== file.ino) throw new Error('NATIVE_EXECUTABLE_CHANGED');
+    return executable;
+  }
+  if (process.platform !== 'darwin') throw new Error('NATIVE_PLATFORM_UNSUPPORTED');
+  const raw = execFileSync('/usr/sbin/lsof', ['-nP', '-a', '-p', String(pid), '-d', 'txt', '-F', 'pfnDi'],
+    { encoding: 'utf8', timeout: 1500, maxBuffer: 1024 * 1024 });
+  const candidates = new Set<string>();
+  for (const row of parseNativePipeSnapshot(raw)) {
+    if (row.pid !== pid || row.fd !== 'txt' || !row.name?.startsWith('/') || !row.inode || !row.deviceNumber) continue;
+    let executable: string;
+    try { executable = realpathSync(row.name); } catch { continue; }
+    if (!isMachExecutable(executable)) continue;
+    const file = statSync(executable);
+    if (String(file.ino) !== row.inode || BigInt(file.dev) !== BigInt(row.deviceNumber)) throw new Error('NATIVE_EXECUTABLE_CHANGED');
+    candidates.add(executable);
+  }
+  if (candidates.size !== 1) throw new Error('NATIVE_EXECUTABLE_UNVERIFIED');
+  return [...candidates][0];
+}
+
+export function observeNativeProcess(pid: number): ProviderObservation & { executable: string } {
+  const before = processTuple(pid);
+  const executable = kernelExecutable(pid);
   const info = statSync(executable);
   if (!info.isFile()) throw new Error('NATIVE_EXECUTABLE_UNVERIFIED');
-  return { pid, ppid: Number(match[2]), startedAt: new Date(match[3]).toISOString(), executable,
-    executableDigest: hash(JSON.stringify([executable, info.dev, info.ino, info.size, info.mtimeMs, info.mode])) };
+  const after = processTuple(pid);
+  if (JSON.stringify(before) !== JSON.stringify(after) || kernelExecutable(pid) !== executable) throw new Error('NATIVE_PROCESS_CHANGED');
+  const current = statSync(executable);
+  const fingerprint = (stat: typeof info) => JSON.stringify([executable, stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.mode, before.startTicks]);
+  if (fingerprint(info) !== fingerprint(current)) throw new Error('NATIVE_EXECUTABLE_CHANGED');
+  return { pid, ppid: before.ppid, startedAt: before.startedAt, executable, executableDigest: hash(fingerprint(info)) };
 }
 
 /** Resolve the installed CLI, then verify the actual native executable belongs
@@ -83,7 +153,8 @@ export function observeNativeAncestor(runtime: NativeRuntime, hookPid = process.
   return found[0];
 }
 
-type Fd = { pid: number; fd: string; type?: string; device?: string; peer?: string };
+type Fd = { pid: number; fd: string; type?: string; device?: string; peer?: string;
+  name?: string; inode?: string; deviceNumber?: string; access?: string; peers?: Array<{ pid: number; fd: string; access: string }> };
 export function parseNativePipeSnapshot(raw: string): Fd[] {
   const rows: Fd[] = []; let pid = 0; let row: Fd | undefined;
   for (const line of raw.split('\n')) {
@@ -91,23 +162,52 @@ export function parseNativePipeSnapshot(raw: string): Fd[] {
     else if (line[0] === 'f') { row = { pid, fd: line.slice(1) }; rows.push(row); }
     else if (row && line[0] === 't') row.type = line.slice(1);
     else if (row && line[0] === 'd') row.device = line.slice(1);
-    else if (row && line.startsWith('n->')) row.peer = line.slice(3);
+    else if (row && line[0] === 'D') row.deviceNumber = line.slice(1);
+    else if (row && line[0] === 'i') row.inode = line.slice(1);
+    else if (row && line[0] === 'a') row.access = line.slice(1);
+    else if (row && line[0] === 'n') {
+      row.name = line.slice(1);
+      row.peer = line.startsWith('n->') ? line.slice(3) : line.match(/->INO=(\d+)/)?.[1];
+      row.peers = [...line.matchAll(/(?:^|\s)(\d+),[^\s,]+,(\d+)([rwu])(?=\s|$)/g)]
+        .map(match => ({ pid: Number(match[1]), fd: match[2], access: match[3] }));
+    }
   }
   return rows;
 }
 
 /** Exact reciprocal kernel endpoint, not merely stdout's pipe type. */
 export function observeNativePipe(providerPid: number, hookPid = process.pid, fd = 1): string {
+  if (hookPid !== process.pid || providerPid === hookPid) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
+  const hookBefore = processTuple(hookPid); const providerBefore = processTuple(providerPid);
   const info = fstatSync(fd);
   if (!info.isFIFO() && !info.isSocket()) throw new Error('NATIVE_STDOUT_NOT_PIPE');
   const raw = execFileSync(process.platform === 'darwin' ? '/usr/sbin/lsof' : 'lsof',
-    ['-nP', '-a', '-p', `${hookPid},${providerPid}`, '-F', 'pftdn'], { encoding: 'utf8', timeout: 1500, maxBuffer: 1024 * 1024 });
+    ['-nP', ...(process.platform === 'linux' ? ['-E'] : []), '-a', '-p', `${hookPid},${providerPid}`, '-F', 'pftdanDi'],
+    { encoding: 'utf8', timeout: 1500, maxBuffer: 1024 * 1024 });
   const rows = parseNativePipeSnapshot(raw);
-  const output = rows.find(row => row.pid === hookPid && row.fd === String(fd));
-  if (!output?.device || !output.peer || !['PIPE', 'unix'].includes(output.type ?? '')) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
-  const peers = rows.filter(row => row.pid === providerPid && row.device === output.peer && row.peer === output.device);
+  const outputs = rows.filter(row => row.pid === hookPid && row.fd === String(fd));
+  if (outputs.length !== 1) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
+  const output = outputs[0];
+  let peers: Fd[];
+  if (process.platform === 'linux') {
+    if (!output.inode || output.inode !== String(info.ino) || !['unix', 'FIFO'].includes(output.type ?? '')) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
+    const links = output.peers ?? [];
+    peers = rows.filter(row => row.pid === providerPid && row.type === output.type
+      && links.length === 1 && links[0].pid === providerPid && links[0].fd === row.fd
+      && row.peers?.length === 1 && row.peers[0].pid === hookPid && row.peers[0].fd === String(fd)
+      && (output.type === 'unix'
+        ? output.peer === row.inode && row.peer === output.inode
+        : output.inode === row.inode && output.access === 'w' && row.access === 'r'));
+  } else if (process.platform === 'darwin') {
+    if (!output.device || !output.peer || !['PIPE', 'unix'].includes(output.type ?? '')) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
+    peers = rows.filter(row => row.pid === providerPid && row.device === output.peer && row.peer === output.device);
+  } else throw new Error('NATIVE_PLATFORM_UNSUPPORTED');
   if (peers.length !== 1) throw new Error('NATIVE_STDOUT_PEER_UNVERIFIED');
-  return hash(JSON.stringify([hookPid, fd, providerPid, peers[0].fd, output.device, output.peer, info.dev, info.ino]));
+  const current = fstatSync(fd);
+  if (JSON.stringify(hookBefore) !== JSON.stringify(processTuple(hookPid))
+    || JSON.stringify(providerBefore) !== JSON.stringify(processTuple(providerPid))
+    || current.dev !== info.dev || current.ino !== info.ino || current.mode !== info.mode) throw new Error('NATIVE_PROCESS_CHANGED');
+  return hash(JSON.stringify([hookPid, fd, providerPid, peers[0].fd, output.device, output.inode, output.peer, info.dev, info.ino]));
 }
 
 export type NativeAttemptHandle = { attempt: NativeAttempt; observation: ProviderObservation; durable: boolean; emission: KusabiRuntimeEventEmissionOptions; invocation?: NativeInvocationBinding };
