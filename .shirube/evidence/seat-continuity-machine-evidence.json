@@ -296,5 +296,19 @@
       "PR remains draft/unmerged; owner exact-head policy remains pending."
     ]
   },
-  "linux_fifo_os_evidence": "PENDING: current native Node fixture exercises UNIX socketpair; no claim that FIFO branch has actual OS proof"
+  "linux_fifo_os_evidence": "PENDING: an actual anonymous FIFO writer|reader fixture is now selected by the existing Linux caller; await exact current CI, do not infer from prior socketpair proof.",
+  "observed_linux_unix_boundary": {
+    "head": "7594c98f63c047bf15da0d69158bbb604968a0ee",
+    "run_ref": "https://github.com/watchout/agent-memory/actions/runs/34743627020",
+    "node_versions": [
+      "18.20.8",
+      "20.20.2",
+      "22.23.2"
+    ],
+    "native_assertions_per_version": 108,
+    "kernel_assertions_per_version": 32,
+    "log_sha256": "d4ec4223f11a7b10929b59c88fd7f13150d0b7f93746a18c629ef196faa8f3c6",
+    "kernel_pipe_kind": "unix",
+    "source_product_bytes_unchanged_by_followup_test": true
+  }
 }

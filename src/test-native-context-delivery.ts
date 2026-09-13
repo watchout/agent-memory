@@ -145,6 +145,43 @@ async function kernelBoundaryChecks(root: string): Promise<number> {
       assert.equal(proof.kernel_checks, 13); assert.equal(proof.platform, process.platform);
       checks += proof.kernel_checks + 3;
     }
+    if (process.platform === 'linux') {
+      // A shell pipeline uses an actual anonymous FIFO, unlike Node's socketpair.
+      // The reader reports its real PID before the writer observes either end.
+      const pidFile = join(root, 'anonymous-pipe-reader.json');
+      const readerProgram = `
+        import {writeFileSync} from 'node:fs';
+        writeFileSync(${JSON.stringify(pidFile)}, JSON.stringify({pid:process.pid}), {flag:'wx'});
+        let bytes='';for await(const chunk of process.stdin)bytes+=chunk;
+        process.stdout.write(bytes);
+      `;
+      const writerProgram = `
+        import {readFileSync,existsSync,fstatSync} from 'node:fs';
+        import {setTimeout as delay} from 'node:timers/promises';
+        const deadline=Date.now()+5000;
+        while(!existsSync(${JSON.stringify(pidFile)})){if(Date.now()>deadline)throw new Error('FIFO reader missing');await delay(5);}
+        const readerPid=JSON.parse(readFileSync(${JSON.stringify(pidFile)},'utf8')).pid;
+        if(!fstatSync(1).isFIFO())throw new Error('REAL_ANONYMOUS_FIFO_REQUIRED');
+      ` + program.replaceAll('observeNativePipe(process.ppid)', 'observeNativePipe(readerPid)')
+        .replace('kernel_checks:13', 'kernel_checks:14');
+      const report = await new Promise<{output:string;stderr:string}>((done, reject) => {
+        const child = spawn('/bin/bash', ['-o','pipefail','-c',
+          '"$1" --input-type=module -e "$2" | "$1" --input-type=module -e "$3"',
+          'native-fifo-fixture', process.execPath, writerProgram, readerProgram], { cwd:root,
+          env:{PATH:`${dirname(process.execPath)}:${process.env.PATH??''}`,HOME:root,WRONG_PEER:String(wrongPeer.pid)},
+          stdio:['ignore','pipe','pipe'],detached:true });
+        let output='';let stderr='';child.stdout.on('data',bytes=>{output+=String(bytes);});child.stderr.on('data',bytes=>{stderr+=String(bytes);});
+        const timer=setTimeout(()=>{process.kill(-child.pid!, 'SIGTERM');reject(new Error('FIFO boundary fixture timeout'));},15_000);
+        child.once('error',error=>{clearTimeout(timer);reject(error);});
+        child.once('close',(code,signal)=>{clearTimeout(timer);
+          if(code!==0||signal)reject(new Error(`FIFO boundary fixture failed ${code}/${signal}: ${stderr}`));
+          else done({output,stderr});});
+      });
+      assert.equal(report.output, 'verified-native-input\n');
+      const proof=JSON.parse(report.stderr.trim().split('\n').at(-1)!);
+      assert.equal(proof.kernel_checks,14);assert.equal(proof.platform,'linux');
+      checks+=proof.kernel_checks+3;
+    }
     return checks;
   } finally {
     const closed = new Promise<void>(done => wrongPeer.once('close', () => done()));
@@ -157,9 +194,9 @@ async function main() {
   const agent='seat-continuity-fixture', project='product-fixture';
   const objective='OWNER VERBATIM: preserve unfinished seat work';
   const next='Next action stays attached to this seat';
-  let checks=0;
+  let checks=0; let kernelChecks=0;
   try {
-    checks += await kernelBoundaryChecks(root);
+    kernelChecks = await kernelBoundaryChecks(root); checks += kernelChecks;
     const seed=new SqliteStore(dbPath); await seed.initialize();
     for(const [seat,proj,text] of [[agent,project,objective],['decoy-agent',project,'FOREIGN_AGENT_SENTINEL'],[agent,'decoy-project','FOREIGN_PROJECT_SENTINEL']]) {
       await seed.saveTaskState({agent_id:seat,project:proj,task:text,status:'in_progress',progress:'checkpoint 3',next_steps:next});
@@ -288,7 +325,8 @@ async function main() {
         scratchpad_dir:'/tmp/scratch',session_title:'fixture',seconds_since_last_response:30,context_tokens:100,prompt_cache_likely_expired:false,estimated_cache_write_usd:0.01}));
       assert.equal(parsed.source,source);checks++;
     }
-    console.log(JSON.stringify({status:'PASS',checks,platform:process.platform,node:process.version,kernel_boundary_checks:32,native_input_protocols:['codex','claude','codex'],one_store:true,
+    console.log(JSON.stringify({status:'PASS',checks,platform:process.platform,node:process.version,kernel_boundary_checks:kernelChecks,
+      kernel_pipe_kinds:process.platform==='linux'?['unix','FIFO']:['PIPE'],native_input_protocols:['codex','claude','codex'],one_store:true,
       semantic_digest:receipts[0].work_sha256,input_digests:receipts.map(r=>r.input_sha256),provider_api_calls:0,
       observation_scope:'real OS peer pipe with independently read fixture parent process; provider classification injected only in test',
       live_application:false}));
