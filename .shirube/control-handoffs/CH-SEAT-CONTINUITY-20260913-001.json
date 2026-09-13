@@ -63,7 +63,8 @@
     "src/stores/sqlite-store.ts",
     "src/test-kusabi-runtime-event-store.ts",
     ".shirube/control-handoffs/CH-SEAT-CONTINUITY-20260913-001.json",
-    ".shirube/execution-contexts/seat-continuity-20260913.json"
+    ".shirube/execution-contexts/seat-continuity-20260913.json",
+    ".shirube/evidence/seat-continuity-machine-evidence.json"
   ],
   "forbidden_paths": [
     ".github/**",
