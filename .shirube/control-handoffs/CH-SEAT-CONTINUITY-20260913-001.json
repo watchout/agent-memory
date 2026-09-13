@@ -1,0 +1,146 @@
+{
+  "schema_version": "shirube-v3/control_handoff/v1",
+  "handoff_id": "CH-SEAT-NATIVE-IMPLEMENT-AUDIT-20260913-001",
+  "control_source": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+    "sha256": "068864d3f38656952d4b07ca6669e7547f7bdb17b9f560ad2bae68b5f54227b4"
+  },
+  "implementation_scope_ref": {
+    "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650379038",
+    "sha256": "647ec69fd4e7702ed100b9d7cdeabdc6f47e1c17b7b932ef66a9590f8b3f5f63"
+  },
+  "correction_scope_ref": {
+    "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650788595",
+    "sha256": "ddcd853dfed9db81e1c484eddebc1a8b8a0887566b05695eec6fbcb8e6d3a087"
+  },
+  "repository": {
+    "name": "watchout/agent-memory",
+    "base": "f7fcd0f181e032e740036d8ee31733c18019d31d"
+  },
+  "cell": {
+    "id": "CELL-SEAT-CONTINUITY-20260913-001",
+    "cell_type": "defect_repair",
+    "risk_class": "R4",
+    "goal": "LLMをいつどこで入れ替えても文脈が残る席の実装",
+    "protected_surfaces": {
+      "declared": [
+        "runtime code",
+        "api",
+        "database"
+      ],
+      "touched": true
+    }
+  },
+  "execution_context": {
+    "to": {
+      "agent_id": "codex-cto/restore_inventory",
+      "active_function": "implementation_executor"
+    }
+  },
+  "lifecycle_state": "READY_FOR_IMPLEMENTATION",
+  "spec_review_state": "ready_for_implementation",
+  "owner_confirmation_ref": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+  "premise_confirmation_ref": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+  "premise_ref": "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
+  "repo_spec_ref": ".shirube/repo-spec.yaml",
+  "allowed_paths": [
+    "docs/SSOT.md",
+    "docs/design/core/SSOT-3_API_CONTRACT.md",
+    "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
+    "docs/design/schemas/claude-session-start-evidence-v1.schema.json",
+    "docs/design/schemas/codex-session-start-evidence-v1.schema.json",
+    "docs/design/schemas/kusabi-runtime-event-v1.schema.json",
+    "src/claude-session-start.ts",
+    "src/codex-session-start.ts",
+    "src/index.ts",
+    "src/kusabi-runtime-event-emitter.ts",
+    "src/native-context-delivery.ts",
+    "src/test-claude-session-start.ts",
+    "src/test-kusabi-runtime-event-emitter.ts",
+    "src/test-native-context-delivery.ts",
+    "src/stores/sqlite-store.ts",
+    "src/test-kusabi-runtime-event-store.ts",
+    ".shirube/control-handoffs/CH-SEAT-CONTINUITY-20260913-001.json",
+    ".shirube/execution-contexts/seat-continuity-20260913.json"
+  ],
+  "forbidden_paths": [
+    ".github/**",
+    "package.json",
+    "package-lock.json",
+    ".env*",
+    "src/migrations/**",
+    "deploy/**"
+  ],
+  "forbidden_operations": [
+    "production DB/configuration/queue/credential mutation",
+    "provider API calls",
+    "Ready/merge/deploy",
+    "self audit or approval"
+  ],
+  "stop_conditions": [
+    "outside exact allowed paths",
+    "live effects required",
+    "independent finding unresolved before acceptance",
+    "exact-head approval absent before merge/application"
+  ],
+  "required_evidence": [
+    "exact head/tree and changed paths",
+    "actual compiled native delivery and registered MCP lookup",
+    "latest attempt invalidation across processes",
+    "same seat/project work across providers and cwd",
+    "independent code and evidence verdict"
+  ],
+  "required_checks": [
+    "npm run build",
+    "git diff --check",
+    "npx tsx src/test-codex-session-start.ts",
+    "npx tsx src/test-claude-session-start.ts",
+    "npx tsx src/test-kusabi-runtime-event-emitter.ts",
+    "npx tsx src/test-native-context-delivery.ts",
+    "isolated SQLite event-store contract with counted assertions"
+  ],
+  "acceptance": [
+    "Same seat and project recover identical objective, decisions, unfinished work and next action across Codex to Claude to Codex and changed workspace.",
+    "Accepted receipt requires exact native provider pipe delivery and fresh stored current attempt.",
+    "New pending, failed or cancelled attempt invalidates prior success, including connected readers across separate writer processes.",
+    "Foreign seat/project/PID/start/workspace and ambiguous session are denied.",
+    "Old manifest provenance cannot claim current relocated configuration or trust.",
+    "Stale SQLite persistence or close cannot erase newer attempts or durable work.",
+    "No production state effects; source acceptance does not claim applied real use."
+  ],
+  "owner_decision": {
+    "required_before_merge": true,
+    "exact_head_sha": null,
+    "decision_ref": null,
+    "committed_pending_policy_only": true
+  },
+  "design_rule_exceptions": [
+    {
+      "rule_id": "DR-DATA-001",
+      "scope": [
+        "src/test-native-context-delivery.ts"
+      ],
+      "reason": "The only matched .destroy() is child.stdout.destroy() at src/test-native-context-delivery.ts:38. It closes a test-owned subprocess pipe to reproduce EPIPE; it does not delete database rows, files, or user data. A soft-delete data policy is inapplicable to closing this fixture stream. Existing isolated local-child test permission applies.",
+      "approved_by": "codex-cto applying existing isolated-fixture authority https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650379038",
+      "expires_at": "2026-09-14T00:00:00+09:00"
+    }
+  ],
+  "next_action": {
+    "blocking": true,
+    "owner_agent": "codex-cto/reboot_evidence",
+    "owner_function": "code_audit_gate",
+    "action": "Independently audit the corrected exact candidate after maker resolves SC3-CA-01 and supplies source evidence.",
+    "handoff_method": "Native collaboration and exact-source gate evidence.",
+    "input_refs": [
+      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650379038",
+      "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650788595",
+      "commit:69020459f3a38b4c821755d2e60c960d642e3f19"
+    ],
+    "scope": "Independent SC3 source and isolated evidence review only.",
+    "deliverable": "Exact-head verdict and prioritized findings.",
+    "completion_evidence": "Exact source/tree, executed assertions, cross-process freshness discriminator and limitations.",
+    "stop_reason": "INDEPENDENT_REVIEW_REQUIRED"
+  }
+}

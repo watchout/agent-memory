@@ -1,0 +1,52 @@
+{
+  "schema_version": "shirube-execution-context/v1",
+  "mode": "bounded_product_implementation",
+  "active_function": "implementation_executor",
+  "active_role": "dev",
+  "primary": {
+    "repo": "watchout/agent-memory",
+    "product": "Kusabi",
+    "work_order": "watchout/agent-memory#321",
+    "pr": "watchout/agent-memory#321"
+  },
+  "control_source_ref": {
+    "url": "https://github.com/watchout/agent-comms-mcp/issues/575#issuecomment-5650158508",
+    "sha256": "068864d3f38656952d4b07ca6669e7547f7bdb17b9f560ad2bae68b5f54227b4"
+  },
+  "control_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5650847031",
+    "sha256": "92d562568dcd846f498e6b97451c7ba05037f79da581b9a6032e15873a09ca71"
+  },
+  "repo_relations": [
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "primary",
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "approve_merge",
+        "self_approve"
+      ]
+    },
+    {
+      "repo": "watchout/agent-comms-mcp",
+      "relation": "control_source",
+      "allowed": [
+        "read",
+        "cite"
+      ],
+      "forbidden": [
+        "implementation_target_in_this_context"
+      ]
+    }
+  ],
+  "common_contract": {
+    "owner_decision_required_for_merge_ready": true,
+    "exact_head_required_for_merge_ready": true,
+    "llm_final_authority_forbidden": true
+  }
+}

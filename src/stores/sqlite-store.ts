@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync, fstatSync, statSync, unlinkSync, renameSync, fsyncSync, realpathSync } from "fs";
+import { dirname, join, basename } from "path";
 import { homedir } from "os";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -354,6 +354,9 @@ export class SqliteStore implements Store {
   private db!: Database;
   private dbPath: string;
   private fts5Available = false;
+  private engine!: SqlJsStatic;
+  private baseDigest: string | null = null;
+  private closed = false;
 
   constructor(dbPath?: string) {
     this.dbPath = dbPath ?? process.env.AGENT_MEMORY_DB_PATH ?? DEFAULT_DB_PATH;
@@ -361,16 +364,24 @@ export class SqliteStore implements Store {
 
   async initialize(): Promise<void> {
     const SQL = await loadSqlJs();
+    this.engine = SQL;
+    this.closed = false;
 
     const dir = dirname(this.dbPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
 
+    // Aliases to the same file must share its lock and replacement boundary.
+    this.dbPath = existsSync(this.dbPath) ? realpathSync(this.dbPath)
+      : join(realpathSync(dirname(this.dbPath)), basename(this.dbPath));
+
     if (existsSync(this.dbPath)) {
       const buffer = readFileSync(this.dbPath);
+      this.baseDigest = this.snapshotDigest(buffer);
       this.db = new SQL.Database(buffer);
     } else {
+      this.baseDigest = null;
       this.db = new SQL.Database();
     }
 
@@ -427,10 +438,70 @@ export class SqliteStore implements Store {
     this.persist();
   }
 
-  /** Write the in-memory DB back to disk. Synchronous to keep the MVP simple. */
+  private snapshotDigest(bytes: Uint8Array): string {
+    return createHash("sha256").update(bytes).digest("hex");
+  }
+
+  /** Failed mutations are discarded; an explicit retry starts from current data. */
+  private reloadCurrentSnapshot(): void {
+    const bytes = existsSync(this.dbPath) ? readFileSync(this.dbPath) : null;
+    const current = bytes ? new this.engine.Database(bytes) : new this.engine.Database();
+    this.db.close();
+    this.db = current;
+    this.baseDigest = bytes ? this.snapshotDigest(bytes) : null;
+  }
+
+  /** Serialize the compare/replace boundary across cooperating store processes.
+   * A lock left by a crashed process is never deleted on an age-only guess. */
   private persist(): void {
-    const data = this.db.export();
-    writeFileSync(this.dbPath, Buffer.from(data));
+    const lockPath = `${this.dbPath}.write-lock`;
+    const owner = JSON.stringify({ pid: process.pid, token: uuidv4() });
+    let lockFd: number;
+    try { lockFd = openSync(lockPath, "wx", 0o600); }
+    catch (error) {
+      this.reloadCurrentSnapshot();
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("SQLITE_WRITE_LOCKED");
+      throw error;
+    }
+    const lockIdentity = fstatSync(lockFd);
+    let tempPath: string | null = null;
+    const assertLockOwner = () => {
+      const actual = statSync(lockPath);
+      if (actual.dev !== lockIdentity.dev || actual.ino !== lockIdentity.ino || readFileSync(lockPath, "utf8") !== owner) {
+        throw new Error("SQLITE_WRITE_LOCK_OWNERSHIP_LOST");
+      }
+    };
+    try {
+      writeFileSync(lockFd, owner);
+      assertLockOwner();
+      const disk = existsSync(this.dbPath) ? readFileSync(this.dbPath) : null;
+      const diskDigest = disk ? this.snapshotDigest(disk) : null;
+      if (diskDigest !== this.baseDigest) throw new Error("SQLITE_STALE_SNAPSHOT");
+      const bytes = Buffer.from(this.db.export());
+      tempPath = `${this.dbPath}.pending-${uuidv4()}`;
+      const fd = openSync(tempPath, "wx", disk ? statSync(this.dbPath).mode & 0o777 : 0o600);
+      try { writeFileSync(fd, bytes); fsyncSync(fd); } finally { closeSync(fd); }
+      assertLockOwner();
+      this.replaceSnapshot(tempPath);
+      tempPath = null;
+      const directoryFd = openSync(dirname(this.dbPath), "r");
+      try { fsyncSync(directoryFd); } finally { closeSync(directoryFd); }
+      this.baseDigest = this.snapshotDigest(bytes);
+    } catch (error) {
+      this.reloadCurrentSnapshot();
+      throw error;
+    } finally {
+      try {
+        if (tempPath !== null && existsSync(tempPath)) unlinkSync(tempPath);
+      } finally { try {
+        assertLockOwner();
+        unlinkSync(lockPath);
+      } finally { closeSync(lockFd); } }
+    }
+  }
+
+  private replaceSnapshot(tempPath: string): void {
+    renameSync(tempPath, this.dbPath);
   }
 
   /**
@@ -476,8 +547,8 @@ export class SqliteStore implements Store {
     this.db.run("UPDATE raw_events SET created_at = coalesce(created_at, ingested_at) WHERE created_at IS NULL");
   }
 
-  private allRows(sql: string, params: unknown[] = []): Record<string, unknown>[] {
-    const stmt = this.db.prepare(sql);
+  private allRows(sql: string, params: unknown[] = [], database = this.db): Record<string, unknown>[] {
+    const stmt = database.prepare(sql);
     try {
       stmt.bind(params as never);
       const rows: Record<string, unknown>[] = [];
@@ -1239,14 +1310,19 @@ export class SqliteStore implements Store {
       conditions.push("occurred_at >= ?");
       params.push(input.since);
     }
-    const rows = this.allRows(
-      `SELECT * FROM kusabi_runtime_events
-       WHERE ${conditions.join(" AND ")}
-       ORDER BY occurred_at DESC, event_id DESC
-       LIMIT ${boundedKusabiEventLimit(input.limit)}`,
-      params,
-    );
-    return rows.map((row) => this.rowToKusabiRuntimeEvent(row));
+    // Atomic writers expose a complete current file. This read never runs
+    // initialize/migrations/persist and cannot export an old connected snapshot.
+    const snapshot = new this.engine.Database(readFileSync(this.dbPath));
+    try {
+      const rows = this.allRows(
+        `SELECT * FROM kusabi_runtime_events
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY occurred_at DESC, event_id DESC
+         LIMIT ${boundedKusabiEventLimit(input.limit)}`,
+        params, snapshot,
+      );
+      return rows.map((row) => this.rowToKusabiRuntimeEvent(row));
+    } finally { snapshot.close(); }
   }
 
   private async ensureConversationRawEvent(event: ConversationEvent): Promise<void> {
@@ -1679,9 +1755,11 @@ export class SqliteStore implements Store {
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async close(): Promise<void> {
-    if (this.db) {
-      this.persist();
+    if (this.db && !this.closed) {
+      // Every acknowledged mutation already persisted. Exporting here would
+      // erase updates made by another hook/MCP process since our last write.
       this.db.close();
+      this.closed = true;
     }
   }
 

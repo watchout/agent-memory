@@ -3,7 +3,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, readFile, writeFile, unlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { SqliteStore } from './stores/sqlite-store.js';
@@ -62,6 +62,36 @@ async function registeredToolReadback(env: Record<string,string>, args: Record<s
     return JSON.parse((result.content as Array<{text:string}>)[0].text);
   } finally {await client.close();}
 }
+async function concurrentMemoryWriters(dbPath: string, root: string) {
+  const program = `
+    import { SqliteStore } from './dist/stores/sqlite-store.js';
+    const store=new SqliteStore(process.env.AGENT_MEMORY_DB_PATH);await store.initialize();
+    process.send({ready:true});
+    process.once('message',async()=>{let result;try{await store.logDecision({agent_id:'seat-continuity-fixture',project:'product-fixture',decision:'CONCURRENT_WRITER_'+process.env.WRITER});result={status:'saved'};}catch(error){result={status:'rejected',code:error.message};}
+      await store.close();process.send(result,()=>process.disconnect());});
+  `;
+  const children: ReturnType<typeof spawn>[]=[];
+  const results: Promise<any>[]=[];
+  try {
+    // Both snapshots are initialized before either mutation. Initialization
+    // itself legitimately acquires the same file lock, so serialize that phase.
+    for (const writer of ['one','two']) {
+      const child=spawn(process.execPath,['--input-type=module','-e',program],{cwd:resolve('.'),
+        env:{PATH:process.env.PATH??'',HOME:root,AGENT_MEMORY_DB_PATH:dbPath,WRITER:writer},stdio:['ignore','ignore','pipe','ipc']});
+      children.push(child);
+      results.push(new Promise<any>((done,reject)=>{child.on('message',(value:any)=>{if(value.status)done(value);});child.on('error',reject);}));
+      await new Promise<void>((ready,reject)=>{
+        const timer=setTimeout(()=>reject(new Error('writer startup timeout')),5000);
+        child.on('message',(value:any)=>{if(value.ready){clearTimeout(timer);ready();}});
+        child.once('exit',code=>{clearTimeout(timer);if(code!==null&&code!==0)reject(new Error('writer startup failed'));});
+        child.once('error',error=>{clearTimeout(timer);reject(error);});
+      });
+    }
+    children.forEach(child=>child.send('go'));
+    return await Promise.race([Promise.all(results),new Promise<never>((_,reject)=>{const timer=setTimeout(()=>reject(new Error('concurrent writer timeout')),10_000);timer.unref();})]);
+  } finally {children.forEach(child=>{if(child.connected)child.disconnect();if(child.exitCode===null)child.kill();});}
+
+}
 async function main() {
   const root = await realpath(await mkdtemp(join(tmpdir(),'native-seat-context-')));
   const dbPath = join(root,'one-store.db');
@@ -118,7 +148,41 @@ async function main() {
     const newer=structuredClone(baseRows.find(r=>(r.event.native_context_attempt as NativeAttempt).phase==='started')!.event);
     const a=newer.native_context_attempt as NativeAttempt; a.attempt_id='22222222-2222-4222-8222-222222222222';
     a.attempt_started_at=new Date(Date.now()).toISOString(); newer.event_id='33333333-3333-4333-8333-333333333333';newer.occurred_at=a.attempt_started_at;
-    await ingestKusabiRuntimeEvent(store,newer);
+    const external = new SqliteStore(dbPath); await external.initialize();
+    await ingestKusabiRuntimeEvent(external,newer); await external.close();
+    const rowsAfterExternal = await store.getKusabiRuntimeEvents({target_key:newer.target_key,event_type:'session_start',limit:20});
+    assert.equal(rowsAfterExternal.length,3); checks++;
+    // A stale ordinary mutation cannot erase either the newer marker or work.
+    await assert.rejects(()=>store.logDecision({agent_id:agent,project,decision:'STALE_WRITE_MUST_NOT_COMMIT'}),/SQLITE_STALE_SNAPSHOT/);checks++;
+    const sameReader = await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid));
+    assert.equal(sameReader.status,'unavailable');checks++;
+    const concurrent=await concurrentMemoryWriters(dbPath,root);
+    assert.equal(concurrent.filter(value=>value.status==='saved').length,1);
+    assert(concurrent.filter(value=>value.status==='rejected').every(value=>['SQLITE_STALE_SNAPSHOT','SQLITE_WRITE_LOCKED'].includes(value.code)));checks+=2;
+    const snapshotBeforeClose=h((await readFile(dbPath)).toString('base64'));
+    await store.close();assert.equal(h((await readFile(dbPath)).toString('base64')),snapshotBeforeClose);checks++;
+    await store.initialize();
+    assert.equal((await store.getKusabiRuntimeEvents({target_key:newer.target_key,event_type:'session_start',limit:20})).length,3);checks++;
+    assert.equal((await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid))).status,'unavailable');checks++;
+    const tasks = await store.getTaskStates({agent_id:agent,project,status:'in_progress'});
+    assert(tasks.some(task=>task.task===objective && task.next_steps===next));checks++;
+    assert(!(await store.getDecisions({agent_id:agent,project})).some(d=>d.decision==='STALE_WRITE_MUST_NOT_COMMIT'));checks++;
+    // Explicit retry after the conflicting mutation uses the refreshed base.
+    await store.logDecision({agent_id:agent,project,decision:'AFTER_CONFLICT_EXPLICIT_RETRY'});
+    const beforeInterrupted=h((await readFile(dbPath)).toString('base64'));
+    const originalReplace=(store as any).replaceSnapshot;
+    (store as any).replaceSnapshot=()=>{throw new Error('FIXTURE_INTERRUPTED_REPLACE');};
+    await assert.rejects(()=>store.logDecision({agent_id:agent,project,decision:'INTERRUPTED_WRITE_MUST_NOT_COMMIT'}),/FIXTURE_INTERRUPTED_REPLACE/);
+    (store as any).replaceSnapshot=originalReplace;
+    assert.equal(h((await readFile(dbPath)).toString('base64')),beforeInterrupted);
+    assert(!(await readdir(root)).some(name=>name.includes('.pending-') || name.endsWith('.write-lock')));checks+=3;
+    const lockPath=dbPath+'.write-lock';const otherOwner=JSON.stringify({pid:process.pid,token:'other-writer-owned-lock'});
+    await writeFile(lockPath,otherOwner,{flag:'wx'});
+    const contentionStart=Date.now();
+    await assert.rejects(()=>store.logDecision({agent_id:agent,project,decision:'LOCKED_WRITE_MUST_NOT_COMMIT'}),/SQLITE_WRITE_LOCKED/);
+    assert(Date.now()-contentionStart<1000);assert.equal(await readFile(lockPath,'utf8'),otherOwner);
+    assert.equal(h((await readFile(dbPath)).toString('base64')),beforeInterrupted);await unlink(lockPath);checks+=4;
+
     assert.equal((await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid))).status,'unavailable'); checks++;
     // Same-session failed terminal cannot restore the older success, irrespective of completion order.
     const terminal=structuredClone(newer); (terminal.native_context_attempt as NativeAttempt).phase='finished';terminal.event_id='44444444-4444-4444-8444-444444444444';
