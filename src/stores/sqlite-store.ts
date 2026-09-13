@@ -451,6 +451,20 @@ export class SqliteStore implements Store {
     this.baseDigest = bytes ? this.snapshotDigest(bytes) : null;
   }
 
+  /** Refresh once before each synchronous read/modify/persist segment. Never
+   * refresh inside allRows/persist: doing so would discard an in-flight mutation.
+   * Separate store instances can perform ordinary sequential work without retry. */
+  private refreshForOperation(): void {
+    if (this.closed || !this.engine) throw new Error("SQLITE_STORE_NOT_OPEN");
+    const bytes = readFileSync(this.dbPath);
+    const digest = this.snapshotDigest(bytes);
+    if (digest === this.baseDigest) return;
+    const current = new this.engine.Database(bytes);
+    this.db.close();
+    this.db = current;
+    this.baseDigest = digest;
+  }
+
   /** Serialize the compare/replace boundary across cooperating store processes.
    * A lock left by a crashed process is never deleted on an age-only guess. */
   private persist(): void {
@@ -564,6 +578,7 @@ export class SqliteStore implements Store {
   // ─── Decisions ────────────────────────────────────────────────
 
   async logDecision(input: LogDecisionInput): Promise<Decision> {
+    this.refreshForOperation();
     const id = uuidv4();
     const created_at = nowIso();
     const tags = JSON.stringify(input.tags || []);
@@ -586,6 +601,7 @@ export class SqliteStore implements Store {
   }
 
   async getDecisions(input: GetDecisionsInput): Promise<Decision[]> {
+    this.refreshForOperation();
     const { conditions, params } = scopedStatusWhere(input);
     const limit = input.limit || 10;
     const sql = `SELECT * FROM decisions
@@ -606,6 +622,7 @@ export class SqliteStore implements Store {
   async supersedeDecision(
     input: SupersedeDecisionInput
   ): Promise<{ old: Decision; new: Decision }> {
+    this.refreshForOperation();
     const oldRows = this.allRows(
       `SELECT * FROM decisions WHERE id = ? AND agent_id = ?`,
       [input.old_decision_id, input.agent_id]
@@ -667,6 +684,7 @@ export class SqliteStore implements Store {
   // ─── Task States ─────────────────────────────────────────────
 
   async saveTaskState(input: SaveTaskStateInput): Promise<TaskState> {
+    this.refreshForOperation();
     // AM-023: derive a stable task_id when the caller doesn't supply
     // one. See pg-store.ts for the same pattern + rationale.
     const taskId = input.task_id ?? deriveTaskIdFromTask(input.task);
@@ -753,6 +771,7 @@ export class SqliteStore implements Store {
   }
 
   async getTaskStates(input: GetTaskStatesInput): Promise<TaskState[]> {
+    this.refreshForOperation();
     const conditions: string[] = ["agent_id = ?"];
     const params: unknown[] = [input.agent_id];
 
@@ -775,6 +794,7 @@ export class SqliteStore implements Store {
   }
 
   async expireStaleTaskStates(input: { agent_id: string; max_age_days: number }): Promise<number> {
+    this.refreshForOperation();
     const cutoff = new Date(Date.now() - input.max_age_days * 24 * 60 * 60 * 1000).toISOString();
     const before = this.allRows(
       `SELECT id FROM task_states
@@ -794,6 +814,7 @@ export class SqliteStore implements Store {
   // ─── Knowledge ───────────────────────────────────────────────
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    this.refreshForOperation();
     const id = uuidv4();
     const now = nowIso();
     this.db.run(
@@ -830,6 +851,7 @@ export class SqliteStore implements Store {
   }
 
   async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
+    this.refreshForOperation();
     const { conditions, params } = scopedStatusWhere(input);
     const limit = input.limit || 10;
     const sql = `SELECT * FROM knowledge
@@ -853,6 +875,7 @@ export class SqliteStore implements Store {
     status: "active" | "merged" | "archived";
     merged_into?: string;
   }): Promise<Knowledge> {
+    this.refreshForOperation();
     if (input.merged_into) {
       if (input.id === input.merged_into) {
         throw new Error("Cannot merge a knowledge entry into itself");
@@ -890,6 +913,7 @@ export class SqliteStore implements Store {
   async supersedeKnowledge(
     input: SupersedeKnowledgeInput
   ): Promise<{ old: Knowledge; new: Knowledge }> {
+    this.refreshForOperation();
     const oldRows = this.allRows(
       `SELECT * FROM knowledge WHERE id = ? AND agent_id = ?`,
       [input.old_id, input.agent_id]
@@ -953,6 +977,7 @@ export class SqliteStore implements Store {
   // ─── Search ──────────────────────────────────────────────────
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    this.refreshForOperation();
     // sql.js default build has no FTS5, no pgvector — always use LIKE search.
     const scope = input.scope || "all";
     const limit = input.limit || 5;
@@ -1076,6 +1101,7 @@ export class SqliteStore implements Store {
   }
 
   async saveConversationEvent(input: SaveConversationEventInput): Promise<ConversationEvent> {
+    this.refreshForOperation();
     const id = uuidv4();
     const now = nowIso();
     const hash = input.content_hash ?? contentHash(input.content);
@@ -1115,6 +1141,7 @@ export class SqliteStore implements Store {
   }
 
   async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
+    this.refreshForOperation();
     const conditions: string[] = ["agent_id = ?"];
     const params: unknown[] = [input.agent_id];
     if (input.project) {
@@ -1140,6 +1167,7 @@ export class SqliteStore implements Store {
   }
 
   async saveRawEvent(input: SaveRawEventInput): Promise<RawEvent> {
+    this.refreshForOperation();
     const id = uuidv4();
     const now = nowIso();
     const hash = input.content_hash ?? (input.content ? contentHash(input.content) : undefined);
@@ -1199,6 +1227,7 @@ export class SqliteStore implements Store {
   }
 
   async getRawEvents(input: GetRawEventsInput): Promise<RawEvent[]> {
+    this.refreshForOperation();
     const conditions: string[] = ["agent_id = ?"];
     const params: unknown[] = [input.agent_id];
     if (input.session_id) {
@@ -1234,6 +1263,7 @@ export class SqliteStore implements Store {
   async saveKusabiRuntimeEvent(
     input: SaveKusabiRuntimeEventInput,
   ): Promise<SaveKusabiRuntimeEventResult> {
+    this.refreshForOperation();
     assertKusabiRuntimeEventHash(input.event_sha256);
     const existing = this.allRows(
       "SELECT * FROM kusabi_runtime_events WHERE event_id = ? LIMIT 1",
@@ -1332,6 +1362,11 @@ export class SqliteStore implements Store {
   // ─── Recovery Config ─────────────────────────────────────────
 
   async getRecoveryConfig(agent_id: string): Promise<RecoveryConfig | null> {
+    this.refreshForOperation();
+    return this.recoveryConfigFromSnapshot(agent_id);
+  }
+
+  private recoveryConfigFromSnapshot(agent_id: string): RecoveryConfig | null {
     const rows = this.allRows(
       `SELECT agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit,
               messages_limit, discord_history_limit, discord_channels, restart_message_threshold
@@ -1361,7 +1396,8 @@ export class SqliteStore implements Store {
     knowledge_limit?: number;
     messages_limit?: number;
   }): Promise<RecoveryConfig> {
-    const existing = await this.getRecoveryConfig(input.agent_id);
+    this.refreshForOperation();
+    const existing = this.recoveryConfigFromSnapshot(input.agent_id);
     const now = nowIso();
 
     if (existing) {
@@ -1430,6 +1466,7 @@ export class SqliteStore implements Store {
   // ─── Recovery Quality Log ────────────────────────────────────
 
   async logRecoveryQuality(input: LogRecoveryQualityInput): Promise<string> {
+    this.refreshForOperation();
     const id = uuidv4();
     this.db.run(
       `INSERT INTO recovery_quality_log
@@ -1454,6 +1491,7 @@ export class SqliteStore implements Store {
   }
 
   async markRecoveryContinued(input: MarkRecoveryContinuedInput): Promise<boolean> {
+    this.refreshForOperation();
     if (!input.id || !input.agent_id || !input.session_id) return false;
     if (!Number.isFinite(input.quality_score) || input.quality_score < 0 || input.quality_score > 1) {
       throw new Error("RECOVERY_QUALITY_SCORE_OUT_OF_RANGE");
@@ -1475,6 +1513,7 @@ export class SqliteStore implements Store {
   }
 
   async updateSearchMemoryCount(log_id: string, count: number): Promise<void> {
+    this.refreshForOperation();
     if (!log_id) return;
     this.db.run(
       `UPDATE recovery_quality_log SET search_memory_count_10min = ? WHERE id = ?`,
@@ -1484,6 +1523,7 @@ export class SqliteStore implements Store {
   }
 
   async saveSelectedRestartPack(input: SaveSelectedRestartPackInput): Promise<SelectedRestartPack> {
+    this.refreshForOperation();
     const id = uuidv4();
     const now = nowIso();
     const pack: SelectedRestartPack = {
@@ -1522,11 +1562,13 @@ export class SqliteStore implements Store {
   }
 
   async getSelectedRestartPack(input: GetSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    this.refreshForOperation();
     const rows = this.selectedRestartPackRows(input);
     return rows[0] ? this.rowToSelectedRestartPack(rows[0]) : null;
   }
 
   async consumeSelectedRestartPack(input: ConsumeSelectedRestartPackInput): Promise<SelectedRestartPack | null> {
+    this.refreshForOperation();
     const consumedAt = input.consumed_at ?? nowIso();
     const conditions = ["agent_id = ?", "pack_ref = ?", "status = 'active'", "(expires_at IS NULL OR expires_at > ?)"];
     const params: unknown[] = [input.agent_id, input.pack_ref, nowIso()];
@@ -1579,6 +1621,7 @@ export class SqliteStore implements Store {
     agent_id: string,
     source: "conversation" | "discord"
   ): Promise<CatchUpLog | null> {
+    this.refreshForOperation();
     const rows = this.allRows(
       `SELECT * FROM catch_up_log
         WHERE agent_id = ? AND source = ?
@@ -1591,6 +1634,7 @@ export class SqliteStore implements Store {
   }
 
   async saveCatchUpLog(input: SaveCatchUpLogInput): Promise<CatchUpLog> {
+    this.refreshForOperation();
     const id = uuidv4();
     const created_at = nowIso();
     this.db.run(
@@ -1631,6 +1675,7 @@ export class SqliteStore implements Store {
     content_hash: string;
     event_at: string;
   }): Promise<boolean> {
+    this.refreshForOperation();
     // ±60s window per design draft 3/3. ISO8601 strings compare
     // lexically in chronological order so plain BETWEEN works.
     //
@@ -1656,6 +1701,7 @@ export class SqliteStore implements Store {
     agent_id: string,
     source: "conversation" | "discord"
   ): Promise<CatchUpLog[]> {
+    this.refreshForOperation();
     const rows = this.allRows(
       `SELECT * FROM catch_up_log
         WHERE agent_id = ? AND source = ? AND status = 'failed'
@@ -1670,6 +1716,7 @@ export class SqliteStore implements Store {
   async getKusabiPartition(
     input: GetKusabiPartitionInput
   ): Promise<KusabiPartition | null> {
+    this.refreshForOperation();
     const rows = this.allRows(
       `SELECT * FROM kusabi_agent_memory_partitions
         WHERE agent_id = ? AND memory_project = ?
@@ -1682,6 +1729,7 @@ export class SqliteStore implements Store {
   async upsertKusabiPartition(
     input: UpsertKusabiPartitionInput
   ): Promise<KusabiPartition> {
+    this.refreshForOperation();
     // Fail-closed: anything other than an explicit "shared" resolves to
     // "private" (the most restrictive visibility).
     const visibility = input.default_visibility === "shared" ? "shared" : "private";
@@ -1743,6 +1791,7 @@ export class SqliteStore implements Store {
   }
 
   async listKusabiPartitions(agent_id: string): Promise<KusabiPartition[]> {
+    this.refreshForOperation();
     const rows = this.allRows(
       `SELECT * FROM kusabi_agent_memory_partitions
         WHERE agent_id = ?

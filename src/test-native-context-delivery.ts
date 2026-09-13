@@ -152,12 +152,25 @@ async function main() {
     await ingestKusabiRuntimeEvent(external,newer); await external.close();
     const rowsAfterExternal = await store.getKusabiRuntimeEvents({target_key:newer.target_key,event_type:'session_start',limit:20});
     assert.equal(rowsAfterExternal.length,3); checks++;
-    // A stale ordinary mutation cannot erase either the newer marker or work.
-    await assert.rejects(()=>store.logDecision({agent_id:agent,project,decision:'STALE_WRITE_MUST_NOT_COMMIT'}),/SQLITE_STALE_SNAPSHOT/);checks++;
+    // Ordinary sequential operations refresh automatically, retaining new work
+    // and attempt markers written by another already-connected store.
+    await store.logDecision({agent_id:agent,project,decision:'SEQUENTIAL_WRITE_PRESERVES_ATTEMPTS'});
+    assert((await store.getDecisions({agent_id:agent,project})).some(d=>d.decision==='SEQUENTIAL_WRITE_PRESERVES_ATTEMPTS'));checks++;
+    // Force a second writer between the first mutation and its CAS boundary.
+    // This operation really overlaps a newer commit; automatic refresh at the
+    // boundary would silently drop the first mutation and is forbidden.
+    const competitor=new SqliteStore(dbPath);await competitor.initialize();
+    const originalPersist=(store as any).persist;let competing:Promise<unknown>|undefined;
+    (store as any).persist=function(){(store as any).persist=originalPersist;
+      competing=competitor.logDecision({agent_id:agent,project,decision:'OVERLAPPING_WINNER'});
+      return originalPersist.call(this);};
+    await assert.rejects(()=>store.logDecision({agent_id:agent,project,decision:'STALE_WRITE_MUST_NOT_COMMIT'}),/SQLITE_STALE_SNAPSHOT/);
+    await competing;await competitor.close();checks++;
+    assert((await store.getDecisions({agent_id:agent,project})).some(d=>d.decision==='OVERLAPPING_WINNER'));checks++;
     const sameReader = await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid));
     assert.equal(sameReader.status,'unavailable');checks++;
     const concurrent=await concurrentMemoryWriters(dbPath,root);
-    assert.equal(concurrent.filter(value=>value.status==='saved').length,1);
+    assert(concurrent.filter(value=>value.status==='saved').length>=1);
     assert(concurrent.filter(value=>value.status==='rejected').every(value=>['SQLITE_STALE_SNAPSHOT','SQLITE_WRITE_LOCKED'].includes(value.code)));checks+=2;
     const snapshotBeforeClose=h((await readFile(dbPath)).toString('base64'));
     await store.close();assert.equal(h((await readFile(dbPath)).toString('base64')),snapshotBeforeClose);checks++;
@@ -166,7 +179,10 @@ async function main() {
     assert.equal((await lookupNativeContextDelivery(store,agent,input,()=>observeNativeProcess(process.pid))).status,'unavailable');checks++;
     const tasks = await store.getTaskStates({agent_id:agent,project,status:'in_progress'});
     assert(tasks.some(task=>task.task===objective && task.next_steps===next));checks++;
-    assert(!(await store.getDecisions({agent_id:agent,project})).some(d=>d.decision==='STALE_WRITE_MUST_NOT_COMMIT'));checks++;
+    const decisions=await store.getDecisions({agent_id:agent,project,limit:100});
+    assert(!decisions.some(d=>d.decision==='STALE_WRITE_MUST_NOT_COMMIT'));checks++;
+    assert.equal(decisions.filter(d=>d.decision.startsWith('CONCURRENT_WRITER_')).length,concurrent.filter(value=>value.status==='saved').length);checks++;
+    assert(decisions.some(d=>d.decision==='SEQUENTIAL_WRITE_PRESERVES_ATTEMPTS'));checks++;
     // Explicit retry after the conflicting mutation uses the refreshed base.
     await store.logDecision({agent_id:agent,project,decision:'AFTER_CONFLICT_EXPLICIT_RETRY'});
     const beforeInterrupted=h((await readFile(dbPath)).toString('base64'));
