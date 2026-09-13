@@ -7,7 +7,7 @@ source_url: https://github.com/watchout/agent-memory/issues/301
 target_repo: watchout/agent-memory
 product: Kusabi
 framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
-fetched_at: <FETCHED_AT_UTC>
+fetched_at: 2026-08-27T09:43:07Z
 sha256: fe846c47027ba8c7f98f4a6364c5b5d207f50855b18281cd8a5fc62694171878
 mirror_is_truth: false
 generated_by: codex-adf
