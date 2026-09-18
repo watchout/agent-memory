@@ -1,22 +1,22 @@
 {
  "schema_version": "DesignPack/v2",
  "pack_id": "DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001",
- "generation": 3,
+ "generation": 4,
  "status": "DESIGN_AUTHORED",
  "subject": {
   "id": "watchout/agent-memory#307:goal-a-prerequisites",
   "stable_identifier": "watchout/agent-memory#307/DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001",
   "kind": "bounded_system_design",
-  "digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
-  "digest_rule": "sha256 over canonical key-sorted JSON of {pack_id, generation, base{repo,commit,tree}, predecessor{head,pack_digest}, source_digests[{id,digest}] in sources order}; recomputable from the sources ledger; generation 2 bound the issue body digest, generation 3 binds the owner-frozen base and every source",
-  "generation": 3,
+  "digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+  "digest_rule": "sha256 over canonical key-sorted JSON of {pack_id,generation,base{repo,commit,tree},predecessor{head,pack_digest},source_digests[{id,digest}] in sources order}; generation4 preserves frozen base and prior-generation history",
+  "generation": 4,
   "baseline_refs": [
    "git:watchout/agent-memory@b854894abc80b593ff275e5c1fb62ea71ca8320d",
    "tree:4aa9d8f288f6d917fa8476c1b3aed6d84a796b3c",
-   "git:watchout/agent-memory@9c76e2de38832eb3d39241fd81e9eb5e11b44269 (generation 2 head)"
+   "git:watchout/agent-memory@9c02ced4f3e16ca3c5ff250c42325a52aee804c9 (generation 3 predecessor)"
   ],
-  "predecessor_pack_digest": "sha256:d61098dbbb994f602292dde8a0359342216a323d10d58214840bf5501b6331a7",
-  "predecessor_subject_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+  "predecessor_pack_digest": "sha256:07516bad26c59bc448350e33d615e3c40bc5abee4aceee1a6a74bc97ad70e208",
+  "predecessor_subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
   "source_refs": [
    "SRC-307-BODY",
    "SRC-307-OD",
@@ -39,25 +39,30 @@
    "SRC-FUNCTION-BINDINGS",
    "SRC-RUNBOOK-V1",
    "SRC-CELL-GRAPH-V1",
-   "SRC-PACK-GEN2"
+   "SRC-PACK-GEN2",
+   "SRC-CH-GEN4",
+   "SRC-GATE-GEN3",
+   "SRC-PACK-GEN3",
+   "SRC-ORDINARY-DELEGATION"
   ],
   "control_source": "https://github.com/watchout/agent-memory/issues/307"
  },
  "admission": {
   "mode": "author",
-  "actor_agent_id": "arc",
+  "actor_agent_id": "/root/recovery_path_author",
   "active_function": "control_artifact_author",
   "maker_history": [
-   "arc/control_artifact_author"
+   "arc/control_artifact_author",
+   "/root/recovery_path_author"
   ],
   "authority": [
-   "author DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001 generation 3 (the single authorized attempt) in exactly the three allowed paths under SRC-OD-DONE-V1, SRC-OD-CORR1, SRC-CH-GEN3",
-   "correct exactly gen2 findings F-01, F-02, F-03, F-05, F-06 and bind the completion definition as atomic rows",
-   "publish the corrected commit on the same design-only PR, one transcript comment, and one candidate receipt on issue 307",
-   "dispatch one maker-external evidence_audit_gate (devauditor); implement nothing and merge nothing"
+   "One generation4 ordinary F07/F08 correction to owner-frozen semantics under SRC-CH-GEN4 and SRC-ORDINARY-DELEGATION; preserve F01-F06 closures",
+   "Only three allowed design paths, one local candidate/commit,20 elapsed minutes; no push/publication/product/runtime/DB",
+   "Return exact local evidence to CTO for separate independent checker /root/execution_guide_review; no self-gate"
   ],
   "authority_refs": [
-   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5516992172",
+   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553",
+   "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5609700544",
    "https://github.com/watchout/agent-memory/issues/307#issuecomment-5465582876",
    "https://github.com/watchout/agent-memory/issues/307#issuecomment-5435912512"
   ],
@@ -68,9 +73,9 @@
    "merge, Ready, deploy, release, branch protection",
    "owner-frozen assignment rows, base, and definitions"
   ],
-  "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+  "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
   "validation_version": "1.2.0",
-  "admitted_at": "2026-09-03T00:00:00Z"
+  "admitted_at": "2026-09-18T01:22:27Z"
  },
  "owner_outcome": {
   "statement": "Complete prerequisite designs 1-5 for Goal A (execution runbook, machine-readable A1-A11 plus A5b cell graph, five-state common lifecycle, Codex/Claude/Gemini adapter contract, fresh maker-separated Design Flow v2 gate) and bind the owner-frozen Kusabi internal-operation completion definition KUSABI-INTERNAL-OPERATION-DONE-V1, as amended by OD-AM307-KUSABI-COMPLETION-CORR1-20260830-001, to atomic predicate rows so that every evaluator returns the same PASS, FAIL, or INCOMPLETE; then advance the frozen Goal A order from A1 under separate bounded handoffs.",
@@ -215,14 +220,14 @@
    "locator": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5516992172",
    "bytes": 4906,
    "fetch_command": "gh api repos/watchout/agent-memory/issues/comments/5516992172 | jq -j .body",
-   "describes": "CH-CTO-AM307-ARC-KUSABI-COMPLETION-GEN3-20260903-001: the active generation-3 handoff; checker devauditor/evidence_audit_gate (maker-external), three allowed paths, required content, validation, expiry 2026-09-06T00:00:00Z."
+   "describes": "CH-CTO-AM307-ARC-KUSABI-COMPLETION-GEN3-20260903-001: the active generation-3 handoff; checker devauditor/evidence_audit_gate (maker-external), three allowed paths, required content, validation, expiry 2026-09-06T00:00:00Z. Historical, expired and exhausted; not current generation4 authority."
   },
   {
    "id": "SRC-ALPHA-CHOICES",
    "kind": "owner_decision",
    "digest": "sha256:1e69a3ce44098ca5f30aa78b3cb8e9705ba82393660b1f8a66c0dd73f22402f2",
    "evidence_ref": "EV-SRC-ALPHA-CHOICES",
-   "locator": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5054279853",
+   "locator": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853",
    "bytes": 4207,
    "fetch_command": "gh api repos/watchout/agent-memory/issues/comments/5054279853 | jq -j .body",
    "describes": "OD-KUSABI-CONTINUITY-ALPHA-OWNER-CHOICES-20260723-001: alpha bar (28/30, 4.5/5, RI0, T1/T3/T4 thresholds), exact P0 list, kusabi-gemini dedicated canary identity."
@@ -290,12 +295,12 @@
   {
    "id": "SRC-RUNBOOK-V1",
    "kind": "authored_design_artifact",
-   "digest": "sha256:806deabcd23d30b2f7d99826768e7924f1983617f4849a49b5661526f7a66d3e",
+   "digest": "sha256:de0de4fb3fc61f0d5eebc7f594ad39bcf862fab474c0b7b58dfa18b048f25d4a",
    "evidence_ref": "EV-SRC-RUNBOOK-V1",
    "locator": "repo:docs/design/goal-a-execution-runbook-v1.md",
-   "bytes": 18500,
+   "bytes": 20768,
    "fetch_command": "cat docs/design/goal-a-execution-runbook-v1.md",
-   "describes": "Goal A Execution Runbook v1 (generation 3 revision)."
+   "describes": "Goal A runbook generation4: F07 cardinality and F08 evidence/authority binding only; earlier closures preserved."
   },
   {
    "id": "SRC-CELL-GRAPH-V1",
@@ -316,6 +321,46 @@
    "bytes": 118204,
    "fetch_command": "git show 9c76e2de38832eb3d39241fd81e9eb5e11b44269:docs/design/goal-a-execution-runbook-v1.design-pack.json",
    "describes": "generation 2 pack bytes (predecessor; carried content is re-authored, not copied blindly)."
+  },
+  {
+   "id": "SRC-CH-GEN4",
+   "kind": "control_handoff",
+   "digest": "sha256:2312f536748e799bad1c76f3eeb092b6adba8bea6cc293a36262ff362e4f0798",
+   "evidence_ref": "EV-SRC-CH-GEN4",
+   "locator": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553",
+   "bytes": 6197,
+   "fetch_command": "read exact source at https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553",
+   "describes": "Generation4 provenance; semantic changes limited to F07/F08 under current handoff."
+  },
+  {
+   "id": "SRC-GATE-GEN3",
+   "kind": "independent_gate_result",
+   "digest": "sha256:dbc98ec42e74c116fbd7a84ab80e91e4ee5145bbd3e62907e3c2fae9b00cba6f",
+   "evidence_ref": "EV-SRC-GATE-GEN3",
+   "locator": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5522512677",
+   "bytes": 12446,
+   "fetch_command": "read exact source at https://github.com/watchout/agent-memory/issues/307#issuecomment-5522512677",
+   "describes": "Generation4 provenance; semantic changes limited to F07/F08 under current handoff."
+  },
+  {
+   "id": "SRC-PACK-GEN3",
+   "kind": "predecessor_design_artifact",
+   "digest": "sha256:967a27157df161560acae87704b29752bf2a9eb0c930d1f80f941cbecc2ad268",
+   "evidence_ref": "EV-SRC-PACK-GEN3",
+   "locator": "git:watchout/agent-memory@9c02ced4f3e16ca3c5ff250c42325a52aee804c9:docs/design/goal-a-execution-runbook-v1.design-pack.json",
+   "bytes": 318512,
+   "fetch_command": "read exact source at git:watchout/agent-memory@9c02ced4f3e16ca3c5ff250c42325a52aee804c9:docs/design/goal-a-execution-runbook-v1.design-pack.json",
+   "describes": "Generation4 provenance; semantic changes limited to F07/F08 under current handoff."
+  },
+  {
+   "id": "SRC-ORDINARY-DELEGATION",
+   "kind": "ordinary_authority",
+   "digest": "sha256:59952776f1cfb5093040cb9318641f54721ef4f0f416ee278d1e426e980aef02",
+   "evidence_ref": "EV-SRC-ORDINARY-DELEGATION",
+   "locator": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5609700544",
+   "bytes": 8107,
+   "fetch_command": "read exact source at https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5609700544",
+   "describes": "Generation4 provenance; semantic changes limited to F07/F08 under current handoff."
   }
  ],
  "non_goals": [
@@ -334,8 +379,8 @@
   },
   {
    "id": "ASM-GA-03",
-   "statement": "the generation-3 checker is devauditor/evidence_audit_gate as bound by SRC-CH-GEN3 (maker_checker_independent: true); the generation-1 qa reservation is superseded for this subject and no substitution clause is needed",
-   "source_ref": "SRC-CH-GEN3"
+   "statement": "the generation-4 checker is /root/execution_guide_review/evidence_audit_gate as bound by SRC-CH-GEN4; the actor-independent predicate is a registered evidence_audit_gate seat absent from maker history [arc/control_artifact_author,/root/recovery_path_author]; prior generation-3 checker binding remains historical",
+   "source_ref": "SRC-CH-GEN4"
   },
   {
    "id": "ASM-GA-04",
@@ -442,6 +487,29 @@
    "F-06": "one terminal boundary: DESIGN CLOSURE (exact bytes + independent gate PASS + receipt); definition_of_done contains only design closure items; implementation fixtures are first-implementation commitments owned by consuming cells; activation remains IMPLEMENTATION_INACTIVE"
   },
   "generation_policy": {
+   "generation": 4,
+   "attempt_limit": 1,
+   "remaining_attempts_after_this_receipt": 0,
+   "authority": "SRC-CH-GEN4 + SRC-ORDINARY-DELEGATION; owner-frozen semantics unchanged"
+  },
+  "gen3_gate": {
+   "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5522512677",
+   "raw_body_sha256": "dbc98ec42e74c116fbd7a84ab80e91e4ee5145bbd3e62907e3c2fae9b00cba6f",
+   "verdict": "BLOCK",
+   "unresolved": [
+    "F-07",
+    "F-08"
+   ],
+   "prior_closures_preserved": [
+    "F-01",
+    "F-02",
+    "F-03 source digests and trace",
+    "F-04",
+    "F-05",
+    "F-06"
+   ]
+  },
+  "prior_generation_policy": {
    "generation": 3,
    "attempt_limit": 1,
    "remaining_attempts_after_this_receipt": 0,
@@ -1102,8 +1170,8 @@
    },
    {
     "id": "D-CHECKER-BINDING",
-    "decision": "the generation-3 checker is devauditor/evidence_audit_gate per SRC-CH-GEN3 with maker_checker_independent true; the actor-independent predicate is: a registered evidence_audit_gate seat absent from maker history",
-    "source_ref": "SRC-CH-GEN3",
+    "decision": "the generation-4 checker is /root/execution_guide_review/evidence_audit_gate as bound by SRC-CH-GEN4; the actor-independent predicate is a registered evidence_audit_gate seat absent from maker history [arc/control_artifact_author,/root/recovery_path_author]; prior generation-3 checker binding remains historical",
+    "source_ref": "SRC-CH-GEN4",
     "options_rejected": [
      "ASM-GA-02 substitution clause (rejected: F-05 requires a citable binding, not a candidate-local assumption)"
     ]
@@ -1153,11 +1221,11 @@
  },
  "architecture_and_adapters": {
   "canonical_semantic_core": "GOAL-A-CORE: five-state lifecycle, exact order, citation contract, evidence identity, digest-independent no-progress halt, typed EXPIRED record with orchestration_controller recovery, terminal admission, plus the completion contract (seventeen row families, credit rules, verdict precedence, reset) — one semantics defined by the runbook, the graph, and this pack's completion_contract",
-  "semantic_core_digest": "sha256:cd3213f14dcf860ee4b63701793c4430fadabbb8ce33464d99c02bb7e98305c1",
+  "semantic_core_digest": "sha256:e0523d6b05cbc8cb473cc25eb682aed7e2923551380940d99565fc92e156a511",
   "semantic_core_derivation": {
    "serialization": "GOAL-A-CORE:<runbook sha256 digest>:<graph sha256 digest>",
    "inputs": {
-    "runbook_digest": "sha256:806deabcd23d30b2f7d99826768e7924f1983617f4849a49b5661526f7a66d3e",
+    "runbook_digest": "sha256:de0de4fb3fc61f0d5eebc7f594ad39bcf862fab474c0b7b58dfa18b048f25d4a",
     "graph_digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535"
    },
    "command": "python3 -c \"import hashlib; r=lambda p:'sha256:'+hashlib.sha256(open(p,'rb').read()).hexdigest(); print('sha256:'+hashlib.sha256(('GOAL-A-CORE:'+r('docs/design/goal-a-execution-runbook-v1.md')+':'+r('docs/design/goal-a-derived-cell-graph-v1.json')).encode()).hexdigest())\"",
@@ -1188,17 +1256,17 @@
   "adapters": [
    {
     "id": "codex_adapter",
-    "semantic_digest": "sha256:cd3213f14dcf860ee4b63701793c4430fadabbb8ce33464d99c02bb7e98305c1",
+    "semantic_digest": "sha256:e0523d6b05cbc8cb473cc25eb682aed7e2923551380940d99565fc92e156a511",
     "translates": "transport and format for Codex CLI execution; no semantic redefinition; digest re-derived, not copied"
    },
    {
     "id": "claude_adapter",
-    "semantic_digest": "sha256:cd3213f14dcf860ee4b63701793c4430fadabbb8ce33464d99c02bb7e98305c1",
+    "semantic_digest": "sha256:e0523d6b05cbc8cb473cc25eb682aed7e2923551380940d99565fc92e156a511",
     "translates": "transport and format for Claude Code execution; no semantic redefinition; digest re-derived, not copied"
    },
    {
     "id": "gemini_adapter",
-    "semantic_digest": "sha256:cd3213f14dcf860ee4b63701793c4430fadabbb8ce33464d99c02bb7e98305c1",
+    "semantic_digest": "sha256:e0523d6b05cbc8cb473cc25eb682aed7e2923551380940d99565fc92e156a511",
     "translates": "transport and format for Gemini CLI execution; no semantic redefinition; digest re-derived, not copied"
    }
   ]
@@ -1294,7 +1362,7 @@
   "tool_boundary": "adapters expose execute-and-report; no adapter tool writes lifecycle state or verdicts",
   "context_retrieval": "validators and the evaluator read digest-bound artifacts and issue 307 comments; prose is never state",
   "failure_degradation": "AUN outage degrades to direct execution with identical semantics; validator outage fails closed leaving states unchanged; stalled states produce one typed EXPIRED record; missing evidence is INCOMPLETE, never PASS",
-  "evaluation": "GA-01, GA-03, GA-31, GA-32, GA-33, GA-34, GA-36, KC-REG-01 executed offline for generation 3 with readbacks; GA-02..GA-30, GA-35 and KC-* run under cell handoffs once implemented; the ledger separates the grades",
+  "evaluation": "GA-01, GA-03, GA-31, GA-32, GA-33, GA-34, GA-36 are the seven EXECUTED_OFFLINE fixtures with current local readbacks; FX-KC-REG-01 remains PRODUCED_AT_GATE and is not author-executed. AUTHOR-KC-REG-FIELDS is a separate author precheck, not one of the76 fixture claims. All68 first-implementation commitments remain COMMITTED_NOT_RUN.",
   "human_oversight": "owner gates at A6, A7, A10, conditional A5b, waivers, halt resume, manifest publication, final owner closure after technical PASS",
   "product_conformance_v1_1": {
    "1_agent_first": "PASS",
@@ -1339,10 +1407,10 @@
   "cardinality_disposition": "RETAIN_APPROVED_16_POSITIVE_PLUS_S15",
   "selector_contract": {
    "production_binding_manifest": "A6_OWNER_FROZEN_ELIGIBLE_PRODUCTION_BINDING_MANIFEST",
-   "lookup": "B(agent,host,project) = exactly one applicable frozen binding row whose agent_id=agent, host_runtime=host, project=project; the A6 manifest for production actors and the dedicated owner-bound canary binding receipt for kusabi-gemini",
+   "lookup": "B(agent,host,project)=exactly_one applicable frozen binding row whose agent_id=agent, host_runtime=host, and project=project; use the A6 manifest for production actors and the dedicated owner-bound canary binding receipt for kusabi-gemini.",
    "workspace_selector": "B(agent,host,project).workspace_sha256",
    "binding_selector": "B(agent,host,project).runtime_binding_ref",
-   "store_requirement": "observed store_binding_fingerprint equals the same frozen binding row",
+   "store_requirement": "observed store_binding_fingerprint equals the same frozen binding row.",
    "before_manifest_freeze_or_missing_value": "INCOMPLETE",
    "zero_or_multiple_match_after_freeze": "FAIL",
    "runtime_readback_mismatch": "FAIL",
@@ -1359,13 +1427,13 @@
   },
   "credit_rules": {
    "SCENARIO_ONCE": "one distinct receipt credits this S1-S12 assignment row only",
-   "FIXTURE_SCENARIO_ONCE": "one deterministic fixture credits this scenario only; zero observed-live, P0, native-host, KBF, or fleet credit",
+   "FIXTURE_SCENARIO_ONCE": "one deterministic fixture credits this scenario only; it provides no observed-live, P0, native-host, KBF, or fleet credit",
    "S13_DEGRADATION_ONCE": "credits S13 only and never successful-recovery, P0, KBF, or fleet credit",
    "S14_HOST_ONCE": "credits exactly this S14 host assignment only and never KBF G3 credit",
    "S15_NEGATIVE_ONLY": "expected evaluator rejection only; zero positive credit",
    "P0_ONLY": "credits exactly this P0 ordinal; zero S1-S15, S14, KBF, or fleet credit",
-   "P0_AND_S3_SCOPE_ONLY": "credits exactly this P0 ordinal and proves membership in initial S3 scope; zero counted-S3 credit",
-   "receipt_uniqueness": "one receipt_id satisfies exactly one counted assignment row; attribute predicates may reference it but cannot increment any other denominator"
+   "P0_AND_S3_SCOPE_ONLY": "credits exactly this P0 ordinal and proves membership in initial S3 scope; it provides zero counted-S3 credit",
+   "receipt_uniqueness": "one receipt_id may satisfy exactly one counted assignment row; attribute predicates may reference it but cannot increment any other denominator"
   },
   "counted_assignment_rows": [
    {
@@ -2142,7 +2210,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-01",
    "evidence_ref": "EV-GA-01",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "checker exits 0: digest equals the recorded digest, exact_order equals the frozen array, and zero cells miss a required field",
    "fail_rule": "digest differs, order differs, or any cell misses a required field",
@@ -2170,7 +2238,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-03",
    "evidence_ref": "EV-GA-03",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "checker reads the lifecycle table and measures 5 states each with entry and exit predicates present",
    "fail_rule": "any state misses an entry or exit predicate",
@@ -2562,7 +2630,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-31",
    "evidence_ref": "EV-GA-31",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "the derivation command output equals the recorded core digest and the mutated-input output differs from it",
    "fail_rule": "the derivation output differs from the recorded digest or a mutated input re-derives an identical digest",
@@ -2577,7 +2645,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-32",
    "evidence_ref": "EV-GA-32",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "the section scan measures 4 of 4 elements and the escalation template readback shows notification count equals 1",
    "fail_rule": "a missing element or a notification count other than 1 fails the fixture",
@@ -2592,7 +2660,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-33",
    "evidence_ref": "EV-GA-33",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "the runbook states the two-layer text-only rule and the validator fixture returns a typed reject for the color-only, image-only, and position-only specimens",
    "fail_rule": "a missing rule statement or an admitted color, image, or position dependent record fails the fixture",
@@ -2607,7 +2675,7 @@
    "decision_ref": "DESIGN_STRUCTURE",
    "fixture_ref": "FX-GA-34",
    "evidence_ref": "EV-GA-34",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "the table scan returns a row count equal to 8 with a non-empty exhaustion column in every row and GA-09, GA-25, GA-30 read back the same numeric bounds",
    "fail_rule": "fewer than 8 rows, an empty exhaustion column, or a bound differing from the fixtures fails the fixture",
@@ -2637,7 +2705,7 @@
    "decision_ref": "DESIGN_HANDOFF",
    "fixture_ref": "FX-GA-36",
    "evidence_ref": "EV-GA-36",
-   "evidence_producer": "deterministic checker over the committed runbook/graph (executed offline for generation 3; output line in the transcript comment)",
+   "evidence_producer": "deterministic checker copied from existing gen3 fixture logic, executed offline on current generation4 runbook/graph; seven output lines in local immutable transcript",
    "proof_tier": "executed_offline_fixture",
    "pass_rule": "the runbook states the rollout order and the issue 307 readback measures 0 lifecycle record markers",
    "fail_rule": "a nonzero prior entry count or a missing rollout order fails the fixture",
@@ -2646,16 +2714,16 @@
   },
   {
    "id": "KC-REG-01",
-   "predicate": "the counted_assignment_rows and p0_sequence_rows of this pack equal the rows of the owner decision field by field: 16 counted positive runs, 1 S15 negative fixture, 10 P0 sequence rows, totals identical, and every credit_rule in the closed set",
+   "predicate": "the owner registry comparison returns zero field differences for counted_assignment_rows, p0_sequence_rows, totals, all credit rule values, and all selector fields under the recorded dedicated binding field mapping",
    "predicate_ja": "割当 registry が owner 決定と行単位で一致",
    "source_ref": "SRC-OD-CORR1",
    "decision_ref": "DESIGN_AUTHORITY",
    "fixture_ref": "FX-KC-REG-01",
    "evidence_ref": "EV-SRC-OD-CORR1",
-   "evidence_producer": "independent evidence_audit_gate comparing completion_contract rows with the owner decision body",
+   "evidence_producer": "independent evidence_audit_gate executing the owner comparison against exact owner body bytes; author precheck is not gate evidence",
    "proof_tier": "gate_time_readback",
-   "pass_rule": "a field-by-field comparison against the owner decision body returns zero differences and the offline structural check FX-KC-REG-01 records PASS",
-   "fail_rule": "any row, field, or total differing from the owner decision fails the fixture",
+   "pass_rule": "the independent gate comparison returns zero field differences against the exact owner body and rejects every changed or missing field, including receipt_uniqueness without may",
+   "fail_rule": "any changed or missing assignment, total, credit rule value, selector value, or source URL/hash fails the fixture",
    "row_family": null,
    "owning_cell": null
   },
@@ -3249,7 +3317,7 @@
   {
    "id": "FX-GA-01",
    "predicate_ref": "GA-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-01",
    "fixture_kind": "executed_offline",
@@ -3259,7 +3327,7 @@
   {
    "id": "FX-GA-02",
    "predicate_ref": "GA-02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-02",
    "fixture_kind": "first_implementation_commitment",
@@ -3269,7 +3337,7 @@
   {
    "id": "FX-GA-03",
    "predicate_ref": "GA-03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-03",
    "fixture_kind": "executed_offline",
@@ -3279,7 +3347,7 @@
   {
    "id": "FX-GA-04",
    "predicate_ref": "GA-04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-04",
    "fixture_kind": "first_implementation_commitment",
@@ -3289,7 +3357,7 @@
   {
    "id": "FX-GA-05",
    "predicate_ref": "GA-05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-05",
    "fixture_kind": "first_implementation_commitment",
@@ -3299,7 +3367,7 @@
   {
    "id": "FX-GA-06",
    "predicate_ref": "GA-06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-06",
    "fixture_kind": "first_implementation_commitment",
@@ -3309,7 +3377,7 @@
   {
    "id": "FX-GA-07",
    "predicate_ref": "GA-07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-07",
    "fixture_kind": "first_implementation_commitment",
@@ -3319,7 +3387,7 @@
   {
    "id": "FX-GA-08",
    "predicate_ref": "GA-08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-08",
    "fixture_kind": "first_implementation_commitment",
@@ -3329,7 +3397,7 @@
   {
    "id": "FX-GA-09",
    "predicate_ref": "GA-09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-09",
    "fixture_kind": "first_implementation_commitment",
@@ -3339,7 +3407,7 @@
   {
    "id": "FX-GA-10",
    "predicate_ref": "GA-10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-10",
    "fixture_kind": "first_implementation_commitment",
@@ -3349,7 +3417,7 @@
   {
    "id": "FX-GA-11",
    "predicate_ref": "GA-11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-11",
    "fixture_kind": "first_implementation_commitment",
@@ -3359,7 +3427,7 @@
   {
    "id": "FX-GA-12",
    "predicate_ref": "GA-12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-12",
    "fixture_kind": "first_implementation_commitment",
@@ -3369,7 +3437,7 @@
   {
    "id": "FX-GA-13",
    "predicate_ref": "GA-13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-13",
    "fixture_kind": "first_implementation_commitment",
@@ -3379,7 +3447,7 @@
   {
    "id": "FX-GA-14",
    "predicate_ref": "GA-14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-14",
    "fixture_kind": "first_implementation_commitment",
@@ -3389,7 +3457,7 @@
   {
    "id": "FX-GA-15",
    "predicate_ref": "GA-15",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-15",
    "fixture_kind": "first_implementation_commitment",
@@ -3399,7 +3467,7 @@
   {
    "id": "FX-GA-16",
    "predicate_ref": "GA-16",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-16",
    "fixture_kind": "first_implementation_commitment",
@@ -3409,7 +3477,7 @@
   {
    "id": "FX-GA-17",
    "predicate_ref": "GA-17",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-17",
    "fixture_kind": "first_implementation_commitment",
@@ -3419,7 +3487,7 @@
   {
    "id": "FX-GA-18",
    "predicate_ref": "GA-18",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-18",
    "fixture_kind": "first_implementation_commitment",
@@ -3429,7 +3497,7 @@
   {
    "id": "FX-GA-19",
    "predicate_ref": "GA-19",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-19",
    "fixture_kind": "first_implementation_commitment",
@@ -3439,7 +3507,7 @@
   {
    "id": "FX-GA-20",
    "predicate_ref": "GA-20",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-20",
    "fixture_kind": "first_implementation_commitment",
@@ -3449,7 +3517,7 @@
   {
    "id": "FX-GA-21",
    "predicate_ref": "GA-21",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-21",
    "fixture_kind": "first_implementation_commitment",
@@ -3459,7 +3527,7 @@
   {
    "id": "FX-GA-22",
    "predicate_ref": "GA-22",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-22",
    "fixture_kind": "first_implementation_commitment",
@@ -3469,7 +3537,7 @@
   {
    "id": "FX-GA-23",
    "predicate_ref": "GA-23",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-23",
    "fixture_kind": "first_implementation_commitment",
@@ -3479,7 +3547,7 @@
   {
    "id": "FX-GA-24",
    "predicate_ref": "GA-24",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-24",
    "fixture_kind": "first_implementation_commitment",
@@ -3489,7 +3557,7 @@
   {
    "id": "FX-GA-25",
    "predicate_ref": "GA-25",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-25",
    "fixture_kind": "first_implementation_commitment",
@@ -3499,7 +3567,7 @@
   {
    "id": "FX-GA-26",
    "predicate_ref": "GA-26",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-26",
    "fixture_kind": "first_implementation_commitment",
@@ -3509,7 +3577,7 @@
   {
    "id": "FX-GA-27",
    "predicate_ref": "GA-27",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-27",
    "fixture_kind": "first_implementation_commitment",
@@ -3519,7 +3587,7 @@
   {
    "id": "FX-GA-28",
    "predicate_ref": "GA-28",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-28",
    "fixture_kind": "first_implementation_commitment",
@@ -3529,7 +3597,7 @@
   {
    "id": "FX-GA-29",
    "predicate_ref": "GA-29",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-29",
    "fixture_kind": "first_implementation_commitment",
@@ -3539,7 +3607,7 @@
   {
    "id": "FX-GA-30",
    "predicate_ref": "GA-30",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-30",
    "fixture_kind": "first_implementation_commitment",
@@ -3549,7 +3617,7 @@
   {
    "id": "FX-GA-31",
    "predicate_ref": "GA-31",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-31",
    "fixture_kind": "executed_offline",
@@ -3559,7 +3627,7 @@
   {
    "id": "FX-GA-32",
    "predicate_ref": "GA-32",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-32",
    "fixture_kind": "executed_offline",
@@ -3569,7 +3637,7 @@
   {
    "id": "FX-GA-33",
    "predicate_ref": "GA-33",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-33",
    "fixture_kind": "executed_offline",
@@ -3579,7 +3647,7 @@
   {
    "id": "FX-GA-34",
    "predicate_ref": "GA-34",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-34",
    "fixture_kind": "executed_offline",
@@ -3589,7 +3657,7 @@
   {
    "id": "FX-GA-35",
    "predicate_ref": "GA-35",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-35",
    "fixture_kind": "first_implementation_commitment",
@@ -3599,7 +3667,7 @@
   {
    "id": "FX-GA-36",
    "predicate_ref": "GA-36",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-GA-36",
    "fixture_kind": "executed_offline",
@@ -3609,17 +3677,28 @@
   {
    "id": "FX-KC-REG-01",
    "predicate_ref": "KC-REG-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-SRC-OD-CORR1",
    "fixture_kind": "gate_time_readback",
-   "checker": null,
-   "cases": null
+   "checker": "owner-registry-compare.mjs (immutable local evidence; independent checker reruns it and supplies its own receipt)",
+   "cases": [
+    "exact owner fields",
+    "one changed value per scalar leaf",
+    "one missing scalar field",
+    "receipt_uniqueness may removed",
+    "wrong dedicated binding source URL/hash"
+   ],
+   "checker_artifact": {
+    "path": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/owner-registry-compare.mjs",
+    "sha256": "2e4faff20249cccf6241ffaa594819b7e2ade694768dc4601fd02d8657f7d4da",
+    "expected_independent_action": "Independent checker must execute against current exact pack and raw owner body and issue its own evidence; author result is not this fixture execution."
+   }
   },
   {
    "id": "FX-KC-AD",
    "predicate_ref": "KC-AD",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-AD",
    "fixture_kind": "first_implementation_commitment",
@@ -3629,7 +3708,7 @@
   {
    "id": "FX-KC-AUTH",
    "predicate_ref": "KC-AUTH",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-AUTH",
    "fixture_kind": "first_implementation_commitment",
@@ -3639,7 +3718,7 @@
   {
    "id": "FX-KC-C01",
    "predicate_ref": "KC-C01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C01",
    "fixture_kind": "first_implementation_commitment",
@@ -3649,7 +3728,7 @@
   {
    "id": "FX-KC-C02",
    "predicate_ref": "KC-C02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C02",
    "fixture_kind": "first_implementation_commitment",
@@ -3659,7 +3738,7 @@
   {
    "id": "FX-KC-C03",
    "predicate_ref": "KC-C03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C03",
    "fixture_kind": "first_implementation_commitment",
@@ -3669,7 +3748,7 @@
   {
    "id": "FX-KC-C04",
    "predicate_ref": "KC-C04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C04",
    "fixture_kind": "first_implementation_commitment",
@@ -3679,7 +3758,7 @@
   {
    "id": "FX-KC-C05",
    "predicate_ref": "KC-C05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C05",
    "fixture_kind": "first_implementation_commitment",
@@ -3689,7 +3768,7 @@
   {
    "id": "FX-KC-C06",
    "predicate_ref": "KC-C06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C06",
    "fixture_kind": "first_implementation_commitment",
@@ -3699,7 +3778,7 @@
   {
    "id": "FX-KC-C07",
    "predicate_ref": "KC-C07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C07",
    "fixture_kind": "first_implementation_commitment",
@@ -3709,7 +3788,7 @@
   {
    "id": "FX-KC-C08",
    "predicate_ref": "KC-C08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C08",
    "fixture_kind": "first_implementation_commitment",
@@ -3719,7 +3798,7 @@
   {
    "id": "FX-KC-C09",
    "predicate_ref": "KC-C09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C09",
    "fixture_kind": "first_implementation_commitment",
@@ -3729,7 +3808,7 @@
   {
    "id": "FX-KC-C10",
    "predicate_ref": "KC-C10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C10",
    "fixture_kind": "first_implementation_commitment",
@@ -3739,7 +3818,7 @@
   {
    "id": "FX-KC-C11",
    "predicate_ref": "KC-C11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C11",
    "fixture_kind": "first_implementation_commitment",
@@ -3749,7 +3828,7 @@
   {
    "id": "FX-KC-C12",
    "predicate_ref": "KC-C12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C12",
    "fixture_kind": "first_implementation_commitment",
@@ -3759,7 +3838,7 @@
   {
    "id": "FX-KC-C13",
    "predicate_ref": "KC-C13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C13",
    "fixture_kind": "first_implementation_commitment",
@@ -3769,7 +3848,7 @@
   {
    "id": "FX-KC-C14",
    "predicate_ref": "KC-C14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-C14",
    "fixture_kind": "first_implementation_commitment",
@@ -3779,7 +3858,7 @@
   {
    "id": "FX-KC-RESET",
    "predicate_ref": "KC-RESET",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-RESET",
    "fixture_kind": "first_implementation_commitment",
@@ -3789,7 +3868,7 @@
   {
    "id": "FX-KC-B-01",
    "predicate_ref": "KC-B-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-01",
    "fixture_kind": "first_implementation_commitment",
@@ -3799,7 +3878,7 @@
   {
    "id": "FX-KC-B-02",
    "predicate_ref": "KC-B-02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-02",
    "fixture_kind": "first_implementation_commitment",
@@ -3809,7 +3888,7 @@
   {
    "id": "FX-KC-B-03",
    "predicate_ref": "KC-B-03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-03",
    "fixture_kind": "first_implementation_commitment",
@@ -3819,7 +3898,7 @@
   {
    "id": "FX-KC-B-04",
    "predicate_ref": "KC-B-04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-04",
    "fixture_kind": "first_implementation_commitment",
@@ -3829,7 +3908,7 @@
   {
    "id": "FX-KC-B-05",
    "predicate_ref": "KC-B-05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-05",
    "fixture_kind": "first_implementation_commitment",
@@ -3839,7 +3918,7 @@
   {
    "id": "FX-KC-B-06",
    "predicate_ref": "KC-B-06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-06",
    "fixture_kind": "first_implementation_commitment",
@@ -3849,7 +3928,7 @@
   {
    "id": "FX-KC-B-07",
    "predicate_ref": "KC-B-07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-07",
    "fixture_kind": "first_implementation_commitment",
@@ -3859,7 +3938,7 @@
   {
    "id": "FX-KC-B-08",
    "predicate_ref": "KC-B-08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-08",
    "fixture_kind": "first_implementation_commitment",
@@ -3869,7 +3948,7 @@
   {
    "id": "FX-KC-B-09",
    "predicate_ref": "KC-B-09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-09",
    "fixture_kind": "first_implementation_commitment",
@@ -3879,7 +3958,7 @@
   {
    "id": "FX-KC-B-10",
    "predicate_ref": "KC-B-10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-10",
    "fixture_kind": "first_implementation_commitment",
@@ -3889,7 +3968,7 @@
   {
    "id": "FX-KC-B-11",
    "predicate_ref": "KC-B-11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-11",
    "fixture_kind": "first_implementation_commitment",
@@ -3899,7 +3978,7 @@
   {
    "id": "FX-KC-B-12",
    "predicate_ref": "KC-B-12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-12",
    "fixture_kind": "first_implementation_commitment",
@@ -3909,7 +3988,7 @@
   {
    "id": "FX-KC-B-13",
    "predicate_ref": "KC-B-13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-13",
    "fixture_kind": "first_implementation_commitment",
@@ -3919,7 +3998,7 @@
   {
    "id": "FX-KC-B-14",
    "predicate_ref": "KC-B-14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-14",
    "fixture_kind": "first_implementation_commitment",
@@ -3929,7 +4008,7 @@
   {
    "id": "FX-KC-B-15",
    "predicate_ref": "KC-B-15",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-15",
    "fixture_kind": "first_implementation_commitment",
@@ -3939,7 +4018,7 @@
   {
    "id": "FX-KC-B-16",
    "predicate_ref": "KC-B-16",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-16",
    "fixture_kind": "first_implementation_commitment",
@@ -3949,7 +4028,7 @@
   {
    "id": "FX-KC-B-17",
    "predicate_ref": "KC-B-17",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-17",
    "fixture_kind": "first_implementation_commitment",
@@ -3959,7 +4038,7 @@
   {
    "id": "FX-KC-B-18",
    "predicate_ref": "KC-B-18",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-18",
    "fixture_kind": "first_implementation_commitment",
@@ -3969,7 +4048,7 @@
   {
    "id": "FX-KC-B-19",
    "predicate_ref": "KC-B-19",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-19",
    "fixture_kind": "first_implementation_commitment",
@@ -3979,7 +4058,7 @@
   {
    "id": "FX-KC-B-20",
    "predicate_ref": "KC-B-20",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-20",
    "fixture_kind": "first_implementation_commitment",
@@ -3989,7 +4068,7 @@
   {
    "id": "FX-KC-B-21",
    "predicate_ref": "KC-B-21",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-21",
    "fixture_kind": "first_implementation_commitment",
@@ -3999,7 +4078,7 @@
   {
    "id": "FX-KC-B-22",
    "predicate_ref": "KC-B-22",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "expected": "PASS",
    "evidence_ref": "EV-KC-B-22",
    "fixture_kind": "first_implementation_commitment",
@@ -4008,7 +4087,7 @@
   }
  ],
  "traceability": {
-  "predicate_registry_digest": "sha256:0946d39fc7242ff62e63bba8a3f7b22fb1c856e72f723a95164e6ab88382bf0b",
+  "predicate_registry_digest": "sha256:f5964155deeeb56bde24b752e2bf2560a84529153fda22a52e95a6acfc3cd3ab",
   "edges": [
    {
     "source_ref": "SRC-CELL-GRAPH-V1",
@@ -4757,7 +4836,7 @@
  ],
  "operations_migration_rollback": {
   "operation": "the runbook, graph, and pack are docs-only artifacts versioned in git; lifecycle validators and the completion evaluator ship under later cell handoffs pinned to this pack digest",
-  "migration": "none: zero lifecycle records exist under generation 1 or 2 semantics (ASM-GA-05, GA-36); the generation-3 semantic revision applies to all future records; A5b's conditional migration case is typed-stopped to an owner gate (GA-28)",
+  "migration": "none: zero lifecycle records exist under generation 1 or 2 semantics (ASM-GA-05, GA-36); the current derived semantic revision applies to all future records; A5b's conditional migration case is typed-stopped to an owner gate (GA-28)",
   "rollout_order": [
    "design merge under owner exact-head",
    "validator and evaluator implementation under the first consuming cell handoff",
@@ -4770,13 +4849,13 @@
  "delivery_handoff": {
   "goal": "give every Goal A cell one shared machine-enforceable advancement semantics and give the owner-frozen Kusabi completion definition an atomic, deterministic, evaluator-ready contract, so A1 can start under a bounded handoff and the eventual product verdict is computable by anyone",
   "definition_of_done": [
-   "DESIGN CLOSURE only: the three committed artifacts at the exact head pass Design Flow 1.2.0 validation (PASS, trace 100 percent) with two byte-identical eval runs",
-   "the maker-external evidence_audit_gate bound by SRC-CH-GEN3 (devauditor) returns PASS with P0 and P1 at zero on the exact bytes",
-   "the candidate receipt on issue 307 records commit, tree, path digests, pack digest, and validator ledger digests"
+   "DESIGN CLOSURE only: exact three-artifact subject validates with76/76trace and two byte-identical deterministic ledgers",
+   "maker-external /root/execution_guide_review accepts exact current candidate with unresolved P0/P1 zero",
+   "CTO records exact commit/tree/path digests and immutable author/checker receipts; publication is separate and not assumed"
   ],
-  "first_implementation_commitments_owner": "GA-02..GA-30, GA-35, KC-* are COMMITTED_NOT_RUN; each becomes the Definition of Done of the consuming cell handoff named in owning_cell; none is a closure condition of this pack (F-06)",
+  "first_implementation_commitments_owner": "Exactly68 COMMITTED_NOT_RUN fixtures remain assigned to consuming cell handoffs; FX-KC-REG-01 is PRODUCED_AT_GATE, not an implementation commitment. None of the68 is a design closure condition.",
   "plan": [
-   "1: independent gate on this generation-3 pack by devauditor/evidence_audit_gate (SRC-CH-GEN3)",
+   "1: independent gate on generation4 by /root/execution_guide_review/evidence_audit_gate under SRC-CH-GEN4",
    "2: after gate PASS, codex-cto/orchestration_controller issues the A1 bounded handoff citing this pack digest (post-gate transition per SRC-OD-CORR1 authority; not activated by this pack)",
    "3: lifecycle validators are built under the first consuming cell; the completion evaluator under A9/A7; both re-used by later cells"
   ],
@@ -4881,13 +4960,10 @@
    "docs/design/goal-a-derived-cell-graph-v1.json"
   ],
   "allowed_operations": [
-   "author the three design artifacts",
-   "run offline validators",
-   "non-force sync of the design branch to the owner-frozen base",
-   "push the corrective commit to the same design-only PR",
-   "update PR 318 body with exact generation-3 refs",
-   "publish one evidence transcript comment and one candidate receipt on issue 307",
-   "dispatch one maker-external evidence_audit_gate"
+   "author the allowed design artifacts for F07/F08 only",
+   "run offline validators and owner comparison/negative fixtures",
+   "one local corrective commit",
+   "return local immutable evidence to CTO for separate independent review"
   ],
   "forbidden_paths": [
    "everything outside the three allowed design paths"
@@ -4897,24 +4973,24 @@
    "runtime, config, trust, database, profile, queue-policy, fleet, or secret mutation",
    "force push, branch replacement, approval, merge, Ready, deploy, release",
    "self-gate, scope expansion, unchanged resubmission, automatic retry",
-   "amending the owner-frozen assignment rows, base, or definitions"
+   "amending the owner-frozen assignment rows, base, or definitions",
+   "push or GitHub mutation in this author phase"
   ],
   "stop_conditions": [
-   "exact base, tree, subject, or allowed-path drift",
-   "missing citable authority",
-   "validator disagreement or non-byte-identical ledger",
-   "attempt exhausted (this generation consumes the single authorized attempt)",
-   "expiry 2026-09-06T00:00:00Z reached"
+   "source or owner digest drift",
+   "new semantics or protected effect required",
+   "one candidate or local commit exhausted",
+   "2026-09-18T01:36:30Z absolute conservative author deadline"
   ],
   "required_evidence": [
-   "validator PASS transcript twice, byte-identical",
-   "PR URL with exact head, tree, and path digests",
-   "candidate receipt URL and raw body sha256 on issue 307",
-   "evidence transcript comment URL and raw body sha256",
-   "gate_result URL and raw body sha256 by devauditor"
+   "existing sources22 exact readback and current source ledger",
+   "seven offline transcript rows; gate-owned FX-KC-REG-01 remains pending",
+   "owner field-by-field comparison and discriminating negatives",
+   "validator/evals twice byte-identical",
+   "exact local head/tree/diff and separate checker receipt"
   ],
-  "subject_identity": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
-  "independent_audit_boundary": "checker devauditor/evidence_audit_gate bound by SRC-CH-GEN3 with maker_checker_independent true; actor-independent predicate: a registered evidence_audit_gate seat absent from maker history [arc/control_artifact_author]; the checker edits nothing, implements nothing, and infers no owner authority",
+  "subject_identity": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+  "independent_audit_boundary": "Current SRC-CH-GEN4 names /root/execution_guide_review/evidence_audit_gate, absent from maker history [arc/control_artifact_author,/root/recovery_path_author]. Independent review is pending; author comparisons are not gate acceptance.",
   "owner_decision_boundary": "A1 start after gate PASS is orchestrator work under SRC-OD-DONE-V1 and SRC-OD-CORR1; owner gates A6, A7, A10, conditional A5b, waivers, halt resume, manifest publication, denominator/base change, and final closure each require their own cited decision",
   "activation": "IMPLEMENTATION_INACTIVE: this pack authorizes design artifacts only; each cell requires its own bounded handoff",
   "base_sync": {
@@ -5162,7 +5238,7 @@
    "reason_codes": [],
    "evidence_refs": [
     "EV-SRC-307-HANDOFF",
-    "EV-SRC-CH-GEN3"
+    "EV-SRC-CH-GEN4"
    ],
    "unresolved_items": [],
    "next_transition": "G3",
@@ -5196,7 +5272,7 @@
    ],
    "unresolved_items": [],
    "next_transition": "G5",
-   "review_note": "75 predicates, 75 fixtures, closed trace; boundary table 26 cases; evidence grades explicit"
+   "review_note": "76 predicates,76 fixtures,closed trace;7 executed offline,1 produced at gate,68 committed not run. AUTHOR-KC-REG-FIELDS separately compares all owner values and selectors and rejects local mutations; it is not gate evidence."
   },
   {
    "gate_id": "G5",
@@ -5217,55 +5293,52 @@
    "verdict": "PASS",
    "reason_codes": [],
    "evidence_refs": [
-    "EV-SRC-CH-GEN3",
+    "EV-SRC-CH-GEN4",
     "EV-SRC-OD-CORR1"
    ],
    "unresolved_items": [],
    "next_transition": "G7",
-   "review_note": "protected surfaces named with owner decision requirement; checker maker-external and citable; no self-gate; no authority expansion"
+   "review_note": "Author review only. Current SRC-CH-GEN4 binds /root/execution_guide_review outside both maker identities; no publication or implementation authority in this phase; independent acceptance remains pending."
   },
   {
    "gate_id": "G7",
    "verdict": "PASS",
    "reason_codes": [],
    "evidence_refs": [
-    "EV-SRC-CH-GEN3",
+    "EV-SRC-CH-GEN4",
     "EV-SRC-OD-CORR1"
    ],
    "unresolved_items": [],
    "next_transition": "independent_evidence_audit_gate",
-   "review_note": "executor supply with owning cells; single design-closure boundary; blocking next_action with retry, expiry, escalation, exhaustion"
+   "review_note": "Author review only. Current SRC-CH-GEN4 binds /root/execution_guide_review outside both maker identities; no publication or implementation authority in this phase; independent acceptance remains pending."
   }
  ],
  "next_action": {
-  "actor_agent_id": "devauditor",
+  "actor_agent_id": "/root/execution_guide_review",
   "active_function": "evidence_audit_gate",
-  "action": "independently gate DP-AM307-GOAL-A-EXECUTION-RUNBOOK-001 generation 3 exact bytes at the published PR 318 head: verify the non-force base sync to b854894a, re-fetch every source by its fetch command and compare digests, re-run the offline fixture checkers and compare with the transcript, rerun the validation commands twice, confirm F-01/F-02/F-03/F-05/F-06 dispositions and KC-REG-01 against the owner decision body, and publish one gate_result on issue 307",
-  "handoff_method": "read the committed exact bytes at the published PR head; publish the gate result as one immutable comment on issue 307",
+  "action": "Independently review exact local generation4 candidate and F07/F08 corrections; re-run owner comparison and reject mutations, reconcile7/1/68grades and76trace; preserve prior closures and history",
+  "handoff_method": "CTO native handoff of exact local commit and immutable evidence, no publication authority",
   "input_refs": [
-   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5516992172",
+   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553",
    "https://github.com/watchout/agent-memory/issues/307#issuecomment-5465582876",
-   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5435912512",
-   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5431899933",
-   "https://github.com/watchout/agent-memory/issues/307#issuecomment-5450138468",
-   "https://github.com/watchout/agent-memory/pull/318"
+   "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/candidate-receipt.json"
   ],
   "scope": "design gate only; no candidate edit, implementation, merge, or protected effect",
   "deliverable": "one gate_result (PASS or BLOCK with typed findings) binding pack digest and subject digest",
-  "completion_evidence": "gate result URL plus API-read raw body sha256 on issue 307",
-  "completion_evidence_destination": "https://github.com/watchout/agent-memory/issues/307",
-  "blocking": true,
+  "completion_evidence": "maker-external exact-subject review receipt and SHA256",
+  "completion_evidence_destination": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-review-20260918",
+  "blocking": false,
   "stop_reason": "INDEPENDENT_DESIGN_GATE_REQUIRED",
-  "retry_policy": "generation 3 is the single authorized attempt (attempt_limit 1, automated 0, unchanged 0); a BLOCK keeps issue 307 active and PR 318 draft with no further generation without a new owner decision",
+  "retry_policy": "one current candidate; no automatic or unchanged retry; independent review gets its separately bounded10minutes",
   "retry_attempt_limit": 1,
-  "expiry": "2026-09-06T00:00:00Z",
+  "expiry": "2026-09-18T01:36:30Z (author deadline; review clock begins only on separate dispatch)",
   "escalation": "codex-cto/orchestration_controller on issue 307; owner (watchout) only for authority or scope",
-  "authorized_exhaustion_disposition": "keep issue 307 active and PR 318 draft/unmerged; no A1 or product implementation; no automatic re-audit; one typed exhaustion comment then stop"
+  "authorized_exhaustion_disposition": "return actual result to CTO; preserve issue active and PR318 draft/unmerged; A1 remains inactive; no duplicate owner request for ordinary correction count"
  },
  "fixture_execution_ledger": {
   "grading_rule": "only EXECUTED_OFFLINE fixtures carry execution readbacks (transcript comment); COMMITTED_NOT_RUN evidence records verify commitment presence at the exact commit, never fixture execution; PRODUCED_AT_GATE fixtures are evaluated by the independent gate",
-  "transcript_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-  "transcript_raw_body_sha256": "dcbdf57b718d3df8c37b3c21e9e2c55914e6c89702945f922c7666539b4d7847",
+  "transcript_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+  "transcript_raw_body_sha256": "1ff34f7c8a015dda385a187601990ac338e4de2201118cd6edabb06b245e54e0",
   "executed_offline": [
    "FX-GA-01",
    "FX-GA-03",
@@ -5347,259 +5420,312 @@
   ],
   "produced_at_gate": [
    "FX-KC-REG-01"
-  ]
+  ],
+  "prior_transcript_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+  "prior_transcript_raw_body_sha256": "dcbdf57b718d3df8c37b3c21e9e2c55914e6c89702945f922c7666539b4d7847",
+  "prior_transcript_disposition": "Historical8-line author transcript includes a gate-owned row; F08 INVALID grade claim remains historical, not current proof.",
+  "author_precheck": {
+   "id": "AUTHOR-KC-REG-FIELDS",
+   "grade": "AUTHOR_PRECHECK_ONLY",
+   "ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/owner-comparison-result.json",
+   "not_a_gate_fixture_execution": true,
+   "sha256": "e0a2dd2423ce708c28a9bd9edeb2cd85db9cf152b4497a2605e6b1017c3b32db"
+  }
  },
- "pack_digest": "sha256:07516bad26c59bc448350e33d615e3c40bc5abee4aceee1a6a74bc97ad70e208",
  "evidence_registry": [
   {
    "id": "EV-SRC-307-BODY",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
    "readback_digest": "sha256:cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/307 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-307-OD",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf",
    "readback_digest": "sha256:e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422741627",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5422741627 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-307-HANDOFF",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:ee69f832d5f5ebda8f6ca7c07eb593f4164c424d5c624270328ef72ded9ddc45",
    "readback_digest": "sha256:ee69f832d5f5ebda8f6ca7c07eb593f4164c424d5c624270328ef72ded9ddc45",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422779548",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5422779548 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-A5B-AMENDMENT",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0",
    "readback_digest": "sha256:b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5339429502 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-GATE-GEN1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:93692d689c72952c8e277a1405235c5b01ef22b31508b5609afdcb5943473a73",
    "readback_digest": "sha256:93692d689c72952c8e277a1405235c5b01ef22b31508b5609afdcb5943473a73",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5431551807",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5431551807 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-GATE-GEN2",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:cb4afac0cbff8b557b43fea3055a89da24788c5399c5b580f00e3512299de5ee",
    "readback_digest": "sha256:cb4afac0cbff8b557b43fea3055a89da24788c5399c5b580f00e3512299de5ee",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5431899933",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5431899933 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-TRANSCRIPT-GEN2",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b0c66469b81e5c377c28289dea9fc5676666322eea7831c2107c3968f3c7a630",
    "readback_digest": "sha256:b0c66469b81e5c377c28289dea9fc5676666322eea7831c2107c3968f3c7a630",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5431805955",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5431805955 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-OD-DONE-V1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:3cb6543db9532ba75031237b4cd9508686ab56ce3e78fa720fa40eb573740ba6",
    "readback_digest": "sha256:3cb6543db9532ba75031237b4cd9508686ab56ce3e78fa720fa40eb573740ba6",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5435912512",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5435912512 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-ODR-CORR1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f363ff39ab10d82ccc205bd150f5140b4221fe36337ce0305976e876bf6f681a",
    "readback_digest": "sha256:f363ff39ab10d82ccc205bd150f5140b4221fe36337ce0305976e876bf6f681a",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5447264599",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5447264599 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-GATE-GRANULARITY",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:fb247073ee46670de1ff9ee419cb7366327386cf27fd0c9a4d33fdf6b501fa1d",
    "readback_digest": "sha256:fb247073ee46670de1ff9ee419cb7366327386cf27fd0c9a4d33fdf6b501fa1d",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5450138468",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5450138468 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-OD-CORR1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:5bada02648337429d425faa134a5b953a1e4071b502f48e2894544d69fb4b9df",
    "readback_digest": "sha256:5bada02648337429d425faa134a5b953a1e4071b502f48e2894544d69fb4b9df",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5465582876",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5465582876 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-CH-GEN3",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f7b481d3b109d7ef6217afdc77027cbb11a3ab57313f256fbaefd72b2fb355a9",
    "readback_digest": "sha256:f7b481d3b109d7ef6217afdc77027cbb11a3ab57313f256fbaefd72b2fb355a9",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5516992172",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5516992172 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-ALPHA-CHOICES",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:1e69a3ce44098ca5f30aa78b3cb8e9705ba82393660b1f8a66c0dd73f22402f2",
    "readback_digest": "sha256:1e69a3ce44098ca5f30aa78b3cb8e9705ba82393660b1f8a66c0dd73f22402f2",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5054279853",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/180#issuecomment-5054279853",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5054279853 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-ISSUE-263",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:d2f99866f2a916bf553e661671073dc8a8f9f388e3a4160dbdfc42ae69605535",
    "readback_digest": "sha256:d2f99866f2a916bf553e661671073dc8a8f9f388e3a4160dbdfc42ae69605535",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/263",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/263 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-RECOVERY-EVAL",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:848a5e51e67d00f6cbd447b8fcb365829770b376dc99030d9fd874556265f13d",
    "readback_digest": "sha256:848a5e51e67d00f6cbd447b8fcb365829770b376dc99030d9fd874556265f13d",
    "evidence_ref": "git:watchout/agent-memory@b854894abc80b593ff275e5c1fb62ea71ca8320d:docs/operations/RECOVERY_EVALUATION.md",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "git show b854894abc80b593ff275e5c1fb62ea71ca8320d:docs/operations/RECOVERY_EVALUATION.md | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-KBF-APPROVAL",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f61c945128c35717fe9dfbf29f12dc3c32c6db6050073707d72baf86ab5c9622",
    "readback_digest": "sha256:f61c945128c35717fe9dfbf29f12dc3c32c6db6050073707d72baf86ab5c9622",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5097661396",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5097661396 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-KBF-EVIDENCE",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:32c9a47d8e318d393066af5c1ea1119c71beb7d0f102d9c8380f44304eb70886",
    "readback_digest": "sha256:32c9a47d8e318d393066af5c1ea1119c71beb7d0f102d9c8380f44304eb70886",
    "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5101366785",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "gh api repos/watchout/agent-memory/issues/comments/5101366785 | jq -j .body | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-SHIRUBE-POLICY",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:617951a0744f81dea233525c9edf4e923367ea5aa62abab569be2868d0764ba9",
    "readback_digest": "sha256:617951a0744f81dea233525c9edf4e923367ea5aa62abab569be2868d0764ba9",
    "evidence_ref": "git:watchout/iyasaka-org@584aaf7f848158d88400d7b29bbcd481dcbf31a3:docs/shirube/shirube-v3-runtime-policy.md",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "git -C iyasaka-org show 584aaf7f848158d88400d7b29bbcd481dcbf31a3:docs/shirube/shirube-v3-runtime-policy.md | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-FUNCTION-BINDINGS",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:422248288a16e702f78f25ba9d0d49b53eb50a28154a5638c02eb3b02bfc65e0",
    "readback_digest": "sha256:422248288a16e702f78f25ba9d0d49b53eb50a28154a5638c02eb3b02bfc65e0",
    "evidence_ref": "file:~/Developer/iyasaka-org/docs/shirube/function-bindings.yaml (untracked working file at iyasaka-org HEAD 584aaf7f)",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "cat ~/Developer/iyasaka-org/docs/shirube/function-bindings.yaml | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-RUNBOOK-V1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
-   "declared_digest": "sha256:806deabcd23d30b2f7d99826768e7924f1983617f4849a49b5661526f7a66d3e",
-   "readback_digest": "sha256:806deabcd23d30b2f7d99826768e7924f1983617f4849a49b5661526f7a66d3e",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:de0de4fb3fc61f0d5eebc7f594ad39bcf862fab474c0b7b58dfa18b048f25d4a",
+   "readback_digest": "sha256:de0de4fb3fc61f0d5eebc7f594ad39bcf862fab474c0b7b58dfa18b048f25d4a",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.md",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "cat docs/design/goal-a-execution-runbook-v1.md | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-CELL-GRAPH-V1",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535",
    "readback_digest": "sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535",
    "evidence_ref": "repo:docs/design/goal-a-derived-cell-graph-v1.json",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "cat docs/design/goal-a-derived-cell-graph-v1.json | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-SRC-PACK-GEN2",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:bc886732da5454ac45cd77b5f933f0a6921491c66bfc4e78c2c16d0d6b6658d8",
    "readback_digest": "sha256:bc886732da5454ac45cd77b5f933f0a6921491c66bfc4e78c2c16d0d6b6658d8",
    "evidence_ref": "git:watchout/agent-memory@9c76e2de38832eb3d39241fd81e9eb5e11b44269:docs/design/goal-a-execution-runbook-v1.design-pack.json",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "source_bytes_read_back",
-   "readback_method": "git show 9c76e2de38832eb3d39241fd81e9eb5e11b44269:docs/design/goal-a-execution-runbook-v1.design-pack.json | sha256 over exact bytes"
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
+  },
+  {
+   "id": "EV-SRC-CH-GEN4",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:2312f536748e799bad1c76f3eeb092b6adba8bea6cc293a36262ff362e4f0798",
+   "readback_digest": "sha256:2312f536748e799bad1c76f3eeb092b6adba8bea6cc293a36262ff362e4f0798",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
+   "status": "VERIFIED",
+   "verified_claim": "source_bytes_read_back",
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
+  },
+  {
+   "id": "EV-SRC-GATE-GEN3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:dbc98ec42e74c116fbd7a84ab80e91e4ee5145bbd3e62907e3c2fae9b00cba6f",
+   "readback_digest": "sha256:dbc98ec42e74c116fbd7a84ab80e91e4ee5145bbd3e62907e3c2fae9b00cba6f",
+   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5522512677",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
+   "status": "VERIFIED",
+   "verified_claim": "source_bytes_read_back",
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
+  },
+  {
+   "id": "EV-SRC-PACK-GEN3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:967a27157df161560acae87704b29752bf2a9eb0c930d1f80f941cbecc2ad268",
+   "readback_digest": "sha256:967a27157df161560acae87704b29752bf2a9eb0c930d1f80f941cbecc2ad268",
+   "evidence_ref": "git:watchout/agent-memory@9c02ced4f3e16ca3c5ff250c42325a52aee804c9:docs/design/goal-a-execution-runbook-v1.design-pack.json",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
+   "status": "VERIFIED",
+   "verified_claim": "source_bytes_read_back",
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
+  },
+  {
+   "id": "EV-SRC-ORDINARY-DELEGATION",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:59952776f1cfb5093040cb9318641f54721ef4f0f416ee278d1e426e980aef02",
+   "readback_digest": "sha256:59952776f1cfb5093040cb9318641f54721ef4f0f416ee278d1e426e980aef02",
+   "evidence_ref": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5609700544",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
+   "status": "VERIFIED",
+   "verified_claim": "source_bytes_read_back",
+   "readback_method": "actual raw bytes hashed from the saved authenticated source or exact git file"
   },
   {
    "id": "EV-GA-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:076069a75dfe47097b3dd94ac64d51142807714c1a63cf3d721e1f9263c88df8",
    "readback_digest": "sha256:076069a75dfe47097b3dd94ac64d51142807714c1a63cf3d721e1f9263c88df8",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -5607,11 +5733,11 @@
   },
   {
    "id": "EV-GA-02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:53a42633cd16b8746dc674f6184ffa592320a8e4509a3d65a850c64a596bdd11",
    "readback_digest": "sha256:53a42633cd16b8746dc674f6184ffa592320a8e4509a3d65a850c64a596bdd11",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-02",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5619,11 +5745,11 @@
   },
   {
    "id": "EV-GA-03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b545c67c055fbcf319ed8fb261e643a37e2f60fca91b7867b9353ab1dec62ee0",
    "readback_digest": "sha256:b545c67c055fbcf319ed8fb261e643a37e2f60fca91b7867b9353ab1dec62ee0",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -5631,11 +5757,11 @@
   },
   {
    "id": "EV-GA-04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:98c29564533188943e78060646c3cc55225a3d2cf8ad1447183857f5c8062341",
    "readback_digest": "sha256:98c29564533188943e78060646c3cc55225a3d2cf8ad1447183857f5c8062341",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-04",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5643,11 +5769,11 @@
   },
   {
    "id": "EV-GA-05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f089466e839d2803e89407e5e7af71ad150f5772232a7d5ddbe8d674efb42d34",
    "readback_digest": "sha256:f089466e839d2803e89407e5e7af71ad150f5772232a7d5ddbe8d674efb42d34",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-05",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5655,11 +5781,11 @@
   },
   {
    "id": "EV-GA-06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:736b52ca65c8d26d477088fba3713afed0d08aa20435f24ef46f0e8e6e84b586",
    "readback_digest": "sha256:736b52ca65c8d26d477088fba3713afed0d08aa20435f24ef46f0e8e6e84b586",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-06",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5667,11 +5793,11 @@
   },
   {
    "id": "EV-GA-07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:7030f478c9155303bf839f76e2bcd36cc942acc7134f7f673a957fd3ff035fa7",
    "readback_digest": "sha256:7030f478c9155303bf839f76e2bcd36cc942acc7134f7f673a957fd3ff035fa7",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-07",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5679,11 +5805,11 @@
   },
   {
    "id": "EV-GA-08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:18fc137d95019b08406ac14301e44125c7af09a6ba9fdfb0eee98abfeea8a70b",
    "readback_digest": "sha256:18fc137d95019b08406ac14301e44125c7af09a6ba9fdfb0eee98abfeea8a70b",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-08",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5691,11 +5817,11 @@
   },
   {
    "id": "EV-GA-09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f5ed84ade97d1df91af1979d009158a0a3252fc34d7242e57f5914e4a2dcad28",
    "readback_digest": "sha256:f5ed84ade97d1df91af1979d009158a0a3252fc34d7242e57f5914e4a2dcad28",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-09",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5703,11 +5829,11 @@
   },
   {
    "id": "EV-GA-10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:9899fa1347d271bd60853b55dbb1fc79fe3d9b1bb644df26de5791286af21a58",
    "readback_digest": "sha256:9899fa1347d271bd60853b55dbb1fc79fe3d9b1bb644df26de5791286af21a58",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-10",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5715,11 +5841,11 @@
   },
   {
    "id": "EV-GA-11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:70b6673f7176a69a1e00bee55581645ebaf72d40b275caa49351447c55b7382f",
    "readback_digest": "sha256:70b6673f7176a69a1e00bee55581645ebaf72d40b275caa49351447c55b7382f",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-11",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5727,11 +5853,11 @@
   },
   {
    "id": "EV-GA-12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:6c050038263438627321fe9be5c506928a101ed78936ea5cef96a32ff2b546ec",
    "readback_digest": "sha256:6c050038263438627321fe9be5c506928a101ed78936ea5cef96a32ff2b546ec",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-12",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5739,11 +5865,11 @@
   },
   {
    "id": "EV-GA-13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:be12e5a1201d2acc488eb42a403fb11a882f89ade849a44ec2d74303e659d5e7",
    "readback_digest": "sha256:be12e5a1201d2acc488eb42a403fb11a882f89ade849a44ec2d74303e659d5e7",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-13",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5751,11 +5877,11 @@
   },
   {
    "id": "EV-GA-14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:47e9871abb285af6241fa602b08788b2623e5f5a5253c7ba1bc1c0a6311d0751",
    "readback_digest": "sha256:47e9871abb285af6241fa602b08788b2623e5f5a5253c7ba1bc1c0a6311d0751",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-14",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5763,11 +5889,11 @@
   },
   {
    "id": "EV-GA-15",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:10fbacf46adbf2001cb6a72c8013b1df1dedcc7f6ea5fe81491f9bcea6955903",
    "readback_digest": "sha256:10fbacf46adbf2001cb6a72c8013b1df1dedcc7f6ea5fe81491f9bcea6955903",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-15",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5775,11 +5901,11 @@
   },
   {
    "id": "EV-GA-16",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:66ff9ab13c657dec7eadcd6084ab81af80cb25cbca1fd41863c1f2bd37da2e58",
    "readback_digest": "sha256:66ff9ab13c657dec7eadcd6084ab81af80cb25cbca1fd41863c1f2bd37da2e58",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-16",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5787,11 +5913,11 @@
   },
   {
    "id": "EV-GA-17",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:568e02f8b2c98bfd4326bf0bc2063d471f17b69b1ccffef8117b8dc00a385b92",
    "readback_digest": "sha256:568e02f8b2c98bfd4326bf0bc2063d471f17b69b1ccffef8117b8dc00a385b92",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-17",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5799,11 +5925,11 @@
   },
   {
    "id": "EV-GA-18",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:5fb4f4123d246b546c27444b84e9885aa4706c7e5abca9cd76937c325d93368a",
    "readback_digest": "sha256:5fb4f4123d246b546c27444b84e9885aa4706c7e5abca9cd76937c325d93368a",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-18",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5811,11 +5937,11 @@
   },
   {
    "id": "EV-GA-19",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:c419b759282f1f7646ea40e3a231ee0015c756702ee3c37e42b2367dffa0cc23",
    "readback_digest": "sha256:c419b759282f1f7646ea40e3a231ee0015c756702ee3c37e42b2367dffa0cc23",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-19",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5823,11 +5949,11 @@
   },
   {
    "id": "EV-GA-20",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:66f3f5cf3987f48b68d261ab57aef5e624a2d4bb2d933926112315fdecdb93dd",
    "readback_digest": "sha256:66f3f5cf3987f48b68d261ab57aef5e624a2d4bb2d933926112315fdecdb93dd",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-20",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5835,11 +5961,11 @@
   },
   {
    "id": "EV-GA-21",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b73a0d915acdb362c1fbeb93d27f431969147734994b02d4a80d3d2a4ce64181",
    "readback_digest": "sha256:b73a0d915acdb362c1fbeb93d27f431969147734994b02d4a80d3d2a4ce64181",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-21",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5847,11 +5973,11 @@
   },
   {
    "id": "EV-GA-22",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:55e1655d5c867e99758b943f7abf4d23d2856a34f7619fdd654add6fab8e4716",
    "readback_digest": "sha256:55e1655d5c867e99758b943f7abf4d23d2856a34f7619fdd654add6fab8e4716",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-22",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5859,11 +5985,11 @@
   },
   {
    "id": "EV-GA-23",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:122b51af76bbf48a0bbfa45a02ab7416bb64b6291501275dbf0e7d0ce065810c",
    "readback_digest": "sha256:122b51af76bbf48a0bbfa45a02ab7416bb64b6291501275dbf0e7d0ce065810c",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-23",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5871,11 +5997,11 @@
   },
   {
    "id": "EV-GA-24",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:a35cab49715ca00a4466834707557ae6b57834f69b42d68b7a133c3a6534335f",
    "readback_digest": "sha256:a35cab49715ca00a4466834707557ae6b57834f69b42d68b7a133c3a6534335f",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-24",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5883,11 +6009,11 @@
   },
   {
    "id": "EV-GA-25",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b4333c6297c5bab852c1252b63fb291d9361f378bc5bad8cdcf62c482f982857",
    "readback_digest": "sha256:b4333c6297c5bab852c1252b63fb291d9361f378bc5bad8cdcf62c482f982857",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-25",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5895,11 +6021,11 @@
   },
   {
    "id": "EV-GA-26",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:1988e31d4d5c0dc1d6caeaa0d427bd1a5e0804c41dd0bc1d84351111f27042a0",
    "readback_digest": "sha256:1988e31d4d5c0dc1d6caeaa0d427bd1a5e0804c41dd0bc1d84351111f27042a0",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-26",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5907,11 +6033,11 @@
   },
   {
    "id": "EV-GA-27",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:7aa2fbfb3054787fc160dd353645bb33043e9ae550056426deffae151d4bf37e",
    "readback_digest": "sha256:7aa2fbfb3054787fc160dd353645bb33043e9ae550056426deffae151d4bf37e",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-27",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5919,11 +6045,11 @@
   },
   {
    "id": "EV-GA-28",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:4977600c7de3e28e8d3daa382bc284f6278422c9314fd9903e9f6a584ba18822",
    "readback_digest": "sha256:4977600c7de3e28e8d3daa382bc284f6278422c9314fd9903e9f6a584ba18822",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-28",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5931,11 +6057,11 @@
   },
   {
    "id": "EV-GA-29",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:99bc0ce9eec0d3350dc6a8fb3924610d160c8a239a74cf9dd726a97f22fa29a3",
    "readback_digest": "sha256:99bc0ce9eec0d3350dc6a8fb3924610d160c8a239a74cf9dd726a97f22fa29a3",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-29",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5943,11 +6069,11 @@
   },
   {
    "id": "EV-GA-30",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:ec3b2a6ba721a6e63a41838c29323ac7c8cee8a214b17593b9c9f81d95dd8a23",
    "readback_digest": "sha256:ec3b2a6ba721a6e63a41838c29323ac7c8cee8a214b17593b9c9f81d95dd8a23",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-30",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -5955,23 +6081,23 @@
   },
   {
    "id": "EV-GA-31",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
-   "declared_digest": "sha256:4d26842985fffcbc407827fb0b37e5c0ea7553bc61276420fcca6390c3b31801",
-   "readback_digest": "sha256:4d26842985fffcbc407827fb0b37e5c0ea7553bc61276420fcca6390c3b31801",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
+   "declared_digest": "sha256:845be3b6e64c3955c44c3811e851add4db419c4459a04de6ebdb95e1c7e64436",
+   "readback_digest": "sha256:845be3b6e64c3955c44c3811e851add4db419c4459a04de6ebdb95e1c7e64436",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
-   "output_line": "FX-GA-31 PASS derived=sha256:cd3213f14dcf860ee4b63701793c4430fadabbb8ce33464d99c02bb7e98305c1 mutated_input_derived=sha256:be6b1ffcb22ae469e3e4417f8853e9879b44c12f75ff78f2db2cd325c2e47124 runbook_digest=sha256:806deabcd23d30b2f7d99826768e7924f1983617f4849a49b5661526f7a66d3e graph_digest=sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535"
+   "output_line": "FX-GA-31 PASS derived=sha256:e0523d6b05cbc8cb473cc25eb682aed7e2923551380940d99565fc92e156a511 mutated_input_derived=sha256:3ef114ebbbcb1bdc459f236313f74021fc3536c811bd40436c82b374f1488863 runbook_digest=sha256:de0de4fb3fc61f0d5eebc7f594ad39bcf862fab474c0b7b58dfa18b048f25d4a graph_digest=sha256:fadaed5788ee75944b5e686524c954e0ce674815e1f743d5e99a1b23b1f69535"
   },
   {
    "id": "EV-GA-32",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:81e0f65060ba177cba558eed22b6c788c5b6b10331b9b940fba0eb6ae965df21",
    "readback_digest": "sha256:81e0f65060ba177cba558eed22b6c788c5b6b10331b9b940fba0eb6ae965df21",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -5979,11 +6105,11 @@
   },
   {
    "id": "EV-GA-33",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:97245462a6583c417d4f38c417f313608f29b4fae38b6c7ac2c9c3db59e08f80",
    "readback_digest": "sha256:97245462a6583c417d4f38c417f313608f29b4fae38b6c7ac2c9c3db59e08f80",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -5991,11 +6117,11 @@
   },
   {
    "id": "EV-GA-34",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:bfd12ea16017f49bf34f217db15ccd57812b5265053a05239b1aa028d6d129a1",
    "readback_digest": "sha256:bfd12ea16017f49bf34f217db15ccd57812b5265053a05239b1aa028d6d129a1",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -6003,11 +6129,11 @@
   },
   {
    "id": "EV-GA-35",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:1fd1162124dc298e07bf06b29dd72d9ca312a36072e382a152c8b76fd0479e76",
    "readback_digest": "sha256:1fd1162124dc298e07bf06b29dd72d9ca312a36072e382a152c8b76fd0479e76",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-GA-35",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6015,11 +6141,11 @@
   },
   {
    "id": "EV-GA-36",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:c6ae0f5642f840236605b3c86f2f93f9bc61ed1be66049efc94dde81fa02cc5b",
    "readback_digest": "sha256:c6ae0f5642f840236605b3c86f2f93f9bc61ed1be66049efc94dde81fa02cc5b",
-   "evidence_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "evidence_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/offline-transcript.txt",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "fixture_executed_offline_output_read_back",
    "fixture_run_status": "EXECUTED_OFFLINE",
@@ -6027,11 +6153,11 @@
   },
   {
    "id": "EV-KC-AD",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:444249f0558a318ebf8f172b018a295c137be5af27aa4b493d4b57b990906429",
    "readback_digest": "sha256:444249f0558a318ebf8f172b018a295c137be5af27aa4b493d4b57b990906429",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-AD",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6039,11 +6165,11 @@
   },
   {
    "id": "EV-KC-AUTH",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:1adb64e6b4b8e1bf44c21762c7b9389b8f919a16c34809cb8f78af31e1566450",
    "readback_digest": "sha256:1adb64e6b4b8e1bf44c21762c7b9389b8f919a16c34809cb8f78af31e1566450",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-AUTH",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6051,11 +6177,11 @@
   },
   {
    "id": "EV-KC-C01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:83f84c0d3d35b22c223bf1c190219f020281928369b5e6fb316d92e728a4cbae",
    "readback_digest": "sha256:83f84c0d3d35b22c223bf1c190219f020281928369b5e6fb316d92e728a4cbae",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C01",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6063,11 +6189,11 @@
   },
   {
    "id": "EV-KC-C02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:8012cda7cb5921fcdcf1222fdcf0ee5ab2f4796382ddf40329c907fe0c22bba5",
    "readback_digest": "sha256:8012cda7cb5921fcdcf1222fdcf0ee5ab2f4796382ddf40329c907fe0c22bba5",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C02",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6075,11 +6201,11 @@
   },
   {
    "id": "EV-KC-C03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f403c9d688bc9946f447362f5341a604885467a8366fc380cc259d6fe9d8a200",
    "readback_digest": "sha256:f403c9d688bc9946f447362f5341a604885467a8366fc380cc259d6fe9d8a200",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C03",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6087,11 +6213,11 @@
   },
   {
    "id": "EV-KC-C04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:cc5a3e679d0fa1ff48c5c919afc4547c871cff014de4188f2f7e2d06b55a5064",
    "readback_digest": "sha256:cc5a3e679d0fa1ff48c5c919afc4547c871cff014de4188f2f7e2d06b55a5064",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C04",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6099,11 +6225,11 @@
   },
   {
    "id": "EV-KC-C05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:2b749d98097148d392f1c85781a141feeeaf01fd658f5153735548b8899053b9",
    "readback_digest": "sha256:2b749d98097148d392f1c85781a141feeeaf01fd658f5153735548b8899053b9",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C05",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6111,11 +6237,11 @@
   },
   {
    "id": "EV-KC-C06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b1871ba438c6bb35721a148435464817164fb6df06bc1a5e852b4d2fe9cc3501",
    "readback_digest": "sha256:b1871ba438c6bb35721a148435464817164fb6df06bc1a5e852b4d2fe9cc3501",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C06",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6123,11 +6249,11 @@
   },
   {
    "id": "EV-KC-C07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:c6cf4fd1179a742f9ca5fea4560bb9db4ee8c15d08a4895677366ef6424d4de5",
    "readback_digest": "sha256:c6cf4fd1179a742f9ca5fea4560bb9db4ee8c15d08a4895677366ef6424d4de5",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C07",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6135,11 +6261,11 @@
   },
   {
    "id": "EV-KC-C08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:624308b3a64d6a66fce86d412c0208fda1b3722d3b27da99505e32a87fca25bc",
    "readback_digest": "sha256:624308b3a64d6a66fce86d412c0208fda1b3722d3b27da99505e32a87fca25bc",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C08",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6147,11 +6273,11 @@
   },
   {
    "id": "EV-KC-C09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:47bb0fc8427189f2ba2f84c0b8ff4afa814b845bc70b978239975e10aaf6d783",
    "readback_digest": "sha256:47bb0fc8427189f2ba2f84c0b8ff4afa814b845bc70b978239975e10aaf6d783",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C09",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6159,11 +6285,11 @@
   },
   {
    "id": "EV-KC-C10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:b294b8105877e87a67233c6ac3d9139396bbb73bf7076bcbbe63a9181aef8a05",
    "readback_digest": "sha256:b294b8105877e87a67233c6ac3d9139396bbb73bf7076bcbbe63a9181aef8a05",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C10",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6171,11 +6297,11 @@
   },
   {
    "id": "EV-KC-C11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:758827e22d381676104a96ae362bbeb82f151f7b8fed244d28e3fa3898b931e4",
    "readback_digest": "sha256:758827e22d381676104a96ae362bbeb82f151f7b8fed244d28e3fa3898b931e4",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C11",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6183,11 +6309,11 @@
   },
   {
    "id": "EV-KC-C12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:3137751efaed96708056fed3de7e56a5049ad72c909e3d8b00c038113be161be",
    "readback_digest": "sha256:3137751efaed96708056fed3de7e56a5049ad72c909e3d8b00c038113be161be",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C12",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6195,11 +6321,11 @@
   },
   {
    "id": "EV-KC-C13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:d3f526842048425add67a2e05aebed0b8119e0801dab8ee64dec851f99256fa8",
    "readback_digest": "sha256:d3f526842048425add67a2e05aebed0b8119e0801dab8ee64dec851f99256fa8",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C13",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6207,11 +6333,11 @@
   },
   {
    "id": "EV-KC-C14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:724d9eeb45a17aacc76c993ae576cbfc89d4a02ffb389639c8fbac8921b40a20",
    "readback_digest": "sha256:724d9eeb45a17aacc76c993ae576cbfc89d4a02ffb389639c8fbac8921b40a20",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-C14",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6219,11 +6345,11 @@
   },
   {
    "id": "EV-KC-RESET",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:fd54432bc498656cde5af5274966f92bdead69fadf47af1af5fec68a0159f4ad",
    "readback_digest": "sha256:fd54432bc498656cde5af5274966f92bdead69fadf47af1af5fec68a0159f4ad",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-RESET",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6231,11 +6357,11 @@
   },
   {
    "id": "EV-KC-B-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:2ca3d99221911b980aff882e62fce4e95959cc12945e6d37be63a7ef3730c6ee",
    "readback_digest": "sha256:2ca3d99221911b980aff882e62fce4e95959cc12945e6d37be63a7ef3730c6ee",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-01",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6243,11 +6369,11 @@
   },
   {
    "id": "EV-KC-B-02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:70e3e6147a04b2222b7444a3d4021db607b8a4d1fd3e5c7c24028b4aa38c490a",
    "readback_digest": "sha256:70e3e6147a04b2222b7444a3d4021db607b8a4d1fd3e5c7c24028b4aa38c490a",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-02",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6255,11 +6381,11 @@
   },
   {
    "id": "EV-KC-B-03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:719b41bca1165f17f51f1b99b556554f5eba55ae1ad15c291a5b0947f168456b",
    "readback_digest": "sha256:719b41bca1165f17f51f1b99b556554f5eba55ae1ad15c291a5b0947f168456b",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-03",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6267,11 +6393,11 @@
   },
   {
    "id": "EV-KC-B-04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:a71419af7da4539f840c8895ee941888fa2f8f2a0e3f27c2da419f3ef8e8d751",
    "readback_digest": "sha256:a71419af7da4539f840c8895ee941888fa2f8f2a0e3f27c2da419f3ef8e8d751",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-04",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6279,11 +6405,11 @@
   },
   {
    "id": "EV-KC-B-05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:f871be92bf93ecfa037c113b9273ba1de4fb6dace8f44398147b123b3bab9dd7",
    "readback_digest": "sha256:f871be92bf93ecfa037c113b9273ba1de4fb6dace8f44398147b123b3bab9dd7",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-05",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6291,11 +6417,11 @@
   },
   {
    "id": "EV-KC-B-06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:95dbb34c3191171340d374f1697aecad340cbebf12bfe212892f7ebc6c664eec",
    "readback_digest": "sha256:95dbb34c3191171340d374f1697aecad340cbebf12bfe212892f7ebc6c664eec",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-06",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6303,11 +6429,11 @@
   },
   {
    "id": "EV-KC-B-07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:0648c3a71b1bdfd66aac52302180bcf0bd61d2cb7e48ad638a98b697037e80d9",
    "readback_digest": "sha256:0648c3a71b1bdfd66aac52302180bcf0bd61d2cb7e48ad638a98b697037e80d9",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-07",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6315,11 +6441,11 @@
   },
   {
    "id": "EV-KC-B-08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:97930e6dfe63be02b236fd72a11a676cc3ea47651938d1d01c7e286b57619ad8",
    "readback_digest": "sha256:97930e6dfe63be02b236fd72a11a676cc3ea47651938d1d01c7e286b57619ad8",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-08",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6327,11 +6453,11 @@
   },
   {
    "id": "EV-KC-B-09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:3f6a9c35f22c0742f665ca9f162449ad551049eab27c05e8679761cf0a0a0978",
    "readback_digest": "sha256:3f6a9c35f22c0742f665ca9f162449ad551049eab27c05e8679761cf0a0a0978",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-09",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6339,11 +6465,11 @@
   },
   {
    "id": "EV-KC-B-10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:578ac085aa07e1f02af81a06ac69b6486e6e99098d5dae4a1f8de5a8220223f1",
    "readback_digest": "sha256:578ac085aa07e1f02af81a06ac69b6486e6e99098d5dae4a1f8de5a8220223f1",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-10",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6351,11 +6477,11 @@
   },
   {
    "id": "EV-KC-B-11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:03bad700053bf8f4728a9e20bcda2cd7d1cb869ca2c087a0717479a03f8d0dbc",
    "readback_digest": "sha256:03bad700053bf8f4728a9e20bcda2cd7d1cb869ca2c087a0717479a03f8d0dbc",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-11",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6363,11 +6489,11 @@
   },
   {
    "id": "EV-KC-B-12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:d234871902aff667a275bf56ed6541eb2a0d6151f3d6e896f3d176a486a360d8",
    "readback_digest": "sha256:d234871902aff667a275bf56ed6541eb2a0d6151f3d6e896f3d176a486a360d8",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-12",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6375,11 +6501,11 @@
   },
   {
    "id": "EV-KC-B-13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:47339aaf3292e54796a94e6fce11ab759e9204c8c8e8cd970f54e262f17dbe6b",
    "readback_digest": "sha256:47339aaf3292e54796a94e6fce11ab759e9204c8c8e8cd970f54e262f17dbe6b",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-13",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6387,11 +6513,11 @@
   },
   {
    "id": "EV-KC-B-14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:0e4abd5dc7728898a5b8081fbcf76153161c3918e2ad2c690a08cc3810b0396f",
    "readback_digest": "sha256:0e4abd5dc7728898a5b8081fbcf76153161c3918e2ad2c690a08cc3810b0396f",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-14",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6399,11 +6525,11 @@
   },
   {
    "id": "EV-KC-B-15",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:2efe691952c9ac6853233f6c84be25f668cd351dbf8d1e7129ce826bece3a3bb",
    "readback_digest": "sha256:2efe691952c9ac6853233f6c84be25f668cd351dbf8d1e7129ce826bece3a3bb",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-15",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6411,11 +6537,11 @@
   },
   {
    "id": "EV-KC-B-16",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:4ebfd920dc45c58e8e7a65a2bcc770ccbbe768bd0be224d1d29a8bca4043c48d",
    "readback_digest": "sha256:4ebfd920dc45c58e8e7a65a2bcc770ccbbe768bd0be224d1d29a8bca4043c48d",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-16",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6423,11 +6549,11 @@
   },
   {
    "id": "EV-KC-B-17",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:c1fb41e9787b3a45dd1e764b146eec12cc12ac629f1f009f52c035cd52d6e067",
    "readback_digest": "sha256:c1fb41e9787b3a45dd1e764b146eec12cc12ac629f1f009f52c035cd52d6e067",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-17",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6435,11 +6561,11 @@
   },
   {
    "id": "EV-KC-B-18",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:ae949ff25b2896b7a03a8fdc165aa18293b002dc54e956be56bbdfa59dc17d8e",
    "readback_digest": "sha256:ae949ff25b2896b7a03a8fdc165aa18293b002dc54e956be56bbdfa59dc17d8e",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-18",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6447,11 +6573,11 @@
   },
   {
    "id": "EV-KC-B-19",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:e804aafe444e303f3fbd58155592b8b5c956f0b463cecc75247201265d5d2213",
    "readback_digest": "sha256:e804aafe444e303f3fbd58155592b8b5c956f0b463cecc75247201265d5d2213",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-19",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6459,11 +6585,11 @@
   },
   {
    "id": "EV-KC-B-20",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:c71d80fd2b6f0a392e27fbc49ed16e98b9f58d34770fc002956c0e1028489c37",
    "readback_digest": "sha256:c71d80fd2b6f0a392e27fbc49ed16e98b9f58d34770fc002956c0e1028489c37",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-20",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6471,11 +6597,11 @@
   },
   {
    "id": "EV-KC-B-21",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:faa67e695df2913261dd0db8a28bb9b840c9a425deaac82fe5adfe54a2d3afb6",
    "readback_digest": "sha256:faa67e695df2913261dd0db8a28bb9b840c9a425deaac82fe5adfe54a2d3afb6",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-21",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6483,11 +6609,11 @@
   },
   {
    "id": "EV-KC-B-22",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:960ab122024a4c969711237580d3da1eff8871b31ef4f16aa0d77b98e0f887f0",
    "readback_digest": "sha256:960ab122024a4c969711237580d3da1eff8871b31ef4f16aa0d77b98e0f887f0",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FX-KC-B-22",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "commitment_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN",
@@ -6495,179 +6621,180 @@
   },
   {
    "id": "EV-FT-GA-01",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:e38a10cc4a5633b81650a8fb28c2ff3ad6ed582d0e3904e7c47268fd6799e289",
    "readback_digest": "sha256:e38a10cc4a5633b81650a8fb28c2ff3ad6ed582d0e3904e7c47268fd6799e289",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-01",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-02",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:005a0b14517f20da5479b647d10fe01a10716f0fc9845e8c4b2efa3590b69601",
    "readback_digest": "sha256:005a0b14517f20da5479b647d10fe01a10716f0fc9845e8c4b2efa3590b69601",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-02",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-03",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:5aabbeb8876310f9816c5a29dae3f6571029f3b64d0a3c8257201c9a4b3a01a5",
    "readback_digest": "sha256:5aabbeb8876310f9816c5a29dae3f6571029f3b64d0a3c8257201c9a4b3a01a5",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-03",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-04",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:6aba034e9e12fa0f1564786e465b15b4555b22bfb8f078ce7f1dd092da8a9baa",
    "readback_digest": "sha256:6aba034e9e12fa0f1564786e465b15b4555b22bfb8f078ce7f1dd092da8a9baa",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-04",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-05",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:81c244fa2d83612608053cd8e526d89dccb3cdb19cc36e594a7ce67c61822c7a",
    "readback_digest": "sha256:81c244fa2d83612608053cd8e526d89dccb3cdb19cc36e594a7ce67c61822c7a",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-05",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-06",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:d6a07191d33f2131e77e3fa040beb79fe1da62849e110b9aa831766a1c43b103",
    "readback_digest": "sha256:d6a07191d33f2131e77e3fa040beb79fe1da62849e110b9aa831766a1c43b103",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-06",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-07",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:ff17576dff0124037550c9d0e871b02f7a103e16a94910fb2e6a643f1862d53e",
    "readback_digest": "sha256:ff17576dff0124037550c9d0e871b02f7a103e16a94910fb2e6a643f1862d53e",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-07",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-08",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:23991e4cc70aaaee8f7fc5c4077d623f7958dc1eddf19c33bc44a7006c829709",
    "readback_digest": "sha256:23991e4cc70aaaee8f7fc5c4077d623f7958dc1eddf19c33bc44a7006c829709",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-08",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-09",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:fbabbb4ff3d6f71e63ce03bc1ddb3b3d5f41a8512fe3e7ab6573be81c0a006b7",
    "readback_digest": "sha256:fbabbb4ff3d6f71e63ce03bc1ddb3b3d5f41a8512fe3e7ab6573be81c0a006b7",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-09",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-10",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:28d65354581d402607eaaddfed76e4e219d0f0c8a3afe43b2cb3f4d0cbe990da",
    "readback_digest": "sha256:28d65354581d402607eaaddfed76e4e219d0f0c8a3afe43b2cb3f4d0cbe990da",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-10",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-11",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:eafcba91d6a12387ff3709f7513d0ca7cf5a66530f53f7e516920886f15d8f34",
    "readback_digest": "sha256:eafcba91d6a12387ff3709f7513d0ca7cf5a66530f53f7e516920886f15d8f34",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-11",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-12",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:5000c7b55891d5e1bcabd8d5b47c02d37c3eb7ec6028783185479f10f61caec7",
    "readback_digest": "sha256:5000c7b55891d5e1bcabd8d5b47c02d37c3eb7ec6028783185479f10f61caec7",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-12",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-13",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:dcd87222cbe83b55816251bf015800d09896d03b91fde2a388ca78b77e9cc526",
    "readback_digest": "sha256:dcd87222cbe83b55816251bf015800d09896d03b91fde2a388ca78b77e9cc526",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-13",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-14",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:940aecac5d0489fda2bc639aed19598020bbeec0db0da02e9f78ffa14fd9e55f",
    "readback_digest": "sha256:940aecac5d0489fda2bc639aed19598020bbeec0db0da02e9f78ffa14fd9e55f",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-14",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-15",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:655818da327701ba01cf7bab2d5a195133de6e0646b71a0fecb6d0c92d82c2f2",
    "readback_digest": "sha256:655818da327701ba01cf7bab2d5a195133de6e0646b71a0fecb6d0c92d82c2f2",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-15",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   },
   {
    "id": "EV-FT-GA-16",
-   "subject_digest": "sha256:54eb4a4268116454f113601e3977cff4beb38eb112201b65a111ab94f0e97ad3",
+   "subject_digest": "sha256:161a6a53256c30e91b958932fddda64abf497cac5bcb1d3242b79072572d7775",
    "declared_digest": "sha256:03daaa238f1fbd6961a252ded601e90779629d84a8d10008434cdfb1478eff32",
    "readback_digest": "sha256:03daaa238f1fbd6961a252ded601e90779629d84a8d10008434cdfb1478eff32",
    "evidence_ref": "repo:docs/design/goal-a-execution-runbook-v1.design-pack.json#FT-GA-16",
-   "receipt_ref": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5518401204",
+   "receipt_ref": "/Users/yuji/Developer/codex/control-artifacts/cto-learning/20260907/execution-guide-20260917/R10-kusabi-f07-f08-20260918/current-evidence-readback.json",
    "status": "VERIFIED",
    "verified_claim": "failure_specimen_recorded_not_run",
    "fixture_run_status": "COMMITTED_NOT_RUN"
   }
- ]
+ ],
+ "pack_digest": "sha256:5bdcfe77d4c4d3909a8795c1a36e4efeac56ad7c1ec2cad1f65deedb93eb57bd"
 }

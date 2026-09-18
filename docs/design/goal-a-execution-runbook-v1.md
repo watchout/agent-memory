@@ -132,7 +132,7 @@ owner 指示「できるかぎり止まらずに進んでほしいが、破壊�
 | 2: machine-readable derived cell graph(A5b 含む) | `goal-a-derived-cell-graph-v1.json` |
 | 3: common lifecycle 5 状態 | 本書 §2 |
 | 4: Codex/Claude/Gemini adapter contract | 本書 §3 |
-| 5: fresh maker-separated Design Flow v2 gate | DesignPack を maker(arc)外の registered `evidence_audit_gate` が審査。generation 3 の checker は handoff `CH-CTO-AM307-ARC-KUSABI-COMPLETION-GEN3-20260903-001` が `devauditor` に束縛(actor 独立の述語: maker history に含まれない registered evidence_audit_gate であること) |
+| 5: fresh maker-separated Design Flow v2 gate | DesignPack を maker(arc)外の registered `evidence_audit_gate` が審査。generation 3 の checker は旧 handoff が `devauditor` に束縛。今回の generation 4 は下記の新 handoff が `/root/execution_guide_review` に束縛(actor 独立の述語: maker history に含まれない registered evidence_audit_gate であること) |
 
 ## 6. 完成定義(KUSABI-INTERNAL-OPERATION-DONE-V1)の原子行への写像(gen3 追加)
 
@@ -157,7 +157,7 @@ comparison_schema / boundary_table)であり、本節は人間向け要約であ
   RESET-A(old subject + trigger_event_id + new manifest/version/hash)。
 - **alpha 割当(owner 凍結、分母不変)**: counted 16 行(S1〜S13 各 1、S14 は codex=qa / claude_code=check / gemini_cli=kusabi-gemini の 3)+ S15 負 fixture 1 行 + **P0 順序 10 行(別分母、scenario credit 0)**。
   credit 規則(SCENARIO_ONCE / FIXTURE_SCENARIO_ONCE / S13_DEGRADATION_ONCE / S14_HOST_ONCE / S15_NEGATIVE_ONLY / P0_ONLY / P0_AND_S3_SCOPE_ONLY)と
-  「1 receipt は counted 行 1 つだけを満たす」を機械で強制する。Issue #263 の P0-each / 複数担当の記述は分母を拡張しない(SOURCE_MATERIAL_ONLY)。
+  「1 receipt が credit できる counted 行は最大 1 つ（0 credit も許される）」を機械で強制する。Issue #263 の P0-each / 複数担当の記述は分母を拡張しない(SOURCE_MATERIAL_ONLY)。
 - **selector B(agent, host, project)**: A6 owner 凍結 manifest の適用行が正確に 1 件。manifest 凍結前 / 値欠落 = INCOMPLETE、0 件 or 複数件 = FAIL、runtime readback 不一致 = FAIL。
   manifest の宣言は runtime readback ではない。`kusabi-gemini`(gemini_cli、alpha-canary-only、normal_work_queue=false)は #180 comment 5054279853 の専用 binding 行を用いる。
 - **target key** = `sha256(agent_id + "\n" + project + "\n" + host_runtime + "\n" + workspace_sha256)`。store binding は必須 readback だが key には入れない。
@@ -184,7 +184,7 @@ comparison_schema / boundary_table)であり、本節は人間向け要約であ
 | 遷移 retry | 3 / 遷移 | typed failed |
 | 非終端状態の expiry | 7 日(handoff で上書き可) | typed EXPIRED record、回復 actor へ |
 | WIP | 1 ACTIVATED / cell | 2 本目は typed reject |
-| corrective generation | 1(本 gen3 で消費) | root active のまま owner disposition |
+| corrective generation | 1（各有限 handoff の候補上限。gen3 の消費履歴は保持） | 現 handoff の期限で停止し、通常訂正は codex-cto へ返却。仕様変更・protected effect は owner 境界を維持 |
 | 評価 1 回の validator 実行 | 60 s 以内(offline、外部 API 呼出 0、金銭費用 0) | 超過は VALIDATOR_UNAVAILABLE |
 | 完成定義の時間 SLO | T1−T0 ≤ 10 s、T3−T0 ≤ 30 s、T4−T0 ≤ 60 s、24h/96 bucket | C09-A / C13-A の行で FAIL / INCOMPLETE |
 
@@ -195,3 +195,11 @@ comparison_schema / boundary_table)であり、本節は人間向け要約であ
 - **gen2 → gen3 の差分**: EXPIRED を状態から typed record に戻す(5 状態)、回復 actor を canonical function に束縛、完成定義の原子行を追加。graph は不変(digest `fadaed57…`)。
 - **rollback**: 設計 branch の revert(履歴保持)。#307 の comment は不変なので監査履歴は失われない。runtime 効果は存在しない。
 
+
+## 10. generation 4 — F07/F08 の限定訂正（2026-09-18）
+
+- 現 author authority: https://github.com/watchout/agent-memory/issues/307#issuecomment-5723528553、raw SHA256 `2312f536748e799bad1c76f3eeb092b6adba8bea6cc293a36262ff362e4f0798`。既存通常委任 #940 comment 5609700544（raw SHA256 `59952776f1cfb5093040cb9318641f54721ef4f0f416ee278d1e426e980aef02`）により、世代数だけを理由とした CEO 再承認は要求しない。旧 gen3 attempt/expiry/BLOCK は履歴であり今回の実行権限ではない。
+- maker history は `arc/control_artifact_author` と `/root/recovery_path_author`。独立 checker は `/root/execution_guide_review/evidence_audit_gate`。author の比較結果は独立 gate PASS ではない。A1/製品実装は引き続き `IMPLEMENTATION_INACTIVE`。
+- F07: owner の `one receipt_id may satisfy exactly one counted assignment row` をそのまま転記。credit は最大1行、attribute-only/zero-credit receiptを1行に強制しない。counted17行（positive16+S15）、P0 10行、totals、credit rule値、selectorの全値を、同一owner本文から実際に比較する。専用Gemini bindingのflat表現はownerのrequired_identityから明示的に写像し、source_refのURL/hashを照合する。値・欠落・may削除の変異は比較が拒否する。
+- F08: fixture ledger、作者 transcript、candidate receipt は `EXECUTED_OFFLINE=7` / `PRODUCED_AT_GATE=1` / `COMMITTED_NOT_RUN=68` で一致する。`FX-KC-REG-01` は gate-ownedのまま。別ID `AUTHOR-KC-REG-FIELDS` の作者precheckをこの7件やgate証拠へ加算しない。G4とtraceは76/76。
+- author は20分elapsed・候補1・local commit1・push0。今回の保守的絶対期限は `2026-09-18T01:36:30Z`。終了時はローカルexact候補と証拠をCTOへ返し、別10分の独立reviewへ渡す。公開・runtime・DB・新設計はこの工程では行わない。F01–F06の既存閉鎖、五状態、回復actor、graph順序、分母・閾値・owner境界を保持する。
