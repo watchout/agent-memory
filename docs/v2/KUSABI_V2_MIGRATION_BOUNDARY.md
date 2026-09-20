@@ -139,3 +139,19 @@ Default decision for this branch: keep work in `watchout/agent-memory` on `v2/ku
 - Reconcile SQLite/PostgreSQL fallback and common DB binding policy before runtime rollout.
 - Define retention and deletion semantics before runtime changes.
 - Define package/repo rename strategy after compatibility inventory.
+
+## 7. Typed-protection amendment (2026-09-20)
+
+[Typed protected memory](../design/typed-protected-memory-v1.md) is the new
+personal-data design requested by the user. Its docs/SSOT updates are authorized
+by that later direction; historical branch-only edit limits above do not block
+this design revision. Runtime migration is not performed by this documentation.
+
+AUN persistence protection is implemented first, then Kusabi's own ingest and
+recovery. Use an explicit new protection version; preserve legacy reads and the
+meaning of am031-redaction-v1. Start with new ingestion, not bulk history rewrite.
+Already-redacted originals cannot be recovered without an authorized source.
+Keep issuer-qualified references across systems. New writers/readers, encrypted
+values, references, backups and separately managed keys must be tested together.
+Unsupported backends fail explicitly. Rollback keeps a compatible reader or
+restores a tested backup/key set; it does not blindly downgrade the binary.
