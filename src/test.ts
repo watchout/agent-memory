@@ -5145,6 +5145,44 @@ function testCodexContextMeasurement() {
   assert(over.measured_context_tokens === 260000, "CTX-10 an over-window measurement is not clamped");
   assert(over.context_window_tokens === 258400, "CTX-10 the host window is still reported");
   assert(over.status === "measured", "CTX-10 the adapter extracts and leaves the verdict to the caller");
+
+  // CTX-11: a complete latest token_count invalidates the previous success even if
+  // both values, the usage object, or the entire info object are absent.
+  const previous = tokenCount({ input_tokens: 240000 }, 258400);
+  const missingPayloads = [
+    { type: "token_count", info: { last_token_usage: {} } },
+    { type: "token_count", info: {} },
+    { type: "token_count" },
+    { type: "token_count", info: null },
+    { type: "token_count", info: [] },
+    { type: "token_count", info: { last_token_usage: { input_tokens: -1 }, model_context_window: -1 } },
+  ];
+  for (const [index, payload] of missingPayloads.entries()) {
+    const result = measureCodexContextFromTranscriptLines([previous, JSON.stringify({ type: "event_msg", payload })]);
+    assert(result.status === "unmeasured" && result.reason === "usage_field_missing", `CTX-11 case ${index} reports missing latest usage`);
+    assert(result.measured_context_tokens === null && result.context_window_tokens === null, `CTX-11 case ${index} cannot reuse either previous value`);
+    assert(result.window_source === null, `CTX-11 case ${index} cannot claim a previous window source`);
+    assert(result.token_count_records === 2, `CTX-11 case ${index} counts the complete deficient record`);
+  }
+
+  // CTX-12: each individual missing field also replaces its previous value.
+  const missingUsage = measureCodexContextFromTranscriptLines([previous, tokenCount({}, 258400)]);
+  assert(missingUsage.reason === "usage_field_missing" && missingUsage.measured_context_tokens === null, "CTX-12 latest missing input does not reuse prior input");
+  assert(missingUsage.context_window_tokens === 258400 && missingUsage.token_count_records === 2, "CTX-12 keeps only the latest valid denominator");
+  const missingWindow = measureCodexContextFromTranscriptLines([previous, tokenCount({ input_tokens: 0 }, null)]);
+  assert(missingWindow.reason === "window_missing" && missingWindow.status === "unmeasured", "CTX-12 latest missing window is unmeasured");
+  assert(missingWindow.measured_context_tokens === 0 && missingWindow.context_window_tokens === null, "CTX-12 zero input is retained without the old window");
+
+  // CTX-13: incomplete JSON is different from a complete record with missing values.
+  const missing = tokenCount({}, null);
+  const onlyMissing = measureCodexContextFromTranscriptLines([missing]);
+  assert(onlyMissing.reason === "usage_field_missing" && onlyMissing.token_count_records === 1, "CTX-13 a deficient record is not an absent record");
+  const partialTail = '{"type":"event_msg","payload":{"type":"token_c';
+  const stillMissing = measureCodexContextFromTranscriptLines([previous, missing, partialTail]);
+  assert(stillMissing.status === "unmeasured" && stillMissing.token_count_records === 2, "CTX-13 partial tail cannot resurrect an older success");
+  const recovered = measureCodexContextFromTranscriptLines([previous, missing, partialTail, tokenCount({ input_tokens: 1200 }, 258400)]);
+  assert(recovered.status === "measured" && recovered.measured_context_tokens === 1200, "CTX-13 subsequent valid data restores measurement");
+  assert(recovered.token_count_records === 3, "CTX-13 only complete token_count records count");
 }
 
 // Run all tests

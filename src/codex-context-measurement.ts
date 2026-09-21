@@ -59,13 +59,12 @@ function nonEmptyText(value: unknown): string | null {
  * current context. `total_token_usage` accumulates over the whole session and reached
  * 207,705,683 in one observed 258,400-window session, so it is never a context measure.
  */
-function readTokenCount(payload: Record<string, unknown>): TokenCountObservation | null {
+function readTokenCount(payload: Record<string, unknown>): TokenCountObservation {
   const info = payload.info;
-  if (!isRecord(info)) return null;
+  if (!isRecord(info)) return { inputTokens: null, windowTokens: null };
   const last = info.last_token_usage;
   const inputTokens = isRecord(last) ? positiveInteger(last.input_tokens) : null;
   const windowTokens = positiveInteger(info.model_context_window);
-  if (inputTokens === null && windowTokens === null) return null;
   return { inputTokens, windowTokens };
 }
 
@@ -75,6 +74,8 @@ function readTokenCount(payload: Record<string, unknown>): TokenCountObservation
  * The last `token_count` record wins. That is what makes the result correct across a
  * compaction: a compacted session reports a smaller prompt on its next turn, and reading
  * the maximum or the first record would keep reporting a context that no longer exists.
+ * A complete record with missing fields also wins and makes the result unmeasured;
+ * missing data must never resurrect an earlier successful measurement.
  *
  * Malformed lines are skipped rather than fatal. The rollout file is appended while the
  * session runs, so the final line can be a partial write.
@@ -110,11 +111,8 @@ export function measureCodexContextFromTranscriptLines(
       continue;
     }
     if (payload.type === "token_count") {
-      const observation = readTokenCount(payload);
-      if (observation) {
-        tokenCountRecords += 1;
-        latest = observation;
-      }
+      tokenCountRecords += 1;
+      latest = readTokenCount(payload);
     }
   }
 

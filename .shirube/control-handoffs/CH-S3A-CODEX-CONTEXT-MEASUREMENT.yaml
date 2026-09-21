@@ -26,7 +26,7 @@ rps_scope:
 cell:
   CELL-ID: S3A-CODEX-CONTEXT-MEASUREMENT
   cell_type: capability_addition
-  risk_class: R1
+  risk_class: R2
   goal: Give the codex host a correct context measurement and denominator, so its seats stop being unmeasurable, without registering or changing any hook.
   non_scope:
     - registering, editing or rebuilding any Stop hook or its dist; that is stage S3b and is owner-gated
@@ -44,10 +44,11 @@ cell:
     - The model is read from the structured turn_context model field, never from a substring of the transcript.
     - Every unmeasured path names its reason - no_token_count_record, usage_field_missing or window_missing - and invents no context size.
     - A measurement above the window is reported unchanged; declining or clamping belongs to the judgment layer.
-    - Fixtures CTX-01 through CTX-10 run inside src/test.ts, which the CI core-test step already executes.
+    - Fixtures CTX-01 through CTX-13 run inside src/test.ts, which the CI core-test step already executes.
     - No file outside src/ and this cell's Shirube control artifacts is changed.
   allowed_paths:
-    - src/**
+    - src/codex-context-measurement.ts
+    - src/test.ts
     - .shirube/control-handoffs/**
     - .shirube/control-handoffs/CH-S3A-CODEX-CONTEXT-MEASUREMENT.yaml
   forbidden_paths:
@@ -160,3 +161,44 @@ design_rule_notes:
       cell exists to avoid: a model table would have recorded two entries for gpt-5.6-sol and
       gpt-5.5 and both would have been wrong, because the observed 258,400 window is imposed
       by the Codex CLI rather than by the model.
+
+boundary_correction:
+  cell_id: CELL-KUSABI-250-CONTEXT-CONTRACT-FIX-20260921-001
+  actor: kusabi
+  active_function: implementation_executor
+  runner_policy: codex_native_fast_lane
+  audit_cycle: 2
+  resume_control_source_ref:
+    url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5759415406
+    sha256: 98c2fe48f9c5265d0572714516f487753e9265b048b66eac19e12723b8d5400c
+  isolation_merge_commit: e0ad7338b9c957f10504211b5555ba54ec96ef91
+  control_source_ref:
+    url: https://github.com/watchout/agent-memory/issues/307#issuecomment-5756993623
+    sha256: 603a16f746b3866b4d0c574e3ca35904f31b8ceec540b4cd2d8f79d9e41c1a79
+  contract_ref:
+    url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5757164543
+    sha256: b332cab5e744ebf2759c29bcd79b9852b9cde612b1ca9077206f3501860c7214
+  gate_result_ref: https://github.com/watchout/agent-memory/pull/315#issuecomment-5756964534
+  acceptance_criteria:
+    - Every parsed token_count record replaces the latest observation and increments token_count_records, including records with absent or invalid info and both fields missing.
+    - Missing latest usage returns usage_field_missing; valid usage with missing window returns window_missing. No field falls back to an earlier record.
+    - Malformed JSON lines remain skipped; a subsequent complete valid token_count can restore measured status.
+  stop_conditions:
+    - Contradiction with the issue 250 design contract; return needs:arc through suite-lead.
+    - Any path or effect outside the current bounded handoff.
+  required_evidence:
+    - Main including the audited isolation merge is integrated before test execution.
+    - Core runs in a fresh explicit KUSABI_TEST_TMPDIR. Compare all shared-home listing/mtime metadata before/after; identify every changed entry's non-test writer. Unattributed changes remain unmet.
+    - Updated PR head and boundary regressions in src/test.ts.
+    - Existing core suite and typecheck results, plus all three required CI jobs at the updated head.
+    - PR and issue 250 return with exact head, CI URLs and one-line finding-to-fix mapping.
+  next_action:
+    owner_agent: suite-lead
+    active_function: orchestration_controller
+    action: Restore needs:audit and route the completed correction to devauditor for cycle 2.
+    handoff_method: Existing PR and issue 250 comments.
+    input_refs: [current control_source_ref, contract_ref, gate_result_ref, updated PR head]
+    scope: Independent review of the corrected pure module and tests; no maker approval or merge.
+    deliverable: Independent cycle-2 gate_result.
+    completion_evidence: Exact-head audit result after the required CI jobs pass.
+    blocking: false
