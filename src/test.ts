@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Basic integration tests for agent-memory JSON store.
- * Run: tsx src/test.ts
+ * Run with KUSABI_TEST_TMPDIR set to an existing temporary parent directory.
+ * GitHub Actions supplies RUNNER_TEMP instead. No implicit home-directory fallback.
  */
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore, type CreateStoreOptions } from "./stores/index.js";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
-import { join } from "path";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
+import { isAbsolute, join, relative, resolve, sep } from "path";
 import { execFileSync } from "child_process";
 import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
@@ -129,7 +130,31 @@ import {
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
 
-const TEST_DIR = join(homedir(), ".agent-memory");
+function createIsolatedTestDir(env: NodeJS.ProcessEnv): string {
+  const configuredRoot = env.KUSABI_TEST_TMPDIR ?? env.RUNNER_TEMP;
+  if (!configuredRoot?.trim()) {
+    throw new Error("KUSABI_TEST_TMPDIR_REQUIRED: provide a temporary parent directory before running tests");
+  }
+  if (!isAbsolute(configuredRoot)) throw new Error("KUSABI_TEST_TMPDIR_MUST_BE_ABSOLUTE");
+  const home = realpathSync(homedir());
+  const sharedStore = join(home, ".agent-memory");
+  const within = (path: string, parent: string) => {
+    const pathFromParent = relative(parent, path);
+    return pathFromParent === "" || (!pathFromParent.startsWith(`..${sep}`) && pathFromParent !== ".." && !isAbsolute(pathFromParent));
+  };
+  const assertSafeRoot = (root: string) => {
+    if (root === home || root === resolve(root, "..") || within(root, sharedStore)) {
+      throw new Error("KUSABI_TEST_TMPDIR_UNSAFE: home and shared memory are not test roots");
+    }
+  };
+  assertSafeRoot(resolve(configuredRoot));
+  const root = realpathSync(configuredRoot);
+  assertSafeRoot(root);
+  // Own only a fresh child, never the caller's parent or an existing store.
+  return mkdtempSync(join(root, "kusabi-core-test-"));
+}
+
+const TEST_DIR = createIsolatedTestDir(process.env);
 let passed = 0;
 let failed = 0;
 
@@ -140,6 +165,46 @@ function assert(condition: boolean, msg: string) {
   } else {
     console.log(`  ❌ ${msg}`);
     failed++;
+  }
+}
+
+async function testJsonStoreDataIsolation() {
+  console.log("\n── JSON Store Test Data Isolation ──");
+  for (const [label, env] of [
+    ["missing", {}],
+    ["blank explicit input", { KUSABI_TEST_TMPDIR: "", RUNNER_TEMP: TEST_DIR }],
+    ["relative", { KUSABI_TEST_TMPDIR: "relative-path" }],
+    ["home", { KUSABI_TEST_TMPDIR: homedir() }],
+    ["shared memory", { KUSABI_TEST_TMPDIR: join(homedir(), ".agent-memory") }],
+  ] as const) {
+    let rejected = false;
+    try {
+      createIsolatedTestDir(env);
+    } catch (error) {
+      rejected = error instanceof Error && error.message.startsWith("KUSABI_TEST_TMPDIR_");
+    }
+    assert(rejected, `isolation rejects ${label} before any store operation`);
+  }
+
+  const first = createIsolatedTestDir({ KUSABI_TEST_TMPDIR: TEST_DIR });
+  const second = createIsolatedTestDir({ RUNNER_TEMP: TEST_DIR });
+  assert(first !== second, "each test invocation owns a fresh directory");
+  const sentinel = join(TEST_DIR, "parent-sentinel");
+  writeFileSync(sentinel, "preserve-parent");
+  try {
+    const firstStore = new JsonStore(first);
+    const secondStore = new JsonStore(second);
+    await firstStore.initialize();
+    await secondStore.initialize();
+    await firstStore.logDecision({ agent_id: "isolation-fixture", decision: "private fixture", context: "test isolation", tags: [], project: "test" });
+    assert((await firstStore.getDecisions({ agent_id: "isolation-fixture" })).length === 1, "first isolated store receives its fixture");
+    assert((await secondStore.getDecisions({ agent_id: "isolation-fixture" })).length === 0, "second isolated store cannot observe the first fixture");
+    rmSync(first, { recursive: true, force: true });
+    assert(existsSync(second) && readFileSync(sentinel, "utf8") === "preserve-parent", "cleanup leaves the sibling and caller parent unchanged");
+  } finally {
+    rmSync(first, { recursive: true, force: true });
+    rmSync(second, { recursive: true, force: true });
+    rmSync(sentinel, { force: true });
   }
 }
 
@@ -433,7 +498,7 @@ async function cleanup() {
 
 async function testDecisions() {
   console.log("\n── Decision Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Log a decision
@@ -530,7 +595,7 @@ async function testDecisions() {
 
 async function testTaskStates() {
   console.log("\n── Task State Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Save task state. AM-023: a second save with the same task text now
@@ -580,7 +645,7 @@ async function testTaskStates() {
 
 async function testTaskStatesUpsert() {
   console.log("\n── Task State UPSERT Tests (AM-023) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const upsertAgent = "test-agent-upsert";
@@ -649,7 +714,7 @@ async function testTaskStatesUpsert() {
 
 async function testRecoverContext() {
   console.log("\n── Recover Context Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Get decisions and task states together (simulating recover_context)
@@ -680,7 +745,7 @@ async function testRecoverContext() {
 
 async function testSearchMemory() {
   console.log("\n── Search Memory Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Setup: log some decisions and tasks
@@ -777,7 +842,7 @@ async function testSearchMemory() {
 
 async function testRecoverContextBoot() {
   console.log("\n── Recover Context (Boot) Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Save an in_progress task
@@ -816,7 +881,7 @@ async function testRecoverContextBoot() {
 
 async function testJapaneseSearchJson() {
   console.log("\n── Japanese Search Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Log Japanese decision
@@ -875,7 +940,7 @@ async function testJapaneseSearchJson() {
 async function testEmptyDbBoot() {
   console.log("\n── Empty DB Boot Test ──");
   // Simulate boot.ts with no data
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const tasks = await store.getTaskStates({
@@ -905,7 +970,7 @@ async function testEmptyDbBoot() {
 
 async function testKnowledgeCRUD() {
   console.log("\n── Knowledge CRUD Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-crud-agent";
@@ -960,7 +1025,7 @@ async function testKnowledgeCRUD() {
 
 async function testKnowledgeSearch() {
   console.log("\n── Knowledge Search Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-crud-agent";
@@ -1002,7 +1067,7 @@ async function testKnowledgeSearch() {
 
 async function testKnowledgeSupersede() {
   console.log("\n── Knowledge Supersede Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-supersede-agent";
@@ -1088,7 +1153,7 @@ async function testKnowledgeSupersede() {
  */
 async function testKnowledgeSupersedeRollback() {
   console.log("\n── Knowledge Supersede Rollback (#66 item 1) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-supersede-rollback-agent";
@@ -1179,7 +1244,7 @@ async function testKnowledgeSupersedeRollback() {
 
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Supersede non-existent decision
@@ -1215,7 +1280,7 @@ async function testErrorHandling() {
 
 async function testConversationEvents() {
   console.log("\n── Conversation Event Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const first = await store.saveConversationEvent({
@@ -1622,7 +1687,7 @@ function testCatchUpSourceADryRun() {
 
 async function testClaudeConversationIngest() {
   console.log("\n── Claude Conversation Ingest Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const root = mkdtempSync(join(tmpdir(), "am031-claude-ingest-"));
@@ -1715,7 +1780,7 @@ async function testClaudeConversationIngest() {
 
 async function testCodexConversationIngest() {
   console.log("\n── Codex Conversation Ingest Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const root = mkdtempSync(join(tmpdir(), "am031-codex-ingest-"));
@@ -1852,7 +1917,7 @@ async function testCodexConversationIngest() {
 
 async function testRestartPack() {
   console.log("\n── Restart Pack Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-restart-pack-agent";
   const project = "hotel-app";
@@ -2593,7 +2658,7 @@ async function testCodexStartupBridge() {
 
 async function testClaudeResessionRunner() {
   console.log("\n── Claude Resession Runner Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-claude-runner-agent";
   const project = "claude-runner";
@@ -2801,7 +2866,7 @@ async function testClaudeResessionRunner() {
 
 async function testClaudeMarkerController() {
   console.log("\n── Claude Marker Controller Tests (AM-138 Cell B) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-claude-marker-agent";
   const project = "/Users/yuji/Developer/dev-auditor";
@@ -3097,7 +3162,7 @@ function testSupervisorPreflight() {
 
 async function testRestartPrepare() {
   console.log("\n── Restart Prepare Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-restart-prepare-agent";
   const project = "restart-prepare";
@@ -4759,6 +4824,7 @@ async function run() {
   console.log("agent-memory test suite\n");
   await cleanup();
 
+  await testJsonStoreDataIsolation();
   await testDecisions();
   await testTaskStates();
   await testTaskStatesUpsert();
@@ -4803,10 +4869,12 @@ async function run() {
   await cleanup();
 
   console.log(`\n── Results: ${passed} passed, ${failed} failed ──`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 }
 
 run().catch((err) => {
   console.error("Test suite error:", err);
-  process.exit(1);
+  process.exitCode = 1;
+}).finally(() => {
+  rmSync(TEST_DIR, { recursive: true, force: true });
 });
