@@ -7,6 +7,9 @@ actor: kusabi
 active_function: implementation_executor
 runner_policy: codex_native_fast_lane
 control_source_ref:
+  url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5758803888
+  sha256: 17ea872e4ec4f31b312679ba1528f618a0848295745df26316de6746445e950c
+amendment_of:
   url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5757290949
   sha256: 1290e1b8e6e9605a66d354855988deb15bce97aab40a48d524f16ce19c5558ab
 cell:
@@ -26,11 +29,15 @@ cell:
     - No KUSABI_TEST_TMPDIR or RUNNER_TEMP means failure before any test or store operation.
     - Every invocation creates a fresh child below the supplied existing parent. Every core JsonStore receives that explicit child path.
     - Home, shared-memory, relative and blank roots are rejected. Cleanup removes only the newly owned child and its fixtures.
+    - Reject home and shared-store aliases by dev/ino, and reject store descendants by checking every ancestor identity. String checks are supplementary.
+    - Canonical, volume-alias, case-alias and symlink negative fixtures cover both environment inputs before directory creation.
+    - The full core suite passes under an OS sandbox that denies writes to the shared store.
+    - Without a sandbox, compare the complete shared-home listing and metadata before/after the suite. Test-created, modified or deleted files must total zero. Identify the writer of every changed item; unattributed changes remain unmet.
     - The existing GitHub Actions RUNNER_TEMP environment provides the CI parent; workflow and product default-store behavior stay unchanged.
     - A new independent PR is open with required CI 3/3 green and before/after shared-home directory metadata evidence in its body.
   stop_conditions:
     - A test process attempts shared-home content access or mutation.
-    - The metadata invariant remains unproven; report that unmet predicate without excluding changing entries or claiming completion.
+    - A changed shared-home item cannot be attributed to an identified non-test writer; report the unmet predicate without excluding that item or claiming completion.
     - Any implementation path outside the allowlist is required.
 implementation_boundary:
   summary: Test entry guard, explicit JsonStore fixture paths, bounded cleanup and isolation regression cases only.
@@ -41,12 +48,13 @@ implementation_boundary:
     - Maker approval or merge.
 validation:
   required_commands:
-    - Typecheck with no emit.
+    - Project typecheck with no emit; report its test-entrypoint exclusion and any separate targeted diagnostics accurately.
     - Guard probes without a supplied root and with unsafe roots; all must exit before tests.
-    - Core suite with a fresh explicit KUSABI_TEST_TMPDIR; OS sandbox denies shared-home reads and writes.
-    - Shared-home immediate directory listing and lstat metadata before/after; no file contents.
+    - Real filesystem canonical, volume and case alias probes with a non-writing mkdtemp tripwire; both environment inputs.
+    - Core suite with a fresh explicit KUSABI_TEST_TMPDIR; OS sandbox denies shared-home writes and content reads while allowing identity metadata.
+    - Core suite without sandbox, with a fresh explicit KUSABI_TEST_TMPDIR; shared-home complete immediate listing and lstat metadata before/after, with live writer attribution for changes.
     - Required Node18/20/22 CI jobs on the exact PR head.
-  observation_boundary: The cell explicitly requires listing/mtime observations. This admits metadata only, not shared file content access or restore.
+  observation_boundary: The amendment admits directory identity/listing/mtime and read-only writer-process observations (launchctl, lsof or equivalent). No shared file contents, process control or restore.
   required_evidence:
     - exact_head_sha
     - CI_run_URL
@@ -55,8 +63,8 @@ validation:
 next_action:
   owner_agent: suite-lead
   active_function: orchestration_controller
-  action: Attach needs:audit and route the exact isolation PR to the independent auditor, then arrange merge; only after merge resume the preserved PR314/315 corrections.
-  handoff_method: New PR and issue250 result comment.
+  action: Attach needs:audit and route the corrected PR325 head and amended DoD evidence to devauditor for cycle 2, then arrange merge; only after merge resume the preserved PR314/315 corrections.
+  handoff_method: PR325 and issue250 result comments.
   input_refs: [control_source_ref, new_PR_head, validation_evidence]
   scope: This isolation cell only; incident impact investigation stays with qa.
   deliverable: Independent gate and merged isolation fix, followed by resumption of the existing context-contract cell.

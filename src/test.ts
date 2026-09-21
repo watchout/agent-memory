@@ -130,13 +130,23 @@ import {
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
 
-function createIsolatedTestDir(env: NodeJS.ProcessEnv): string {
+function createIsolatedTestDir(env: NodeJS.ProcessEnv, directories: {
+  home: string;
+  realpath: (path: string) => string;
+  stat: (path: string) => { dev: bigint; ino: bigint };
+  mkdtemp: (prefix: string) => string;
+} = {
+  home: homedir(),
+  realpath: realpathSync,
+  stat: (path) => statSync(path, { bigint: true }),
+  mkdtemp: mkdtempSync,
+}): string {
   const configuredRoot = env.KUSABI_TEST_TMPDIR ?? env.RUNNER_TEMP;
   if (!configuredRoot?.trim()) {
     throw new Error("KUSABI_TEST_TMPDIR_REQUIRED: provide a temporary parent directory before running tests");
   }
   if (!isAbsolute(configuredRoot)) throw new Error("KUSABI_TEST_TMPDIR_MUST_BE_ABSOLUTE");
-  const home = realpathSync(homedir());
+  const home = directories.realpath(directories.home);
   const sharedStore = join(home, ".agent-memory");
   const within = (path: string, parent: string) => {
     const pathFromParent = relative(parent, path);
@@ -148,10 +158,31 @@ function createIsolatedTestDir(env: NodeJS.ProcessEnv): string {
     }
   };
   assertSafeRoot(resolve(configuredRoot));
-  const root = realpathSync(configuredRoot);
+  const root = directories.realpath(configuredRoot);
   assertSafeRoot(root);
+  const homeIdentity = directories.stat(home);
+  let sharedIdentity: ReturnType<typeof directories.stat> | undefined;
+  try {
+    sharedIdentity = directories.stat(sharedStore);
+  } catch (error) {
+    // A fresh CI home need not contain a production store. Other stat failures
+    // leave its identity unknown, so they must fail closed before creating a dir.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const sameDirectory = (a: ReturnType<typeof directories.stat>, b: ReturnType<typeof directories.stat>) =>
+    a.dev === b.dev && a.ino === b.ino;
+  // realpath does not collapse APFS case aliases or volume firmlinks. Inspect
+  // every ancestor by filesystem identity to reject aliases of store descendants.
+  for (let ancestor = root; ; ancestor = resolve(ancestor, "..")) {
+    const identity = directories.stat(ancestor);
+    if ((ancestor === root && sameDirectory(identity, homeIdentity)) ||
+        (sharedIdentity && sameDirectory(identity, sharedIdentity))) {
+      throw new Error("KUSABI_TEST_TMPDIR_UNSAFE: home and shared memory are not test roots");
+    }
+    if (ancestor === resolve(ancestor, "..")) break;
+  }
   // Own only a fresh child, never the caller's parent or an existing store.
-  return mkdtempSync(join(root, "kusabi-core-test-"));
+  return directories.mkdtemp(join(root, "kusabi-core-test-"));
 }
 
 const TEST_DIR = createIsolatedTestDir(process.env);
@@ -184,6 +215,57 @@ async function testJsonStoreDataIsolation() {
       rejected = error instanceof Error && error.message.startsWith("KUSABI_TEST_TMPDIR_");
     }
     assert(rejected, `isolation rejects ${label} before any store operation`);
+  }
+
+  // All fixtures live inside TEST_DIR. Keep alias spellings intact, as APFS
+  // realpath does, while stat resolves them to the same real fixture inode.
+  // This exercises the macOS regression on Linux CI without touching real home.
+  const fixtureHome = join(TEST_DIR, "fixture-home");
+  const fixtureShared = join(fixtureHome, ".agent-memory");
+  mkdirSync(join(fixtureShared, "nested", "deeper"), { recursive: true });
+  const volumeHome = join(TEST_DIR, "volume-home-alias");
+  const caseShared = join(fixtureHome, ".AGENT-MEMORY");
+  const caseHome = join(TEST_DIR, "FIXTURE-HOME");
+  const aliases = [[volumeHome, fixtureHome], [caseHome, fixtureHome], [caseShared, fixtureShared]];
+  const symlink = join(TEST_DIR, "store-symlink");
+  symlinkSync(fixtureShared, symlink, "dir");
+  try {
+    for (const input of ["KUSABI_TEST_TMPDIR", "RUNNER_TEMP"]) {
+      for (const [label, root, useRealpath] of [
+        ["canonical shared store", fixtureShared, false],
+        ["volume alias", join(volumeHome, ".agent-memory"), false],
+        ["case alias", caseShared, false],
+        ["volume descendant", join(volumeHome, ".agent-memory", "nested", "deeper"), false],
+        ["case descendant", join(caseShared, "nested", "deeper"), false],
+        ["home volume alias", volumeHome, false],
+        ["home case alias", caseHome, false],
+        ["symlink", symlink, true],
+        ["symlink descendant", join(symlink, "nested", "deeper"), true],
+      ] as const) {
+        let attemptedCreation = false;
+        let rejected = false;
+        try {
+          createIsolatedTestDir({ [input]: root }, {
+            home: fixtureHome,
+            realpath: useRealpath ? realpathSync : (path) => path,
+            stat: (path) => {
+              const alias = aliases.find(([from]) => path === from || path.startsWith(`${from}${sep}`));
+              return statSync(alias ? join(alias[1], relative(alias[0], path)) : path, { bigint: true });
+            },
+            mkdtemp: () => {
+              attemptedCreation = true;
+              throw new Error("isolation fixture creation tripwire");
+            },
+          });
+        } catch (error) {
+          rejected = error instanceof Error && error.message.startsWith("KUSABI_TEST_TMPDIR_UNSAFE:");
+        }
+        assert(rejected && !attemptedCreation, `${input} rejects ${label} before directory creation`);
+      }
+    }
+  } finally {
+    rmSync(symlink, { force: true });
+    rmSync(fixtureHome, { recursive: true, force: true });
   }
 
   const first = createIsolatedTestDir({ KUSABI_TEST_TMPDIR: TEST_DIR });
