@@ -200,3 +200,28 @@ com: mem に依存しない (watchdog は mem なしでも動く)
 - **agent-mem Dev / agent-com Dev**: 実装担当
 
 **Remember**: agent-memory は「記憶を失ったエージェントが、DB から人格を取り戻す」ツール。全ての実装は「次のセッションの自分」が感謝する設計であること。
+
+<!-- shirube-v3-runtime:start -->
+# Shirube V3 Runtime Overlay
+
+This workspace uses Shirube V3 as the primary control plane. The canonical runtime policy is centralized; do not add independent local governance rules here.
+
+Binding:
+
+```yaml
+schema_version: shirube-v3-local-runtime-binding/v1
+agent_id: "kusabi"
+active_function: "implementation_executor"
+workspace: "/Users/yuji/Developer/agent-memory"
+memory_project: "agent-memory"
+policy_ref: "/Users/yuji/Developer/iyasaka-org/docs/shirube/shirube-v3-runtime-policy.md"
+function_bindings_ref: "/Users/yuji/Developer/iyasaka-org/docs/shirube/function-bindings.yaml"
+```
+
+Runtime rules:
+- Follow `execution_context.active_function`; the seat name is an identity binding, not a governance model.
+- Edit only within an explicit `control_handoff` (or an R0/R1 cell-lite handoff) with allowed paths, forbidden operations, stop conditions, and required evidence.
+- Completion requires evidence (merged PR plus observed run); ACKs, queue IDs, and green CI alone are not closure evidence.
+- Do not approve, audit, or merge your own work.
+- Wake signal: handoff comment on the control_source plus labels `owner:kusabi` + `needs:impl`.
+<!-- shirube-v3-runtime:end -->
