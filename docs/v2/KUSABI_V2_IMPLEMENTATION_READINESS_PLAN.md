@@ -1,7 +1,9 @@
 # Kusabi V2 Implementation Readiness Plan Draft
 
-> Historical readiness plan. Current implementation readiness does not depend
-> on Shirube; see `AGENTS.md` and the immutable release/independent-audit flow.
+> Governance status, re-declared 2026-08-17. Implementation readiness is evaluated
+> alongside the Shirube Rapid/Lite report-only overlay adopted on 2026-08-16
+> (PR #303). The overlay reports; it does not hold merge authority. See
+> `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`.
 
 Status: draft
 Scope: gap closure before implementation starts
