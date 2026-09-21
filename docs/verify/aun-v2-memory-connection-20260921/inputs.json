@@ -1,33 +1,1288 @@
 {
-  "document_kind": "kusabi_memory_connection_input_worksheet",
+  "document_kind": "kusabi_minimum_memory_connection_input_worksheet",
   "not_runtime_config": true,
-  "preparation_status": "FOUR_ITEMS_MAPPED_WITH_EXPLICIT_GAPS",
-  "operational_verdict": "CANNOT_START_FROM_THIS_DOCUMENT",
-  "independent_acceptance": null,
-  "author": {
-    "actor": "codex-cto/e3_independent_review",
+  "control_source": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5755406406",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5755406406",
+    "sha256": "e789460a407fba892fb4bcab587d2a4e5fd4d09beb46f955147828f88e626ff1"
+  },
+  "owner_source_ref": {
+    "url": "https://github.com/watchout/iyasaka/issues/171#issuecomment-5754017696",
+    "sha256": "f63985be75fdfb7adf6acf9416a2c68ea6353d839e4fecfc263dca88c04468f5"
+  },
+  "cell_id": "KUSABI-AUN-V2-MINIMUM-CONNECTION-20260921",
+  "execution_context": {
+    "agent_id": "codex-cto",
+    "native_actor": "/root/e3_independent_review",
     "active_function": "control_artifact_author",
-    "prior_checker_history_preserved": true,
-    "self_independent_acceptance": false,
-    "started_at": "2026-09-21T10:23:39+09:00",
-    "evidence_observed_at": "2026-09-21T10:30:57.312866+09:00",
+    "lane": "governed_manual_lane",
+    "started_at": "2026-09-21T13:30:11.497271+09:00",
+    "maximum_active_minutes": 25,
     "branch": "codex/kusabi-memory-connection-e3-20260921",
-    "worktree": "/Users/yuji/Developer/.worktrees/kusabi-memory-connection-e3-20260921",
-    "attempt": 1,
-    "limit_minutes": 30
+    "base_commit": "4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3",
+    "allowed_paths": [
+      "docs/verify/aun-v2-memory-connection-20260921/README.md",
+      "docs/verify/aun-v2-memory-connection-20260921/inputs.json"
+    ]
   },
-  "control_handoff_ref": {
-    "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754173951",
-    "sha256": "dd9943188b6f0c304ccbc7554d2ebe42c1b49c226764d6c00a0625ed05e6b28e"
+  "objective_verbatim": "AUN担当とShirube担当が、Kusabiの必要版・記憶の受渡し・確認方法を使って最初の試運転へ接続できる状態にする。",
+  "completion_definition": "Existing two preparation documents consolidate the two maker histories and the already generated exact e49 candidate into existing Shirube input keys; unresolved KMC-01 publication, KMC-02/03/04 and all actual-use nulls remain explicit.",
+  "observation_method": "Reuse pinned comments and commit objects; compare JSON/key sets, reference hashes and exactly two changed paths; commit/push and GitHub byte readback. No new build, product tests, current runtime observation or independent gate.",
+  "prepared_at": "2026-09-21T13:40:30.030950+09:00",
+  "preparation_result": "CURRENT_CANDIDATE_AND_EXISTING_KMC_INPUTS_CONSOLIDATED",
+  "application_ready": false,
+  "trial_ready": false,
+  "trial_passed": false,
+  "gate_result": "NOT_A_NEW_INDEPENDENT_GATE",
+  "refs": {
+    "handoff": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5755406406",
+      "sha256": "e789460a407fba892fb4bcab587d2a4e5fd4d09beb46f955147828f88e626ff1"
+    },
+    "owner": {
+      "url": "https://github.com/watchout/iyasaka/issues/171#issuecomment-5754017696",
+      "sha256": "f63985be75fdfb7adf6acf9416a2c68ea6353d839e4fecfc263dca88c04468f5"
+    },
+    "shirube_return": {
+      "url": "https://github.com/watchout/ai-dev-framework/issues/623#issuecomment-5753870682",
+      "sha256": "aa25bfe2390f7fbe206f21e253fb4811db128daf42dd61e9a31f795294288cf7"
+    },
+    "aun_delta": {
+      "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5753833850",
+      "sha256": "ae513c3d9b4a3ef14bd1399b97ab62690a62f6c21e36bf6bf260381a97dc6826"
+    },
+    "aun_ledger": {
+      "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5753716854",
+      "sha256": "c375849c4a8e50f1624b7f6ab3930bcdfc70213f22bcce42bce583da8ad2f81c"
+    },
+    "e49_independent_review": {
+      "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651852792",
+      "sha256": "2da01fa42c61dfb7bf136b0a74827ee0c7a8329ea91ca4247a3d8b40a18b7795"
+    },
+    "shirube_inputs": {
+      "url": "https://github.com/watchout/ai-dev-framework/blob/789ecf3e2744bf0e1b18b12d5884e82d0f50f576/docs/verify/a2-connection-20260921/inputs.json",
+      "sha256": "02278f649cccef7a8126cff47eec9652f2349bfc53e0e477eb4c60091e502b01"
+    },
+    "original_handoff": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754027603",
+      "sha256": "d7983d251592c869742f510f8970a5de528edf9d3a44b11aec4edc9aca3521f8"
+    },
+    "repo_preparation_return": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754259676",
+      "sha256": "05da3daebc05b4c4124b4de414ad62ca41dc7c9639dad9700cb976658f8427d2"
+    },
+    "own_preparation_return": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754291764",
+      "sha256": "4142e6c62ca2f6057d7a75437dd76ff1d4a162345d0025f90b13fc14bf4496f2"
+    },
+    "candidate_generation_return": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+      "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+    },
+    "aun_d1_d4_adoption": {
+      "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5755364993",
+      "sha256": "8414bb149e2a8b9aee4fb62b87f11d6109d5bc9bf9beb67019e282e21bcc1791"
+    }
   },
-  "original_instruction_ref": {
-    "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754027603",
-    "sha256": "d7983d251592c869742f510f8970a5de528edf9d3a44b11aec4edc9aca3521f8"
+  "source_catalog": [
+    {
+      "path": "src/index.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/index.ts",
+      "sha256": "73dd582b23a23e253a46bdaf29334f81866c7124bb35eec39f81c8752d05c832"
+    },
+    {
+      "path": "src/native-context-delivery.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/native-context-delivery.ts",
+      "sha256": "4ba4e480415161e702b4fd73964b4fc3bb53b42ff2555768a021d613eeebd385"
+    },
+    {
+      "path": "src/codex-session-start.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/codex-session-start.ts",
+      "sha256": "0eb9a65e543ed33c47c8a87ae67eeb9211bbb0896ffeedc06cc7dbb064547cd3"
+    },
+    {
+      "path": "src/claude-session-start.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/claude-session-start.ts",
+      "sha256": "476381da1ec89680903bca48c50946400e97d218985e1b3baa4aab7ba712c5c0"
+    },
+    {
+      "path": "src/kusabi-runtime-event-emitter.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/kusabi-runtime-event-emitter.ts",
+      "sha256": "c367a7b85272b42d7565ed5fd484fa8200bd4421ffd67fa64aa6a0a25cd91c07"
+    },
+    {
+      "path": "src/restart-pack.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/restart-pack.ts",
+      "sha256": "c0cc3f06b3e6f33c9a1519ae7a5c2ed7aa12e7e75b5af6aba69d4c4bc433cb9b"
+    },
+    {
+      "path": "src/stores/index.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/stores/index.ts",
+      "sha256": "8a39c4f2c2fa090eaf061ba7074459e63a1cf6d83438d3a6e8ad963f04b42ce2"
+    },
+    {
+      "path": "src/stores/sqlite-store.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/stores/sqlite-store.ts",
+      "sha256": "8c89435ac70bd0a9f50cb7b02401cec889c98b2289bdc34ee26fa297493ebe8a"
+    },
+    {
+      "path": "src/test-native-context-delivery.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts",
+      "sha256": "b0f83a33d004e02983d8e76ff1b2376463b591e9c4c2f107c8a4bc14622280cf"
+    },
+    {
+      "path": "src/test-codex-session-start.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-codex-session-start.ts",
+      "sha256": "5b82c28de6fcaa8c7750a46f404ce52b0dfe9c4b0d4ccc9c467d8a4de37fefea"
+    },
+    {
+      "path": "src/test-claude-session-start.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-claude-session-start.ts",
+      "sha256": "76c8c7477ba6c7eea57b2117396bb5f2dbf55c811e632c75c6b2c740690a03ab"
+    },
+    {
+      "path": "src/test-kusabi-runtime-event-emitter.ts",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-kusabi-runtime-event-emitter.ts",
+      "sha256": "84c304953ee00c78dd2f86b713d64d7fbd035f1362c2c5f8d2908110e9cb0985"
+    },
+    {
+      "path": "docs/design/core/SSOT-3_API_CONTRACT.md",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-3_API_CONTRACT.md",
+      "sha256": "f045a297fdccbc49c44c3925af80fa841ae3aed92191a3f39663da8c0b99c097"
+    },
+    {
+      "path": "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
+      "sha256": "2cdcc90d7a7944bc4a8e0693fae2538b63448b2f11e61c979e7805ae3244ad0f"
+    },
+    {
+      "path": "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/scripts/build-kusabi-content-addressed-runtime-release.mjs",
+      "sha256": "5b4f34443473b21d103fb1c4469a41256b69f6289e29f3c6e5e3626738265c6e"
+    },
+    {
+      "path": "scripts/test-kusabi-content-addressed-runtime-release.mjs",
+      "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/scripts/test-kusabi-content-addressed-runtime-release.mjs",
+      "sha256": "ca238942561c0e394a9b6a70b13e34276f3e57343c6f2c67785a7018ed6e0bee"
+    },
+    {
+      "path": "core/runtime-memory-ready.ts",
+      "url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/core/runtime-memory-ready.ts",
+      "sha256": "448b3f470730e8f1fee0101823f39dd64b8db4aa7229fcf2ab0e9a5b59878fe6"
+    },
+    {
+      "path": "core/seat-context-recovery.ts",
+      "url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/core/seat-context-recovery.ts",
+      "sha256": "448d245c2f0226183e025c3c52a71a69d5a18c1e7478c46b5300a11acb5968fa"
+    },
+    {
+      "path": "tests/contract/test_seat_runtime_continuity.test.ts",
+      "url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/tests/contract/test_seat_runtime_continuity.test.ts",
+      "sha256": "cda7bdbb308f6797c6ddf9db22ab2b15c3814b3149bbec1c132ce1f152499197"
+    },
+    {
+      "path": "tests/runtime-memory-ready-identity.test.ts",
+      "url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/tests/runtime-memory-ready-identity.test.ts",
+      "sha256": "eeb2abd91adf6b1ee2acbcb1a95e91a95c03bfa348f6d81b626c79dfa16e424c"
+    },
+    {
+      "path": "tests/seat-context-recovery.test.ts",
+      "url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/tests/seat-context-recovery.test.ts",
+      "sha256": "c0350ab28f1c29f661c65172722a3f2362424bb47a63b020ed0a7863dd13b3dd"
+    }
+  ],
+  "planned_memory": {
+    "repository": "watchout/agent-memory",
+    "pull_request": 321,
+    "state": "OPEN_UNMERGED",
+    "commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+    "tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+    "package": "wasurezu",
+    "package_version": "0.3.0",
+    "scope": "Initial QA memory connection only",
+    "final_applied_M": null,
+    "final_applied_tree": null,
+    "historical_candidate": {
+      "built_at": "2026-09-14",
+      "status_then": "CANDIDATE_VERIFIED_PRIVATE_STAGE_ONLY",
+      "descriptor_sha256": "a26fd913aa73acf403798e28b9e01d09abb1b29954098eef7f08484639d28bb9",
+      "descriptor_reconstructed_from_historical_evidence": {
+        "build_commands": [
+          "npm ci --ignore-scripts",
+          "npm run build"
+        ],
+        "dist_tree_sha256": "6bbd76586625ac04e12baa38e8a5af70e69cef5339cf8e7f08f08ac72bafec3d",
+        "invocation_harness_sha256": "ca238942561c0e394a9b6a70b13e34276f3e57343c6f2c67785a7018ed6e0bee",
+        "invocation_ledgers": {
+          "candidate_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37",
+          "candidate_ledger_sha256": "0066049525337378580afeded00e720afbaa82a132678804dd4f913092ced157",
+          "required_final_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37"
+        },
+        "node_version": "v25.6.1",
+        "normalized_directory_mode": "0555",
+        "normalized_file_mode": "0444",
+        "npm_version": "11.9.0",
+        "package_metadata": {
+          "package_json_sha256": "c7d4e9bf81daabee994d1a78c5242bd49cac94df0b617f522b55b49234a970ca",
+          "package_lock_sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60"
+        },
+        "platform": "darwin-arm64",
+        "repository": "watchout/agent-memory",
+        "required_entrypoint_sha256_map": {
+          "dist/antigravity-hook-installer.js": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+          "dist/antigravity-session-start.js": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+          "dist/claude-session-start.js": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+          "dist/codex-session-start.js": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+          "dist/fleet-conversation-backfill.js": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+          "dist/gemini-session-start.js": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+          "dist/kusabi-direct-fleet-rollout.js": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+          "dist/kusabi-fleet-rollout.js": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+          "dist/raw-capture-service.js": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+          "dist/transcript-stop-capture.js": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b"
+        },
+        "runtime_tree_sha256": "3239e8e2c80eff43e3fcdb059875400240b64e22870ed4e233f315f463ecdd95",
+        "schema_version": "wasurezu-content-addressed-runtime-release/v1",
+        "source_commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+        "source_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+        "staging_dependency_command": "npm ci --omit=dev --ignore-scripts --no-bin-links"
+      },
+      "descriptor_canonical_reconstruction_hash_matches": true,
+      "runtime_entry_count": 4119,
+      "dist_entry_count": 260,
+      "dependency_and_connection_entry_ledger": [
+        {
+          "path": "dist/claude-session-start.js",
+          "mode": "0444",
+          "size": 16830,
+          "sha256": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e"
+        },
+        {
+          "path": "dist/codex-hook-installer.js",
+          "mode": "0444",
+          "size": 21564,
+          "sha256": "35ed9b1e29029c019d4cf37e7d6a94e66aefe209bdb93e7986daa4a3b7976ab6"
+        },
+        {
+          "path": "dist/codex-session-start.js",
+          "mode": "0444",
+          "size": 32773,
+          "sha256": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50"
+        },
+        {
+          "path": "dist/index.js",
+          "mode": "0444",
+          "size": 45670,
+          "sha256": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37"
+        },
+        {
+          "path": "dist/kusabi-runtime-event-emitter.js",
+          "mode": "0444",
+          "size": 28572,
+          "sha256": "ee78676f4d46b3e29e49ece0eb41809a58a50ff6aa699059503930e174e5972f"
+        },
+        {
+          "path": "dist/native-context-delivery.js",
+          "mode": "0444",
+          "size": 24374,
+          "sha256": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba"
+        },
+        {
+          "path": "dist/stores/sqlite-store.js",
+          "mode": "0444",
+          "size": 70353,
+          "sha256": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf"
+        },
+        {
+          "path": "node_modules/.package-lock.json",
+          "mode": "0444",
+          "size": 46132,
+          "sha256": "d184e0a557788da123b091ef02048ea60eb0d9b6bb4fa301e37792d9115721c1"
+        },
+        {
+          "path": "package-lock.json",
+          "mode": "0444",
+          "size": 66644,
+          "sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60"
+        },
+        {
+          "path": "package.json",
+          "mode": "0444",
+          "size": 6392,
+          "sha256": "c7d4e9bf81daabee994d1a78c5242bd49cac94df0b617f522b55b49234a970ca"
+        }
+      ],
+      "runtime_readback_file_sha256": "8d6c90049ea55bde7f979318d8c86ccde8b002cfc1e42f4d2a45fc73caeeec6f",
+      "candidate_evidence_file_sha256": "a5fd64bbe956372435a046b37a6a9f19e79eeb9678c216f51fd02ee8fd12d922",
+      "earlier_same_source_descriptor_sha256": "3d9a67a1f90846d93f29289e486f1781a29d19db52ac948bdc7fb942fc59f5cb",
+      "earlier_same_source_runtime_and_dist_equal": true,
+      "not_a_future_release_identity": true,
+      "interpretation": "Historical evidence only; a26/3d9 are not current descriptor identity. The newly generated candidate is 811f8e in current_candidate."
+    },
+    "current_distribution_readback": {
+      "observed_at": "2026-09-21T01:25:49.988078+00:00",
+      "search_scope": "Default .kusabi-releases/sha256 release.json plus the two source-linked private e49 stages; no global filesystem absence claim",
+      "default_cas_descriptors": [
+        {
+          "directory": "1408f5dd3529efa11c00d5d66cd97e6d727f9db8d84204bfcc9dc39105df0015",
+          "descriptor_sha256": "1408f5dd3529efa11c00d5d66cd97e6d727f9db8d84204bfcc9dc39105df0015",
+          "source_commit": "47f6b40c0e50ef2a3e43055a105134194a035791",
+          "source_tree": "f1a59de050bb643b7b4813a9cd8c7247c188d7d8",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "44a607d6b0b1d75f251469e590fbe579aa443d82046fa88b2ffc89cdf669f102",
+          "descriptor_sha256": "44a607d6b0b1d75f251469e590fbe579aa443d82046fa88b2ffc89cdf669f102",
+          "source_commit": "cfc03fc4c8b9111dc2a043e02277081700391fa3",
+          "source_tree": "703688e7ef2475031cc793d98e5d8b7d293bc6a3",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+          "descriptor_sha256": "4d1535eafb362398d2baf30c306057b37341013baa5255939f4ad97f69af7ae7",
+          "source_commit": "867b7be7feed82ebb8c57334867858f16b8da341",
+          "source_tree": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "8f5cfad85ea0118928501bbce98a748874b8c00777ea654a4223f2a097feca76",
+          "descriptor_sha256": "8f5cfad85ea0118928501bbce98a748874b8c00777ea654a4223f2a097feca76",
+          "source_commit": "967ebe1a1e66934b19813bb39c5c0f410bcc228d",
+          "source_tree": "ea9734c03062036c712e458fa8e8f11486fe95f7",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "cb9be77a94b3b4ad5ea1ad8a1ba3446df00464cd4156063d166f25bf8eb4f728",
+          "descriptor_sha256": "cb9be77a94b3b4ad5ea1ad8a1ba3446df00464cd4156063d166f25bf8eb4f728",
+          "source_commit": "d3c26f59433d92e58372d1950a5ac6b67354544e",
+          "source_tree": "333a79e0f85269b181e916390f9d394b6e06ef44",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "d2e653f087ebf5ac37f78b84910402bed67d2f1de015e2b0e8cf3bc2faf47331",
+          "descriptor_sha256": "d2e653f087ebf5ac37f78b84910402bed67d2f1de015e2b0e8cf3bc2faf47331",
+          "source_commit": "30b4c7567773970ef677bb89078d692c7621eb74",
+          "source_tree": "07196a84371f47422bb3193b5fd9542d2cedb04d",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "d867c61b9b5371ca33d35994e12ca3300d5c0b65cedeb631f414ff23018b88b5",
+          "descriptor_sha256": "d867c61b9b5371ca33d35994e12ca3300d5c0b65cedeb631f414ff23018b88b5",
+          "source_commit": "2acbc83de732317b39839c65136a11bc55a5d41a",
+          "source_tree": "06eaabae15ce05275b0868e221c5bab30f2dff5a",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "dd806dbe2165130c48a24d2cd584812f1cee43bfa9c1c222a7fd51adb59f679f",
+          "descriptor_sha256": "dd806dbe2165130c48a24d2cd584812f1cee43bfa9c1c222a7fd51adb59f679f",
+          "source_commit": "fdda199c7d686b0a8b9b90a7621ee6fdaab35621",
+          "source_tree": "25f450565cd9cd981adf1c33e38ee21d82f6402d",
+          "contains_exact_candidate_commit": false
+        },
+        {
+          "directory": "f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+          "descriptor_sha256": "f58fbfe30ac29867fecdb338b294efb02eeb5a4f1688d0bcbf3a48f5a6b13626",
+          "source_commit": "867b7be7feed82ebb8c57334867858f16b8da341",
+          "source_tree": "acda601dbb5ea14d7ef5db955b638eaece6cda50",
+          "contains_exact_candidate_commit": false
+        }
+      ],
+      "historical_stages": [
+        {
+          "path": "/private/tmp/was-release-prep.6_de94s5/releases/.staging/wasurezu-e49abc248382-HPJk7B",
+          "directory_exists": true,
+          "descriptor_exists": false,
+          "regular_file_count": 0,
+          "historically_expected_runtime_file_count": 4119
+        },
+        {
+          "path": "/private/tmp/was-seat-e49abc2-candidate-ikc11wpl/release/.staging/wasurezu-e49abc248382-blO2DE",
+          "directory_exists": true,
+          "descriptor_exists": false,
+          "regular_file_count": 0,
+          "historically_expected_runtime_file_count": 4119
+        }
+      ],
+      "historical_proposed_final_exists": false,
+      "usable_e49_cas_found_in_checked_locations": false,
+      "actual_cas_root": null,
+      "actual_descriptor_sha256": null,
+      "missing_input_id": "KMC-01",
+      "observation_status": "HISTORICAL_PRE_CANDIDATE_SNAPSHOT_FROM_F772_NOT_REFRESHED",
+      "interpretation": "The 10:25:49 snapshot predates the new 10:47 candidate and does not establish current candidate absence. It still supplies no current shared final CAS proof. See current_candidate for the later exact saved evidence."
+    },
+    "current_candidate": {
+      "state": "PRIVATE_CANDIDATE_GENERATED_SHARED_PUBLICATION_UNVERIFIED",
+      "source_commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+      "source_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+      "descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+      "stage_root": "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+      "stage_observed_at": "2026-09-21T10:48:25.338200+09:00",
+      "observation_rule": "Reuse this saved maker readback, not a fresh current filesystem observation. Private Mac bytes are not shared final CAS or a remotely downloadable package; GitHub has the six evidence files only.",
+      "runtime_tree_sha256": "3239e8e2c80eff43e3fcdb059875400240b64e22870ed4e233f315f463ecdd95",
+      "dist_tree_sha256": "6bbd76586625ac04e12baa38e8a5af70e69cef5339cf8e7f08f08ac72bafec3d",
+      "runtime_file_count": 4119,
+      "dist_file_count": 260,
+      "required_entrypoint_sha256_map": {
+        "dist/antigravity-hook-installer.js": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+        "dist/antigravity-session-start.js": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+        "dist/claude-session-start.js": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+        "dist/codex-session-start.js": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+        "dist/fleet-conversation-backfill.js": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+        "dist/gemini-session-start.js": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+        "dist/kusabi-direct-fleet-rollout.js": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+        "dist/kusabi-fleet-rollout.js": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+        "dist/raw-capture-service.js": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+        "dist/transcript-stop-capture.js": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b"
+      },
+      "extra_and_required_entries": {
+        "dist/antigravity-hook-installer.js": {
+          "sha256": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+          "expected_historical_sha256": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+          "same_bytes": true,
+          "bytes": 15178,
+          "symlink": false
+        },
+        "dist/antigravity-session-start.js": {
+          "sha256": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+          "expected_historical_sha256": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+          "same_bytes": true,
+          "bytes": 18103,
+          "symlink": false
+        },
+        "dist/claude-session-start.js": {
+          "sha256": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+          "expected_historical_sha256": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+          "same_bytes": true,
+          "bytes": 16830,
+          "symlink": false
+        },
+        "dist/codex-session-start.js": {
+          "sha256": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+          "expected_historical_sha256": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+          "same_bytes": true,
+          "bytes": 32773,
+          "symlink": false
+        },
+        "dist/fleet-conversation-backfill.js": {
+          "sha256": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+          "expected_historical_sha256": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+          "same_bytes": true,
+          "bytes": 13768,
+          "symlink": false
+        },
+        "dist/gemini-session-start.js": {
+          "sha256": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+          "expected_historical_sha256": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+          "same_bytes": true,
+          "bytes": 23240,
+          "symlink": false
+        },
+        "dist/kusabi-direct-fleet-rollout.js": {
+          "sha256": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+          "expected_historical_sha256": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+          "same_bytes": true,
+          "bytes": 86491,
+          "symlink": false
+        },
+        "dist/kusabi-fleet-rollout.js": {
+          "sha256": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+          "expected_historical_sha256": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+          "same_bytes": true,
+          "bytes": 67241,
+          "symlink": false
+        },
+        "dist/raw-capture-service.js": {
+          "sha256": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+          "expected_historical_sha256": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+          "same_bytes": true,
+          "bytes": 12727,
+          "symlink": false
+        },
+        "dist/transcript-stop-capture.js": {
+          "sha256": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b",
+          "expected_historical_sha256": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b",
+          "same_bytes": true,
+          "bytes": 9293,
+          "symlink": false
+        },
+        "dist/index.js": {
+          "sha256": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37",
+          "expected_historical_sha256": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37",
+          "same_bytes": true,
+          "bytes": 45670,
+          "symlink": false
+        },
+        "dist/native-context-delivery.js": {
+          "sha256": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba",
+          "expected_historical_sha256": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba",
+          "same_bytes": true,
+          "bytes": 24374,
+          "symlink": false
+        },
+        "dist/codex-hook-installer.js": {
+          "sha256": "35ed9b1e29029c019d4cf37e7d6a94e66aefe209bdb93e7986daa4a3b7976ab6",
+          "expected_historical_sha256": "35ed9b1e29029c019d4cf37e7d6a94e66aefe209bdb93e7986daa4a3b7976ab6",
+          "same_bytes": true,
+          "bytes": 21564,
+          "symlink": false
+        },
+        "dist/stores/sqlite-store.js": {
+          "sha256": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf",
+          "expected_historical_sha256": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf",
+          "same_bytes": true,
+          "bytes": 70353,
+          "symlink": false
+        }
+      },
+      "package_metadata": {
+        "package_json_sha256": "c7d4e9bf81daabee994d1a78c5242bd49cac94df0b617f522b55b49234a970ca",
+        "package_lock_sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60"
+      },
+      "installed_dependency_manifest": {
+        "path": "node_modules/.package-lock.json",
+        "exists": true,
+        "sha256": "d184e0a557788da123b091ef02048ea60eb0d9b6bb4fa301e37792d9115721c1"
+      },
+      "invocation_ledgers": {
+        "candidate_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37",
+        "candidate_ledger_sha256": "e3a471e802b088d4e772539e61f718dd80b2637163fb23a0473de04df95d1b57",
+        "required_final_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37"
+      },
+      "publisher_sha256": "5b4f34443473b21d103fb1c4469a41256b69f6289e29f3c6e5e3626738265c6e",
+      "harness_sha256": "ca238942561c0e394a9b6a70b13e34276f3e57343c6f2c67785a7018ed6e0bee",
+      "command_started_at": "2026-09-21T01:47:04.373378+00:00",
+      "command_finished_at": "2026-09-21T01:47:08.239826+00:00",
+      "duration_seconds": 3.866,
+      "exit_code": 0,
+      "publisher_execution_count": 1,
+      "argv": [
+        "node",
+        "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+        "--mode",
+        "candidate",
+        "--expected-head",
+        "e49abc24838227776dc01be111aeb035ec7c9aad",
+        "--release-root",
+        "/private/tmp/kusabi-e49-candidate-20260921",
+        "--evidence-output",
+        "/private/tmp/kusabi-e49-candidate-20260921/candidate-evidence.json"
+      ],
+      "cwd": "/private/tmp/kusabi-e49-source-20260921",
+      "versions": {
+        "node": "v25.6.1",
+        "npm": "11.9.0",
+        "git": "git version 2.50.1 (Apple Git-155)",
+        "os": "Darwin 25.6.0 arm64"
+      },
+      "evidence_refs": {
+        "README.md": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/README.md",
+          "sha256": "572af8f5d11e7cd535b528babb3ecf1d9710ff1028211b022ba9106576db70ac",
+          "bytes": 7145
+        },
+        "execution.json": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/execution.json",
+          "sha256": "c7948fb4efbb052c3f5af5ee1c02778f8a257fcd1cf334f107821605092ad0a7",
+          "bytes": 14688
+        },
+        "stdout.log": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/stdout.log",
+          "sha256": "378097a5f5ad93b5cd2637057825731711e1c9ee725c11ffbf8e8b2516dcf15c",
+          "bytes": 760
+        },
+        "stderr.log": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "release.json": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/release.json",
+          "sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+          "bytes": 2327
+        },
+        "candidate-evidence.json": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/candidate-evidence.json",
+          "sha256": "bb7e00e071a0000d1d1c789255c156c50ad9483005bae0f2ba6da23863732521",
+          "bytes": 833
+        }
+      },
+      "return_ref": {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+        "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+      },
+      "shared_final_cas_root": null,
+      "shared_final_descriptor_sha256": null,
+      "actual_applied_M": null,
+      "independent_candidate_acceptance": null,
+      "claim_limit": "Package/import/resource conformance only; no actual QA host recovery, live M, current native receipt/TTL, final AUN compatibility or product/fleet acceptance. Harness forbidden-effect counters are constants, not dynamic effect monitoring. Unmodified publisher did not expose internal npm/harness raw stdout."
+    }
   },
-  "shirube_input_ref": {
-    "url": "https://github.com/watchout/ai-dev-framework/blob/789ecf3e2744bf0e1b18b12d5884e82d0f50f576/docs/verify/a2-connection-20260921/inputs.json",
-    "sha256": "02278f649cccef7a8126cff47eec9652f2349bfc53e0e477eb4c60091e502b01"
+  "memory_contract": {
+    "target": {
+      "agent_id": "qa",
+      "project": "qa",
+      "runtime": "codex",
+      "workspace": "/Users/yuji/Developer/qa",
+      "workspace_sha256": "1d372fbefe550bfb59365159876f3eb2975bd6082ee650542f6235c0e1706cde",
+      "target_key": "62023fd5ffc83b27fcaac33c4ba30d111440117d807442111ab61a96c6b8e90a",
+      "current_target_identity_verified": false
+    },
+    "namespace": "AGENT_MEMORY_AGENT_ID bound by the actual MCP server; explicit project=qa on every call. Provider/workspace/session replacement does not create a new memory namespace.",
+    "store_binding": "Native hook and MCP must resolve the same intended store. Verify sanitized backend+binding digest; existing historical proposed QA hook PostgreSQL vs MCP identity/storage mismatch is not a current observation. Do not copy credentials or manufacture current QA data.",
+    "save": {
+      "tool": "save_task_state",
+      "arguments_template": {
+        "task": "<REAL_TASK>",
+        "status": "in_progress",
+        "progress": "<OWNER_OBJECTIVE_AND_UNFINISHED_WORK>",
+        "next_steps": "<EXACT_NEXT_ACTION_AND_EFFECT_REPLAY_POLICY>",
+        "project": "qa"
+      },
+      "execution": "Only actual authorized task producer with existing write access; worker read-only tool restrictions unchanged",
+      "observable": "Returned save record ID plus same-partition stored content/next action readback; no queue or model declaration as substitute"
+    },
+    "recover": {
+      "tools": [
+        "recover_context",
+        "restart_pack"
+      ],
+      "arguments": [
+        {
+          "project": "qa"
+        },
+        {
+          "project": "qa",
+          "format": "host-invocation-context-v1",
+          "target_runtime": "codex"
+        }
+      ],
+      "observable": "restart_pack:qa:qa:<id> with current_task/nonempty Next, objective and unfinished work; no missing active_task/next_action; source record links and same work digest after provider/workspace exchange; completed/unknown effects not replayed",
+      "schema_source": "docs/design/core/SSOT-3_API_CONTRACT.md and docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md at e49"
+    },
+    "native_receipt": {
+      "tool": "native_context_delivery",
+      "arguments_template": {
+        "project": "qa",
+        "target_runtime": "codex",
+        "provider_pid": null,
+        "provider_started_at": null,
+        "workspace_sha256": "1d372fbefe550bfb59365159876f3eb2975bd6082ee650542f6235c0e1706cde",
+        "host_session_id": null
+      },
+      "template_not_executable": true,
+      "observer": "Current trusted observer; do not add writable/receipt tools to restricted worker just for the trial",
+      "production_sequence": [
+        "Persist started attempt before recovery",
+        "Validate full verified pack and work digest",
+        "Observe current native ancestor/PID/start/executable and reciprocal stdout pipe",
+        "Successful actual output write callback then reread identical provider/pipe",
+        "Persist finished event containing accepted receipt",
+        "Read latest started/finished attempt through registered tool with independent current process observation"
+      ],
+      "receipt_fields": [
+        "schema_version",
+        "status",
+        "agent_id",
+        "project",
+        "target_runtime",
+        "host_session_id",
+        "provider_pid",
+        "provider_started_at",
+        "provider_executable_sha256",
+        "workspace_sha256",
+        "pipe_sha256",
+        "input_sha256",
+        "work_sha256",
+        "pack_ref",
+        "delivered_at",
+        "attempt_id",
+        "attempt_started_at"
+      ],
+      "executable_digest_semantics": "provider_executable_sha256 is the implementation hash of observed executable path/dev/inode/size/mtime/mode/startTicks tuple; also separately collect binary byte digest for applied-version evidence. It is not a binary content hash.",
+      "aun_binding": {
+        "native.input_sha256": "seat-context-consumption.invocation_digest",
+        "native.work_sha256": "seat-context-consumption.work_digest",
+        "native.pack_ref": "seat-context-consumption.pack_id",
+        "canonical_native_receipt_digest": "seat-context-consumption.response_digest",
+        "current_AUN_runtime_instance_id": "seat-context-consumption.runtime_instance_id and consumption.runtime_instance_id"
+      },
+      "reject": [
+        "foreign agent/project",
+        "old/reused/dead PID or changed executable/start",
+        "wrong/ambiguous/missing host session",
+        "latest attempt pending/failed/nonaccepted",
+        "missing durable start or ambiguous source ordering",
+        "late old completion",
+        "unverified or truncated event history",
+        "missing objective/active task/next action or clipped work digest",
+        "EPIPE/output timeout/write failure",
+        "store durability failure"
+      ],
+      "not_proven": "Installed real QA host reception, model understanding, actual task correctness, or current active runtime.",
+      "aun_binding_scope": "The mapping above records the compared 9d7 interface only, not final AUN implementation acceptance or permission to persist its physical receipt fields. D2 applies to AUN-controlled copies; Kusabi original memory/receipt persistence is unchanged. Final same-R/M tests must establish the consumer boundary."
+    },
+    "validity": {
+      "was_native_receipt_has_ttl_field": false,
+      "was_rule": "Current live provider identity + latest durable attempt; rejects future delivered_at. No fixed age TTL in e49 lookup.",
+      "aun_baseline": "9d7e6f5b06b0d9a4b13011760e543cfc8a795e14",
+      "aun_default_valid_for_seconds": 1800,
+      "aun_rule": "valid_until = completed_at + selected valid_for_seconds; reject valid_until <= now; provider/runtime/session binding must also remain current. Default is source fact, not current operation approval.",
+      "selected_valid_for_seconds": null,
+      "actual_completed_at": null,
+      "actual_valid_until": null,
+      "check_at": null,
+      "status": "POST_APPLY_PRE_TASK1_UNOBSERVED",
+      "final_aun_semantics_verified": false
+    }
   },
+  "reused_tests": [
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-codex-session-start.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "450c784e983962278221378f2b3f858530ea4064abe1ccb7a513d176a2804d7e",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "codex native SessionStart adapter tests passed",
+        "{\"status\":\"PASS\",\"checks\":148,\"platform\":\"darwin\",\"node\":\"v25.6.1\",\"kernel_boundary_checks\":32,\"initialization_checks\":23,\"kernel_pipe_kinds\":[\"PIPE\"],\"native_input_protocols\":[\"codex\",\"claude\",\"codex\"],\"one_store\":true,\"semantic_digest\":\"bcd8ef3e77fcb58bd34e0503c1f6618e654a1112e9ec55fbf6611d2a72e7a783\",\"input_digests\":[\"07e3fe47034019a1a59aca56cfac70311964a83826a060f7f03a835902efcf8d\",\"de6fe74f00fc89277ff61c05156503a0b585499a1a8e629edf96012513d8680a\",\"8f6aa337d6f8eb602626886f24f9c1d04bfd90515c49d355ddb13dc108536040\"],\"provider_api_calls\":0,\"observation_scope\":\"real OS peer pipe with independently read fixture parent process; provider classification injected only in test\",\"live_application\":false}"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    },
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-claude-session-start.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "6bfc89dda3fed95f621358bde79d3e1a7196db3de77616a184b42c58fce4d529",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "Claude SessionStart tests passed"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    },
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-kusabi-runtime-event-emitter.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "c611397840c2bb3fcbd197d921540f65150c7820f2afaf128c02fb6a0104ca06",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "Kusabi OBS-03 runtime-event emitter tests passed"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    },
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-native-context-delivery.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "2321d97d4994698f4a298388f0a84ae23f8268e5c7dd46bebcc3aceee9bf9e3f",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "{\"status\":\"PASS\",\"checks\":148,\"platform\":\"darwin\",\"node\":\"v25.6.1\",\"kernel_boundary_checks\":32,\"initialization_checks\":23,\"kernel_pipe_kinds\":[\"PIPE\"],\"native_input_protocols\":[\"codex\",\"claude\",\"codex\"],\"one_store\":true,\"semantic_digest\":\"bf0658d7ff071a5b105b35b49353f28d64d4412826e67222f24f7610d2aee7e9\",\"input_digests\":[\"5e676205c38aec25a62aea480c59da2000e7771824025733f0202e5a47294e48\",\"4ad0baa55241d6245a45448b312806af3aebe985b55da2043c12bfeb80dc249a\",\"efe682f8ba6a15798d8a1348238dff466f9e3b359085813d3f5eb25867876e6a\"],\"provider_api_calls\":0,\"observation_scope\":\"real OS peer pipe with independently read fixture parent process; provider classification injected only in test\",\"live_application\":false}"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    },
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-sqlite.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "2b4ede07cd760a7771852c8f03ff3b5d858efbcd8583fe2f17d390a0695b40b6",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "── Results: 204 passed, 0 failed ──"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    },
+    {
+      "argv": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test.ts"
+      ],
+      "result": "PASS_REUSED",
+      "exit_code": 0,
+      "log_sha256": "04bf50329b3a3e4464500ea1ee4e951ac7883b9cd9b0a34b771c63340a79273c",
+      "log_hash_rechecked": true,
+      "result_excerpt": [
+        "{\"schema_version\":\"kusabi-integrated-cell123-fixture/v1\",\"status\":\"PASS\",\"identity_field_match_rate\":1,\"checkpoint_verification\":\"pass\",\"fresh_recovery_count\":1,\"selected_pack_consume_count\":1,\"second_consume_outcome\":\"blocked\",\"canary_evidence_kind\":\"deterministic_fixture\",\"live_execution_performed\":false,\"live_acceptance_claimed\":false,\"protected_effect_count\":0,\"RI0_claimed\":false}",
+        "── Results: 1591 passed, 0 failed ──"
+      ],
+      "source_subject": "Precommit exact bytes independently linked to e49/a55; not a new execution",
+      "existing_isolation": {
+        "private_home": true,
+        "ambient_postgres_removed": true
+      },
+      "public_evidence_ref": "e49_independent_review",
+      "rerun_this_task": false
+    }
+  ],
+  "existing_independent_acceptance": {
+    "source_review_ref": "e49_independent_review",
+    "reviewer": "codex-cto/reboot_evidence",
+    "original_maker": "codex-cto/restore_inventory",
+    "result": "PASS_CURRENT_SOURCE_AND_21_ITEMS",
+    "separate_CTO_review": "PASS_WITH_WARN",
+    "new_self_audit": false,
+    "linux_ci": {
+      "url": "https://github.com/watchout/agent-memory/actions/runs/34750856136",
+      "head_sha": "e49abc24838227776dc01be111aeb035ec7c9aad",
+      "actual_checkout_commit": "9d89f2a0abafc296116794897c7e53f32096266d",
+      "actual_checkout_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+      "tree_equal": true,
+      "run_attempt": 1,
+      "result": "SUCCESS_REUSED",
+      "node_matrix": [
+        18,
+        20,
+        22
+      ],
+      "per_node": {
+        "native_checks": 165,
+        "initialization_checks": 23,
+        "kernel_checks": 49,
+        "core": 1591,
+        "sqlite": 204
+      },
+      "current_github_result_rechecked": true
+    },
+    "limits": [
+      "Harmless OS parent/pipe fixtures with provider classification injected only in test; no installed LLM context retention claim.",
+      "Previous Linux CI failure and SQLite startup-lock diagnostic remain historical; deterministic corrected e49 acceptance does not rewrite their source/results.",
+      "SQLite crash-held lock still fails closed; no automatic lock stealing or age-based deletion.",
+      "Prior AUN81be/5d4 outcomes are not final AUN9d7-or-successor compatibility evidence."
+    ]
+  },
+  "aun_compatibility": {
+    "pinned_comparison_commit": "9d7e6f5b06b0d9a4b13011760e543cfc8a795e14",
+    "pinned_comparison_tree": "9a002f1baf49fcbc8ac8f91db83165db3489a093",
+    "result": "STRUCTURAL_FIELD_MAPPING_ONLY",
+    "final_candidate_commit": null,
+    "same_final_subject_test_result": null,
+    "affected_rows": [
+      "AUN2-10",
+      "AUN2-11",
+      "AUN2-19",
+      "AUN2-21"
+    ],
+    "change_boundary": "D1-D4 remove AUN-controlled persistence of physical runtime/provider/port/PID/path/liveness, including audit/outbox/receipt copies; preserve logical identity/authority/task/message/claim/fence/completion history. Kusabi original memory persistence is unchanged. The 9d7 field mapping is historical structural input, not approval to persist physical receipts in final AUN.",
+    "missing_input_id": "KMC-02",
+    "adopted_nonpersistence_ref": {
+      "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5755364993",
+      "sha256": "8414bb149e2a8b9aee4fb62b87f11d6109d5bc9bf9beb67019e282e21bcc1791"
+    },
+    "adopted_design_commit": "174c04e7db86b5fbc89c4bce08dbe48583c5ffac",
+    "adopted_design_tree": "95b2a2ea7ea8b8eb434211700e3052a2b44262c9",
+    "current_status": "D1_D4_ADOPTED_PRODUCT_MAKER_ACTIVE_FINAL_SUBJECT_UNVERIFIED",
+    "rollback_boundary": "Old F522 is not an automatic fallback; only independently verified nonpersistence-compatible rollback is admissible under current exact authority."
+  },
+  "proposed_affected_tests": [
+    {
+      "path": "tests/seat-context-recovery.test.ts",
+      "argv": [
+        "bun",
+        "test",
+        "--timeout",
+        "30000",
+        "tests/seat-context-recovery.test.ts"
+      ],
+      "exists_at_pinned_aun": true,
+      "status": "PROPOSED_NOT_RUN",
+      "execution_owner": "codex-aun under current source/test handoff",
+      "fixture": "New owned synthetic seat/project store and observed process/socket fixture. Explicit isolated DB URL and private cluster/socket/role for DB cases; no ambient DATABASE_URL/default socket or live provider. No current QA DB/native call.",
+      "expected": "qa/qa durable saved IDs, objective, unfinished work, next action and work digest survive provider/workspace replacement; adjacent partitions absent; current PID/start/session/attempt only; stale/failed/pending/expired and old DB runtime observations rejected; permanent claim/history unchanged.",
+      "checker": "existing non-maker checker bound by current AUN handoff"
+    },
+    {
+      "path": "tests/runtime-memory-ready-identity.test.ts",
+      "argv": [
+        "bun",
+        "test",
+        "--timeout",
+        "30000",
+        "tests/runtime-memory-ready-identity.test.ts"
+      ],
+      "exists_at_pinned_aun": true,
+      "status": "PROPOSED_NOT_RUN",
+      "execution_owner": "codex-aun under current source/test handoff",
+      "fixture": "New owned synthetic seat/project store and observed process/socket fixture. Explicit isolated DB URL and private cluster/socket/role for DB cases; no ambient DATABASE_URL/default socket or live provider. No current QA DB/native call.",
+      "expected": "qa/qa durable saved IDs, objective, unfinished work, next action and work digest survive provider/workspace replacement; adjacent partitions absent; current PID/start/session/attempt only; stale/failed/pending/expired and old DB runtime observations rejected; permanent claim/history unchanged.",
+      "checker": "existing non-maker checker bound by current AUN handoff"
+    },
+    {
+      "path": "tests/contract/test_seat_runtime_continuity.test.ts",
+      "argv": [
+        "bun",
+        "test",
+        "--timeout",
+        "30000",
+        "tests/contract/test_seat_runtime_continuity.test.ts"
+      ],
+      "exists_at_pinned_aun": true,
+      "status": "PROPOSED_NOT_RUN",
+      "execution_owner": "codex-aun under current source/test handoff",
+      "fixture": "New owned synthetic seat/project store and observed process/socket fixture. Explicit isolated DB URL and private cluster/socket/role for DB cases; no ambient DATABASE_URL/default socket or live provider. No current QA DB/native call.",
+      "expected": "qa/qa durable saved IDs, objective, unfinished work, next action and work digest survive provider/workspace replacement; adjacent partitions absent; current PID/start/session/attempt only; stale/failed/pending/expired and old DB runtime observations rejected; permanent claim/history unchanged.",
+      "checker": "existing non-maker checker bound by current AUN handoff"
+    },
+    {
+      "path": "tests/contract/test_seat_provider_switch_durable_memory.test.ts",
+      "argv": [
+        "bun",
+        "test",
+        "--timeout",
+        "30000",
+        "tests/contract/test_seat_provider_switch_durable_memory.test.ts"
+      ],
+      "exists_at_pinned_aun": false,
+      "status": "NOT_AUTHORED_NOT_RUN",
+      "execution_owner": "codex-aun under current source/test handoff",
+      "fixture": "New owned synthetic seat/project store and observed process/socket fixture. Explicit isolated DB URL and private cluster/socket/role for DB cases; no ambient DATABASE_URL/default socket or live provider. No current QA DB/native call.",
+      "expected": "qa/qa durable saved IDs, objective, unfinished work, next action and work digest survive provider/workspace replacement; adjacent partitions absent; current PID/start/session/attempt only; stale/failed/pending/expired and old DB runtime observations rejected; permanent claim/history unchanged.",
+      "checker": "existing non-maker checker bound by current AUN handoff"
+    }
+  ],
+  "stop_restore_and_independent_check": {
+    "scope": "QA initial connection only; operation templates are not authorization",
+    "before_apply": [
+      "Pin accepted M/tree and newly verified complete CAS; capture current hook/MCP/store/trust/manifest inputs and exact backup bytes/hash/mode.",
+      "CTO binds current operator and separate checker, actual stop/restore targets/argv, no-work proof and finite counters/deadline. Old session99749/thread and old 9/14 window are unusable as current inputs.",
+      "Use the existing codex-hook-installer dry-run/apply interface only under later explicit scope; keep unrelated handlers and old release."
+    ],
+    "receipt_order": "Current host normal start/resume and authorized first ordinary input must occur before demanding its SessionStart receipt. Count actual startup/provider effects separately. No receipt before the operation that produces it, no synthetic current receipt.",
+    "stop_triggers": [
+      "source/descriptor/entry/store/identity mismatch",
+      "missing or expired operation authority",
+      "missing current trust/receipt or pending/failed/latest mismatch",
+      "unknown or active work at proposed shutdown",
+      "expired AUN readiness or changed R/M/config during trial"
+    ],
+    "on_failure": "Do not ENABLE/Task1. Report once; current operator follows only current authorized stop/restore sequence, restores captured exact preimage atomically via existing procedure, preserves old CAS and durable memory, and separate checker rereads restored process/artifact. No blind force-kill, DB rewrite, old-PID reuse or retry loop.",
+    "exact_current_stop_argv": null,
+    "exact_current_restore_argv": null,
+    "current_preimage_hash": null,
+    "missing_input_id": "KMC-03",
+    "aun_d4_restore_constraint": "Do not restore old F522 automatically. Later exact current rollback must use an independently verified nonpersistence-compatible version under the D1-D4 adoption and current operation authority."
+  },
+  "shirube_input_transfer": {
+    "target_ref": "shirube_inputs",
+    "merge_rule": "Copy only these scoped Kusabi values into existing worksheet. Preserve all other nulls, root GoalRun, original USE1..9 definitions and UNMET states. This document is not runtime config.",
+    "required_pre_apply": {
+      "required_was_commit_tree_cas_descriptor": {
+        "commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+        "tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+        "actual_cas_root": null,
+        "actual_descriptor_sha256": null,
+        "historical_descriptor_sha256": "a26fd913aa73acf403798e28b9e01d09abb1b29954098eef7f08484639d28bb9",
+        "historical_only": false,
+        "missing_input_id": "KMC-01",
+        "candidate_stage_root": "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+        "candidate_descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+        "candidate_observed_at": "2026-09-21T10:48:25.338200+09:00",
+        "candidate_entry_evidence_ref": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/execution.json",
+          "sha256": "c7948fb4efbb052c3f5af5ee1c02778f8a257fcd1cf334f107821605092ad0a7",
+          "bytes": 14688
+        },
+        "candidate_descriptor_ref": {
+          "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/release.json",
+          "sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+          "bytes": 2327
+        },
+        "candidate_detail_path": "planned_memory.current_candidate",
+        "candidate_is_actual_M": false,
+        "candidate_generation": "DONE_EXISTING_ONE_ATTEMPT",
+        "shared_final_publication": "UNVERIFIED",
+        "missing_input_detail": "KMC-01 now concerns shared final publication/readback and independent acceptance, not missing private candidate generation."
+      },
+      "qa_operator_checker_identity_function_workspace_provider_tools_capacity": {
+        "planned_agent_id": "qa",
+        "planned_project": "qa",
+        "planned_workspace": "/Users/yuji/Developer/qa",
+        "needed_tools_by_actor": "memory_contract",
+        "current_actor_binding": null,
+        "missing_input_id": "KMC-03"
+      },
+      "planned_stop_restore_target_triggers_argv_and_no_work_proof": {
+        "procedure_ref": "stop_restore_and_independent_check",
+        "current_exact_values": null,
+        "missing_input_id": "KMC-03"
+      }
+    },
+    "required_post_apply_pre_task1": {
+      "actual_R_and_M_with_PID_start_entry_cwd_plist_helper_artifact_readback": null,
+      "qa_native_memory_receipt_and_validity": null,
+      "current_config_policy_cohort_and_tools_digests": null,
+      "current_goalrun_id_store_handoff_target_manifest_and_checksums": null,
+      "independent_binding_verdict_and_aun_rows_01_through_21": null
+    },
+    "existing_root_goal_run_id": "GOAL-RUN-CTO-940-QA-USE-20260908-001",
+    "existing_pending_blocker": {
+      "blockerId": "B4-ACTUAL-USE-EVIDENCE-PENDING",
+      "rule": "Retain until final USE-09 actual blocker_clearance. This is a completion blocker, not an AUN2-01..21 start blocker."
+    },
+    "acceptance_states": "All original USE-01..09 remain UNMET; future native readback is not a pre-apply documentation gate."
+  },
+  "missing_inputs": [
+    {
+      "id": "KMC-01",
+      "phase": "PRE_APPLY",
+      "kind": "DISTRIBUTABLE_ARTIFACT_REQUIRED",
+      "owner": "codex-cto to bind later exact shared-publication operator/checker; no new candidate-generation request",
+      "fact": "The previous absent-artifact snapshot is superseded for private candidate availability: exact e49/a55 candidate was generated once 10:47:04-10:47:08 JST, descriptor811f8e, saved 14-entry maker readback at10:48:25. Shared final CAS and independent candidate acceptance remain unverified.",
+      "required_input": "For later protected application only: current exact shared publication authority/target and resulting descriptor/full runtime/dist/dependency/entry readback, with separate checker. Reuse this candidate generation evidence; no duplicate candidate build requested.",
+      "operation_template": {
+        "argv": [
+          "node",
+          "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+          "--mode",
+          "candidate",
+          "--expected-head",
+          "e49abc24838227776dc01be111aeb035ec7c9aad",
+          "--release-root",
+          "/private/tmp/kusabi-e49-candidate-20260921",
+          "--evidence-output",
+          "/private/tmp/kusabi-e49-candidate-20260921/candidate-evidence.json"
+        ],
+        "cwd": "/private/tmp/kusabi-e49-source-20260921",
+        "state": "EXECUTED_ONCE_IN_PRIOR_HANDOFF_NO_RERUN_THIS_TASK",
+        "later_publish_argv": [
+          "node",
+          "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+          "--mode",
+          "publish",
+          "--expected-head",
+          "<AUTHORIZED_M>",
+          "--release-root",
+          "<AUTHORIZED_RELEASE_ROOT>",
+          "--evidence-output",
+          "<NEW_PUBLICATION_EVIDENCE_FILE>"
+        ],
+        "rule": "This candidate argv is a historical execution record, not a new instruction. Existing --mode publish rebuilds and needs separate current exact scope; bind its returned descriptor rather than predicting 811f8e/a26/3d9. Do not rename/relabel old stages or extend to PR318/323/fleet.",
+        "executed_at": "2026-09-21T01:47:04.373378+00:00",
+        "result_ref": {
+          "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+          "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+        }
+      },
+      "candidate_generation_status": "DONE_REUSED_EXISTING_EVIDENCE",
+      "shared_final_publication_status": "UNVERIFIED",
+      "candidate_ref": {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+        "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+      }
+    },
+    {
+      "id": "KMC-02",
+      "phase": "PRE_APPLY",
+      "kind": "FINAL_AUN_COMPATIBILITY_REQUIRED",
+      "owner": "codex-aun",
+      "fact": "Pinned 9d7 provides structural comparison only. D1-D4 adopted at the supplied owner reference; current AUN maker is implementing them, but no final product R/tree or same-R/M acceptance is supplied to this consolidation.",
+      "required_input": "Final nonpersistence-compatible R commit/tree and changed-path evidence, same R plus e49/M affected test results and separate checker for rows10/11/19, preserving D1-D4 including all AUN-controlled physical-state sinks and logical history.",
+      "affected_paths": [
+        "core/seat-context-recovery.ts",
+        "core/runtime-memory-ready.ts",
+        "core/seat-runtime-selection.ts",
+        "core/runtime-endpoint.ts"
+      ],
+      "test_refs": "proposed_affected_tests"
+    },
+    {
+      "id": "KMC-03",
+      "phase": "PRE_APPLY",
+      "kind": "CURRENT_APPLICATION_INPUTS_REQUIRED",
+      "owner": "codex-cto with existing operator/checker",
+      "fact": "Current QA operation identity, trust, common hook/MCP storage binding, actual stop/restore preimages and finite operation window are not supplied by this docs handoff. 2026-09-14 values are history only.",
+      "required_input": "Published operation comment URL+body SHA, exact current qa/provider/tools/capacity, source-bound complete CAS, hooks/manifest/trust/store bindings, backup hash+mode, safe normal-exit/resume argv, restore argv and counters/deadline. This is application authorization/input; it does not block preparation documentation."
+    },
+    {
+      "id": "KMC-04",
+      "phase": "POST_APPLY_PRE_TASK1",
+      "kind": "FUTURE_OBSERVATION_NOT_PREPARATION_GATE",
+      "owner": "authorized operator then independent checker and adf-lead",
+      "fact": "No current applied M or QA native receipt is asserted.",
+      "required_input": "Actual memory child and host PID/start/entry/cwd/executable/artifact, latest native receipt/attempt and readback time, selected TTL/completed_at/valid_until, actual R/M/config/GoalRun binding before Task1."
+    }
+  ],
+  "effects": {
+    "product_source_edits": 0,
+    "product_test_runs": 0,
+    "builds": 0,
+    "CI_reruns": 0,
+    "merge": 0,
+    "CAS_publication": 0,
+    "live_DB": 0,
+    "keys_auth_changes": 0,
+    "runtime_changes": 0,
+    "seat_restarts": 0,
+    "queue_changes": 0,
+    "fleet_rollout": 0,
+    "new_agents": 0,
+    "scope": "This consolidation task only; prior candidate build count1 is preserved in its separate execution record. This task does not increment 64 accepted steps or TRIAL_READY.",
+    "accepted_64_steps_added": 0
+  },
+  "next_action": {
+    "owner_agent": "codex-cto, then existing Shirube consumer and AUN maker/checker in their separate scopes",
+    "owner_function": "orchestration_controller",
+    "action": "Consume this consolidated existing worksheet and copy only its scoped values into the pinned Shirube inputs. Keep KMC-01 shared publication and KMC-03 current application separate; when the existing AUN maker returns final R, perform the separately scoped same-R/e49 compatibility work for KMC-02. Observe KMC-04 only after authorized apply before Task1. No repeated candidate build from this return.",
+    "handoff_method": "One agent-memory#307 result with final two-file commit; existing AUN#940/Shirube#623 coordination, no queue operation",
+    "input_refs": [
+      {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5755406406",
+        "sha256": "e789460a407fba892fb4bcab587d2a4e5fd4d09beb46f955147828f88e626ff1"
+      },
+      {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+        "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+      },
+      {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754259676",
+        "sha256": "05da3daebc05b4c4124b4de414ad62ca41dc7c9639dad9700cb976658f8427d2"
+      },
+      {
+        "url": "https://github.com/watchout/ai-dev-framework/blob/789ecf3e2744bf0e1b18b12d5884e82d0f50f576/docs/verify/a2-connection-20260921/inputs.json",
+        "sha256": "02278f649cccef7a8126cff47eec9652f2349bfc53e0e477eb4c60091e502b01"
+      },
+      {
+        "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5755364993",
+        "sha256": "8414bb149e2a8b9aee4fb62b87f11d6109d5bc9bf9beb67019e282e21bcc1791"
+      }
+    ],
+    "scope": "Two-doc consumer preparation; no new runtime/application authority and no full-fleet expansion",
+    "deliverable": "Shirube consumer has current candidate descriptor/entry evidence and explicit unresolved final CAS/AUN/application/native fields",
+    "completion_evidence": "Exactly two changed documents, preserved existing keys/KMC IDs, source/hash correspondence and GitHub byte readback; all actual-use nulls and USE01..09 UNMET preserved",
+    "blocking": false
+  },
+  "author_history": [
+    {
+      "actor": "kusabi",
+      "native_actor": "/root (repo Kusabi CLI)",
+      "function": "control_artifact_author",
+      "commit": "f7723c7e2fb07efb57ed55965e8eaeeec4a93130",
+      "tree": "25b3bbaf74064c0ce8d01e14e6546e13a8ac063f",
+      "branch": "codex/kusabi-aun-v2-memory-connection-20260921",
+      "execution_context": {
+        "agent_id": "kusabi",
+        "native_actor": "/root",
+        "active_function": "control_artifact_author",
+        "lane": "governed_manual_lane",
+        "started_at": "2026-09-21T01:18:37.158682+00:00",
+        "maximum_active_minutes": 30,
+        "branch": "codex/kusabi-aun-v2-memory-connection-20260921",
+        "base_commit": "3399a931aac48462106202b4bb5ded1ab9bdb60e",
+        "allowed_paths": [
+          "docs/verify/aun-v2-memory-connection-20260921/README.md",
+          "docs/verify/aun-v2-memory-connection-20260921/inputs.json"
+        ]
+      },
+      "return_ref": {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754259676",
+        "sha256": "05da3daebc05b4c4124b4de414ad62ca41dc7c9639dad9700cb976658f8427d2"
+      },
+      "files": {
+        "README.md": {
+          "url": "https://github.com/watchout/agent-memory/blob/f7723c7e2fb07efb57ed55965e8eaeeec4a93130/docs/verify/aun-v2-memory-connection-20260921/README.md",
+          "sha256": "d6e2204de04fe32133748cd609e1c85dcb6df0b6574b656e566cb72928687cda",
+          "bytes": 15574
+        },
+        "inputs.json": {
+          "url": "https://github.com/watchout/agent-memory/blob/f7723c7e2fb07efb57ed55965e8eaeeec4a93130/docs/verify/aun-v2-memory-connection-20260921/inputs.json",
+          "sha256": "d94020b841e7ea5b171ae1ea35fa423beda6647fa30bc2f43738afef9f5dd578",
+          "bytes": 49429
+        }
+      },
+      "retained_scope": "Existing worksheet format, all shirube_input_transfer keys, KMC-01..04 IDs/phases, memory contract, historical test/source records, GoalRun/B4 and UNMET acceptance state. Updated facts are identified as later candidate evidence."
+    },
+    {
+      "actor": "codex-cto/e3_independent_review",
+      "function": "control_artifact_author",
+      "commit": "6070ea34177d7e2edfca5f7802955c4d5628de14",
+      "tree": "8225c3095d8c5ede3cbde0ba67c90b85f099a4a6",
+      "branch": "codex/kusabi-memory-connection-e3-20260921",
+      "return_ref": {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754291764",
+        "sha256": "4142e6c62ca2f6057d7a75437dd76ff1d4a162345d0025f90b13fc14bf4496f2"
+      },
+      "files": {
+        "README.md": {
+          "url": "https://github.com/watchout/agent-memory/blob/6070ea34177d7e2edfca5f7802955c4d5628de14/docs/verify/aun-v2-memory-connection-20260921/README.md",
+          "sha256": "95c46a742d13d26f28c323f956c898db6b246b12bbf4f25348be42c4b24fc52d",
+          "bytes": 15783
+        },
+        "inputs.json": {
+          "url": "https://github.com/watchout/agent-memory/blob/6070ea34177d7e2edfca5f7802955c4d5628de14/docs/verify/aun-v2-memory-connection-20260921/inputs.json",
+          "sha256": "b536efee47f2fc2f14fcfabdfd9592a304fe2461023830b818a62134c0cbd409",
+          "bytes": 42982
+        }
+      },
+      "retained_scope": "Original evidence/hash and historical source comparisons remain immutable at this commit; flattened shirube_input_mapping keys retained below. This author then made the candidate, and is not its independent checker."
+    },
+    {
+      "actor": "codex-cto/e3_independent_review",
+      "function": "implementation_executor (bounded candidate only)",
+      "commit": "4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3",
+      "tree": "3fee6f4adb39a68327536575cab3b305b236a910",
+      "return_ref": {
+        "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754387701",
+        "sha256": "7373c9a0e4b74ad3366178ad7be694d7fd2cd6ca095e25e93aad4aff8f7f6adc"
+      },
+      "retained_scope": "All six candidate-package evidence files remain unchanged. Earlier precheck error/correction and the original finite clock are preserved inside execution.json; there was one actual candidate command."
+    }
+  ],
   "shirube_input_mapping": {
     "required_pre_apply.required_was_commit_tree_cas_descriptor": {
       "candidate_commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
@@ -154,7 +1409,7 @@
       },
       "required_creation_operation": {
         "owner": "Kusabi release operator under current exact-head operation authority",
-        "status": "NOT_EXECUTED_NOT_AUTHORIZED_BY_THIS_DOCUMENT",
+        "status": "SHARED_PUBLICATION_NOT_EXECUTED_NOT_AUTHORIZED_BY_THIS_DOCUMENT_PRIVATE_CANDIDATE_ALREADY_GENERATED",
         "working_directory": "clean dedicated checkout of actual M after separately authorized merge; verify expected tree",
         "argv_template": [
           "node",
@@ -168,9 +1423,18 @@
           "--evidence-output",
           "<new-current-operation-receipt.json>"
         ],
-        "readback_argv_template": ["node", "scripts/build-kusabi-content-addressed-runtime-release.mjs", "--mode", "readback", "--release-root", "/Users/yuji/Developer/.kusabi-releases", "--release-sha", "<actual-descriptor-sha256>"],
+        "readback_argv_template": [
+          "node",
+          "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+          "--mode",
+          "readback",
+          "--release-root",
+          "/Users/yuji/Developer/.kusabi-releases",
+          "--release-sha",
+          "<actual-descriptor-sha256>"
+        ],
         "required_observation": "FINAL_CAS_PUBLISHED_AND_VERIFIED receipt; release.json/source commit+tree/runtime+dist full ledgers/package metadata/all entrypoint digests/conformance match; use returned runtime_root only",
-        "nondeterminism": "Descriptor includes candidate invocation ledger with private staging-root fingerprint. Historical 3d9a67 hash is not a predicted final descriptor. Do not substitute Git SHA directory or missing private staging path.",
+        "nondeterminism": "Candidate descriptor 811f8e includes invocation ledger with private staging-root fingerprint; later authorized publish rebuilds and may produce another descriptor. Neither historic3d9/a26 nor current private811f8e predicts final identity.",
         "product_build_and_harness_required_by_publisher": true,
         "current_instruction_does_not_allow_execution": true
       },
@@ -178,551 +1442,24 @@
         "status": "UNOBSERVED",
         "aun_baseline_for_impact_only": "9d7e6f5b06b0d9a4b13011760e543cfc8a795e14",
         "final_aun_head": null,
-        "reason": "AUN nonpersistence changes runtime/endpoint/metadata consumers. e49 receipt source has not been accepted with the final v2 observation path."
-      }
+        "reason": "AUN nonpersistence changes runtime/endpoint/metadata consumers. e49 receipt source has not been accepted with the final v2 observation path.",
+        "adopted_nonpersistence_ref": {
+          "url": "https://github.com/watchout/agent-comms-mcp/issues/940#issuecomment-5755364993",
+          "sha256": "8414bb149e2a8b9aee4fb62b87f11d6109d5bc9bf9beb67019e282e21bcc1791"
+        }
+      },
+      "current_candidate_detail_path": "planned_memory.current_candidate",
+      "candidate_stage_root": "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+      "candidate_descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+      "candidate_evidence_ref": {
+        "url": "https://github.com/watchout/agent-memory/blob/4b0e35fb74ad4fa82b172dbfed1b0162dc6bfcf3/docs/verify/aun-v2-memory-connection-20260921/candidate-package/execution.json",
+        "sha256": "c7948fb4efbb052c3f5af5ee1c02778f8a257fcd1cf334f107821605092ad0a7",
+        "bytes": 14688
+      },
+      "canonical_transfer_path": "shirube_input_transfer.required_pre_apply.required_was_commit_tree_cas_descriptor"
     },
     "required_post_apply_pre_task1.actual_R_and_M_with_PID_start_entry_cwd_plist_helper_artifact_readback": null,
     "required_post_apply_pre_task1.qa_native_memory_receipt_and_validity": null,
     "required_post_apply_pre_task1.independent_binding_verdict_and_aun_rows_01_through_21": null
-  },
-  "native_handoff_contract": {
-    "planned_identity": {
-      "agent_id": "qa",
-      "project": "qa",
-      "workspace": null,
-      "target_runtime": null,
-      "host_session_id": null
-    },
-    "namespace_authority": "MCP server AGENT_MEMORY_AGENT_ID + explicit logical project; never infer project from cwd basename, copy another agent receipt, or repair mismatched identity through DB writes.",
-    "producer": "native SessionStart → persist started attempt → non-degraded recovery with active task/next action → exact current provider/pipe verified before and after accepted output → finished durable event containing native_context_delivery",
-    "read_tool": {
-      "name": "native_context_delivery",
-      "arguments": {
-        "project": "qa",
-        "target_runtime": null,
-        "provider_pid": null,
-        "provider_started_at": null,
-        "workspace_sha256": null,
-        "host_session_id": null
-      },
-      "argument_rule": "target_runtime is codex or claude; PID >= 2; timestamps and SHA256 come from current independent observation; optional host_session_id absence requires exactly one observed native session, never choose the freshest arbitrarily."
-    },
-    "required_receipt_fields": [
-      "schema_version",
-      "status",
-      "agent_id",
-      "project",
-      "target_runtime",
-      "host_session_id",
-      "provider_pid",
-      "provider_started_at",
-      "provider_executable_sha256",
-      "workspace_sha256",
-      "pipe_sha256",
-      "input_sha256",
-      "work_sha256",
-      "pack_ref",
-      "delivered_at",
-      "attempt_id",
-      "attempt_started_at"
-    ],
-    "consumer": "AUN owned adapter reads stored receipt through MCP, validates response and exact live provider identity, binds current AUN runtime UUID (or sealed provider-to-MCP mapping), then records consumption before queue execution. No hand-written receipt.",
-    "receipt_scope": "Accepted native input bytes and matching durable work only; not model understanding, subsequent useful action or real task acceptance.",
-    "ttl": {
-      "kusabi_native_receipt_wall_clock_ttl_seconds": null,
-      "kusabi_rule": "latest source-start attempt plus current process/session; future delivered_at rejected; no hard-coded native receipt age TTL",
-      "aun_baseline_default_readiness_seconds": 1800,
-      "aun_final_v2_seconds": null,
-      "actual_consumed_at": null,
-      "actual_valid_until": null,
-      "rule": "AUN current consumer must reject valid_until <= now and stale/foreign runtime identity. Enforce earliest current operation/source/consumer expiry; no reset/refresh or fabricated validity from this worksheet."
-    },
-    "sources": [
-      "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-3_API_CONTRACT.md#L549",
-      "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md#L138",
-      "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/native-context-delivery.ts#L231",
-      "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/native-context-delivery.ts#L293",
-      "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/core/runtime-memory-ready.ts#L714"
-    ]
-  },
-  "existing_evidence": {
-    "source_refs": {
-      "package.json": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/package.json",
-        "sha256": "c7d4e9bf81daabee994d1a78c5242bd49cac94df0b617f522b55b49234a970ca"
-      },
-      "package-lock.json": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/package-lock.json",
-        "sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60"
-      },
-      "scripts/build-kusabi-content-addressed-runtime-release.mjs": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/scripts/build-kusabi-content-addressed-runtime-release.mjs",
-        "sha256": "5b4f34443473b21d103fb1c4469a41256b69f6289e29f3c6e5e3626738265c6e"
-      },
-      "scripts/test-kusabi-content-addressed-runtime-release.mjs": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/scripts/test-kusabi-content-addressed-runtime-release.mjs",
-        "sha256": "ca238942561c0e394a9b6a70b13e34276f3e57343c6f2c67785a7018ed6e0bee"
-      },
-      "src/native-context-delivery.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/native-context-delivery.ts",
-        "sha256": "4ba4e480415161e702b4fd73964b4fc3bb53b42ff2555768a021d613eeebd385"
-      },
-      "src/codex-session-start.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/codex-session-start.ts",
-        "sha256": "0eb9a65e543ed33c47c8a87ae67eeb9211bbb0896ffeedc06cc7dbb064547cd3"
-      },
-      "src/claude-session-start.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/claude-session-start.ts",
-        "sha256": "476381da1ec89680903bca48c50946400e97d218985e1b3baa4aab7ba712c5c0"
-      },
-      "src/kusabi-runtime-event-emitter.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/kusabi-runtime-event-emitter.ts",
-        "sha256": "c367a7b85272b42d7565ed5fd484fa8200bd4421ffd67fa64aa6a0a25cd91c07"
-      },
-      "src/stores/sqlite-store.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/stores/sqlite-store.ts",
-        "sha256": "8c89435ac70bd0a9f50cb7b02401cec889c98b2289bdc34ee26fa297493ebe8a"
-      },
-      "src/test-native-context-delivery.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts",
-        "sha256": "b0f83a33d004e02983d8e76ff1b2376463b591e9c4c2f107c8a4bc14622280cf"
-      },
-      "src/test-codex-session-start.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-codex-session-start.ts",
-        "sha256": "5b82c28de6fcaa8c7750a46f404ce52b0dfe9c4b0d4ccc9c467d8a4de37fefea"
-      },
-      "src/test-claude-session-start.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-claude-session-start.ts",
-        "sha256": "76c8c7477ba6c7eea57b2117396bb5f2dbf55c811e632c75c6b2c740690a03ab"
-      },
-      "src/test-kusabi-runtime-event-emitter.ts": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-kusabi-runtime-event-emitter.ts",
-        "sha256": "84c304953ee00c78dd2f86b713d64d7fbd035f1362c2c5f8d2908110e9cb0985"
-      },
-      "docs/design/core/SSOT-3_API_CONTRACT.md": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-3_API_CONTRACT.md",
-        "sha256": "f045a297fdccbc49c44c3925af80fa841ae3aed92191a3f39663da8c0b99c097"
-      },
-      "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": {
-        "url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md",
-        "sha256": "2cdcc90d7a7944bc4a8e0693fae2538b63448b2f11e61c979e7805ae3244ad0f"
-      }
-    },
-    "local_source_linkage": {
-      "subject": "Final precommit bytes subsequently committed as e49; not a claim that tests executed after this commit",
-      "four_changed_source_hashes_match": true,
-      "unchanged_source_acceptance_url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651852792",
-      "receipt": {
-        "local_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/maker-source-receipt.json",
-        "sha256": "af64e09d63223dc2ce4934da6c0a0cea90caa576938fa2decd7ff304bd97bb11"
-      },
-      "committed_linkage": {
-        "local_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/maker-final-e49abc24.json",
-        "sha256": "6a55bbe3c9fbeb234f88d93e5d3c8176b8b58860f74664e2ccb7ea7686c43696"
-      }
-    },
-    "mac": {
-      "original_recorded_at": "2026-09-13T08:58:26.058391+00:00",
-      "platform": "darwin",
-      "node": "v25.6.1",
-      "tests": [
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test-codex-session-start.ts"],
-          "exit_code": 0,
-          "seconds": 10.269,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-codex-session-start.log",
-          "raw_log_sha256": "450c784e983962278221378f2b3f858530ea4064abe1ccb7a513d176a2804d7e",
-          "bytes": 965,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": [
-            "codex native SessionStart adapter tests passed",
-            "{\"status\":\"PASS\",\"checks\":148,\"platform\":\"darwin\",\"node\":\"v25.6.1\",\"kernel_boundary_checks\":32,\"initialization_checks\":23,\"kernel_pipe_kinds\":[\"PIPE\"],\"native_input_protocols\":[\"codex\",\"claude\",\"codex\"],\"one_store\":true,\"semantic_digest\":\"bcd8ef3e77fcb58bd34e0503c1f6618e654a1112e9ec55fbf6611d2a72e7a783\",\"input_digests\":[\"07e3fe47034019a1a59aca56cfac70311964a83826a060f7f03a835902efcf8d\",\"de6fe74f00fc89277ff61c05156503a0b585499a1a8e629edf96012513d8680a\",\"8f6aa337d6f8eb602626886f24f9c1d04bfd90515c49d355ddb13dc108536040\"],\"provider_api_calls\":0,\"observation_scope\":\"real OS peer pipe with independently read fixture parent process; provider classification injected only in test\",\"live_application\":false}"
-          ],
-          "numeric_count": 148,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        },
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test-claude-session-start.ts"],
-          "exit_code": 0,
-          "seconds": 2.226,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-claude-session-start.log",
-          "raw_log_sha256": "6bfc89dda3fed95f621358bde79d3e1a7196db3de77616a184b42c58fce4d529",
-          "bytes": 244,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": ["Claude SessionStart tests passed"],
-          "numeric_count": null,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        },
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test-kusabi-runtime-event-emitter.ts"],
-          "exit_code": 0,
-          "seconds": 3.267,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-kusabi-runtime-event-emitter.log",
-          "raw_log_sha256": "c611397840c2bb3fcbd197d921540f65150c7820f2afaf128c02fb6a0104ca06",
-          "bytes": 260,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": ["Kusabi OBS-03 runtime-event emitter tests passed"],
-          "numeric_count": null,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        },
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test-native-context-delivery.ts"],
-          "exit_code": 0,
-          "seconds": 9.384,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-native-context-delivery.log",
-          "raw_log_sha256": "2321d97d4994698f4a298388f0a84ae23f8268e5c7dd46bebcc3aceee9bf9e3f",
-          "bytes": 918,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": [
-            "{\"status\":\"PASS\",\"checks\":148,\"platform\":\"darwin\",\"node\":\"v25.6.1\",\"kernel_boundary_checks\":32,\"initialization_checks\":23,\"kernel_pipe_kinds\":[\"PIPE\"],\"native_input_protocols\":[\"codex\",\"claude\",\"codex\"],\"one_store\":true,\"semantic_digest\":\"bf0658d7ff071a5b105b35b49353f28d64d4412826e67222f24f7610d2aee7e9\",\"input_digests\":[\"5e676205c38aec25a62aea480c59da2000e7771824025733f0202e5a47294e48\",\"4ad0baa55241d6245a45448b312806af3aebe985b55da2043c12bfeb80dc249a\",\"efe682f8ba6a15798d8a1348238dff466f9e3b359085813d3f5eb25867876e6a\"],\"provider_api_calls\":0,\"observation_scope\":\"real OS peer pipe with independently read fixture parent process; provider classification injected only in test\",\"live_application\":false}"
-          ],
-          "numeric_count": 148,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        },
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test-sqlite.ts"],
-          "exit_code": 0,
-          "seconds": 1.357,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-sqlite.log",
-          "raw_log_sha256": "2b4ede07cd760a7771852c8f03ff3b5d858efbcd8583fe2f17d390a0695b40b6",
-          "bytes": 10998,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": ["── Results: 204 passed, 0 failed ──"],
-          "numeric_count": 204,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        },
-        {
-          "argv": ["npx", "--no-install", "tsx", "src/test.ts"],
-          "exit_code": 0,
-          "seconds": 8.138,
-          "local_raw_log": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test.log",
-          "raw_log_sha256": "04bf50329b3a3e4464500ea1ee4e951ac7883b9cd9b0a34b771c63340a79273c",
-          "bytes": 100252,
-          "raw_hash_rechecked": true,
-          "raw_result_lines": ["── Results: 1591 passed, 0 failed ──"],
-          "numeric_count": 1591,
-          "count_note": "Codex caller contains the native suite; not additive. Claude/emitter logs have no numeric assertion count.",
-          "isolation": {
-            "private_home": true,
-            "ambient_postgres_removed": true
-          }
-        }
-      ],
-      "live_application": false,
-      "provider_api_calls": 0
-    },
-    "linux": {
-      "run_url": "https://github.com/watchout/agent-memory/actions/runs/34750856136",
-      "api_rechecked_status": "completed",
-      "api_rechecked_conclusion": "success",
-      "trigger_head": "e49abc24838227776dc01be111aeb035ec7c9aad",
-      "actual_checkout_commit": "9d89f2a0abafc296116794897c7e53f32096266d",
-      "actual_checkout_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
-      "same_tree": true,
-      "raw_zip": {
-        "local_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-ci-start-recovery/new-run-raw-logs.zip",
-        "sha256": "5e840723159ece1a68429d606f43e42eb4d57f3bce70d2c3cea997966e5e3426"
-      },
-      "matrix": [
-        {
-          "job_url": "https://github.com/watchout/agent-memory/actions/runs/34750856136/job/103707029618",
-          "node": "v18.20.8",
-          "conclusion": "success",
-          "native_assertions": 165,
-          "initialization_assertions": 23,
-          "kernel_assertions": 49,
-          "core_assertions": 1591,
-          "sqlite_assertions": 204,
-          "logs": [
-            {
-              "archive_entry": "build-and-test (18)/2_Checkout.txt",
-              "sha256": "c87176c07a123a3cccaeb15bd9ff7d3193b0aa0f2c99ace2af7fd263ee2c0a5f",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (18)/8_Run native recovery and automatic receive tests.txt",
-              "sha256": "a67c478fcfde23dce4712db68ff099ed908c9fa922540ecc5fcdcd7454eba70b",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (18)/7_Run core test suite.txt",
-              "sha256": "d965aa63e7fc4f5cf6310d352342149077aea68057b9c81b0cae3c09378e3e92",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (18)/11_Run SQLite store tests.txt",
-              "sha256": "b2f8b196affbd6a5534d8a2ed9be54d9c3f966bd9453f638b2ad344bd6bf62d1",
-              "raw_hash_rechecked": true
-            }
-          ]
-        },
-        {
-          "job_url": "https://github.com/watchout/agent-memory/actions/runs/34750856136/job/103707029686",
-          "node": "v20.20.2",
-          "conclusion": "success",
-          "native_assertions": 165,
-          "initialization_assertions": 23,
-          "kernel_assertions": 49,
-          "core_assertions": 1591,
-          "sqlite_assertions": 204,
-          "logs": [
-            {
-              "archive_entry": "build-and-test (20)/2_Checkout.txt",
-              "sha256": "46a920ac0bbc225e75b8eeccced12b1ffb884ade0ec3e8dcef7cbea2a58119bf",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (20)/8_Run native recovery and automatic receive tests.txt",
-              "sha256": "5363cd45c56abee0330fbfcecc8e41059b76a78b3c50119096fd6deda154323a",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (20)/7_Run core test suite.txt",
-              "sha256": "4c522d5441c8cc625f15dcd7c772bd1f70848ee36328a5107a524b1ac56b7146",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (20)/11_Run SQLite store tests.txt",
-              "sha256": "3405efc173c75fddf58b108588444427cbb47cf9813f534f6c163e391b7bc123",
-              "raw_hash_rechecked": true
-            }
-          ]
-        },
-        {
-          "job_url": "https://github.com/watchout/agent-memory/actions/runs/34750856136/job/103707029714",
-          "node": "v22.23.2",
-          "conclusion": "success",
-          "native_assertions": 165,
-          "initialization_assertions": 23,
-          "kernel_assertions": 49,
-          "core_assertions": 1591,
-          "sqlite_assertions": 204,
-          "logs": [
-            {
-              "archive_entry": "build-and-test (22)/2_Checkout.txt",
-              "sha256": "17868c048fdbe0ce0e0c85000c2f4ed0a0ce32eccf106bb363e3610262dfb9f5",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (22)/8_Run native recovery and automatic receive tests.txt",
-              "sha256": "e42ae5fff5f7a4d2503cef6caf64b8b1e9ec9f3342f758d9a5b6fe23fc1d2960",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (22)/7_Run core test suite.txt",
-              "sha256": "42edd395a5bf642dfb863d4be369ba0a133a3c59c42d31ad32fde6f63f47d2f8",
-              "raw_hash_rechecked": true
-            },
-            {
-              "archive_entry": "build-and-test (22)/11_Run SQLite store tests.txt",
-              "sha256": "80f92d5b56429e992260740fe7d0782dae604208702bb0a200ff197d7d519069",
-              "raw_hash_rechecked": true
-            }
-          ]
-        }
-      ]
-    },
-    "existing_independent_acceptance": {
-      "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651852792",
-      "body_sha256": "2da01fa42c61dfb7bf136b0a74827ee0c7a8329ea91ca4247a3d8b40a18b7795",
-      "reviewer_actor": "codex-cto/reboot_evidence",
-      "scope": "Existing exact e49 source/technical review; no new signature, merge/application permission or AUN v2 result."
-    },
-    "known_limits": [
-      "No installed LLM retention/real qa trial observation.",
-      "Fresh simultaneous SQLite creators and custom FTS5 engine were not measured.",
-      "Crash-held writer lock remains fail-closed; no automatic stealing or unlimited retry.",
-      "Historical AUN 5d4 B5 failure and later unchanged pass are preserved; Kusabi acceptance does not close a new AUN v2 defect.",
-      "Committed machine evidence carries historical pending CI fields. Later public exact-tree CI and independent review above close source evidence, not deployment."
-    ]
-  },
-  "contract_evidence_mapping": [
-    {
-      "id": "MEM-NORMAL",
-      "contract": "Same agent_id/project retains objective, decisions, unfinished task and next action across Codex → Claude → Codex and relocated workspace; stdout bytes and work digest are joined to the registered MCP receipt.",
-      "source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts#L287",
-      "test_lines": [287, 336],
-      "evidence": "mac.native148 / linux.native165",
-      "result": "EXISTING_FIXTURE_PASS",
-      "live_qa_observation": null
-    },
-    {
-      "id": "MEM-FOREIGN",
-      "contract": "Foreign seat/project content is omitted; server namespace authority cannot be supplied as an MCP argument; foreign-seat lookup is unavailable.",
-      "source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts#L297",
-      "test_lines": [297, 328],
-      "evidence": "mac.native148 / linux.native165",
-      "result": "EXISTING_FIXTURE_PASS",
-      "live_qa_observation": null
-    },
-    {
-      "id": "MEM-OLD-PENDING",
-      "contract": "New pending, failed, missing-session or tied-start attempts supersede old success; delayed old completion and reused provider start do not restore acceptance; truncated history is unavailable.",
-      "source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts#L345",
-      "test_lines": [345, 429],
-      "evidence": "mac.native148 / linux.native165",
-      "result": "EXISTING_FIXTURE_PASS",
-      "live_qa_observation": null
-    },
-    {
-      "id": "MEM-PIPE-FAIL",
-      "contract": "No stdout reader/EPIPE gives no receipt; fake production provider and wrong peer/ambiguous kernel boundary are rejected.",
-      "source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts#L192",
-      "test_lines": [192, 213, 337, 343],
-      "evidence": "mac.native148 / linux.native165",
-      "result": "EXISTING_FIXTURE_PASS",
-      "live_qa_observation": null
-    },
-    {
-      "id": "MEM-STORE-FAIL",
-      "contract": "Current-file no-op initialization/reads do not steal a foreign lock or rewrite DB bytes; actual writes/migrations remain lock/CAS protected; persistence failure/timeout is emergency_only or failed, never durable receipt.",
-      "source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-kusabi-runtime-event-emitter.ts#L340",
-      "test_lines": [340, 428],
-      "additional_source_url": "https://github.com/watchout/agent-memory/blob/e49abc24838227776dc01be111aeb035ec7c9aad/src/test-native-context-delivery.ts#L115",
-      "evidence": "mac.emitter + mac.native148 + mac.sqlite204 / linux.native165+sqlite204",
-      "result": "EXISTING_FIXTURE_PASS",
-      "live_qa_observation": null
-    },
-    {
-      "id": "MEM-TTL",
-      "contract": "Kusabi native receipt has delivered_at/attempt identity, not a wall-clock TTL field. AUN consumer rejects valid_until <= now, stale runtime, wrong provider/runtime/session/project. Default readiness lifetime is 1800 seconds from consumption; future v2 must preserve the validity gate using current OS observations.",
-      "source_url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/core/runtime-memory-ready.ts#L714",
-      "additional_source_url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/core/runtime-memory-ready.ts#L895",
-      "test_source_url": "https://github.com/watchout/agent-comms-mcp/blob/9d7e6f5b06b0d9a4b13011760e543cfc8a795e14/tests/runtime-memory-ready.test.ts#L479",
-      "result": "SOURCE_AND_EXISTING_TEST_PRESENT_V2_EXECUTION_UNOBSERVED",
-      "evidence": "No AUN v2 result claimed from Kusabi tests.",
-      "live_qa_observation": null
-    }
-  ],
-  "impacted_validation_plan_not_executed": {
-    "owner": "Existing AUN maker / Kusabi repo lead under their current bounded handoff, separate checker",
-    "status": "NOT_RUN_ON_FINAL_AUN_V2",
-    "aun_paths": ["core/runtime-memory-ready.ts", "bin/aun/memory-ready.ts", "core/runtime-memory-ready-identity.ts", "core/runtime-endpoint.ts", "core/seat-runtime-selection.ts"],
-    "existing_test_argv_templates": [
-      ["bun", "test", "tests/runtime-memory-ready.test.ts", "tests/runtime-memory-ready-identity.test.ts"],
-      ["npx", "--no-install", "tsx", "src/test-native-context-delivery.ts"],
-      ["npx", "--no-install", "tsx", "src/test-codex-session-start.ts"],
-      ["npx", "--no-install", "tsx", "src/test-claude-session-start.ts"],
-      ["npx", "--no-install", "tsx", "src/test-kusabi-runtime-event-emitter.ts"]
-    ],
-    "fixture_requirements": [
-      "New current OS observation path with no runtime observation DB seed; same qa/project accepted native delivery.",
-      "Wrong seat/project, wrong or reused PID/start, old/multiple/missing host session, newer pending/failed attempt, expired AUN valid_until, store/transport failure reject without queue effects.",
-      "Preserve durable work/identity/claims/fences/history and SQL-write recorder for prohibited transient state; do not delete runtime rows/FKs to fake nonpersistence.",
-      "Dedicated temporary workspace/private HOME and explicitly isolated fixture stores; remove ambient PG credentials and endpoints, no real native provider/API/seat/queue. Existing helper fallback DB connection is not isolation proof."
-    ],
-    "existing_aun_tests_need_fixture_update": "9d7 readiness tests seed runtime/lease metadata. Their unchanged pass cannot prove DB nonpersistence; final maker must adapt impacted fixtures and bind exact argv/source/result. No test is created or run here.",
-    "repeat_rule": "Reuse e49 evidence unless source/consumer impact requires a bounded new measurement. New fixture/provenance and current permission required; no unbounded rerun or weakened assertions."
-  },
-  "post_apply_pre_task1_observation_fields": {
-    "actual_M": null,
-    "actual_M_tree": null,
-    "cas_runtime_root": null,
-    "descriptor_sha256": null,
-    "runtime_tree_sha256": null,
-    "dist_tree_sha256": null,
-    "dependency_manifest_sha256": null,
-    "mcp_entry_sha256": null,
-    "hook_entry_sha256": null,
-    "mcp_pid": null,
-    "mcp_started_at": null,
-    "mcp_cwd": null,
-    "provider_pid": null,
-    "provider_started_at": null,
-    "provider_executable_sha256": null,
-    "workspace_sha256": null,
-    "host_session_id": null,
-    "native_receipt": null,
-    "aun_runtime_instance_id": null,
-    "aun_consumption_receipt": null,
-    "consumed_at": null,
-    "valid_until": null,
-    "independent_checker": null,
-    "verdict": null
-  },
-  "stop_and_restore": {
-    "stop": "Identity/namespace/commit/tree/loaded artifact/descriptor mismatch, unavailable or superseded receipt, expiry, transport/store failure, unknown effect or conflict: stop this trial before Task1 and return exact reason once. Do not borrow an older success.",
-    "restore": "Current operator uses only the exact currently authorized restore target/argv/trigger and readback. Old C23 or one-Vice plan is historical, not qa authority. No DB lock deletion, history purge, lease/queue clearing, native trust or restart in this task.",
-    "independent_check": "Maker-external checker compares exact actual M/CAS/process/receipt/AUN consumer/TTL against these inputs and returns actual binding evidence to adf-lead; author does not self-accept."
-  },
-  "gaps": [
-    {
-      "id": "M-CAS-01",
-      "phase": "authorized_release_before_linkage",
-      "status": "UNOBSERVED_NOT_PUBLISHED",
-      "owner": "Kusabi release operator / CTO current operation authority",
-      "missing": "Current distributable CAS descriptor, entries and dependency installation ledger. Old private files no longer exist.",
-      "required_action": "Use existing reviewed publisher on authorized actual M; bind actual returned descriptor/runtime root, full payload/dependency hashes and readback. No build/publication in this preparation."
-    },
-    {
-      "id": "M-AUN-COMPAT-01",
-      "phase": "pre_apply_quality",
-      "status": "UNVERIFIED",
-      "owner": "codex-aun existing maker and separate checker; Kusabi supplies native contract",
-      "missing": "Final AUN v2 source and targeted current-observation/memory-consumer results for this exact e49 subject.",
-      "required_action": "Check impacted consumers against stable native receipt contract; retain typed denial for wrong agent/project/PID/start/session, expired readiness and store/transport failure. Test only impacted paths under the existing repository handoff."
-    },
-    {
-      "id": "M-LIVE-01",
-      "phase": "post_apply_pre_task1",
-      "status": "FUTURE_OBSERVATION",
-      "owner": "authorized operator and maker-external checker → adf-lead",
-      "missing": "Actual M/CAS/process/loaded bytes, qa/qa native receipt and valid_until, current AUN consumer receipt and remaining Task1/2 window.",
-      "required_action": "After authorized application, match observed host identity and bytes to one fresh receipt and same AUN runtime; independently return values to the Shirube worksheet before Task1."
-    },
-    {
-      "id": "M-AUTH-01",
-      "phase": "before_protected_effects",
-      "status": "NOT_SUPPLIED_BY_THIS_HANDOFF",
-      "owner": "CTO / current authorized operator",
-      "missing": "Current source-specific application authority, operation clock/counters/stop/restore tuple.",
-      "required_action": "Bind existing valid current authority if any. Never reuse expired C23/old 180-minute permission or historical one-Vice trust/config projection for qa."
-    }
-  ],
-  "effects": {
-    "product_source_edits": 0,
-    "product_test_edits": 0,
-    "product_tests_run": 0,
-    "manual_ci_runs": 0,
-    "merge": 0,
-    "runtime": 0,
-    "db": 0,
-    "authentication": 0,
-    "queue": 0,
-    "tui": 0,
-    "additional_agents": 0,
-    "accepted_real_tasks": 0,
-    "product_acceptance_increment": 0
-  },
-  "next_action": {
-    "owner": "adf-lead and codex-aun existing maker / Kusabi repo lead",
-    "required_function": "current repository preparation or implementation function",
-    "action": "Consume concrete candidate/contract/evidence fields now; retain listed nulls. On final AUN v2 input update only the impacted contract/evidence references. Protected publication/application stays with current authorized operator and separate checker.",
-    "delivery": "agent-memory #307 source commit and Shirube #623 existing worksheet",
-    "input_refs": ["this inputs.json", "Shirube789ecf3e inputs.json", "AUN #940 current exact candidate"],
-    "scope": "Initial default-A2 memory connection only; no PR318/323 redesign or B prerequisite",
-    "deliverable": "Same-subject preparation input, then post-apply actual memory binding before Task1",
-    "completion_evidence": "Exact commit/tree/CAS/receipt/consumer/expiry readback and independent result; preparation is not accepted real work",
-    "blocking": false
   }
 }
