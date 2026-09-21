@@ -149,6 +149,8 @@ Future negative fixtures should include at least these rejection cases.
 | --- | --- | --- | --- |
 | `uamp-negative-raw-transcript-as-trusted-instruction-v1` | Raw transcript copied into `trusted_instruction`. | `trust_escalation_from_source_text` | `uamp-security` |
 | `uamp-negative-approved-without-promotion-v1` | `approved_memory` lacks promotion evidence. | `missing_promotion_evidence` | `uamp-core` |
+| `uamp-negative-decision-as-authority-without-control-source-ref-v1` | A stored decision is cited as authority with no `control_source_ref`. | `missing_control_source_ref` | `uamp-security` |
+| `uamp-negative-control-source-ref-digest-mismatch-v1` | `control_source_ref.sha256` does not match the published control-source body. | `control_source_ref_digest_mismatch` | `uamp-security` |
 | `uamp-negative-missing-provenance-v1` | Artifact lacks provenance. | `missing_provenance` | `uamp-core` |
 | `uamp-negative-missing-source-refs-l2-v1` | L2+ claim lacks source refs. | `missing_source_refs_for_claim` | `uamp-recovery` |
 | `uamp-negative-unredacted-secret-output-v1` | Recovery or memory output contains unredacted secret-bearing text. | `unredacted_secret_output` | `uamp-security` |
