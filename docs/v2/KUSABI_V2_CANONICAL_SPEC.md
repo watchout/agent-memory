@@ -56,6 +56,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Area | Proposed source |
 | --- | --- |
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
+| Architecture | `docs/v2/KUSABI_V2_ARCHITECTURE.md` |
 | Product category and positioning | `docs/v2/KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` |
 | Implementation readiness | `docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` |
 | Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
