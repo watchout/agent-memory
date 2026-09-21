@@ -1,0 +1,18 @@
+{
+  "schema_version": "wasurezu-runtime-release-evidence/v1",
+  "operation_id": "21f50944-a602-49eb-9573-31a8359d0e0b",
+  "outcome": "CANDIDATE_VERIFIED",
+  "source": {
+    "commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+    "tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42"
+  },
+  "descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+  "stage_root": "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+  "proposed_final_root": "/private/tmp/kusabi-e49-candidate-20260921/sha256/811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+  "candidate_invocation_ledger_sha256": "e3a471e802b088d4e772539e61f718dd80b2637163fb23a0473de04df95d1b57",
+  "protected_effects": {
+    "final_cas_publication": 0,
+    "fleet_rollout": 0,
+    "restart": 0
+  }
+}

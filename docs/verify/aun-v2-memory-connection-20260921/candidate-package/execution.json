@@ -1,0 +1,285 @@
+{
+  "schema_version": "kusabi-candidate-package-execution/v1",
+  "actor": "codex-cto/e3_independent_review",
+  "active_function": "implementation_executor",
+  "scope": "isolated candidate build and six evidence files only",
+  "control_handoff_ref": {
+    "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754323496",
+    "sha256": "2639d539237205fbb67d56e2e543292112d64d41ebe899914cdc5add766cbdc0"
+  },
+  "correction_disposition_ref": {
+    "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754347862",
+    "sha256": "662d37f73979164742f46c3b43f12137abb9be19b1d227d4ed2ffbbc059f73cb"
+  },
+  "task_started_at": "2026-09-21T10:42:02.504214+09:00",
+  "task_deadline": "2026-09-21T11:02:02+09:00",
+  "command_started_at": "2026-09-21T01:47:04.373378+00:00",
+  "command_finished_at": "2026-09-21T01:47:08.239826+00:00",
+  "duration_seconds": 3.866,
+  "publisher_execution_count": 1,
+  "task_limit_minutes": 20,
+  "command_timeout_seconds": 777,
+  "timed_out": false,
+  "argv": [
+    "node",
+    "scripts/build-kusabi-content-addressed-runtime-release.mjs",
+    "--mode",
+    "candidate",
+    "--expected-head",
+    "e49abc24838227776dc01be111aeb035ec7c9aad",
+    "--release-root",
+    "/private/tmp/kusabi-e49-candidate-20260921",
+    "--evidence-output",
+    "/private/tmp/kusabi-e49-candidate-20260921/candidate-evidence.json"
+  ],
+  "cwd": "/private/tmp/kusabi-e49-source-20260921",
+  "source_commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+  "source_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+  "source_clean_before": true,
+  "source_status_after": "",
+  "environment": {
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/private/tmp/kusabi-e49-candidate-20260921/tmp",
+    "npm_config_cache": "/private/tmp/kusabi-e49-candidate-20260921/npm-cache",
+    "npm_config_userconfig": "/private/tmp/kusabi-e49-candidate-20260921/empty.npmrc",
+    "npm_config_globalconfig": "/private/tmp/kusabi-e49-candidate-20260921/empty-global.npmrc",
+    "npm_config_audit": "false",
+    "npm_config_fund": "false"
+  },
+  "environment_rule": "Explicit allowlist. HOME not set/redefined. Ambient DB/provider/auth variables and NODE_OPTIONS omitted; npm user/global config and cache isolated.",
+  "versions": {
+    "node": "v25.6.1",
+    "npm": "11.9.0",
+    "git": "git version 2.50.1 (Apple Git-155)",
+    "os": "Darwin 25.6.0 arm64"
+  },
+  "exit_code": 0,
+  "publisher_sha256": "5b4f34443473b21d103fb1c4469a41256b69f6289e29f3c6e5e3626738265c6e",
+  "harness_sha256": "ca238942561c0e394a9b6a70b13e34276f3e57343c6f2c67785a7018ed6e0bee",
+  "stdout": {
+    "path": "/private/tmp/kusabi-e49-candidate-20260921/stdout.log",
+    "sha256": "378097a5f5ad93b5cd2637057825731711e1c9ee725c11ffbf8e8b2516dcf15c",
+    "bytes": 760
+  },
+  "stderr": {
+    "path": "/private/tmp/kusabi-e49-candidate-20260921/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "harness_scope": "Existing candidate import/export/resource/package conformance only. Forbidden-effect counts are harness constants, not dynamic side-effect monitoring. No real native delivery/LLM retention/task acceptance claim.",
+  "retries": 0,
+  "product_code_edits": 0,
+  "manual_ci_runs": 0,
+  "shared_final_cas_publication": 0,
+  "runtime_application": 0,
+  "accepted_real_tasks": 0,
+  "status": "CANDIDATE_VERIFIED_STAGE_READBACK_MATCHED",
+  "stage_readback": {
+    "status": "PASS_EXACT_STAGE_READBACK",
+    "descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+    "source_commit": "e49abc24838227776dc01be111aeb035ec7c9aad",
+    "source_tree": "a55dd96fe6a753ea2ab6bcb8134172ca0d086a42",
+    "runtime_tree_sha256": "3239e8e2c80eff43e3fcdb059875400240b64e22870ed4e233f315f463ecdd95",
+    "dist_tree_sha256": "6bbd76586625ac04e12baa38e8a5af70e69cef5339cf8e7f08f08ac72bafec3d",
+    "runtime_file_count": 4119,
+    "dist_file_count": 260,
+    "required_entrypoint_sha256_map": {
+      "dist/antigravity-hook-installer.js": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+      "dist/antigravity-session-start.js": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+      "dist/claude-session-start.js": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+      "dist/codex-session-start.js": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+      "dist/fleet-conversation-backfill.js": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+      "dist/gemini-session-start.js": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+      "dist/kusabi-direct-fleet-rollout.js": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+      "dist/kusabi-fleet-rollout.js": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+      "dist/raw-capture-service.js": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+      "dist/transcript-stop-capture.js": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b"
+    },
+    "package_metadata": {
+      "package_json_sha256": "c7d4e9bf81daabee994d1a78c5242bd49cac94df0b617f522b55b49234a970ca",
+      "package_lock_sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60"
+    },
+    "invocation_ledgers": {
+      "candidate_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37",
+      "candidate_ledger_sha256": "e3a471e802b088d4e772539e61f718dd80b2637163fb23a0473de04df95d1b57",
+      "required_final_conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37"
+    },
+    "extra_and_required_entries": {
+      "dist/antigravity-hook-installer.js": {
+        "sha256": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+        "expected_historical_sha256": "36b423c6ce3c84b898bd637b8c2cda04ae724746fc5036de9a7297595bf5df3c",
+        "same_bytes": true,
+        "bytes": 15178,
+        "symlink": false
+      },
+      "dist/antigravity-session-start.js": {
+        "sha256": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+        "expected_historical_sha256": "9690b5442850be462ece61fb443e1678eb6dcda3823037cd2cc70759ed8bf22a",
+        "same_bytes": true,
+        "bytes": 18103,
+        "symlink": false
+      },
+      "dist/claude-session-start.js": {
+        "sha256": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+        "expected_historical_sha256": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+        "same_bytes": true,
+        "bytes": 16830,
+        "symlink": false
+      },
+      "dist/codex-session-start.js": {
+        "sha256": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+        "expected_historical_sha256": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+        "same_bytes": true,
+        "bytes": 32773,
+        "symlink": false
+      },
+      "dist/fleet-conversation-backfill.js": {
+        "sha256": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+        "expected_historical_sha256": "807f7462b2c146260bad17824801488f3c25eca3228131c8e81fabe9754aa48f",
+        "same_bytes": true,
+        "bytes": 13768,
+        "symlink": false
+      },
+      "dist/gemini-session-start.js": {
+        "sha256": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+        "expected_historical_sha256": "b80762c6e797d272229cf5b74cd2f79c4374d3dbf26b0c4ffecf93809d2457d5",
+        "same_bytes": true,
+        "bytes": 23240,
+        "symlink": false
+      },
+      "dist/kusabi-direct-fleet-rollout.js": {
+        "sha256": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+        "expected_historical_sha256": "004287958595a85e88a2341749042354eba9f09b7062c3aa6dcfc3862894a14c",
+        "same_bytes": true,
+        "bytes": 86491,
+        "symlink": false
+      },
+      "dist/kusabi-fleet-rollout.js": {
+        "sha256": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+        "expected_historical_sha256": "4819fb1d524d81c429528b02eb76ba13c601965d9e0bd7013def7648eb0d4500",
+        "same_bytes": true,
+        "bytes": 67241,
+        "symlink": false
+      },
+      "dist/raw-capture-service.js": {
+        "sha256": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+        "expected_historical_sha256": "5b170a56012f1689bf1394f4a8ea63518b95c1e3b791ab3e06518369704b23e8",
+        "same_bytes": true,
+        "bytes": 12727,
+        "symlink": false
+      },
+      "dist/transcript-stop-capture.js": {
+        "sha256": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b",
+        "expected_historical_sha256": "5249bb3f32b3a0d5f708de2207ed78517e9add72b360a51b7ac6591e2566f14b",
+        "same_bytes": true,
+        "bytes": 9293,
+        "symlink": false
+      },
+      "dist/index.js": {
+        "sha256": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37",
+        "expected_historical_sha256": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37",
+        "same_bytes": true,
+        "bytes": 45670,
+        "symlink": false
+      },
+      "dist/native-context-delivery.js": {
+        "sha256": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba",
+        "expected_historical_sha256": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba",
+        "same_bytes": true,
+        "bytes": 24374,
+        "symlink": false
+      },
+      "dist/codex-hook-installer.js": {
+        "sha256": "35ed9b1e29029c019d4cf37e7d6a94e66aefe209bdb93e7986daa4a3b7976ab6",
+        "expected_historical_sha256": "35ed9b1e29029c019d4cf37e7d6a94e66aefe209bdb93e7986daa4a3b7976ab6",
+        "same_bytes": true,
+        "bytes": 21564,
+        "symlink": false
+      },
+      "dist/stores/sqlite-store.js": {
+        "sha256": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf",
+        "expected_historical_sha256": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf",
+        "same_bytes": true,
+        "bytes": 70353,
+        "symlink": false
+      }
+    },
+    "package_lock_sha256": "e479ab7ee951d1fd82d5e5064ca76700be4716f573f6703e60f01f26b6b5ed60",
+    "installed_dependency_manifest": {
+      "path": "node_modules/.package-lock.json",
+      "exists": true,
+      "sha256": "d184e0a557788da123b091ef02048ea60eb0d9b6bb4fa301e37792d9115721c1"
+    },
+    "historical_payload_comparison": {
+      "runtime_tree_sha256": {
+        "old": "3239e8e2c80eff43e3fcdb059875400240b64e22870ed4e233f315f463ecdd95",
+        "current": "3239e8e2c80eff43e3fcdb059875400240b64e22870ed4e233f315f463ecdd95",
+        "equal": true
+      },
+      "dist_tree_sha256": {
+        "old": "6bbd76586625ac04e12baa38e8a5af70e69cef5339cf8e7f08f08ac72bafec3d",
+        "current": "6bbd76586625ac04e12baa38e8a5af70e69cef5339cf8e7f08f08ac72bafec3d",
+        "equal": true
+      }
+    },
+    "observed_at": "2026-09-21T10:48:25.338200+09:00",
+    "argv": [
+      "node",
+      "--input-type=module",
+      "-",
+      "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+      "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023"
+    ],
+    "inline_readback_source_sha256": "121a1a6cb6fa7cce1e13664b215467e520d63251cce379ebc4bbe3bbd24f4827",
+    "readback_function_only_no_harness_rerun": true
+  },
+  "candidate_evidence_sha256": "bb7e00e071a0000d1d1c789255c156c50ad9483005bae0f2ba6da23863732521",
+  "descriptor_sha256": "811f8e1fde08da746d02ed750cef584bb29c0f6a4e89da597a20cdfafe982023",
+  "stage_root": "/private/tmp/kusabi-e49-candidate-20260921/.staging/wasurezu-e49abc248382-w5uIce",
+  "proposed_final_root_exists": false,
+  "prior_executor_precheck": {
+    "status": "FAILED_EXTRA_ASSERTION_BEFORE_PUBLISHER",
+    "candidate_invocations_at_failure": 0,
+    "exit_code": 1,
+    "failure_at": null,
+    "timestamp_note": "Exact error timestamp was not emitted; preserved as unconfirmed. Error was recorded at 2026-09-21T10:45:34.609325+09:00",
+    "stdout_transcript": "BUILD_SCRIPT npm run clean && tsc\n",
+    "stderr_transcript": "Traceback (most recent call last):\n  File \"<stdin>\", line 12, in <module>\nAssertionError: unexpected build script; stop\n",
+    "transcript_provenance": "Exact displayed text from combined tool output; separate raw process streams were not saved for this precheck.",
+    "incorrect_extra_assertion": "pkg['scripts'].get('build') == 'tsc'",
+    "actual_build_script": "npm run clean && tsc",
+    "disposition": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5754347862",
+      "sha256": "662d37f73979164742f46c3b43f12137abb9be19b1d227d4ed2ffbbc059f73cb"
+    },
+    "original_clock_and_one_candidate_invocation_preserved": true
+  },
+  "harness_result": {
+    "outcome": "Publisher accepted normal candidate harness and exactReadback; overall exit 0",
+    "candidate_invocation_ledger_sha256": "e3a471e802b088d4e772539e61f718dd80b2637163fb23a0473de04df95d1b57",
+    "conformance_sha256": "891396282782c6b1fde3f4a3016766d1d08415401765c9b4cce64b0da0c4ec37",
+    "raw_child_ledger_available": false,
+    "raw_child_ledger_note": "Unmodified publisher captures child stdout internally and exposes ledger/conformance hashes in descriptor/evidence, not the full raw ledger. Harness was not rerun to fabricate a raw record.",
+    "coverage": "Required entrypoint imports/exports and JSON resources/package metadata, not real native context delivery or dynamic forbidden-effect monitoring."
+  },
+  "parent_stdout_stderr_are_original_bytes": true,
+  "internal_npm_child_stdout_exposed": false,
+  "independent_acceptance": null,
+  "next_action": {
+    "owner": "codex-cto / Kusabi repo lead / adf-lead",
+    "required_function": "orchestration_controller or current repository consumer",
+    "action": "Consume the current private candidate descriptor and stage readback. Keep final CAS publication, AUN v2 compatibility, actual M/native receipt/TTL and current protected authority outstanding.",
+    "delivery": "#307 fixed result commit; existing Shirube worksheet",
+    "input_refs": [
+      "this execution.json",
+      "release.json",
+      "candidate-evidence.json",
+      "6070ea preparation"
+    ],
+    "scope": "Candidate artifact only; no application, new test suite, full product or team acceptance",
+    "deliverable": "Recheckable existing-source candidate package",
+    "completion_evidence": "Exact e49/a55, successful one invocation, descriptor/full stage readback/entry hashes; independent acceptance not synthesized",
+    "blocking": false
+  }
+}
