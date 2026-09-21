@@ -74,6 +74,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Fast-lane policy | `docs/v2/KUSABI_V2_FAST_LANE_POLICY.md` |
 | Feature preservation | `docs/v2/KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md` |
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
+| Domain model | `docs/v2/KUSABI_V2_DOMAIN_MODEL.md` |
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
 | Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |
