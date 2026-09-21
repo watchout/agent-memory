@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Basic integration tests for agent-memory JSON store.
- * Run: tsx src/test.ts
+ * Run with KUSABI_TEST_TMPDIR set to an existing temporary parent directory.
+ * GitHub Actions supplies RUNNER_TEMP instead. No implicit home-directory fallback.
  */
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore, type CreateStoreOptions } from "./stores/index.js";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
-import { join } from "path";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
+import { isAbsolute, join, relative, resolve, sep } from "path";
 import { execFileSync } from "child_process";
 import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
@@ -134,7 +135,62 @@ import {
 import { controlClaudeRestartMarker } from "./claude-marker-controller.js";
 import type { LogRecoveryQualityInput } from "./stores/types.js";
 
-const TEST_DIR = join(homedir(), ".agent-memory");
+function createIsolatedTestDir(env: NodeJS.ProcessEnv, directories: {
+  home: string;
+  realpath: (path: string) => string;
+  stat: (path: string) => { dev: bigint; ino: bigint };
+  mkdtemp: (prefix: string) => string;
+} = {
+  home: homedir(),
+  realpath: realpathSync,
+  stat: (path) => statSync(path, { bigint: true }),
+  mkdtemp: mkdtempSync,
+}): string {
+  const configuredRoot = env.KUSABI_TEST_TMPDIR ?? env.RUNNER_TEMP;
+  if (!configuredRoot?.trim()) {
+    throw new Error("KUSABI_TEST_TMPDIR_REQUIRED: provide a temporary parent directory before running tests");
+  }
+  if (!isAbsolute(configuredRoot)) throw new Error("KUSABI_TEST_TMPDIR_MUST_BE_ABSOLUTE");
+  const home = directories.realpath(directories.home);
+  const sharedStore = join(home, ".agent-memory");
+  const within = (path: string, parent: string) => {
+    const pathFromParent = relative(parent, path);
+    return pathFromParent === "" || (!pathFromParent.startsWith(`..${sep}`) && pathFromParent !== ".." && !isAbsolute(pathFromParent));
+  };
+  const assertSafeRoot = (root: string) => {
+    if (root === home || root === resolve(root, "..") || within(root, sharedStore)) {
+      throw new Error("KUSABI_TEST_TMPDIR_UNSAFE: home and shared memory are not test roots");
+    }
+  };
+  assertSafeRoot(resolve(configuredRoot));
+  const root = directories.realpath(configuredRoot);
+  assertSafeRoot(root);
+  const homeIdentity = directories.stat(home);
+  let sharedIdentity: ReturnType<typeof directories.stat> | undefined;
+  try {
+    sharedIdentity = directories.stat(sharedStore);
+  } catch (error) {
+    // A fresh CI home need not contain a production store. Other stat failures
+    // leave its identity unknown, so they must fail closed before creating a dir.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const sameDirectory = (a: ReturnType<typeof directories.stat>, b: ReturnType<typeof directories.stat>) =>
+    a.dev === b.dev && a.ino === b.ino;
+  // realpath does not collapse APFS case aliases or volume firmlinks. Inspect
+  // every ancestor by filesystem identity to reject aliases of store descendants.
+  for (let ancestor = root; ; ancestor = resolve(ancestor, "..")) {
+    const identity = directories.stat(ancestor);
+    if ((ancestor === root && sameDirectory(identity, homeIdentity)) ||
+        (sharedIdentity && sameDirectory(identity, sharedIdentity))) {
+      throw new Error("KUSABI_TEST_TMPDIR_UNSAFE: home and shared memory are not test roots");
+    }
+    if (ancestor === resolve(ancestor, "..")) break;
+  }
+  // Own only a fresh child, never the caller's parent or an existing store.
+  return directories.mkdtemp(join(root, "kusabi-core-test-"));
+}
+
+const TEST_DIR = createIsolatedTestDir(process.env);
 let passed = 0;
 let failed = 0;
 
@@ -145,6 +201,97 @@ function assert(condition: boolean, msg: string) {
   } else {
     console.log(`  ❌ ${msg}`);
     failed++;
+  }
+}
+
+async function testJsonStoreDataIsolation() {
+  console.log("\n── JSON Store Test Data Isolation ──");
+  for (const [label, env] of [
+    ["missing", {}],
+    ["blank explicit input", { KUSABI_TEST_TMPDIR: "", RUNNER_TEMP: TEST_DIR }],
+    ["relative", { KUSABI_TEST_TMPDIR: "relative-path" }],
+    ["home", { KUSABI_TEST_TMPDIR: homedir() }],
+    ["shared memory", { KUSABI_TEST_TMPDIR: join(homedir(), ".agent-memory") }],
+  ] as const) {
+    let rejected = false;
+    try {
+      createIsolatedTestDir(env);
+    } catch (error) {
+      rejected = error instanceof Error && error.message.startsWith("KUSABI_TEST_TMPDIR_");
+    }
+    assert(rejected, `isolation rejects ${label} before any store operation`);
+  }
+
+  // All fixtures live inside TEST_DIR. Keep alias spellings intact, as APFS
+  // realpath does, while stat resolves them to the same real fixture inode.
+  // This exercises the macOS regression on Linux CI without touching real home.
+  const fixtureHome = join(TEST_DIR, "fixture-home");
+  const fixtureShared = join(fixtureHome, ".agent-memory");
+  mkdirSync(join(fixtureShared, "nested", "deeper"), { recursive: true });
+  const volumeHome = join(TEST_DIR, "volume-home-alias");
+  const caseShared = join(fixtureHome, ".AGENT-MEMORY");
+  const caseHome = join(TEST_DIR, "FIXTURE-HOME");
+  const aliases = [[volumeHome, fixtureHome], [caseHome, fixtureHome], [caseShared, fixtureShared]];
+  const symlink = join(TEST_DIR, "store-symlink");
+  symlinkSync(fixtureShared, symlink, "dir");
+  try {
+    for (const input of ["KUSABI_TEST_TMPDIR", "RUNNER_TEMP"]) {
+      for (const [label, root, useRealpath] of [
+        ["canonical shared store", fixtureShared, false],
+        ["volume alias", join(volumeHome, ".agent-memory"), false],
+        ["case alias", caseShared, false],
+        ["volume descendant", join(volumeHome, ".agent-memory", "nested", "deeper"), false],
+        ["case descendant", join(caseShared, "nested", "deeper"), false],
+        ["home volume alias", volumeHome, false],
+        ["home case alias", caseHome, false],
+        ["symlink", symlink, true],
+        ["symlink descendant", join(symlink, "nested", "deeper"), true],
+      ] as const) {
+        let attemptedCreation = false;
+        let rejected = false;
+        try {
+          createIsolatedTestDir({ [input]: root }, {
+            home: fixtureHome,
+            realpath: useRealpath ? realpathSync : (path) => path,
+            stat: (path) => {
+              const alias = aliases.find(([from]) => path === from || path.startsWith(`${from}${sep}`));
+              return statSync(alias ? join(alias[1], relative(alias[0], path)) : path, { bigint: true });
+            },
+            mkdtemp: () => {
+              attemptedCreation = true;
+              throw new Error("isolation fixture creation tripwire");
+            },
+          });
+        } catch (error) {
+          rejected = error instanceof Error && error.message.startsWith("KUSABI_TEST_TMPDIR_UNSAFE:");
+        }
+        assert(rejected && !attemptedCreation, `${input} rejects ${label} before directory creation`);
+      }
+    }
+  } finally {
+    rmSync(symlink, { force: true });
+    rmSync(fixtureHome, { recursive: true, force: true });
+  }
+
+  const first = createIsolatedTestDir({ KUSABI_TEST_TMPDIR: TEST_DIR });
+  const second = createIsolatedTestDir({ RUNNER_TEMP: TEST_DIR });
+  assert(first !== second, "each test invocation owns a fresh directory");
+  const sentinel = join(TEST_DIR, "parent-sentinel");
+  writeFileSync(sentinel, "preserve-parent");
+  try {
+    const firstStore = new JsonStore(first);
+    const secondStore = new JsonStore(second);
+    await firstStore.initialize();
+    await secondStore.initialize();
+    await firstStore.logDecision({ agent_id: "isolation-fixture", decision: "private fixture", context: "test isolation", tags: [], project: "test" });
+    assert((await firstStore.getDecisions({ agent_id: "isolation-fixture" })).length === 1, "first isolated store receives its fixture");
+    assert((await secondStore.getDecisions({ agent_id: "isolation-fixture" })).length === 0, "second isolated store cannot observe the first fixture");
+    rmSync(first, { recursive: true, force: true });
+    assert(existsSync(second) && readFileSync(sentinel, "utf8") === "preserve-parent", "cleanup leaves the sibling and caller parent unchanged");
+  } finally {
+    rmSync(first, { recursive: true, force: true });
+    rmSync(second, { recursive: true, force: true });
+    rmSync(sentinel, { force: true });
   }
 }
 
@@ -308,14 +455,15 @@ async function testCodexNativeSessionStart() {
       const installerLink = join(binDir, "wasurezu-codex-hook-install");
       symlinkSync(distHook, hookLink);
       symlinkSync(distInstaller, installerLink);
-      const hookStdout = execFileSync(process.execPath, [
+      const hookArgs = [
         hookLink,
         "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
         "--agent-id", "fixture-agent",
         "--project", "fixture-project",
         "--workspace", workspace,
         "--binding-source-ref", "fixture:bin-symlink",
-      ], {
+      ];
+      const hookStdout = execFileSync(process.execPath, hookArgs, {
         encoding: "utf8",
         input: rawInput,
         env: {
@@ -328,14 +476,7 @@ async function testCodexNativeSessionStart() {
       });
       const hookWire = JSON.parse(hookStdout);
       assert(hookWire.hookSpecificOutput?.hookEventName === "SessionStart", "native Codex hook npm-bin symlink executes the CLI");
-      const oversizedWire = JSON.parse(execFileSync(process.execPath, [
-        hookLink,
-        "--adapter-id", CODEX_SESSION_START_ADAPTER_ID,
-        "--agent-id", "fixture-agent",
-        "--project", "fixture-project",
-        "--workspace", workspace,
-        "--binding-source-ref", "fixture:bin-symlink",
-      ], {
+      const oversizedWire = JSON.parse(execFileSync(process.execPath, hookArgs, {
         encoding: "utf8",
         input: "x".repeat(CODEX_SESSION_START_INPUT_MAX_BYTES + 1),
       }));
@@ -390,6 +531,50 @@ function inheritedEnv(): Record<string, string> {
   );
 }
 
+interface McpStdioSessionOptions {
+  tmpHome: string;
+  dbPath: string;
+  agentId: string;
+  project: string;
+  sessionId: string;
+  clientName: string;
+}
+
+/**
+ * Start an MCP client against the server over stdio, isolated to a temporary HOME and
+ * SQLite file.
+ *
+ * The inherited PostgreSQL variables are removed rather than overridden: leaving either one
+ * set makes the server open the real database instead of the temporary one, so an isolation
+ * test would pass while reading production rows.
+ */
+function createMcpStdioSession(options: McpStdioSessionOptions): {
+  transport: StdioClientTransport;
+  client: Client;
+} {
+  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+  const env = inheritedEnv();
+  delete env.AGENT_MEMORY_DATABASE_URL;
+  delete env.DATABASE_URL;
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cli, "src/index.ts"],
+    cwd: process.cwd(),
+    stderr: "pipe",
+    env: {
+      ...env,
+      HOME: options.tmpHome,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: options.dbPath,
+      AGENT_MEMORY_AGENT_ID: options.agentId,
+      AGENT_MEMORY_PROJECT: options.project,
+      CLAUDE_SESSION_ID: options.sessionId,
+    },
+  });
+  const client = new Client({ name: options.clientName, version: "0.0.0" }, { capabilities: {} });
+  return { transport, client };
+}
+
 async function cleanup() {
   const files = ["decisions.json", "task-states.json", "knowledge.json", "conversation-events.json", "raw-events.json"];
   for (const f of files) {
@@ -400,7 +585,7 @@ async function cleanup() {
 
 async function testDecisions() {
   console.log("\n── Decision Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Log a decision
@@ -497,7 +682,7 @@ async function testDecisions() {
 
 async function testTaskStates() {
   console.log("\n── Task State Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Save task state. AM-023: a second save with the same task text now
@@ -547,7 +732,7 @@ async function testTaskStates() {
 
 async function testTaskStatesUpsert() {
   console.log("\n── Task State UPSERT Tests (AM-023) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const upsertAgent = "test-agent-upsert";
@@ -616,7 +801,7 @@ async function testTaskStatesUpsert() {
 
 async function testRecoverContext() {
   console.log("\n── Recover Context Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Get decisions and task states together (simulating recover_context)
@@ -647,7 +832,7 @@ async function testRecoverContext() {
 
 async function testSearchMemory() {
   console.log("\n── Search Memory Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Setup: log some decisions and tasks
@@ -744,7 +929,7 @@ async function testSearchMemory() {
 
 async function testRecoverContextBoot() {
   console.log("\n── Recover Context (Boot) Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Save an in_progress task
@@ -783,7 +968,7 @@ async function testRecoverContextBoot() {
 
 async function testJapaneseSearchJson() {
   console.log("\n── Japanese Search Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Log Japanese decision
@@ -842,7 +1027,7 @@ async function testJapaneseSearchJson() {
 async function testEmptyDbBoot() {
   console.log("\n── Empty DB Boot Test ──");
   // Simulate boot.ts with no data
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const tasks = await store.getTaskStates({
@@ -872,7 +1057,7 @@ async function testEmptyDbBoot() {
 
 async function testKnowledgeCRUD() {
   console.log("\n── Knowledge CRUD Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-crud-agent";
@@ -927,7 +1112,7 @@ async function testKnowledgeCRUD() {
 
 async function testKnowledgeSearch() {
   console.log("\n── Knowledge Search Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-crud-agent";
@@ -969,7 +1154,7 @@ async function testKnowledgeSearch() {
 
 async function testKnowledgeSupersede() {
   console.log("\n── Knowledge Supersede Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-supersede-agent";
@@ -1055,7 +1240,7 @@ async function testKnowledgeSupersede() {
  */
 async function testKnowledgeSupersedeRollback() {
   console.log("\n── Knowledge Supersede Rollback (#66 item 1) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const KA = "knowledge-supersede-rollback-agent";
@@ -1146,7 +1331,7 @@ async function testKnowledgeSupersedeRollback() {
 
 async function testErrorHandling() {
   console.log("\n── Error Handling Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   // Supersede non-existent decision
@@ -1182,7 +1367,7 @@ async function testErrorHandling() {
 
 async function testConversationEvents() {
   console.log("\n── Conversation Event Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const first = await store.saveConversationEvent({
@@ -1589,7 +1774,7 @@ function testCatchUpSourceADryRun() {
 
 async function testClaudeConversationIngest() {
   console.log("\n── Claude Conversation Ingest Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const root = mkdtempSync(join(tmpdir(), "am031-claude-ingest-"));
@@ -1682,7 +1867,7 @@ async function testClaudeConversationIngest() {
 
 async function testCodexConversationIngest() {
   console.log("\n── Codex Conversation Ingest Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
 
   const root = mkdtempSync(join(tmpdir(), "am031-codex-ingest-"));
@@ -1819,7 +2004,7 @@ async function testCodexConversationIngest() {
 
 async function testRestartPack() {
   console.log("\n── Restart Pack Tests (JsonStore) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-restart-pack-agent";
   const project = "hotel-app";
@@ -2207,26 +2392,18 @@ async function testCodexStartupBridge() {
   assert(printAfterLaunch.launch !== true, "Codex --print does not count as launched startup evidence");
 
   const qualityLogs: LogRecoveryQualityInput[] = [];
-  await logCodexStartupQuality(
-    {
-      async logRecoveryQuality(input: LogRecoveryQualityInput) {
-        qualityLogs.push(input);
-        return `log-${qualityLogs.length}`;
-      },
+  const qualityRecorder = {
+    async logRecoveryQuality(input: LogRecoveryQualityInput) {
+      qualityLogs.push(input);
+      return `log-${qualityLogs.length}`;
     },
-    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
-    { launchRequested: true }
-  );
-  await logCodexStartupQuality(
-    {
-      async logRecoveryQuality(input: LogRecoveryQualityInput) {
-        qualityLogs.push(input);
-        return `log-${qualityLogs.length}`;
-      },
-    },
-    "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry",
-    { launchRequested: true, launchedCodex: true }
-  );
+  };
+  const launchTelemetryPack = "SESSION RESTART PACK\nCURRENT OBJECTIVE\nProbe launch telemetry";
+  await logCodexStartupQuality(qualityRecorder, launchTelemetryPack, { launchRequested: true });
+  await logCodexStartupQuality(qualityRecorder, launchTelemetryPack, {
+    launchRequested: true,
+    launchedCodex: true,
+  });
   const requestedNotes = JSON.parse(qualityLogs[0].notes ?? "{}");
   const launchedNotes = JSON.parse(qualityLogs[1].notes ?? "{}");
   assert(requestedNotes.launch_requested === true, "Codex startup telemetry records launch request");
@@ -2568,7 +2745,7 @@ async function testCodexStartupBridge() {
 
 async function testClaudeResessionRunner() {
   console.log("\n── Claude Resession Runner Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-claude-runner-agent";
   const project = "claude-runner";
@@ -2776,7 +2953,7 @@ async function testClaudeResessionRunner() {
 
 async function testClaudeMarkerController() {
   console.log("\n── Claude Marker Controller Tests (AM-138 Cell B) ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-claude-marker-agent";
   const project = "/Users/yuji/Developer/dev-auditor";
@@ -3072,7 +3249,7 @@ function testSupervisorPreflight() {
 
 async function testRestartPrepare() {
   console.log("\n── Restart Prepare Tests ──");
-  const store = new JsonStore();
+  const store = new JsonStore(TEST_DIR);
   await store.initialize();
   const agentId = "test-restart-prepare-agent";
   const project = "restart-prepare";
@@ -3955,27 +4132,14 @@ async function testCoreMcpToolRegression() {
   const agentId = "mcp-core-agent-a";
   const otherAgentId = "mcp-core-agent-b";
   const project = "mcp-core-project";
-  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
-  const baseEnv = inheritedEnv();
-  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
-  delete baseEnv.DATABASE_URL;
-
-  const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [cli, "src/index.ts"],
-    cwd: process.cwd(),
-    stderr: "pipe",
-    env: {
-      ...baseEnv,
-      HOME: tmpHome,
-      AGENT_MEMORY_DB_TYPE: "sqlite",
-      AGENT_MEMORY_DB_PATH: dbPath,
-      AGENT_MEMORY_AGENT_ID: agentId,
-      AGENT_MEMORY_PROJECT: project,
-      CLAUDE_SESSION_ID: "mcp-core-regression-session",
-    },
+  const { transport, client } = createMcpStdioSession({
+    tmpHome,
+    dbPath,
+    agentId,
+    project,
+    sessionId: "mcp-core-regression-session",
+    clientName: "agent-memory-core-mcp-test",
   });
-  const client = new Client({ name: "agent-memory-core-mcp-test", version: "0.0.0" }, { capabilities: {} });
 
   const readLatestRecoveryQuality = async (): Promise<Record<string, unknown>> => {
     const verificationStore = new SqliteStore(dbPath);
@@ -4092,22 +4256,14 @@ async function testCoreMcpToolRegression() {
     assert(searchText.includes("KNOWLEDGE"), "search_memory returns knowledge section");
     assert(searchText.includes("Core MCP regression coverage"), "search_memory returns seeded task");
 
-    const otherTransport = new StdioClientTransport({
-      command: process.execPath,
-      args: [cli, "src/index.ts"],
-      cwd: process.cwd(),
-      stderr: "pipe",
-      env: {
-        ...baseEnv,
-        HOME: tmpHome,
-        AGENT_MEMORY_DB_TYPE: "sqlite",
-        AGENT_MEMORY_DB_PATH: dbPath,
-        AGENT_MEMORY_AGENT_ID: otherAgentId,
-        AGENT_MEMORY_PROJECT: project,
-        CLAUDE_SESSION_ID: "mcp-core-regression-other-session",
-      },
+    const { transport: otherTransport, client: otherClient } = createMcpStdioSession({
+      tmpHome,
+      dbPath,
+      agentId: otherAgentId,
+      project,
+      sessionId: "mcp-core-regression-other-session",
+      clientName: "agent-memory-core-mcp-other-agent-test",
     });
-    const otherClient = new Client({ name: "agent-memory-core-mcp-other-agent-test", version: "0.0.0" }, { capabilities: {} });
     try {
       await otherClient.connect(otherTransport);
       const isolated = await otherClient.callTool({
@@ -4208,27 +4364,14 @@ async function testRestartRecoverySmokeEvidence() {
   const dbPath = join(tmpHome, "memory.db");
   const agentId = "recovery-smoke-agent";
   const project = "recovery-smoke-project";
-  const cli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
-  const baseEnv = inheritedEnv();
-  delete baseEnv.AGENT_MEMORY_DATABASE_URL;
-  delete baseEnv.DATABASE_URL;
-
-  const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [cli, "src/index.ts"],
-    cwd: process.cwd(),
-    stderr: "pipe",
-    env: {
-      ...baseEnv,
-      HOME: tmpHome,
-      AGENT_MEMORY_DB_TYPE: "sqlite",
-      AGENT_MEMORY_DB_PATH: dbPath,
-      AGENT_MEMORY_AGENT_ID: agentId,
-      AGENT_MEMORY_PROJECT: project,
-      CLAUDE_SESSION_ID: "recovery-smoke-mcp-session",
-    },
+  const { transport, client } = createMcpStdioSession({
+    tmpHome,
+    dbPath,
+    agentId,
+    project,
+    sessionId: "recovery-smoke-mcp-session",
+    clientName: "agent-memory-recovery-smoke-test",
   });
-  const client = new Client({ name: "agent-memory-recovery-smoke-test", version: "0.0.0" }, { capabilities: {} });
 
   let codexRestartPackText = "";
   let codexSmokeOutput = "";
@@ -4885,6 +5028,7 @@ async function run() {
   console.log("agent-memory test suite\n");
   await cleanup();
 
+  await testJsonStoreDataIsolation();
   await testDecisions();
   await testTaskStates();
   await testTaskStatesUpsert();
@@ -4930,10 +5074,12 @@ async function run() {
   await cleanup();
 
   console.log(`\n── Results: ${passed} passed, ${failed} failed ──`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 }
 
 run().catch((err) => {
   console.error("Test suite error:", err);
-  process.exit(1);
+  process.exitCode = 1;
+}).finally(() => {
+  rmSync(TEST_DIR, { recursive: true, force: true });
 });

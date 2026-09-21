@@ -56,6 +56,7 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Area | Proposed source |
 | --- | --- |
 | Product and architecture | `docs/v2/KUSABI_V2_CANONICAL_SPEC.md` |
+| Architecture | `docs/v2/KUSABI_V2_ARCHITECTURE.md` |
 | Product category and positioning | `docs/v2/KUSABI_V2_PRODUCT_CATEGORY_AND_POSITIONING.md` |
 | Implementation readiness | `docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` |
 | Suite interop boundary | `docs/v2/KUSABI_V2_SUITE_INTEROP_BOUNDARY.md` |
@@ -67,13 +68,16 @@ Until confirmed, only the following V2 draft files should be treated as the prop
 | Recovery score contract | `docs/v2/KUSABI_V2_RECOVERY_SCORE_CONTRACT.md` |
 | Backend parity matrix | `docs/v2/KUSABI_V2_BACKEND_PARITY_MATRIX.md` |
 | Migration and compatibility | `docs/v2/KUSABI_V2_MIGRATION_BOUNDARY.md` |
+| Migration, compatibility and sunset plan | `docs/v2/KUSABI_V2_MIGRATION_PLAN.md` |
 | Repo audit and cleanup backlog | `docs/v2/KUSABI_V2_REPO_AUDIT.md` |
 | Source classification | `docs/v2/KUSABI_V2_SOURCE_CLASSIFICATION.md` |
 | V1 intent traceability | `docs/v2/KUSABI_V2_V1_INTENT_TRACEABILITY.md` |
 | Naming inventory | `docs/v2/KUSABI_V2_NAMING_SURFACE_INVENTORY.md` |
+| Legacy concept audit | `docs/v2/KUSABI_V2_LEGACY_CONCEPT_AUDIT.md` |
 | Fast-lane policy | `docs/v2/KUSABI_V2_FAST_LANE_POLICY.md` |
 | Feature preservation | `docs/v2/KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md` |
 | API and data boundary | `docs/v2/KUSABI_V2_API_AND_DATA_BOUNDARY.md` |
+| Domain model | `docs/v2/KUSABI_V2_DOMAIN_MODEL.md` |
 | Release and quality gates | `docs/v2/KUSABI_V2_RELEASE_CLAIM_LADDER.md` |
 | Security and retention | `docs/v2/KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` |
 | Adoption strategy | `docs/v2/KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` |

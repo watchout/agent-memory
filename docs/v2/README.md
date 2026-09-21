@@ -13,14 +13,18 @@ This directory starts the Kusabi V2 reset without changing runtime behavior. It 
 ## Draft source set
 
 - `KUSABI_V2_CANONICAL_SPEC.md` — proposed V2 product/design authority.
+- `KUSABI_V2_ARCHITECTURE.md` — plane ownership, core boundary, ports and adapters, the deterministic processing path, and failure/recovery rules.
 - `KUSABI_V2_MIGRATION_BOUNDARY.md` — rename, compatibility, repo-split, and implementation boundaries.
+- `KUSABI_V2_MIGRATION_PLAN.md` — the M0-M5 realization phases with per-backend evidence, consumer cohorts, and the sunset criteria that gate alias removal.
 - `KUSABI_V2_REPO_AUDIT.md` — current read-coverage notes, known design drift, and cleanup backlog.
 - `KUSABI_V2_SOURCE_CLASSIFICATION.md` — draft classification of V1/transitional sources before deletion or rewrite.
+- `KUSABI_V2_LEGACY_CONCEPT_AUDIT.md` — disposition of each legacy concept term, its canonical V2 mapping, and the sunset predicate that gates removal.
 - `KUSABI_V2_V1_INTENT_TRACEABILITY.md` — V1 design intent mapped to V2 decisions, evidence contracts, and pre-runtime gaps.
 - `KUSABI_V2_NAMING_SURFACE_INVENTORY.md` — first-pass naming inventory for `kusabi`, `wasurezu`, `agent-memory`, package, MCP, env, DB path, schema, and release surfaces.
 - `KUSABI_V2_FAST_LANE_POLICY.md` — Lane A / Lane B / Lane C split for continuing V2 docs work without waiting for full Shirube enforcement.
 - `KUSABI_V2_FEATURE_PRESERVATION_MATRIX.md` — non-regression matrix that preserves existing Wasurezu / agent-memory capabilities through the V2 reset.
 - `KUSABI_V2_API_AND_DATA_BOUNDARY.md` — V2 API/data model boundary that separates compatibility APIs, V2 concepts, future aliases, and evidence requirements.
+- `KUSABI_V2_DOMAIN_MODEL.md` — the ten canonical objects V2 is built from, with identity, provenance, lifecycle, mutation, redaction and ordering rules per object.
 - `KUSABI_V2_RELEASE_CLAIM_LADDER.md` — claim levels and quality gates from docs reset through major-tech/world-class evaluation readiness.
 - `KUSABI_V2_SECURITY_AND_RETENTION_BOUNDARY.md` — security, privacy, redaction, retention, deletion, export, and reveal boundaries.
 - `KUSABI_V2_IRRESISTIBLE_ADOPTION_STRATEGY.md` — strategy consolidation for UAMP, safety, compliance, scale, and adopt-vs-build evaluation.
