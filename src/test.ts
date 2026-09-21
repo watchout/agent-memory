@@ -4840,6 +4840,44 @@ function testContextWindowResolution() {
   // A model that cannot be determined at all is distinct from an unknown window.
   const noModel = judge(100000, null);
   assert(noModel.reason === "model_unresolved", "unresolvable model is reported distinctly");
+
+  // THR-11: invalid measurements must not become a healthy (or restartable) session.
+  const assertInvalidInput = (
+    result: ReturnType<typeof judgeContextHealth>,
+    reason: string,
+    label: string
+  ) => {
+    assert(result.band === "unknown" && result.resolution_status === "unresolved", `${label} is visibly unjudged`);
+    assert(result.reason === reason, `${label} names the rejected input`);
+    assert(result.used_ratio === null, `${label} does not calculate a ratio`);
+    assert(!result.restart_recommended && !result.restart_required, `${label} cannot request restart`);
+    assert(result.context_window_tokens === null && result.window_candidates.length === 0, `${label} does not publish an invalid window`);
+  };
+  for (const measured of [-1, NaN, Infinity, -Infinity]) {
+    assertInvalidInput(judge(measured, "claude-opus-5"), "measurement_invalid", `THR-11 ${measured}`);
+  }
+  const zero = judge(0, "claude-opus-5");
+  assert(zero.band === "ok" && zero.resolution_status === "resolved" && zero.used_ratio === 0, "THR-11 zero is a valid measurement");
+
+  // THR-12: neither an explicit marker nor a table entry can supply an invalid window.
+  for (const window of [0, -1, NaN, Infinity, -Infinity]) {
+    assertInvalidInput(judge(100000, "claude-opus-5", { markerWindowTokens: window }), "context_window_unresolved", `THR-12 marker ${window}`);
+    assertInvalidInput(judge(100000, "invalid-window", { candidates: { "invalid-window": [window] } }), "context_window_unresolved", `THR-12 table ${window}`);
+  }
+  assertInvalidInput(judge(100000, "mixed-window", { candidates: { "mixed-window": [200000, Infinity] } }), "context_window_unresolved", "THR-12 mixed candidates");
+  assertInvalidInput(judge(100000, "sparse-window", { candidates: { "sparse-window": new Array<number>(1) } }), "context_window_unresolved", "THR-12 sparse candidates");
+
+  // THR-13: validation preserves the existing priority and valid marker behavior.
+  const envWins = judge(190000, "claude-opus-5", {
+    markerWindowTokens: Infinity,
+    env: { AGENT_MEMORY_CLAUDE_CONTEXT_WINDOW_TOKENS: "200000" },
+  });
+  assert(envWins.window_source === "env" && envWins.band === "require", "THR-13 valid env outranks an invalid marker");
+  const markerWins = judge(190000, "claude-opus-5", {
+    markerWindowTokens: 200000,
+    env: { AGENT_MEMORY_CLAUDE_CONTEXT_WINDOW_TOKENS: "Infinity" },
+  });
+  assert(markerWins.window_source === "marker" && markerWins.band === "require", "THR-13 invalid env still falls back to a valid marker");
 }
 
 // Run all tests

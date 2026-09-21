@@ -26,7 +26,7 @@ rps_scope:
 cell:
   CELL-ID: S1A-CONTEXT-WINDOW-RESOLUTION
   cell_type: defect_repair
-  risk_class: R1
+  risk_class: R2
   goal: Give the context-threshold chain a working denominator so band stops being unknown, without touching storage or restarting anything.
   non_scope:
     - restart_events and any other schema change; that is OG-CTXR-01 and remains gated
@@ -41,10 +41,11 @@ cell:
     - A model id is taken from the structured model field of transcript records, never from a substring search, and a dated id normalizes to its catalog alias.
     - Every unresolved path names its reason - model_unresolved, context_window_unresolved, context_window_ambiguous, window_table_stale or measured_exceeds_window - and leaves restart_required false.
     - A measurement above the resolved window declines to judge rather than clamping the ratio to 1 and reporting require.
-    - Fixtures THR-01 through THR-10 run inside src/test.ts, which the CI core-test step already executes, so the checks are a gate rather than a file nothing runs.
+    - Fixtures THR-01 through THR-13 run inside src/test.ts, which the CI core-test step already executes, so the checks are a gate rather than a file nothing runs.
     - No file outside src/ and this cell's Shirube control artifacts is changed.
   allowed_paths:
-    - src/**
+    - src/context-window-resolution.ts
+    - src/test.ts
     - .shirube/control-handoffs/**
     - .shirube/control-handoffs/CH-S1A-CONTEXT-WINDOW-RESOLUTION.yaml
   forbidden_paths:
@@ -167,3 +168,44 @@ design_rule_notes:
       unchanged from the values already hardcoded in restart-prepare.ts, so introducing a
       config surface here would fork one ladder into two. Re-tuning is deferred until the band
       distribution can be observed, per the design note on issue 250.
+
+boundary_correction:
+  cell_id: CELL-KUSABI-250-CONTEXT-CONTRACT-FIX-20260921-001
+  actor: kusabi
+  active_function: implementation_executor
+  runner_policy: codex_native_fast_lane
+  audit_cycle: 2
+  resume_control_source_ref:
+    url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5759415406
+    sha256: 98c2fe48f9c5265d0572714516f487753e9265b048b66eac19e12723b8d5400c
+  isolation_merge_commit: e0ad7338b9c957f10504211b5555ba54ec96ef91
+  control_source_ref:
+    url: https://github.com/watchout/agent-memory/issues/307#issuecomment-5756993623
+    sha256: 603a16f746b3866b4d0c574e3ca35904f31b8ceec540b4cd2d8f79d9e41c1a79
+  contract_ref:
+    url: https://github.com/watchout/agent-memory/issues/250#issuecomment-5757164543
+    sha256: b332cab5e744ebf2759c29bcd79b9852b9cde612b1ca9077206f3501860c7214
+  gate_result_ref: https://github.com/watchout/agent-memory/pull/314#issuecomment-5756964109
+  acceptance_criteria:
+    - Measurement is finite and non-negative; zero is valid. Invalid measurements return measurement_invalid, unknown/unresolved, null ratio and no restart flags, retaining the raw diagnostic reading.
+    - Every selected window is finite and positive. An invalid explicit marker or table candidate yields context_window_unresolved with no resolved window or candidates.
+    - Valid env still outranks marker; invalid env values retain the existing skip behavior. Invalid table entries are rejected as a whole, never filtered into a singleton.
+  stop_conditions:
+    - Contradiction with the issue 250 design contract; return needs:arc through suite-lead.
+    - Any path or effect outside the current bounded handoff.
+  required_evidence:
+    - Main including the audited isolation merge is integrated before test execution.
+    - Core runs in a fresh explicit KUSABI_TEST_TMPDIR. Compare all shared-home listing/mtime metadata before/after; identify every changed entry's non-test writer. Unattributed changes remain unmet.
+    - Updated PR head and boundary regressions in src/test.ts.
+    - Existing core suite and typecheck results, plus all three required CI jobs at the updated head.
+    - PR and issue 250 return with exact head, CI URLs and one-line finding-to-fix mapping.
+  next_action:
+    owner_agent: suite-lead
+    active_function: orchestration_controller
+    action: Restore needs:audit and route the completed correction to devauditor for cycle 2.
+    handoff_method: Existing PR and issue 250 comments.
+    input_refs: [current control_source_ref, contract_ref, gate_result_ref, updated PR head]
+    scope: Independent review of the corrected pure module and tests; no maker approval or merge.
+    deliverable: Independent cycle-2 gate_result.
+    completion_evidence: Exact-head audit result after the required CI jobs pass.
+    blocking: false

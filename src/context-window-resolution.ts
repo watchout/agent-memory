@@ -13,6 +13,7 @@ export type ResolutionStatus = "resolved" | "unresolved";
 export type WindowSource = "env" | "marker" | "table";
 
 export type UnresolvedReason =
+  | "measurement_invalid"
   | "model_unresolved"
   | "context_window_unresolved"
   | "context_window_ambiguous"
@@ -67,12 +68,13 @@ export interface ContextHealthJudgment {
 }
 
 export interface JudgeContextHealthInput {
+  /** Finite and non-negative; invalid readings are unresolved, never healthy. */
   measuredContextTokens: number;
   /** Model id as recorded by the host, dated or aliased. */
   model?: string | null;
   /** Host label used for the env override key, e.g. "claude". */
   host?: string | null;
-  /** Window supplied by a restart marker, if any. Ranks below an env override. */
+  /** Finite, positive window supplied by a marker. Ranks below a valid env override. */
   markerWindowTokens?: number | null;
   /** Environment to read overrides from. Defaults to process.env. */
   env?: NodeJS.ProcessEnv;
@@ -136,9 +138,13 @@ function envWindowTokens(env: NodeJS.ProcessEnv, host: string | null): number | 
     const raw = env[key];
     if (raw === undefined) continue;
     const value = Number(raw);
-    if (Number.isFinite(value) && value > 0) return value;
+    if (isPositiveFinite(value)) return value;
   }
   return null;
+}
+
+function isPositiveFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 export function bandFromRatio(ratio: number): ContextBand {
@@ -172,11 +178,20 @@ export function judgeContextHealth(input: JudgeContextHealthInput): ContextHealt
     restart_required: false,
   } as const;
 
+  const invalidInput = (reason: UnresolvedReason): ContextHealthJudgment => ({
+    ...base,
+    context_window_tokens: null,
+    window_source: null,
+    window_candidates: [],
+    resolution_status: "unresolved",
+    reason,
+  });
+  if (!Number.isFinite(input.measuredContextTokens) || input.measuredContextTokens < 0) {
+    return invalidInput("measurement_invalid");
+  }
+
   const envWindow = envWindowTokens(env, input.host ?? null);
-  const markerWindow =
-    typeof input.markerWindowTokens === "number" && input.markerWindowTokens > 0
-      ? input.markerWindowTokens
-      : null;
+  const markerWindow = input.markerWindowTokens ?? null;
 
   let window: number | null = null;
   let source: WindowSource | null = null;
@@ -187,6 +202,8 @@ export function judgeContextHealth(input: JudgeContextHealthInput): ContextHealt
     source = "env";
     candidates = [envWindow];
   } else if (markerWindow !== null) {
+    // An explicit but invalid marker is not permission to guess from the model table.
+    if (!isPositiveFinite(markerWindow)) return invalidInput("context_window_unresolved");
     window = markerWindow;
     source = "marker";
     candidates = [markerWindow];
@@ -194,6 +211,10 @@ export function judgeContextHealth(input: JudgeContextHealthInput): ContextHealt
     return { ...base, context_window_tokens: null, window_source: null, window_candidates: [], resolution_status: "unresolved", reason: "model_unresolved" };
   } else {
     candidates = table[alias] ?? [];
+    // Reject the whole entry; filtering bad values could manufacture a singleton.
+    for (const candidate of candidates) {
+      if (!isPositiveFinite(candidate)) return invalidInput("context_window_unresolved");
+    }
     if (candidates.length === 1) {
       window = candidates[0];
       source = "table";
