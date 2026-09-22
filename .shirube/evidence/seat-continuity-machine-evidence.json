@@ -1,0 +1,487 @@
+{
+  "schema_version": "shirube-machine-evidence/v1",
+  "evidence_id": "SEAT-CONTINUITY-WAS-MACHINE-EVIDENCE-20260913-001",
+  "scope": "Current SQLite initialization correction: locally observed final source bytes and mandatory tests. Historical evidence is retained separately; current Linux CI and independent source acceptance are pending.",
+  "tested_source_head": null,
+  "parent_source_head": "e919c6112185a2fe6637ac5d585fb2e65f567f8e",
+  "execution_subject": "Final precommit worktree file bytes listed below; historical tests are not relabeled as a committed-head execution.",
+  "current_ci_run_ref": null,
+  "current_independent_source_gate": null,
+  "sqlite_initialization_correction_scope_ref": {
+    "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5652295616",
+    "sha256": "18ce4332cb5a80e4e75b87dfddc693c51fc9a7b876eb39a10683a9d4fa1281cd"
+  },
+  "task_file_sha256_at_test": {
+    "src/stores/sqlite-store.ts": "8c89435ac70bd0a9f50cb7b02401cec889c98b2289bdc34ee26fa297493ebe8a",
+    "src/test-native-context-delivery.ts": "b0f83a33d004e02983d8e76ff1b2376463b591e9c4c2f107c8a4bc14622280cf",
+    "docs/design/core/SSOT-3_API_CONTRACT.md": "f045a297fdccbc49c44c3925af80fa841ae3aed92191a3f39663da8c0b99c097",
+    "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": "2cdcc90d7a7944bc4a8e0693fae2538b63448b2f11e61c979e7805ae3244ad0f"
+  },
+  "built_file_sha256_at_test": {
+    "dist/stores/sqlite-store.js": "84e5cfe3c340b54c98df9b096a55a7cf514e4c56326749cbaff52d10d922e4bf",
+    "dist/native-context-delivery.js": "173475580c7475a82e956077100bc9f43bebe8ed2ce8a7b7a801f86935b63dba",
+    "dist/codex-session-start.js": "134a5da77e07aef0d82252cccc2949600ae0204a2fba13b371b855212ae0ea50",
+    "dist/claude-session-start.js": "3bd700de1a4b0fbf26e3a1a60b2fba95878f1a176c96a2309868a2bd70c21f8e",
+    "dist/index.js": "6b44c1cfdc263a75ed6d845da210e69f96b30f7a0c4cc99e86acb320cab8ec37"
+  },
+  "observed_validation_evidence": [
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/build.log",
+      "log_sha256": "1962def933f0c24054ea9bd7313ec185da376fc14ce9d9a3b57b33d89a5bc802"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log_sha256": "f15e272db1df9395716cc6c9451d6ec887a90f7264f91b639e60886b3df17b56"
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-codex-session-start.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 10.269,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-codex-session-start.log",
+      "log_sha256": "450c784e983962278221378f2b3f858530ea4064abe1ccb7a513d176a2804d7e",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-claude-session-start.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 2.226,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-claude-session-start.log",
+      "log_sha256": "6bfc89dda3fed95f621358bde79d3e1a7196db3de77616a184b42c58fce4d529",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-kusabi-runtime-event-emitter.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 3.267,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-kusabi-runtime-event-emitter.log",
+      "log_sha256": "c611397840c2bb3fcbd197d921540f65150c7820f2afaf128c02fb6a0104ca06",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-native-context-delivery.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 9.384,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-native-context-delivery.log",
+      "log_sha256": "2321d97d4994698f4a298388f0a84ae23f8268e5c7dd46bebcc3aceee9bf9e3f",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test-sqlite.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 1.357,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-sqlite.log",
+      "log_sha256": "2b4ede07cd760a7771852c8f03ff3b5d858efbcd8583fe2f17d390a0695b40b6",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    },
+    {
+      "command": [
+        "npx",
+        "--no-install",
+        "tsx",
+        "src/test.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 8.138,
+      "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test.log",
+      "log_sha256": "04bf50329b3a3e4464500ea1ee4e951ac7883b9cd9b0a34b771c63340a79273c",
+      "private_home": true,
+      "ambient_postgres_removed": true
+    }
+  ],
+  "assertions": {
+    "native": 148,
+    "initialization_assertions_in_native": 23,
+    "kernel_assertions_in_native": 32,
+    "core": 1591,
+    "sqlite": 204,
+    "runtime_event_store_assertions_in_sqlite": 20
+  },
+  "executed_receipts": [
+    {
+      "audit_item_id": "AUDIT-008",
+      "result": "PASS",
+      "rationale": "npm run build exited 0 on the exact final precommit source bytes identified in task_file_sha256_at_test; Linux CI remains pending.",
+      "evidence_refs": [
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/maker-source-receipt.json",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/build.log"
+      ],
+      "evidence_origin": "maker actual command completion and compiled file hashes"
+    },
+    {
+      "audit_item_id": "AUDIT-009",
+      "result": "PASS",
+      "rationale": "git diff --check exited 0 on the bounded source/docs/test correction.",
+      "evidence_refs": [
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/diff-check.log"
+      ],
+      "evidence_origin": "maker actual command completion"
+    },
+    {
+      "audit_item_id": "AUDIT-010",
+      "result": "PASS",
+      "rationale": "Six actual runnable suites passed: native148 (initialization23, real kernel32), SQLite204 including20 exported event-store assertions, core1591; Codex caller also executed native148, Claude and emitter passed. Current compiled MCP concurrent initialization/registered lookup and current-row foreign-lock regression passed. Linux CI remains pending.",
+      "evidence_refs": [
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-codex-session-start.log",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-claude-session-start.log",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-kusabi-runtime-event-emitter.log",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-native-context-delivery.log",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test-sqlite.log",
+        "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-noop-initialize/test.log"
+      ],
+      "evidence_origin": "maker isolated executions with verified per-log SHA256; no provider APIs or live effects"
+    }
+  ],
+  "historical_evidence_not_current_acceptance": {
+    "schema_version": "shirube-machine-evidence/v1",
+    "evidence_id": "SEAT-CONTINUITY-WAS-MACHINE-EVIDENCE-20260913-001",
+    "scope": "Current kernel collector source differs from historical bc1/4cf. Historical evidence remains below, not current acceptance. Actual current Linux CI and independent source verdict are pending.",
+    "tested_source_head": "7d7addf139788547f7a15cf8a77ffe555fb3df5a",
+    "execution_subject": "Mac tests ran on the precommit worktree whose exact four file bytes equal this committed source. No test is relabeled as a committed-head execution.",
+    "current_ci_run_ref": null,
+    "current_independent_source_gate": null,
+    "native_kernel_correction_scope_ref": {
+      "url": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651703372",
+      "sha256": "c4dfd0fb1ea039b7ead6e9aec7d1f417b644b8519ad6ec5c61942172afe7a0a6"
+    },
+    "task_file_sha256_at_test": {
+      "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": "e8bfff2a770b050b54175a6b85ffb800c50c66979985f95bd157cfb3188fff54",
+      "src/native-context-delivery.ts": "4ba4e480415161e702b4fd73964b4fc3bb53b42ff2555768a021d613eeebd385",
+      "src/test-codex-session-start.ts": "5b82c28de6fcaa8c7750a46f404ce52b0dfe9c4b0d4ccc9c467d8a4de37fefea",
+      "src/test-native-context-delivery.ts": "d3aa7df95c2741ff09c0ca3cdb9c949a013f0c79967bed7f3df5be6142999dba"
+    },
+    "observed_validation_evidence": [
+      {
+        "command": "/opt/homebrew/bin/node --import tsx src/test-codex-session-start.ts",
+        "exit_code": 0,
+        "log_path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-native-kernel-correction/mac-caller-first.log",
+        "log_sha256": "7c6b32f2a6aef4ab331614271bde61350543442c5153137c4ae8b4ee061a094f",
+        "native_assertions": 108,
+        "kernel_boundary_assertions": 32,
+        "platform": "darwin",
+        "node": "v25.6.1",
+        "isolated_store": true,
+        "real_os_pipe": true,
+        "registered_mcp_lookup": true
+      }
+    ],
+    "assertions": {
+      "maker_mac_native": 108,
+      "included_actual_kernel_boundaries": 32
+    },
+    "executed_receipts": [
+      {
+        "audit_item_id": "AUDIT-008",
+        "result": "PASS",
+        "rationale": "npm run build exited0 on the exact product bytes subsequently committed as 7d7addf139788547f7a15cf8a77ffe555fb3df5a. Actual Linux CI is pending.",
+        "evidence_refs": [
+          "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-native-kernel-correction/maker-source-receipt.json"
+        ],
+        "evidence_origin": "maker observed command completion; exact four source hashes and compiled module hash"
+      },
+      {
+        "audit_item_id": "AUDIT-009",
+        "result": "PASS",
+        "rationale": "git diff --check exited0 on the four-file correction before source commit.",
+        "evidence_refs": [
+          "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-native-kernel-correction/maker-source-receipt.json"
+        ],
+        "evidence_origin": "maker command completion"
+      },
+      {
+        "audit_item_id": "AUDIT-010",
+        "result": "PASS",
+        "rationale": "Existing Codex SessionStart caller passed and executed the real native suite:108 checks including32 actual kernel process/pipe assertions on Darwin. Linux compatibility remains pending.",
+        "evidence_refs": [
+          "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-native-kernel-correction/mac-caller-first.log"
+        ],
+        "evidence_origin": "maker actual isolated process/pipe/store/registered-MCP log SHA 7c6b32f2a6aef4ab331614271bde61350543442c5153137c4ae8b4ee061a094f"
+      }
+    ],
+    "historical_evidence_not_current_acceptance": {
+      "schema_version": "shirube-machine-evidence/v1",
+      "evidence_id": "SEAT-CONTINUITY-WAS-MACHINE-EVIDENCE-20260913-001",
+      "scope": "Observed tests/build and exact product-byte linkage; current PR metadata head is verified separately by GitHub CI and structured independent audit. Historical tests are never relabeled as executed on a later metadata-only commit.",
+      "tested_source_head": "bc1dc0731ac38134dc83da8e4580f3c20e5e4f2d",
+      "upstream_integrated_product_equivalent_head": "9c3c295234d33ba409c0d565631e998fdc329dfa",
+      "current_ci_run_ref": "https://github.com/watchout/agent-memory/actions/runs/34737957748",
+      "published_source_evidence_ref": "https://github.com/watchout/agent-memory/pull/321#issuecomment-5651160644",
+      "published_source_evidence_sha256": "1e30ee6ead14b2e9a777dc45875a6d0d5f8317df6f60c04c9dc8ee22224a2074",
+      "independent_source_gate_sha256": "0e75671b9be65ba1211181933da0312af994db215cb833640c501b462964292c",
+      "independent_upstream_linkage_sha256": "32f4d5e55e76ad5e08605ba7c81a1adaeb985331972c3116a2986bd23ffcacd3",
+      "task_file_sha256_at_test": {
+        ".shirube/control-handoffs/CH-SEAT-CONTINUITY-20260913-001.json": "d63f576167326fe97d332f0e9c7a8ff2f2bdaa6759740f7b12db962cdffff197",
+        ".shirube/execution-contexts/seat-continuity-20260913.json": "7a50088e087d22fc3d587838152fc5620348188a55559c19c0a844bbfd2f660d",
+        "docs/SSOT.md": "f1abf1ae18bf11f04961855c5a9ebbf8fb2a4a242cb82c476a587c57c253b38c",
+        "docs/design/core/SSOT-3_API_CONTRACT.md": "09ae3229cf2139e8ab3a971ce4bf9aa059c0fab571ee5194ffc72c718edfcc71",
+        "docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md": "8b1208e8a409ee3912b67420b1a67ebc030203a6ef424732ecbadd09d08d1fb7",
+        "docs/design/schemas/claude-session-start-evidence-v1.schema.json": "5ab3c359faa2c57a495e327c0518b25f225cca2c548ee5c8149150e8e45acab5",
+        "docs/design/schemas/codex-session-start-evidence-v1.schema.json": "7de87bc826ce57808b457255ef3e1ed5806c8dd3775b67247ba24f839a9f4d55",
+        "docs/design/schemas/kusabi-runtime-event-v1.schema.json": "90628060bb3c472fde23ec64b9937cc00bcb79b77d688b05ce02cb156474fa26",
+        "src/claude-session-start.ts": "476381da1ec89680903bca48c50946400e97d218985e1b3baa4aab7ba712c5c0",
+        "src/codex-session-start.ts": "0eb9a65e543ed33c47c8a87ae67eeb9211bbb0896ffeedc06cc7dbb064547cd3",
+        "src/index.ts": "73dd582b23a23e253a46bdaf29334f81866c7124bb35eec39f81c8752d05c832",
+        "src/kusabi-runtime-event-emitter.ts": "c367a7b85272b42d7565ed5fd484fa8200bd4421ffd67fa64aa6a0a25cd91c07",
+        "src/native-context-delivery.ts": "1f52c91504677c7f63c1f7499fda7f2f60a5999dd2b70802e0bbe8a91588b378",
+        "src/stores/sqlite-store.ts": "d31eeafdd230cde718ce4a3e61bd797a31f6d5794a9cb580daafd9e96f127ef9",
+        "src/test-claude-session-start.ts": "76c8c7477ba6c7eea57b2117396bb5f2dbf55c811e632c75c6b2c740690a03ab",
+        "src/test-kusabi-runtime-event-emitter.ts": "84c304953ee00c78dd2f86b713d64d7fbd035f1362c2c5f8d2908110e9cb0985",
+        "src/test-native-context-delivery.ts": "95dd03d54fc5af0a5d38baf7a04a032fab91916cb1518bbda6f4dbfa22888fab"
+      },
+      "observed_validation_evidence": [
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-independent-bc1-build.log",
+          "sha256": "eaf1ed06a46ff022fdab36c34b1e8c520bd06f8c1365d89a7c901069de5cf01c",
+          "classification": "independent"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-independent-bc1-shorttmp-test.log",
+          "sha256": "31587dc4db3ab3619084e896b0d0e3e81d00ef3cf4fec086b867d5909d63e1d0",
+          "classification": "independent"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-independent-bc1-shorttmp-test-native-context-delivery.log",
+          "sha256": "03cd2eead13142544869f8eac6abacdb621eed5073c52223d221324bd5f84e81",
+          "classification": "independent"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test.log",
+          "sha256": "4815b2d79281c6526077afce95999478117e376cb9caa14e9def49c873e7cc6f",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-sqlite.log",
+          "sha256": "9a147c001a6bc7ccdf3e1940dee2feed3294350a929e6d1204373e6c6dcaaadf",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-codex-session-start.log",
+          "sha256": "2975e88419114dd6f366d0137bf70ded6f79103d2e968ca280cd3f39c8c94fe6",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-claude-session-start.log",
+          "sha256": "1212ca9c0e5e79e359d54ff75c2c0b61d95fc941d4f4f99ad6bc842b21796387",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-kusabi-runtime-event-emitter.log",
+          "sha256": "905ab7907878463e97de698f1b0a8b8d8de65aa61ec94719b79180bddc90c835",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-native-context-delivery.log",
+          "sha256": "c34999ff099369b34fe212bd43f301daa1d71971b64b19db9c511f733961dd34",
+          "classification": "maker log independently hash-verified"
+        },
+        {
+          "path": "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-build.log",
+          "sha256": "1962def933f0c24054ea9bd7313ec185da376fc14ce9d9a3b57b33d89a5bc802",
+          "classification": "maker log independently hash-verified"
+        }
+      ],
+      "assertions": {
+        "independent_core": 1591,
+        "independent_native": 76,
+        "independent_forced_two_process_CAS": 16,
+        "maker_sqlite": 204,
+        "included_event_store_contract": 20
+      },
+      "executed_receipts": [
+        {
+          "audit_item_id": "AUDIT-008",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-independent-bc1-build.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Independent archive npm run build exited 0; generated artifacts are from exact bc1 source. Maker build log/hash also verified.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-009",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-source-independent-gate-bc1dc073.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Independent git diff --check upstream3399..9c3c295 exited0; current worktree remains clean.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-010",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-codex-session-start.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Maker local Node --import tsx src/test-codex-session-start.ts exited 0; hashed log verified. This invokes the installed local tsx loader equivalent to required npx tsx without package resolution/network.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-011",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-claude-session-start.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Maker local Node --import tsx src/test-claude-session-start.ts exited 0; hashed log verified; same loader equivalence as AUDIT-010.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-012",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-kusabi-runtime-event-emitter.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Maker local Node --import tsx src/test-kusabi-runtime-event-emitter.ts exited 0; hashed log verified; same loader equivalence as AUDIT-010.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-013",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-independent-bc1-shorttmp-test-native-context-delivery.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Independent local Node --import tsx src/test-native-context-delivery.ts exited 0 with 76 actual assertions, compiled native adapters and registered MCP tool over real OS pipes.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-014",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-operation-test-sqlite.log",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Maker runnable test-sqlite.ts passed 204 assertions including 20 invoked runtime-event-store contract assertions; log verified. The earlier export-only import is explicitly excluded.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-015",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-source-independent-gate-bc1dc073.json",
+            "https://github.com/watchout/agent-memory/pull/321",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Fresh gh pr view independently reports PR321 head9c3c295234d33ba409c0d565631e998fdc329dfa OPEN draft; local HEAD/tree match.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-016",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-source-independent-gate-bc1dc073.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Current PR diff has17 admitted task paths; merge from acceptedbc1 adds seven exact upstream governance paths. All24 source path comparisons and five compiled artifact hashes independently match their declared origin.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-017",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-source-independent-gate-bc1dc073.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-implementation-evidence.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Exact commands and sanitized isolation environment are present in this source gate, maker evidence and independent execution records.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-018",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-source-independent-gate-bc1dc073.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-implementation-evidence.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "Prior accepted bc1 execution evidence is reused through the current immutable byte-identity link; tests were not repeated. Current command exit codes, counted assertions and log hashes are present; initial isolated harness failure and correction are retained, not counted as a passing run.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        },
+        {
+          "audit_item_id": "AUDIT-019",
+          "evidence_refs": [
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-structured-audit-bc1dc073.json",
+            "/Users/yuji/Developer/codex/control-artifacts/seat-continuity/20260913/was-upstream-independent-gate-9c3c295.json"
+          ],
+          "result": "PASS",
+          "rationale": "All21 unchanged required checklist prompts are answered. Current control-input digest remains d63f5761; the existing unchanged validator is rerun on the current exact-head report.",
+          "evidence_origin": "Published independent audit and underlying hash-verified local logs; these are completed observations, not required-command plans."
+        }
+      ],
+      "independent_diff_check": {
+        "command": "git diff --check",
+        "result": "PASS",
+        "exit_code": 0,
+        "source_head": "bc1dc0731ac38134dc83da8e4580f3c20e5e4f2d"
+      },
+      "effects": {
+        "production_mutations": 0,
+        "provider_API_calls": 0,
+        "merge": 0,
+        "deployment": 0
+      },
+      "limitations": [
+        "Crash-held lock is fail-closed and requires externally established ownership/death before recovery; no unattended crash-availability claim.",
+        "Native positive fixture injects classification of a harmless independently observed Node parent. Real OS pipe delivery is proven; installed native model use is not.",
+        "PR remains draft/unmerged; owner exact-head policy remains pending."
+      ]
+    },
+    "linux_fifo_os_evidence": "PENDING: an actual anonymous FIFO writer|reader fixture is now selected by the existing Linux caller; await exact current CI, do not infer from prior socketpair proof.",
+    "observed_linux_unix_boundary": {
+      "head": "7594c98f63c047bf15da0d69158bbb604968a0ee",
+      "run_ref": "https://github.com/watchout/agent-memory/actions/runs/34743627020",
+      "node_versions": [
+        "18.20.8",
+        "20.20.2",
+        "22.23.2"
+      ],
+      "native_assertions_per_version": 108,
+      "kernel_assertions_per_version": 32,
+      "log_sha256": "d4ec4223f11a7b10929b59c88fd7f13150d0b7f93746a18c629ef196faa8f3c6",
+      "kernel_pipe_kind": "unix",
+      "source_product_bytes_unchanged_by_followup_test": true
+    }
+  },
+  "evidence_limits": [
+    "Foreign-lock fixtures prove current initialization/read avoids writer lock and fresh/actual migration/write still reject it; this is not a measurement of two simultaneous fresh creators.",
+    "Installed sql.js FTS capability is not claimed to include FTS5; code isolates probing from durable schema and sentinel preservation is asserted.",
+    "Current Linux CI and independent acceptance are pending."
+  ],
+  "live_effects": 0
+}

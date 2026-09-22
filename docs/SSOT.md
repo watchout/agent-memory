@@ -543,3 +543,7 @@ v0.2.0の設計判断を裏付ける主要研究：
 |------|-----------|------|
 | 2026-03-29 | v0.1.0 | 初版実装。5ツール + boot/recoveryモード |
 | 2026-03-30 | v0.2.0 | CLAUDE.md依存排除。search_memory追加。3層防御モデル。研究に基づく再設計 |
+
+## 2026-09-13 seat continuity native delivery amendment
+
+The bounded native first-input/receipt contract in `design/core/SSOT-7_RUNTIME_AGENT_BINDING.md` and the scoped read-only `native_context_delivery` API in `design/core/SSOT-3_API_CONTRACT.md` extend existing SessionStart and runtime-event JSON evidence. They do not create a registry, schema migration, queue dependency or live activation authority.
