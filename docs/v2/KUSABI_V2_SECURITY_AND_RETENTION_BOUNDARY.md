@@ -5,6 +5,11 @@ Scope: security, privacy, redaction, retention, deletion, export, and reveal bou
 Base dependency: PR #182, PR #183, and PR #187
 Runtime impact: none
 
+2026-09-20 design amendment: [typed protected memory](../design/typed-protected-memory-v1.md)
+and [shared AUN/Kusabi contract](https://github.com/watchout/agent-comms-mcp/blob/76fa1267ab398b940dc515a5beb2a7c9638c41ea/docs/design/typed-protected-data-v1.md). The user directed this redesign;
+implementation, independent review and activation remain unproven. New-mode rules
+below supplement current redaction compatibility rather than claiming a live change.
+
 ## 1. Purpose
 
 This document defines the security and retention boundary needed for Kusabi V2 to
@@ -48,9 +53,9 @@ Kusabi guarantees no secret leakage or replaces a dedicated DLP/secret manager.
 | Data class | Examples | Default treatment |
 | --- | --- | --- |
 | Secrets and credentials | API keys, bearer tokens, JWTs, database URLs, private keys, webhooks | Redact before persistence or output where applicable; never publish. |
-| Transcript excerpts | user/assistant/tool text, imported JSONL spans | Data-only, redacted, source-bearing; not trusted instruction. |
+| Transcript excerpts | user/assistant/tool text, imported JSONL spans | Data-only and source-bearing. Exclude prohibited content and secrets; new-mode personal values become typed protected references. |
 | Local file paths | home paths, workspace paths, source refs | Normalize where possible; avoid unnecessary exposure. |
-| Personal data | email, phone, names in transcripts | Redact or minimize where applicable. |
+| Personal data | names, addresses, phone numbers, email, uncertain candidates | In the proposed protected mode, preserve typed references and encrypt eligible original values in a restricted vault; reveal only through server-side authorization. Legacy redaction remains the current runtime until implementation. |
 | Private reasoning | hidden reasoning, base/developer instructions | Do not persist as user-visible memory. |
 | Operational metadata | host, runtime, session, queue refs, pack refs | Store as provenance; do not treat as authorization. |
 | Approved memory | explicitly promoted memories | Requires promotion evidence; still not executable instruction by default. |
@@ -91,13 +96,25 @@ stored source text -> quoted data-only context with provenance, redaction, and
 missing-evidence markers
 ```
 
-## 5. Redaction boundary
+## 5. Protection and redaction boundary
+
+For the new mode, personal-data protection and secret exclusion are separate.
+Do not destroy eligible personal values with irreversible redaction before
+encrypting them. Retain type, classification status and evidence-backed entity
+links; unknown values may remain protected. A reference is neither a key nor
+authority. Default search/recovery output remains tokenized; authorized clients
+may resolve only permitted values. AUN must protect its own first persistence,
+including queue/outbox/eventlog, rather than waiting for Kusabi ingestion.
+
+The table below retains required output-surface coverage. For new-mode personal
+data, read its redaction requirement as typed protection; known-secret removal
+remains mandatory. Plaintext must not survive in alternate copies or diagnostics.
 
 Redaction must be treated as layered defense, not an absolute guarantee.
 
 | Surface | Required V2 posture before L3+ claim |
 | --- | --- |
-| Ingest adapters | Redact known patterns before persistence and hashing where applicable. |
+| Ingest adapters | Exclude known secrets; new mode encrypts eligible personal values before persistence and emits typed references. No plaintext content hash in ordinary logs/indexes. |
 | `restart_pack` text | Redact before output. |
 | `recovery-pack/v1` JSON | Redact item summaries and include redaction metadata. |
 | `host-invocation-context/v1` JSON | Embed redacted recovery pack and keep context data-only. |
@@ -201,6 +218,13 @@ Before automatic deletion or TTL enforcement is implemented, require:
 
 ## 9. Reveal and export boundary
 
+The typed-protection design defines a bounded reveal service. Every request uses
+trusted actor binding, scope, registered purpose, destination and current source
+permission. Existing permission may authorize ordinary reads without repeated
+human approval. Model claims, token possession, queue delivery and review PASS
+do not authorize reveal. Bulk export and new external destinations retain their
+existing policy boundaries. This paragraph defines a target, not a shipped API.
+
 Memory reveal/export is high risk. V2 should not treat export as a trivial
 read operation.
 
@@ -280,7 +304,8 @@ A major technology-company reviewer should be able to find clear answers to:
 
 This boundary is acceptable when:
 
-- redaction is described as best-effort and probe-backed, not guaranteed DLP;
+- secret redaction remains best-effort and probe-backed, not guaranteed DLP;
+- eligible personal data has typed reversible protection, separate classification and authorization, and proven recovery/denial before activation;
 - data-only handling is explicit;
 - retention/deletion/supersession/export are separated;
 - broad ingest and reveal are treated as high-risk;

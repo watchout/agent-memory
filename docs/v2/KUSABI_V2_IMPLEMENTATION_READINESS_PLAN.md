@@ -56,6 +56,17 @@ The broad V2 documents are future guardrails. They are not implementation
 blockers for Kusabi Core MVP unless a proposed change directly touches that
 boundary.
 
+## 2026-09-20 execution order amendment
+
+[Typed protected memory](../design/typed-protected-memory-v1.md) replaces the
+personal-data target of irreversible masking. Current AUN/Shirube repair and
+acceptance stay first. Implement the shared protection contract at AUN's first
+persistence and all downstream copies, then adapt Kusabi ingestion/recovery.
+Do not add the new feature, Jev deployment or all V2 work as prerequisites to
+the current PR963/PR626 repair. Do not count old redaction-only fixes as complete
+delivery of the new feature. Independent tests, real key/host bindings and
+migration evidence remain required for the specific runtime activation.
+
 ## 3. Readiness principle
 
 Implementation may begin only when the relevant work package has:
