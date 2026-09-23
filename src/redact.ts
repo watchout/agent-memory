@@ -45,6 +45,10 @@ const PHONE_CANDIDATE_RE =
 const PHONE_EXTENSION_RE = /\s*(?:x|ext\.?)\s*\d{1,5}$/i;
 const PHONE_LABEL_RE = /(?:tel|telephone|phone|mobile|fax|電話番号|電話|携帯)[\s:=.-]*$/i;
 const PHONE_LABEL_LOOKBACK = 24;
+// #296: UUIDs are opaque identifiers, even when their hex groups look numeric.
+// Exempt only the complete 8-4-4-4-12 token from phone classification; all other
+// redaction rules still run first, and neighboring phone text remains eligible.
+const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
 function isTelephoneNumber(candidate: string, preceding: string): boolean {
   const core = candidate.replace(PHONE_EXTENSION_RE, "");
@@ -64,14 +68,21 @@ function isTelephoneNumber(candidate: string, preceding: string): boolean {
 
 function redactPhoneNumbers(input: string): { text: string; count: number } {
   let count = 0;
-  const text = input.replace(PHONE_CANDIDATE_RE, (match: string, ...rest: unknown[]) => {
-    const offset = rest[rest.length - 2] as number;
-    const full = rest[rest.length - 1] as string;
-    const preceding = full.slice(Math.max(0, offset - PHONE_LABEL_LOOKBACK), offset);
-    if (!isTelephoneNumber(match, preceding)) return match;
-    count++;
-    return "[REDACTED_PHONE]";
-  });
+  const redactSegment = (start: number, end: number): string =>
+    input.slice(start, end).replace(PHONE_CANDIDATE_RE, (match: string, offset: number) => {
+      const absoluteOffset = start + offset;
+      const preceding = input.slice(Math.max(0, absoluteOffset - PHONE_LABEL_LOOKBACK), absoluteOffset);
+      if (!isTelephoneNumber(match, preceding)) return match;
+      count++;
+      return "[REDACTED_PHONE]";
+    });
+  let text = "";
+  let cursor = 0;
+  for (const uuid of input.matchAll(UUID_RE)) {
+    text += redactSegment(cursor, uuid.index) + uuid[0];
+    cursor = uuid.index + uuid[0].length;
+  }
+  text += redactSegment(cursor, input.length);
   return { text, count };
 }
 
