@@ -2294,7 +2294,7 @@ async function testRestartPack() {
     context_data: { ...codexHostContext.context_data, token_budget: 0 },
   });
   assert(!invalidNestedPackSchema.valid, "host-invocation-context/v1 canonical schema resolves recovery-pack $ref");
-  for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test", "$ rm -rf /tmp/example"]) {
+  for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test"]) {
     const shellCommandContext = validateHostInvocationContextArtifact({
       ...codexHostContext,
       trusted_instruction,

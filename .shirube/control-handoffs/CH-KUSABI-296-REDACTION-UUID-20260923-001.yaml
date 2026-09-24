@@ -138,21 +138,6 @@ legacy_source_boundary:
   legacy_sources_may_inform: true
   legacy_sources_are_truth: false
   required_current_truth_ref: watchout/agent-memory#296
-design_rule_exceptions:
-  - rule_id: DR-DATA-001
-    scope:
-      - src/test.ts
-    reason: >-
-      Measured against main e4d088e8f21205d4bdfd22ac4a892422081bae7a and product
-      head bd5e51fa6fec60c4d4c17c8608c0bf29d2d571f8 using all ten hard_delete_patterns
-      from the bundled DR-DATA-001 rule (case-insensitive substring matching).
-      Main has 1 matching line (2266), the product head has the identical 1 line (2297),
-      and added diff lines have 0 matches. The pre-existing line contains the literal
-      rm -rf /tmp/example inside a trusted-instruction test fixture; this cell adds
-      0 delete operations. Amendment 1 explicitly authorizes this precedent-based,
-      src/test.ts-only exception; it does not exempt future added deletion behaviour.
-    approved_by: kusabi/implementation_executor
-    expires_at: "2026-09-30"
 next_action:
   owner_agent: suite-lead
   active_function: orchestration_controller
