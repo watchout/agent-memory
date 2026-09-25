@@ -1,0 +1,153 @@
+schema_version: shirube-control-handoff/rapid-lite/v1
+mode: rapid-lite
+profile: hotel-lite
+control_handoff_id: CH-KUSABI-296-REDACTION-UUID-20260923-001
+parent_ssot: watchout/agent-memory#296
+framework_ref: watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e
+repo_spec_ref: .shirube/repo-spec.yaml
+premise_ref: .shirube/repo-spec.yaml
+owner_confirmation_ref: https://github.com/watchout/agent-memory/issues/296#issuecomment-5784913321
+premise_confirmation_ref: https://github.com/watchout/agent-memory/issues/296#issuecomment-5804409291
+spec_review_state: ready_for_implementation
+repo: watchout/agent-memory
+repo_local_issue: https://github.com/watchout/agent-memory/issues/296
+source_mirror_ref: .shirube/source-mirrors/control-issue.yaml
+control_source_ref:
+  url: https://github.com/watchout/agent-memory/issues/296#issuecomment-5784913321
+  sha256: fb436f0c8e6d47fe97e69b74862a4a253726a1068a93e2dc7da49e3f261d6d55
+amendment_ref:
+  url: https://github.com/watchout/agent-memory/issues/296#issuecomment-5804409291
+  sha256: 13a59daa575cedd715ee5820a72f144fd97110bb1d03ded280729a79c88f1503
+actor: kusabi
+active_function: implementation_executor
+runner_policy: codex_native_fast_lane
+owner:
+  role: repo_owner
+  actor: watchout
+next_role: owner_review
+protected_surfaces:
+  - runtime code
+rps_scope:
+  shirube_owns:
+    - Preserve complete UUID tokens during phone redaction and verify real MCP prepare/fetch with a fixed UUID.
+  shirube_does_not_own:
+    - Other redaction rules, storage implementation, deployment, runtime activation or the remaining issue 296 work.
+cell:
+  CELL-ID: CELL-KUSABI-296-REDACTION-UUID-20260923-001
+  cell_type: defect_repair
+  risk_class: R2
+  goal: Preserve 8-4-4-4-12 hex UUID tokens without weakening phone redaction, and prove fixed numeric UUID prepare/fetch succeeds.
+  non_scope:
+    - Broadening redaction exemptions beyond complete UUID tokens in the phone pass.
+    - Attributing the historical failure in CI run 35725895048; its cause remains unconfirmed.
+    - Other product paths, shared-home tests, runtime activation and other issue 296 P1 work.
+  test_coupling_exempt: false
+  acceptance_criteria:
+    - Numeric, alphabetic, uppercase and all-digit UUID tokens remain unchanged by phone redaction; actual adjacent phone numbers remain redacted.
+    - Credential and other non-phone redaction still apply before UUID phone exemption.
+    - The real MCP prepare/fetch path preserves selected_restart_pack:12345678-1234-4abc-8def-abcdefabcdef and succeeds.
+    - MCP tests capture raw responses before parsing and preserve the original message when isError is true.
+    - Rapid/Lite gate-contract and design-rules use this handoff and have no BLOCK.
+    - Required build-and-test jobs for Node 18, 20 and 22 pass on the updated PR head.
+  allowed_paths:
+    - src/redact.ts
+    - src/test.ts
+    - .shirube/control-handoffs/CH-KUSABI-296-REDACTION-UUID-20260923-001.yaml
+  forbidden_paths:
+    - scripts/**
+    - db/**
+    - migrations/**
+    - src/stores/**
+    - package.json
+    - package-lock.json
+    - .env*
+    - deploy/**
+    - .github/workflows/**
+    - dist/**
+  protected_surfaces:
+    declared:
+      - runtime code
+      - database
+      - migrations
+      - secrets
+      - active workflows
+      - required checks
+      - branch protection
+      - production
+    touched: true
+    touched_detail: >-
+      Runtime source redaction and its tests only. The fixed-ID fixture updates only its
+      isolated temporary SQLite test database; no shared store, storage implementation,
+      migration, workflow, package, production or deployment surface is changed.
+  stop_conditions:
+    - Any changed path outside the exact three allowed paths.
+    - Broadening redaction exemptions or changing other product paths becomes necessary.
+    - Tests require shared-home access or produce an unattributed shared-home change.
+    - A gate returns BLOCK or a required CI job fails.
+    - Exact-head independent audit or owner decision is missing before merge.
+implementation_boundary:
+  summary: Bound the UUID phone-redaction fix and its regression tests to the original cell; amendment 1 adds only this handoff and its PR reference.
+  expected_pr_count: 1
+  forbidden_operations:
+    - merge
+    - approve
+    - branch protection mutation
+    - required check activation
+    - production or deploy mutation
+    - shared database or package mutation
+    - runtime restart
+    - tests using shared home
+validation:
+  required_commands:
+    - npx tsc --noEmit
+    - npm run build
+    - npm test with a fresh explicit KUSABI_TEST_TMPDIR and shared-store access denied
+    - Required Node 18/20/22 CI and Rapid/Lite report at the updated PR head
+  required_evidence:
+    - PR_head_SHA
+    - changed_files
+    - validation_commands
+    - validation_results
+    - owner_decision
+  evidence_requirements:
+    - PR head SHA and exact changed files
+    - Fixed-input before/after table and raw MCP prepare/fetch responses
+    - Local isolated test results and shared-home metadata attribution
+    - Existing main and added-diff DR-DATA-001 matching-line counts
+    - Exact-head CI URLs and Rapid/Lite handoff resolution, gate-contract and design-rules results
+owner_decision:
+  required_before_merge: true
+  evidence_source: external_owner_decision_comment_or_workflow_input
+  committed_pending_policy_only: true
+  allowed_verdicts:
+    - APPROVED_EXACT_HEAD
+    - APPROVED_PILOT_EXCEPTION
+    - CHANGES_REQUIRED
+    - BLOCKED
+  exact_head_sha: null
+  decision_ref: null
+post_merge:
+  required_when_done_claimed: true
+  required_evidence:
+    - merge_commit
+    - merged_at
+    - post_merge_smoke_or_NA
+    - next_step
+    - no_unresolved_follow_up_blocker
+legacy_source_boundary:
+  legacy_sources_may_inform: true
+  legacy_sources_are_truth: false
+  required_current_truth_ref: watchout/agent-memory#296
+next_action:
+  owner_agent: suite-lead
+  active_function: orchestration_controller
+  action: After Rapid/Lite BLOCK clears and all three required checks pass, add needs:audit and route the same head to devauditor.
+  handoff_method: PR 326 and issue 296 comments.
+  input_refs:
+    - https://github.com/watchout/agent-memory/issues/296#issuecomment-5784913321
+    - https://github.com/watchout/agent-memory/issues/296#issuecomment-5804409291
+    - https://github.com/watchout/agent-memory/pull/326
+  scope: Independent audit of the bounded UUID fix, regression tests and this handoff; no maker approval or merge.
+  deliverable: Exact-head independent gate_result.
+  completion_evidence: Published independent audit bound to the updated PR head and its required CI.
+  blocking: false

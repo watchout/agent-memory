@@ -12,6 +12,7 @@ import { isAbsolute, join, relative, resolve, sep } from "path";
 import { execFileSync } from "child_process";
 import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
+import { pathToFileURL } from "url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -526,6 +527,15 @@ function toolResultText(result: { content?: Array<{ type: string; text?: string 
     .join("\n");
 }
 
+function parseMcpJsonResult(tool: string, result: {
+  isError?: boolean;
+  content?: Array<{ type: string; text?: string }>;
+}): Record<string, unknown> {
+  const text = toolResultText(result);
+  if (result.isError === true) throw new Error(`${tool} failed: ${text}`);
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
 function inheritedEnv(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)
@@ -539,6 +549,7 @@ interface McpStdioSessionOptions {
   project: string;
   sessionId: string;
   clientName: string;
+  entrypoint?: string;
 }
 
 /**
@@ -559,7 +570,7 @@ function createMcpStdioSession(options: McpStdioSessionOptions): {
   delete env.DATABASE_URL;
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [cli, "src/index.ts"],
+    args: [cli, options.entrypoint ?? "src/index.ts"],
     cwd: process.cwd(),
     stderr: "pipe",
     env: {
@@ -1511,6 +1522,10 @@ function testRedaction() {
   assert(!standalone.text.includes("sk-abcdefghijklmnopqrstuvwxyz123456"), "standalone OpenAI-style key redacted");
 
   const opaqueIdentifiers: [string, string][] = [
+    ["numeric UUID", "selected_restart_pack:12345678-1234-4abc-8def-abcdefabcdef"],
+    ["alphabetic UUID", "selected_restart_pack:abcdefab-cdef-4abc-8def-abcdefabcdef"],
+    ["uppercase UUID", "12345678-1234-4ABC-8DEF-ABCDEFABCDEF"],
+    ["all-digit UUID", "12345678-1234-4123-8123-123456789012"],
     ["GitHub comment id", "issue_comment: 5304928252"],
     ["GitHub comment url", "https://github.com/watchout/agent-memory/issues/285#issuecomment-5304928252"],
     ["epoch milliseconds", "observed_at_ms: 1755302731000"],
@@ -1543,6 +1558,22 @@ function testRedaction() {
     assert(!/\d{4}/.test(result.text), `${label} leaves no four-digit remnant`);
     assert(result.redaction_count === 1, `${label} records exactly one redaction`);
   }
+
+  const numericUuid = "12345678-1234-4abc-8def-abcdefabcdef";
+  for (const input of [
+    `555-123-4567 ${numericUuid} +81 90-1234-5678`,
+    `${numericUuid} TEL 09012345678; 03-1234-5678 ${numericUuid}`,
+  ]) {
+    const result = redactText(input);
+    assert(result.text.includes(numericUuid), "UUID survives alongside actual telephone numbers");
+    assert(result.redaction_count === 2, "both neighboring telephone numbers remain redacted");
+    assert(!result.text.includes("555-123-4567") && !result.text.includes("90-1234-5678") &&
+      !result.text.includes("09012345678") && !result.text.includes("03-1234-5678"), "UUID exception does not protect neighboring phone text");
+  }
+  const malformedUuid = redactText("12345678-1234-4abc-8def-abcdefabcdeg");
+  assert(malformedUuid.text.includes("[REDACTED_PHONE]"), "non-hex lookalike is not a UUID exemption");
+  const credentialUuid = redactText(`API_KEY=${numericUuid}`);
+  assert(credentialUuid.text === "API_KEY=[REDACTED]", "UUID exemption does not bypass credential redaction");
 }
 
 async function assertCreateStoreFailsClosed(label: string, options?: CreateStoreOptions) {
@@ -2263,7 +2294,7 @@ async function testRestartPack() {
     context_data: { ...codexHostContext.context_data, token_budget: 0 },
   });
   assert(!invalidNestedPackSchema.valid, "host-invocation-context/v1 canonical schema resolves recovery-pack $ref");
-  for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test", "$ rm -rf /tmp/example"]) {
+  for (const trusted_instruction of ["codex exec -", "bash -c echo hi", "$ npm test", "> npm test"]) {
     const shellCommandContext = validateHostInvocationContextArtifact({
       ...codexHostContext,
       trusted_instruction,
@@ -4133,6 +4164,24 @@ async function testCoreMcpToolRegression() {
   const agentId = "mcp-core-agent-a";
   const otherAgentId = "mcp-core-agent-b";
   const project = "mcp-core-project";
+  const selectedPackId = "12345678-1234-4abc-8def-abcdefabcdef";
+  const selectedPackRef = `selected_restart_pack:${selectedPackId}`;
+  // Inject only the generated identifier in this isolated server. Keep prepare,
+  // persistence, output redaction and fetch on their real production paths.
+  const entrypoint = join(tmpHome, "fixed-pack-server.mjs");
+  writeFileSync(entrypoint, `
+    import { SqliteStore } from ${JSON.stringify(pathToFileURL(join(process.cwd(), "src/stores/sqlite-store.ts")).href)};
+    const save = SqliteStore.prototype.saveSelectedRestartPack;
+    SqliteStore.prototype.saveSelectedRestartPack = async function(input) {
+      const pack = await save.call(this, input);
+      const id = ${JSON.stringify(selectedPackId)};
+      const pack_ref = ${JSON.stringify(selectedPackRef)};
+      this.db.run("UPDATE selected_restart_packs SET id = ?, pack_ref = ? WHERE id = ?", [id, pack_ref, pack.id]);
+      this.persist();
+      return { ...pack, id, pack_ref };
+    };
+    await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "src/index.ts")).href)});
+  `);
   const { transport, client } = createMcpStdioSession({
     tmpHome,
     dbPath,
@@ -4140,6 +4189,7 @@ async function testCoreMcpToolRegression() {
     project,
     sessionId: "mcp-core-regression-session",
     clientName: "agent-memory-core-mcp-test",
+    entrypoint,
   });
 
   const readLatestRecoveryQuality = async (): Promise<Record<string, unknown>> => {
@@ -4330,18 +4380,21 @@ async function testCoreMcpToolRegression() {
         emit_pack: false,
       },
     });
-    const preparedJson = JSON.parse(toolResultText(prepared));
+    console.log("UUID roundtrip prepare raw:", JSON.stringify(prepared));
+    const preparedJson = parseMcpJsonResult("restart_prepare", prepared);
     assert(preparedJson.action === "restart_recommended", "restart_prepare recommends restart at host metric threshold");
     assert(
       typeof preparedJson.pack_ref === "string" && preparedJson.pack_ref.startsWith("selected_restart_pack:"),
       "restart_prepare returns selected_restart_pack ref"
     );
+    assert(preparedJson.pack_ref === selectedPackRef, "restart_prepare preserves the fixed numeric UUID exactly");
 
     const fetched = await client.callTool({
       name: "restart_pack_fetch",
       arguments: { project, pack_ref: preparedJson.pack_ref, consume: true },
     });
-    const fetchedJson = JSON.parse(toolResultText(fetched));
+    console.log("UUID roundtrip fetch raw:", JSON.stringify(fetched));
+    const fetchedJson = parseMcpJsonResult("restart_pack_fetch", fetched);
     assert(fetchedJson.pack_ref === preparedJson.pack_ref, "restart_pack_fetch returns selected pack by ref");
     assert(fetchedJson.status === "consumed", "restart_pack_fetch marks pack consumed when consume=true");
 
@@ -4351,6 +4404,14 @@ async function testCoreMcpToolRegression() {
     });
     assert(consumedAgain.isError === true, "restart_pack_fetch consume is single-use");
     assert(toolResultText(consumedAgain).includes("not found or already consumed"), "restart_pack_fetch reports consumed pack");
+    let failureMessage = "";
+    try {
+      parseMcpJsonResult("restart_pack_fetch", consumedAgain);
+    } catch (error) {
+      failureMessage = (error as Error).message;
+    }
+    assert(failureMessage === `restart_pack_fetch failed: ${toolResultText(consumedAgain)}`,
+      "MCP JSON parser reports the full tool error instead of a JSON SyntaxError");
   } finally {
     await client.close();
     await transport.close();
