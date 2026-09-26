@@ -295,6 +295,17 @@ async function main(): Promise<void> {
     assert(capped.evidence.output.byte_count <= 1_024);
     assert(capped.evidence.output.truncation_count >= 1);
 
+    for (const source of ["resume", "fork"] as const) {
+      const raw = { ...JSON.parse(hookInput(child, source)), scratchpad_dir: "/tmp/scratch", session_title: "fixture",
+        seconds_since_last_response: 5, context_tokens: 100, prompt_cache_likely_expired: false, estimated_cache_write_usd: 0.001 };
+      assert.equal(parseClaudeSessionStartInput(JSON.stringify(raw)).source, source);
+      const current = await runClaudeSessionStart(JSON.stringify(raw), binding(workspace), { loadRecovery: async () => loaded() });
+      assert.equal(current.evidence.hook.source, source);
+      assert(validateEvidence(current.evidence), JSON.stringify(validateEvidence.errors));
+      assert.throws(() => parseClaudeSessionStartInput(JSON.stringify({ ...raw, scratchpad_dir: 123 })), /MALFORMED_HOOK_INPUT/);
+      assert.throws(() => parseClaudeSessionStartInput(JSON.stringify({ ...raw, session_id: null })), /MALFORMED_HOOK_INPUT/);
+      assert.throws(() => parseClaudeSessionStartInput(JSON.stringify({ ...raw, unknown_field: true })), /MALFORMED_HOOK_INPUT/);
+    }
     const parsedArgs = parseClaudeSessionStartArgs([
       "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
       "--agent-id", "kusabi",

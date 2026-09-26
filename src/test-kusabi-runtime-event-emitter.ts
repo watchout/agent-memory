@@ -9,6 +9,7 @@ import {
   buildKusabiSessionStartRuntimeEvent,
   emitKusabiSessionStartRuntimeEvent,
   loadKusabiRuntimeEventTargetFromManifest,
+  selectKusabiRuntimeEventTarget,
   parseKusabiRuntimeEventTarget,
   type KusabiRuntimeEventTargetBinding,
   type KusabiSessionStartEvidence,
@@ -158,6 +159,27 @@ async function main(): Promise<void> {
     const immutableManifest = manifestFor([{
       agent_id: "kusabi", project: "agent-memory", host_runtime: "codex", workspace_sha256: "a".repeat(64),
     }]);
+    const relocated = evidence("codex");
+    relocated.identity.workspace_sha256 = "9".repeat(64);
+    relocated.native_context_attempt = { schema_version: "native-context-attempt/v1", attempt_id: "11111111-1111-4111-8111-111111111111",
+      phase: "started", attempt_started_at: "2026-07-30T00:00:00Z", hook_pid: 12, hook_started_at: "2026-07-30T00:00:00Z",
+      provider_pid: 10, provider_started_at: "2026-07-29T00:00:00Z", host_session_id: "fixture" };
+    relocated.native_invocation_binding = { schema_version: "native-invocation-binding/v1", verified: true,
+      argv_sha256: "8".repeat(64), workspace_sha256: relocated.identity.workspace_sha256,
+      binding_source_ref_sha256: h(relocated.identity.binding_source_ref), configuration_sha256: null, trust_status: "native-invocation-only" };
+    const movedTarget = selectKusabiRuntimeEventTarget(immutableManifest, relocated);
+    assert.equal(movedTarget.native_manifest_provenance?.exact_rollout_target_match, false);
+    assert.equal(movedTarget.native_manifest_provenance?.configuration_trust, "original-reference-only");
+    assert.equal(movedTarget.native_manifest_provenance?.original_workspace_sha256, "a".repeat(64));
+    const movedEvent = buildKusabiSessionStartRuntimeEvent(relocated, movedTarget);
+    assert(validateKusabiRuntimeEvent(movedEvent).valid);
+    assert.throws(() => selectKusabiRuntimeEventTarget(immutableManifest, { ...relocated, native_invocation_binding: undefined }), /TARGET_INVALID/);
+    assert.throws(() => selectKusabiRuntimeEventTarget(immutableManifest, { ...relocated, identity: { ...relocated.identity, agent_id: "foreign" } }), /TARGET_INVALID/);
+    const ambiguous = manifestFor([
+      { agent_id: "kusabi", project: "agent-memory", host_runtime: "codex", workspace_sha256: "a".repeat(64) },
+      { agent_id: "kusabi", project: "agent-memory", host_runtime: "codex", workspace_sha256: "b".repeat(64) },
+    ]);
+    assert.throws(() => selectKusabiRuntimeEventTarget(ambiguous, relocated), /TARGET_INVALID/);
     const immutableManifestPath = await writeImmutableManifest(root, immutableManifest, "immutable-manifest");
     assert.deepEqual(
       await loadKusabiRuntimeEventTargetFromManifest(immutableManifestPath, evidence("codex")),

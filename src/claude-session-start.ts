@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { beginNativeContextAttempt, nativeAttemptSeed, nativeWorkDigest, writeNativeContextResult, type NativeAttemptHandle } from "./native-context-delivery.js";
 /**
  * Native Claude Code SessionStart adapter.
  *
@@ -53,7 +54,7 @@ export const CLAUDE_SESSION_START_MAX_BYTES = CODEX_SESSION_START_MAX_BYTES;
 export const CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS = CODEX_SESSION_START_INTERNAL_TIMEOUT_MS;
 export const CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
 
-const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
+const START_SOURCES = ["startup", "resume", "clear", "compact", "fork"] as const;
 const PERMISSION_MODES = [
   "default",
   "manual",
@@ -70,7 +71,7 @@ const REQUIRED_FIELDS = [
   "source",
   "transcript_path",
 ] as const;
-const OPTIONAL_FIELDS = ["agent_type", "model", "permission_mode"] as const;
+const OPTIONAL_FIELDS = ["agent_type", "model", "permission_mode", "scratchpad_dir", "session_title", "seconds_since_last_response", "context_tokens", "prompt_cache_likely_expired", "estimated_cache_write_usd"] as const;
 
 export type ClaudeSessionStartSource = typeof START_SOURCES[number];
 export type ClaudeSessionStartPermissionMode = typeof PERMISSION_MODES[number];
@@ -134,6 +135,7 @@ export interface ClaudeSessionStartDependencies {
 }
 
 export interface ClaudeSessionStartRunResult {
+  native_work_digest?: string;
   output: ClaudeSessionStartOutput;
   evidence: ClaudeSessionStartEvidence;
   exit_code: 0;
@@ -197,6 +199,11 @@ export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInp
   ) {
     throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
   }
+  // Current official optional host metadata is accepted but never used as
+  // seat, provider, workspace or trust authority.
+  if (["scratchpad_dir", "session_title"].some(key => input[key] !== undefined && typeof input[key] !== "string")
+    || ["seconds_since_last_response", "context_tokens", "estimated_cache_write_usd"].some(key => input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || Number(input[key]) < 0))
+    || (input.prompt_cache_likely_expired !== undefined && typeof input.prompt_cache_likely_expired !== "boolean")) throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
   return {
     session_id: input.session_id,
     transcript_path: input.transcript_path,
@@ -224,7 +231,7 @@ function toCodexInput(input: ClaudeSessionStartInput): CodexSessionStartInput {
       input.permission_mode === undefined || input.permission_mode === "auto" || input.permission_mode === "manual"
         ? "default"
         : input.permission_mode,
-    source: input.source,
+    source: input.source === "fork" ? "resume" : input.source,
   };
 }
 
@@ -335,6 +342,7 @@ export async function loadClaudeRecoveryFromStore(
     }
     return {
       recovery,
+      native_work_digest: recovery.truncation_count === 0 && recovery.omitted_section_count === 0 ? nativeWorkDigest(pack.items) : undefined,
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
@@ -412,6 +420,7 @@ export async function runClaudeSessionStart(
   };
   const result = await runCodexSessionStart(codexRaw, binding, codexDependencies);
   return {
+    native_work_digest: result.native_work_digest,
     output: transformOutput(result.output),
     evidence: transformEvidence(result.evidence, input),
     exit_code: 0,
@@ -460,14 +469,9 @@ function fallbackBinding(): ClaudeSessionStartBinding {
   };
 }
 
-function writeCliResult(result: ClaudeSessionStartRunResult): void {
-  let pending = 2;
-  const done = () => {
-    pending--;
-    if (pending === 0) process.exit(0);
-  };
-  process.stderr.write(`${JSON.stringify(result.evidence)}\n`, done);
-  process.stdout.write(`${JSON.stringify(result.output)}\n`, done);
+async function writeCliResult(result: ClaudeSessionStartRunResult, handle: NativeAttemptHandle | null, manifestPath?: string): Promise<void> {
+  await writeNativeContextResult({ result, handle, runtime: "claude", emission: { manifestPath } });
+  await new Promise<void>(done => process.stderr.write(`${JSON.stringify(result.evidence)}\n`, () => done()));
 }
 
 async function main(): Promise<void> {
@@ -479,11 +483,12 @@ async function main(): Promise<void> {
   } catch {
     // The normal runner below emits a structured, non-blocking degradation.
   }
+  let attempt: NativeAttemptHandle | null = null;
+  try { attempt = await beginNativeContextAttempt({ runtime: "claude", evidence: nativeAttemptSeed({ binding, rawInput: raw,
+    runtime: "claude", adapter: { id: CLAUDE_SESSION_START_ADAPTER_ID, version: CLAUDE_SESSION_START_ADAPTER_VERSION },
+    storeBinding: resolveCodexStoreBinding() }), emission: { manifestPath: binding.runtime_event_manifest_path } }); } catch { /* fail closed for evidence */ }
   const result = await runClaudeSessionStart(raw, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-    manifestPath: binding.runtime_event_manifest_path,
-  });
-  writeCliResult(result);
+  await writeCliResult(result, attempt, binding.runtime_event_manifest_path);
 }
 
 let invokedPath = "";

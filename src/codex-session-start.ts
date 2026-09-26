@@ -7,6 +7,7 @@
  * to a TUI, or owns restart policy. It only returns bounded recovery context
  * for the first model context of the already-starting process.
  */
+import { beginNativeContextAttempt, nativeAttemptSeed, nativeWorkDigest, writeNativeContextResult, type NativeAttemptHandle, type NativeAttempt, type NativeContextDelivery, type NativeInvocationBinding } from "./native-context-delivery.js";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
@@ -93,6 +94,9 @@ export interface CodexSessionStartOutput {
 }
 
 export interface CodexSessionStartEvidence {
+  native_invocation_binding?: NativeInvocationBinding;
+  native_context_attempt?: NativeAttempt;
+  native_context_delivery?: NativeContextDelivery;
   schema_version: typeof CODEX_SESSION_START_EVIDENCE_SCHEMA;
   adapter: {
     id: typeof CODEX_SESSION_START_ADAPTER_ID;
@@ -194,6 +198,7 @@ export interface CodexStoreBindingEvidence {
 }
 
 export interface LoadedCodexRecovery {
+  native_work_digest?: string;
   recovery: RecoveryOutputWithMetrics;
   recovery_pack: CodexRecoveryPackEvidence;
   recovery_quality_log_ref: string | null;
@@ -230,6 +235,7 @@ export interface CodexSessionStartDependencies {
 }
 
 export interface CodexSessionStartRunResult {
+  native_work_digest?: string;
   output: CodexSessionStartOutput;
   evidence: CodexSessionStartEvidence;
   exit_code: 0;
@@ -832,6 +838,7 @@ export async function loadCodexRecoveryFromStore(
     });
     return {
       recovery,
+      native_work_digest: recovery.truncation_count === 0 && recovery.omitted_section_count === 0 ? nativeWorkDigest(pack.items) : undefined,
       recovery_pack: packEvidence,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
@@ -882,6 +889,7 @@ export async function runCodexSessionStart(
       recoveryQualityLogRef: loaded.recovery_quality_log_ref,
     });
     return {
+      native_work_digest: recovery.truncation_count === 0 && recovery.omitted_section_count === 0 ? loaded.native_work_digest : undefined,
       output: {
         continue: true,
         suppressOutput: false,
@@ -985,14 +993,17 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function writeCliResult(result: CodexSessionStartRunResult): void {
-  let pendingWrites = 2;
-  const finished = () => {
-    pendingWrites--;
-    if (pendingWrites === 0) process.exit(0);
-  };
-  process.stderr.write(`${JSON.stringify(result.evidence)}\n`, finished);
-  process.stdout.write(`${JSON.stringify(result.output)}\n`, finished);
+async function writeCliResult(result: CodexSessionStartRunResult, handle: NativeAttemptHandle | null, manifestPath?: string): Promise<void> {
+  await writeNativeContextResult({ result, handle, runtime: "codex", emission: { manifestPath } });
+  await new Promise<void>(done => process.stderr.write(`${JSON.stringify(result.evidence)}\n`, () => done()));
+}
+
+async function beginCliAttempt(binding: CodexSessionStartBinding, rawInput: string): Promise<NativeAttemptHandle | null> {
+  try {
+    return await beginNativeContextAttempt({ runtime: "codex", evidence: nativeAttemptSeed({ binding, rawInput,
+      runtime: "codex", adapter: { id: CODEX_SESSION_START_ADAPTER_ID, version: CODEX_SESSION_START_ADAPTER_VERSION },
+      storeBinding: resolveCodexStoreBinding() }), emission: { manifestPath: binding.runtime_event_manifest_path } });
+  } catch { return null; }
 }
 
 async function main(): Promise<void> {
@@ -1027,17 +1038,12 @@ async function main(): Promise<void> {
       }),
       exit_code: 0,
     };
-    await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-      manifestPath: evidenceBinding.runtime_event_manifest_path,
-    });
-    writeCliResult(result);
+    await writeCliResult(result, await beginCliAttempt(evidenceBinding, rawInput), evidenceBinding.runtime_event_manifest_path);
     return;
   }
+  const attempt = await beginCliAttempt(binding, rawInput);
   const result = await runCodexSessionStart(rawInput, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-    manifestPath: binding.runtime_event_manifest_path,
-  });
-  writeCliResult(result);
+  await writeCliResult(result, attempt, binding.runtime_event_manifest_path);
 }
 
 const modulePath = realpathSync(fileURLToPath(import.meta.url));
