@@ -400,18 +400,16 @@ async function main() {
           }),
         ]);
 
-        // FEAT-026: Fetch Discord history if agent-comms is available
-        let discordHistory: string[] = [];
-        if (cfg.discord_history_limit > 0 && cfg.discord_channels.length > 0) {
-          discordHistory = await fetchDiscordHistory(cfg.discord_channels, cfg.discord_history_limit);
-        }
+        const { discordHistory, discord_history_status } = await fetchDiscordHistory(
+          cfg.discord_channels, cfg.discord_history_limit
+        );
 
         const output = buildRecoveryOutput({
           agentId: AGENT_ID, project: proj, config: cfg,
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
           conversationEvents,
           discordHistory,
-        });
+        }) + `\n\ndiscord_history_status: ${JSON.stringify(discord_history_status)}`;
 
         // Log recovery quality (FEAT-024 / AM-002 Stage 1).
         // Notes carries a JSON summary of what was actually restored,

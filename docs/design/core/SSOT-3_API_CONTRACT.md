@@ -447,7 +447,23 @@ settings.jsonのhook定義でコマンドに環境変数を直接指定する：
 
 ### agent-comms未インストール時
 
-discord_history取得をスキップ（エラーにならない）。既存のmem単体動作と同じ。
+中核の記憶復旧は継続し、Discord連携の利用不能だけを理由付きで返す（M6 / KS-DEG-01・02）。
+`fetchDiscordHistory` は既存の `discordHistory: string[]` を保った結果と、
+`discord_history_status: {state: "ok" | "unavailable", reason: string | null}` を返す。
+通常の `recover_context` と `boot` は従来の履歴表示を維持し、テキスト末尾に
+`discord_history_status: {"state":...,"reason":...}` を必ず併記する。
+MCPのcontent/text envelope、tool名、構造化restart packのschemaは変更しない。
+
+- port未設定: `unavailable / port_not_configured`
+- 接続拒否・timeoutなどfetch失敗: `unavailable / connection_failed`
+- HTTP非成功: `unavailable / http_error:<status>`（500なら `http_error:500`）
+- 不正なJSON・利用できない応答: `unavailable / invalid_response`
+- port設定済みだがchannel空またはlimit無効: `unavailable / history_not_requested`
+- 正常応答（messagesが空配列の場合も含む）: `ok / null`
+
+複数channelの一部だけ取得できた場合、取得済み配列は保持するがstateはunavailableとし、
+設定順で最初の利用不能理由を返す。空配列だけから「履歴なし」や取得成功を判断しない。
+理由には生の例外・応答本文を含めない。
 
 ## §3-E: Example Table
 
@@ -482,7 +498,7 @@ discord_history取得をスキップ（エラーにならない）。既存のme
 | 3 | recovery_configレコードなし | デフォルト値使用 | 正常動作（設定なし=デフォルト） |
 | 4 | Voyage AI APIエラー | semantic search無効化 | keyword searchにfallback |
 | 5 | トークン上限超過 | 優先度順にトランケート | task > decisions > messages > knowledge |
-| 6 | discord_history取得失敗 | discord_history空 | com側の問題、memは他を正常復元 |
+| 6 | discord_history取得失敗 | 既存配列 + discord_history_status=unavailable（理由付き） | memは他を正常復元。空配列だけで取得成功にしない |
 
 ## §3-H: Acceptance Tests (Gherkin)
 

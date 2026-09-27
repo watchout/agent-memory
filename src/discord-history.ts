@@ -1,10 +1,12 @@
-/**
- * FEAT-026: Fetch Discord history via agent-comms webhook adapter.
- * Falls back gracefully if agent-comms is not running.
- */
+/** FEAT-026: Optional Discord history via the agent-comms webhook adapter. */
+export type DiscordHistoryStatus =
+  | { state: "ok"; reason: null }
+  | { state: "unavailable"; reason: string };
 
-// Agent-comms webhook port — try common ports or use env override
-const WEBHOOK_PORT = process.env.WEBHOOK_PORT || process.env.AGENT_COMMS_PORT;
+export interface DiscordHistoryResult {
+  discordHistory: string[];
+  discord_history_status: DiscordHistoryStatus;
+}
 
 interface DiscordMessage {
   message_id: string;
@@ -14,55 +16,56 @@ interface DiscordMessage {
   is_bot: boolean;
 }
 
-/**
- * Fetch Discord history from agent-comms adapter's /history endpoint.
- * Returns formatted message lines, or empty array if unavailable.
- */
+function unavailable(reason: string): DiscordHistoryResult {
+  return { discordHistory: [], discord_history_status: { state: "unavailable", reason } };
+}
+
 async function fetchFromAdapter(
   channelId: string,
   limit: number,
   port: string
-): Promise<string[]> {
+): Promise<DiscordHistoryResult> {
   const params = new URLSearchParams({ channel_id: channelId, limit: String(limit) });
-  const url = `http://127.0.0.1:${port}/history?${params}`;
+  let response: Response;
+  try {
+    response = await fetch(`http://127.0.0.1:${port}/history?${params}`, { signal: AbortSignal.timeout(5000) });
+  } catch {
+    return unavailable("connection_failed");
+  }
+  if (!response.ok) return unavailable(`http_error:${response.status}`);
 
-  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
-  if (!resp.ok) return [];
-
-  const data = (await resp.json()) as { messages: DiscordMessage[] };
-  if (!data.messages || data.messages.length === 0) return [];
-
-  return data.messages.map(
-    (m) =>
-      `[${m.timestamp}] ${m.author}${m.is_bot ? " (bot)" : ""}: ${m.content.slice(0, 300)}`
-  );
+  try {
+    const data = (await response.json()) as { messages: DiscordMessage[] };
+    if (!Array.isArray(data.messages)) return unavailable("invalid_response");
+    return {
+      discordHistory: data.messages.map(m =>
+        `[${m.timestamp}] ${m.author}${m.is_bot ? " (bot)" : ""}: ${m.content.slice(0, 300)}`),
+      discord_history_status: { state: "ok", reason: null },
+    };
+  } catch {
+    return unavailable("invalid_response");
+  }
 }
 
-/**
- * Fetch Discord history for multiple channels.
- * Distributes the limit across channels, returns combined formatted lines.
- * Silently returns empty if agent-comms is unavailable.
- */
+/** Preserve received messages, but never label a partial/failed observation as ok. */
 export async function fetchDiscordHistory(
   channels: string[],
   totalLimit: number
-): Promise<string[]> {
-  if (!WEBHOOK_PORT || channels.length === 0 || totalLimit <= 0) {
-    return [];
-  }
+): Promise<DiscordHistoryResult> {
+  const port = process.env.WEBHOOK_PORT || process.env.AGENT_COMMS_PORT;
+  if (!port) return unavailable("port_not_configured");
+  if (channels.length === 0 || totalLimit <= 0) return unavailable("history_not_requested");
 
   const perChannelLimit = Math.max(Math.floor(totalLimit / channels.length), 5);
-  const results: string[] = [];
-
+  const discordHistory: string[] = [];
+  let status: DiscordHistoryStatus = { state: "ok", reason: null };
   for (const channelId of channels) {
-    try {
-      const msgs = await fetchFromAdapter(channelId, perChannelLimit, WEBHOOK_PORT);
-      results.push(...msgs);
-    } catch {
-      // agent-comms not running or channel unavailable — skip silently
+    const result = await fetchFromAdapter(channelId, perChannelLimit, port);
+    discordHistory.push(...result.discordHistory);
+    // The first unavailable channel in configured order supplies the reason.
+    if (status.state === "ok" && result.discord_history_status.state === "unavailable") {
+      status = result.discord_history_status;
     }
   }
-
-  // Limit total and sort by timestamp (newest first for display)
-  return results.slice(0, totalLimit);
+  return { discordHistory: discordHistory.slice(0, totalLimit), discord_history_status: status };
 }
