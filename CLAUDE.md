@@ -167,14 +167,14 @@ npm run boot
 ## 独立性の原則 (agent-comms との関係)
 
 ```
-mem: com に依存しない (discord_history 取得はオプション機能)
+mem: 自DBの記録を復元。Discord履歴取得 (FEAT-026) は廃止 (owner 2026-09-29、#328)
 com: mem に依存しない (watchdog は mem なしでも動く)
 連携: 両方入っている場合は相互連携で品質向上 (1+1 > 2)
 ```
 
 - **mem 単体ユーザー**: recover_context のみ使用。com なしで動作
 - **com 単体ユーザー**: watchdog + メッセージ管理。mem なしで動作
-- **両方使うユーザー**: 統合復元 + 定期リフレッシュの最高品質体験
+- **両方使うユーザー**: 記憶は Kusabi、会話文脈は AUN の正式窓口（aun.v2.status）から取得する
 
 **agent-comms v0.2.0 Receiver 方式との整合**: SQLite モードでは agent-memory は **別 DB 完全分離** (OSS eval Q3 = A 案)。
 

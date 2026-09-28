@@ -557,6 +557,8 @@ path.
 
 ## 5. recovery_config defaults と seed (AM-015 後の状態)
 
+`discord_history_limit` / `discord_channels` は FEAT-026 廃止（2026-09-29）により未使用・引退予定（削除は別決定）。以下の schema・default・旧 seed の列は互換のため残す。
+
 ### 5.1 defaults (`src/constants.ts`)
 
 新規エージェントに自動適用される:

@@ -144,7 +144,7 @@ agent-memory (wasurezu) は **MCP (Model Context Protocol) server** として AI
 | FR-011 | multi-agent namespace (agent_id WHERE) | P0 | ✅ Implemented |
 | FR-012 | search_memory 横断検索 (FTS5/LIKE) | P0 | ✅ Implemented |
 | FR-013 | recovery_config bot 別パラメータ | P1 | ✅ Implemented |
-| FR-014 | discord_history 統合復元 (PG モード + agent-comms) | P1 | ✅ Implemented |
+| FR-014 | Discord履歴取得（FEAT-026、履歴） | P1 | 廃止（owner 2026-09-29、#328）。会話文脈は AUN の正式窓口へ |
 | FR-015 | Voyage AI embedding 生成 (PG モード) | P2 | ✅ Implemented |
 | FR-016 | task auto-expire (7 日超 in_progress) | P1 | ✅ Implemented |
 
@@ -280,7 +280,7 @@ Minimum acceptance gates for later evidence/live-enforcement cells:
 
 - **Voyage AI** (optional): embedding 生成。`VOYAGE_API_KEY` 環境変数で有効化、未設定なら skip
 - **PostgreSQL + pgvector** (optional): PG モード時のみ
-- **agent-comms** (optional): discord_history 連携時のみ
+- **agent-comms 履歴取得連携（FEAT-026、履歴）**: 2026-09-29 廃止。Kusabi は自DBの記録を返し、会話文脈は AUN の正式窓口で取得する
 
 ### Runtime
 

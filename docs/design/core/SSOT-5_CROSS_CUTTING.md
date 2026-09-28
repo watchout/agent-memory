@@ -229,7 +229,7 @@ com (agent-comms): mem に依存しない
 
 ### 6.2 統合時の機能 (PG モードで agent-comms と DB 同居)
 
-- **discord_history 統合復元**: recover_context 出力に直近 Discord メッセージを含める
+- **Discord履歴統合復元（FEAT-026、履歴）**: 2026-09-29 owner 決定で廃止（#328）。Kusabi は自DBの記録だけを復元し、会話文脈は AUN の正式窓口で取得する
 - **post-tool-hook 自動蓄積**: agent-comms 経由の Discord 投稿から `[TASK:start]` `[DECISION]` `[KNOWLEDGE]` を抽出して agent-memory に自動 INSERT
 - **knowledge.source_type='messages'**: 自動抽出された knowledge に元 Discord message_id を保存
 - **catch-up**: 切断中に missed messages を Discord REST で取得、agent-memory にも反映 (agent-comms v0.2.0 receiver で完成予定)
@@ -285,7 +285,7 @@ PG モード起動時に agent-comms スキーマの存在を検出し、連携�
 
 - decisions: pgvector HNSW index で類似検索 P95 < 50ms
 - 全文検索: tsvector + GIN index で P95 < 100ms
-- bot 起動時の recover_context: P95 < 500ms (Discord 履歴なしの場合)
+- bot 起動時の recover_context: P95 < 500ms（Discord履歴取得は廃止）
 
 ### 8.2 SQLite モード
 

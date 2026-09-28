@@ -13,7 +13,6 @@ import {
   buildRecoveryOutput,
   estimateTokens,
 } from "./constants.js";
-import { fetchDiscordHistory } from "./discord-history.js";
 import { safeText } from "./sanitize.js";
 import { ingestClaudeConversationEvents } from "./claude-conversation-ingest.js";
 import { ingestCodexConversationEvents } from "./codex-conversation-ingest.js";
@@ -400,16 +399,11 @@ async function main() {
           }),
         ]);
 
-        const { discordHistory, discord_history_status } = await fetchDiscordHistory(
-          cfg.discord_channels, cfg.discord_history_limit
-        );
-
         const output = buildRecoveryOutput({
           agentId: AGENT_ID, project: proj, config: cfg,
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
           conversationEvents,
-          discordHistory,
-        }) + `\n\ndiscord_history_status: ${JSON.stringify(discord_history_status)}`;
+        });
 
         // Log recovery quality (FEAT-024 / AM-002 Stage 1).
         // Notes carries a JSON summary of what was actually restored,
@@ -427,7 +421,6 @@ async function main() {
           knowledge: knowledgeItems.length,
           messages: messages.length,
           conversation_events: conversationEvents.length,
-          discord_history: discordHistory.length,
         });
 
         recoveryLogId = await store.logRecoveryQuality({
@@ -675,9 +668,7 @@ async function main() {
                 `task_states_limit: ${config.task_states_limit}\n` +
                 `decisions_limit: ${config.decisions_limit}\n` +
                 `knowledge_limit: ${config.knowledge_limit}\n` +
-                `messages_limit: ${config.messages_limit}\n` +
-                `discord_history_limit: ${config.discord_history_limit}\n` +
-                `discord_channels: ${JSON.stringify(config.discord_channels)}`
+                `messages_limit: ${config.messages_limit}`
             ),
           ],
         };

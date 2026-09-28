@@ -217,7 +217,7 @@ Acceptance:
 src/
 ├── boot.ts (66行)              # SessionStart hook
 ├── constants.ts (150行)
-├── discord-history.ts (68行)   # agent-comms 連携
+├── discord-history.ts (旧68行) # 履歴: FEAT-026 は owner 2026-09-29 決定で廃止・削除 (#328)
 ├── ensure-tags.ts (40行)       # memory-tags.md 自動配置
 ├── index.ts (632行)            # MCP server エントリポイント、10ツール登録
 ├── migrate.ts (90行)           # DB マイグレーション runner

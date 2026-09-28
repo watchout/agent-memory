@@ -93,7 +93,6 @@ export function buildRecoveryOutput(params: {
   knowledgeItems: Knowledge[];
   messages: AgentMessage[];
   conversationEvents?: ConversationEvent[];
-  discordHistory?: string[];
 }): string {
   const {
     agentId,
@@ -105,7 +104,6 @@ export function buildRecoveryOutput(params: {
     knowledgeItems,
     messages,
     conversationEvents = [],
-    discordHistory,
   } = params;
 
   const header: string[] = [];
@@ -166,13 +164,6 @@ export function buildRecoveryOutput(params: {
     }
   }
 
-  // Discord history section (FEAT-026)
-  const discordLines: string[] = [];
-  if (discordHistory && discordHistory.length > 0) {
-    discordLines.push("── DISCORD HISTORY ──");
-    discordLines.push(...discordHistory);
-  }
-
   // Knowledge section (lowest priority for truncation)
   const knowledgeLines: string[] = [];
   if (knowledgeItems.length > 0) {
@@ -190,7 +181,6 @@ export function buildRecoveryOutput(params: {
     { key: "knowledge", content: knowledgeLines.join("\n") },
     { key: "messages", content: messageLines.join("\n") },
     { key: "conversation", content: conversationLines.join("\n").slice(0, 1_200) },
-    { key: "discord", content: discordLines.join("\n") },
   ].filter(s => s.content.length > 0);
 
   const headerText = header.join("\n");

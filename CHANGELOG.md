@@ -22,6 +22,8 @@ GitHub release, registry submission, or public release-readiness claims.
 
 ### Changed
 
+- Removed FEAT-026 Discord history fetching and recovery output (#328, supersedes M6/#327); schema columns remain unused. S6 coexistence is skipped by the 2026-09-29 owner decision because no consuming code was found; conversation context belongs to AUN.
+
 - README public-readiness wording now points to #238 instead of stale
   `AM-013` / `AM-014` publish references.
 - Public capability language is constrained to the Core MVP / L1 local memory
