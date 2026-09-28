@@ -171,17 +171,15 @@ async function boot() {
       store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
     ]);
 
-    // FEAT-026: Fetch Discord history if agent-comms is available
-    let discordHistory: string[] = [];
-    if (cfg.discord_history_limit > 0 && cfg.discord_channels.length > 0) {
-      discordHistory = await fetchDiscordHistory(cfg.discord_channels, cfg.discord_history_limit);
-    }
+    const { discordHistory, discord_history_status } = await fetchDiscordHistory(
+      cfg.discord_channels, cfg.discord_history_limit
+    );
 
     const output = buildRecoveryOutput({
       agentId: AGENT_ID, project: PROJECT, config: cfg,
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
       discordHistory,
-    });
+    }) + `\n\ndiscord_history_status: ${JSON.stringify(discord_history_status)}`;
 
     // Log recovery quality with summary in notes JSON. Continuation is
     // unknown at boot time and must be filled by a later host observation;

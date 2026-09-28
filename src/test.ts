@@ -9,7 +9,9 @@ import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore, type CreateStoreOptions } from "./stores/index.js";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "fs";
 import { isAbsolute, join, relative, resolve, sep } from "path";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
+import { createServer } from "node:http";
+import { fetchDiscordHistory } from "./discord-history.js";
 import { createHash } from "crypto";
 import { homedir, tmpdir } from "os";
 import { pathToFileURL } from "url";
@@ -4156,6 +4158,106 @@ function testMemorySafetyGovernance() {
   assert(evidenceRefsSchema.properties.approval_note_ref, "Aun Gate evidence refs expose approval-note evidence");
 }
 
+async function testDiscordHistoryAvailability() {
+  console.log("\n── KS-DEG-01 / KS-DEG-02 Discord History Tests ──");
+  const originalPort = process.env.WEBHOOK_PORT;
+  const originalCommsPort = process.env.AGENT_COMMS_PORT;
+  const originalBootMode = process.env.AGENT_MEMORY_BOOT_MODE;
+  const cases = [
+    { name: "port_not_configured", reason: "port_not_configured" },
+    { name: "connection_refused", reason: "connection_failed" },
+    { name: "http_500", reason: "http_error:500" },
+    { name: "success", reason: null },
+  ];
+  try {
+    delete process.env.AGENT_COMMS_PORT;
+    delete process.env.AGENT_MEMORY_BOOT_MODE;
+    for (const fixture of cases) {
+      const server = createServer((_req, res) => {
+        res.writeHead(fixture.name === "http_500" ? 500 : 200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ messages: [{
+          message_id: "fixture-message", author: "fixture-author", content: "fixture history",
+          timestamp: "2026-09-27T00:00:00Z", is_bot: false,
+        }] }));
+      });
+      const tmpHome = mkdtempSync(join(TEST_DIR, "discord-status-"));
+      const dbPath = join(tmpHome, "memory.db");
+      const agentId = "discord-status-agent";
+      try {
+        delete process.env.WEBHOOK_PORT;
+        if (fixture.name !== "port_not_configured") {
+          await new Promise<void>((resolve, reject) => {
+            server.once("error", reject);
+            server.listen(0, "127.0.0.1", resolve);
+          });
+          const address = server.address();
+          if (!address || typeof address === "string") throw new Error("Missing fixture port");
+          process.env.WEBHOOK_PORT = String(address.port);
+          if (fixture.name === "connection_refused") {
+            await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+          }
+        }
+        const expectedStatus = { state: fixture.reason === null ? "ok" : "unavailable", reason: fixture.reason };
+        const expectedHistory = fixture.reason === null
+          ? ["[2026-09-27T00:00:00Z] fixture-author: fixture history"] : [];
+        const history = await fetchDiscordHistory(["fixture-channel"], 5);
+        const store = new SqliteStore(dbPath);
+        await store.initialize();
+        try {
+          await store.upsertRecoveryConfig({ agent_id: agentId });
+          // Seed only this temporary DB: the public config writer has no channel setter.
+          const fixtureDb = store as unknown as { db: { run(sql: string, params: string[]): void } };
+          fixtureDb.db.run("UPDATE recovery_config SET discord_channels = ? WHERE agent_id = ?",
+            [JSON.stringify(["fixture-channel"]), agentId]);
+          await store.saveTaskState({ agent_id: agentId, project: "discord-status", task: "local memory survives", status: "in_progress" });
+        } finally {
+          await store.close();
+        }
+        const { client, transport } = createMcpStdioSession({
+          tmpHome, dbPath, agentId, project: "discord-status",
+          sessionId: "discord-status-session", clientName: "discord-status-test",
+        });
+        let mcpText = "";
+        let mcpError = false;
+        try {
+          await client.connect(transport);
+          const response = await client.callTool({ name: "recover_context", arguments: { project: "discord-status" } });
+          mcpText = toolResultText(response);
+          mcpError = response.isError === true;
+        } finally {
+          await client.close();
+          await transport.close();
+        }
+        const env = inheritedEnv();
+        delete env.AGENT_MEMORY_DATABASE_URL;
+        delete env.DATABASE_URL;
+        const bootText = await new Promise<string>((resolve, reject) => {
+          execFile(process.execPath, [join(process.cwd(), "node_modules/tsx/dist/cli.mjs"), "src/boot.ts"], {
+            env: { ...env, HOME: tmpHome, AGENT_MEMORY_DB_TYPE: "sqlite", AGENT_MEMORY_DB_PATH: dbPath,
+              AGENT_MEMORY_AGENT_ID: agentId, AGENT_MEMORY_PROJECT: "discord-status" },
+            timeout: 20000,
+          }, (error, stdout) => error ? reject(error) : resolve(stdout));
+        });
+        const statusLine = `discord_history_status: ${JSON.stringify(expectedStatus)}`;
+        const outputs = [mcpText, bootText];
+        const matches = JSON.stringify(history) === JSON.stringify({ discordHistory: expectedHistory, discord_history_status: expectedStatus })
+          && !mcpError && outputs.every(text => text.includes(statusLine) && text.includes("local memory survives")
+            && (fixture.reason === null ? text.includes(expectedHistory[0]) : !text.includes("fixture history")));
+        console.log(`KS-DEG ${fixture.name}: ${JSON.stringify({ history, mcp_status: mcpText.split("\n").find(l => l.startsWith("discord_history_status:")) ?? null,
+          boot_status: bootText.split("\n").find(l => l.startsWith("discord_history_status:")) ?? null })}`);
+        assert(matches, `KS-DEG-01/02 ${fixture.name}: legacy array and explicit status in MCP + boot`);
+      } finally {
+        if (server.listening) await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+        rmSync(tmpHome, { recursive: true, force: true });
+      }
+    }
+  } finally {
+    restoreEnv("WEBHOOK_PORT", originalPort);
+    restoreEnv("AGENT_COMMS_PORT", originalCommsPort);
+    restoreEnv("AGENT_MEMORY_BOOT_MODE", originalBootMode);
+  }
+}
+
 async function testCoreMcpToolRegression() {
   console.log("\n── Core MCP Tool Regression Tests ──");
 
@@ -5281,6 +5383,7 @@ async function run() {
   testRestartCommandPreflight();
   testSupervisorPreflight();
   await testRestartPrepare();
+  await testDiscordHistoryAvailability();
   await testCoreMcpToolRegression();
   await testRestartRecoverySmokeEvidence();
   await testKusabiIntegratedCell123();
