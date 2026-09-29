@@ -13,7 +13,7 @@ No REST API endpoints. All interactions through MCP tools.
 ## 独立性の原則
 
 ```
-mem: comに依存しない（discord_history取得はオプション機能）
+mem: 自DBの記録だけを復元。会話文脈は AUN の正式窓口（aun.v2.status）から取得
 com: memに依存しない（watchdogはmemなしでも動く）
 連携: 両方入っている場合は相互連携で品質向上（1+1>2）
 ```
@@ -288,7 +288,6 @@ Returns:
   - knowledge: active 最新3件
   - decisions: なし
   - messages: なし
-  - discord_history: なし
 Token estimate: ~200-500
 ```
 
@@ -306,24 +305,23 @@ Token estimate: Bot別上限設定（下記デフォルト参照）
 ```
 上記に加えて（agent-commsのDBが存在する場合のみ有効化）:
   - messages: 直近N件（agent_messagesテーブルから、Bot別設定）
-  - discord_history: Bot別チャンネル設定から直近M件（agent-comms fetch_discord_history連携）
 
 検出方法: agent_messagesテーブルの存在チェック（SELECT 1 FROM agent_messages LIMIT 1）
-  - 存在 → messages/discord_historyを含む統合復元
+  - 存在 → 自DBのmessagesを含む統合復元
   - 不在 → memのみの復元（エラーにならない）
 ```
 
 ### Bot別デフォルト設定 (Phase 0)
 
-| Bot | max_tokens | decisions | messages | knowledge | discord_history | discord_channels |
-|-----|-----------|-----------|----------|-----------|----------------|-----------------|
-| CTO | 3000 | 5 | 10 | 5 | 20 | [agent-com-dev, hotel-kanri] |
-| Arc | 2000 | 3 | 10 | 3 | 10 | [agent-com-dev] |
-| Hotel Dev | 1000 | 0 | 5 | 3 | 5 | [hotel-kanri] |
-| 他Dev Bot | 1000 | 0 | 5 | 3 | 5 | [各担当チャンネル] |
+| Bot | max_tokens | decisions | messages | knowledge |
+|-----|-----------|-----------|----------|-----------|
+| CTO | 3000 | 5 | 10 | 5 |
+| Arc | 2000 | 3 | 10 | 3 |
+| Hotel Dev | 1000 | 0 | 5 | 3 |
+| 他Dev Bot | 1000 | 0 | 5 | 3 |
 
 recovery_configテーブルにレコードがないBotはデフォルト値を使用:
-max_tokens=1000, decisions=0, messages=5, knowledge=3, discord_history=5
+max_tokens=1000, decisions=0, messages=5, knowledge=3
 
 ### Phase 1: 自動調整ロジック
 
@@ -429,41 +427,14 @@ settings.jsonのhook定義でコマンドに環境変数を直接指定する：
 - 同名タスクが既存の場合はステータス更新（start→done等）
 - メッセージ本文からprogress/next_stepsを抽出してtask_statesに保存
 
-## discord_history統合復元 (FEAT-026)
+## 復元の外部通信境界（KS-RM-01）
 
-### boot.tsへの追加
-
-```
-既存: task_states + decisions + knowledge + messages を並列取得
-追加: discord_historyをfetch_discord_history経由で取得
-
-取得量: recovery_configのdiscord_history_limit（メッセージ件数ベース）
-- CTO: 50件
-- Dev Bot: 20件
-- discord_history_limit=0 で無効化
-
-チャンネル: recovery_configのdiscord_channelsで指定
-```
-
-### agent-comms未インストール時
-
-中核の記憶復旧は継続し、Discord連携の利用不能だけを理由付きで返す（M6 / KS-DEG-01・02）。
-`fetchDiscordHistory` は既存の `discordHistory: string[]` を保った結果と、
-`discord_history_status: {state: "ok" | "unavailable", reason: string | null}` を返す。
-通常の `recover_context` と `boot` は従来の履歴表示を維持し、テキスト末尾に
-`discord_history_status: {"state":...,"reason":...}` を必ず併記する。
-MCPのcontent/text envelope、tool名、構造化restart packのschemaは変更しない。
-
-- port未設定: `unavailable / port_not_configured`
-- 接続拒否・timeoutなどfetch失敗: `unavailable / connection_failed`
-- HTTP非成功: `unavailable / http_error:<status>`（500なら `http_error:500`）
-- 不正なJSON・利用できない応答: `unavailable / invalid_response`
-- port設定済みだがchannel空またはlimit無効: `unavailable / history_not_requested`
-- 正常応答（messagesが空配列の場合も含む）: `ok / null`
-
-複数channelの一部だけ取得できた場合、取得済み配列は保持するがstateはunavailableとし、
-設定順で最初の利用不能理由を返す。空配列だけから「履歴なし」や取得成功を判断しない。
-理由には生の例外・応答本文を含めない。
+FEAT-026 は [owner 決定](https://github.com/watchout/iyasaka-arc/issues/48#issuecomment-5879206057)
+により 2026-09-29 廃止（#328）。M6 の KS-DEG-01 / 02 は KS-RM-01 に置き換える。
+通常の recover_context / boot は自DBの記録だけを復元し、Discord履歴の取得・表示・状態fieldを出さない。
+旧接続portが環境に残っていても取得通信は0回。設定表示にも廃止した連携設定を含めない。
+会話文脈は席が AUN の正式窓口（aun.v2.status）から取得する。
+MCPのcontent/text envelope、tool名、構造化restart packのschemaは維持する。
 
 ## §3-E: Example Table
 
@@ -487,7 +458,6 @@ MCPのcontent/text envelope、tool名、構造化restart packのschemaは変更�
 | decisions limit | 0 | 20 | → default 0 | → default 0 | → default |
 | messages limit | 0 | 50 | → default 5 | → default 5 | → default |
 | knowledge limit | 0 | 20 | → default 3 | → default 3 | → default |
-| discord_history limit | 0 | 100 | → default 5 | → default 5 | → default |
 
 ## §3-G: Exception Response
 
@@ -498,7 +468,6 @@ MCPのcontent/text envelope、tool名、構造化restart packのschemaは変更�
 | 3 | recovery_configレコードなし | デフォルト値使用 | 正常動作（設定なし=デフォルト） |
 | 4 | Voyage AI APIエラー | semantic search無効化 | keyword searchにfallback |
 | 5 | トークン上限超過 | 優先度順にトランケート | task > decisions > messages > knowledge |
-| 6 | discord_history取得失敗 | 既存配列 + discord_history_status=unavailable（理由付き） | memは他を正常復元。空配列だけで取得成功にしない |
 
 ## §3-H: Acceptance Tests (Gherkin)
 

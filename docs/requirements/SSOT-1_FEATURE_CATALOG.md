@@ -63,7 +63,7 @@ Critical acceptance gates from #148:
 | FEAT-003 | supersede_decision | P0 | ✅ Implemented | SSOT-3 | MCP tool: 判断の上書き |
 | FEAT-004 | save_task_state | P0 | ✅ Implemented | SSOT-3 | MCP tool: タスク状態の保存 |
 | FEAT-005 | search_memory | P0 | ✅ Implemented | SSOT-3 | MCP tool: 全スコープ横断検索（keyword match） |
-| FEAT-006 | recover_context | P0 | ✅ Implemented | SSOT-3 | MCP tool: decisions+messages+knowledge+discord統合復元 |
+| FEAT-006 | recover_context | P0 | ✅ Implemented | SSOT-3 | MCP tool: 自DBの decisions+messages+knowledge を復元（Discord取得は廃止） |
 | FEAT-007 | SessionStart hook (boot.ts) | P0 | ✅ Implemented | - | boot.ts: 全カテゴリ復元+quality log+auto-expire |
 | FEAT-008 | PostgreSQL store | P0 | ✅ Implemented | SSOT-4 | pg-store.ts: 全テーブル対応 |
 | FEAT-009 | JSON file store (fallback) | P1 | ✅ Implemented | SSOT-4 | json-store.ts: DB不要のフォールバック |
@@ -71,7 +71,7 @@ Critical acceptance gates from #148:
 | FEAT-011 | agent_messages検索 | P1 | ✅ Implemented | SSOT-4 | search_memory scope=messagesで検索可能 |
 | FEAT-012 | Tool call logging | P2 | ✅ Implemented | - | ~/.agent-memory/calls.log に記録 |
 | FEAT-013 | Voyage AI embeddings | P2 | ✅ Implemented | - | voyage.ts: isVoyageAvailable()フォールバック付き |
-| FEAT-014 | 統合復元（decisions + messages + discord_history） | P0 | ✅ Implemented | - | buildRecoveryOutput: 5セクション統合。PR#10,#21 |
+| FEAT-014 | 統合復元（decisions + messages、Discord取得は廃止） | P0 | ✅ Implemented | - | buildRecoveryOutput の統合復元。PR#10,#21（Discord部分は FEAT-026 廃止に伴い除去） |
 | FEAT-015 | Bot別recovery_depth設定 | P0 | ✅ Implemented | - | recovery_config: 10Bot設定投入+set_recovery_config MCPツール |
 | FEAT-016 | L1→L2→L3 昇格ロジック | P1 | ❌ Not Implemented | - | 設計のみ |
 | FEAT-017 | Catch-up機能（DB→Discord復元） | P1 | ❌ Not Implemented | - | agent-comms連携。未着手 |
@@ -83,7 +83,7 @@ Critical acceptance gates from #148:
 | FEAT-023 | 管理ダッシュボード | P3 | ❌ Not Implemented | - | プロダクト化Phase 3 |
 | FEAT-024 | 復元品質モニタリング | P1 | ✅ Implemented | - | logRecoveryQuality+updateSearchMemoryCount。PR#11 |
 | FEAT-025 | PostToolUse hookタグ検出 | P0 | ✅ Implemented | SSOT-3 | post-tool-hook.ts: 全タグ自動検出→DB INSERT。PR#16 |
-| FEAT-026 | discord_history統合復元 | P0 | ✅ Implemented | SSOT-3 | discord-history.ts+boot.ts連携。PR#16 |
+| FEAT-026 | Discord履歴取得（履歴） | P0 | 廃止（owner 2026-09-29） | SSOT-3 | #328 / OD-KUSABI-DISCORD-HISTORY-REMOVAL-20260929。PR#16・M6 (#327) を置換、後継受入 KS-RM-01 |
 | FEAT-027 | cron補完処理 | P1 | ❌ Not Implemented | - | hookで拾えなかったメッセージのスキャン |
 | FEAT-028 | Adapter層インターフェース化 | P1 | ❌ Not Implemented | SSOT-3 | ストア抽象化。設計のみ |
 | FEAT-029 | memory-tags.md自動生成 | P1 | ✅ Implemented | - | ensure-tags.ts: boot時に自動配置。PR#16 |
@@ -132,7 +132,7 @@ recovery surface also includes:
 | Wave | Features | Status |
 |------|----------|--------|
 | Wave 0 (Phase 0) | FEAT-014, FEAT-015, FEAT-024 | ✅ Complete |
-| Wave 0.5 (自動蓄積) | FEAT-025, FEAT-026, FEAT-029 | ✅ Complete |
+| Wave 0.5 (自動蓄積、履歴) | FEAT-025, FEAT-026, FEAT-029 | 当時完了。FEAT-026 は 2026-09-29 廃止 |
 | Wave 0.7 (品質改善) | FEAT-036, FEAT-037 | ✅ Complete |
 | Wave 1 (ツール公開) | FEAT-010完成, FEAT-027 | 🔧 In Progress |
 | Wave 1.5 (SaaS準備) | FEAT-028 | ❌ Not Started |

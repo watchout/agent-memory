@@ -7,7 +7,6 @@
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
-import { fetchDiscordHistory } from "./discord-history.js";
 import { generateRestartPack } from "./restart-pack.js";
 import { redactText } from "./redact.js";
 import {
@@ -171,15 +170,10 @@ async function boot() {
       store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
     ]);
 
-    const { discordHistory, discord_history_status } = await fetchDiscordHistory(
-      cfg.discord_channels, cfg.discord_history_limit
-    );
-
     const output = buildRecoveryOutput({
       agentId: AGENT_ID, project: PROJECT, config: cfg,
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
-      discordHistory,
-    }) + `\n\ndiscord_history_status: ${JSON.stringify(discord_history_status)}`;
+    });
 
     // Log recovery quality with summary in notes JSON. Continuation is
     // unknown at boot time and must be filled by a later host observation;
@@ -194,7 +188,6 @@ async function boot() {
         tasks_completed: completedTasks.length,
         knowledge: knowledgeItems.length,
         messages: messages.length,
-        discord_history: discordHistory.length,
       });
       await store.logRecoveryQuality({
         agent_id: AGENT_ID,
