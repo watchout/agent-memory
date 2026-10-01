@@ -14,6 +14,7 @@ import {
   CODEX_SESSION_START_INPUT_MAX_BYTES,
   CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
   parseCodexSessionStartArgs,
+  resolveCodexStoreBinding,
   type CodexSessionStartBinding,
 } from "./codex-session-start.js";
 import { redactText } from "./redact.js";
@@ -175,7 +176,14 @@ export async function runTranscriptStopCapture(
   }
 
   try {
-    const store = await (dependencies.createStore ?? (() => createStore({ skipPostgresMigrations: true })))();
+    const store = await (dependencies.createStore ?? (() => {
+      // Native hooks do not inherit the MCP server's environment. Resolve the
+      // same user-config binding as SessionStart before selecting a backend.
+      // A configured but unavailable PostgreSQL store must never fall back to
+      // SQLite and report a successful capture into the wrong store.
+      resolveCodexStoreBinding();
+      return createStore({ skipPostgresMigrations: true });
+    }))();
     try {
       const result = await (dependencies.receive ?? receiveCurrentSessionTranscript)(store, {
         host: host satisfies SessionStartTranscriptHost,
