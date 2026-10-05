@@ -1,0 +1,183 @@
+{
+  "schema_version": "shirube-v3/control_handoff/v1",
+  "control_handoff_id": "KUSABI-SDS-U1-PR332",
+  "mode": "rapid-lite",
+  "profile": "hotel-lite",
+  "framework_ref": "watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e",
+  "control_source": "https://github.com/watchout/agent-memory/issues/307",
+  "control_source_refs": [
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5990937650",
+      "sha256": "e8171b03afd25edaf9810627058e3cc20cd9ed6118e94c07997c307fe7a16c32"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992776591",
+      "sha256": "d108d0e2138485563566a9a6225fbe205b3b742326a4ab4d1b133dc4dddd49cb"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992879762",
+      "sha256": "33cccd6f9d2d58be0566337ff3f97ef551963c8e506b1e9f21e16c593e3e5450"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992926386",
+      "sha256": "7fa4a533cbdea4ca25bfc1ef66835caec4ed4fa0c953e22d5584f71a4315d38a"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993318934",
+      "sha256": "c11098b29908d7297f24d8a9a4ee7f5becf1599f0ebf26de6333d15c4013ecd9"
+    }
+  ],
+  "authority_note": "These files mirror the cited published scopes. They do not grant owner approval, audit PASS, merge or protected-operation authority.",
+  "repository": {
+    "name": "watchout/agent-memory",
+    "pr": 332
+  },
+  "execution_context": {
+    "to": {
+      "agent_id": "kusabi",
+      "active_function": "implementation_executor"
+    },
+    "maker_history": [
+      "kusabi"
+    ]
+  },
+  "lifecycle_state": "IMPLEMENTED",
+  "spec_review_state": "ready_for_implementation",
+  "repo_spec_ref": ".shirube/repo-spec.yaml",
+  "premise_confirmation_ref": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+  "premise_confirmation_source": {
+    "url": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+    "sha256": "73d433a2e2156ba540b8f6d15de6e25612992456ca0017fb37292e3109aa6515",
+    "scope": "Existing repository adoption premise only; not approval of PR332 or its implementation."
+  },
+  "cell": {
+    "id": "KUSABI-SDS-U1",
+    "cell_type": "product_implementation",
+    "risk_class": "R2",
+    "goal": "途切れても続きから: explicitly scoped seat knowledge and bounded conversation-source readback, using existing stores.",
+    "non_scope": [
+      "C2 freshness unification",
+      "Full deletion/reingestion acceptance",
+      "Actual LLM continuation acceptance",
+      "Production migration or deployment",
+      "Merge or independent approval"
+    ],
+    "CELL-ID": "KUSABI-SDS-U1"
+  },
+  "allowed_paths": [
+    ".shirube/cells/kusabi-sds-u1/control-handoff.json",
+    ".shirube/cells/kusabi-sds-u1/execution-context.json",
+    ".shirube/cells/kusabi-sds-u1/lifecycle-state.json",
+    "docs/design/KUSABI_SDS_RETRIEVAL_CONTRACT.md",
+    "docs/design/core/SSOT-3_API_CONTRACT.md",
+    "docs/design/core/SSOT-4_DATA_MODEL.md",
+    "docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md",
+    "docs/design/governance/wasurezu-governed-action-profiles.v1.json",
+    "src/boot.ts",
+    "src/constants.ts",
+    "src/index.ts",
+    "src/memory-source.ts",
+    "src/restart-pack.ts",
+    "src/sanitize.ts",
+    "src/stores/json-store.ts",
+    "src/stores/knowledge-scope.ts",
+    "src/stores/pg-migrations.ts",
+    "src/stores/pg-store.ts",
+    "src/stores/sqlite-store.ts",
+    "src/stores/types.ts",
+    "src/test-memory-source.ts",
+    "src/test-pg.ts",
+    "src/test-recovery-scope.ts",
+    "src/test-sqlite.ts",
+    "src/test.ts"
+  ],
+  "forbidden_paths": [
+    ".github/**",
+    ".shirube/runtime/**",
+    ".shirube/enforcement-policy.yaml",
+    ".shirube/repo-policy.json",
+    ".env*",
+    "deploy/**",
+    "package.json",
+    "package-lock.json"
+  ],
+  "forbidden_operations": [
+    "change CI rules or protection",
+    "modify existing runtime policy",
+    "approve own audit or exceptions",
+    "merge",
+    "deploy",
+    "operate production databases or agent hooks"
+  ],
+  "stop_conditions": [
+    "Changed path outside the published scopes",
+    "Protected operation required",
+    "Unresolved mandatory finding before integration",
+    "Independent review must be performed by a different maker"
+  ],
+  "required_checks": [
+    "npm run build",
+    "KUSABI_TEST_TMPDIR=/tmp tsx src/test.ts",
+    "tsx src/test-sqlite.ts",
+    "DATABASE_URL=<isolated-test-db> tsx src/test-pg.ts",
+    "KUSABI_SCOPE_TEST_PG_URL=<isolated-test-db> tsx src/test-memory-source.ts",
+    "git diff --check"
+  ],
+  "required_evidence": [
+    "PR_head_SHA",
+    "changed_files",
+    "validation_commands",
+    "validation_results",
+    "owner_decision",
+    "control_state_completeness_report"
+  ],
+  "acceptance": [
+    "Project recovery selects only explicit seat knowledge and that project",
+    "Source readback uses exact seat/project/ID and protected-text version",
+    "Unicode pages preserve content/hash and redact before slicing",
+    "Foreign or missing source is not revealed; database failure is an error",
+    "No merge/deploy claim from local or CI test success"
+  ],
+  "independent_audit_required": true,
+  "owner_decision": {
+    "required_before_merge": true,
+    "evidence_source": "external_owner_decision_comment_or_workflow_input",
+    "committed_pending_policy_only": true,
+    "exact_head_sha": null,
+    "decision_ref": null
+  },
+  "next_action": {
+    "blocking": false,
+    "owner_agent": "kusabi",
+    "owner_function": "implementation_executor",
+    "action": "Resolve the scope-reference mismatch, preserve remaining findings and prepare an exact-head independent review intake.",
+    "handoff_method": "PR332 and issue307",
+    "input_refs": [
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-5990937650",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992776591",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992879762",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992926386",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993318934"
+    ],
+    "scope": "Published U1-B1/B2 plus this metadata-only binding correction",
+    "deliverable": "Reviewable exact-head candidate and truthful gate evidence",
+    "completion_evidence": "Correct #307/#332 scope resolution; remaining gates are not waived"
+  },
+  "validation": {
+    "required_evidence": [
+      "PR_head_SHA",
+      "changed_files",
+      "validation_commands",
+      "validation_results",
+      "owner_decision",
+      "control_state_completeness_report"
+    ],
+    "implementation_results_ref": {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993053502",
+      "sha256": "02c3bad3ffae0bb5a39bf0de127749c537072cd1a19a28ce0e0a12b0655a6786"
+    },
+    "product_evidence_subject": "667a89ec15868de9e2415a437d5c7cae0eade657",
+    "current_head_source": "GitHub PR runtime; must recheck exact-head CI. Product evidence is reusable only while source tree is unchanged."
+  },
+  "escalation_route": "If a protected operation, rule exemption, or scope change is needed, stop that operation and return exact findings to issue #307 for the orchestration_controller and protected_surface_gate/owner as applicable. The maker cannot approve an exception or perform the protected effect."
+}
