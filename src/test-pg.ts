@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { testPgTaskMigrationRetention } from "./test-task-migration-retention.js";
 /**
  * Integration tests for agent-memory PgStore.
  * Requires: DATABASE_URL=postgresql://localhost/agent_comms
@@ -234,10 +235,11 @@ async function testMigrationRerunSafetyInIsolatedSchema() {
           "recovery_quality_log",
           "selected_restart_packs",
           "task_states",
+          "task_state_migration_archive",
         ],
       ],
     );
-    assert(tables.rows.length === 9, "isolated migration creates the expected PG tables");
+    assert(tables.rows.length === 10, "isolated migration creates the expected PG tables including retained history");
 
     const rawOccurredAt = await admin.query(
       `SELECT is_nullable
@@ -545,18 +547,9 @@ async function testTaskIdUpsert() {
   });
   assert(hashAll.length === 1, "hash-keyed UPSERT keeps row count at 1");
 
-  // Cleanup just this isolated agent
-  const pg = await import("pg");
-  const pool = new pg.default.Pool({
-    connectionString: withPgSearchPath(DATABASE_URL!, TEST_SCHEMA),
-  });
-  try {
-    await pool.query("DELETE FROM task_states WHERE agent_id LIKE $1", [
-      `${upsertAgent}%`,
-    ]);
-  } finally {
-    await pool.end();
-  }
+  // The suite owns a unique schema and drops it in finally. Keep these
+  // distinct-agent rows until that single teardown, including on assertion failure.
+
 }
 
 async function testSearchMemory() {
@@ -1096,6 +1089,7 @@ async function run() {
   console.log(`Using agent_id prefix: ${AGENT}`);
 
   try {
+    await testPgTaskMigrationRetention(DATABASE_URL!);
     await setup();
     await testMigration();
     await testKusabiRuntimeEventStore();

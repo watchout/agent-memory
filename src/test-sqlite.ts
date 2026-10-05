@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { testSqliteTaskMigrationRetention } from "./test-task-migration-retention.js";
 /**
  * Integration tests for agent-memory SqliteStore.
  * Run: tsx src/test-sqlite.ts
@@ -1437,6 +1438,7 @@ async function run() {
   console.log(`Using DB path: ${TEST_DB_PATH}`);
 
   try {
+    await testSqliteTaskMigrationRetention();
     await setup();
     await testMigration();
     await testKusabiRuntimeEventStore();

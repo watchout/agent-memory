@@ -29,6 +29,10 @@
     {
       "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993658293",
       "sha256": "c2e1d8136cf44c9cbe1bc7572d8edc829067e0b71cbf4ac9824258f0469f88a6"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6004151182",
+      "sha256": "77e8d61777340c851ff313ba62837306ac6d26f200da89d62143182f6713fb29"
     }
   ],
   "authority_note": "These files mirror the cited published scopes. They do not grant owner approval, audit PASS, merge or protected-operation authority.",
@@ -94,7 +98,8 @@
     "src/test-recovery-scope.ts",
     "src/test-sqlite.ts",
     "src/test.ts",
-    ".shirube/cells/kusabi-sds-u1/audit-items.json"
+    ".shirube/cells/kusabi-sds-u1/audit-items.json",
+    "src/test-task-migration-retention.ts"
   ],
   "forbidden_paths": [
     ".github/**",

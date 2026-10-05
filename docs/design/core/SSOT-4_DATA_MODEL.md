@@ -27,6 +27,7 @@ agent-memory (wasurezu) は **2 つのストレージモード** を持つ:
 |----------|------|------------|------------|
 | `decisions` | 意思決定の記録、supersede chain | embedding (vector 512) | embedding TEXT NULL |
 | `task_states` | タスクライフサイクル | embedding (vector 512) | embedding TEXT NULL |
+| `task_state_migration_archive` | 旧重複タスクの全列保管・隔離復旧 | record JSONB | record JSON TEXT |
 | `knowledge` | 知識・洞察・パターン | embedding (vector 512), L1→L2 merge | embedding TEXT NULL |
 | `recovery_config` | bot 別の復元パラメータ | - | (差分なし) |
 | `recovery_quality_log` | 復旧品質の計測 | - | (差分なし) |
@@ -124,14 +125,17 @@ CREATE TABLE task_states (
   agent_id       TEXT NOT NULL,
   project        TEXT,
   task           TEXT NOT NULL,
+  task_id        TEXT,
   status         TEXT NOT NULL,            -- pending | in_progress | blocked | completed | cancelled | expired
   progress       TEXT,
   files_modified TEXT[] DEFAULT '{}',
   next_steps     TEXT,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ,
   embedding      vector(512)
 );
 
+CREATE UNIQUE INDEX uq_task_states_agent_task_id ON task_states(agent_id, task_id);
 CREATE INDEX idx_task_states_agent ON task_states(agent_id, created_at DESC);
 CREATE INDEX idx_task_states_embedding ON task_states USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX idx_task_states_search ON task_states USING gin (
@@ -141,8 +145,11 @@ CREATE INDEX idx_task_states_search ON task_states USING gin (
 
 **ライフサイクル**:
 - 7 日超 in_progress → `expired` に自動遷移 (boot.ts の expireStaleTaskStates)
-- task は immutable な "snapshot" 設計 (update ではなく新規 INSERT で履歴を残す)
-- 同一タスクの最新状態は agent_id + task 文字列マッチで取得
+- 現行の通常保存は `(agent_id, task_id)` のUPSERT。省略時はtask文字列から安定IDを導く。
+- AM-023以前の重複は、PGではcreated_at DESC/id DESC、SQLiteでは最大rowidを通常行として維持する。外れる行は削除前に同一DBの `task_state_migration_archive` へ全列snapshotを保存し、通常集合からの移動と保存を原子的に行う。
+- archive列: `id` (元行ID、primary key)、`record` (PG JSONB / SQLite JSON TEXT、元行全列)、`archived_at` (PG TIMESTAMPTZ / SQLite TEXT)、`reason` (`am023_duplicate`)。検索/復元の通常タスクへ混ぜず、自動TTL・purgeを設けない。再実行で同じ行を上書きしない。保存不能/同ID衝突は移動全体をrollbackして元行を保持する。
+- snapshot取得はtask_id/updated_atの互換backfill後、最新行選択の直前。元のprogress/files_modified/next_steps/時刻/embeddingを保持する。
+- 復旧はDBバックアップの隔離コピー上でarchiveの全recordを旧形式のtask表へ復元し、全列を照合する。製品DBへ自動再投入しない（同じagent/task_idの一意制約と衝突するため）。本番での復旧/永久削除は別の明示指示と対象版確認が必要。過去版が既に物理削除した行は復元できると主張しない。
 
 ### 2.3 knowledge
 

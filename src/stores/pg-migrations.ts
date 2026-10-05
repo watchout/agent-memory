@@ -126,14 +126,23 @@ export const PG_MIGRATIONS: string[] = [
   // task_id verbatim so the UNIQUE index has something to key on.
   `UPDATE task_states SET task_id = task WHERE task_id IS NULL`,
   `UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`,
-  // Dedup: keep only the latest row per (agent_id, task_id). Uses
-  // DISTINCT ON which is PG-specific but produces a deterministic
-  // pick (the row with the largest created_at, ties broken by id).
-  `DELETE FROM task_states WHERE id NOT IN (
-     SELECT DISTINCT ON (agent_id, task_id) id
-       FROM task_states
-      ORDER BY agent_id, task_id, created_at DESC, id DESC
+  // Retain every displaced legacy snapshot, including embedding and unknown
+  // legacy columns. The data-modifying CTE is atomic: archive failure rolls
+  // back the move. No TTL or overwrite; restore only in an isolated DB copy.
+  `CREATE TABLE IF NOT EXISTS task_state_migration_archive (
+     id UUID PRIMARY KEY,
+     record JSONB NOT NULL,
+     archived_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+     reason TEXT NOT NULL
    )`,
+  `WITH displaced AS (
+     DELETE FROM task_states WHERE id NOT IN (
+       SELECT DISTINCT ON (agent_id, task_id) id
+         FROM task_states
+        ORDER BY agent_id, task_id, created_at DESC, id DESC
+     ) RETURNING *
+   ) INSERT INTO task_state_migration_archive (id, record, reason)
+     SELECT id, to_jsonb(displaced), 'am023_duplicate' FROM displaced`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
      ON task_states (agent_id, task_id)`,
 

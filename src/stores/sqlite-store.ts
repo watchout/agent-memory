@@ -402,28 +402,40 @@ export class SqliteStore implements Store {
     // the UNIQUE index has something to key on.
     this.db.run(`UPDATE task_states SET task_id = task WHERE task_id IS NULL`);
     this.db.run(`UPDATE task_states SET updated_at = created_at WHERE updated_at IS NULL`);
-    // Dedup: keep only the most recently inserted row per
-    // (agent_id, task_id). SQLite has no DISTINCT ON, so we use rowid
-    // (monotonic with insert order) which is a good proxy here because
-    // the legacy rows were append-only and never updated.
-    this.db.run(
-      `DELETE FROM task_states WHERE rowid NOT IN (
-         SELECT MAX(rowid) FROM task_states GROUP BY agent_id, task_id
-       )`
-    );
-    this.db.run(
-      `CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
-         ON task_states (agent_id, task_id)`
-    );
-
-    // FTS5 detection — sql.js default build does not include FTS5,
-    // but we probe so we are forward-compatible with custom builds.
+    // Preserve displaced legacy snapshots. Archive + move + index share a
+    // transaction; archive collisions/errors retain the original rows.
+    this.db.run(`CREATE TABLE IF NOT EXISTS task_state_migration_archive (
+      id TEXT PRIMARY KEY, record TEXT NOT NULL,
+      archived_at TEXT NOT NULL, reason TEXT NOT NULL
+    )`);
+    this.db.run("BEGIN");
     try {
-      this.db.run("CREATE VIRTUAL TABLE IF NOT EXISTS _fts5_probe USING fts5(c)");
-      this.db.run("DROP TABLE IF EXISTS _fts5_probe");
+      const displaced = this.allRows(`SELECT * FROM task_states WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM task_states GROUP BY agent_id, task_id
+      )`, []);
+      for (const row of displaced) {
+        this.db.run(`INSERT INTO task_state_migration_archive (id, record, archived_at, reason)
+          VALUES (?, ?, ?, ?)`, [String(row.id), JSON.stringify(row), new Date().toISOString(), "am023_duplicate"]);
+        this.db.run("DELETE FROM task_states WHERE id = ?", [String(row.id)]);
+      }
+      this.db.run(`CREATE UNIQUE INDEX IF NOT EXISTS uq_task_states_agent_task_id
+        ON task_states (agent_id, task_id)`);
+      this.db.run("COMMIT");
+    } catch (error) {
+      this.db.run("ROLLBACK");
+      throw error;
+    }
+
+    // Probe the same SQL.js build in a disposable in-memory database. Never
+    // create or drop a probe table in the product database.
+    const probe = new SQL.Database();
+    try {
+      probe.run("CREATE VIRTUAL TABLE _fts5_probe USING fts5(c)");
       this.fts5Available = true;
     } catch {
       this.fts5Available = false;
+    } finally {
+      probe.close();
     }
 
     this.persist();

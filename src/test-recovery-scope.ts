@@ -143,11 +143,11 @@ try {
     // Real old-schema row: no memory_scope or embedding columns before initialize.
     await admin.query(`CREATE TABLE ${schema}.knowledge (id UUID PRIMARY KEY, agent_id TEXT NOT NULL, project TEXT, title TEXT NOT NULL, content TEXT NOT NULL, source_type TEXT NOT NULL, source_ids UUID[] DEFAULT '{}', tags TEXT[] DEFAULT '{}', status TEXT DEFAULT 'active', merged_into UUID, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now())`);
     const legacyId = randomUUID();
-    await admin.query(`INSERT INTO ${schema}.knowledge(id,agent_id,title,content,source_type) VALUES ($1,$2,'legacy null','old data','manual')`, [legacyId, agent]);
+    await admin.query(`INSERT INTO ${schema}.knowledge(id,agent_id,title,content,source_type) VALUES ($1,$2,'legacy null','old data','manual')`, [legacyId, "legacy-migration-seat"]);
     await postgres.initialize(); await postgres.initialize();
-    same((await postgres.getKnowledge({ agent_id: agent })).find((k) => k.id === legacyId)?.memory_scope, "unclassified", "PG old NULL row is not promoted during migration rerun");
-    same(ids(await postgres.getKnowledge({ agent_id: agent, knowledge_scope: "seat_only" })), [], "legacy row excluded from common read");
-    await admin.query(`DELETE FROM ${schema}.knowledge WHERE id=$1`, [legacyId]);
+    same((await postgres.getKnowledge({ agent_id: "legacy-migration-seat" })).find((k) => k.id === legacyId)?.memory_scope, "unclassified", "PG old NULL row is not promoted during migration rerun");
+    same(ids(await postgres.getKnowledge({ agent_id: "legacy-migration-seat", knowledge_scope: "seat_only" })), [], "legacy row excluded from common read");
+    // Keep the migration fixture; it belongs to its own seat until schema teardown.
     await runRecoveryScopeContract(postgres);
     // Exercise actual pgvector SQL with a deterministic local embedding response.
     // No external embedding request is made; this checks scope, not semantic ranking.
@@ -155,14 +155,35 @@ try {
     const oldDisable = process.env.AGENT_MEMORY_DISABLE_EMBEDDINGS;
     const oldKey = process.env.VOYAGE_API_KEY;
     const embedding = Array.from({ length: 512 }, (_, i) => i === 0 ? 1 : 0);
+    const requests: Array<{ input: string[]; input_type: string }> = [];
+    const localEmbedding = (async (_url, options) => {
+      requests.push(JSON.parse(String(options?.body)));
+      return new Response(JSON.stringify({ data: [{ embedding }] }), { status: 200 });
+    }) as typeof fetch;
     try {
-      globalThis.fetch = (async () => new Response(JSON.stringify({ data: [{ embedding }] }), { status: 200 })) as typeof fetch;
+      globalThis.fetch = localEmbedding;
       process.env.AGENT_MEMORY_DISABLE_EMBEDDINGS = "0";
       process.env.VOYAGE_API_KEY = "scope-local-fixture";
-      await postgres.saveKnowledge({ ...base, memory_scope: "seat", source_ids: [source], title: "scopeprobe vector common" });
-      await admin.query(`UPDATE ${schema}.knowledge SET embedding=$1`, [JSON.stringify(embedding)]);
-      const query = { agent_id: agent, project: "alpha", knowledge_scope: "project_and_seat" as const };
-      same(ids((await postgres.searchMemory({ ...query, query: "scopeprobe", scope: "knowledge" })).knowledge), ids(await postgres.getKnowledge(query)), "actual pgvector query preserves project + seat boundary");
+      const vectorAgent = "vector-correction-seat";
+      const entry = { ...base, agent_id: vectorAgent, memory_scope: "seat" as const, source_ids: [source] };
+      const common = await postgres.saveKnowledge(entry);
+      const query = { agent_id: vectorAgent, project: "alpha", knowledge_scope: "project_and_seat" as const, query: "scopeprobe", scope: "knowledge" as const };
+      same(ids((await postgres.searchMemory(query)).knowledge), [common.id], "saved knowledge is searchable without database repair");
+      const corrected = await postgres.supersedeKnowledge({ agent_id: vectorAgent, old_id: common.id, new_title: "scopeprobe corrected", new_content: "correct procedure", reason: "user correction" });
+      same(ids((await postgres.searchMemory(query)).knowledge), [corrected.new.id], "corrected knowledge replaces old id in vector search without database repair");
+      same(requests.some((r) => r.input_type === "document" && r.input[0] === "scopeprobe corrected correct procedure"), true, "correction embeds the new content rather than copying the old vector");
+      globalThis.fetch = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
+      const fallback = await postgres.supersedeKnowledge({ agent_id: vectorAgent, old_id: corrected.new.id, new_title: "scopeprobe offline correction", new_content: "retained without embedding", reason: "correction while provider unavailable" });
+      same((await admin.query(`SELECT embedding IS NULL AS missing FROM ${schema}.knowledge WHERE id=$1`, [fallback.new.id])).rows[0].missing, true, "provider failure retains the corrected row without a stale vector");
+      // Foreign records also have no vectors: textual fallback must retain the same boundary.
+      await postgres.saveKnowledge({ ...entry, agent_id: "vector-peer" });
+      await postgres.saveKnowledge({ ...base, agent_id: vectorAgent, project: "beta" });
+      globalThis.fetch = localEmbedding;
+      same(ids((await postgres.searchMemory(query)).knowledge), [fallback.new.id], "query embedding success still finds a correction saved during provider failure, without foreign or superseded rows");
+      const project = await postgres.saveKnowledge({ ...base, agent_id: vectorAgent, project: "alpha" });
+      same(ids((await postgres.searchMemory(query)).knowledge), [fallback.new.id, project.id].sort(), "vector and text-only knowledge preserve project plus seat boundary");
+      same(ids((await postgres.searchMemory({ ...query, limit: 1 })).knowledge), [fallback.new.id], "text-only correction is not starved by the vector result limit");
+      same(ids((await postgres.searchMemory({ ...query, query: " " })).knowledge), [project.id], "blank query does not construct an invalid empty text condition");
     } finally {
       globalThis.fetch = oldFetch;
       if (oldDisable === undefined) delete process.env.AGENT_MEMORY_DISABLE_EMBEDDINGS; else process.env.AGENT_MEMORY_DISABLE_EMBEDDINGS = oldDisable;
