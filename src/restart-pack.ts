@@ -231,7 +231,7 @@ export async function loadRestartPackData(store: Store, input: RestartPackInput)
     store.getTaskStates({ agent_id: input.agent_id, project: input.project, limit: 2, status: "blocked" }),
     store.getTaskStates({ agent_id: input.agent_id, project: input.project, limit: 3, status: "completed" }),
     store.getDecisions({ agent_id: input.agent_id, project: input.project, limit: 5, status: "active" }),
-    store.getKnowledge({ agent_id: input.agent_id, project: input.project, limit: 5, status: "active" }),
+    store.getKnowledge({ agent_id: input.agent_id, project: input.project, knowledge_scope: input.project ? "project_and_seat" : "legacy", limit: 5, status: "active" }),
     store.getConversationEvents({ agent_id: input.agent_id, project: input.project, limit: 8 }),
   ]);
 
@@ -313,7 +313,7 @@ function buildSections(data: RestartPackData): string[] {
   const hasRecentConversation = data.conversationEvents.length > 0;
   const relevanceBasis = primaryTask ? primaryTask.task : "";
   const relevantDecisions = primaryTask ? filterRelevant(data.decisions, relevanceBasis, decisionText) : data.decisions;
-  const relevantKnowledge = primaryTask ? filterRelevant(data.knowledge, relevanceBasis, knowledgeText) : data.knowledge;
+  const relevantKnowledge = primaryTask ? relevantKnowledgeFor(data.knowledge, relevanceBasis) : data.knowledge;
   const continuityRisks = detectContinuityRisks({ decisions: data.decisions });
   const hiddenStructuredCount =
     data.decisions.length - relevantDecisions.length + data.knowledge.length - relevantKnowledge.length;
@@ -483,7 +483,7 @@ function buildRecoveryItems(data: RestartPackData): RecoveryPackItem[] {
   const hasRecentConversation = data.conversationEvents.length > 0;
   const relevanceBasis = primaryTask ? primaryTask.task : "";
   const relevantDecisions = primaryTask ? filterRelevant(data.decisions, relevanceBasis, decisionText) : data.decisions;
-  const relevantKnowledge = primaryTask ? filterRelevant(data.knowledge, relevanceBasis, knowledgeText) : data.knowledge;
+  const relevantKnowledge = primaryTask ? relevantKnowledgeFor(data.knowledge, relevanceBasis) : data.knowledge;
   const continuityRisks = detectContinuityRisks({ decisions: data.decisions });
   const hiddenStructuredCount =
     data.decisions.length - relevantDecisions.length + data.knowledge.length - relevantKnowledge.length;
@@ -1192,6 +1192,14 @@ function clipLine(text: string, maxChars: number): string {
 
 function decisionText(decision: Decision): string {
   return [decision.decision, decision.context ?? "", ...decision.tags].join(" ");
+}
+
+// Seat-wide applicability is explicit; a project/ticket anchor must not hide it.
+// The existing pack budget still bounds emission, and items remain candidate memory.
+function relevantKnowledgeFor(items: Knowledge[], basis: string): Knowledge[] {
+  const common = items.filter((item) => item.memory_scope === "seat" && !item.project);
+  const project = filterRelevant(items.filter((item) => item.memory_scope !== "seat"), basis, knowledgeText);
+  return [...project, ...common];
 }
 
 function knowledgeText(item: Knowledge): string {

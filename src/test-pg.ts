@@ -7,6 +7,7 @@
  * Uses a unique PostgreSQL schema that is dropped after the suite — no
  * persistent product-table side effects.
  */
+import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { readFileSync } from "fs";
 import pg from "pg";
 import { PgStore } from "./stores/pg-store.js";
@@ -1111,6 +1112,8 @@ async function run() {
     await testRecoveryQualityLog();
     testKnowledgeSupersedeUpdateSqlGuard();
     await testKnowledgeSupersede();
+    await runRecoveryScopeContract(store);
+    assert(true, "shared recovery scope contract: applicability, legacy compatibility, isolation, correction and pack");
     await testConversationEvents();
   } finally {
     try {

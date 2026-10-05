@@ -57,6 +57,8 @@ export const PG_MIGRATIONS: string[] = [
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
   )`,
+  // NULL preserves legacy provenance; only explicit writes classify seat knowledge.
+  `ALTER TABLE knowledge ADD COLUMN IF NOT EXISTS memory_scope TEXT`,
   `CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id, status)`,
   `CREATE INDEX IF NOT EXISTS idx_knowledge_project ON knowledge(project, status)`,
   `CREATE INDEX IF NOT EXISTS idx_knowledge_search ON knowledge

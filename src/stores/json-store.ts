@@ -1,3 +1,4 @@
+import { correctedMemoryScope, matchesKnowledgeScope, memoryScopeOf, validateKnowledgeScope, validateKnowledgeWrite } from "./knowledge-scope.js";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -288,6 +289,7 @@ export class JsonStore implements Store {
   }
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    validateKnowledgeScope(input, input.scope ?? "all");
     const scope = input.scope || "all";
     const limit = input.limit || 5;
     const queryLower = input.query.toLowerCase();
@@ -347,16 +349,16 @@ export class JsonStore implements Store {
       knowledgeItems = this.knowledgeItems
         .filter((k) => {
           if (k.agent_id !== input.agent_id) return false;
-          if (input.project && k.project !== input.project) return false;
+          if (!matchesKnowledgeScope(k, input)) return false;
           if (k.status !== "active") return false;
           const searchText = [k.title, k.content, ...k.tags].join(" ");
           return matchesAny(searchText);
         })
         .sort(
           (a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime() || a.id.localeCompare(b.id)
         )
-        .slice(0, limit);
+        .slice(0, limit).map((k) => ({ ...k, memory_scope: memoryScopeOf(k) }));
     }
 
     let conversationEvents: ConversationEvent[] = [];
@@ -384,10 +386,12 @@ export class JsonStore implements Store {
   }
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    const memoryScope = validateKnowledgeWrite(input);
     const knowledge: Knowledge = {
       id: uuidv4(),
       agent_id: input.agent_id,
       project: input.project,
+      memory_scope: memoryScope,
       title: input.title,
       content: input.content,
       source_type: input.source_type,
@@ -403,11 +407,9 @@ export class JsonStore implements Store {
   }
 
   async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
-    let results = this.knowledgeItems.filter((k) => k.agent_id === input.agent_id);
+    validateKnowledgeScope(input);
+    let results = this.knowledgeItems.filter((k) => k.agent_id === input.agent_id && matchesKnowledgeScope(k, input));
 
-    if (input.project) {
-      results = results.filter((k) => k.project === input.project);
-    }
     if (input.status && input.status !== "all") {
       results = results.filter((k) => k.status === input.status);
     } else if (!input.status) {
@@ -421,10 +423,10 @@ export class JsonStore implements Store {
 
     results.sort(
       (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime() || a.id.localeCompare(b.id)
     );
 
-    return results.slice(0, input.limit || 10);
+    return results.slice(0, input.limit || 10).map((k) => ({ ...k, memory_scope: memoryScopeOf(k) }));
   }
 
   private async saveKnowledgeFile(): Promise<void> {
@@ -748,10 +750,11 @@ export class JsonStore implements Store {
       id: uuidv4(),
       agent_id: input.agent_id,
       project: input.project ?? oldItem.project,
+      memory_scope: correctedMemoryScope(oldItem, input.project),
       title: input.new_title,
       content: input.new_content,
       source_type: "manual",
-      source_ids: [],
+      source_ids: [...(oldItem.source_ids ?? [])],
       tags: input.tags ?? oldItem.tags,
       status: "active",
       supersedes: input.old_id,

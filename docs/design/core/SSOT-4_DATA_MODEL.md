@@ -637,3 +637,14 @@ PostgreSQL (オプション):
 | 2026-04-06 | recovery_config defaults + seed data 追記 | quality audit Phase A |
 | 2026-04-08 | AM-010 充足: テーブル全定義 (PG/SQLite両モード)、agent-comms 互換性、機能制約、SQLite getRecentMessages 制約明記 | Arc |
 | 2026-05-19 | AM-031: Codex / Claude Code セッション継続の基盤として conversation_events 追加 | Codex |
+
+
+## 新SDS U1-B1: 席共通知識と案件指定の復元
+
+[取得契約と互換範囲](../KUSABI_SDS_RETRIEVAL_CONTRACT.md)を参照。
+`knowledge.memory_scope` の追加属性は `seat` / `project` / `unclassified`。
+既存NULL値はprojectがある場合のみprojectと解釈し、案件なしを自動的にseatへ変換しない。
+明示保存したseat知識は案件を持たず、既存記録のsource_idsを伴う。これは既存の候補記憶をtrusted instructionへ昇格する属性ではない。
+取得の `knowledge_scope` は省略時legacy互換。project_and_seatは同じ席の対象案件＋明示された共通知識だけ、seat_onlyは共通知識だけ。別席を含めない。
+案件指定時の復元とbootはproject_and_seatを使う。案件未指定の旧動作は保持する。
+SQLite/PostgreSQLの追加列とJSON互換実装に同じ選択条件を適用する。読み取りだけで旧記録を再分類・削除しない。今回の移行実行は隔離試験DBに限る。

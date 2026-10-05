@@ -1,3 +1,4 @@
+import { correctedMemoryScope, knowledgeScopeSql, memoryScopeOf, validateKnowledgeScope, validateKnowledgeWrite } from "./knowledge-scope.js";
 import pg from "pg";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -264,6 +265,7 @@ export class PgStore implements Store {
   }
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    validateKnowledgeScope(input, input.scope ?? "all");
     // Use vector search if Voyage AI is available, otherwise fall back to text search
     if (isVoyageAvailable()) {
       return this.searchMemoryVector(input);
@@ -328,10 +330,10 @@ export class PgStore implements Store {
       const conditions: string[] = ["agent_id = $1", "status = 'active'", "embedding IS NOT NULL"];
       const params: unknown[] = [input.agent_id];
       let pi = 2;
-      if (input.project) {
-        conditions.push(`project = $${pi++}`);
-        params.push(input.project);
-      }
+      const selection = knowledgeScopeSql(input, `$${pi}`);
+      if (selection.clause) conditions.push(selection.clause);
+      params.push(...selection.values);
+      pi += selection.values.length;
       const sql = `SELECT *, embedding <=> $${pi}::vector AS distance
                    FROM knowledge WHERE ${conditions.join(" AND ")}
                    ORDER BY distance ASC LIMIT ${limit}`;
@@ -339,8 +341,9 @@ export class PgStore implements Store {
       try {
         const result = await this.pool.query(sql, params);
         knowledgeItems = result.rows.map(this.rowToKnowledge);
-      } catch {
-        // knowledge table may not exist yet
+      } catch (err) {
+        // Legacy clients tolerate a missing knowledge table; scoped callers need a visible failure.
+        if (input.knowledge_scope && input.knowledge_scope !== "legacy") throw err;
       }
     }
 
@@ -451,10 +454,10 @@ export class PgStore implements Store {
       const params: unknown[] = [input.agent_id];
       let pi = 2;
 
-      if (input.project) {
-        conditions.push(`project = $${pi++}`);
-        params.push(input.project);
-      }
+      const selection = knowledgeScopeSql(input, `$${pi}`);
+      if (selection.clause) conditions.push(selection.clause);
+      params.push(...selection.values);
+      pi += selection.values.length;
 
       const searchClauses: string[] = [];
       if (tsQuery) {
@@ -472,12 +475,13 @@ export class PgStore implements Store {
 
       conditions.push(`(${searchClauses.join(" OR ")})`);
 
-      const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`;
+      const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC, id ASC LIMIT ${limit}`;
       try {
         const result = await this.pool.query(sql, params);
         knowledgeItems = result.rows.map(this.rowToKnowledge);
-      } catch {
-        // knowledge table may not exist yet
+      } catch (err) {
+        // Legacy clients tolerate a missing knowledge table; scoped callers need a visible failure.
+        if (input.knowledge_scope && input.knowledge_scope !== "legacy") throw err;
       }
     }
 
@@ -1113,13 +1117,14 @@ export class PgStore implements Store {
   }
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    const memoryScope = validateKnowledgeWrite(input);
     const id = uuidv4();
     const embeddingText = `${input.title} ${input.content}`.trim();
     const embedding = await generateEmbedding(embeddingText);
 
     const result = await this.pool.query(
-      `INSERT INTO knowledge (id, agent_id, project, title, content, source_type, source_ids, tags, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO knowledge (id, agent_id, project, title, content, source_type, source_ids, tags, embedding, memory_scope)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         id,
@@ -1131,6 +1136,7 @@ export class PgStore implements Store {
         input.source_ids || [],
         input.tags || [],
         embedding ? toPgVector(embedding) : null,
+        memoryScope,
       ]
     );
     return this.rowToKnowledge(result.rows[0]);
@@ -1141,10 +1147,10 @@ export class PgStore implements Store {
     const params: unknown[] = [input.agent_id];
     let paramIndex = 2;
 
-    if (input.project) {
-      conditions.push(`project = $${paramIndex++}`);
-      params.push(input.project);
-    }
+    const selection = knowledgeScopeSql(input, `$${paramIndex}`);
+    if (selection.clause) conditions.push(selection.clause);
+    params.push(...selection.values);
+    paramIndex += selection.values.length;
     if (input.status && input.status !== "all") {
       conditions.push(`status = $${paramIndex++}`);
       params.push(input.status);
@@ -1157,7 +1163,7 @@ export class PgStore implements Store {
     }
 
     const limit = input.limit || 10;
-    const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`;
+    const sql = `SELECT * FROM knowledge WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC, id ASC LIMIT ${limit}`;
     const result = await this.pool.query(sql, params);
     return result.rows.map(this.rowToKnowledge);
   }
@@ -1209,8 +1215,8 @@ export class PgStore implements Store {
       const newId = uuidv4();
       const newResult = await client.query(
         `INSERT INTO knowledge
-           (id, agent_id, project, title, content, source_type, tags, supersedes, supersede_reason)
-         VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7, $8)
+           (id, agent_id, project, title, content, source_type, tags, supersedes, supersede_reason, memory_scope, source_ids)
+         VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           newId,
@@ -1221,6 +1227,8 @@ export class PgStore implements Store {
           input.tags ?? oldRow.tags,
           input.old_id,
           input.reason,
+          correctedMemoryScope(oldRow, input.project),
+          oldRow.source_ids ?? [],
         ]
       );
 
@@ -1385,6 +1393,7 @@ export class PgStore implements Store {
       id: row.id as string,
       agent_id: row.agent_id as string,
       project: row.project as string | undefined,
+      memory_scope: memoryScopeOf({ project: row.project as string | null, memory_scope: row.memory_scope as string | null }),
       title: row.title as string,
       content: row.content as string,
       source_type: row.source_type as Knowledge["source_type"],

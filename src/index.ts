@@ -273,8 +273,9 @@ async function main() {
         .describe("Search scope (default: all)"),
       limit: z.number().optional().describe("Max results (default: 5)"),
       project: z.string().optional().describe("Filter by project"),
+      knowledge_scope: z.enum(["legacy", "project_and_seat", "seat_only"]).optional().describe("Knowledge applicability; seat_only requires scope=knowledge and no project"),
     },
-    async ({ query, scope, limit, project }) => {
+    async ({ query, scope, limit, project, knowledge_scope }) => {
       await logToolCall("search_memory", `query="${query}"`);
       searchMemoryCountSinceRecovery++;
       try {
@@ -283,7 +284,8 @@ async function main() {
           query,
           scope,
           limit,
-          project: project || PROJECT,
+          project: knowledge_scope === "seat_only" ? project : project || PROJECT,
+          knowledge_scope,
         });
 
         const total =
@@ -306,6 +308,7 @@ async function main() {
           for (const k of result.knowledge) {
             parts.push(`• ${k.title}`);
             parts.push(`  ${k.content}`);
+            if (k.memory_scope === "seat") parts.push("  Scope: seat (shared knowledge)");
             if (k.tags.length) parts.push(`  Tags: ${k.tags.join(", ")} | ${k.updated_at.slice(0, 10)}`);
           }
           parts.push("");
@@ -390,7 +393,7 @@ async function main() {
           store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: 1, status: "in_progress" }),
           store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
           store.getDecisions({ agent_id: AGENT_ID, project: proj, limit: cfg.decisions_limit, status: "active" }),
-          store.getKnowledge({ agent_id: AGENT_ID, project: proj, limit: cfg.knowledge_limit, status: "active" }),
+          store.getKnowledge({ agent_id: AGENT_ID, project: proj, knowledge_scope: proj ? "project_and_seat" : "legacy", limit: cfg.knowledge_limit, status: "active" }),
           store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
           store.getConversationEvents({
             agent_id: AGENT_ID,
@@ -690,9 +693,11 @@ async function main() {
       content: z.string().min(1).describe("Detailed content"),
       source_type: z.enum(["manual", "decisions", "messages"]).default("manual").describe("Source type"),
       tags: z.array(z.string()).optional().describe("Tags for categorization"),
+      memory_scope: z.enum(["seat", "project", "unclassified"]).optional().describe("Explicit applicability. Seat knowledge requires source_ids and no project"),
+      source_ids: z.array(z.string().uuid()).optional().describe("Source memory record IDs; required for seat-wide knowledge"),
       project: z.string().optional().describe("Project identifier"),
     },
-    async ({ title, content, source_type, tags, project }) => {
+    async ({ title, content, source_type, tags, project, memory_scope, source_ids }) => {
       await logToolCall("save_knowledge", `title="${title}"`);
       try {
         const result = await store.saveKnowledge({
@@ -701,7 +706,9 @@ async function main() {
           content,
           source_type,
           tags,
-          project: project || PROJECT,
+          project: memory_scope === "seat" || memory_scope === "unclassified" ? project : project || PROJECT,
+          memory_scope,
+          source_ids,
         });
         return {
           content: [
@@ -731,16 +738,18 @@ async function main() {
       status: z.enum(["active", "merged", "archived", "all"]).optional().describe("Filter by status (default: active)"),
       tags: z.array(z.string()).optional().describe("Filter by tags (any match)"),
       project: z.string().optional().describe("Filter by project"),
+      knowledge_scope: z.enum(["legacy", "project_and_seat", "seat_only"]).optional().describe("Knowledge applicability (default: legacy)"),
       limit: z.number().min(1).max(100).optional().describe("Max results (default: 10)"),
     },
-    async ({ status, tags, project, limit }) => {
+    async ({ status, tags, project, limit, knowledge_scope }) => {
       await logToolCall("get_knowledge", `status="${status || "active"}" limit=${limit || 10}`);
       try {
         const items = await store.getKnowledge({
           agent_id: AGENT_ID,
           status: status as "active" | "merged" | "archived" | "all" | undefined,
           tags,
-          project: project || PROJECT,
+          project: knowledge_scope === "seat_only" ? project : project || PROJECT,
+          knowledge_scope,
           limit,
         });
 
@@ -794,7 +803,7 @@ async function main() {
           new_content,
           reason,
           tags,
-          project: project || PROJECT,
+          project, // Omission preserves the original scope, including seat-wide knowledge.
         });
         return {
           content: [

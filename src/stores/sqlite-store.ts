@@ -1,3 +1,4 @@
+import { correctedMemoryScope, knowledgeScopeSql, memoryScopeOf, validateKnowledgeScope, validateKnowledgeWrite } from "./knowledge-scope.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
@@ -395,6 +396,7 @@ export class SqliteStore implements Store {
     // AM-024: knowledge supersede columns
     this.alterAddColumnIfMissing("knowledge", "supersedes", "TEXT");
     this.alterAddColumnIfMissing("knowledge", "supersede_reason", "TEXT");
+    this.alterAddColumnIfMissing("knowledge", "memory_scope", "TEXT");
     // Back-fill: existing rows have task='AM-006' (the ticket id, per
     // pre-AM-023 hook behavior). Copy that into task_id verbatim so
     // the UNIQUE index has something to key on.
@@ -723,12 +725,13 @@ export class SqliteStore implements Store {
   // ─── Knowledge ───────────────────────────────────────────────
 
   async saveKnowledge(input: SaveKnowledgeInput): Promise<Knowledge> {
+    const memoryScope = validateKnowledgeWrite(input);
     const id = uuidv4();
     const now = nowIso();
     this.db.run(
       `INSERT INTO knowledge
-        (id, agent_id, project, title, content, source_type, source_ids, tags, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+        (id, agent_id, project, title, content, source_type, source_ids, tags, status, created_at, updated_at, memory_scope)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
       [
         id,
         input.agent_id,
@@ -740,6 +743,7 @@ export class SqliteStore implements Store {
         JSON.stringify(input.tags || []),
         now,
         now,
+        memoryScope,
       ]
     );
     this.persist();
@@ -747,6 +751,7 @@ export class SqliteStore implements Store {
       id,
       agent_id: input.agent_id,
       project: input.project,
+      memory_scope: memoryScope,
       title: input.title,
       content: input.content,
       source_type: input.source_type,
@@ -759,11 +764,14 @@ export class SqliteStore implements Store {
   }
 
   async getKnowledge(input: GetKnowledgeInput): Promise<Knowledge[]> {
-    const { conditions, params } = scopedStatusWhere(input);
+    const { conditions, params } = scopedStatusWhere({ ...input, project: undefined });
+    const scope = knowledgeScopeSql(input, "?");
+    if (scope.clause) conditions.push(scope.clause);
+    params.push(...scope.values);
     const limit = input.limit || 10;
     const sql = `SELECT * FROM knowledge
                  WHERE ${conditions.join(" AND ")}
-                 ORDER BY updated_at DESC
+                 ORDER BY updated_at DESC, id ASC
                  LIMIT ${limit}`;
     const rows = this.allRows(sql, params);
     let items = rows.map((r) => this.rowToKnowledge(r));
@@ -832,25 +840,28 @@ export class SqliteStore implements Store {
     const now = nowIso();
     const newTags = input.tags ?? oldItem.tags;
     const newProject = input.project ?? oldItem.project ?? null;
+    const memoryScope = correctedMemoryScope(oldItem, input.project);
 
     this.db.run("BEGIN");
     try {
       this.db.run(
         `INSERT INTO knowledge
            (id, agent_id, project, title, content, source_type, source_ids, tags,
-            status, supersedes, supersede_reason, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'manual', '[]', ?, 'active', ?, ?, ?, ?)`,
+            status, supersedes, supersede_reason, created_at, updated_at, memory_scope)
+         VALUES (?, ?, ?, ?, ?, 'manual', ?, ?, 'active', ?, ?, ?, ?, ?)`,
         [
           newId,
           input.agent_id,
           newProject,
           input.new_title,
           input.new_content,
+          JSON.stringify(oldItem.source_ids),
           JSON.stringify(newTags),
           input.old_id,
           input.reason,
           now,
           now,
+          memoryScope,
         ]
       );
       this.db.run(
@@ -882,6 +893,7 @@ export class SqliteStore implements Store {
   // ─── Search ──────────────────────────────────────────────────
 
   async searchMemory(input: SearchMemoryInput): Promise<SearchMemoryResult> {
+    validateKnowledgeScope(input, input.scope ?? "all");
     // sql.js default build has no FTS5, no pgvector — always use LIKE search.
     const scope = input.scope || "all";
     const limit = input.limit || 5;
@@ -939,10 +951,9 @@ export class SqliteStore implements Store {
     if (scope === "knowledge" || scope === "all") {
       const conditions: string[] = ["agent_id = ?", "status = 'active'"];
       const params: unknown[] = [input.agent_id];
-      if (input.project) {
-        conditions.push("project = ?");
-        params.push(input.project);
-      }
+      const selection = knowledgeScopeSql(input, "?");
+      if (selection.clause) conditions.push(selection.clause);
+      params.push(...selection.values);
       const likeClause = keywords
         .map(() =>
           "(coalesce(title,'') || ' ' || coalesce(content,'') || ' ' || tags) LIKE ?"
@@ -953,7 +964,7 @@ export class SqliteStore implements Store {
 
       const sql = `SELECT * FROM knowledge
                    WHERE ${conditions.join(" AND ")}
-                   ORDER BY updated_at DESC LIMIT ${limit}`;
+                   ORDER BY updated_at DESC, id ASC LIMIT ${limit}`;
       const rows = this.allRows(sql, params);
       knowledgeItems.push(...rows.map((r) => this.rowToKnowledge(r)));
     }
@@ -1722,6 +1733,7 @@ export class SqliteStore implements Store {
       id: row.id as string,
       agent_id: row.agent_id as string,
       project: (row.project as string | null) ?? undefined,
+      memory_scope: memoryScopeOf({ project: row.project as string | null, memory_scope: row.memory_scope as string | null }),
       title: row.title as string,
       content: row.content as string,
       source_type: row.source_type as Knowledge["source_type"],

@@ -166,7 +166,7 @@ async function boot() {
       store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: 1, status: "in_progress" }),
       store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
       store.getDecisions({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.decisions_limit, status: "active" }),
-      store.getKnowledge({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.knowledge_limit, status: "active" }),
+      store.getKnowledge({ agent_id: AGENT_ID, project: PROJECT, knowledge_scope: PROJECT ? "project_and_seat" : "legacy", limit: cfg.knowledge_limit, status: "active" }),
       store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
     ]);
 

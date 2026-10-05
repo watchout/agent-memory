@@ -4,6 +4,7 @@
  * Run with KUSABI_TEST_TMPDIR set to an existing temporary parent directory.
  * GitHub Actions supplies RUNNER_TEMP instead. No implicit home-directory fallback.
  */
+import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore, type CreateStoreOptions } from "./stores/index.js";
@@ -5347,6 +5348,12 @@ async function run() {
   await testKnowledgeSearch();
   await testKnowledgeSupersede();
   await testKnowledgeSupersedeRollback();
+  const scopeStore = new JsonStore(join(TEST_DIR, "recovery-scope"));
+  try {
+    await scopeStore.initialize();
+    await runRecoveryScopeContract(scopeStore);
+    assert(true, "shared JSON recovery scope contract passes");
+  } finally { await scopeStore.close(); }
   await testErrorHandling();
   testRedaction();
   await testPostgresStoreIntentFailsClosed();

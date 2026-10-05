@@ -5,6 +5,7 @@
  *
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
+import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { JsonStore } from "./stores/json-store.js";
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
@@ -1446,6 +1447,8 @@ async function run() {
     await testTaskIdUpsert();
     await testKnowledge();
     await testKnowledgeSupersede();
+    await runRecoveryScopeContract(store);
+    assert(true, "shared recovery scope contract: applicability, legacy compatibility, isolation, correction and pack");
     await testSearchMemory();
     await testJapaneseSearch();
     await testRecoveryConfig();
