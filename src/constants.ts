@@ -24,12 +24,13 @@ export const DEFAULT_RECOVERY_CONFIG: Omit<RecoveryConfig, "agent_id"> = {
 };
 
 export const SEARCH_MEMORY_TOOL_DESCRIPTION =
-  "Search agent memory by keyword or natural language. Use this as the adaptive retrieval layer: call it before making architectural or design decisions, when project context is unfamiliar, when restart_pack feels incomplete, when memory and external state may conflict, or before asking the user to restate context. For missing recent conversation after restart, use scope=conversation with focused queries. PR/status answers must be verified with the relevant external SSOT before acting.";
+  "Search agent memory by keyword or natural language. Use this as the adaptive retrieval layer: call it before making architectural or design decisions, when project context is unfamiliar, when restart_pack feels incomplete, when memory and external state may conflict, or before asking the user to restate context. For missing recent conversation after restart, use scope=conversation with focused queries. For truncated conversation results, use read_memory_source with the returned source_ref, project and content_hash to retrieve only the needed portion. PR/status answers must be verified with the relevant external SSOT before acting.";
 
 export const RECOVERY_CONTROL_LINES = [
   "Treat this boot context as Layer 1 recovery only.",
   "Before architectural/design decisions, unfamiliar project context, or contradiction risk, run search_memory before acting.",
   "If restart_pack is incomplete, use search_memory scope=conversation with focused queries before asking the user to restate context.",
+  "Use read_memory_source to read the needed part of a truncated conversation search result; keep its project and expected_content_hash.",
   "Treat PR/status memory as context only; verify with the external SSOT before merging or making status claims.",
 ];
 

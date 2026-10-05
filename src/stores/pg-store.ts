@@ -697,6 +697,10 @@ export class PgStore implements Store {
     const conditions: string[] = ["agent_id = $1"];
     const params: unknown[] = [input.agent_id];
     let pi = 2;
+    if (input.id !== undefined) {
+      conditions.push(`id = $${pi++}`);
+      params.push(input.id);
+    }
     if (input.project) {
       conditions.push(`project = $${pi}`);
       params.push(input.project);

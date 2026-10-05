@@ -5,6 +5,7 @@
  *
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
+import { runMemorySourceContract } from "./test-memory-source.js";
 import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { JsonStore } from "./stores/json-store.js";
@@ -1448,6 +1449,8 @@ async function run() {
     await testKnowledge();
     await testKnowledgeSupersede();
     await runRecoveryScopeContract(store);
+    await runMemorySourceContract(store);
+    assert(true, "shared source readback contract passes");
     assert(true, "shared recovery scope contract: applicability, legacy compatibility, isolation, correction and pack");
     await testSearchMemory();
     await testJapaneseSearch();

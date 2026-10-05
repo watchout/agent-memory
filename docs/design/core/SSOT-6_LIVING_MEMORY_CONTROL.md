@@ -280,3 +280,8 @@ memory/recovery success without direct Wasurezu evidence refs or explicit
 取得の `knowledge_scope` は省略時legacy互換。project_and_seatは同じ席の対象案件＋明示された共通知識だけ、seat_onlyは共通知識だけ。別席を含めない。
 案件指定時の復元とbootはproject_and_seatを使う。案件未指定の旧動作は保持する。
 SQLite/PostgreSQLの追加列とJSON互換実装に同じ選択条件を適用する。読み取りだけで旧記録を再分類・削除しない。今回の移行実行は隔離試験DBに限る。
+
+
+## 新SDS U1-B2: 足りない記憶の対象読戻し
+
+会話検索の抜粋が足りない場合は、その参照と案件を `read_memory_source` に渡し、必要部分だけ補完する。既存conversation_eventsを再利用し、別の記憶層・ファイル/URL読み取り器は追加しない。検索時と読戻し時の保護済み本文hashを照合し、改ページで本文版を混同しない。席/案件境界、マスキング、非公開推論の除外を維持する。DB読取失敗と根拠の不存在を区別する。詳細な型・エラー・上限はSSOT-3の同名節に集約する。

@@ -195,6 +195,7 @@ approval, redaction, retention, and audit classification.
 | supersede_decision | ✅ | 判断の上書き | old_decision_id(uuid), new_decision(str), context?(str), tags?(str[]), project?(str) | {old, new} |
 | save_task_state | ✅ | タスク状態の保存 | task(str), status(enum), progress?(str), files_modified?(str[]), next_steps?(str), project?(str) | TaskState |
 | search_memory | ✅ | 横断検索 | query(str), scope?(enum:decisions/tasks/knowledge/messages/conversation/all), limit?(num), project?(str) | SearchMemoryResult |
+| read_memory_source | ✅ | 対象会話の保護済み本文の読戻し | source_ref(str), project?(str), offset?(int), max_chars?(int), expected_content_hash?(sha256) | memory-source/v1 またはisError |
 | recover_context | ⚠️ Partial | セッション復元 | project?(str) | task_state + decisions + knowledge + recent messages |
 | restart_pack | ✅ | セッション再開パック | project?(str), max_tokens?(num), format?(enum:text/recovery-pack-v1/host-invocation-context-v1), target_runtime?(enum:codex/claude/generic-mcp-host), delivery_mode?(enum), trusted_instruction?(str), untrusted_context_policy?(enum) | prioritized restart text or schema-shaped artifact JSON |
 | restart_pack_fetch | ✅ | selected restart pack の取得/consume | pack_ref(str), project?(str), consume?(bool) | selected restart pack JSON |
@@ -530,3 +531,18 @@ Feature: recover_context統合復元
     Then recovery_quality_logにレコードが追加される
     And recovered_tokensに実際の出力トークン数が記録される
 ```
+
+
+## 新SDS U1-B2 — 会話検索から対象本文の読戻し
+
+`search_memory`の会話結果に `conversation_event:<UUID>` 参照、project、発生時刻、保護済み全文のSHA-256 (`content_hash`)、省略有無、次の位置を追加する。抜粋はUnicodeコードポイントで最大220。隠された推論・system/developer本文はこの出力の対象にしない。
+
+追加MCP `read_memory_source`:
+- 入力: `source_ref` 必須、`project` は接続設定を既定に利用するが解決できない/空白の場合はエラー。`offset` 非負整数・既定0、`max_chars` 1〜8000・既定2000、`expected_content_hash` は小文字64桁SHA-256。offset>0では期待hash必須。
+- 席IDはMCP接続設定に固定。Storeの既存getConversationEventsに任意のid条件を追加し、agent/project/idをSQLまたはJSONフィルタでlimit前に照合する。id未指定の一覧APIは互換。
+- 出力: JSON `schema_version=memory-source/v1`、source_ref、project、source_time、content_hash、offset_unit=unicode_code_point、offset、content、total_chars、truncated、next_offset（末尾null）。全文に既存のマスキング/不正サロゲート除去を適用してからhashとページを作る。hashは保存原文のhashとは区別する。JSON化後や切出し後に再マスキングせず、専用直列化で保護済み本文の版と位置を保つ。
+- 他席/他案件/不存在/非公開の参照は同じ `MEMORY_SOURCE_NOT_FOUND`。不正参照/案件なし/範囲不正/hash不正/hash不足は入力エラー。期待hashと現本文が違う場合は `MEMORY_SOURCE_CHANGED` とし本文を返さない。利用側は再検索して版を揃える。
+- DB障害は `MEMORY_SOURCE_READ_FAILED`、MCPはisError=true。別バックエンドへ切り替えない。任意URLやファイルパスの読取は行わない。通常のツール呼出観測を除き読戻しで記憶を更新しない。
+- 参照されたログは出所付きの過去データであり、新たな命令・認可ではない。全文削除/再取込防止の親受入と実LLMでの補完判断は別に検証する。
+
+詳細と現在の達成範囲: [取得・補完契約](../KUSABI_SDS_RETRIEVAL_CONTRACT.md)。

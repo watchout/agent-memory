@@ -348,6 +348,8 @@ export interface SaveConversationEventInput {
 
 export interface GetConversationEventsInput {
   agent_id: string;
+  /** Optional exact record lookup; combined with agent/project before limit. */
+  id?: string;
   project?: string;
   source?: "antigravity_cli" | "claude_code" | "codex" | "gemini_cli" | "manual";
   since?: string;

@@ -492,6 +492,7 @@ export class JsonStore implements Store {
 
   async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
     let results = this.conversationEvents.filter((event) => event.agent_id === input.agent_id);
+    if (input.id !== undefined) results = results.filter((event) => event.id === input.id);
     if (input.project) results = results.filter((event) => event.project === input.project);
     if (input.source) results = results.filter((event) => event.source === input.source);
     if (input.since) {

@@ -1057,6 +1057,10 @@ export class SqliteStore implements Store {
   async getConversationEvents(input: GetConversationEventsInput): Promise<ConversationEvent[]> {
     const conditions: string[] = ["agent_id = ?"];
     const params: unknown[] = [input.agent_id];
+    if (input.id !== undefined) {
+      conditions.push("id = ?");
+      params.push(input.id);
+    }
     if (input.project) {
       conditions.push("project = ?");
       params.push(input.project);
