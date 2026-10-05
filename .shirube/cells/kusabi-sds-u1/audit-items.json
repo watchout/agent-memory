@@ -1,0 +1,43 @@
+{
+  "schema": "sds-audit-items/1",
+  "method_ref": "watchout/shirube@3b9f5c8e8f22a98374f1929ea8bcff8e084dab3b/docs/sds/audit-method.md#3",
+  "scope": "PR332 U1-B1/B2 post-implementation audit; not production acceptance or SDS method revision",
+  "items": [
+    {
+      "id": "I1",
+      "criterion": "意図: 「途切れても続きから」のU1-B1/B2要求と実装を照合する。明示seat知識の復元と検索抜粋から会話本文補完が採択済み契約どおりか。"
+    },
+    {
+      "id": "I2",
+      "criterion": "範囲: baseからheadの全変更が公開B1/B2/参照修正/監査準備の範囲に一致し、他席・他案件・保護設定・本番へ拡張しないか。"
+    },
+    {
+      "id": "I3",
+      "criterion": "隠れた影響: SQLite/PGの加算migration、JSON互換、旧省略引数、既存knowledgeやcorrection/source_idsの保持、他席/他案件漏出、エラーと欠落の区別を確認する。"
+    },
+    {
+      "id": "I4",
+      "criterion": "回帰: 実SQLite/PG/JSON共通契約と実MCPの正常/境界/障害・本文変更・Unicode・秘密語・UUID断片の検査が要求由来の期待値で壊れた実装を拒否するか。既存回帰とCIの版/実行環境を照合。"
+    },
+    {
+      "id": "I5",
+      "criterion": "正本整合: SSOT-3/4/6、KUSABI_SDS_RETRIEVAL_CONTRACT、governed action profileと実装が一致するか。5件の未解決DR指摘を既存/新規・試験/製品の実体で判定し、必要な修正又は正規の例外なしにPASSへ消さない。"
+    },
+    {
+      "id": "I6",
+      "criterion": "正直さ: 試験成功・参照修正・独立監査・実LLM親受入・本番反映を区別するか。旧39件解消と残5件/12監査項目/technical_owner_review/owner条件を正しく保持するか。"
+    },
+    {
+      "id": "I7",
+      "criterion": "要求/設計との接続: KSR-03/04/07/11/17とB1の明示seat/project記憶分離を実装/試験へ追跡し、C2・削除再取込・3CLI/6方向切替親受入・U2/U3の未完を保持する。子PRを全体達成としない。"
+    },
+    {
+      "id": "I8",
+      "criterion": "repo外依存/設定: この候補は未配布、既存hooks/MCP/envを変更しない。隔離HOME・接続seat/project・SQLiteと実PG接続先・起動/build経路を試験コードと証跡で確認し、現行CLIへの未接続や実環境受入未実施を明示する。運用適用の合格は対象外で理由を保持する。"
+    },
+    {
+      "id": "I9",
+      "criterion": "重要不変条件: 接続席固定、案件必須、IDをlimit前に限定、他席/他案件/非公開推論拒否、本文全文保護後のUnicode改ページ/hash整合、offset>0期待hash必須、変更版混在拒否、DB障害非成功を負例で検査する。"
+    }
+  ]
+}

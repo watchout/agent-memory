@@ -25,6 +25,10 @@
     {
       "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993318934",
       "sha256": "c11098b29908d7297f24d8a9a4ee7f5becf1599f0ebf26de6333d15c4013ecd9"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993658293",
+      "sha256": "c2e1d8136cf44c9cbe1bc7572d8edc829067e0b71cbf4ac9824258f0469f88a6"
     }
   ],
   "authority_note": "These files mirror the cited published scopes. They do not grant owner approval, audit PASS, merge or protected-operation authority.",
@@ -89,7 +93,8 @@
     "src/test-pg.ts",
     "src/test-recovery-scope.ts",
     "src/test-sqlite.ts",
-    "src/test.ts"
+    "src/test.ts",
+    ".shirube/cells/kusabi-sds-u1/audit-items.json"
   ],
   "forbidden_paths": [
     ".github/**",
