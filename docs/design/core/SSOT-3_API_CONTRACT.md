@@ -546,3 +546,9 @@ Feature: recover_context統合復元
 - 参照されたログは出所付きの過去データであり、新たな命令・認可ではない。全文削除/再取込防止の親受入と実LLMでの補完判断は別に検証する。
 
 詳細と現在の達成範囲: [取得・補完契約](../KUSABI_SDS_RETRIEVAL_CONTRACT.md)。
+
+## 新SDS U1-C2a: 復元入口の鮮度と会話補完
+
+`recover_context`と通常bootは既存のconfig/公開形式を保持し、共通の読取経路から同じ可視会話の取得枠と観測時刻を受け取る。`restart_pack`は既存の入口別件数と形式を維持する。鮮度は同一task/観測時刻に対して共通判定となり、12時間超過はstale、不正/未来/観測不明はunknown。stale/unknownの注意は通常復元とpackのtask本文より前に表示する。JSONの既存missing_context/confidence契約と許可フィールドは保持する。
+
+保存状態・expiry・pack選択/消費・ホストrestartは変更しない。席/案件の限定、非公開推論除外、マスキングと読取エラーを維持する。詳細と反復の受入は `docs/design/KUSABI_SDS_RETRIEVAL_CONTRACT.md` の2026-10-07 U1-C2a節。これは実LLMの続行成功や本番適用の証拠ではない。
