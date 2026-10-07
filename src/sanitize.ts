@@ -56,10 +56,11 @@ export function stripOrphanSurrogates(input: string): string {
  * Build an MCP `{type: "text", text: ...}` content block with the
  * text already redacted and sanitized via `stripOrphanSurrogates`.
  *
- * **Convention**: every MCP tool handler in `src/index.ts` returns
- * its text content through this helper. There are no exceptions —
- * applying it at every output boundary is what makes output redaction and
- * sanitizer coverage effective. New tool handlers must follow the same pattern.
+ * **Convention**: MCP text is protected through this helper. Paginated memory
+ * source JSON uses memorySourceText after applying this helper to the complete
+ * body and individual metadata, BEFORE slicing/serialization. Redacting again
+ * after those steps would break JSON syntax and hash/offset consistency.
+ * Other handlers continue to apply this helper at their output boundary.
  */
 export function safeText(text: string): { type: "text"; text: string } {
   return { type: "text" as const, text: stripOrphanSurrogates(redactText(text).text) };

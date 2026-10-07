@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import { testSqliteTaskMigrationRetention } from "./test-task-migration-retention.js";
 /**
  * Integration tests for agent-memory SqliteStore.
  * Run: tsx src/test-sqlite.ts
  *
  * Uses a temporary DB file in the OS temp dir for isolation.
  */
+import { runMemorySourceContract } from "./test-memory-source.js";
+import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { JsonStore } from "./stores/json-store.js";
 import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
@@ -1435,6 +1438,7 @@ async function run() {
   console.log(`Using DB path: ${TEST_DB_PATH}`);
 
   try {
+    await testSqliteTaskMigrationRetention();
     await setup();
     await testMigration();
     await testKusabiRuntimeEventStore();
@@ -1446,6 +1450,10 @@ async function run() {
     await testTaskIdUpsert();
     await testKnowledge();
     await testKnowledgeSupersede();
+    await runRecoveryScopeContract(store);
+    await runMemorySourceContract(store);
+    assert(true, "shared source readback contract passes");
+    assert(true, "shared recovery scope contract: applicability, legacy compatibility, isolation, correction and pack");
     await testSearchMemory();
     await testJapaneseSearch();
     await testRecoveryConfig();

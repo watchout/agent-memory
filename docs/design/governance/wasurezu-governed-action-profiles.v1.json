@@ -445,6 +445,94 @@
       "notes": "reveal_behavior=reveals_memory_search_results | conditional_approval=required for restricted project scopes or broad sensitive reveal | audit_summary_fields=actor,agent_id,project,query_hash,scope,limit,result_counts_by_type,redaction_summary | redaction_requirements=redact_secrets_before_output,exclude_private_reasoning,conversation_events_are_redacted_before_storage | retention_requirements=read_does_not_change_retention"
     },
     {
+      "surface_id": "wasurezu.read_memory_source",
+      "surface_type": "mcp_tool",
+      "display_name": "read_memory_source",
+      "description": "Read a bounded, version-checked portion of one redacted conversation in the current seat and an explicit project.",
+      "capability_classes": [
+        "read",
+        "reveal"
+      ],
+      "risk_level": "high",
+      "boundary": {
+        "standalone_required": true,
+        "state_owner": "wasurezu",
+        "execution_owner": "wasurezu",
+        "policy_owner": "wasurezu",
+        "audit_owner": "wasurezu",
+        "interop_modes": [
+          "none"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [
+          "direct_db_write",
+          "shared_internal_state",
+          "shared_credentials"
+        ],
+        "direct_db_access_to_other_products": false,
+        "receiving_product_revalidates": false
+      },
+      "resource_scope": {
+        "tenant_scoped": false,
+        "resource_patterns": [
+          "project",
+          "conversation_event"
+        ],
+        "data_categories": [
+          "memory",
+          "redacted_conversation"
+        ]
+      },
+      "identity_requirements": {
+        "actor_required": true,
+        "agent_id_required": true,
+        "human_user_required": false,
+        "service_account_allowed": true
+      },
+      "context_requirements": {
+        "context_pack_required": false,
+        "required_labels": [
+          "project_scope",
+          "redaction_evidence"
+        ],
+        "denied_labels": [
+          "private_reasoning"
+        ],
+        "prompt_injection_check_required": true
+      },
+      "memory_requirements": {
+        "recovery_pack_required": false,
+        "approval_note_required": false,
+        "human_intent_ref_required": false
+      },
+      "approval_policy": {
+        "approval_required": false,
+        "approver_role": null,
+        "approval_ttl_seconds": null,
+        "reuse_allowed": false
+      },
+      "audit_policy": {
+        "audit_required": true,
+        "input_summary_required": true,
+        "output_summary_required": true,
+        "mutation_summary_required": false,
+        "egress_summary_required": false,
+        "redaction_required": true
+      },
+      "rollback_policy": {
+        "rollback_required": false,
+        "rollback_kind": "none",
+        "replay_supported": true
+      },
+      "execution_policy": {
+        "dry_run_supported": false,
+        "idempotency_key_required": false,
+        "rate_limit_policy": "maximum 8000 Unicode code points per read; same-record pagination requires expected protected-content hash",
+        "timeout_seconds": null
+      },
+      "notes": "reveal_behavior=reveals_one_project_scoped_redacted_conversation_page | conditional_approval=required for restricted project scopes or sensitive reveal under external policy | audit_summary_fields=actor,agent_id,project,source_ref,offset,max_chars,content_hash,error_code | redaction_requirements=redact_full_text_before_slicing,normalize_home_paths,exclude_private_reasoning | retention_requirements=read_does_not_change_retention_or_restore_deleted_records"
+    },
+    {
       "surface_id": "wasurezu.recover_context",
       "surface_type": "mcp_tool",
       "display_name": "recover_context",

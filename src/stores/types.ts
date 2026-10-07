@@ -87,7 +87,11 @@ export interface GetTaskStatesInput {
   status?: "in_progress" | "completed" | "blocked" | "all";
 }
 
+export type MemoryScope = "seat" | "project" | "unclassified";
+export type KnowledgeScope = "legacy" | "project_and_seat" | "seat_only";
+
 export interface Knowledge {
+  memory_scope?: MemoryScope;
   id: string;
   agent_id: string;
   project?: string;
@@ -119,6 +123,7 @@ export interface SupersedeKnowledgeInput {
 }
 
 export interface SaveKnowledgeInput {
+  memory_scope?: MemoryScope;
   agent_id: string;
   project?: string;
   title: string;
@@ -129,6 +134,7 @@ export interface SaveKnowledgeInput {
 }
 
 export interface GetKnowledgeInput {
+  knowledge_scope?: KnowledgeScope;
   agent_id: string;
   project?: string;
   limit?: number;
@@ -342,6 +348,8 @@ export interface SaveConversationEventInput {
 
 export interface GetConversationEventsInput {
   agent_id: string;
+  /** Optional exact record lookup; combined with agent/project before limit. */
+  id?: string;
   project?: string;
   source?: "antigravity_cli" | "claude_code" | "codex" | "gemini_cli" | "manual";
   since?: string;
@@ -428,6 +436,7 @@ export interface MarkRecoveryContinuedInput {
 }
 
 export interface SearchMemoryInput {
+  knowledge_scope?: KnowledgeScope;
   agent_id: string;
   query: string;
   scope?: "decisions" | "tasks" | "knowledge" | "messages" | "conversation" | "all";

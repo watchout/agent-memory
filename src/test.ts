@@ -4,6 +4,8 @@
  * Run with KUSABI_TEST_TMPDIR set to an existing temporary parent directory.
  * GitHub Actions supplies RUNNER_TEMP instead. No implicit home-directory fallback.
  */
+import { runMemorySourceContract, runSqliteMemorySourceMcpContract } from "./test-memory-source.js";
+import { runRecoveryScopeContract } from "./test-recovery-scope.js";
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import { createStore, type CreateStoreOptions } from "./stores/index.js";
@@ -4313,6 +4315,7 @@ async function testCoreMcpToolRegression() {
       "get_decisions",
       "save_task_state",
       "search_memory",
+      "read_memory_source",
       "recover_context",
       "restart_pack",
       "restart_prepare",
@@ -5347,6 +5350,16 @@ async function run() {
   await testKnowledgeSearch();
   await testKnowledgeSupersede();
   await testKnowledgeSupersedeRollback();
+  const scopeStore = new JsonStore(join(TEST_DIR, "recovery-scope"));
+  try {
+    await scopeStore.initialize();
+    await runRecoveryScopeContract(scopeStore);
+    await runMemorySourceContract(scopeStore);
+    assert(true, "shared source readback contract passes");
+    await runSqliteMemorySourceMcpContract();
+    assert(true, "real SQLite MCP source readback, redaction and paging contract passes");
+    assert(true, "shared JSON recovery scope contract passes");
+  } finally { await scopeStore.close(); }
   await testErrorHandling();
   testRedaction();
   await testPostgresStoreIntentFailsClosed();
