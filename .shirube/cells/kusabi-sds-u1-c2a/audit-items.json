@@ -1,0 +1,43 @@
+{
+  "schema": "sds-audit-items/1",
+  "method_ref": "watchout/shirube@3b9f5c8e8f22a98374f1929ea8bcff8e084dab3b/docs/sds/audit-method.md#3",
+  "scope": "PR333 U1-C2a incremental audit from 6799d45 with inherited PR332 evidence distinguished; not live/product-wide acceptance",
+  "items": [
+    {
+      "id": "I1",
+      "criterion": "意図: ヒントなしの正しい続行に向けたC2aの取得共用・鮮度注意・通常boot会話補完が要求/契約に合うか。"
+    },
+    {
+      "id": "I2",
+      "criterion": "範囲: main差分に含むPR332と今回の増分6799d45→headを区別し、公開範囲とメタデータ以外を変更していないか。"
+    },
+    {
+      "id": "I3",
+      "criterion": "隠れた影響: config/件数0、blocked/active選択、案件省略、可視会話除外、テキスト/JSON予算、既存SSOT/pack消費/expiryへの影響を確認。"
+    },
+    {
+      "id": "I4",
+      "criterion": "回帰: 12h境界/未来/不正/欠落/大本文、修正前FAIL→後PASS、3storeと実SQLite/PG boot/MCPを要求由来の期待値で再現する。作者の試験ハーネス修正と製品修正を区別する。"
+    },
+    {
+      "id": "I5",
+      "criterion": "正本整合: SSOT-3/取得契約のC2aと実装が一致し、入口別件数/要約形式/非原子的観測/残件を隠していないか。重複削減の共用が適切か。"
+    },
+    {
+      "id": "I6",
+      "criterion": "正直さ: PR332監査PASS、C2a作者試験、CI、独立監査、統合、実LLM受入、効果測定を区別し未確認をPASSにしないか。"
+    },
+    {
+      "id": "I7",
+      "criterion": "要求接続: KSR-01/03/04/05/11/17とC2aの対応、KSR-19/U2/U3/3CLI親受入の未完を保持する。固定KBF次元と既存公開SLOを緩和しない。"
+    },
+    {
+      "id": "I8",
+      "criterion": "依存/設定: 隔離HOME/DBと実プロセス、同一候補buildの実行を確認。ホスト設定/restart/TUI/本番/CI保護を変更しない。親PRとの依存と統合後検証が残ることを明記。"
+    },
+    {
+      "id": "I9",
+      "criterion": "不変条件: 席/案件/明示seat範囲、private/hidden/system会話除外、日時不明をfreshにしない、警告の前方保持、DB失敗非成功/無断fallbackやretryなしを負例で確認。"
+    }
+  ]
+}

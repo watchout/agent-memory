@@ -1,0 +1,195 @@
+{
+  "schema_version": "shirube-v3/control_handoff/v1",
+  "control_handoff_id": "KUSABI-SDS-U1-C2A-PR333",
+  "mode": "rapid-lite",
+  "profile": "hotel-lite",
+  "framework_ref": "watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e",
+  "control_source": "https://github.com/watchout/agent-memory/issues/307",
+  "control_source_refs": [
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5990937650",
+      "sha256": "e8171b03afd25edaf9810627058e3cc20cd9ed6118e94c07997c307fe7a16c32"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992776591",
+      "sha256": "d108d0e2138485563566a9a6225fbe205b3b742326a4ab4d1b133dc4dddd49cb"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992879762",
+      "sha256": "33cccd6f9d2d58be0566337ff3f97ef551963c8e506b1e9f21e16c593e3e5450"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992926386",
+      "sha256": "7fa4a533cbdea4ca25bfc1ef66835caec4ed4fa0c953e22d5584f71a4315d38a"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993318934",
+      "sha256": "c11098b29908d7297f24d8a9a4ee7f5becf1599f0ebf26de6333d15c4013ecd9"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993658293",
+      "sha256": "c2e1d8136cf44c9cbe1bc7572d8edc829067e0b71cbf4ac9824258f0469f88a6"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6004151182",
+      "sha256": "77e8d61777340c851ff313ba62837306ac6d26f200da89d62143182f6713fb29"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028230750",
+      "sha256": "c52f2b93e2dc834dd35f50685512d16d129e2c62e5b41a568d17d4b0b6d81990"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028253341",
+      "sha256": "3049212f8e3abdc9eb1d1ef2cdccde9eba17dc276cd70afe17e68f49a82419ea"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028381267",
+      "sha256": "e4a7261025362abb5d28b7dd0b1d6a3153180c096372b0584c3d62f3436cd865"
+    }
+  ],
+  "authority_note": "These files mirror the cited published scopes. They do not grant owner approval, audit PASS, merge or protected-operation authority.",
+  "repository": {
+    "name": "watchout/agent-memory",
+    "pr": 333
+  },
+  "execution_context": {
+    "to": {
+      "agent_id": "kusabi",
+      "active_function": "implementation_executor"
+    },
+    "maker_history": [
+      "kusabi"
+    ]
+  },
+  "lifecycle_state": "IMPLEMENTED",
+  "spec_review_state": "ready_for_implementation",
+  "repo_spec_ref": ".shirube/repo-spec.yaml",
+  "premise_confirmation_ref": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+  "premise_confirmation_source": {
+    "url": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+    "sha256": "73d433a2e2156ba540b8f6d15de6e25612992456ca0017fb37292e3109aa6515",
+    "scope": "Existing repository adoption premise only; not approval of PR332 or its implementation."
+  },
+  "cell": {
+    "id": "KUSABI-SDS-U1-C2A",
+    "cell_type": "product_implementation",
+    "risk_class": "R2",
+    "goal": "途切れても続きから: shared bounded recovery reads and checkpoint freshness, incremental to PR332 6799d45.",
+    "non_scope": [
+      "restart_prepare snapshot/confidence unification",
+      "Actual LLM continuation and host restart acceptance",
+      "U2/U3 and whole-product acceptance",
+      "Production migration/deployment",
+      "Merge or independent approval"
+    ],
+    "CELL-ID": "KUSABI-SDS-U1-C2A"
+  },
+  "allowed_paths": [
+    ".shirube/cells/kusabi-sds-u1-c2a/audit-items.json",
+    ".shirube/cells/kusabi-sds-u1-c2a/control-handoff.json",
+    ".shirube/cells/kusabi-sds-u1-c2a/execution-context.json",
+    ".shirube/cells/kusabi-sds-u1-c2a/lifecycle-state.json",
+    ".shirube/cells/kusabi-sds-u1/audit-items.json",
+    ".shirube/cells/kusabi-sds-u1/control-handoff.json",
+    ".shirube/cells/kusabi-sds-u1/execution-context.json",
+    ".shirube/cells/kusabi-sds-u1/lifecycle-state.json",
+    "docs/design/KUSABI_SDS_RETRIEVAL_CONTRACT.md",
+    "docs/design/core/SSOT-3_API_CONTRACT.md",
+    "docs/design/core/SSOT-4_DATA_MODEL.md",
+    "docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md",
+    "docs/design/governance/wasurezu-governed-action-profiles.v1.json",
+    "src/boot.ts",
+    "src/constants.ts",
+    "src/index.ts",
+    "src/memory-source.ts",
+    "src/recovery-context.ts",
+    "src/restart-pack.ts",
+    "src/sanitize.ts",
+    "src/stores/json-store.ts",
+    "src/stores/knowledge-scope.ts",
+    "src/stores/pg-migrations.ts",
+    "src/stores/pg-store.ts",
+    "src/stores/sqlite-store.ts",
+    "src/stores/types.ts",
+    "src/test-memory-source.ts",
+    "src/test-pg.ts",
+    "src/test-recovery-context.ts",
+    "src/test-recovery-scope.ts",
+    "src/test-sqlite.ts",
+    "src/test-task-migration-retention.ts",
+    "src/test.ts"
+  ],
+  "forbidden_paths": [
+    ".github/**",
+    ".shirube/runtime/**",
+    ".shirube/enforcement-policy.yaml",
+    ".shirube/repo-policy.json",
+    ".env*",
+    "deploy/**",
+    "package.json",
+    "package-lock.json"
+  ],
+  "forbidden_operations": [
+    "change CI rules or protection",
+    "modify existing runtime policy",
+    "approve own audit or exceptions",
+    "merge",
+    "deploy",
+    "operate production databases or agent hooks"
+  ],
+  "stop_conditions": [
+    "Changed path outside the published scopes",
+    "Protected operation required",
+    "Unresolved mandatory finding before integration",
+    "Independent review must be performed by a different maker"
+  ],
+  "required_checks": [
+    "npm run build",
+    "KUSABI_TEST_TMPDIR=/tmp tsx src/test.ts",
+    "tsx src/test-sqlite.ts",
+    "DATABASE_URL=<isolated-test-db> tsx src/test-pg.ts",
+    "KUSABI_SCOPE_TEST_PG_URL=<isolated-test-db> tsx src/test-memory-source.ts",
+    "git diff --check",
+    "KUSABI_SCOPE_TEST_PG_URL=<isolated-test-db> tsx src/test-recovery-context.ts"
+  ],
+  "required_evidence": [
+    "PR_head_SHA",
+    "changed_files",
+    "validation_commands",
+    "validation_results",
+    "owner_decision",
+    "control_state_completeness_report"
+  ],
+  "acceptance": [
+    "Same checkpoint/observation has identical freshness semantics across normal recovery and restart pack",
+    "Stale/unknown caution precedes task payload even when truncated",
+    "Normal boot and recover_context share visible conversation input; restart pack preserves summary format",
+    "Explicit seat/project knowledge, private conversation exclusion and read errors remain bounded",
+    "Real JSON/SQLite/PG reads and actual SQLite/PG boot/MCP integrations pass; real LLM acceptance remains unmeasured"
+  ],
+  "independent_audit_required": true,
+  "owner_decision": {
+    "required_before_merge": true,
+    "evidence_source": "external_owner_decision_comment_or_workflow_input",
+    "committed_pending_policy_only": true,
+    "exact_head_sha": null,
+    "decision_ref": null
+  },
+  "next_action": {
+    "blocking": false,
+    "owner_agent": "kusabi",
+    "owner_function": "implementation_executor",
+    "action": "Bind this exact PR/head to real CI and request independent C2a audit.",
+    "handoff_method": "PR333 and issue307",
+    "input_refs": [
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028230750",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028253341",
+      "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028381267"
+    ],
+    "scope": "C2a plus inherited PR332 under its unchanged published scope",
+    "deliverable": "Exact-head CI and independent audit intake",
+    "completion_evidence": "Published CI, independent result and adopted receipt. No merge or whole-product claim."
+  },
+  "escalation_route": "If a protected operation, rule exemption, or scope change is needed, stop that operation and return exact findings to issue #307 for the orchestration_controller and protected_surface_gate/owner as applicable. The maker cannot approve an exception or perform the protected effect.",
+  "scope_note": "Whole-main diff includes inherited B1/B2 under their published refs. New C2a implementation is restricted to the 9 paths in 6028253341 and submission metadata in 6028381267. Incremental base 6799d453c393f6aa2b4c8131f6c5a1a3ec128030; PR332 head is unchanged."
+}

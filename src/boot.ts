@@ -4,6 +4,7 @@
  * Outputs integrated recovery context to stdout.
  * Runs standalone (not as MCP server) — exits after output.
  */
+import { loadRecoveryContext, normalRecoveryLimits } from "./recovery-context.js";
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
 import { ensureMemoryTags } from "./ensure-tags.js";
@@ -162,17 +163,14 @@ async function boot() {
       }
     }
 
-    const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages] = await Promise.all([
-      store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: 1, status: "in_progress" }),
-      store.getTaskStates({ agent_id: AGENT_ID, project: PROJECT, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
-      store.getDecisions({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.decisions_limit, status: "active" }),
-      store.getKnowledge({ agent_id: AGENT_ID, project: PROJECT, knowledge_scope: PROJECT ? "project_and_seat" : "legacy", limit: cfg.knowledge_limit, status: "active" }),
-      store.getRecentMessages({ agent_id: AGENT_ID, project: PROJECT, limit: cfg.messages_limit }),
-    ]);
+    const { activeTasks: inProgressTasks, completedTasks, decisions, knowledge: knowledgeItems, messages, conversationEvents, observedAt } = await loadRecoveryContext(store, {
+      agent_id: AGENT_ID, project: PROJECT, limits: normalRecoveryLimits(cfg),
+    });
 
     const output = buildRecoveryOutput({
       agentId: AGENT_ID, project: PROJECT, config: cfg,
       inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
+      conversationEvents, observedAt,
     });
 
     // Log recovery quality with summary in notes JSON. Continuation is
@@ -188,6 +186,7 @@ async function boot() {
         tasks_completed: completedTasks.length,
         knowledge: knowledgeItems.length,
         messages: messages.length,
+        conversation_events: conversationEvents.length,
       });
       await store.logRecoveryQuality({
         agent_id: AGENT_ID,
