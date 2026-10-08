@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID,
   CODEX_TRANSCRIPT_STOP_ADAPTER_ID,
@@ -13,7 +16,7 @@ import { JsonStore } from "./stores/json-store.js";
 import type { CodexSessionStartBinding } from "./codex-session-start.js";
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "wasurezu-transcript-stop-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "wasurezu-transcript-stop-")));
   try {
     const workspace = join(root, "workspace");
     const cwd = join(workspace, "nested");
@@ -139,6 +142,59 @@ async function main(): Promise<void> {
       "claude_code",
     );
     assert.throws(() => parseTranscriptStopArgs([]), /missing adapter id/);
+
+    // Exercise the real CLI: hooks do not inherit the MCP server's env.
+    // A user-config PostgreSQL binding must fail open when unavailable,
+    // without silently creating a SQLite store in the hook process's HOME.
+    for (const host of ["claude", "codex"] as const) {
+      const fixtureHome = join(root, `${host}-home`);
+      const configDir = join(fixtureHome, ".agent-memory");
+      const transcriptRoot = join(root, `${host}-transcripts`);
+      const transcriptDir = host === "claude"
+        ? join(transcriptRoot, cwd.replaceAll("/", "-")) : transcriptRoot;
+      await mkdir(configDir, { recursive: true });
+      await mkdir(transcriptDir, { recursive: true });
+      const transcript = join(transcriptDir, "session-1.jsonl");
+      const timestamp = new Date().toISOString();
+      const records = host === "claude" ? [{
+        timestamp, uuid: "visible-user", type: "user", sessionId: "session-1", cwd,
+        message: { role: "user", content: "Store binding regression sentinel" },
+      }] : [{
+        timestamp, type: "session_meta", payload: { id: "session-1", cwd },
+      }, {
+        timestamp, type: "response_item",
+        payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Store binding regression sentinel" }] },
+      }];
+      await writeFile(transcript, records.map((record) => JSON.stringify(record)).join("\n") + "\n");
+      const env: NodeJS.ProcessEnv = {
+        HOME: fixtureHome, PATH: process.env.PATH,
+        CLAUDE_PROJECTS_DIR: transcriptRoot, CODEX_SESSIONS_DIR: transcriptRoot,
+      };
+      const cliArgs = args.map((value) => value === CODEX_TRANSCRIPT_STOP_ADAPTER_ID && host === "claude"
+        ? CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID : value);
+      const invoke = (extra: NodeJS.ProcessEnv = {}) => {
+        const child = spawnSync(process.execPath, [
+          "--import", "tsx", fileURLToPath(new URL("./transcript-stop-capture.ts", import.meta.url)), ...cliArgs,
+        ], {
+          env: { ...env, ...extra }, encoding: "utf8", timeout: 15_000,
+          input: JSON.stringify({ ...JSON.parse(raw), transcript_path: transcript }),
+        });
+        assert.equal(child.status, 0, "capture failures must not block the host");
+        assert.deepEqual(JSON.parse(child.stdout), { continue: true, suppressOutput: true });
+        return JSON.parse(child.stderr.split("\n").find((line) => line.startsWith("{"))!);
+      };
+      await writeFile(join(configDir, "config.json"), JSON.stringify({
+        database_url: `postgresql://fixture@localhost/postgres?host=${encodeURIComponent(join(root, "absent-socket"))}`,
+      }), { mode: 0o600 });
+      assert.equal(invoke().status, "failed_open", `${host}: unavailable configured PG is not capture success`);
+      assert(!existsSync(join(configDir, "memory.db")), "configured PostgreSQL must not create a SQLite fallback");
+      await writeFile(join(configDir, "config.json"), "{invalid");
+      assert.equal(invoke().status, "failed_open", `${host}: malformed config fails closed for storage`);
+      assert(!existsSync(join(configDir, "memory.db")));
+      // Explicit local intent retains the existing resolver's precedence.
+      assert.equal(invoke({ AGENT_MEMORY_DB_TYPE: "sqlite" }).status, "captured");
+      assert(existsSync(join(configDir, "memory.db")));
+    }
 
     console.log("transcript stop capture tests passed");
   } finally {

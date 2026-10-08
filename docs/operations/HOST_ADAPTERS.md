@@ -470,6 +470,17 @@ does not add latency to the model turn. “Full text” means the complete visib
 utterance after secret redaction; private reasoning and protected system or
 developer instruction bodies are never persisted.
 
+Native capture hooks resolve the store in the same way as `SessionStart`:
+explicit backend/connection environment takes precedence, then the existing
+`~/.agent-memory/config.json` PostgreSQL binding, then the local default when
+no PostgreSQL intent is configured. MCP server environment is not inherited
+by a host hook. Before placement, compare the resolved hook store with the
+workspace MCP store; a mismatch is missing deployment evidence, not permission
+to change either namespace. An unavailable or malformed configured store must
+fail open for the host without reporting capture success or falling back to
+SQLite. Verify persisted event IDs through the same-release MCP entrypoint
+and a fresh process; hook exit status alone is not storage evidence.
+
 After first placement, operators can backfill the gap since an exact timestamp
 without assigning the shared transcript root to one agent:
 
