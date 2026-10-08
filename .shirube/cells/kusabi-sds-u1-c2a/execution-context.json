@@ -1,0 +1,135 @@
+{
+  "schema_version": "shirube-execution-context/v1",
+  "mode": "product_implementation",
+  "profile": "hotel-lite",
+  "primary": {
+    "repo": "watchout/agent-memory",
+    "product": "Kusabi",
+    "work_order": "watchout/agent-memory#307",
+    "pr": "watchout/agent-memory#333"
+  },
+  "active_role": "dev",
+  "roles": {
+    "lead": {
+      "allowed": [
+        "read_control_source",
+        "define_scope",
+        "create_handoff",
+        "request_review",
+        "file_framework_feedback"
+      ],
+      "forbidden": [
+        "implement_product_change",
+        "approve_merge",
+        "claim_merge_ready_without_owner"
+      ]
+    },
+    "dev": {
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "change_scope_without_handoff",
+        "edit_forbidden_paths",
+        "approve_merge",
+        "claim_audit_pass",
+        "claim_merge_ready_without_owner"
+      ]
+    }
+  },
+  "repo_relations": [
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "primary",
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "approve_merge",
+        "self_approve"
+      ]
+    },
+    {
+      "repo": "watchout/ai-dev-framework",
+      "relation": "framework_support",
+      "allowed": [
+        "read",
+        "cite",
+        "file_feedback"
+      ],
+      "forbidden": [
+        "implementation_target",
+        "merge_ready_claim"
+      ]
+    },
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "same_repo_control_source",
+      "control_issue_ref": "watchout/agent-memory#307",
+      "allowed": [
+        "read",
+        "cite",
+        "mirror_snapshot"
+      ],
+      "forbidden": [
+        "implementation_target",
+        "merge_decision"
+      ]
+    }
+  ],
+  "common_contract": {
+    "primary_repo_required": true,
+    "work_order_required": true,
+    "active_role_required": true,
+    "exact_head_required_for_merge_ready": true,
+    "owner_decision_required_for_merge_ready": true,
+    "llm_final_authority_forbidden": true,
+    "support_repo_as_target_forbidden": true,
+    "control_repo_as_target_forbidden": true
+  },
+  "agent_id": "kusabi",
+  "active_function": "implementation_executor",
+  "maker_history": [
+    "kusabi"
+  ],
+  "control_source_refs": [
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5990937650",
+      "sha256": "e8171b03afd25edaf9810627058e3cc20cd9ed6118e94c07997c307fe7a16c32"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992776591",
+      "sha256": "d108d0e2138485563566a9a6225fbe205b3b742326a4ab4d1b133dc4dddd49cb"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992879762",
+      "sha256": "33cccd6f9d2d58be0566337ff3f97ef551963c8e506b1e9f21e16c593e3e5450"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5992926386",
+      "sha256": "7fa4a533cbdea4ca25bfc1ef66835caec4ed4fa0c953e22d5584f71a4315d38a"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5993318934",
+      "sha256": "c11098b29908d7297f24d8a9a4ee7f5becf1599f0ebf26de6333d15c4013ecd9"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028230750",
+      "sha256": "c52f2b93e2dc834dd35f50685512d16d129e2c62e5b41a568d17d4b0b6d81990"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028253341",
+      "sha256": "3049212f8e3abdc9eb1d1ef2cdccde9eba17dc276cd70afe17e68f49a82419ea"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-6028381267",
+      "sha256": "e4a7261025362abb5d28b7dd0b1d6a3153180c096372b0584c3d62f3436cd865"
+    }
+  ]
+}

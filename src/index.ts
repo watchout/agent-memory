@@ -5,6 +5,7 @@ import { z } from "zod";
 import { appendFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { loadRecoveryContext, normalRecoveryLimits } from "./recovery-context.js";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 import {
@@ -419,23 +420,14 @@ async function main() {
         const dbConfig = await store.getRecoveryConfig(AGENT_ID);
         const cfg = dbConfig ?? { ...DEFAULT_RECOVERY_CONFIG, agent_id: AGENT_ID };
 
-        const [inProgressTasks, completedTasks, decisions, knowledgeItems, messages, conversationEvents] = await Promise.all([
-          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: 1, status: "in_progress" }),
-          store.getTaskStates({ agent_id: AGENT_ID, project: proj, limit: Math.max(cfg.task_states_limit - 1, 0), status: "completed" }),
-          store.getDecisions({ agent_id: AGENT_ID, project: proj, limit: cfg.decisions_limit, status: "active" }),
-          store.getKnowledge({ agent_id: AGENT_ID, project: proj, knowledge_scope: proj ? "project_and_seat" : "legacy", limit: cfg.knowledge_limit, status: "active" }),
-          store.getRecentMessages({ agent_id: AGENT_ID, project: proj, limit: cfg.messages_limit }),
-          store.getConversationEvents({
-            agent_id: AGENT_ID,
-            project: proj,
-            limit: Math.min(Math.max(cfg.messages_limit, 5), 20),
-          }),
-        ]);
+        const { activeTasks: inProgressTasks, completedTasks, decisions, knowledge: knowledgeItems, messages, conversationEvents, observedAt } = await loadRecoveryContext(store, {
+          agent_id: AGENT_ID, project: proj, limits: normalRecoveryLimits(cfg),
+        });
 
         const output = buildRecoveryOutput({
           agentId: AGENT_ID, project: proj, config: cfg,
           inProgressTasks, completedTasks, decisions, knowledgeItems, messages,
-          conversationEvents,
+          conversationEvents, observedAt,
         });
 
         // Log recovery quality (FEAT-024 / AM-002 Stage 1).

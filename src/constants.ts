@@ -6,6 +6,7 @@ import type {
   AgentMessage,
   ConversationEvent,
 } from "./stores/types.js";
+import { checkpointCaution, checkpointFreshness } from "./recovery-context.js";
 import { redactText } from "./redact.js";
 
 /**
@@ -94,6 +95,7 @@ export function buildRecoveryOutput(params: {
   knowledgeItems: Knowledge[];
   messages: AgentMessage[];
   conversationEvents?: ConversationEvent[];
+  observedAt?: string;
 }): string {
   const {
     agentId,
@@ -114,6 +116,8 @@ export function buildRecoveryOutput(params: {
 
   // Task section (highest priority)
   const taskLines: string[] = [];
+  const caution = checkpointCaution(checkpointFreshness(inProgressTasks[0], params.observedAt));
+  if (caution) taskLines.push(caution);
   if (inProgressTasks.length > 0 || completedTasks.length > 0) {
     taskLines.push("── CURRENT WORK ──");
     for (const t of inProgressTasks) {

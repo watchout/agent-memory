@@ -6,6 +6,9 @@ import { redactText } from "./redact.js";
 import { validateHostInvocationContextJsonSchema, validateRecoveryPackJsonSchema } from "./artifact-schema-validator.js";
 import { detectContinuityRisks } from "./continuity-analysis.js";
 
+import { checkpointCaution, checkpointFreshness, loadRecoveryContext, type TaskCheckpointFreshness } from "./recovery-context.js";
+export { RESTART_PACK_TASK_FRESHNESS_WINDOW_MS } from "./recovery-context.js";
+
 export interface RestartPackInput {
   agent_id: string;
   project?: string;
@@ -189,7 +192,6 @@ export interface RestartPackData {
 
 const MIN_TOKEN_BUDGET = 500;
 const DEFAULT_TOKEN_BUDGET = 1500;
-export const RESTART_PACK_TASK_FRESHNESS_WINDOW_MS = 12 * 60 * 60 * 1000;
 const HOST_INVOCATION_SCHEMA_REF = "host-invocation-context/v1";
 export const RECOVERY_PACK_SCHEMA_REF = "wasurezu-recovery-pack/v1";
 export const RECOVERY_PACK_POLICY_VERSION = "wasurezu-memory-safety-governance/0.1.0";
@@ -226,27 +228,11 @@ export async function loadRestartPackData(store: Store, input: RestartPackInput)
     MIN_TOKEN_BUDGET
   );
 
-  const [activeTasks, blockedTasks, completedTasks, decisions, knowledge, conversationEvents] = await Promise.all([
-    store.getTaskStates({ agent_id: input.agent_id, project: input.project, limit: 2, status: "in_progress" }),
-    store.getTaskStates({ agent_id: input.agent_id, project: input.project, limit: 2, status: "blocked" }),
-    store.getTaskStates({ agent_id: input.agent_id, project: input.project, limit: 3, status: "completed" }),
-    store.getDecisions({ agent_id: input.agent_id, project: input.project, limit: 5, status: "active" }),
-    store.getKnowledge({ agent_id: input.agent_id, project: input.project, knowledge_scope: input.project ? "project_and_seat" : "legacy", limit: 5, status: "active" }),
-    store.getConversationEvents({ agent_id: input.agent_id, project: input.project, limit: 8 }),
-  ]);
-
-  return {
-    agentId: input.agent_id,
-    project: input.project,
-    maxTokens,
-    observedAt: new Date().toISOString(),
-    activeTasks,
-    blockedTasks,
-    completedTasks,
-    decisions,
-    knowledge,
-    conversationEvents,
-  };
+  const data = await loadRecoveryContext(store, {
+    agent_id: input.agent_id, project: input.project,
+    limits: { active: 2, blocked: 2, completed: 3, decisions: 5, knowledge: 5, messages: 0, conversation: 8 },
+  });
+  return { agentId: input.agent_id, project: input.project, maxTokens, ...data };
 }
 
 export function buildRestartPack(data: RestartPackData): string {
@@ -328,6 +314,9 @@ function buildSections(data: RestartPackData): string[] {
       .join("\n")
   );
 
+  const caution = checkpointCaution(taskCheckpointFreshness(data));
+  if (caution) sections.push(caution);
+
   sections.push(
     [
       "CURRENT OBJECTIVE",
@@ -371,23 +360,6 @@ function buildSections(data: RestartPackData): string[] {
   );
 
   sections.push(RECOVERY_CONTROL_SECTION);
-
-  const taskFreshness = taskCheckpointFreshness(data);
-  if (taskFreshness === "stale") {
-    sections.push(
-      [
-        "FRESHNESS CAUTION",
-        "The current task checkpoint is older than the recovery freshness window. Treat status-bearing facts as unverified, use targeted search_memory when available, and verify external SSOT before acting.",
-      ].join("\n")
-    );
-  } else if (taskFreshness === "unknown") {
-    sections.push(
-      [
-        "FRESHNESS UNKNOWN",
-        "The current task checkpoint freshness cannot be verified because its observation time or checkpoint time is missing, invalid, or future-skewed. Treat status-bearing facts as unverified, use targeted search_memory when available, and verify external SSOT before acting.",
-      ].join("\n")
-    );
-  }
 
   if (hiddenStructuredCount > 0) {
     sections.push(
@@ -796,18 +768,8 @@ function confidenceReasonsFor(data: RestartPackData, missingContext: string[]): 
   return reasons;
 }
 
-type TaskCheckpointFreshness = "fresh" | "stale" | "unknown" | "unavailable";
-
 function taskCheckpointFreshness(data: RestartPackData): TaskCheckpointFreshness {
-  const primaryTask = data.activeTasks[0] ?? data.blockedTasks[0];
-  if (!primaryTask) return "unavailable";
-  if (!data.observedAt) return "unknown";
-  const observedAt = Date.parse(data.observedAt);
-  const checkpointAt = Date.parse(primaryTask.updated_at ?? primaryTask.created_at);
-  if (!Number.isFinite(observedAt) || !Number.isFinite(checkpointAt)) return "unknown";
-  const age = observedAt - checkpointAt;
-  if (age < 0) return "unknown";
-  return age > RESTART_PACK_TASK_FRESHNESS_WINDOW_MS ? "stale" : "fresh";
+  return checkpointFreshness(data.activeTasks[0] ?? data.blockedTasks[0], data.observedAt);
 }
 
 export function taskCheckpointIsStale(data: RestartPackData): boolean {
