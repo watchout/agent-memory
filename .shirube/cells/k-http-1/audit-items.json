@@ -1,0 +1,43 @@
+{
+  "schema": "sds-audit-items/1",
+  "method_ref": "watchout/shirube@3b9f5c8e8f22a98374f1929ea8bcff8e084dab3b/docs/sds/audit-method.md#3",
+  "scope": "PR335 K-HTTP-1: Streamable HTTP entrypoint with per-seat bearer auth, incremental to main c199e31a; not deployment, not cloud secret placement, not product-wide acceptance",
+  "items": [
+    {
+      "id": "I1",
+      "criterion": "意図: HTTP 入口と席ごとの bearer 認証が handoff（agent-memory#334 の最初のコメント）の目的と設計判断 1〜5 に合うか。stdio は不変、identity は要求ごとに token から決まり起動時の環境変数に戻っていないか。"
+    },
+    {
+      "id": "I2",
+      "criterion": "範囲: 変更が allowed paths（handoff + 補足で許した ci.yml の 1 step と .shirube/cells/k-http-1/**）の内か。dependencies の追加なし、DB schema / migration 不変、.mcp.json / hook / TLS 終端 / token の生成・配布を含まないか。"
+    },
+    {
+      "id": "I3",
+      "criterion": "隠れた影響: src/index.ts の context 化で stdio 側の AGENT_ID / PROJECT / SESSION_ID の既定値、logCall、recovery continuation tracker、createStore の呼び方が変わっていないか。session ごとの McpServer / transport の生成と解放（DELETE、切断、異常）で資源が漏れないか。"
+    },
+    {
+      "id": "I4",
+      "criterion": "回帰: 既存 12 本と core test が main と同じ結果であること（作者の別 HOME / KUSABI_TEST_TMPDIR 実行）を監査側で再現し、src/test-http-server.ts の a〜d（401 / tools-list / 席分離 / session 流用 404）を再実行する。Red→Green の順で入ったことを commit で確認する。"
+    },
+    {
+      "id": "I5",
+      "criterion": "正本整合: docs/operations/HTTP_TRANSPORT.md、SSOT-3、SSOT-5 §1.1 の記述（環境変数名と既定値、bind 127.0.0.1 既定、tokens file 必須、401 + WWW-Authenticate、他席 session の 404、/healthz の応答内容、TLS は前段）と実装が一致するか。"
+    },
+    {
+      "id": "I6",
+      "criterion": "正直さ: 製品 CI の success、作者試験、独立監査、統合、実環境（VPS・TLS・Network secret・クラウドからの疎通）を区別し、未確認を PASS にしていないか。Rapid/Lite failure の説明（工程入力の不在）が正しいか。K-REDACT-1（保存前の伏せ字が未適用）を別 cell として明記しているか。"
+    },
+    {
+      "id": "I7",
+      "criterion": "要求接続: Owner 判断（iyasaka-arc#52 6050254770 Q-K-2 / Q-K-7）と ADR 追補（iyasaka-arc#57 6050184667 §2・§3）に対応しているか。平文 token を保存しない・log に出さない（Authorization header を丸ごと落とす）・sha256 を定数時間比較、が実装にあるか。"
+    },
+    {
+      "id": "I8",
+      "criterion": "依存/設定: package.json の dependencies に追加がなく、lockfile の差分が意図内（SDK の範囲 ^1.12.1）か。@hono/node-server 等は SDK 自身の依存であることを確認。Node 18 / 20 / 22 で通るか。既定値が安全側（127.0.0.1、tokens file 無しで起動失敗）か。"
+    },
+    {
+      "id": "I9",
+      "criterion": "不変条件を負例で確認: token なし → 401、間違い token → 401、席 A の記録が席 B の token で読めない、席 A の session id を席 B の token で使うと 404、/healthz が版・席名・DB 情報を出さない、他の path は 404、stdio の起動経路と codex-start.ts の stdio 検査が不変。"
+    }
+  ]
+}

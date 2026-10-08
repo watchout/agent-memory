@@ -64,6 +64,9 @@ jobs:
       - name: Run SQLite store tests
         run: HOME=$(mktemp -d) npx tsx src/test-sqlite.ts
 
+      - name: Run HTTP transport tests
+        run: HOME=$(mktemp -d) npx tsx src/test-http-server.ts
+
       - name: Run boot recovery tests
         run: HOME=$(mktemp -d) npx tsx src/test-boot-recovery.ts
 
