@@ -1,0 +1,135 @@
+{
+ "schema_version": "kusabi-goal-a-cell-graph/v1",
+ "graph_id": "GOAL-A-DERIVED-CELL-GRAPH-V1",
+ "control_source": "https://github.com/watchout/agent-memory/issues/307",
+ "control_source_body_sha256": "cd525676b20f785ee0adf61ee3b079790a97569d0c88761210abc92da229cbb0",
+ "authority": {
+  "owner_decision": "OD-KUSABI-307-GOAL-A-PREREQUISITES-A1-START-20260826-001",
+  "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5422741627",
+  "raw_api_body_sha256": "e8bd5d5295a596f69eef445f74c2051a74ede37fa4d18a7f2c056b6cebb32bbf"
+ },
+ "a5b_amendment": {
+  "amendment_id": "KUSABI-ROADMAP-AMENDMENT-001",
+  "url": "https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502",
+  "raw_api_body_sha256": "b21082e5030a730b45a1ea400294979f9ce134986d74170b844a023a57a037e0"
+ },
+ "exact_order": ["A1", "A2", "A3", "A4", "A5", "A5b", "A6", "A7", "A8", "A9", "A10", "A11"],
+ "ordering_rules": [
+  "the exact_order array is the only advancement order; a cell may not start before every cell earlier in the array is CLOSED or carries an explicit owner-decision waiver comment on issue #307",
+  "A5b is nonterminal for Goal A: its CLOSED state satisfies only A5b itself and cannot replace, skip, or waive A1 or any other cell",
+  "owner_gate cells cannot leave PLACED without a fresh owner decision comment cited by URL plus raw_api_body_sha256"
+ ],
+ "lifecycle_states": ["BUILT", "PLACED", "ACTIVATED", "EFFECT_PROVEN", "CLOSED"],
+ "cells": [
+  {
+   "id": "A1",
+   "title": "秘匿監査の閉鎖",
+   "summary": "#296 の秘匿処理修正に対する独立監査を完了し、監査 verdict を control source に publish して閉鎖する",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/296"],
+   "owner_gate": false,
+   "depends_on": [],
+   "effect_predicate": "independent audit verdict for the #296 redaction fix is published with URL and raw_api_body_sha256, and the verdict is LGTM or its findings are closed by a follow-up merged fix"
+  },
+  {
+   "id": "A2",
+   "title": "版来歴",
+   "summary": "#298 の版来歴(provenance)を実装し、記憶 artifact の版が機械追跡可能になる",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/298"],
+   "owner_gate": false,
+   "depends_on": ["A1"],
+   "effect_predicate": "a version-provenance readback for a fresh artifact returns its full chain with zero missing links in machine output"
+  },
+  {
+   "id": "A3",
+   "title": "席再起動検証",
+   "summary": "#299/#300 の席再起動の検証を完了し、再起動後の記憶復元が機械判定で合格する",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/299", "https://github.com/watchout/agent-memory/issues/300"],
+   "owner_gate": false,
+   "depends_on": ["A2"],
+   "effect_predicate": "a seat restart fixture passes recover_context with machine-checked score at or above the frozen threshold"
+  },
+  {
+   "id": "A4",
+   "title": "v3 記述子+資源台帳 (RDY-01)",
+   "summary": "実行環境の v3 記述子と資源台帳を作成し、R1 判定不能の主因を解消する",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/307"],
+   "owner_gate": false,
+   "depends_on": ["A3"],
+   "effect_predicate": "the v3 descriptor plus resource inventory exists at a pinned commit and a readback re-derives its digest"
+  },
+  {
+   "id": "A5",
+   "title": "CAS 再構築 (RDY-03)",
+   "summary": "現行 main から実行環境の固定配布(CAS)を再構築する",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/307"],
+   "owner_gate": false,
+   "depends_on": ["A4"],
+   "effect_predicate": "the rebuilt CAS artifact digest is recorded and matches an independent rebuild from the same commit"
+  },
+  {
+   "id": "A5b",
+   "title": "fleet 配備 (interim) — 稼働実行体の main 追従",
+   "summary": "27 workspace が参照する dist の 187-commit 遅れを解消する。migration 無しの場合のみ main 追従→再build→canary 1席→全席反映、migration 有りは typed 停止で owner gate へ。起動時 build commit の kusabi_runtime_events 記録を全席で有効化",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502"],
+   "owner_gate": false,
+   "owner_gate_conditional": "DB schema migration が delta に含まれる場合は typed 停止し owner gate 必須(amendment F1 手順3)",
+   "depends_on": ["A5"],
+   "terminal_substitution_forbidden": true,
+   "effect_predicate": "every seat's running build commit reads back as main-following, the #296 fix is effective in live output (GitHub comment IDs survive redaction), and kusabi_runtime_events records session_start with build for every seat"
+  },
+  {
+   "id": "A6",
+   "title": "[owner] 分母改訂+R0 再実施 (RDY-02)",
+   "summary": "配布分母の owner 改訂(33/35)と鮮度ある R0 再実施",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/307"],
+   "owner_gate": true,
+   "depends_on": ["A5b"],
+   "effect_predicate": "a fresh owner decision fixes the denominator and a fresh R0 run is recorded with machine output"
+  },
+  {
+   "id": "A7",
+   "title": "[owner] GO→R1→R2/R3→24h 閉鎖",
+   "summary": "新しい exact owner GO のもとで R1(全席配布)→R2/R3→24h 閉鎖まで",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/307"],
+   "owner_gate": true,
+   "depends_on": ["A6"],
+   "effect_predicate": "R1 through R3 complete with 24h closure evidence under a cited fresh owner GO"
+  },
+  {
+   "id": "A8",
+   "title": "起動時自動接続 3 host (#262)",
+   "summary": "ALPHA-01..03 の席起動時自動接続を 3 host で実装する",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/262"],
+   "owner_gate": false,
+   "depends_on": ["A7"],
+   "effect_predicate": "three hosts demonstrate startup auto-connection with machine-recorded session evidence"
+  },
+  {
+   "id": "A9",
+   "title": "復旧スコア計測装置+S1-S15 (#263)",
+   "summary": "ALPHA-04 の復旧スコア計測装置と S 系列 fixture(amendment F3 の外部kill 系列を含む)。SLO が主張でなく計測になる点",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/263"],
+   "owner_gate": false,
+   "depends_on": ["A8"],
+   "effect_predicate": "the recovery-score instrument runs S1-S15 including the external-kill fixture with recover_context-only readback at T3 within 30 seconds"
+  },
+  {
+   "id": "A10",
+   "title": "[owner] cold-boot 復旧 cell 化 (#278)",
+   "summary": "cold-boot 復旧の cell 化(owner 裁定)",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/278"],
+   "owner_gate": true,
+   "depends_on": ["A9"],
+   "effect_predicate": "a cold-boot recovery cell exists with owner-decided scope and a passing fixture"
+  },
+  {
+   "id": "A11",
+   "title": "記録衛生 (#245/#246/#247 + amendment F2)",
+   "summary": "記録衛生の閉鎖。amendment F2 により restart_events 記録停止(2026-07-16 以降 0 行)の原因 commit 特定と経路復旧を含む",
+   "control_sources": ["https://github.com/watchout/agent-memory/issues/245", "https://github.com/watchout/agent-memory/issues/246", "https://github.com/watchout/agent-memory/issues/247", "https://github.com/watchout/agent-memory/issues/307#issuecomment-5339429502"],
+   "owner_gate": false,
+   "depends_on": ["A10"],
+   "effect_predicate": "restart_events records resume with the causing commit identified, and the hygiene issues close with machine evidence"
+  }
+ ]
+}
