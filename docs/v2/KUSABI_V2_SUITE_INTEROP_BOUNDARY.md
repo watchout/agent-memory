@@ -296,3 +296,22 @@ This boundary is acceptable when:
 - trust downgrade rules are explicit;
 - no subsystem is allowed to silently increase trust or ownership;
 - next implementation docs can proceed without protocol/domain overlap.
+
+## 15. AUN-first personal-data protection amendment (2026-09-20)
+
+[AUN #966](https://github.com/watchout/agent-comms-mcp/issues/966) and
+[Kusabi's consumer design](../design/typed-protected-memory-v1.md) correct the
+assumption that AUN merely transports memory references. AUN persists message
+content, queue payload, outbound content and event payload; its first write must
+apply the shared protection contract. Kusabi protects its own independent inputs
+and preserves issuer-qualified AUN references. Each owns its storage boundary.
+
+Shirube supplies engineering review/evidence; it grants no reveal permission.
+AUN queue/lease/delivery success grants no reveal permission. Kodama labels and
+source revocation remain effective on every reveal. No runtime dependency on
+Kusabi is added to AUN, nor on AUN/Shirube to standalone Kusabi. An unavailable
+issuer produces explicit missing original values, not invented recovery.
+
+Implementation order: current AUN/Shirube repair and acceptance, AUN protection
+core/all writes/read-delivery, synthetic independent acceptance, Kusabi ingest/
+recovery adaptation. Keep this change separate from PR963/PR626 and Kodama PR73.

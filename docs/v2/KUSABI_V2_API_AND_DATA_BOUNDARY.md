@@ -46,6 +46,14 @@ owner-approved migration changes one surface with tests.
 
 ## 4. V2 conceptual model
 
+2026-09-20 amendment: [typed protected memory](../design/typed-protected-memory-v1.md)
+adds the proposed protected-values/metadata/entity-links/documents/operations/audit
+model and internal protect/render/resolve/revise interfaces. Existing table/tool
+names and v1 artifact semantics remain compatibility contracts. Normal content
+uses typed references; original eligible values use encrypted vault storage.
+AUN-origin references retain issuer/scope/value identity and are not access grants.
+These additions are design-only; no new MCP tool or DB table is present by this PR.
+
 V2 should describe the product in these terms:
 
 | V2 concept | Current implementation evidence | V2 direction |
@@ -85,7 +93,7 @@ The following tools are preserved by V2 planning docs:
 
 | Data class | Current tables / artifacts | Default treatment | V2 direction |
 | --- | --- | --- | --- |
-| `raw_event_source` | `raw_events`, `conversation_events`, imported transcripts, tool results | Data-only, redacted, provenance-bearing | Source ledger for recovery and extraction. |
+| `raw_event_source` | `raw_events`, `conversation_events`, imported transcripts, tool results | Data-only, provenance-bearing; legacy redacted or new-mode typed protected projection | Source ledger; eligible original values live in the proposed encrypted vault, not plaintext content. |
 | `candidate_memory` | extracted knowledge, summaries, task/decision candidates | Not trusted instruction; requires source refs | Default for agent-written memory unless approved. |
 | `approved_memory` | approved decisions/knowledge/task states with evidence | May guide recovery, still not executable instruction | Requires promotion evidence. |
 | `trusted_instruction` | control-plane-authored host instruction | Shell-free, no raw context interpolation | Must not be copied from stored text. |
