@@ -17,7 +17,7 @@
     },
     {
       "id": "I4",
-      "criterion": "回帰: 既存 12 本と core test が main と同じ結果であること（作者の別 HOME / KUSABI_TEST_TMPDIR 実行）を監査側で再現し、src/test-http-server.ts の a〜d（401 / tools-list / 席分離 / session 流用 404）を再実行する。Red→Green の順で入ったことを commit で確認する。"
+      "criterion": "回帰: 既存 12 本と core test が main と同じ結果であること（作者の別 HOME / KUSABI_TEST_TMPDIR 実行）を監査側で再現し、src/test-http-server.ts の a〜g を再実行する。e〜g は Red→Green の順で入ったことを commit で確認する（Red ab9925f30486742bf313c6b6c557387cb98db6b2、Green 2c3af5baa20dada7d53c4efc84bb9231a5b55a15）。a〜d は Red の commit が存在しない（882050d35f1eba78c0600351a6e8ab98cb41f36e で実装と同時に追加）ので、代わりに次で確認する: 固定 head の隔離した copy に、各試験が守る規則を 1 つだけ壊す変異（a: bearer の照合を常に成功にする、b: 既存 tool の 1 つを HTTP の server に登録しない、c: HTTP の context の agent_id を token から取らず固定値にする、d: 既存 session を使う要求の token 照合を外す）を 1 つずつ当て、対応する試験が assertion の失敗（ERR_ASSERTION）で落ち、変異を外すと通ることを、作者が変異の差分・実行記録とともに PR に公開し、監査側が再実行する。base 8bc463a3 で試験が ERR_MODULE_NOT_FOUND で落ちることは Red の証拠に数えない。存在しない履歴は作らない。"
     },
     {
       "id": "I5",

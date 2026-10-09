@@ -58,7 +58,8 @@ const check = async (label: string, fn: () => Promise<void>) => {
     console.log(`  PASS ${label}`);
   } catch (err) {
     failed.push(label);
-    console.log(`  FAIL ${label}\n       ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    const code = (err as { code?: string }).code ?? "no-code";
+    console.log(`  FAIL ${label} [${code}]\n       ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
   }
 };
 
