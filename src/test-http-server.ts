@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -17,6 +17,18 @@ process.env.AGENT_MEMORY_DB_PATH = join(tmpHome, "memory.db");
 process.env.AGENT_MEMORY_DISABLE_EMBEDDINGS = "1";
 delete process.env.AGENT_MEMORY_DATABASE_URL;
 delete process.env.DATABASE_URL;
+
+// Host transcripts that belong to seat A. HTTP callers must not be able to sweep them.
+const HOST_MARKER = "k-http-1-host-private-marker";
+const hostRoot = join(tmpHome, "host-transcripts");
+mkdirSync(join(hostRoot, "seat-a-project"), { recursive: true });
+const hostNow = new Date().toISOString();
+writeFileSync(join(hostRoot, "seat-a-project", "seat-a.jsonl"), [
+  JSON.stringify({ type: "user", timestamp: hostNow, sessionId: "seat-a-local-only", message: { role: "user", content: HOST_MARKER } }),
+  JSON.stringify({ type: "assistant", timestamp: hostNow, sessionId: "seat-a-local-only", message: { role: "assistant", content: [{ type: "text", text: `[DECISION] ${HOST_MARKER}` }] } }),
+].join("\n") + "\n");
+process.env.CLAUDE_PROJECTS_DIR = hostRoot;
+process.env.CODEX_SESSIONS_DIR = hostRoot;
 
 const TOKEN_A = "seat-a-test-token-not-a-secret";
 const TOKEN_B = "seat-b-test-token-not-a-secret";
@@ -38,10 +50,16 @@ const { loadTokenTable, startHttpServer } = await import("./http-server.js");
 const { createStore } = await import("./stores/index.js");
 
 let passed = 0;
+const failed: string[] = [];
 const check = async (label: string, fn: () => Promise<void>) => {
-  await fn();
-  passed++;
-  console.log(`  PASS ${label}`);
+  try {
+    await fn();
+    passed++;
+    console.log(`  PASS ${label}`);
+  } catch (err) {
+    failed.push(label);
+    console.log(`  FAIL ${label}\n       ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+  }
 };
 
 const store = await createStore();
@@ -118,6 +136,39 @@ try {
     assert.ok(!fromB.includes(marker), "seat B must not see seat A's decision");
   });
 
+  await check("e: seat B cannot change seat A's recovery config; no row is written for A", async () => {
+    const denied = await seatB.client.callTool({
+      name: "set_recovery_config",
+      arguments: { agent_id: "http-seat-a", max_tokens: 1, decisions_limit: 0 },
+    });
+    assert.ok(denied.isError, "cross-seat set_recovery_config must be an error");
+    assert.equal(await store.getRecoveryConfig("http-seat-a"), null, "seat A config must stay unwritten");
+    const own = await seatB.client.callTool({ name: "set_recovery_config", arguments: { agent_id: "http-seat-b", max_tokens: 2000 } });
+    assert.ok(!own.isError, text(own));
+    assert.equal((await store.getRecoveryConfig("http-seat-b"))?.max_tokens, 2000);
+  });
+
+  await check("f: ingest_conversation_events over HTTP does not read host transcripts; 0 events saved", async () => {
+    for (const args of [
+      { source: "claude_code", root: hostRoot, since: "2000-01-01T00:00:00Z" },
+      { source: "claude_code", since: "2000-01-01T00:00:00Z" },
+      { source: "codex", root: hostRoot, since: "2000-01-01T00:00:00Z" },
+    ]) {
+      const res = await seatB.client.callTool({ name: "ingest_conversation_events", arguments: args });
+      assert.ok(res.isError, `ingest must be refused over HTTP: ${JSON.stringify(args)}`);
+    }
+    assert.equal((await store.getRawEvents({ agent_id: "http-seat-b" })).length, 0, "no raw events for seat B");
+    const found = text(await seatB.client.callTool({ name: "search_memory", arguments: { query: HOST_MARKER, scope: "conversation" } }));
+    assert.ok(!found.includes(HOST_MARKER), "host marker must not be searchable by seat B");
+  });
+
+  await check("g: catch_up over HTTP does not read host transcripts; no rows written", async () => {
+    const res = await seatB.client.callTool({ name: "catch_up", arguments: { since: "2000-01-01T00:00:00Z" } });
+    assert.ok(res.isError, "catch_up must be refused over HTTP");
+    const decisions = text(await seatB.client.callTool({ name: "get_decisions", arguments: {} }));
+    assert.ok(!decisions.includes(HOST_MARKER), "host decision must not be written for seat B");
+  });
+
   await check("d: seat A session id used with seat B token -> 404, and the session is discarded", async () => {
     const sessionA = seatA.transport.sessionId;
     assert.ok(sessionA, "seat A has a session id");
@@ -142,5 +193,9 @@ try {
   rmSync(tmpHome, { recursive: true, force: true });
 }
 
+if (failed.length > 0) {
+  console.log(`\nK-HTTP-1: ${passed} passed, ${failed.length} failed`);
+  process.exit(1);
+}
 console.log(`\nK-HTTP-1: ${passed} checks passed`);
 process.exit(0);
