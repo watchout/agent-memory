@@ -63,6 +63,7 @@ HTTP の呼び出し元は、server と同じ host のプロセスとは限ら�
 | `ingest_conversation_events` | `HOST_FILES_UNAVAILABLE_OVER_HTTP` の error を返す。server host の transcript（`root` 指定・既定の場所とも）を読まず、何も保存しない |
 | `catch_up` | 同上。server host の `~/.claude/projects` を走査せず、何も書かない |
 
+- 拒否の応答は `isError: true` と固定の code（`SEAT_MISMATCH` / `HOST_FILES_UNAVAILABLE_OVER_HTTP`）だけで、host の path や件数は返さない。拒否は host のファイルに触れる前、保存の前に行う。判定は server 側の context（token の席と transport）で決まり、呼ぶ側の引数では変えられない。設計の判断: agent-memory#334 6076984566（ARC）。
 - 席の境界は `agent_id`。token の `project` は既定値で、境界ではない。同じ `agent_id` の中では、tool の `project` 引数で別の project を指定でき、stdio と同じく読める。
 - HTTP の席の会話を取り込む経路（各席の host 側での ingest）は、この cell の範囲外。
 
