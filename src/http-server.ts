@@ -111,6 +111,7 @@ export async function startHttpServer(options: HttpServerOptions): Promise<{ url
       agentId: seat.agent_id,
       project: seat.project,
       sessionId: id,
+      transport: "http",
     });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => id,

@@ -53,6 +53,19 @@ JSON 配列。1 要素が 1 席。平文の token はファイルに置かない
 - 未知の session id: `404`。session なしで initialize 以外の要求: `400`。
 - log に token と Authorization header は出さない。request の log は method・path（query を除く）・status だけで、`redactText` を通す。
 
+## 席の境界（HTTP だけの制限）
+
+HTTP の呼び出し元は、server と同じ host のプロセスとは限らない。stdio では信頼していた次の操作を、HTTP では制限する。tool の一覧（`tools/list`）と入力の形は stdio と同じで、呼んだ時に error を返す。
+
+| tool | HTTP での動作 |
+|---|---|
+| `set_recovery_config` | `agent_id` が token の席と違えば `SEAT_MISMATCH` の error を返し、何も書かない。自分の席は従来どおり更新できる |
+| `ingest_conversation_events` | `HOST_FILES_UNAVAILABLE_OVER_HTTP` の error を返す。server host の transcript（`root` 指定・既定の場所とも）を読まず、何も保存しない |
+| `catch_up` | 同上。server host の `~/.claude/projects` を走査せず、何も書かない |
+
+- 席の境界は `agent_id`。token の `project` は既定値で、境界ではない。同じ `agent_id` の中では、tool の `project` 引数で別の project を指定でき、stdio と同じく読める。
+- HTTP の席の会話を取り込む経路（各席の host 側での ingest）は、この cell の範囲外。
+
 ## TLS とネットワーク
 
 - TLS は終端しない。外部に出す場合は前段の reverse proxy で TLS を終端する。
@@ -62,5 +75,5 @@ JSON 配列。1 要素が 1 席。平文の token はファイルに置かない
 ## 確認方法
 
 ```sh
-npm run test:http   # loopback で 401 / tools/list / 席の分離 / session の取り違え 404 を確認
+npm run test:http   # loopback で 401 / tools/list / 席の分離 / 他席の設定変更と host transcript 読み取りの拒否 / session の取り違え 404 を確認
 ```

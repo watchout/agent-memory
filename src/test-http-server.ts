@@ -159,7 +159,7 @@ try {
     }
     assert.equal((await store.getRawEvents({ agent_id: "http-seat-b" })).length, 0, "no raw events for seat B");
     const found = text(await seatB.client.callTool({ name: "search_memory", arguments: { query: HOST_MARKER, scope: "conversation" } }));
-    assert.ok(!found.includes(HOST_MARKER), "host marker must not be searchable by seat B");
+    assert.ok(found.includes("— no results"), `host marker must not be searchable by seat B: ${found.slice(0, 200)}`);
   });
 
   await check("g: catch_up over HTTP does not read host transcripts; no rows written", async () => {

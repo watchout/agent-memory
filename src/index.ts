@@ -30,7 +30,12 @@ export interface SeatContext {
   agentId: string;
   project?: string;
   sessionId: string;
+  /** "http": the caller is a remote seat; tools may not act on other seats or read host transcript files. */
+  transport?: "stdio" | "http";
 }
+
+const HOST_FILES_UNAVAILABLE = "HOST_FILES_UNAVAILABLE_OVER_HTTP: this tool reads transcript files on the server host and is available over stdio only.";
+const SEAT_MISMATCH = "SEAT_MISMATCH: over HTTP, agent_id must be the authenticated seat.";
 
 export function seatContextFromEnv(env: NodeJS.ProcessEnv = process.env): SeatContext {
   return {
@@ -63,6 +68,7 @@ export function createWasurezuServer(store: Store, context: SeatContext): {
   const AGENT_ID = context.agentId;
   const PROJECT = context.project;
   const SESSION_ID = context.sessionId;
+  const remoteSeat = context.transport === "http";
 
   // Recovery quality tracking (FEAT-024), per server instance
   let recoveryLogId = "";
@@ -696,6 +702,9 @@ export function createWasurezuServer(store: Store, context: SeatContext): {
     },
     async ({ agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit }) => {
       await logToolCall("set_recovery_config", `agent_id="${agent_id}"`);
+      if (remoteSeat && agent_id !== AGENT_ID) {
+        return { content: [safeText(SEAT_MISMATCH)], isError: true };
+      }
       try {
         const config = await store.upsertRecoveryConfig({
           agent_id,
@@ -922,6 +931,9 @@ export function createWasurezuServer(store: Store, context: SeatContext): {
     async ({ source, project, since, root, max_files }) => {
       const actualSource = source ?? "claude_code";
       await logToolCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
+      if (remoteSeat) {
+        return { content: [safeText(HOST_FILES_UNAVAILABLE)], isError: true };
+      }
       try {
         const result =
           actualSource === "codex"
@@ -984,6 +996,9 @@ export function createWasurezuServer(store: Store, context: SeatContext): {
     },
     async ({ since, source, dry_run }) => {
       await logToolCall("catch_up", `since="${since ?? ""}" source="${source ?? "conversation"}" dry_run=${dry_run ?? false}`);
+      if (remoteSeat) {
+        return { content: [safeText(HOST_FILES_UNAVAILABLE)], isError: true };
+      }
       try {
         const result = await catchUp(store, AGENT_ID, { since, source, dry_run });
         return {
