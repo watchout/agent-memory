@@ -1,0 +1,150 @@
+{
+  "schema_version": "shirube-v3/control_handoff/v1",
+  "control_handoff_id": "K-HTTP-1-PR335",
+  "mode": "rapid-lite",
+  "profile": "hotel-lite",
+  "framework_ref": "watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e",
+  "control_source": "https://github.com/watchout/agent-memory/issues/334",
+  "control_source_refs": [
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/334",
+      "sha256": "32ac48a1787e79bc1ac82847c251847c27dadd5e18f7434913397f3f1daa1b99"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/334#issuecomment-6050602499",
+      "sha256": "f89a006d3f99c6e6fbee36975fd8f2e7b092cdcafe42752a4d62fcea501a051e"
+    },
+    {
+      "url": "https://github.com/watchout/iyasaka-arc/issues/52#issuecomment-6050254770",
+      "sha256": "d98442ddd99613f886a15092bb31598f581262df5c653c0e7716826d1b55e3de"
+    }
+  ],
+  "authority_note": "These files mirror the cited published scopes. They do not grant owner approval, audit PASS, merge or protected-operation authority.",
+  "repository": {
+    "name": "watchout/agent-memory",
+    "pr": 335
+  },
+  "execution_context": {
+    "to": {
+      "agent_id": "kusabi",
+      "active_function": "implementation_executor"
+    },
+    "maker_history": [
+      "kusabi"
+    ]
+  },
+  "lifecycle_state": "IMPLEMENTED",
+  "spec_review_state": "ready_for_implementation",
+  "repo_spec_ref": ".shirube/repo-spec.yaml",
+  "premise_confirmation_ref": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+  "premise_confirmation_source": {
+    "url": "https://github.com/watchout/agent-memory/issues/301#issuecomment-5309862082",
+    "sha256": "73d433a2e2156ba540b8f6d15de6e25612992456ca0017fb37292e3109aa6515",
+    "scope": "Existing repository adoption premise only; not approval of PR335 or its implementation."
+  },
+  "cell": {
+    "id": "K-HTTP-1",
+    "cell_type": "product_implementation",
+    "risk_class": "R2",
+    "goal": "Same Kusabi starts over MCP Streamable HTTP as well as stdio; the seat (agent_id/project) is decided by the request's bearer token.",
+    "non_scope": [
+      "Placement (Mac / VPS) and secret placement",
+      "TLS termination",
+      "Token generation, distribution and storage",
+      "Redaction on save (K-REDACT-1)",
+      ".mcp.json or hook changes",
+      "Merge or independent approval"
+    ],
+    "CELL-ID": "K-HTTP-1"
+  },
+  "allowed_paths": [
+    ".github/workflows/ci.yml",
+    ".shirube/cells/k-http-1/audit-items.json",
+    ".shirube/cells/k-http-1/control-handoff.json",
+    ".shirube/cells/k-http-1/execution-context.json",
+    ".shirube/cells/k-http-1/lifecycle-state.json",
+    "docs/design/core/SSOT-3_API_CONTRACT.md",
+    "docs/design/core/SSOT-5_CROSS_CUTTING.md",
+    "docs/operations/HTTP_TRANSPORT.md",
+    "package.json",
+    "src/http-server.ts",
+    "src/index.ts",
+    "src/test-http-server.ts"
+  ],
+  "forbidden_paths": [
+    ".github/ISSUE_TEMPLATE/**",
+    ".github/pull_request_template.md",
+    ".github/workflows/shirube-rapid-lite-gates-report.yml",
+    ".shirube/runtime/**",
+    ".shirube/enforcement-policy.yaml",
+    ".shirube/repo-policy.json",
+    ".env*",
+    "deploy/**",
+    "package-lock.json",
+    "src/stores/**",
+    ".mcp.json"
+  ],
+  "forbidden_operations": [
+    "add dependencies",
+    "change stdio behavior or existing test expectations",
+    "change DB schema or migrations",
+    "change CI triggers, permissions, matrix or other steps",
+    "approve own audit or exceptions",
+    "merge",
+    "deploy",
+    "operate production databases or agent hooks"
+  ],
+  "stop_conditions": [
+    "A new dependency is needed",
+    "stdio tests change",
+    "Schema is touched",
+    "The SDK HTTP transport does not work as expected",
+    "Changed path outside the published scopes",
+    "Protected operation required"
+  ],
+  "required_checks": [
+    "npx tsc --noEmit",
+    "npm run build",
+    "KUSABI_TEST_TMPDIR=<tmp> npm test",
+    "HOME=$(mktemp -d) npx tsx src/test-http-server.ts",
+    "git diff --check"
+  ],
+  "required_evidence": [
+    "PR_head_SHA",
+    "changed_files",
+    "validation_commands",
+    "validation_results",
+    "owner_decision",
+    "control_state_completeness_report"
+  ],
+  "acceptance": [
+    "npm test (existing 12 suites) gives the same result as main; tsc and build pass",
+    "Loopback: no token or wrong token -> 401; seat A tools/list; seat A log_decision not visible to seat B; seat A session id with seat B token -> 404",
+    "HTTP_TRANSPORT.md, SSOT-3 and SSOT-5 1.1 describe the transport and bearer auth",
+    "Report whether redaction on save covers log_decision / save_knowledge / save_task_state"
+  ],
+  "independent_audit_required": true,
+  "owner_decision": {
+    "required_before_merge": true,
+    "evidence_source": "external_owner_decision_comment_or_workflow_input",
+    "committed_pending_policy_only": true,
+    "exact_head_sha": null,
+    "decision_ref": null
+  },
+  "next_action": {
+    "blocking": false,
+    "owner_agent": "kusabi",
+    "owner_function": "implementation_executor",
+    "action": "Bind this exact PR/head to real CI and request independent K-HTTP-1 audit.",
+    "handoff_method": "PR335 and issue334",
+    "input_refs": [
+      "https://github.com/watchout/agent-memory/issues/334",
+      "https://github.com/watchout/agent-memory/issues/334#issuecomment-6050602499"
+    ],
+    "scope": "K-HTTP-1 under the published handoff and supplement",
+    "deliverable": "Exact-head CI and independent audit intake",
+    "completion_evidence": "Published CI, independent result and adopted receipt. No merge or deployment claim."
+  },
+  "escalation_route": "If a protected operation, rule exemption, or scope change is needed, stop that operation and return exact findings to issue #334 and iyasaka-arc#57. The maker cannot approve an exception or perform the protected effect.",
+  "scope_note": "Implementation paths from the handoff in #334; .github/workflows/ci.yml (one step) and .shirube/cells/k-http-1/** added by the supplement 6050602499."
+}

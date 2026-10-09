@@ -13,6 +13,7 @@
 agent-memory は **MCP (Model Context Protocol) server** として動作する。MCP 仕様上、認証は以下の階層で扱う:
 
 - **transport**: stdio (Claude Code が child process として spawn) → OS プロセス境界が認証
+- **transport (HTTP, K-HTTP-1)**: MCP Streamable HTTP では、席ごとの固定 bearer token で認証する。token file（`AGENT_MEMORY_HTTP_TOKENS_FILE`）には `sha256(token)` と席（`agent_id` / `project`）だけを置き、平文の token は置かない。照合は定数時間で行う。無し・不一致は `401` + `WWW-Authenticate: Bearer`（本文なし）。session は initialize 時の token の席に固定され、別の token で同じ session id を使うと `404` で session を捨てる。token と Authorization header は log に出さない。HTTP では他席の `agent_id` を指す `set_recovery_config` を拒否し、server host の transcript を読む `ingest_conversation_events` / `catch_up` も拒否する（どちらも書込み 0 件）。席の境界は `agent_id` で、token の `project` は既定値であり境界ではない。TLS の終端は前段の reverse proxy が担う。token の生成・配布・保管先はこの server の範囲外。手順は `docs/operations/HTTP_TRANSPORT.md`
 - **MCP tool 呼出**: Claude Code セッション内からの呼出は信頼済みとして扱う (MCP 仕様準拠)
 - **agent_id namespace**: 各 bot が起動時に `AGENT_MEMORY_AGENT_ID` を設定し、自身の data を namespace 内で管理。**他の agent_id への access を強制的に防止する mechanism は無い** (LLM が自分の agent_id を信じて使う前提)
 

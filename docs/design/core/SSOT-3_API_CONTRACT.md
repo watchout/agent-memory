@@ -7,8 +7,10 @@
 
 ## Protocol
 
-agent-memory is an MCP (Model Context Protocol) server. Communication via stdio JSON-RPC.
-No REST API endpoints. All interactions through MCP tools.
+agent-memory is an MCP (Model Context Protocol) server. Communication via stdio JSON-RPC, or via MCP Streamable HTTP (`npm run kusabi:http`, K-HTTP-1).
+No REST API endpoints. All interactions through MCP tools. Both transports list the same tools with the same inputs and outputs. Over HTTP, three tools are restricted to the authenticated seat: `set_recovery_config` returns a `SEAT_MISMATCH` error for another `agent_id`, and `ingest_conversation_events` / `catch_up` return `HOST_FILES_UNAVAILABLE_OVER_HTTP` without reading server-host transcript files. Nothing is written in either case.
+
+HTTP transport (K-HTTP-1): `POST /mcp` (JSON-RPC), `GET /mcp` (SSE continuation), `DELETE /mcp` (end session), and an unauthenticated `GET /healthz` that returns only `{"ok":true}`. Every `/mcp` request needs `Authorization: Bearer <token>`. The token's seat (`agent_id` / `project`) is fixed when the session is initialized, and replaces `AGENT_MEMORY_AGENT_ID` / `AGENT_MEMORY_PROJECT` for that session. A missing or unknown token gets `401` with `WWW-Authenticate: Bearer` and an empty body. A session id used with another seat's token gets `404`, and that session is discarded. Operation details: `docs/operations/HTTP_TRANSPORT.md`.
 
 ## 独立性の原則
 

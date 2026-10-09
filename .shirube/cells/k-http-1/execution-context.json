@@ -1,0 +1,115 @@
+{
+  "schema_version": "shirube-execution-context/v1",
+  "mode": "product_implementation",
+  "profile": "hotel-lite",
+  "primary": {
+    "repo": "watchout/agent-memory",
+    "product": "Kusabi",
+    "work_order": "watchout/agent-memory#334",
+    "pr": "watchout/agent-memory#335"
+  },
+  "active_role": "dev",
+  "roles": {
+    "lead": {
+      "allowed": [
+        "read_control_source",
+        "define_scope",
+        "create_handoff",
+        "request_review",
+        "file_framework_feedback"
+      ],
+      "forbidden": [
+        "implement_product_change",
+        "approve_merge",
+        "claim_merge_ready_without_owner"
+      ]
+    },
+    "dev": {
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "change_scope_without_handoff",
+        "edit_forbidden_paths",
+        "approve_merge",
+        "claim_audit_pass",
+        "claim_merge_ready_without_owner"
+      ]
+    }
+  },
+  "repo_relations": [
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "primary",
+      "allowed": [
+        "inspect_repo",
+        "implement_allowed_paths",
+        "run_validation",
+        "produce_impl_evidence"
+      ],
+      "forbidden": [
+        "approve_merge",
+        "self_approve"
+      ]
+    },
+    {
+      "repo": "watchout/ai-dev-framework",
+      "relation": "framework_support",
+      "allowed": [
+        "read",
+        "cite",
+        "file_feedback"
+      ],
+      "forbidden": [
+        "implementation_target",
+        "merge_ready_claim"
+      ]
+    },
+    {
+      "repo": "watchout/agent-memory",
+      "relation": "same_repo_control_source",
+      "control_issue_ref": "watchout/agent-memory#334",
+      "allowed": [
+        "read",
+        "cite",
+        "mirror_snapshot"
+      ],
+      "forbidden": [
+        "implementation_target",
+        "merge_decision"
+      ]
+    }
+  ],
+  "common_contract": {
+    "primary_repo_required": true,
+    "work_order_required": true,
+    "active_role_required": true,
+    "exact_head_required_for_merge_ready": true,
+    "owner_decision_required_for_merge_ready": true,
+    "llm_final_authority_forbidden": true,
+    "support_repo_as_target_forbidden": true,
+    "control_repo_as_target_forbidden": true
+  },
+  "agent_id": "kusabi",
+  "active_function": "implementation_executor",
+  "maker_history": [
+    "kusabi"
+  ],
+  "control_source_refs": [
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/334",
+      "sha256": "32ac48a1787e79bc1ac82847c251847c27dadd5e18f7434913397f3f1daa1b99"
+    },
+    {
+      "url": "https://github.com/watchout/agent-memory/issues/334#issuecomment-6050602499",
+      "sha256": "f89a006d3f99c6e6fbee36975fd8f2e7b092cdcafe42752a4d62fcea501a051e"
+    },
+    {
+      "url": "https://github.com/watchout/iyasaka-arc/issues/52#issuecomment-6050254770",
+      "sha256": "d98442ddd99613f886a15092bb31598f581262df5c653c0e7716826d1b55e3de"
+    }
+  ]
+}
