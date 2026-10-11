@@ -56,3 +56,18 @@ non_scope:
   - required check activation
   - external repository mutation
   - runtime/API/DB/package/deploy behavior
+cell_admission:
+  owner_logins: [watchout]
+  agents:
+    - agent_id: devauditor
+      github_login: iyasaka-ai
+      control_source_ref:
+        url: https://github.com/watchout/shirube/issues/6#issuecomment-6096669493
+        sha256: 4031c55cb4a11bc4cc1462b08fdb16746844cbfdbc5a1d5071fa5a3f5a87b11f
+  seat_bindings:
+    - agent_id: devauditor
+      repository: watchout/agent-memory
+      active_function: evidence_audit_gate
+      control_source_ref:
+        url: https://github.com/watchout/shirube/issues/6#issuecomment-6096669493
+        sha256: 4031c55cb4a11bc4cc1462b08fdb16746844cbfdbc5a1d5071fa5a3f5a87b11f
