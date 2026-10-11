@@ -25,16 +25,30 @@ import { redactText } from "./redact.js";
 import { RecoveryContinuationTracker } from "./recovery-quality.js";
 import { conversationSourcePreview, isReadableConversation, memorySourceText, readMemorySource, MemorySourceError, MEMORY_SOURCE_MAX_CHARS } from "./memory-source.js";
 
-const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID || "default";
-const PROJECT = process.env.AGENT_MEMORY_PROJECT || undefined;
-const SESSION_ID = process.env.CLAUDE_SESSION_ID || `session-${Date.now()}`;
+/** Seat identity bound to one McpServer instance (stdio: from env; HTTP: from the session's bearer token). */
+export interface SeatContext {
+  agentId: string;
+  project?: string;
+  sessionId: string;
+  /** "http": the caller is a remote seat; tools may not act on other seats or read host transcript files. */
+  transport?: "stdio" | "http";
+}
+
+const HOST_FILES_UNAVAILABLE = "HOST_FILES_UNAVAILABLE_OVER_HTTP: this tool reads transcript files on the server host and is available over stdio only.";
+const SEAT_MISMATCH = "SEAT_MISMATCH: over HTTP, agent_id must be the authenticated seat.";
+
+export function seatContextFromEnv(env: NodeJS.ProcessEnv = process.env): SeatContext {
+  return {
+    agentId: env.AGENT_MEMORY_AGENT_ID || "default",
+    project: env.AGENT_MEMORY_PROJECT || undefined,
+    sessionId: env.CLAUDE_SESSION_ID || `session-${Date.now()}`,
+  };
+}
+
+/** Set by an embedding host (the HTTP entrypoint) before importing this module, to skip the stdio autostart. */
+export const EMBEDDED_HOST_MARKER = Symbol.for("wasurezu.embedded-host");
 
 const LOG_DIR = join(homedir(), ".agent-memory");
-
-// Recovery quality tracking (FEAT-024)
-let recoveryLogId = "";
-let searchMemoryCountSinceRecovery = 0;
-let searchMemoryTimer: ReturnType<typeof setTimeout> | null = null;
 const LOG_FILE = join(LOG_DIR, "calls.log");
 
 async function logCall(tool: string, params: string): Promise<void> {
@@ -47,8 +61,20 @@ async function logCall(tool: string, params: string): Promise<void> {
   }
 }
 
-async function main() {
-  const store = await createStore();
+export function createWasurezuServer(store: Store, context: SeatContext): {
+  server: McpServer;
+  flush: () => Promise<void>;
+} {
+  const AGENT_ID = context.agentId;
+  const PROJECT = context.project;
+  const SESSION_ID = context.sessionId;
+  const remoteSeat = context.transport === "http";
+
+  // Recovery quality tracking (FEAT-024), per server instance
+  let recoveryLogId = "";
+  let searchMemoryCountSinceRecovery = 0;
+  let searchMemoryTimer: ReturnType<typeof setTimeout> | null = null;
+
   const continuationTracker = new RecoveryContinuationTracker(AGENT_ID, SESSION_ID);
 
   const logToolCall = async (tool: string, params: string): Promise<void> => {
@@ -676,6 +702,9 @@ async function main() {
     },
     async ({ agent_id, max_tokens, task_states_limit, decisions_limit, knowledge_limit, messages_limit }) => {
       await logToolCall("set_recovery_config", `agent_id="${agent_id}"`);
+      if (remoteSeat && agent_id !== AGENT_ID) {
+        return { content: [safeText(SEAT_MISMATCH)], isError: true };
+      }
       try {
         const config = await store.upsertRecoveryConfig({
           agent_id,
@@ -902,6 +931,9 @@ async function main() {
     async ({ source, project, since, root, max_files }) => {
       const actualSource = source ?? "claude_code";
       await logToolCall("ingest_conversation_events", `source="${actualSource}" since="${since ?? ""}"`);
+      if (remoteSeat) {
+        return { content: [safeText(HOST_FILES_UNAVAILABLE)], isError: true };
+      }
       try {
         const result =
           actualSource === "codex"
@@ -964,6 +996,9 @@ async function main() {
     },
     async ({ since, source, dry_run }) => {
       await logToolCall("catch_up", `since="${since ?? ""}" source="${source ?? "conversation"}" dry_run=${dry_run ?? false}`);
+      if (remoteSeat) {
+        return { content: [safeText(HOST_FILES_UNAVAILABLE)], isError: true };
+      }
       try {
         const result = await catchUp(store, AGENT_ID, { since, source, dry_run });
         return {
@@ -988,6 +1023,21 @@ async function main() {
     }
   );
 
+  // Flush search_memory count (called before the server or process ends)
+  const flush = async () => {
+    if (recoveryLogId && searchMemoryCountSinceRecovery > 0) {
+      await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery).catch(() => {});
+    }
+    if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
+  };
+
+  return { server, flush };
+}
+
+async function main() {
+  const store = await createStore();
+  const { server, flush } = createWasurezuServer(store, seatContextFromEnv());
+
   // ─── Start server ──────────────────────────────────────────────
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -995,11 +1045,7 @@ async function main() {
 
   // Graceful shutdown
   const shutdown = async () => {
-    // Flush search_memory count before exit
-    if (recoveryLogId && searchMemoryCountSinceRecovery > 0) {
-      await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery).catch(() => {});
-    }
-    if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
+    await flush();
     await store.close();
     process.exit(0);
   };
@@ -1007,7 +1053,9 @@ async function main() {
   process.on("SIGTERM", shutdown);
 }
 
-main().catch((err) => {
-  console.error("[agent-memory] Fatal error:", err);
-  process.exit(1);
-});
+if (!(globalThis as Record<symbol, unknown>)[EMBEDDED_HOST_MARKER]) {
+  main().catch((err) => {
+    console.error("[agent-memory] Fatal error:", err);
+    process.exit(1);
+  });
+}
