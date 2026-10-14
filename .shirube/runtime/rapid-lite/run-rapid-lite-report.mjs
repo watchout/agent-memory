@@ -14,6 +14,9 @@ import {
   buildNextActionSequencing,
 } from "./next-action-sequencing.mjs";
 import {
+  designRuleNeedsReview,
+} from "./build-review-plan.mjs";
+import {
   evaluateFlowSafety,
 } from "./check-flow-safety.mjs";
 import {
@@ -58,10 +61,10 @@ export function buildRapidLiteReport(options) {
   const gateContract = runGateContract({ resultDir, refs, changedFilesPath, actual });
   records.push(gateContract);
 
-  const designRules = runDesignRules({ resultDir, refs, changedFilesPath, prBodyPath, diffRoot });
+  const designRules = runDesignRules({ resultDir, refs, changedFilesPath, prBodyPath, diffRoot, actual });
   records.push(designRules);
 
-  const deliveryPlan = runDeliveryPlan({ resultDir, refs, actual });
+  const deliveryPlan = runDeliveryPlan({ resultDir, refs, actual, prBody, changedFilesPath });
   if (deliveryPlan) records.push(deliveryPlan);
 
   const designFlowG8 = runDesignFlowG8({ resultDir, refs });
@@ -80,6 +83,7 @@ export function buildRapidLiteReport(options) {
     resultDir,
     refs,
     changedFilesPath,
+    designRuleReportPath: designRules.status === "ran" ? designRules.output_path : refs.designRuleReport,
     auditChecklistReportPath: auditChecklist.status === "ran" ? auditChecklist.output_path : refs.auditChecklistReport,
     actual,
   });
@@ -181,7 +185,7 @@ function runGateContract({ resultDir, refs, changedFilesPath, actual }) {
   return runGate({ gate: "gate-contract", args, outputPath: path.join(resultDir, "gate-contract.json") });
 }
 
-function runDesignRules({ resultDir, refs, changedFilesPath, prBodyPath, diffRoot }) {
+function runDesignRules({ resultDir, refs, changedFilesPath, prBodyPath, diffRoot, actual }) {
   if (!refs.rulePack) return skipped("design-rules", "No design rule pack was found.");
   const args = [
     gateScript("check-design-rules.mjs"),
@@ -192,6 +196,12 @@ function runDesignRules({ resultDir, refs, changedFilesPath, prBodyPath, diffRoo
   addArg(args, "--diff-root", diffRoot);
   addArg(args, "--handoff", refs.handoff);
   addArg(args, "--pr-body", prBodyPath);
+  addArg(args, "--design-rule-review", refs.additionalReview);
+  addArg(args, "--additional-review-source", refs.additionalReviewSource);
+  addFlag(args, "--trusted-additional-review-source", refs.additionalReviewSourceTrusted);
+  addArg(args, "--actual-repo", actual.actualRepo);
+  addArg(args, "--actual-pr", actual.actualPr);
+  addArg(args, "--actual-head", actual.actualHead);
   args.push("--format", "json");
   return runGate({ gate: "design-rules", args, outputPath: path.join(resultDir, "design-rules.json") });
 }
@@ -361,9 +371,11 @@ function runAuditChecklist({ resultDir, refs, actual }) {
   return skipped("audit-checklist", "No audit checklist refs were found; audit checklist is conditional unless required by handoff/profile.");
 }
 
-function runReviewPlan({ resultDir, refs, changedFilesPath, auditChecklistReportPath, actual }) {
+function runReviewPlan({ resultDir, refs, changedFilesPath, designRuleReportPath, auditChecklistReportPath, actual }) {
   if (!refs.handoff && !refs.reviewPlan) return skipped("review-plan", "No handoff or review plan was found.");
-  if (!refs.reviewPlan && !reviewPlanRuntimeRelevant(refs.handoff)) {
+  // A NEEDS_REVIEW design-rule result needs the review plan whatever the risk class: only its
+  // design_rule_review completion clears the hold.
+  if (!refs.reviewPlan && !reviewPlanRuntimeRelevant(refs.handoff) && !designRuleReportNeedsReview(designRuleReportPath)) {
     return skipped("review-plan", "Review plan is not required for this non-operational report-only handoff.");
   }
   const args = [
@@ -374,6 +386,7 @@ function runReviewPlan({ resultDir, refs, changedFilesPath, auditChecklistReport
   addArg(args, "--review-plan", refs.reviewPlan);
   addArg(args, "--changed-files", changedFilesPath);
   addArg(args, "--audit-checklist-report", auditChecklistReportPath);
+  addArg(args, "--design-rule-report", designRuleReportPath);
   addArg(args, "--structured-audit", refs.structuredAudit);
   addArg(args, "--audit-source", refs.structuredAuditSource);
   addFlag(args, "--trusted-audit-source", refs.structuredAuditSourceTrusted);
@@ -400,6 +413,15 @@ function runEnforcementPolicy({ resultDir, refs, aggregatePath }) {
   addArg(args, "--owner-decision", refs.ownerDecision);
   args.push("--format", "json");
   return runGate({ gate: "enforcement-policy", args, outputPath: path.join(resultDir, "enforcement-policy.json") });
+}
+
+function designRuleReportNeedsReview(reportPath) {
+  if (!reportPath || !existsSync(reportPath)) return false;
+  try {
+    return designRuleNeedsReview(readStructuredFile(reportPath));
+  } catch {
+    return false;
+  }
 }
 
 function reviewPlanRuntimeRelevant(handoffPath) {
@@ -479,13 +501,19 @@ function runControlStateCompleteness({
   return runGate({ gate: "control-state-completeness", args, outputPath: path.join(resultDir, "control-state-completeness.json") });
 }
 
-function runDeliveryPlan({ resultDir, refs, actual }) {
+function runDeliveryPlan({ resultDir, refs, actual, prBody, changedFilesPath }) {
   if (!refs.deliveryPlan) return null;
   const args = [
     gateScript("validate-delivery-plan.mjs"),
     "--file",
     refs.deliveryPlan,
   ];
+  // Preserve transport inputs without adding a resolver dependency to vendored
+  // report helpers that never evaluate a pending-comparator plan.
+  const transportBodyPath = path.join(resultDir, "delivery-plan-pr-body.md");
+  writeFileSync(transportBodyPath, prBody);
+  addArg(args, "--delivery-plan-pr-body", transportBodyPath);
+  addArg(args, "--actual-changed-files", changedFilesPath);
   addArg(args, "--actual-repository", actual.actualRepo);
   addArg(args, "--actual-commit-sha", actual.actualHead);
   addArg(args, "--actual-release-id", actual.actualReleaseId);
@@ -501,7 +529,18 @@ function runDeliveryPlan({ resultDir, refs, actual }) {
   addArg(args, "--actual-terminal-evidence-comment-ref", actual.actualTerminalEvidenceCommentRef);
   addArg(args, "--actual-pr", actual.actualPr);
   args.push("--format", "json");
-  return runGate({ gate: "delivery-plan", args, outputPath: path.join(resultDir, "delivery-plan.json") });
+  const record = runGate({ gate: "delivery-plan", args, outputPath: path.join(resultDir, "delivery-plan.json") });
+  try {
+    const bytes = readFileSync(refs.deliveryPlan);
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    // Bind pending-state inspection to the exact bytes consumed by the validator.
+    if (digest === record.report?.input_sha256) {
+      const snapshot = path.join(resultDir, "delivery-plan-input.yaml");
+      writeFileSync(snapshot, bytes);
+      record.delivery_plan_input = { sha256: digest, document: readStructuredFile(snapshot) };
+    }
+  } catch { /* An unreadable/changed input cannot acquire stage admission. */ }
+  return record;
 }
 
 function runDesignFlowG8({ resultDir, refs }) {
@@ -667,7 +706,13 @@ function readExistingGateReport({ gate, reportPath, outputPath }) {
 }
 
 function gateRecordFromReport({ gate, command, outputPath, exitCode, report }) {
-  const reportFailed = report.report_failed === true || report.verdict === "FAILURE" || exitCode !== 0;
+  const semanticDeliveryBlock = gate === "delivery-plan" && exitCode === 1
+    && report.schema === "shirube-delivery-plan-validation/v1" && report.verdict === "BLOCKED"
+    && report.would_block === true && typeof report.terminal_candidate === "boolean"
+    && ["PLAN_ADMISSION", "TEST_ADMISSION", "REPLAN_REQUIRED", "TERMINAL_ADMISSION"]
+      .every((key) => ["PASS", "BLOCK"].includes(report.decisions?.[key]?.verdict));
+  const reportFailed = report.report_failed === true || report.verdict === "FAILURE"
+    || (exitCode !== 0 && !semanticDeliveryBlock);
   return {
     gate,
     status: "ran",
@@ -755,12 +800,114 @@ function materializeSkippedReport({ record, resultDir, filename }) {
   return outputPath;
 }
 
-function aggregateReport({ resultDir, refs, records, changedFiles }) {
-  const ran = records.filter((record) => record.status === "ran");
+// Keep the validator's terminal evidence intact; only select which decisions
+// admit the current work stage, matching CSC's existing DP0-DP7 contract.
+export function deliveryPlanStageAdmission(record) {
+  const report = record?.report;
+  if (record?.gate !== "delivery-plan" || record.status !== "ran"
+    || record.report_failed || report?.report_failed === true
+    || report?.schema !== "shirube-delivery-plan-validation/v1"
+    || report.terminal_candidate !== false
+    || !["PASS", "BLOCKED"].includes(report.verdict)) return null;
+  const input = record.delivery_plan_input;
+  if (!input || input.sha256 !== report.input_sha256 || !/^sha256:[0-9a-f]{64}$/.test(input.sha256)
+    || input.document?.schema_version !== "shirube-delivery-plan/v1"
+    || input.document?.generation !== report.generation) return null;
+  const work = ["PLAN_ADMISSION", "TEST_ADMISSION", "REPLAN_REQUIRED"];
+  const acceleration = ["ACCELERATION_ADMISSION", "BUDGET_STATUS", "ACCELERATION_TERMINAL"];
+  const binding = report.ordinary_stage_binding;
+  const pendingComparator = binding?.schema === "shirube-authenticated-ordinary-stage-binding/v1"
+    && binding.authenticated_in_current_run === true && binding.protected_authority_granted === false
+    && binding.input_sha256 === input.sha256 && binding.plan_id === input.document.plan_id
+    && binding.generation === input.document.generation && binding.node_id === input.document.next_action?.node_id
+    && input.document.delivery_acceleration?.comparator?.status === "PENDING"
+    && report.acceleration_decisions?.BUDGET_STATUS?.verdict === "PASS"
+    && ["ACCELERATION_ADMISSION", "ACCELERATION_TERMINAL"].every((key) =>
+      report.acceleration_decisions?.[key]?.verdict === "BLOCK"
+      && report.acceleration_decisions[key].findings.length > 0
+      && report.acceleration_decisions[key].findings.every((finding) => isPendingComparatorFinding({ ...finding, decision: key })));
+  if (!work.every((key) => report.decisions?.[key]?.verdict === "PASS")
+    || !(acceleration.every((key) => report.acceleration_decisions?.[key]?.verdict === "PASS") || pendingComparator)
+    || !["PASS", "BLOCK"].includes(report.decisions?.TERMINAL_ADMISSION?.verdict)
+    || !Array.isArray(report.blockers)
+    || report.blockers.some((finding) => !isPendingTerminalFinding(finding, input.document)
+      && !(pendingComparator && isPendingComparatorFinding(finding)))) return null;
+  return { stage: "nonterminal", verdict: "PASS", would_block: false,
+    comparator_pending: Boolean(pendingComparator),
+    acceleration_proof: pendingComparator ? "UNVERIFIED_ACCELERATION" : null,
+    terminal_verdict: report.decisions.TERMINAL_ADMISSION.verdict,
+    terminal_required_before_parent_completion: true };
+}
+
+function isPendingComparatorFinding(finding) {
+  return ["ACCELERATION_ADMISSION", "ACCELERATION_TERMINAL"].includes(finding.decision)
+    && finding.reason === "UNVERIFIED_ACCELERATION" && finding.path === "delivery_acceleration.comparator"
+    && finding.message === "The comparator baseline is pending; acceleration and terminal proof are not admitted.";
+}
+
+function isPendingTerminalFinding(finding, plan) {
+  if (finding.decision !== "TERMINAL_ADMISSION") return false;
+  // These are the existing validator's evidence-not-yet-produced findings.
+  // Unknown fields, malformed records, uncovered parent scope,
+  // and failed/fabricated resolver input must continue to block intermediate work.
+  if (finding.reason === "TERMINAL_WORK_INCOMPLETE") return finding.path === "terminal_acceptance"
+    && finding.message === "Terminal admission requires every parent predicate satisfied, every graph node COMPLETE, and no blocking next action.";
+  if (finding.reason === "TRUSTED_TERMINAL_EVIDENCE_REQUIRED") return finding.path === "actual_terminal_evidence_resolution"
+    && finding.message === "TERMINAL_ADMISSION requires a current-run GitHub/API-authenticated terminal-evidence resolver readback; caller files and self-declared resolver fields are not trusted.";
+  const match = /^terminal_acceptance\.operational_evidence\.(end_to_end|negative|degraded|rollback_recovery|unaffected|exact_readback)$/.exec(finding.path);
+  const evidence = match && plan.terminal_acceptance?.operational_evidence?.[match[1]];
+  const required = plan.terminal_acceptance?.required_predicates;
+  const predicates = evidence?.predicate_ids;
+  return finding.reason === "TERMINAL_EVIDENCE_INCOMPLETE" && Boolean(match)
+    && finding.message === "Terminal evidence must declare a VERIFIED durable record, content SHA-256, current plan generation, and exact parent predicate set."
+    && evidence?.status === "PENDING" && evidence.content_sha256 === null
+    && evidence.plan_generation === plan.generation
+    && Array.isArray(required) && required.length > 0 && new Set(required).size === required.length
+    && Array.isArray(predicates) && predicates.length === required.length
+    && new Set(predicates).size === predicates.length
+    && predicates.every((id) => required.includes(id));
+}
+
+export const NEEDS_REVIEW_GUIDANCE = "NEEDS_REVIEW: 作者でない席の design_rule_review の記録（同じ repo・PR・head）で緑に戻る。コードの変更は要らない";
+
+// Makes a NEEDS_REVIEW hold readable apart from BLOCKED: what clears it and which items are waiting.
+function needsReviewSection(records) {
+  const designRules = records.find((record) => record.gate === "design-rules" && record.status === "ran");
+  if (designRules?.verdict !== "NEEDS_REVIEW") return null;
+  const items = asArray(designRules.report?.needs_review).flatMap((entry) => asArray(entry.evidence).map((matched) => ({
+    rule_id: entry.rule_id, path: entry.path, matched: String(matched),
+  })));
+  const plan = records.find((record) => record.gate === "review-plan" && record.status === "ran");
+  const ignored = asArray(plan?.additional_review_completion?.design_rule_review?.ignored_reviews).map((entry) => ({
+    reviewer_actor: entry.reviewer_actor ?? null, reason: entry.reason, ...(entry.detail ? { detail: entry.detail } : {}),
+  }));
+  return ignored.length > 0 ? { guidance: NEEDS_REVIEW_GUIDANCE, items, ignored_records: ignored } : { guidance: NEEDS_REVIEW_GUIDANCE, items };
+}
+
+// NEEDS_REVIEW items are cleared only by the review-plan gate, which counts a
+// design_rule_review once it is complete from a trusted source for this repo, PR
+// and head, with every item decided safe by a seat other than the author.
+function designRuleReviewIsCleared(records) {
+  const plan = records.find((record) => record.gate === "review-plan" && record.status === "ran");
+  const completion = plan?.additional_review_completion;
+  return !plan?.report_failed && Array.isArray(completion?.complete_reviews) &&
+    completion.complete_reviews.includes("design_rule_review") && completion.design_rule_review?.complete === true;
+}
+
+export function aggregateReport({ resultDir, refs, records, changedFiles }) {
+  const designRuleReviewCleared = designRuleReviewIsCleared(records);
+  const effectiveRecords = records.map((record) => deliveryPlanStageAdmission(record)
+    ? { ...record, verdict: "PASS", would_block: false, blockers: [], required_next_actions: [],
+        deferred_next_actions: [...(record.deferred_next_actions ?? []), ...(record.required_next_actions ?? []).map((action) =>
+          ({ ...action, actionable: false, deferred_until: "parent_terminal_candidate" }))] }
+    : record.gate === "design-rules" && record.verdict === "NEEDS_REVIEW" && designRuleReviewCleared
+      ? { ...record, verdict: "PASS", required_next_actions: [] }
+      : record);
+  const ran = effectiveRecords.filter((record) => record.status === "ran");
   const verdict = aggregateVerdict(ran.map((record) => record.verdict));
   const reportFailed = ran.some((record) => record.report_failed || record.verdict === "FAILURE");
   const wouldBlock = reportFailed || ran.some((record) => record.would_block || record.verdict === "BLOCKED");
-  const sequencing = aggregateSequencing(records);
+  const sequencing = aggregateSequencing(effectiveRecords);
   const outputRecords = outputGateRecords({ records, sequencing });
   return {
     schema: SCHEMA,
@@ -785,8 +932,9 @@ function aggregateReport({ resultDir, refs, records, changedFiles }) {
     report_failed: reportFailed,
     would_block: wouldBlock,
     owner_must_not_merge: wouldBlock,
-    required_next_actions: aggregateRequiredActions(sequencing, outputRecords),
-    deferred_next_actions: outputRecords.flatMap((record) => record.deferred_next_actions ?? []),
+    needs_review: needsReviewSection(effectiveRecords),
+    required_next_actions: aggregateRequiredActions(sequencing, outputGateRecords({ records: effectiveRecords, sequencing })),
+    deferred_next_actions: outputGateRecords({ records: effectiveRecords, sequencing }).flatMap((record) => record.deferred_next_actions ?? []),
     gates: outputRecords.map((record) => ({
       gate: record.gate,
       status: record.status,
@@ -795,6 +943,11 @@ function aggregateReport({ resultDir, refs, records, changedFiles }) {
       output_path: record.output_path,
       exit_code: record.exit_code,
       verdict: record.verdict,
+      stage_admission: deliveryPlanStageAdmission(record),
+      decisions: record.report?.decisions ?? null,
+      terminal_candidate: record.report?.terminal_candidate ?? null,
+      ordinary_stage_binding: record.report?.ordinary_stage_binding ?? null,
+      ordinary_stage_binding_error: record.report?.ordinary_stage_binding_error ?? null,
       report_failed: record.report_failed,
       current_phase: record.current_phase,
       next_action: record.next_action,
@@ -1015,7 +1168,46 @@ function ensureRuntimeValidationEvidence({ resultDir, refs, changedFiles, change
   refs.validation = outputPath;
 }
 
-function renderSummary(report) {
+const IGNORED_RECORD_HINTS = {
+  poster_seat_unregistered: "the poster is not a registered audit seat: the Owner's agents / seat_bindings publication and the base policy's cell_admission rows are required (see docs/shirube/rapid-lite-1.3.0.md)",
+  poster_policy_unavailable: "the base policy could not be read, so no seat can be registered (the cause is in the detail); this is not cleared by a change to the code",
+  poster_untrusted: "no trusted source entry for this record, or the PR author is unknown",
+  poster_is_pr_author: "the record was posted by the PR author",
+  poster_seat_not_audit: "the poster's seat is not bound to evidence_audit_gate for this repository",
+  poster_seat_mismatch: "reviewer_actor in the record does not match the poster's registered seat",
+  author_seat: "the record comes from the author's seat",
+  author_unresolved: "the author of the handoff could not be resolved",
+};
+
+// A record that was posted but not counted must say why, or the way back to green looks stuck.
+function ignoredRecordLines(ignored) {
+  if (!Array.isArray(ignored) || ignored.length === 0) return [];
+  return [
+    "Records not counted:",
+    "",
+    "| Reviewer | Reason | Meaning |",
+    "| --- | --- | --- |",
+    ...ignored.map((entry) => `| ${escapeTable(String(entry.reviewer_actor ?? ""))} | \`${entry.reason}\` | ${escapeTable(`${IGNORED_RECORD_HINTS[entry.reason] ?? ""}${entry.detail ? ` [${entry.detail}]` : ""}`)} |`),
+    "",
+  ];
+}
+
+function needsReviewSummaryLines(section) {
+  if (!section) return [];
+  return [
+    "### NEEDS_REVIEW",
+    "",
+    section.guidance,
+    "",
+    "| Rule | Path | Matched |",
+    "| --- | --- | --- |",
+    ...section.items.map((item) => `| ${item.rule_id} | ${escapeTable(String(item.path ?? ""))} | \`${escapeTable(item.matched)}\` |`),
+    "",
+    ...ignoredRecordLines(section.ignored_records),
+  ];
+}
+
+export function renderSummary(report) {
   const lines = [
     MARKER,
     "",
@@ -1034,6 +1226,7 @@ function renderSummary(report) {
     "",
     "This workflow is report-only. `BLOCKED` findings are recorded as PR-visible evidence and uploaded JSON artifacts; they do not fail this workflow or change required checks.",
     "",
+    ...needsReviewSummaryLines(report.needs_review),
     "### Gate Summary",
     "",
     "| Gate | Status | Verdict | Report failed | Current phase | Disposition | Would block |",
@@ -1121,7 +1314,7 @@ function appendDeferredActions(lines, actions) {
   lines.push("");
 }
 
-function discoverRefs({ prBody, changedFiles }) {
+export function discoverRefs({ prBody, changedFiles }) {
   const explicit = {
     executionContext: refFromBody(prBody, ["execution_context_ref", "execution_context", "context_ref", "context"]),
     executionContextReport: refFromBody(prBody, ["execution_context_report_ref", "execution_context_report", "context_report_ref"]),
@@ -1368,6 +1561,7 @@ function findings(report, key) {
 function aggregateVerdict(verdicts) {
   if (verdicts.includes("FAILURE")) return "FAILURE";
   if (verdicts.includes("BLOCKED")) return "BLOCKED";
+  if (verdicts.includes("NEEDS_REVIEW")) return "NEEDS_REVIEW";
   if (verdicts.includes("PASS_WITH_WARN")) return "PASS_WITH_WARN";
   if (verdicts.includes("PASS")) return "PASS";
   return "SKIPPED";

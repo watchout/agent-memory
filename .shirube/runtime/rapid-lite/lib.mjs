@@ -42,11 +42,14 @@ export function readStructuredFile(filePath) {
   if (!existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`);
   }
-  const text = readFileSync(filePath, "utf8");
-  if (extname(filePath) === ".json") {
+  return parseStructuredText(readFileSync(filePath, "utf8"), extname(filePath) === ".json");
+}
+
+export function parseStructuredText(text, json = false) {
+  if (json) {
     return JSON.parse(text);
   }
-  const json = execFileSync("ruby", [
+  const yamlAsJson = execFileSync("ruby", [
     "-ryaml",
     "-rjson",
     "-rdate",
@@ -56,7 +59,7 @@ export function readStructuredFile(filePath) {
       "puts JSON.generate(body)",
     ].join("; "),
   ], { input: text, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
-  return JSON.parse(json);
+  return JSON.parse(yamlAsJson);
 }
 
 export function readJsonFile(filePath) {
@@ -351,3 +354,324 @@ export function safeRun(fn) {
 export function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+// ---- design_rule_review (Rapid/Lite 1.3.0) ----------------------------------
+// A design-rule finding with verdict NEEDS_REVIEW is resolved only by decisions
+// in a shirube-additional-review/v1 record (review_type design_rule_review)
+// written by a seat other than the author, for the same repo, PR and head.
+
+export const DESIGN_RULE_REVIEW_TYPE = "design_rule_review";
+const ADDITIONAL_REVIEW_SCHEMA = "shirube-additional-review/v1";
+
+export function needsReviewItems(report) {
+  const items = [];
+  for (const result of asArray(report?.rule_results)) {
+    if (!isObject(result) || result.verdict !== "NEEDS_REVIEW") continue;
+    for (const matched of asArray(result.evidence)) {
+      items.push({ rule_id: result.rule_id, path: result.path, matched: String(matched) });
+    }
+  }
+  return items;
+}
+
+// The author seats of a handoff. A canonical control_handoff names its implementer only through
+// execution_context.to.agent_id (the normalized owner.actor); self-declared fields are added to it.
+export function authorActorsOfHandoff(handoff) {
+  const source = isObject(handoff) ? handoff : {};
+  const cell = isObject(source.cell) ? source.cell : {};
+  const target = isObject(source.execution_context?.to) ? source.execution_context.to : {};
+  const canonical = source.schema_version === "shirube-v3/control_handoff/v1";
+  return [
+    source.implementation_actor, source.implementer_actor, source.implementation?.actor,
+    source.executor?.actor, cell.implementation_actor,
+    target.agent_id, canonical ? source.owner?.actor : null,
+  ].filter((value) => typeof value === "string" && value.trim() !== "").map((value) => value.trim());
+}
+
+function reviewKey(item) {
+  return [item.rule_id, item.path, String(item.matched).toLowerCase()].join("\0");
+}
+
+function actorKey(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function reviewField(review, names) {
+  for (const name of names) {
+    const value = review?.[name];
+    if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return null;
+}
+
+function normalizeReviewRepo(value) {
+  const match = String(value ?? "").match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)/);
+  return match ? match[1].toLowerCase() : null;
+}
+
+function normalizeReviewPr(value) {
+  const match = String(value ?? "").match(/#(\d+)|\/pull\/(\d+)|^(\d+)$/);
+  return match ? (match[1] ?? match[2] ?? match[3]) : null;
+}
+
+export const AUDIT_SEAT_FUNCTION = "evidence_audit_gate";
+
+// Binds a record to the seat that posted it. `entry` is the resolver's source entry for this very
+// record (same index as its materialized path); every fact in it comes from the GitHub API and the
+// base policy, never from the record body, except reviewer_actor which must agree with the seat.
+function posterRejection({ review, entry, authorActors }) {
+  const poster = isObject(entry?.poster) ? entry.poster : null;
+  if (!poster || typeof poster.login !== "string" || poster.login.trim() === "") return "poster_untrusted";
+  if (typeof poster.pr_author !== "string" || poster.pr_author.trim() === "") return "poster_untrusted";
+  if (actorKey(poster.login) === actorKey(poster.pr_author)) return "poster_is_pr_author";
+  if (poster.seat_reason === "policy_unavailable") return "poster_policy_unavailable";
+  const seat = isObject(poster.seat) ? poster.seat : null;
+  if (!seat || typeof seat.agent_id !== "string" || seat.agent_id.trim() === "" ||
+    actorKey(seat.github_login) !== actorKey(poster.login)) return "poster_seat_unregistered";
+  if (seat.active_function !== AUDIT_SEAT_FUNCTION) return "poster_seat_not_audit";
+  const reviewer = reviewField(review, ["reviewer_actor", "review_actor", "actor"]);
+  if (actorKey(reviewer) !== actorKey(seat.agent_id)) return "poster_seat_mismatch";
+  if (authorActors.map(actorKey).includes(actorKey(seat.agent_id))) return "author_seat";
+  return null;
+}
+
+function designRuleReviewRejection({ review, actualRepo, actualPr, actualHead, authorActors, requirePoster }) {
+  if (review.schema_version !== ADDITIONAL_REVIEW_SCHEMA) return "schema_version";
+  const repo = normalizeReviewRepo(reviewField(review, ["target_repo", "repo"]));
+  const pr = normalizeReviewPr(reviewField(review, ["target_pr", "pr", "pull_request"]));
+  const head = reviewField(review, ["exact_head_sha", "pr_head_sha", "head_sha", "target_head"]);
+  if (!repo || !pr || !head) return "missing_target";
+  if (actualRepo && repo !== normalizeReviewRepo(actualRepo)) return "repo_mismatch";
+  if (actualPr && pr !== normalizeReviewPr(actualPr)) return "pr_mismatch";
+  if (actualHead && head !== String(actualHead).trim()) return "head_mismatch";
+  const reviewer = reviewField(review, ["reviewer_actor", "review_actor", "actor"]);
+  const implementer = reviewField(review, ["implementation_actor", "implementer_actor"]);
+  if (!reviewer || !implementer) return "missing_actor";
+  // An unidentified author never makes a record independent.
+  if (authorActors.length === 0) return "author_unresolved";
+  if (actorKey(reviewer) === actorKey(implementer)) return "author_seat";
+  if (authorActors.map(actorKey).includes(actorKey(reviewer))) return "author_seat";
+  if (requirePoster) return posterRejection({ review, entry: review.__poster_entry, authorActors });
+  return null;
+}
+
+/**
+ * @param {{ report?: unknown, reviews?: unknown[], actualRepo?: string | null, actualPr?: string | null,
+ *   actualHead?: string | null, authorActors?: string[] }} [input]
+ */
+export function evaluateDesignRuleReviews({ report, reviews = [], actualRepo, actualPr, actualHead, authorActors = [], requirePoster = false } = {}) {
+  const items = needsReviewItems(report);
+  const accepted = [];
+  const ignored = [];
+  for (const review of asArray(reviews)) {
+    if (!isObject(review)) continue;
+    const type = String(review.review_type ?? review.type ?? "").trim().toLowerCase();
+    if (type !== DESIGN_RULE_REVIEW_TYPE) continue;
+    const reason = designRuleReviewRejection({ review, actualRepo, actualPr, actualHead, authorActors: asArray(authorActors).filter(Boolean), requirePoster });
+    if (reason) {
+      const detail = reason === "poster_policy_unavailable" ? review.__poster_entry?.poster?.policy_unavailable_detail : undefined;
+      ignored.push({ reviewer_actor: reviewField(review, ["reviewer_actor", "review_actor", "actor"]), reason, ...(detail ? { detail } : {}) });
+    } else {
+      accepted.push(review);
+    }
+  }
+  const decisions = new Map();
+  for (const review of accepted) {
+    for (const entry of asArray(review.decisions)) {
+      if (!isObject(entry)) continue;
+      const decision = String(entry.decision ?? "").trim().toLowerCase();
+      const rationale = reviewField(entry, ["rationale", "reason"]);
+      if (!["safe", "unsafe"].includes(decision) || !rationale) continue;
+      const key = reviewKey({ rule_id: entry.rule_id, path: entry.path, matched: entry.matched ?? entry.pattern });
+      // An unsafe decision always wins over a safe one for the same item.
+      if (decisions.get(key) !== "unsafe") decisions.set(key, decision);
+    }
+  }
+  const safe = [];
+  const unsafe = [];
+  const uncovered = [];
+  for (const item of items) {
+    const decision = decisions.get(reviewKey(item));
+    (decision === "safe" ? safe : decision === "unsafe" ? unsafe : uncovered).push(item);
+  }
+  return {
+    required: items.length > 0,
+    complete: items.length === 0 || (uncovered.length === 0 && unsafe.length === 0),
+    items_total: items.length,
+    safe,
+    unsafe,
+    uncovered,
+    ignored_reviews: ignored,
+  };
+}
+
+// ---- design_rule_review: the verified set of records (shared by the gate and the completion) ----
+// Lives here, not in next-action-sequencing.mjs, because check-design-rules.mjs is also copied
+// standalone next to lib.mjs only.
+const TRUSTED_ADDITIONAL_REVIEW_RESOLVER = "scripts/shirube/resolve-additional-review-ref.mjs";
+
+export function normalizePath(value) {
+  if (isPlaceholder(value)) return null;
+  let text = String(value).trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const cwd = process.cwd().replace(/\\/g, "/").replace(/\/+$/, "");
+  if (text.startsWith(`${cwd}/`)) text = text.slice(cwd.length + 1);
+  return text;
+}
+
+
+export function normalizeRepo(value) {
+  if (isPlaceholder(value)) return null;
+  const text = String(value).trim();
+  const match = text.match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)/);
+  return match ? match[1] : text;
+}
+
+
+export function normalizePr(value) {
+  if (isPlaceholder(value)) return null;
+  const text = String(value).trim();
+  const match = text.match(/#(\d+)|\/pull\/(\d+)|\/issues\/(\d+)|^(\d+)$/);
+  return match ? (match[1] ?? match[2] ?? match[3] ?? match[4]) : text;
+}
+
+
+export function normalizeText(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+
+export function firstPresent(...values) {
+  return values.find((value) => !isPlaceholder(value));
+}
+
+
+export function isPlaceholder(value) {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^<[^>]+>$/.test(trimmed)) return true;
+  return /^(pending|pending-.+|tbd|todo|null|none|n\/a|replace this.*)$/i.test(trimmed);
+}
+
+/**
+ * The one set of design_rule_review records any judgment may use, for both directions (safe and
+ * unsafe): records that passed the source, repo / PR / head, maker-checker and materialized-path
+ * checks, each paired with the source entry of its own materialized path. A record outside this set
+ * is not counted by the completion check and not by the design-rule gate.
+ */
+export function verifiedDesignRuleReviews({ reports, source, sourceRuntimeTrusted, actualHead, actualRepo, actualPr }) {
+  const sourceTrusted = additionalReviewSourceIsTrusted(source, sourceRuntimeTrusted === true);
+  const repo = normalizeRepo(actualRepo);
+  const pr = normalizePr(actualPr);
+  const statuses = asArray(reports).filter(isObject)
+    .filter((entry) => normalizeText(entry.review_type ?? entry.type) === DESIGN_RULE_REVIEW_TYPE)
+    .map((report) => ({ report, status: additionalReviewReportStatus({ report, source, sourceTrusted, actualHead, actualRepo: repo, actualPr: pr }) }));
+  const verified = statuses.filter((entry) => entry.status.complete)
+    .map((entry) => ({ ...entry.report, __poster_entry: sourceEntryForReport(source, entry.report) }));
+  return { statuses, verified };
+}
+
+export function additionalReviewReportStatus({ report, source, sourceTrusted, actualHead, actualRepo, actualPr }) {
+  if (!isObject(report)) return { complete: false };
+  const verdict = String(firstPresent(report.verdict, report.decision, report.status) ?? "").toUpperCase();
+  const accepted = ["PASS", "PASS_WITH_WARN", "APPROVED", "CONDITIONAL_GO"].includes(verdict);
+  const observedHead = firstPresent(report.exact_head_sha, report.pr_head_sha, report.head_sha, report.target_head);
+  const observedRepo = normalizeRepo(firstPresent(report.target_repo, report.repo));
+  const observedPr = normalizePr(firstPresent(report.target_pr, report.pr, report.pull_request));
+  const headMatches = isPlaceholder(actualHead) || !isPlaceholder(observedHead) && String(observedHead) === String(actualHead);
+  const repoMatches = !isPlaceholder(observedRepo) && (!actualRepo || observedRepo === actualRepo);
+  const prMatches = !isPlaceholder(observedPr) && (!actualPr || observedPr === actualPr);
+  const provenance = additionalReviewProvenanceStatus({ report, source, sourceTrusted, actualHead, actualRepo, actualPr });
+  const makerCheckerSeparated = additionalReviewMakerCheckerSeparated(report);
+  return {
+    complete: accepted && headMatches && repoMatches && prMatches && provenance.complete && makerCheckerSeparated,
+    accepted,
+    head_matches: Boolean(headMatches),
+    head_mismatch: !isPlaceholder(actualHead) && !isPlaceholder(observedHead) && !headMatches,
+    repo_matches: Boolean(repoMatches),
+    pr_matches: Boolean(prMatches),
+    observed_head: observedHead ?? null,
+    provenance_complete: Boolean(provenance.complete),
+    maker_checker_separated: Boolean(makerCheckerSeparated),
+  };
+}
+
+function additionalReviewProvenanceStatus({ report, source, sourceTrusted, actualHead, actualRepo, actualPr }) {
+  if (!sourceTrusted || !isObject(source)) return { complete: false };
+  const reviewType = normalizeText(firstPresent(report.review_type, report.type));
+  const entry = additionalReviewSourceEntries(source).find((candidate) => normalizeText(candidate.review_type) === reviewType);
+  if (!entry) return { complete: false };
+  const sourceHead = firstPresent(entry.exact_head_sha, entry.pr_head_sha, source.exact_head_sha, source.pr_head_sha, source.head_sha, source.target_head);
+  const sourceRepo = normalizeRepo(firstPresent(entry.target_repo, source.target_repo, source.repo));
+  const sourcePr = normalizePr(firstPresent(entry.target_pr, source.target_pr, source.pr));
+  const sourceHeadMatches = !isPlaceholder(sourceHead) && (isPlaceholder(actualHead) || String(sourceHead) === String(actualHead));
+  const sourceRepoMatches = !isPlaceholder(sourceRepo) && (!actualRepo || sourceRepo === actualRepo);
+  const sourcePrMatches = !isPlaceholder(sourcePr) && (!actualPr || sourcePr === actualPr);
+  const sourceMaterializedPathMatches = additionalReviewSourceMaterializedPathMatches({ source, report });
+  return {
+    complete: sourceHeadMatches && sourceRepoMatches && sourcePrMatches && sourceMaterializedPathMatches,
+  };
+}
+
+export function additionalReviewSourceIsTrusted(source, runtimeTrusted) {
+  if (!isObject(source)) return false;
+  if (runtimeTrusted !== true) return false;
+  if (source.target_branch_mutated === true || source.owner_approval_synthesized === true) return false;
+  if (source.trusted_base_workflow !== true) return false;
+  if (String(firstPresent(source.generated_by, source.resolver, source.tool) ?? "") !== TRUSTED_ADDITIONAL_REVIEW_RESOLVER) return false;
+  const resolverSchema = firstPresent(source.resolver_schema, source.resolution_schema);
+  if (!isPlaceholder(resolverSchema) && resolverSchema !== "shirube-additional-review-ref-resolution/v1") return false;
+  const hasSourceLocator = additionalReviewSourceEntries(source).some((entry) => !isPlaceholder(firstPresent(
+    entry.source_comment_url,
+    entry.comment_url,
+    entry.review_url,
+    entry.source_ref,
+    entry.comment_id,
+    entry.evidence_ref,
+  )));
+  if (!hasSourceLocator) return false;
+  const type = String(firstPresent(source.source_type, source.type) ?? "").toLowerCase();
+  return ["github_comment", "github_pr_comment", "github_review", "external_review_ref", "owner_accepted_external_review_ref"].includes(type);
+}
+
+export function additionalReviewSourceEntries(source) {
+  if (Array.isArray(source?.sources)) return source.sources.filter(isObject);
+  if (isObject(source)) return [source];
+  return [];
+}
+
+// The source entry written for one materialized record: entries and paths are written in the same order.
+export function sourceEntryForReport(source, report) {
+  const reportPath = normalizePath(firstPresent(report?.__file_path, report?.file_path, report?.path));
+  const paths = asArray(source?.materialized_paths).map(normalizePath);
+  const entries = Array.isArray(source?.sources) ? source.sources : [];
+  if (isPlaceholder(reportPath) || paths.length === 0 || entries.length !== paths.length) return null;
+  const index = paths.indexOf(reportPath);
+  const entry = index >= 0 ? entries[index] : null;
+  return isObject(entry) && normalizeText(entry.review_type) === DESIGN_RULE_REVIEW_TYPE ? entry : null;
+}
+
+function additionalReviewSourceMaterializedPathMatches({ source, report }) {
+  const reportPath = normalizePath(firstPresent(report?.__file_path, report?.file_path, report?.path));
+  if (isPlaceholder(reportPath)) return false;
+  const sourcePaths = [
+    ...asArray(source?.materialized_paths),
+    ...asArray(source?.materialized_path),
+    ...asArray(source?.additional_review_paths),
+  ].map(normalizePath).filter(Boolean);
+  return sourcePaths.includes(reportPath);
+}
+
+function additionalReviewMakerCheckerSeparated(report) {
+  if (!isObject(report)) return false;
+  const reviewerActor = firstPresent(report.reviewer_actor, report.review_actor, report.actor);
+  const implementationActor = firstPresent(report.implementation_actor, report.implementer_actor);
+  if (isPlaceholder(reviewerActor) || isPlaceholder(implementationActor)) return false;
+  return String(reviewerActor) !== String(implementationActor);
+}
+
