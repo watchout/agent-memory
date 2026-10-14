@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import {
+  evaluateDesignRuleReviews,
+  verifiedDesignRuleReviews,
   isMain,
   isObject,
   parseArgs,
   readStructuredFile,
+  authorActorsOfHandoff,
 } from "./lib.mjs";
 import {
   normalizeControlHandoff,
@@ -15,7 +19,20 @@ const SCHEMA = "shirube-design-rule-check/v1";
 const DEFAULT_RULE_PACK = ".shirube/design-rule-packs/shirube-default-design-rules.yaml";
 const PROTECTED_FORBIDDEN_NEXT = ["EXECUTION_READY", "IMPLEMENTED", "MERGED", "RELEASED"];
 
+// TypeScript is an existing development dependency. Copied standalone checkers
+// retain the conservative text check when the parser is not installed.
+let sourceParser;
+try {
+  sourceParser = createRequire(import.meta.url)("typescript");
+} catch (error) {
+  if (error.code !== "MODULE_NOT_FOUND") throw error;
+}
+
 export function buildDesignRuleReport(input) {
+  // The evaluation time is decided once here so every exception check in this
+  // run compares against the same instant (tests pass it in `input.now`).
+  const now = resolveNow(input.now);
+  const authorActors = authorActorsFrom(input);
   const rulePack = input.rulePack;
   const rules = Array.isArray(rulePack?.rules) ? rulePack.rules : [];
   const ruleResults = [];
@@ -62,7 +79,7 @@ export function buildDesignRuleReport(input) {
     if (!isObject(rule)) continue;
     const checkType = rule.check?.type;
     if (checkType === "rule_pack_has_identity") continue;
-    const results = evaluateRule({ rule, input, changedFileRecords, textInputs });
+    const results = evaluateRule({ rule, input, changedFileRecords, textInputs, now, authorActors });
     if (results.length === 0) {
       ruleResults.push(passResult(rule));
     } else {
@@ -70,29 +87,71 @@ export function buildDesignRuleReport(input) {
     }
   }
 
-  const blockers = ruleResults.filter((result) => result.severity === "BLOCK" && result.verdict === "FAIL");
-  const warnings = ruleResults.filter((result) => result.severity === "WARN" && result.verdict === "WARN");
-  const verdict = blockers.length > 0 ? "BLOCKED" : warnings.length > 0 ? "PASS_WITH_WARN" : "PASS";
+  // Independent reviewers' decisions can turn a NEEDS_REVIEW item into a
+  // blocker (unsafe). A safe decision does not rewrite the finding: the
+  // review-plan gate keeps requiring design_rule_review until every item is
+  // covered for this repo, PR and head.
+  // Both directions use the same verified set as the review-plan completion: a record that is not
+  // from a trusted source, registered audit seat and this repo / PR / head decides nothing.
+  const { verified } = verifiedDesignRuleReviews({
+    reports: input.designRuleReviews,
+    source: input.additionalReviewSource,
+    sourceRuntimeTrusted: input.additionalReviewSourceTrusted,
+    actualRepo: input.actualRepo,
+    actualPr: input.actualPr,
+    actualHead: input.actualHead,
+  });
+  const reviewEvaluation = evaluateDesignRuleReviews({
+    report: { rule_results: ruleResults },
+    reviews: verified,
+    actualRepo: input.actualRepo,
+    actualPr: input.actualPr,
+    actualHead: input.actualHead,
+    authorActors,
+    requirePoster: true,
+  });
+  for (const item of reviewEvaluation.unsafe) {
+    ruleResults.push(finding({
+      ruleId: item.rule_id,
+      code: "reviewed_unsafe",
+      severity: "BLOCK",
+      verdict: "FAIL",
+      path: item.path,
+      evidence: [item.matched],
+    }));
+  }
+  const unsafeKeys = new Set(reviewEvaluation.unsafe.map((item) => `${item.rule_id}\0${item.path}\0${item.matched}`));
+  const effectiveResults = ruleResults.filter((result) => result.verdict !== "NEEDS_REVIEW" ||
+    result.evidence.some((entry) => !unsafeKeys.has(`${result.rule_id}\0${result.path}\0${entry}`)));
+
+  const blockers = effectiveResults.filter((result) => result.severity === "BLOCK" && result.verdict === "FAIL");
+  const warnings = effectiveResults.filter((result) => result.severity === "WARN" && result.verdict === "WARN");
+  const needsReview = effectiveResults.filter((result) => result.severity === "REVIEW" && result.verdict === "NEEDS_REVIEW");
+  // BLOCKED > NEEDS_REVIEW > PASS_WITH_WARN > PASS
+  const verdict = blockers.length > 0 ? "BLOCKED"
+    : needsReview.length > 0 ? "NEEDS_REVIEW"
+      : warnings.length > 0 ? "PASS_WITH_WARN" : "PASS";
 
   return {
     schema: SCHEMA,
     rule_pack_id: stringOrNull(rulePack?.rule_pack_id),
     verdict,
     would_block: verdict === "BLOCKED",
-    rule_results: stableRuleResults(ruleResults),
+    rule_results: stableRuleResults(effectiveResults),
     blockers: blockers.map(toSummary),
     warnings: warnings.map(toSummary),
+    needs_review: needsReview.map(toSummary),
     evidence: uniqueEvidence(evidence),
-    required_next_actions: requiredNextActions(blockers, warnings),
+    required_next_actions: requiredNextActions(blockers, warnings, needsReview),
   };
 }
 
-function evaluateRule({ rule, input, changedFileRecords, textInputs }) {
+function evaluateRule({ rule, input, changedFileRecords, textInputs, now, authorActors }) {
   switch (rule.check?.type) {
     case "text_pattern_absent":
       return evaluateLlmAuthorityRule({ rule, textInputs });
     case "hard_delete_requires_soft_delete_policy":
-      return evaluateHardDeleteRule({ rule, input, changedFileRecords });
+      return evaluateHardDeleteRule({ rule, input, changedFileRecords, now, authorActors });
     case "source_generality_heuristic":
       return evaluateGeneralityRule({ rule, changedFileRecords });
     case "exact_duplicate_block":
@@ -128,26 +187,197 @@ function evaluateLlmAuthorityRule({ rule, textInputs }) {
   return uniqueByKey(results, (result) => `${result.rule_id}:${result.path}:${result.evidence.join("|")}`);
 }
 
-function evaluateHardDeleteRule({ rule, input, changedFileRecords }) {
-  const hardDeletePatterns = asStringArray(rule.check?.hard_delete_patterns);
+function evaluateHardDeleteRule({ rule, input, changedFileRecords, now, authorActors }) {
+  // `hard_delete_patterns` is the pre-1.3.0 key; every pattern in it keeps its BLOCK meaning.
+  const blockPatterns = [
+    ...asStringArray(rule.check?.block_patterns),
+    ...asStringArray(rule.check?.hard_delete_patterns),
+  ];
+  const reviewPatterns = asStringArray(rule.check?.review_patterns);
   const softDeleteMarkers = asStringArray(rule.check?.soft_delete_markers);
   const results = [];
   for (const record of changedFileRecords) {
     if (!record.content || !isSourceOrMigrationLike(record.path)) continue;
-    const matched = hardDeletePatterns.filter((pattern) => containsPattern(record.content, pattern));
-    if (matched.length === 0) continue;
+    const matchPatterns = (patterns) => patterns.filter((pattern) => containsPattern(record.content, pattern) &&
+      !(pattern === ".delete(" && onlyLocalSetDeletes(record)) &&
+      !(pattern === ".destroy(" && onlyLocalRequestDestroys(record)));
+    const blocked = matchPatterns(blockPatterns);
+    const review = matchPatterns(reviewPatterns).filter((pattern) => !blocked.includes(pattern));
+    if (blocked.length === 0 && review.length === 0) continue;
     if (hasSoftDeletePolicy(record.content, softDeleteMarkers)) continue;
-    if (hasApprovedException({ input, ruleId: rule.rule_id, filePath: record.path })) continue;
-    results.push(finding({
-      ruleId: rule.rule_id,
-      code: rule.code,
-      severity: "BLOCK",
-      verdict: "FAIL",
-      path: record.path,
-      evidence: matched,
-    }));
+    if (hasApprovedException({ input, ruleId: rule.rule_id, filePath: record.path, now, authorActors })) continue;
+    if (blocked.length > 0) {
+      results.push(finding({
+        ruleId: rule.rule_id,
+        code: rule.code,
+        severity: "BLOCK",
+        verdict: "FAIL",
+        path: record.path,
+        evidence: blocked,
+      }));
+    }
+    if (review.length > 0) {
+      results.push(finding({
+        ruleId: rule.rule_id,
+        code: rule.code,
+        severity: "REVIEW",
+        verdict: "NEEDS_REVIEW",
+        path: record.path,
+        evidence: review,
+      }));
+    }
   }
   return results;
+}
+
+function parseSourceBindings({ path: filePath, content }) {
+  const ts = sourceParser;
+  if (!ts || !/\.(mjs|cjs|js|jsx|ts|tsx)$/.test(filePath)) return null;
+  const source = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
+  if (source.parseDiagnostics.length > 0) return null;
+  const host = {
+    getSourceFile: (name) => name === filePath ? source : undefined,
+    getDefaultLibFileName: () => "",
+    writeFile: () => {},
+    getCurrentDirectory: () => "",
+    getDirectories: () => [],
+    fileExists: (name) => name === filePath,
+    readFile: (name) => name === filePath ? content : undefined,
+    getCanonicalFileName: (name) => name,
+    useCaseSensitiveFileNames: () => true,
+    getNewLine: () => "\n",
+  };
+  const program = ts.createProgram([filePath], { allowJs: true, noLib: true, noResolve: true }, host);
+  const checker = program.getTypeChecker();
+  const nodes = [];
+  const collect = (node) => { nodes.push(node); ts.forEachChild(node, collect); };
+  collect(source);
+  return { ts, source, checker, nodes };
+}
+
+function onlyLocalSetDeletes(record) {
+  const parsed = parseSourceBindings(record);
+  if (!parsed) return false;
+  const { ts, source, checker, nodes } = parsed;
+  const { content } = record;
+  // Shadowed constructors, prototype access and dynamic scope are ambiguous.
+  if (nodes.some((node) => ts.isWithStatement(node) ||
+    (ts.isIdentifier(node) && node.text === "eval") ||
+    (ts.isStringLiteral(node) && node.text === "Set") ||
+    (ts.isIdentifier(node) && node.text === "Set" &&
+      !(ts.isNewExpression(node.parent) && node.parent.expression === node &&
+        !checker.getSymbolAtLocation(node))))) return false;
+
+  const safeOffsets = new Set();
+  for (const declaration of nodes) {
+    if (!ts.isVariableDeclaration(declaration) || !ts.isIdentifier(declaration.name) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const)) continue;
+    const initializer = declaration.initializer;
+    if (!initializer || !ts.isNewExpression(initializer) ||
+      !ts.isIdentifier(initializer.expression) || initializer.expression.text !== "Set" ||
+      (initializer.arguments?.length ?? 0) !== 0) continue;
+    let enclosing = declaration.parent;
+    while (enclosing && !ts.isFunctionLike(enclosing)) enclosing = enclosing.parent;
+    if (!enclosing) continue;
+    const symbol = checker.getSymbolAtLocation(declaration.name);
+    if (!symbol) continue;
+    const references = nodes.filter((node) => ts.isIdentifier(node) && node !== declaration.name &&
+      (ts.isShorthandPropertyAssignment(node.parent)
+        ? checker.getShorthandAssignmentValueSymbol(node.parent)
+        : checker.getSymbolAtLocation(node)) === symbol);
+    // Never exempt aliases, escaping values, reassignment or overridden methods.
+    if (!references.every((node) => {
+      const access = node.parent;
+      return ts.isPropertyAccessExpression(access) && access.expression === node &&
+        ["add", "has", "delete"].includes(access.name.text) &&
+        ts.isCallExpression(access.parent) && access.parent.expression === access;
+    })) continue;
+    for (const node of references) {
+      if (node.parent.name.text === "delete") safeOffsets.add(node.parent.name.getStart(source) - 1);
+    }
+  }
+  const matches = [...content.toLowerCase().matchAll(/\.delete\(/g)];
+  return matches.length > 0 && matches.every((match) => safeOffsets.has(match.index));
+}
+
+// Classify only non-escaping local ClientRequest receivers from the builtin
+// HTTPS GET factory. Unknown destroy calls retain the hard-delete finding.
+// Like the Set classifier, this assumes unmodified builtin modules; it is not
+// an arbitrary-JavaScript proof or a source-path/expiry exception.
+function onlyLocalRequestDestroys(record) {
+  const parsed = parseSourceBindings(record);
+  if (!parsed) return false;
+  const { ts, source, checker, nodes } = parsed;
+  if (nodes.some((node) => ts.isWithStatement(node) || node.kind === ts.SyntaxKind.ThisKeyword ||
+    node.kind === ts.SyntaxKind.ImportKeyword ||
+    (ts.isIdentifier(node) && ["eval", "require"].includes(node.text)))) return false;
+  const transportImports = source.statements.filter((node) => ts.isImportDeclaration(node) &&
+    ts.isStringLiteral(node.moduleSpecifier) &&
+    ["http", "https", "node:http", "node:https", "node:module", "module"].includes(node.moduleSpecifier.text));
+  if (transportImports.length !== 1 || transportImports[0].moduleSpecifier.text !== "node:https") return false;
+  const references = (name) => {
+    const symbol = checker.getSymbolAtLocation(name);
+    return symbol ? nodes.filter((node) => ts.isIdentifier(node) && node !== name &&
+      (ts.isShorthandPropertyAssignment(node.parent)
+        ? checker.getShorthandAssignmentValueSymbol(node.parent)
+        : checker.getSymbolAtLocation(node)) === symbol) : [];
+  };
+  const directCall = (node, methods) => {
+    const access = node.parent;
+    return ts.isPropertyAccessExpression(access) && access.expression === node &&
+      methods.includes(access.name.text) && ts.isCallExpression(access.parent) &&
+      access.parent.expression === access;
+  };
+  const factories = new Set();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== "node:https") continue;
+    const name = statement.importClause?.name;
+    // Only the default builtin import is classified; named/namespace aliases
+    // and factory escapes are deliberately left to the conservative check.
+    if (!name || statement.importClause.namedBindings) continue;
+    const refs = references(name);
+    if (refs.length > 0 && refs.every((node) => directCall(node, ["request"]))) {
+      for (const node of refs) factories.add(node.parent.parent);
+    }
+  }
+  const safeOffsets = new Set();
+  for (const declaration of nodes) {
+    if (!ts.isVariableDeclaration(declaration) || !ts.isIdentifier(declaration.name) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) || !factories.has(declaration.initializer)) continue;
+    let enclosing = declaration.parent;
+    while (enclosing && !ts.isFunctionLike(enclosing)) enclosing = enclosing.parent;
+    if (!enclosing) continue;
+    const options = declaration.initializer.arguments[0];
+    if (!options || !ts.isObjectLiteralExpression(options)) continue;
+    const properties = options.properties;
+    if (!properties.every((property) => ts.isPropertyAssignment(property) &&
+      ts.isIdentifier(property.name) && ["hostname", "path", "method", "headers"].includes(property.name.text))) continue;
+    if (new Set(properties.map((property) => property.name.text)).size !== properties.length) continue;
+    const method = properties.find((property) => property.name.text === "method")?.initializer;
+    const hostname = properties.find((property) => property.name.text === "hostname")?.initializer;
+    if (!method || !ts.isStringLiteral(method) || method.text !== "GET" ||
+      !hostname || !ts.isStringLiteral(hostname) || !hostname.text) continue;
+    const refs = references(declaration.name);
+    if (!refs.every((node) => {
+      if (!directCall(node, ["destroy", "setTimeout", "on", "end"])) return false;
+      const call = node.parent.parent;
+      if (ts.isExpressionStatement(call.parent)) return true;
+      // A destroy call may be the body of an inline event/timeout arrow.
+      // All other uses of the return value could leak the receiver.
+      const arrow = call.parent;
+      return node.parent.name.text === "destroy" && ts.isArrowFunction(arrow) &&
+        arrow.body === call && ts.isCallExpression(arrow.parent) &&
+        arrow.parent.arguments.includes(arrow) &&
+        ts.isPropertyAccessExpression(arrow.parent.expression) &&
+        ["on", "setTimeout"].includes(arrow.parent.expression.name.text);
+    })) continue;
+    for (const node of refs) {
+      if (node.parent.name.text === "destroy") safeOffsets.add(node.parent.name.getStart(source) - 1);
+    }
+  }
+  const matches = [...record.content.toLowerCase().matchAll(/\.destroy\(/g)];
+  return matches.length > 0 && matches.every((match) => safeOffsets.has(match.index));
 }
 
 function evaluateGeneralityRule({ rule, changedFileRecords }) {
@@ -279,12 +509,22 @@ function readInput(options) {
   const handoffPath = typeof options.handoff === "string" ? options.handoff : null;
   const prBodyPath = typeof options["pr-body"] === "string" ? options["pr-body"] : null;
   const evidencePath = typeof options.evidence === "string" ? options.evidence : null;
+  const context = {
+    now: typeof options.now === "string" ? options.now : undefined,
+    authorActors: typeof options["author-actor"] === "string" ? options["author-actor"].split(",") : [],
+    designRuleReviews: readDesignRuleReviews(options["design-rule-review"]),
+    additionalReviewSource: readOptionalSource(options["additional-review-source"]),
+    additionalReviewSourceTrusted: options["trusted-additional-review-source"] === true,
+    actualRepo: typeof options["actual-repo"] === "string" ? options["actual-repo"] : undefined,
+    actualPr: typeof options["actual-pr"] === "string" ? options["actual-pr"] : undefined,
+    actualHead: typeof options["actual-head"] === "string" ? options["actual-head"] : undefined,
+  };
 
-  if (!rulePackPath) {
+  if (!rulePackPath || !existsSync(rulePackPath)) {
     return {
       input: {
         rulePack: null,
-        rulePackPath: "",
+        rulePackPath: rulePackPath ?? "",
         changedFiles: readChangedFiles(changedFilesPath),
         changedFilesPath,
         diffRoot,
@@ -295,25 +535,7 @@ function readInput(options) {
         evidenceValue: null,
         evidenceText: "",
         evidencePath,
-      },
-    };
-  }
-
-  if (!existsSync(rulePackPath)) {
-    return {
-      input: {
-        rulePack: null,
-        rulePackPath,
-        changedFiles: readChangedFiles(changedFilesPath),
-        changedFilesPath,
-        diffRoot,
-        handoff: null,
-        handoffPath,
-        prBodyText: "",
-        prBodyPath,
-        evidenceValue: null,
-        evidenceText: "",
-        evidencePath,
+        ...context,
       },
     };
   }
@@ -339,8 +561,28 @@ function readInput(options) {
       evidenceValue: evidenceResult.value,
       evidenceText: evidenceResult.text,
       evidencePath,
+      ...context,
     },
   };
+}
+
+function readDesignRuleReviews(value) {
+  if (typeof value !== "string") return [];
+  return value.split(",").map((entry) => entry.trim()).filter(Boolean)
+    .filter((filePath) => existsSync(filePath))
+    .map((filePath) => {
+      const record = readStructuredFile(filePath);
+      return isObject(record) ? { ...record, __file_path: filePath } : record;
+    });
+}
+
+function readOptionalSource(value) {
+  if (typeof value !== "string" || !existsSync(value)) return null;
+  try {
+    return readStructuredFile(value);
+  } catch {
+    return null;
+  }
 }
 
 function readOptionalStructuredInput(filePath, errorCode, required) {
@@ -440,15 +682,18 @@ function toSummary(result) {
   };
 }
 
-function requiredNextActions(blockers, warnings) {
-  if (blockers.length === 0 && warnings.length === 0) return [];
-  return [...blockers, ...warnings].map((result) => ({
+function requiredNextActions(blockers, warnings, needsReview = []) {
+  if (blockers.length === 0 && warnings.length === 0 && needsReview.length === 0) return [];
+  return [...blockers, ...needsReview, ...warnings].map((result) => ({
     rule_id: result.rule_id,
     action: actionForResult(result),
   }));
 }
 
 function actionForResult(result) {
+  if (result.verdict === "NEEDS_REVIEW") {
+    return "Record a safe or unsafe decision per item in a design_rule_review (shirube-additional-review/v1) written by a seat other than the author.";
+  }
   const actions = {
     "DR-LLM-001": "Replace LLM/model final authority claim with machine evidence and owner decision.",
     "DR-DATA-001": "Add soft-delete policy evidence or an explicit approved scoped exception.",
@@ -510,7 +755,7 @@ function hasSoftDeletePolicy(content, markers) {
   return markers.some((marker) => containsPattern(content, marker));
 }
 
-function hasApprovedException({ input, ruleId, filePath }) {
+function hasApprovedException({ input, ruleId, filePath, now, authorActors }) {
   const exceptions = [
     ...asArray(input.handoff?.design_rule_exceptions),
     ...asArray(input.evidenceValue?.design_rule_exceptions),
@@ -518,18 +763,35 @@ function hasApprovedException({ input, ruleId, filePath }) {
   return exceptions.some((exception) => {
     if (exception.rule_id !== ruleId) return false;
     if (!nonEmptyString(exception.reason) || !nonEmptyString(exception.approved_by)) return false;
-    if (isExpired(exception.expires_at)) return false;
+    // With no identifiable author there is nobody to be independent of: the exception is not applied.
+    if (authorActors.length === 0 || authorActors.includes(exception.approved_by.trim().toLowerCase())) return false;
+    // An exception without a valid, unexpired expires_at is not accepted.
+    if (!nonEmptyString(exception.expires_at) || isExpired(exception.expires_at, now)) return false;
     const scopes = asStringArray(exception.scope);
     if (scopes.length === 0) return false;
     return matchesAnyGlob(filePath, scopes);
   });
 }
 
-function isExpired(value) {
-  if (!nonEmptyString(value)) return false;
+function isExpired(value, now) {
+  if (!nonEmptyString(value)) return true;
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return true;
-  return timestamp < Date.parse("2026-06-23T00:00:00Z");
+  return timestamp <= now;
+}
+
+function resolveNow(value) {
+  if (value === undefined || value === null) return Date.now();
+  const timestamp = value instanceof Date ? value.getTime() : typeof value === "number" ? value : Date.parse(String(value));
+  if (Number.isNaN(timestamp)) throw new Error(`Invalid evaluation time: ${String(value)}`);
+  return timestamp;
+}
+
+function authorActorsFrom(input) {
+  return [
+    ...asArray(input.authorActors),
+    ...authorActorsOfHandoff(input.handoff),
+  ].filter(nonEmptyString).map((value) => value.trim().toLowerCase());
 }
 
 function isSourceOrMigrationLike(filePath) {
