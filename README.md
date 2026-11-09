@@ -399,7 +399,7 @@ final world-class public release bar.
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 20+
 - Optional: PostgreSQL 14+ with [pgvector](https://github.com/pgvector/pgvector) (for PG mode)
 - Optional: [Voyage AI](https://www.voyageai.com/) API key (for semantic search)
 
