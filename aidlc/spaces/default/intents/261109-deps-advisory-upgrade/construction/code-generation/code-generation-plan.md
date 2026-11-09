@@ -83,74 +83,85 @@
 
 ### Step 1: branch を切る（構成）
 
-- [x] GitHub の main を取り直し（`git fetch origin`）、`origin/main` から branch `kusabi/deps-advisory-upgrade-339` を切る。base の commit を記録する（今は `ee2acff9dcb83b773969d0df9d8a7884728bef67`）。
+- [ ] GitHub の main を取り直し（`git fetch origin`）、`origin/main` から branch `kusabi/deps-advisory-upgrade-339` を切る。base の commit を記録する（今は `ee2acff9dcb83b773969d0df9d8a7884728bef67`）。
 - 追跡: 要件 NFR5（統合の commit を戻せば戻る）、team.md の Way of Working（変更ごとに branch）
 
 ### Step 2: 版上げの前の試験（試験の道具の確かめ）
 
-- [x] 今の main の lock のまま `npm ci` で依存を入れ、`unit-test-instructions.md` の T1〜T11 を動かして、もとからの結果（命令ごとの終わり方）を記録する。ここで落ちる物があれば、版上げの前から落ちている物として記録し、Owner に伺う。
-- [x] あわせて、Node に組み込みの網羅率の命令（`unit-test-instructions.md` の「網羅率」）が動くかを、T4 の 1 つの file で試す。
+- [ ] 今の main の lock のまま `npm ci` で依存を入れ、`unit-test-instructions.md` の T1〜T11 を動かして、もとからの結果（命令ごとの終わり方）を記録する。ここで落ちる物があれば、版上げの前から落ちている物として記録し、Owner に伺う。
+- [ ] あわせて、Node に組み込みの網羅率の命令（`unit-test-instructions.md` の「網羅率」）が動くかを、T4 の 1 つの file で試す。
 - 追跡: 要件 FR4.1（今の試験が通る）、brownfield の決まりの Test Baseline
 
 ### Step 3: 本番の依存の版上げ（lock）
 
-- [x] `npm audit fix --omit=dev` で package-lock.json の本番の依存を直る版へ上げる（package.json の範囲の中で上がる）。
-- [x] package-lock.json の版が要件 FR1.1 の表の「上げる先」と一致するかを確かめる。一致しない（registry の状態が変わり別の版が入った）時は、先へ進まずに Owner に伺う。
+- [ ] `npm audit fix --omit=dev` で package-lock.json の本番の依存を直る版へ上げる（package.json の範囲の中で上がる）。
+- [ ] package-lock.json の版が要件 FR1.1 の表の「上げる先」と一致するかを確かめる。一致しない（registry の状態が変わり別の版が入った）時は、先へ進まずに Owner に伺う。
 - 追跡: 要件 FR1.1・FR1.2・FR1.3
 
 ### Step 4: 依存の宣言と固定（package.json）
 
-- [x] package.json を file の道具で直す: dependencies を要件 FR2.2 の表の版に固定する（範囲の記号を消す）、zod `4.6.7` を dependencies に足す（要件 FR2.1）、engines.node を `>=20.0.0` にする（要件 FR3.1）。devDependencies は変えない（要件 FR2.3）。
-- [x] `npm install --package-lock-only --ignore-scripts` で package-lock.json の先頭の項（`packages[""]`）を package.json に合わせる。ほかの項の版が変わらないことを確かめる。
+- [ ] package.json を file の道具で直す: dependencies を要件 FR2.2 の表の版に固定する（範囲の記号を消す）、zod `4.6.7` を dependencies に足す（要件 FR2.1）、engines.node を `>=20.0.0` にする（要件 FR3.1）。devDependencies は変えない（要件 FR2.3）。
+- [ ] `npm install --package-lock-only --ignore-scripts` で package-lock.json の先頭の項（`packages[""]`）を package.json に合わせる。ほかの項の版が変わらないことを確かめる。
 - 追跡: 要件 FR2.1〜FR2.3・FR3.1、機能以外の要件 NFR4.3
 
 ### Step 5: lock の確かめ
 
-- [x] `npm ci` が 0 で終わり、その後の `git status --porcelain package.json package-lock.json` が版上げの変更のほかに何も出さない（npm ci が lock を書き換えない）ことを確かめる（要件 FR2.4）。
-- [x] 今の main の lock と比べて、(1) 増える項が `node_modules/body-parser/node_modules/content-type` と `node_modules/type-is/node_modules/content-type`（どちらも content-type 2.1.0）の 2 つだけで消える項が無い、(2) 版が変わる項が要件 FR1.1・FR1.2 の部品と先頭の項だけ、(3) すべての `resolved` の取得元が `registry.npmjs.org` で `integrity` の無い項が 0 件、(4) `hasInstallScript` を持つ項が `node_modules/esbuild` と `node_modules/fsevents` の 2 つだけ、を script（node か python で lock を読む）で確かめる（機能以外の要件 NFR4.2）。
-- [x] `npm audit --omit=dev` が「found 0 vulnerabilities」を返すことを確かめる。件数だけを記録する（要件 FR1.3、機能以外の要件 NFR4.1）。
+- [ ] `npm ci` が 0 で終わり、その後の `git status --porcelain package.json package-lock.json` が版上げの変更のほかに何も出さない（npm ci が lock を書き換えない）ことを確かめる（要件 FR2.4）。
+- [ ] 今の main の lock と比べて、(1) 増える項が `node_modules/body-parser/node_modules/content-type` と `node_modules/type-is/node_modules/content-type`（どちらも content-type 2.1.0）の 2 つだけで消える項が無い、(2) 版が変わる項が要件 FR1.1・FR1.2 の部品と先頭の項だけ、(3) すべての `resolved` の取得元が `registry.npmjs.org` で `integrity` の無い項が 0 件、(4) `hasInstallScript` を持つ項が `node_modules/esbuild` と `node_modules/fsevents` の 2 つだけ、を script（node か python で lock を読む）で確かめる（機能以外の要件 NFR4.2）。
+- [ ] `npm audit --omit=dev` が「found 0 vulnerabilities」を返すことを確かめる。件数だけを記録する（要件 FR1.3、機能以外の要件 NFR4.1）。
 - 追跡: 要件 FR1.2・FR1.3・FR2.4、機能以外の要件 NFR4.1・NFR4.2
 
 ### Step 6: 動く Node の前提を書いた 7 行の書き換え
 
-- [x] 次の 7 行の「Node 18 以上」を「Node 20 以上」に、file の道具で書き換える（ほかの行は変えない）:
+- [ ] 次の 7 行の「Node 18 以上」を「Node 20 以上」に、file の道具で書き換える（ほかの行は変えない）:
   - `README.md` 402 行目 `- Node.js 18+` → `- Node.js 20+`
   - `CONTRIBUTING.md` 54 行目 `- Node.js 18+` → `- Node.js 20+`
   - `CLAUDE.md` 12 行目 `| ランタイム | Node.js 18+ |` → `| ランタイム | Node.js 20+ |`
   - `docs/requirements/SSOT-0_PRD.md` 44 行目 `| Tech Stack | TypeScript (ESM), Node.js 18+ |` → `Node.js 20+`、287 行目 `- Node.js 18+` → `- Node.js 20+`
   - `docs/OSS_EVALUATION_FRAMEWORK.md` 153 行目の `node:18-alpine` → `node:20-alpine`
   - `aidlc/spaces/default/codekb/agent-memory/technology-stack.md` 9 行目「Node.js 18 以上（CI は 18・20・22）」→「Node.js 20 以上（CI は 18・20・22）」
-- [x] 機能以外の要件の文書を Owner の承認の時の直しに合わせる: `construction/nfr-requirements/reliability-requirements.md` の NFR1.1 を「7 行」にして上の 7 行を名指しし、`construction/nfr-requirements/tech-stack-decisions.md` の Consequences と「書き換えない物」から CLAUDE.md と OSS_EVALUATION_FRAMEWORK.md の扱いをそろえる。
+- [ ] 機能以外の要件の文書を Owner の承認の時の直しに合わせる: `construction/nfr-requirements/reliability-requirements.md` の NFR1.1 を「7 行」にして上の 7 行を名指しし、`construction/nfr-requirements/tech-stack-decisions.md` の Consequences と「書き換えない物」から CLAUDE.md と OSS_EVALUATION_FRAMEWORK.md の扱いをそろえる。
 - 追跡: 機能以外の要件 NFR1.1、Owner の直し（NFR Requirements の段の差し戻しと承認の時）
 
 ### Step 7: 版上げの後の試験
 
-- [x] `unit-test-instructions.md` の T1〜T11 をこの Mac の Node で動かし、命令ごとの終わり方を記録して、Step 2 の結果と比べる。前に通った物が落ちた時、package.json と package-lock.json の中で直せなければ、ほかの file を変える前に Owner に伺う（機能以外の要件 NFR1.2）。
+- [ ] `unit-test-instructions.md` の T1〜T11 をこの Mac の Node で動かし、命令ごとの終わり方を記録して、Step 2 の結果と比べる。前に通った物が落ちた時、package.json と package-lock.json の中で直せなければ、ほかの file を変える前に Owner に伺う（機能以外の要件 NFR1.2）。
 - 追跡: 要件 FR4.1、機能以外の要件 NFR1.2・NFR1.3
 
 ### Step 8: 行の網羅率
 
-- [x] Step 2 で試した組み込みの網羅率の命令で、T4〜T11 の tsx の試験の file の行の網羅率を測る。測れた時は全体の数字を記録し、100% に届かない分を deviation_ledger の 1 行ずつにまとめる。測れない時は、Owner の決定の 2 行と、測れなかったことを示す出力の要点を記録する。新しい依存（c8 など）は足さない。
+- [ ] Step 2 で試した組み込みの網羅率の命令で、T4〜T11 の tsx の試験の file の行の網羅率を測る。測れた時は全体の数字を記録し、100% に届かない分を deviation_ledger の 1 行ずつにまとめる。測れない時は、Owner の決定の 2 行と、測れなかったことを示す出力の要点を記録する。新しい依存（c8 など）は足さない。
 - 追跡: 要件 FR4.3、OD-KUSABI-DEPS-UPGRADE-COVERAGE-NOT-MEASURABLE-DEVIATION-20261109-001
 
 ### Step 9: PR に入れる記録の用意と、公開してよいかの確かめ
 
-- [x] PR に入れる記録: codekb の 9 file（`aidlc/spaces/default/codekb/agent-memory/`）と、この取り組みの `inception/`・`construction/`（`audit/` と `.aidlc-engine/` は入れない）。Owner の答え（Code Generation の段の問い、B）。
-- [x] 公開の repo に入れる前に、これらの file と変更した file を、手元の path（`/Users/`・`~/Developer` など）・秘密の値（鍵・token・接続の文字列）・非公開の repo の中身の引用で探し、見つかれば消すか伏せる。伏せた所と理由を code-summary に書く（Owner の答え）。
-- [x] 勧告の番号を、統合する版の差分・commit の文・PR の本文の 3 つで、機能以外の要件 NFR2.1 の命令と正規表現で探して 0 件にする。
+- [ ] PR に入れる記録: codekb の 9 file（`aidlc/spaces/default/codekb/agent-memory/`）と、この取り組みの `inception/`・`construction/`（`audit/` と `.aidlc-engine/` は入れない）。Owner の答え（Code Generation の段の問い、B）。
+- [ ] 公開の repo に入れる前に、これらの file と変更した file を、手元の path（`/Users/`・`~/Developer` など）・秘密の値（鍵・token・接続の文字列）・非公開の repo の中身の引用で探し、見つかれば消すか伏せる。伏せた所と理由を code-summary に書く（Owner の答え）。
+- [ ] 勧告の番号を、統合する版の差分・commit の文・PR の本文の 3 つで、機能以外の要件 NFR2.1 の命令と正規表現で探して 0 件にする。
 - 追跡: 要件 NFR1・NFR2、機能以外の要件 NFR2.1・NFR2.2、team.md の Way of Working（単位の PR に記録を入れる）
 
 ### Step 10: 監査の項目の file
 
-- [x] `docs/audit/kusabi-deps-advisory-upgrade-339.json`（`sds-audit-items/1`）を書く。項目は、範囲（差分の file と行）・版と lock の確かめ（機能以外の要件 NFR4.1〜NFR4.4）・振る舞いの不変（試験の結果）・勧告の中身を公開しない（NFR2.1・NFR2.2）・deviation_ledger の 3 つの外れ（網羅率・退行の試験・ほか）の正直さ。出どころは、この取り組みの要件と機能以外の要件の文書と Owner の決定（#339 の 6729538122・6732638457）。
+- [ ] `docs/audit/kusabi-deps-advisory-upgrade-339.json`（`sds-audit-items/1`）を書く。項目は、範囲（差分の file と行）・版と lock の確かめ（機能以外の要件 NFR4.1〜NFR4.4）・振る舞いの不変（試験の結果）・勧告の中身を公開しない（NFR2.1・NFR2.2）・deviation_ledger の 3 つの外れ（網羅率・退行の試験・ほか）の正直さ。出どころは、この取り組みの要件と機能以外の要件の文書と Owner の決定（#339 の 6729538122・6732638457）。
 - 追跡: team.md の Way of Working（監査の項目の file を head に入れる）
 
 ### Step 11: commit と PR、CI
 
-- [x] 変更した file と Step 9・10 の file だけを `git add` で名指しして入れ、Conventional commits の文（`fix(deps): ...`）で commit する。`.gitignore` の AI-DLC の追記と `.claude/` は入れない。
-- [x] branch を push し、main への PR を出す。本文に: 要件と Owner の決定への参照、base と head、変更の一覧、Step 5 の確かめの結果（件数と 4 つの確かめ）、Step 7 の試験の結果、Step 8 の網羅率、deviation_ledger（網羅率・退行の試験を足さない 2 行・PR の大きさの予算を超える時の「AI-DLC の単位の作る段の出力」）、席が使う Kusabi の入れ替えは統合の後に Owner の手作業として別に扱うこと。勧告の中身は書かない。
-- [x] PR の CI（Node 18・20・22）が終わるのを待ち、結果を記録する。Node 18 の回だけが落ちた時は、この PR では直さず、Node 18 を外す workflow の PR を先に出す（Owner の exact-head）ことを PR に書いて止まる（機能以外の要件 NFR5.2）。
+- [ ] 変更した file と Step 9・10 の file だけを `git add` で名指しして入れ、Conventional commits の文（`fix(deps): ...`）で commit する。`.gitignore` の AI-DLC の追記と `.claude/` は入れない。
+- [ ] branch を push し、main への PR を出す。本文に: 要件と Owner の決定への参照、base と head、変更の一覧、Step 5 の確かめの結果（件数と 4 つの確かめ）、Step 7 の試験の結果、Step 8 の網羅率、deviation_ledger（網羅率・退行の試験を足さない 2 行・PR の大きさの予算を超える時の「AI-DLC の単位の作る段の出力」）、席が使う Kusabi の入れ替えは統合の後に Owner の手作業として別に扱うこと。勧告の中身は書かない。
+- [ ] PR の CI（Node 18・20・22）が終わるのを待ち、結果を記録する。Node 18 の回だけが落ちた時は、この PR では直さず、Node 18 を外す workflow の PR を先に出す（Owner の exact-head）ことを PR に書いて止まる（機能以外の要件 NFR5.2）。
 - 追跡: 要件 FR3.3・FR4.1・FR4.2、機能以外の要件 NFR5.1・NFR5.2、team.md の Way of Working（1 単位 = 1 PR、段の承認の前に PR を出して CI を流す）
+
+### Step 12: 承認の場の直し（Owner の差し戻し）
+
+Owner の言葉（2026-11-09、原文の抜き出し）: 「監査の項目 DU-1 (d) の file の数を、今の head の差分に合わせてください。」「PR の本文の head を今の head に」「追跡表の NFR1.1 に bin の外れ（deviation_ledger の行）を書き」「NFR2.2 を「監査待ち」にしてください。」
+
+- [ ] `docs/audit/kusabi-deps-advisory-upgrade-339.json` の DU-1 (d) の file の数を、push する head の差分（`git diff --name-only <base>..HEAD`）に合わせる。数に入る file（この取り組みの記録の `memory.md` と `reviews/` の写しを含む）を名指しにし、監査の依頼を出す最後の head でもう一度数え直すことを項目に書く。
+- [ ] `traceability.json` の NFR1.1 に、package-lock.json の先頭の項の `bin` の写しの変化を外れとして PR の deviation_ledger に記録したこと（採った判断: npm が package.json の写しとして書いたとおりに受ける／採らなかった代替: lock を手で直して main の古い写しを残す）を書く。
+- [ ] `traceability.json` の NFR2.2 を「監査待ち」にする（独立の監査の席が差分と PR の本文を目で確かめるまで終わらない）。
+- [ ] `code-summary.md` に、この直しと、古い「Shirube Rapid/Lite Gates Report」の失敗を統合の条件に数えない Owner の決定（OD-KUSABI-PR340-LEGACY-RAPID-LITE-GATE-NOT-MERGE-CONDITION-20261109-001、https://github.com/watchout/agent-memory/issues/339#issuecomment-6735790644 、本文の SHA-256 `a0dd51c659be4b338baa07fdcc150606012539deffeac44bcbc836083ef59e2d`）を書く。
+- [ ] 変えた file を名指しで commit し、push する。PR の本文の head を push した head に直し、CI の節にその head の結果を書く。CI が終わるのを待つ。
+- 追跡: 機能以外の要件 NFR1.1・NFR2.2、team.md の Way of Working（監査の項目の file を head に入れる）
 
 ### この段の後（この計画の手順ではない）
 

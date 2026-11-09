@@ -10,6 +10,7 @@
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
 - 2026-11-09T07:40:00Z — 作る役のサブエージェントには手元の commit までをさせ、push・PR・コメントはこの会話が行った; Owner に見せた選択肢の説明では作る役が PR を出すと書いたが、team.md がサブエージェントの GitHub への書き込みを禁じているため。
 - 2026-11-09T07:40:00Z — package-lock.json の先頭の項で bin の写しも変わったのを、NFR1.1 の文言を直さず外れとして PR に書くことにした; Owner の答え「文言は直さず外れとして書く」。
+- 2026-11-09T08:30:00Z — 承認の場の差し戻しの直し（計画 Step 12）は、作る役のサブエージェントを呼ばずにこの会話が行った; 直す所が Owner の言葉で名指しされた数行で、サブエージェントは呼ぶたびに Owner の承認が要り、push はこの会話の仕事のため。
 
 ## Tradeoffs
 <!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->

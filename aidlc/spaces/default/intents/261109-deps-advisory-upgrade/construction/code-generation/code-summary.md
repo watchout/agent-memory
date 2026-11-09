@@ -63,7 +63,15 @@
 - PR: https://github.com/watchout/agent-memory/pull/340 （最初の head `2ece55ee2197935649bd0a6c2f29a95714f7a3f5`）
 - 必須の検査（branch の保護の required checks）の `build-and-test (18)`・`build-and-test (20)`・`build-and-test (22)` は、どれも success。Node 18 の回も通ったので、Node 18 を外す workflow の PR を先に出す場面（要件 FR3.3）は起きなかった。
 - PR の本文の勧告の番号: 機能以外の要件 NFR2.1 の正規表現で 0 件。
-- 必須ではない `Shirube Rapid/Lite Gates Report` は failure（`RAPID_LITE_HARD_BLOCK`）。中身は `gate-contract`・`lifecycle`・`enforcement-policy`・`control-state-completeness` の BLOCKED で、主な理由は `RL-PR-002`（変えた file が、この workflow が読む古い作業指示 `.shirube/control-handoffs/CH-001.yaml` の allowed_paths の外）。この workflow は Shirube V3 の作業指示（control handoff）を前提にした検査で、この単位には作業指示が無い（AI-DLC の単位として作る。作業指示は OD-COMPANY-AIDLC-ONLY-UNIFIED-RULE-LIST-20261105-001 でやめた物）。直すには `.shirube/`（守る物）を変える必要があり、この単位の範囲の外。必須の検査ではないので、扱いは統合の席と Owner が決める（arc に知らせた）。
+- 必須ではない `Shirube Rapid/Lite Gates Report` は failure（`RAPID_LITE_HARD_BLOCK`）。中身は `gate-contract`・`lifecycle`・`enforcement-policy`・`control-state-completeness` の BLOCKED で、主な理由は `RL-PR-002`（変えた file が、この workflow が読む古い作業指示 `.shirube/control-handoffs/CH-001.yaml` の allowed_paths の外）。この workflow は Shirube V3 の作業指示（control handoff）を前提にした検査で、この単位には作業指示が無い（AI-DLC の単位として作る。作業指示は OD-COMPANY-AIDLC-ONLY-UNIFIED-RULE-LIST-20261105-001 でやめた物）。直すには `.shirube/`（守る物）を変える必要があり、この単位の範囲の外。Owner はこの失敗を PR #340 の統合の条件に数えないと決めた（OD-KUSABI-PR340-LEGACY-RAPID-LITE-GATE-NOT-MERGE-CONDITION-20261109-001、https://github.com/watchout/agent-memory/issues/339#issuecomment-6735790644 、本文の SHA-256 `a0dd51c659be4b338baa07fdcc150606012539deffeac44bcbc836083ef59e2d`。記録は arc、この会話が API で読み直して一致を確かめた）。古い検査の workflow を外すのは、別の PR で Owner の exact-head を受ける扱い。
+- 2 つ目の head `93b7f5807c40c76ecbf88631557458e9f8a63ad6`（CI の結果の記録）でも、必須の 3 つは success、Rapid/Lite は同じ理由で failure。
+
+### 承認の場の直し（計画 Step 12）
+
+- Owner の差し戻し（2026-11-09）を受けて、監査の項目 DU-1 (d) の file の数を、push する head の差分に合わせた（この取り組みの記録 25 file、合わせて 42 file。各段の memory.md と reviews/ の見直しの写しを含む）。見直しが増えると reviews/ の写しが増えるので、監査の依頼を出す最後の head でもう一度数え直す。
+- 追跡表の NFR1.1 に、先頭の項の bin の写しの変化を外れとして PR の deviation_ledger に記録したことを書いた。NFR2.2 は、独立の監査の席が目で確かめるまで終わらないので「監査待ち」（Deferred）にした。
+- 追跡表のうち、実装の file の無い要件（証拠を PR に載せる FR4.2〜FR4.4・NFR4.4、勧告の番号の検索の NFR2.1）は、行き先を証拠を書いた file（この code-summary.md と監査の項目の file）にした。版上げはプログラムを変えないので、これらの要件を満たす実装や試験の file が無いため。
+- PR の本文の head を push した head に直した。
 
 ## 動かしていない試験と理由
 
