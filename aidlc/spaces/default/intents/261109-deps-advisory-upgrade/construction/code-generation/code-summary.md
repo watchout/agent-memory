@@ -58,11 +58,18 @@
 - 数えから外した物: `dist/`（試験が起動する build の写し）、`tests/` の試験の file。
 - 100% に届かないので、PR の deviation_ledger に外れとして書き、別の単位で埋める（要件 FR4.3）。測れたので、OD-KUSABI-DEPS-UPGRADE-COVERAGE-NOT-MEASURABLE-DEVIATION-20261109-001 の 2 行は使っていない。
 
+### PR と CI（要件 FR3.3・FR4.1）
+
+- PR: https://github.com/watchout/agent-memory/pull/340 （最初の head `2ece55ee2197935649bd0a6c2f29a95714f7a3f5`）
+- 必須の検査（branch の保護の required checks）の `build-and-test (18)`・`build-and-test (20)`・`build-and-test (22)` は、どれも success。Node 18 の回も通ったので、Node 18 を外す workflow の PR を先に出す場面（要件 FR3.3）は起きなかった。
+- PR の本文の勧告の番号: 機能以外の要件 NFR2.1 の正規表現で 0 件。
+- 必須ではない `Shirube Rapid/Lite Gates Report` は failure（`RAPID_LITE_HARD_BLOCK`）。中身は `gate-contract`・`lifecycle`・`enforcement-policy`・`control-state-completeness` の BLOCKED で、主な理由は `RL-PR-002`（変えた file が、この workflow が読む古い作業指示 `.shirube/control-handoffs/CH-001.yaml` の allowed_paths の外）。この workflow は Shirube V3 の作業指示（control handoff）を前提にした検査で、この単位には作業指示が無い（AI-DLC の単位として作る。作業指示は OD-COMPANY-AIDLC-ONLY-UNIFIED-RULE-LIST-20261105-001 でやめた物）。直すには `.shirube/`（守る物）を変える必要があり、この単位の範囲の外。必須の検査ではないので、扱いは統合の席と Owner が決める（arc に知らせた）。
+
 ## 動かしていない試験と理由
 
 - `scripts/test-kusabi-content-addressed-runtime-release.mjs` の網羅率: tsx の file でなく、`node --test` から引数（`--fixture publisher-unit`）を渡せないため測っていない（試験そのものは T6 で動かし、0 で終わった）。
 - `npm run test:pg`（PostgreSQL の試験）: CI に入っておらず、この取り組みは置き場の扱いを変えないため動かしていない（試験の手順のとおり）。
-- Node 18・20・22 での試験: この Mac に無いので、PR の CI で確かめる。CI の結果は PR に記録する。
+- Node 18・20・22 での試験: この Mac に無いので、PR の CI で確かめた（上の「PR と CI」。3 つとも success）。
 
 ## 計画からの外れ
 
@@ -75,7 +82,7 @@
 
 - PR に入れた記録（codekb 9 file・この取り組みの記録）と変えた file を、手元の path・秘密の値・非公開の repo の中身の引用・勧告の番号で探した。伏せた所は 0。足した行に手元の path・秘密の値は無い（計画の文の中の「`/Users/` などで探す」という説明の 1 行だけが当たり、path そのものではない）。
 - 非公開の repo（iyasaka-arc）は、Owner の決定の記録の場所として issue とコメントの番号で引くだけで、中身は引用していない。
-- 勧告の番号: 差分と commit の文で 0 件（機能以外の要件 NFR2.1 の正規表現）。PR の本文は出した後に確かめる。
+- 勧告の番号: 差分・commit の文・PR の本文の 3 つで 0 件（機能以外の要件 NFR2.1 の正規表現）。
 
 ## 気づいたこと（この PR では直していない）
 

@@ -137,7 +137,7 @@
 
 - [x] PR に入れる記録: codekb の 9 file（`aidlc/spaces/default/codekb/agent-memory/`）と、この取り組みの `inception/`・`construction/`（`audit/` と `.aidlc-engine/` は入れない）。Owner の答え（Code Generation の段の問い、B）。
 - [x] 公開の repo に入れる前に、これらの file と変更した file を、手元の path（`/Users/`・`~/Developer` など）・秘密の値（鍵・token・接続の文字列）・非公開の repo の中身の引用で探し、見つかれば消すか伏せる。伏せた所と理由を code-summary に書く（Owner の答え）。
-- [ ] 勧告の番号を、統合する版の差分・commit の文・PR の本文の 3 つで、機能以外の要件 NFR2.1 の命令と正規表現で探して 0 件にする。
+- [x] 勧告の番号を、統合する版の差分・commit の文・PR の本文の 3 つで、機能以外の要件 NFR2.1 の命令と正規表現で探して 0 件にする。
 - 追跡: 要件 NFR1・NFR2、機能以外の要件 NFR2.1・NFR2.2、team.md の Way of Working（単位の PR に記録を入れる）
 
 ### Step 10: 監査の項目の file
@@ -148,8 +148,8 @@
 ### Step 11: commit と PR、CI
 
 - [x] 変更した file と Step 9・10 の file だけを `git add` で名指しして入れ、Conventional commits の文（`fix(deps): ...`）で commit する。`.gitignore` の AI-DLC の追記と `.claude/` は入れない。
-- [ ] branch を push し、main への PR を出す。本文に: 要件と Owner の決定への参照、base と head、変更の一覧、Step 5 の確かめの結果（件数と 4 つの確かめ）、Step 7 の試験の結果、Step 8 の網羅率、deviation_ledger（網羅率・退行の試験を足さない 2 行・PR の大きさの予算を超える時の「AI-DLC の単位の作る段の出力」）、席が使う Kusabi の入れ替えは統合の後に Owner の手作業として別に扱うこと。勧告の中身は書かない。
-- [ ] PR の CI（Node 18・20・22）が終わるのを待ち、結果を記録する。Node 18 の回だけが落ちた時は、この PR では直さず、Node 18 を外す workflow の PR を先に出す（Owner の exact-head）ことを PR に書いて止まる（機能以外の要件 NFR5.2）。
+- [x] branch を push し、main への PR を出す。本文に: 要件と Owner の決定への参照、base と head、変更の一覧、Step 5 の確かめの結果（件数と 4 つの確かめ）、Step 7 の試験の結果、Step 8 の網羅率、deviation_ledger（網羅率・退行の試験を足さない 2 行・PR の大きさの予算を超える時の「AI-DLC の単位の作る段の出力」）、席が使う Kusabi の入れ替えは統合の後に Owner の手作業として別に扱うこと。勧告の中身は書かない。
+- [x] PR の CI（Node 18・20・22）が終わるのを待ち、結果を記録する。Node 18 の回だけが落ちた時は、この PR では直さず、Node 18 を外す workflow の PR を先に出す（Owner の exact-head）ことを PR に書いて止まる（機能以外の要件 NFR5.2）。
 - 追跡: 要件 FR3.3・FR4.1・FR4.2、機能以外の要件 NFR5.1・NFR5.2、team.md の Way of Working（1 単位 = 1 PR、段の承認の前に PR を出して CI を流す）
 
 ### この段の後（この計画の手順ではない）
