@@ -1,0 +1,11 @@
+{
+  "stage": "nfr-requirements",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2, NFR1.3" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1, NFR4.2, NFR4.3, NFR4.4" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2" }
+  ]
+}

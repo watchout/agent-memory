@@ -150,7 +150,7 @@ Session restart 単体の詳細な評価手順、採点基準、fallback 手順�
 
 | 項目 | 方法 | 対応 |
 |------|------|------|
-| クリーン環境で npm install | Docker `node:18-alpine` + `npm install` | D1, D3, D4 |
+| クリーン環境で npm install | Docker `node:20-alpine` + `npm install` | D1, D3, D4 |
 | Claude Code 設定後の起動 | 新規 project で MCP 設定して起動 | D1 |
 | session_start(boot) 動作 | 空 DB → data 投入 → boot で復元確認 | A1 |
 | Decision supersede chain | addDecision → supersede → 両方取得 | A2 |

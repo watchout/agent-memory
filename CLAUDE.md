@@ -9,7 +9,7 @@ agent-memory は AI コーディングエージェントに永続記憶を提供
 | プロジェクト名 | agent-memory |
 | 種別 | MCP Server (Claude Code / 他 MCP client 対応) |
 | 言語 | TypeScript (ESM) |
-| ランタイム | Node.js 18+ |
+| ランタイム | Node.js 20+ |
 | DB バックエンド | PostgreSQL (本番) / SQLite via sql.js (OSS デフォルト、実装中) |
 | ライセンス | MIT |
 | 公開目標 | `v0.1.0-alpha` (2026-04-21 頃、3 週間で MVP) |

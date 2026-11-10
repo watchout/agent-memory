@@ -41,7 +41,7 @@ enforcement. The #148 requirements-positioning delta is a separate follow-up.
 |------|-------|
 | Product Name | **wasurezu** (旧 agent-memory) |
 | Tagline | "Your context window forgets. Your database doesn't." |
-| Tech Stack | TypeScript (ESM), Node.js 18+ |
+| Tech Stack | TypeScript (ESM), Node.js 20+ |
 | Storage | SQLite (sql.js, default) / PostgreSQL (pgvector, optional) |
 | Distribution | npm package + MCP server |
 | License | MIT |
@@ -284,7 +284,7 @@ Minimum acceptance gates for later evidence/live-enforcement cells:
 
 ### Runtime
 
-- Node.js 18+
+- Node.js 20+
 - npm / yarn / pnpm
 
 ### Dev dependencies

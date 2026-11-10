@@ -51,7 +51,7 @@ npm run build
 
 ### Requirements
 
-- Node.js 18+
+- Node.js 20+
 - Optional: PostgreSQL 14+ with pgvector (for PG backend testing)
 
 ## Pull Request Process
