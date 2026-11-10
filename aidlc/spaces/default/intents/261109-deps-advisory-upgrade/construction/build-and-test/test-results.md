@@ -33,12 +33,12 @@
 | T11 | `HOME=$(mktemp -d) npx tsx tests/gate0/migration-idempotency.ts` | 0 | 16 passed, 0 failed |
 | T11 | `HOME=$(mktemp -d) npx tsx tests/gate0/search-memory-regression.ts` | 0 | 12 passed, 0 failed |
 
-- 合わせて: 命令 15（作り 3 と試験 12）がすべて 0。数の出る試験は 2375 passed、0 failed（T4・T7・T8・T9・T11）、skip は無い。作る段の版上げの前と後の結果と同じ。
+- 合わせて: 命令 15（作り 3 と試験 12）がすべて 0。数の出る試験は 2175 passed、0 failed（T4 の 1832・T7 の 24・T8 の 206・T9 の 28・T11 の 57・16・12 の和）、skip は無い（独立の監査の 1 回目の指摘 OBS-1 で、前に書いた 2375 は足し算の誤りと分かり直した）。作る段の版上げの前と後の結果と同じ。
 - PR の CI（必須の build-and-test、Node 18・20・22）: head `2ece55ee`・`93b7f580`・`baef7ecf` で 3 つとも success。
 
 ## 網羅率
 
-- 作る段で、Node に組み込みの網羅率で測った: 82.65%（読み込まれた 55 / 68 file、28277 行のうち 23372 行）、66.88%（`src/` の試験でないプログラム全体、34945 行のうち 23372 行）。この段では測り直していない（package.json・package-lock.json・プログラムは作る段の測りの後に変わっていない）。
+- 作る段で、Node に組み込みの網羅率で測った: 82.65%（読み込まれた 55 / 68 file、28277 行のうち 23372 行）、66.88%（`src/` の試験でないプログラム全体、34945 行のうち 23372 行）。この段では測り直していない（package.json・package-lock.json・プログラムは作る段の測りの後に変わっていない）。測ったのは Node v26.12.1 で、Node に組み込みの網羅率は Node の版ごとに数え方が少し違いうるので、ほかの Node の版で測ると値が少しずれうる。
 - 目標の 100% に届かない（Not Met）。
 
 ## 安全の確かめ
@@ -56,7 +56,7 @@
 
 | Target ID | Actual | Verdict |
 |-----------|--------|---------|
-| TC-SUITE | 15 の命令がすべて 0、2375 passed・0 failed、CI の必須の 3 つ success | Met |
+| TC-SUITE | 15 の命令がすべて 0、2175 passed・0 failed、CI の必須の 3 つ success | Met |
 | TC-COV | 82.65% / 66.88% | Not Met |
 | TC-REG | 退行の試験は足していない（Owner の決定、FR4.4） | Not Met |
 | TC-STRAT | 新しい試験の file は無い（Owner の答え Q6 = A） | Not Met |
