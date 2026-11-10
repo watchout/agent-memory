@@ -1,33 +1,36 @@
-# 事業の概要 — Kusabi（agent-memory）
+# 業務の概要 — Kusabi（agent-memory、package 名 wasurezu）
 
-## 事業の領域と目的
+読んだ時点: 2026-11-10、commit a4a4d1ea5049d86142c4d065c3b42ce232c99f6b（branch kusabi/deps-advisory-upgrade-339）。読んだ範囲は reverse-engineering-timestamp.md を参照。
 
-Kusabi（パッケージ名 wasurezu、リポジトリ名 agent-memory）は、AI のエージェント（席）に、会話の圧縮・中断・再起動を越えて残る記憶を渡す MCP サーバーである。合言葉は「Your context window forgets. Your database doesn't.」（CLAUDE.md）。
+## 何のための物か
 
-- 席が決めたこと・作業の途中の状態・学んだことを DB に残し、次に起動した席が続きから仕事を始められるようにする
-- 社内（IYASAKA）の開発の席で動いている。外への公開（MIT のライセンス）も目標にある
-- 版は 0.3.0（package.json）
+自社の席（Claude Code・Codex・Gemini CLI・Antigravity CLI の上で動く AI）が、会話が切れても（落ちる・文脈の圧縮・会話の作り直し）、DB に残した記録から続きを取り戻すための記憶の道具。
+
+- MCP サーバーとして、席が自分で記録を書いて読む道具を出す（17 個。一覧は api-documentation.md）。
+- 各 CLI の hook として、会話の記録を DB に取り込み、会話の始まりに回復の文を最初の文脈へ差し込む。
+- 記憶の持ち主は席（`agent_id`）。案件（`project`）ごとに区切る。
 
 ## 主な働き
 
-| 働き | 中身 | 入口 |
-|------|------|------|
-| 決定の記録 | 決めたことを残し、古い決定を新しい決定で置き換える | log_decision・get_decisions・supersede_decision |
-| 作業の状態 | 進めている作業の状態を保存する（同じ作業の名前なら上書き） | save_task_state |
-| 知識 | 事実・型・学びを残し、置き換え・保管に回す | save_knowledge・get_knowledge・supersede_knowledge・update_knowledge_status |
-| 回復 | 起動した席に、今の作業・有効な決定・知識・最近の会話をまとめて返す | recover_context・restart_pack・restart_prepare・restart_pack_fetch |
-| 検索と読み出し | 記録と会話を探し、会話の一部を読み出す | search_memory・read_memory_source |
-| 会話の取り込み | 席の道具（Claude Code・Codex など）が手元に残す会話の記録を、伏せ字の処理をして取り込む | ingest_conversation_events・catch_up |
-| 起動の口 | 席の種類ごとに、起動の時に回復の内容を最初の文脈へ差し込む | 起動の hook のコマンド群 |
+| 働き | 中身 | 主な部品（component-inventory.md の見出し） |
+|---|---|---|
+| 記録を書く・読む | 決定・作業の状態・知識を席が MCP の道具で書き、探し、読み戻す | MCP サーバー |
+| 会話を取り込む | 各回の応答の終わり（Stop）と入力の時（UserPromptSubmit）に、手元の transcript を読み、隠れた推論と system・developer の指示を外し、秘匿処理をして DB に書く | 会話の記録の取り込み（Claude Code・Codex） |
+| 会話の始まりに戻す | 起動・再開・作り直し（clear）・圧縮（compact）の時に、DB から回復の束（restart pack）を作り、最初の文脈に差し込む | 起動時の回復の口（Claude Code・Codex） |
+| 作り直しを準備する | 文脈の使用率と回復の確かさから「作り直しを勧めるか」を決め、次の会話で 1 回だけ使う回復の束を DB に置く | 再起動の準備と判定 |
+| 新しい会話を立ち上げる | 新しい Claude Code・Codex の process を起こし、置いた束を渡す。今の会話は止めない | 新しい会話の起動 |
+| 運用を見る | 複数の席への展開・状態の表示・一部の席での試し | 運用の観測と展開 |
 
-道具の一覧の詳細は api-documentation.md、部品ごとの受け持ちは component-inventory.md を参照。
+## 今回の取り組み（会話の切り直し）との関係
 
-## 使う人と使われ方
+Owner の言葉: 「会話の切り直し（一定量で会話を切り、Kusabi の記録で同じ席が続きから動く）だけの小さな取り組み。最小の版を Claude Code と Codex の両方で動く形で作り、大きな取り組み（facility-ax-memory）の U3 を作る時に取り込む。」
 
-- **席（主な使い手）**: Claude Code・Codex・Gemini・Antigravity の席。席ごとに 1 つの MCP サーバーの process が動き、その process の環境変数で「誰の記憶か」（agent_id）と「どの案件か」（project）が決まる
-- **運用する人**: 展開・状態の表示・再起動のコマンドを使う（package.json の bin）
-- **連携する製品**: AUN（agent-comms）。同じ DB に AUN の表があれば回復の時に最近のメッセージも読む。無くても動く（CLAUDE.md「独立性の原則」）
+- 既にある物: 起動の hook は `clear`・`compact` の時も動く。各回の会話は Stop の hook で DB に入る。使用率の帯の判定と、Codex の使用量の読み取りの関数がある。新しい会話の launcher がある。
+- 足りない物: 「一定量」を測って、切り直しを起こし、同じ席が続きから動いたと確かめる、本番の経路のつなぎ。詳しくは architecture.md の「改善の機会」と、受け渡しの scan の Handoff Summary。
 
-## 今回の取り組みから見た位置づけ
+## 利用者と境界
 
-今回の取り組み（施設向けの管理の AX システムの記憶を自社か顧客の DB の中で保ち、どの席も続きから再開できる）に対して、今の版は「同じ役割の席が、種類を替えても自分の記憶を続きから読める」所までを持つ。別の役割の席への引き継ぎ・顧客ごとの区切り・外への送り出しを止めることは、まだ形になっていない。詳しくは architecture.md の「改善の余地」と code-quality-assessment.md の「技術的な負債」を参照。
+- 利用者: 自社の席（`agent_id` で区別）と、席を動かす人（Owner）。
+- AUN（席の起動と待ち行列を持つ別の製品）が席を持つ時、Kusabi は再起動も待ち行列の操作もしない（docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md §5）。
+- 単独で会話を作り直してよいのは、AUN が無いと確かめた・対応する hook か監督がある・事前に許された、の 3 つがそろう時だけ（同 §6、src/restart-prepare.ts の `autoRestartBlockersFor`）。
+- DB の作り・展開・workflow・資格情報は Owner の決定が要る保護面。

@@ -1,50 +1,47 @@
 # コードの質の見立て — Kusabi（agent-memory）
 
-## 試験
+試験・CI・検査・技術の負債はここが持ち主。今回は試験も build も動かしていない（コードを読んだだけ）。
 
-- **置き場**: src/test*.ts（約 36 ファイル。最大は src/test.ts の 5,410 行）、tests/gate0/（3 ファイル）、tests/spec-enforcement/（1 ファイル）
-- **枠組み**: 専用の試験の枠組みは使わず、tsx で直接動かす自前のスクリプト（package.json の test・test:* の命令）
-- **MCP の試験**: `src/test.ts`・`src/test-memory-source.ts`・`src/test-recovery-context.ts`・`src/test-recovery-scope.ts` は、MCP SDK の client（`Client`・`StdioClientTransport`）で `dist/index.js` を起動し、道具を呼んで確かめる。SDK の版を上げると、この試験が server と client の両方の側の変化を確かめる
-- **網羅率**: 測っていない（設定が無い）
-- **PostgreSQL**: `npm run test:pg` はあるが、CI では回していない
-- 今回は試験を動かしていないので、通るかどうかは確かめていない
+## 1. 試験
 
-## 静的検査と書式
+- 形: 自前の tsx の script。`src/test.ts`（5,410 行、自前の `assert`）と、`src/test-*.ts`（38）、`tests/gate0/*`（3）、`tests/spec-enforcement/*`（1）。試験の枠組み（Jest・Vitest など）は使っていない。
+- CI で回る物（.github/workflows/ci.yml、Node 18・20・22）: 型検査、build、`src/test.ts`、`test:codex-hook`・`test:claude-hook`・`test:gemini-hook`（各 session-start と installer）、Gemini の取り込み、`test:automatic-receive`、公開の版づくり、direct rollout、spec-enforcement、`test-sqlite.ts`、`test-boot-recovery.ts`、`test-post-tool-hook.ts`、gate0 の 3 本。
+- CI で回らない物のうち、会話の切り直しに関わる物:
+  - `src/test-transcript-stop-capture.ts`（`npm test` には入るが CI には無い）
+  - `src/test-kusabi-checkpoint-recovery.ts`・`src/test-kusabi-fresh-session-fleet.ts`（npm の script にも CI にも名前が無い）
+  - ほかに名前がどこにも無い物: `test-kusabi-continuity-interruption-e2e.ts`・`test-kusabi-one-seat-canary.ts`・`test-kusabi-partitions.ts`・`test-kusabi-runtime-identity.ts`
+- 文脈の量の判定・Codex の測り・Claude Code の marker・作り直しの command の確かめ・`prepareRestart` は `src/test.ts` の中で試験されている（CI で回る）。
+- PostgreSQL の試験（`src/test-pg.ts`）は CI に無く、手元で回す（team.md の決まりどおり）。
 
-- 書式・静的検査（ESLint・Prettier など）の設定ファイルは無い
-- 型検査は `tsc --noEmit`（CI）。strict の設定
+## 2. 網羅率
 
-## CI
+- 行の網羅率を測る道具が入っていない（c8・nyc などが package.json に無い）。team.md の床（行の網羅率 100%、CI で確かめる）を今の CI では測れない。道具を足すのは新しい外の依存で、CI を変えるのは保護面なので、どちらも Owner の決定が要る。
 
-- .github/workflows/ci.yml: Node 18・20・22 で型検査・ビルド・試験
-- .github/workflows/shirube-rapid-lite-gates-report.yml: Shirube の門の報告
+## 3. 検査と CI
 
-## 文書
+- 型検査: `tsc --noEmit`（strict）。書式・静的検査の道具は無い（team.md の決まり）。
+- CI: `ci.yml`（build と試験）と `shirube-rapid-lite-gates-report.yml`（PR の門。信頼する base の道具を digest で確かめてから動かす）。
+- Node の版: `engines` は 20 以上、CI は 18 も回す（technology-stack.md）。
 
-- README・CONTRIBUTING・SECURITY・CHANGELOG・LICENSE がある
-- 設計の正本は docs/design/core/ の SSOT-2〜7。席の身元と記憶の境目は SSOT-7 が受け持つ
-- CLAUDE.md は「SSOT-* が今の正本」と書く。docs/strategy/ の旧い計画は今の実装と食い違う
+## 4. 見立て（良・並・弱）
 
-## 技術的な負債
+| 観点 | 見立て | 根拠 |
+|---|---|---|
+| 名前の分かりやすさ | 良 | 機能の接頭辞と、型の付いた理由の名前（`RECOVERY_TIMEOUT` など） |
+| 関数の大きさ | 並 | 入口の CLI は大きい関数が多い（src/index.ts の 1 つの `main` に 17 の道具） |
+| 失敗の扱い | 良（hook）・並（MCP） | hook は理由つきの degraded を返す。MCP の道具は `${err}` をそのまま文にして返す |
+| 試験の有無 | 並 | 回復の核は試験あり。会話の切り直しに要る Stop の取り込みと継続の印は CI の外 |
+| 重複 | 弱 | 4 つの installer の写し。閾値と確かさの重みが 2 か所（下の 5） |
+| 使われていない物 | 並 | 本番の呼び手が無い module が 3 つ（測りの 2 つと marker controller） |
 
-| 負債 | 場所 | 今回の取り組みへの関わり |
-|------|------|------------------------|
-| 記憶の文が Voyage AI に送られうる（鍵は AUN と共用の file からも読む） | src/stores/voyage.ts、src/stores/pg-store.ts 92・202 行目付近 | 「自社か顧客の DB の中で完結」と食い違う |
-| 別の役割の席への引き継ぎの表・道具が無い | SSOT-7 第 7 節 | 「どの席も続きから」の中心 |
-| 顧客の層が無い（「未実装、将来の固い境目」） | SSOT-7 第 2 節 | 顧客ごとの置き場所と読み書きできる者の一覧 |
-| 表を既定の場所に作る。共通基盤の登録との結びつきは計画中（#147） | src/stores/pg-migrations.ts、SSOT-7 第 6 節 | 共通基盤の DB に置く形 |
-| DB の作りの変更に戻す手順が無い。AM-023 の変更は重複を消し別の表に残す | src/stores/pg-migrations.ts | 戻せる形の決まり、今の記録の移し |
-| set_recovery_config が任意の agent_id の設定を書き換えられる | src/index.ts 666 行目付近 | 読み書きできる者の一覧の正しさ |
-| 汎用の DATABASE_URL を拾う | src/stores/index.ts | 置き場所の取り違え |
-| PostgreSQL に catch_up_log が無い（TODO AM-026 が 4 件） | src/stores/pg-store.ts 1235〜1257 行目 | 会話の取り込みの取りこぼしの拾い |
-| 回復の質の記録は件数と続けたかどうかの 2 値。「試験で取り出せる割合」は測らない | src/recovery-quality.ts | 成功の条件の測り方 |
-| 800 行を超えるファイルが 7 つ: kusabi-direct-fleet-rollout.ts 2,036、sqlite-store.ts 1,878、kusabi-fleet-rollout.ts 1,846、pg-store.ts 1,533、restart-pack.ts 1,255、codex-session-start.ts 1,056、index.ts 1,013 | src/ | 保存の層を直す時の手間 |
-| zod の宣言が無い | package.json | 版の変化で壊れうる |
-| 依存を範囲指定（`^`）で宣言し、宣言と lock の版が離れている（SDK ^1.12.1 と 1.28.0） | package.json・package-lock.json | 版上げの時に、直す先の版を固定して宣言する |
-| MCP SDK が使わない HTTP 系の部品（express・hono など）を本番の依存に連れてくる | package-lock.json | 本番の道のりで使わなくても勧告の対象になる |
-| 書式・静的検査が無い、網羅率を測らない、PostgreSQL の試験を CI で回さない | — | 新しい置き場所の試験の確かさ |
-| 会話の保存と取り直しの不具合が開いたまま | agent-memory#330 | 会話の取り込み（P8） |
+## 5. 技術の負債の印
 
-## まとめ
-
-型検査と CI の型・ビルドは整っている。一方、今回の取り組みの中心（外へ出さない・別の役割の席への引き継ぎ・顧客ごとの区切り・共通基盤の DB に置く形）は、今の版では形になっていない。PostgreSQL の試験が CI に無いので、新しい置き場所で動くことは手元の試験でしか確かめられない。
+- 800 行を超える試験でない file が 13（大きい順に src/kusabi-direct-fleet-rollout.ts 2,036、src/stores/sqlite-store.ts 1,878、src/kusabi-fleet-rollout.ts 1,846、src/stores/pg-store.ts 1,533、src/restart-pack.ts 1,255 ほか）。team.md は「7 つ」と書いているが、今の head で数えると 13。
+- 知識の重複（標準 S3）: 使用率の帯の閾値（src/restart-prepare.ts:386-389 と src/context-window-resolution.ts:45 の `BAND_THRESHOLDS`）、確かさの重みと境（src/restart-pack.ts:739・743 と src/restart-prepare.ts:239・353）。
+- 時計を核で読む（標準 S4）: src/restart-prepare.ts:164、src/recovery-context.ts:62、src/restart-pack.ts:247（引数が無い時）。
+- 環境に固定した値: 作業者の home の下の絶対 path が src/claude-start.ts:239・279、src/codex-start.ts:107、src/kusabi-fresh-session-fleet.ts（12 席の表）、scripts/post-tool-hook.sh ほかにある。Codex の MCP の束縛は特定の席と DB の URL の digest を定数で持つ（src/codex-start.ts）。
+- 資格情報が process の引数に出うる: src/codex-start.ts:516 は MCP の `DATABASE_URL` を `-c` の引数で codex に渡す。`--launch` は回復の束を引数で渡す（説明の文で既知の危険として明記）。
+- 取り込みの重さ: 1 行ごとに `getRawEvents`（1,000 件まで）と書き込み 2 回（src/claude-conversation-ingest.ts:201-212、src/codex-conversation-ingest.ts:259-270）。Stop の hook は末尾 4 MiB を 9 秒の期限で扱う。
+- TODO: src/stores/pg-store.ts の 4 か所（AM-026、PostgreSQL の `catch_up_log`）。
+- 表の変更に「戻す手順」が無い（src/stores/pg-migrations.ts は足すだけ。標準 S6）。
+- scripts/codex-memory-start.sh の既定は sandbox `danger-full-access`・承認 `never`。

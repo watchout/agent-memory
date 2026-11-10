@@ -120,6 +120,17 @@ Wasurezu supplies:
 Wasurezu must not independently restart an AUN-supervised runtime or mutate AUN
 queue lifecycle.
 
+Session rotation watcher (261110-session-rotation, FR5): the watcher that types
+`/clear` (Claude Code) or `/new` (Codex) into a seat's terminal is a separate,
+LLM-free script, not part of the Wasurezu MCP server or hooks. It runs only on
+seats installed by an Owner decision after an arc-sec check. On a seat marked
+AUN-supervised it does nothing unless that seat's watcher config carries an
+Owner decision reference (control_source URL and body SHA-256), and even then it
+never touches AUN queue lifecycle (claim, requeue, finalize, close). The
+Wasurezu MCP server and hooks themselves still never cut a conversation or type
+into a terminal: they measure, save the handoff, emit the safe-to-cut marker,
+and inject the continuation at the next SessionStart.
+
 ---
 
 ## 6. Standalone Boundary
@@ -132,6 +143,18 @@ In Wasurezu standalone mode, local session refresh or restart may run only when:
 
 Pure MCP mode may prepare packs, warn, and recommend. It must not claim it can
 force host restart.
+
+For the session rotation watcher, the three conditions map as follows:
+
+- AUN absence is explicitly confirmed: the seat's watcher config is not marked
+  AUN-supervised, or it carries the Owner decision reference required by §5
+- a supported supervisor or host hook is installed: the rotation watcher plus
+  the Wasurezu Stop and SessionStart hooks on that seat
+- pre-authorized at install time: the Owner decision that installs the watcher
+  on that seat, taken after the arc-sec check
+
+The watcher's design record is
+`aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/watcher-design.md`.
 
 ---
 

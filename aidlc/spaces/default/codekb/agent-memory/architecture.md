@@ -1,153 +1,144 @@
 # 作りの全体 — Kusabi（agent-memory）
 
+部品ごとの受け持ちは component-inventory.md、口の形は api-documentation.md、ファイルの置き場は code-structure.md を参照。ここでは部品のつながりと流れだけを書く。
+
 ## Architecture Analysis
 
 ### System Overview
 
-席ごとに 1 つ動く MCP サーバー（stdio）である。サーバーは起動の時に保存の層を 1 つ選び、17 個の道具を席に出す。席の種類ごとの起動の口（hook）が、席の起動の時に同じ保存の層から回復の内容を読み、席の最初の文脈に差し込む。
+1 つの Node.js の package（TypeScript ESM）。中身は次の 2 種類で、どちらも同じ Store の interface を通して同じ DB を読み書きする。
 
-- 誰の記憶か（agent_id）と案件（project）は、process の環境変数 `AGENT_MEMORY_AGENT_ID`・`AGENT_MEMORY_PROJECT` で決まる（src/index.ts）。道具の呼び手は agent_id を渡せない。例外は set_recovery_config で、agent_id を引数で受ける（src/index.ts 666 行目付近）
-- 記憶の境目は「agent_id ＋ 案件（任意）」（docs/design/core/SSOT-7_RUNTIME_AGENT_BINDING.md 第 3 節）
+- 常駐する物: MCP サーバー 1 つ（stdio、src/index.ts）。席の CLI が子 process として起こす。
+- 短命な物: hook・launcher・運用の道具の CLI（package.json の bin に 19 個）。呼ばれるたびに DB を開き、仕事をして、閉じる（例: src/claude-session-start.ts の `loadClaudeRecoveryFromStore` は `createStore` → 仕事 → `store.close()`）。
+
+DB は環境で選ぶ: PostgreSQL（社内の本番）・SQLite（sql.js、OSS の既定）・JSON ファイル（src/stores/index.ts の `createStore`）。PostgreSQL の URL がある時に接続できなければ SQLite に逃げずに止まる。
 
 ### Architectural Style
 
-単一の process・単一のパッケージの作り（モノリス）。保存の層は差し替えの口（Store の interface、src/stores/types.ts 499 行目）の後ろに 3 つの実装を持つ。
-
-| 実装 | 選ばれる条件（src/stores/index.ts） | 置き場所 |
-|------|--------------------------------------|----------|
-| SQLite（sql.js） | PostgreSQL の URL が無い時の既定 | `~/.agent-memory/memory.db`（`AGENT_MEMORY_DB_PATH` で変更） |
-| PostgreSQL（pg） | `AGENT_MEMORY_DATABASE_URL` か `DATABASE_URL` が postgres で始まる | その URL の DB。つながらない時は SQLite に逃げず止まる |
-| JSON | `AGENT_MEMORY_DB_TYPE=json` の時だけ（試験用） | `~/.agent-memory/` |
+単一の package の中の、機能ごとに平らに並んだ module（src/ の直下に機能名の接頭辞つきで並ぶ）。層は「入口の CLI・MCP の道具」→「回復・取り込み・準備の処理」→「Store」の 3 段。サービスの分割や常駐の supervisor は無い。席の CLI（Claude Code・Codex など）が持つ hook の仕組みに乗る形。
 
 ### Component Relationships
 
 ```mermaid
 flowchart LR
-  Seat[席の道具<br/>Claude Code・Codex・Gemini・Antigravity]
-  Hook[起動の口]
-  Mcp[MCP サーバー]
-  Rec[回復]
-  Src[記録の読み出し]
-  Ingest[会話の取り込み]
-  Red[秘匿処理]
-  Part[区画の登録]
-  Ident[席の実行の身元]
-  Store[保存の層]
-  Emb[意味検索]
-  Voy[(Voyage AI)]
-  Db[(SQLite または PostgreSQL)]
-  Aun[(AUN の agent_messages 表)]
-  Ops[運用の観測と展開]
-
-  Seat -->|stdio の道具の呼び出し| Mcp
-  Seat -->|起動の時| Hook
-  Hook --> Rec
-  Mcp --> Rec
-  Mcp --> Src
-  Mcp --> Ingest
-  Ingest --> Red
-  Mcp --> Store
-  Rec --> Store
-  Src --> Store
-  Ingest --> Store
-  Part --> Store
-  Ident --> Hook
-  Store --> Db
-  Store -->|PostgreSQL の時| Emb
-  Emb -->|鍵がある時| Voy
-  Store -.->|同じ DB にあれば読む| Aun
-  Ops --> Store
+  subgraph Host["席の CLI（Claude Code・Codex）"]
+    SS["SessionStart hook"]
+    ST["Stop と UserPromptSubmit の hook"]
+    MC["MCP client"]
+  end
+  subgraph Kusabi["Kusabi（wasurezu）"]
+    SSA["起動時の回復の口"]
+    CAP["会話の記録の取り込み"]
+    MCP["MCP サーバー"]
+    PACK["回復の文と束"]
+    PREP["再起動の準備と判定"]
+    MEAS["文脈の量の測定"]
+    LAUNCH["新しい会話の起動"]
+    INST["hook の設置"]
+    STORE["保存の層"]
+  end
+  DB[("DB: PostgreSQL / SQLite / JSON")]
+  SS --> SSA
+  ST --> CAP
+  MC --> MCP
+  SSA --> CAP
+  SSA --> PACK
+  MCP --> PACK
+  MCP --> PREP
+  MCP --> CAP
+  PREP --> PACK
+  LAUNCH --> PREP
+  LAUNCH --> PACK
+  PACK --> STORE
+  CAP --> STORE
+  PREP --> STORE
+  STORE --> DB
+  INST -.->|設定の file を書く| Host
+  MEAS -.->|本番の呼び手なし| PREP
 ```
 
-文字での説明: 席の道具は MCP サーバーの道具を stdio で呼び、起動の時は起動の口を通る。MCP サーバー・起動の口・回復・記録の読み出し・会話の取り込み・区画の登録・運用の観測と展開は、すべて保存の層を通して SQLite か PostgreSQL を読み書きする。会話の取り込みは保存の前に秘匿処理を通す。席の実行の身元は起動の口が使う。PostgreSQL の時だけ、保存の層は意味検索を通して Voyage AI に文を送り、埋め込みを作る（鍵がある時）。同じ DB に AUN の agent_messages 表があれば、保存の層はそれを読む。
+文の代わり: 席の CLI の SessionStart hook は「起動時の回復の口」を、Stop と UserPromptSubmit の hook は「会話の記録の取り込み」を、MCP client は「MCP サーバー」を呼ぶ。起動時の回復の口は、その会話の transcript を取り込んでから「回復の文と束」を作る。MCP サーバーは回復・準備・取り込みを呼ぶ。「再起動の準備と判定」は回復の束を作って DB に置き、「新しい会話の起動」がそれを使う。取り込み・回復・準備は「保存の層」を通して DB に届く。「hook の設置」は席の CLI の設定の file を書く。「文脈の量の測定」は試験からだけ呼ばれ、本番の経路にはまだつながっていない。
 
 ### Data Flow
 
-1. 書く: 席が道具を呼ぶ → zod で入力を確かめる → 保存の層が process の agent_id を付けて表に書く → PostgreSQL の時は、決定・作業の状態・知識の文を Voyage AI に送って埋め込み（512 次元）を同じ行に書く
-2. 回復する: 起動の口か recover_context → その agent_id の回復の設定を読む（無ければ既定値）→ 進行中と完了の作業・有効な決定・知識・最近の会話・（あれば）AUN のメッセージを集める → 文にまとめて返す → 回復の質の記録（recovery_quality_log）に何件返したかを書く
-3. 起動の時の掃除: Claude Code の起動の口（src/boot.ts）は、7 日より古い進行中の作業を期限切れにする
-4. 取り込む: 手元の会話の記録（JSONL）を読み、伏せ字の処理をして conversation_events・raw_events に書く
-
-表の一覧は component-inventory.md の「保存の層」、道具ごとの読み書きは api-documentation.md を参照。
+1. 席が書く: 席 → MCP の道具（`log_decision`・`save_task_state`・`save_knowledge` など）→ Store → `decisions`・`task_states`・`knowledge`。
+2. 会話が入る: 各回の応答の終わり（Stop）と入力の時（UserPromptSubmit）に、src/transcript-stop-capture.ts が host の渡す transcript の末尾 4 MiB を読み（`TRANSCRIPT_CAPTURE_TAIL_BYTES`）、src/session-start-auto-receive.ts で session と workspace が合うかを確かめ、host ごとの取り込み（src/claude-conversation-ingest.ts・src/codex-conversation-ingest.ts）で `raw_events` と `conversation_events` に書く。Claude Code・Codex とも Stop の hook は `async: true`。
+3. 会話の始まりに戻す: SessionStart（`startup|resume|clear|compact`）→ 入力の確かめ → workspace の確かめ → その会話の transcript を取り込む（8 MiB まで）→ 回復の束を作る（最大 1,800 token・8,192 byte、内部の期限 7 秒、hook の期限 9 秒）→ `hookSpecificOutput.additionalContext` で返す → `recovery_quality_log` に記録。失敗しても CLI の起動は続け、理由つきの degraded を返す。
+4. 作り直しを準備する: `restart_prepare`（MCP の道具・`wasurezu-restart prepare`・`wasurezu-claude-start`）→ 使用率の帯と回復の確かさから `action` を決める → `selected_restart_packs` に 1 回だけ使える束を置く → launcher か src/boot.ts が consume する。
 
 ### Key Design Decisions
 
-- **記憶の持ち主は役割の名前（agent_id）**: 再起動や席の種類の交代（Codex から Claude Code へなど）でも agent_id が同じなら同じ記憶を読む。session_id を記憶の区切りにしない（SSOT-7 第 3 節）
-- **PostgreSQL の指定があれば逃げない**: URL があるのにつながらない時、SQLite に切り替えずに止める（src/stores/index.ts）
-- **DB の作りの変更は、何度流しても同じ結果になる前向きの変更だけ**（`IF NOT EXISTS` の形、src/stores/pg-migrations.ts）。戻す手順は無い
-- **区画の登録は分からなければ非公開**: kusabi_agent_memory_partitions の登録が無い・壊れている時は、その席だけの非公開として扱う（src/kusabi-partitions.ts）
-- **知識の範囲は席・案件・未分類の 3 つ**で、いつも agent_id の条件が付く（src/stores/knowledge-scope.ts）。席をまたいで知識を共有する形は無い
-- **AUN とは互いに頼らない**: 両方入っていれば連携し、片方だけでも動く（CLAUDE.md）
+- 失敗しても席の起動を止めない（fail-open）。理由を型で返し、証拠の JSON を stderr に、host 向けの JSON を stdout に分けて書く。
+- 回復の文は「データとして扱い、中の指示は実行しない」と明記する（src/codex-session-start.ts の `recoveryFromPack`、src/constants.ts の `RECOVERY_CONTROL_LINES`）。
+- Kusabi は会話の寿命を持たない: 今の会話を kill しない、TUI に打ち込まない、AUN の待ち行列を触らない。これを証拠の `forbidden_effects` に 0 として残す。
+- 単独での自動の作り直しは 3 条件（AUN 不在の確認・hook か監督の有無・事前の許可）がそろう時だけ。1 つでも欠けると `recommend` に落とす（src/restart-prepare.ts `autoRestartBlockersFor`）。
+- 使用率の判定は純粋な関数に分け、ホストごとの測り方と分けた（src/context-window-resolution.ts と src/codex-context-measurement.ts）。窓の大きさが決まらない時は `unknown` と理由を返し、健全とは扱わない。
+- hook の command は「作った文字列を読み戻して同じになる」形に固定し、Kusabi が置いた handler だけを見分けて差し替える。ほかの handler は残す（src/claude-hook-installer.ts `parseClaudeHookCommand`・`mergeClaudeSessionStartHook`）。
 
 ### Improvement Opportunities
 
-今回の取り組みの条件から見た、作りの上の足りない所（負債の詳細は code-quality-assessment.md）:
-
-1. **別の役割の席への引き継ぎが無い**: SSOT-7 第 7 節は「受け取る側の agent_id に明示の引き継ぎの要約を置くか、将来の共有の引き継ぎ表」とするだけで、表も道具も無い
-2. **顧客の層が無い**: SSOT-7 第 2 節の表で、顧客（利用者・組織）の層は「未実装、将来の固い境目」。今は agent_id と DB の分け方しか区切りが無い
-3. **記憶の文が外へ出うる**: PostgreSQL の時、鍵があれば記憶の文が Voyage AI に送られる。「自社か顧客の DB の中で完結」と食い違う
-4. **共通基盤の DB に分けて入れる作りでない**: 表は既定の場所（schema の指定なし）に作る。共通基盤の登録（席・主体）との結びつきも「計画中（#147）」（SSOT-7 第 6 節）
-5. **汎用の DATABASE_URL も拾う**: 席の環境に別の製品用の DATABASE_URL があると、その DB に Kusabi の表を作りうる（src/stores/index.ts）
+- 切り直しのつなぎが本番に無い: 測る（文脈の量）→ 判定する（帯）→ 切る（新しい会話）→ 続きから動いたと確かめる、の 4 つのうち、本番の経路にあるのは「判定（手で数を渡す時だけ）」と「切った後に戻す」だけ。測りの 2 module と src/claude-marker-controller.ts は src/test.ts からしか呼ばれない。Claude Code の使用量の読み取りは repo に無い（src/codex-context-measurement.ts の説明に式があるだけ）。
+- 帯の閾値が 2 か所に literal で書かれている（src/restart-prepare.ts の `contextSignalFor` と src/context-window-resolution.ts の `BAND_THRESHOLDS`）。確かさの重みと `0.8`・`0.55` の境も 2 か所（src/restart-pack.ts と src/restart-prepare.ts）。標準 S3 の「知識の重複」に当たる。
+- 起動の口が 2 本ある: hook の installer が置く src/claude-session-start.ts と、旧来の src/boot.ts。準備した束（selected pack）を consume するのは boot.ts だけで、Claude Code と Codex の native の口は毎回 DB から新しく束を作る。
+- 4 つの hook の installer（Claude Code・Codex・Gemini・Antigravity）がほぼ同じ形の写し。標準 S2（3 例目で抽象化）の候補。
+- 核の処理が時計を自分で読む（src/restart-prepare.ts:164、src/recovery-context.ts:62）。標準 S4 では呼び手が渡す。
 
 ## Interaction Diagrams
 
-### 席の起動と回復（Claude Code の起動の口）
+### 1. Claude Code の `/clear` での作り直し（今ある部品で起きること）
 
 ```mermaid
 sequenceDiagram
-  participant Seat as 席の道具
-  participant Boot as 起動の口（src/boot.ts）
-  participant Store as 保存の層
-  participant Db as DB
-  Seat->>Boot: 起動の時に hook を呼ぶ
-  Boot->>Store: createStore（環境変数で実装を選ぶ）
-  Store->>Db: つなぐ（PostgreSQL の指定があり失敗なら止まる）
-  Boot->>Store: 7 日より古い進行中の作業を期限切れにする
-  Boot->>Store: 回復の内容を集める（agent_id・project）
-  Store->>Db: 作業・決定・知識・会話を読む
-  Store-->>Boot: 集めた記録
-  Boot-->>Seat: 最初の文脈に回復の文を差し込む
+  participant P as 席（Claude Code）
+  participant ST as Stop hook（transcript-stop-capture）
+  participant SS as SessionStart hook（claude-session-start）
+  participant DB as Kusabi の DB
+  P->>ST: 1 回の応答が終わる（async で起動）
+  ST->>DB: transcript の末尾を取り込む
+  P->>SS: /clear の後、新しい session_id と source=clear
+  SS->>DB: 新しい会話の transcript を取り込もうとする
+  SS->>DB: 回復の束のための記録を読む
+  SS-->>P: additionalContext（最大 1,800 token）
+  SS->>DB: recovery_quality_log に記録（届いたかは未確認のまま）
 ```
 
-文字での説明: 席の道具が起動の時に起動の口を呼ぶ。起動の口は環境変数で保存の層を選んで DB につなぎ（PostgreSQL の指定があってつながらなければ止まる）、7 日より古い進行中の作業を期限切れにしてから、その席の agent_id と案件の作業・決定・知識・会話を読み、回復の文として席の最初の文脈に差し込む。
+文の代わり: 応答が終わるたびに Stop の hook が非同期で transcript の末尾を DB に入れる。`/clear` で新しい会話が始まると SessionStart の hook が source=clear で呼ばれ、新しい会話の transcript（多くは空）を取り込もうとしてから、DB の記録で回復の束を作って返す。最後の応答の取り込み（非同期）と新しい会話の束づくりの、どちらが先かは決まっていない（コードからの推測で、動かして確かめてはいない）。
 
-### 決定を記録する（PostgreSQL の時）
+### 2. Codex の新しい会話（準備した束を使う launcher）
 
 ```mermaid
 sequenceDiagram
-  participant Seat as 席
-  participant Mcp as MCP サーバー
-  participant Store as 保存の層（PostgreSQL）
-  participant Voy as Voyage AI
-  participant Db as DB
-  Seat->>Mcp: log_decision（決定の文・理由）
-  Mcp->>Mcp: zod で入力を確かめ、process の agent_id を付ける
-  Mcp->>Store: logDecision
-  Store->>Db: decisions に 1 行書く
-  Store->>Voy: 決定の文を送り埋め込みを頼む（鍵があり、止める設定が無い時）
-  Voy-->>Store: 512 次元の埋め込み
-  Store->>Db: 同じ行に埋め込みを書く
-  Mcp-->>Seat: 記録した決定
+  participant O as 動かす人か監督
+  participant R as wasurezu-restart prepare
+  participant DB as Kusabi の DB
+  participant L as wasurezu-codex-start --fresh-session
+  participant C as codex exec --json -
+  O->>R: 使用率・モードを渡す
+  R->>DB: selected_restart_packs に束を置く
+  R-->>O: action と pack_ref
+  O->>L: pack_ref を渡して起動
+  L->>DB: 束を consume（1 回だけ）
+  L->>C: 起動の文を stdin で渡す
+  C-->>O: JSON の出力（対話の画面ではない）
 ```
 
-文字での説明: 席が log_decision を呼ぶと、MCP サーバーは入力を確かめ、process の agent_id を付けて保存の層に渡す。PostgreSQL の保存の層は decisions に書き、Voyage AI の鍵があって止める設定（`AGENT_MEMORY_DISABLE_EMBEDDINGS=1`）が無ければ、決定の文を Voyage AI に送って埋め込みを作り、同じ行に書く。作業の状態と知識も同じ流れ。
+文の代わり: 準備の CLI が束を DB に置いて `pack_ref` を返す。launcher はその束を 1 回だけ取り出し、`codex exec --json -` に stdin で渡す。この経路は対話の画面を開かない。対話の画面で起こす `--launch` は、起動の文を引数（argv）で渡す。
 
-### recover_context と回復の質の記録
+### 3. Claude Code の新しい会話（準備した束を使う launcher）
 
 ```mermaid
 sequenceDiagram
-  participant Seat as 席
-  participant Mcp as MCP サーバー
-  participant Rec as 回復
-  participant Store as 保存の層
-  Seat->>Mcp: recover_context（project は任意）
-  Mcp->>Store: その agent_id の回復の設定を読む（無ければ既定値）
-  Mcp->>Rec: 回復の内容を集める（件数の上限つき）
-  Rec->>Store: 作業・決定・知識・会話・AUN のメッセージを読む
-  Rec-->>Mcp: 集めた記録
-  Mcp->>Store: 回復の質の記録に返した件数と量を書く
-  Mcp-->>Seat: 回復の文
-  Note over Mcp,Store: 10 分後に、その間の search_memory の回数を同じ記録に書き足す
+  participant O as 動かす人か監督
+  participant L as wasurezu-claude-start --fresh-session
+  participant C as claude（新しい process）
+  participant B as dist/boot.js（SessionStart）
+  participant DB as Kusabi の DB
+  O->>L: pack_ref を渡して起動
+  L->>DB: 束があるかを読む（consume しない）
+  L->>C: --settings で SessionStart に boot.js を付けて起動
+  C->>B: SessionStart（環境変数 AGENT_MEMORY_BOOT_MODE=restart_pack）
+  B->>DB: 束を consume（1 回だけ）
+  B-->>C: additionalContext
 ```
 
-文字での説明: 席が recover_context を呼ぶと、MCP サーバーはその agent_id の回復の設定（無ければ既定値）で件数の上限を決め、回復の部品が作業・決定・知識・会話・（あれば）AUN のメッセージを集める。返す前に、何をいくつ返したかを回復の質の記録に書き、10 分後にその間の search_memory の回数を書き足す。続きから仕事を続けたかどうかの印も、同じ記録に後から付く（src/recovery-quality.ts）。
+文の代わり: launcher は束の有無だけを確かめ、新しい `claude` を `--settings` 付きで起こす。その SessionStart で src/boot.ts が環境変数から `pack_ref` を受け取り、束を 1 回だけ取り出して返す。今の会話は止めない。

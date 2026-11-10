@@ -1,0 +1,43 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた版 v1（設計監査の項目）。実装監査の項目は、見張りの設計監査の PASS の後に同じ file に足す。監査席は作者と別の席（devauditor）。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合・席への据え付けの Owner の決定のどれも代替しない。",
+  "scope": "watchout/agent-memory の会話の切り直しの単位（AI-DLC の取り組み 261110-session-rotation、scope express、作業の単位なし）の、見張り（要件 FR5）の設計監査。要件 FR5.6 により、見張りだけを守る物に触れる部品として扱い、設計の記録だけの PR で設計監査を 1 回受け、PASS の後に見張りの code を書く。原典: [O1] Owner の決定 OD-KUSABI-ROTATION-WATCHER-AND-CLAUDE-AUTOCOMPACT-300K-20261110-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762423093 、本文の SHA-256 07dc55322e2911f8e8265440edea378f8cc05d25daaa14d32768c5ff45a74670。見張りもこの取り組みで作り、席に据える前に arc-sec の確かめと Owner の決定を受ける。条件「曖昧な点はかならずkusabiのDBを当たること」）、[O2] Owner の指示 OI-KUSABI-SESSION-ROTATION-BUILD-AND-APPLY-20261110-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6760833406 、本文の SHA-256 cfe92d0ba8198223c08e6d6fd4f5823f6af7cb64c3b13730cf5b9b3829f79fc1）、[O3] Owner の指示 OI-KUSABI-SESSION-ROTATION-SEAT-CONTINUES-20261110-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6760304985 、本文の SHA-256 ddd7ffe211c93e3407f3f857de18eed85fcc786e17e2d79e3bf1788502187eae）、[D] arc への Owner の委任 OD-SUITE-AIDLC-NON-PROTECTED-ANSWERS-DELEGATED-TO-ARC-20261110-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 、本文の SHA-256 59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609。要件の Q2〜Q4 と見直しの直しは arc の答え）、[R] 要件 aidlc/spaces/default/intents/261110-session-rotation/inception/requirements-analysis/requirements.md（FR1〜FR9、NFR1〜NFR7）、[W] 見張りの設計の記録 aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/watcher-design.md、[P] 計画と試験の手順 同じ folder の code-generation-plan.md・unit-test-instructions.md、[S] 設計の正本 docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md の §5・§6。対象 = 依頼の targets の head（base = main 17676d841257cc4ef194e14923cb0458b99cf62f）。この head にはプログラムの変更が無く、記録・設計の正本の §5・§6 の追記・codekb・この項目の file だけを変える。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762423093",
+    "sha256": "07dc55322e2911f8e8265440edea378f8cc05d25daaa14d32768c5ff45a74670"
+  },
+  "items": [
+    {
+      "id": "SRD-1",
+      "criterion": "範囲: base と head の差分（git diff --name-only <base>..<head>）が次に閉じるか。(a) src/・scripts/・tests/・.github/・.shirube/・.claude/・package.json・package-lock.json に差分が無い。(b) docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md の差分は §5 と §6 の末尾への追記だけで、既にある行を消していない。(c) ほかの変わる file は、この取り組みの記録（aidlc/spaces/default/intents/261110-session-rotation/ の inception/ と construction/code-generation/。audit/・.aidlc-engine/・aidlc-state.md は無い）、codekb の 9 file（aidlc/spaces/default/codekb/agent-memory/）、この項目の file（docs/audit/kusabi-session-rotation-261110.json）だけ。ほかの取り組みの file が無い。",
+      "basis": "[R] FR5.6・NFR5・制約。team.md の Way of Working（守る物に触れる単位は設計の記録だけで PR を先に出す。単位の PR に記録を入れ、audit/ と .aidlc-engine/ は入れない）。監査方法 §3 の範囲の確認。"
+    },
+    {
+      "id": "SRD-2",
+      "criterion": "要件との対応: [W] が [R] の FR5.1〜FR5.6 を満たすか。(a) LLM を使わない script で、印があり手すきの時にだけ、Claude Code は /clear、Codex は /new と決まった続きの 1 行を打つ（[W] §3）。(b) 打つ先は設定に明示した pane だけで、決まった文字列のほかは打たず、手すきを確かめられない時は打たず、1 つの印で 1 回だけ（[W] §2.3・§3.1・§4）。(c) 打った・打たなかったを理由と一緒に残し、秘密を残さない（[W] §5）。(d) 据え付けをこの PR に入れず、据える前に arc-sec の確かめと Owner の決定を受ける（[W] 冒頭、[O1] の決定 1）。(e) SSOT-6 §5・§6 を見張りの形に合わせて先に直している（[W] §8、[S]）。(f) 印と手番の file の形が、FR4（保存の後にだけ印）と FR6（次の会話の頭）に食い違わない。",
+      "basis": "[R] FR4.1・FR4.2・FR5.1〜FR5.6・FR6.1・FR6.2。[O1]。"
+    },
+    {
+      "id": "SRD-3",
+      "criterion": "安全: (a) 見張りは DB を読まず、DB の資格情報を持たない（標準 S9）。(b) tmux を引数の配列で起こし shell を通さず、打つ文字列に印や設定の値を混ぜない。(c) 証拠に画面の中身・会話の中身・秘密の値・環境変数を書かず、画面は SHA-256 だけを残す。(d) 設定の file の持ち主と権限（0600）を確かめ、他人が書ける時は起動しない。(e) AUN が持つ席では Owner の決定の参照が無ければ打たず、AUN の待ち行列に触れない（[W] §6、SSOT-6 §5）。(f) 人が入力の欄に書きかけている時に打たない（静けさの条件）。この 6 つが [W] に書かれ、穴（例: 別の pane に打てる、書きかけの入力に /clear が混ざる、秘密が log に出る）が無いか。",
+      "basis": "[W] §2・§3・§5・§6・§9。[R] NFR3。標準 S9。SSOT-6 §5。"
+    },
+    {
+      "id": "SRD-4",
+      "criterion": "止める条件と失敗: (a) 印・手番・画面を読めない・形が違う・digest が合わない時は「観測できず」として打たない（標準 S5）。(b) 打ちかけの途中の失敗で 2 回目を打たない。(c) Codex で新しい会話の開始を待ち切れない時は続きの 1 行を打たない。(d) loop は HALT の file で止まり、非進捗の上限で自分で HALT を書く（権限と待機の決まり R2）。(e) 回数の上限と印の有効期限がある。(f) 判定の核が時計・file・tmux を自分で読まない（標準 S4）。",
+      "basis": "[W] §3.1・§4・§5・§9。標準 S4・S5・S8。authority-and-waiting R2。"
+    },
+    {
+      "id": "SRD-5",
+      "criterion": "戻し方: 見張りを止める・席を外す・切った会話に戻る（前の session_id で resume）・切り直しそのものを席ごとに止める、の 4 つが書かれ、どれも DB の作りや席の設定を壊さずに元の動きへ戻せるか。席の hook の据え付けを変える戻し方は Owner の決定で行うと書かれているか。",
+      "basis": "[W] §7。[R] FR2.2・FR5.4。team.md の Deployment（失敗した束は設定を元に戻す）。"
+    },
+    {
+      "id": "SRD-6",
+      "criterion": "公開してよいか: この repo は公開。差分に、手元の path（利用者の home の下の絶対 path）・秘密の値・非公開の repo の中身の引用が無いか。非公開の repo（iyasaka-arc）は決定の記録の場所として URL と本文の SHA-256 で引くだけで、中身の原文の引用は Owner の言葉の短い抜き出しに限るか。",
+      "basis": "Owner の指示（PR #340 の時、この repo は公開なので非公開の情報を入れる前に確かめる）。[R] NFR3。"
+    }
+  ]
+}
