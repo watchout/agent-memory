@@ -41,7 +41,9 @@ const IDENTITY = {
   host_pid: 4242,
   host_started_at: "Wed Nov 11 10:00:00 2026",
 };
-const NOW = () => new Date("2026-11-11T10:05:00.000Z");
+// The JSON store compares a restart pack's expiry with the real clock, so the injected clock starts at the real time (fixed within one run).
+const NOW_BASE = Date.now();
+const NOW = () => new Date(NOW_BASE);
 
 const workspace = join(root, "workspace");
 mkdirSync(workspace, { recursive: true });
