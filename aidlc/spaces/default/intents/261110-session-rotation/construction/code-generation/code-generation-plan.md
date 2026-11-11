@@ -38,8 +38,14 @@
 ### Step 3b: 設計監査の 1 回目（BLOCK、F1〜F5）を受けた直し
 - [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6784177636 を `--review` で流した結果は BLOCKED。作者の受領として、その結果をそのまま PR に書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6784472221 ）。
 - [x] F5 の直し方は arc の答え（Owner の委任 #49 6762288830）の案B: 画面に打つのを `/clear`・`/new` の command だけにし、Codex の続きの 1 行は打たない。§9 は変えない。F1〜F4 は作者の判断で直す。
-- [ ] 見張りの設計の記録（版 2）・SSOT-6 §5・§6・要件 FR4.1・FR5.1〜FR5.3・FR6.2・FR9.2・監査の項目の file・この計画と試験の手順を直し、PR に足す（返却が来たので push してよい）。
-- [ ] CI が新しい head で終わるのを待ち、2 回目の `sds-audit-request/1` を同じ PR に出し、前検査を流す。返却が来るまで push しない。
+- [x] 見張りの設計の記録（版 2）・SSOT-6 §5・§6・要件 FR4.1・FR5.1〜FR5.3・FR6.2・FR9.2・監査の項目の file・この計画と試験の手順を直し、PR に足した（head `0aa667a`）。
+- [x] CI（build-and-test 18・20・22、run 42941354257）が成功で終わったのを確かめ、2 回目の `sds-audit-request/1` を同じ PR に出した（https://github.com/watchout/agent-memory/pull/341#issuecomment-6784598314 、本文の SHA-256 `d45e5ce830e5ad6a070a26ca860e053847e89c39fb34fb0463af29dc408fc5d2`）。前検査は READY_FOR_REVIEW。返却が来るまで push しない。
+
+### Step 3c: 設計監査の 2 回目（BLOCK、F1・F2 が残り、F3〜F5 は解消）を受けた直し
+- [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6784766255 （本文の SHA-256 `5d249b3955dc14ff57d64c8cb65449a0d3cbf93ef5ed6f6b1bb1921dc4bf3738`）。F1 = 読み戻しと BSpace では人の入力との競合を安全に戻せない、F2 = 結びを失った後にも BSpace を送る遷移がある。
+- [x] 直し方は作者の判断: 戻しのキーを全部やめ、入力欄が空と証明でき人が触っていないと観測できる時だけ打ち、打った後に確かめられなくなったら追加のキーを送らずに止まる。Enter は tmux の中で条件を評価して 1 回だけ送る。arc の提案（席に打たず起動し直す形）は今は採らず、設計の記録の 11 に残した。
+- [ ] 見張りの設計の記録（版 3）・SSOT-6 §5・要件 FR5.2・FR9.2・監査の項目の file・この計画と試験の手順を直し、PR に足す。
+- [ ] CI が新しい head で終わるのを待ち、3 回目の `sds-audit-request/1` を同じ PR に出し、前検査を流す。返却が来るまで push しない。
 
 ### Step 4: 成功の場面の試験を先に書いて失敗を確かめる（Testing Contract の順番）
 - [ ] `src/test-session-rotation-scenario.ts` を書く。Claude Code と Codex の transcript の見本（閾値の上）と、試験用の Store（SQLite か JSON、`HOME` を一時の folder にする）で、次の流れを確かめる: 1 回目の Stop の hook が block と理由の文を返す → 席の引き継ぎの文を含む 2 回目の Stop の hook が、作業の状態と回復の束を DB に書き、印を出す → SessionStart（source = `clear`）が、頭に残した「次の 1 歩」と FR7.1 の決まった文を入れた additionalContext を返す（Claude Code は initialUserMessage も）→ 同じ束は 2 回使わない。
@@ -61,7 +67,7 @@
 - [ ] `src/transcript-stop-capture.ts` から呼ぶ。今の取り込み（非同期）とは別に、切り直しの判定は同期で返す必要がある。hook の登録を同期の別の hook にするか、今の hook の中で順を決めるかを決め、決めた理由を `code-summary.md` に書く（席への据え付けは守る物なので、この PR では command の形と installer だけを用意する）。
 
 ### Step 8: 「切ってよい」の印（FR4）
-- [ ] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 2（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。tmux の外の席は pane を null にして書く。
+- [ ] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 3（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。tmux の外の席は pane を null にして書く。
 - [ ] 今の印の状態を見る command（例: `wasurezu-restart` の下位の command）を足す。
 
 ### Step 9: 次の会話で続きから動く（FR6、FR7.1）
@@ -87,14 +93,17 @@
 
 ### Step 14: 見張りを作る（設計監査の PASS の後だけ）
 - [ ] 設計監査の返却が PASS で、作者の受領を PR に書いた後に始める。返却が BLOCK なら、設計の記録を直して設計監査をもう一度依頼し、PASS まで code を書かない。
-- [ ] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 2 のとおりに作る。画面に打つ所・`ps`・時計・file は差し替えられる形にし、試験では本物の tmux を使わない。打てる文字列は `/clear`・`/new` と `BSpace`・`Enter` だけ（続きの文は無い）。
-- [ ] 試験（設計の記録の版 2 の 12 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
-  - 基本: 印あり・手すき・入力欄が空・結びが合う時に command を 1 回打つ。応答の途中・手すきを確かめられない・対応に無い画面は打たない。Codex は `/new` と Enter だけで、呼び出しの列を完全に照らす。
-  - F1 入力欄: 静止した書きかけ、複数行の書きかけ、V1 と V2 の間に足された入力は、戻して打たない。戻しが戻らなければ HALT。入力の行を見つけられなければ打たない。
-  - F2 結び: 設定の打つ先が別の pane、同じ名前の別の会話、host の process が死んでいる・pane の子孫でない、pane を別の process が再利用、tmux のソケット違い、pane が null は打たない。古い・別の起動・別の pane の `started` は確認として受けない。
-  - F3 一度だけ: 2 つの見張りが同時に同じ印を取りに行き送るのは 1 つ。claim の取得が最初の send-keys より前。`typing`・`enter` の各段で止めた後の再起動で再送しない（結果不明は照会、照会できなければ HALT）。claim か帳面が書けなければ送らない。同じキーで別の command は断る。
+- [ ] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 3 のとおりに作る。画面に打つ所・`ps`・tmux の読み取り・時計・file は差し替えられる形にし、試験では本物の tmux を使わない（差し替えの tmux は呼び出しの引数の列を全部記録する）。見張りが送れるキーは `/clear`・`/new` の文字と `Enter` だけで、BSpace・C-u・Escape・矢印を送る経路も定数も code に持たない。
+- [ ] 試験（設計の記録の版 3 の 12 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
+  - 送るキーの型: どの試験でも、送ったキーの列が〔command の文字、条件つきの Enter〕（成功）、〔command の文字〕だけ（打った後に止まった）、〔〕（打つ前に止まった）のどれかに完全に一致する。ほかのキーが 1 度でも現れたら失敗。
+  - 基本: 印あり・手すき・入力欄が空・人が触っていない・結びが合う時に command を 1 回打つ。応答の途中・手すきを確かめられない・対応に無い画面は打たない。Codex は `/new` と Enter だけ。
+  - F1 入力欄と人の入力: 静止した書きかけ、複数行の書きかけ、薄い案内文に合わない文、入力の行を見つけられない、カーソルが入力の頭に無い、client の最終操作が新しい、`list-clients` が失敗する、は打たない。client が付いていなければ打つ。打った後に書きかけが前・後ろに足された、行が置き換わった、カーソルが動いた、client の最終操作が新しくなった、手番が `busy` に変わった、は〔command の文字〕だけで止まり、`abandoned_after_typing` と HALT を残す（人の入力を減らす方向のキーは 0 件）。
+  - F1 条件つきの Enter: 条件が偽（桁・行・`pane_pid`・command 名・`pane_id`・client の数のどれかが違う）の時、`ENTER_NOT_SENT` を読み、Enter も追加のキーも 0 件で止まる。tmux が条件つきの形に対応しなければ打たない。
+  - F2 結び: 打つ前に、別の pane、同じ名前の別の会話、host の process が死んでいる・pane の子孫でない、pane の再利用、tmux のソケット違い、pane が null は打たない。打った後に、host が終了して前面が shell や別の CLI になった、`ps` が読めなくなった、`capture-pane` が失敗した、tmux が応答しない、は追加のキー 0 件で止まる。古い・別の起動・別の pane の `started` は確認として受けない。
+  - F3 一度だけ: 2 つの見張りが同時に同じ印を取りに行き送るのは 1 つ。claim の取得が最初の send-keys より前。`typing`・`enter` の各段で止めた後の再起動で再送せず追加のキーも送らない（結果不明は照会、照会できなければ HALT）。claim か帳面が書けなければ送らない（打った後に書けなくなっても追加のキー 0 件）。同じキーで別の command は断る。
   - F4 証拠: `intent` 行が最初の send-keys より前で、host・旧 session_id・席・案件・pane を持つ。印が次の会話の物に置き換わった後も旧会話を求められる。帳面に画面の中身・秘密の値が無い。
-  - F5: 打てる文字列の定数が上の 4 つだけ。SSOT-6 の §9 に差分が無い。
+  - F5: 打てる文字列の定数が上の 3 つ（2 つの command と Enter）だけ。SSOT-6 の §9 に差分が無い。
+  - `probe`: 送るキーの列が空。真偽・桁と行・`A0`・tmux の版・対応の有無・SHA-256 だけを出す。
   - 網羅率 100%。
 
 ### Step 15: 記録と実装監査

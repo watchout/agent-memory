@@ -131,16 +131,23 @@ Wasurezu MCP server and hooks themselves still never cut a conversation or type
 into a terminal: they measure, save the handoff, emit the safe-to-cut marker,
 and inject the continuation at the next SessionStart.
 
-The only text the watcher types is the fixed cut command (`/clear` for Claude
-Code, `/new` for Codex); it never types a continuation prompt. The cut command
-is not a recovery path: the recovery pack is delivered by the structured
-SessionStart hook (additionalContext, plus initialUserMessage on Claude Code),
-so no recovery depends on text typed into a live TUI (§9 is unchanged). If the
-command is not typed, the conversation simply is not cut and nothing is lost.
+The only keys the watcher sends are the fixed cut command's characters (`/clear`
+for Claude Code, `/new` for Codex) and one Enter; it never types a continuation
+prompt and never sends corrective keys (no BSpace, C-u or Escape). The cut
+command is not a recovery path: the recovery pack is delivered by the
+structured SessionStart hook (additionalContext, plus initialUserMessage on
+Claude Code), so no recovery depends on text typed into a live TUI (§9 is
+unchanged). If the command is not typed, the conversation simply is not cut and
+nothing is lost.
 Before typing, the watcher proves that the marker's session, the pane and the
-host process match, that the input line is empty (read back after typing), and
-takes an exclusive durable claim for the marker, so one marker cuts at most
-once.
+host process match, that the input line is empty with the cursor at its start,
+and that no tmux client has operated recently, and it takes an exclusive durable
+claim for the marker, so one marker cuts at most once. After typing, it sends
+Enter only if the line, cursor and client activity still match what it just
+typed, and Enter is evaluated and sent inside one tmux command. If anything can
+no longer be confirmed after typing, it sends no further key, records the
+outcome as unknown, and halts the seat; a person removes the leftover command
+text.
 
 ---
 
@@ -164,7 +171,7 @@ For the session rotation watcher, the three conditions map as follows:
 - pre-authorized at install time: the Owner decision that installs the watcher
   on that seat, taken after the arc-sec check
 
-The watcher's design record (version 2) is
+The watcher's design record (version 3) is
 `aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/watcher-design.md`.
 
 ---
