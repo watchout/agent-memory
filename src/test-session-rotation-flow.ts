@@ -1039,7 +1039,10 @@ test("FR10: runRotationCli hands over one diagnostic request - only for an accep
   assert.deepEqual(JSON.parse(bare.output), PASS_OUTPUT);
 });
 
-interface ProcessRun { log: string[]; evidence: string[]; output: string[]; requests: HookDiagnosticRequest[]; exits: number; exited_at: number }
+interface ProcessRun { log: string[]; evidence: string[]; output: string[]; requests: HookDiagnosticRequest[]; exits: number; exited_at: number; answered_at: number }
+// Time from the moment the answer was written to the exit. The start also holds the entry's own file work, which a loaded
+// runner can stretch past a fixed bound; the wait this bound guards (FR10, 5 section) begins only after the answer.
+const afterAnswer = (run: ProcessRun): number => run.exited_at - Math.max(run.answered_at, 0);
 async function processRun(
   s: ReturnType<typeof seat>,
   raw: string | Error,
@@ -1052,7 +1055,7 @@ async function processRun(
     dependencies?: RotationStopDependencies;
   } = {},
 ): Promise<ProcessRun> {
-  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1 };
+  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1, answered_at: -1 };
   let flushed = false;
   const start = performance.now();
   const io: RotationProcessIo = {
@@ -1067,7 +1070,7 @@ async function processRun(
     write_output: (line) => { run.log.push("output"); run.output.push(line); },
     flush: (done) => {
       run.log.push("flush");
-      setTimeout(() => { flushed = true; run.log.push("flush_done"); done(); }, extra.flush_delay ?? 0);
+      setTimeout(() => { flushed = true; run.answered_at = performance.now() - start; run.log.push("flush_done"); done(); }, extra.flush_delay ?? 0);
     },
     exit: () => { run.exits++; if (run.exited_at < 0) run.exited_at = performance.now() - start; run.log.push("exit"); },
     run_diagnostic: async (request) => { run.log.push("diagnostic"); run.requests.push(request); return extra.run_diagnostic?.(request); },
@@ -1098,7 +1101,7 @@ test("FR10 process: the diagnostic starts only after the flush, waits at most 20
   assert.deepEqual(plain.requests, []);
   assert.ok(plain.log.indexOf("flush") > plain.log.indexOf("output"), "flush follows both writes");
   assert.ok(plain.log.indexOf("exit") > plain.log.indexOf("flush_done"));
-  assert.ok(plain.exited_at < 150, `exit at ${plain.exited_at} ms`);
+  assert.ok(afterAnswer(plain) < 150, `exit after the answer ${afterAnswer(plain)} ms`);
 
   const slow = await processRun(s, s.input("Stop", U_STOP), { flush_delay: 80, run_diagnostic: slowWriter(3_000) });
   assert.equal(slow.requests.length, 1);
@@ -1125,12 +1128,12 @@ test("FR10 process: the diagnostic starts only after the flush, waits at most 20
   });
   assert.equal(codex.requests[0].adapter_id, CODEX_ROTATION_STOP_ADAPTER_ID);
   assert.equal(codex.requests[0].event, "UserPromptSubmit");
-  assert.ok(codex.exited_at < 150, `fast writer: exit at ${codex.exited_at} ms`);
+  assert.ok(afterAnswer(codex) < 150, `fast writer: exit after the answer ${afterAnswer(codex)} ms`);
 
   const exhausted = await processRun(s, s.input("Stop", U_STOP), { clock: (flushed) => (flushed ? 6_500 : 0) });
   assert.deepEqual(exhausted.requests, [], "less than 2000 ms is left: the diagnostic is not started");
   assert.equal(exhausted.exits, 1);
-  assert.ok(exhausted.exited_at < 150, `exhausted: exit at ${exhausted.exited_at} ms`);
+  assert.ok(afterAnswer(exhausted) < 150, `exhausted: exit after the answer ${afterAnswer(exhausted)} ms`);
   assert.deepEqual(exhausted.output, plain.output);
 
   const thrown = await processRun(s, s.input("Stop", U_STOP), { run_diagnostic: () => { throw new Error("writer threw"); } });
@@ -1149,7 +1152,7 @@ test("FR10 process: the diagnostic starts only after the flush, waits at most 20
     assert.deepEqual(run.requests, []);
     assert.equal(run.exits, 1);
     assert.deepEqual(JSON.parse(run.output[0]), PASS_OUTPUT);
-    assert.ok(run.exited_at < 150);
+    assert.ok(afterAnswer(run) < 150);
   }
 });
 

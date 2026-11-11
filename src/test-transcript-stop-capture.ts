@@ -34,7 +34,12 @@ interface ProcessRun {
   requests: HookDiagnosticRequest[];
   exits: number;
   exited_at: number;
+  answered_at: number;
 }
+
+// Time from the moment the answer was written to the exit. The start also holds the entry's own file work, which a loaded
+// runner can stretch past a fixed bound; the wait this bound guards (FR10, 5 section) begins only after the answer.
+const afterAnswer = (run: ProcessRun): number => run.exited_at - Math.max(run.answered_at, 0);
 
 /** Runs the capture process function with every side effect injected; waits until exit is called. */
 async function processRun(
@@ -48,7 +53,7 @@ async function processRun(
     write_delay?: number;
   } = {},
 ): Promise<ProcessRun> {
-  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1 };
+  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1, answered_at: -1 };
   let answered = 0;
   const start = performance.now();
   const io: TranscriptStopProcessIo = {
@@ -68,12 +73,12 @@ async function processRun(
     write_evidence: (line, done) => {
       run.log.push("evidence");
       run.evidence.push(line);
-      setTimeout(() => { run.log.push("evidence_done"); answered++; done(); }, extra.write_delay ?? 0);
+      setTimeout(() => { run.log.push("evidence_done"); answered++; if (answered === 2) run.answered_at = performance.now() - start; done(); }, extra.write_delay ?? 0);
     },
     write_output: (line, done) => {
       run.log.push("output");
       run.output.push(line);
-      setTimeout(() => { run.log.push("output_done"); answered++; done(); }, extra.write_delay ?? 0);
+      setTimeout(() => { run.log.push("output_done"); answered++; if (answered === 2) run.answered_at = performance.now() - start; done(); }, extra.write_delay ?? 0);
     },
     exit: () => {
       run.exits++;
@@ -263,7 +268,7 @@ async function hostAddedKeys(root: string, workspace: string, cwd: string, bindi
   const plainCodex = await processRun(workspace, CODEX_TRANSCRIPT_STOP_ADAPTER_ID, JSON.stringify(stop));
   assert.equal(plainCodex.exits, 1);
   assert.deepEqual(plainCodex.requests, [], "nothing to report: no diagnostic is started");
-  assert(plainCodex.exited_at < 150, `exit at ${plainCodex.exited_at} ms`);
+  assert(afterAnswer(plainCodex) < 150, `exit after the answer ${afterAnswer(plainCodex)} ms`);
   assert.equal(plainCodex.evidence.length, 1);
   assert.equal(plainCodex.output.length, 1);
   assert.equal(plainCodex.output[0], `${JSON.stringify({ continue: true, suppressOutput: true })}\n`);
@@ -298,14 +303,14 @@ async function hostAddedKeys(root: string, workspace: string, cwd: string, bindi
   });
   assert.equal(claudePrompt.requests[0].adapter_id, CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID);
   assert.equal(claudePrompt.requests[0].event, "UserPromptSubmit");
-  assert(claudePrompt.exited_at < 150, `fast diagnostic: exit at ${claudePrompt.exited_at} ms`);
+  assert(afterAnswer(claudePrompt) < 150, `fast diagnostic: exit after the answer ${afterAnswer(claudePrompt)} ms`);
 
   const exhausted = await processRun(workspace, CODEX_TRANSCRIPT_STOP_ADAPTER_ID, JSON.stringify({ ...stop, ...stopKeys }), {
     clock: (answered) => (answered ? 6_500 : 0),
   });
   assert.deepEqual(exhausted.requests, [], "less than the floor is left: the diagnostic is not started");
   assert.equal(exhausted.exits, 1);
-  assert(exhausted.exited_at < 150, `exhausted: exit at ${exhausted.exited_at} ms`);
+  assert(afterAnswer(exhausted) < 150, `exhausted: exit after the answer ${afterAnswer(exhausted)} ms`);
   assert.deepEqual(exhausted.evidence, plainCodex.evidence);
 
   const thrown = await processRun(workspace, CODEX_TRANSCRIPT_STOP_ADAPTER_ID, JSON.stringify({ ...stop, ...stopKeys }), {
@@ -322,7 +327,7 @@ async function hostAddedKeys(root: string, workspace: string, cwd: string, bindi
   assert.deepEqual(markedMalformed.output, plainMalformed.output);
   assert.deepEqual(markedMalformed.requests, []);
   assert.equal(markedMalformed.exits, 1);
-  assert(markedMalformed.exited_at < 150);
+  assert(afterAnswer(markedMalformed) < 150);
 
   // The failure paths of main (arguments or standard input cannot be read) still end with the answer and an exit.
   const failing: Array<{ label: string; raw: string | Error; extra: { argv?: string[] } }> = [
@@ -339,7 +344,7 @@ async function hostAddedKeys(root: string, workspace: string, cwd: string, bindi
     assert.match(failed.evidence[0], /^\[transcript-stop-capture\] /);
     assert.equal(JSON.parse(failed.evidence[1]).reason, "malformed_input");
     assert(failed.log.indexOf("exit") > failed.log.lastIndexOf("output_done"), `${label}: exit follows the write callbacks`);
-    assert(failed.exited_at < 150, `${label}: exit at ${failed.exited_at} ms`);
+    assert(afterAnswer(failed) < 150, `${label}: exit after the answer ${afterAnswer(failed)} ms`);
   }
 }
 

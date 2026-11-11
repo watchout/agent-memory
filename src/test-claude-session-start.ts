@@ -102,7 +102,12 @@ interface ProcessRun {
   requests: HookDiagnosticRequest[];
   exits: number;
   exited_at: number;
+  answered_at: number;
 }
+
+// Time from the moment the answer was written to the exit. The start also holds the entry's own file work, which a loaded
+// runner can stretch past a fixed bound; the wait this bound guards (FR10, 5 section) begins only after the answer.
+const afterAnswer = (run: ProcessRun): number => run.exited_at - Math.max(run.answered_at, 0);
 
 /** Runs the SessionStart process function with every side effect injected; waits until exit is called. */
 async function processRun(
@@ -115,7 +120,7 @@ async function processRun(
     argv_extra?: string[];
   } = {},
 ): Promise<ProcessRun> {
-  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1 };
+  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1, answered_at: -1 };
   let answered = 0;
   const start = performance.now();
   const frozen = () => {
@@ -136,12 +141,12 @@ async function processRun(
     write_evidence: (line, done) => {
       run.log.push("evidence");
       run.evidence.push(line);
-      setTimeout(() => { run.log.push("evidence_done"); answered++; done(); }, extra.write_delay ?? 0);
+      setTimeout(() => { run.log.push("evidence_done"); answered++; if (answered === 2) run.answered_at = performance.now() - start; done(); }, extra.write_delay ?? 0);
     },
     write_output: (line, done) => {
       run.log.push("output");
       run.output.push(line);
-      setTimeout(() => { run.log.push("output_done"); answered++; done(); }, extra.write_delay ?? 0);
+      setTimeout(() => { run.log.push("output_done"); answered++; if (answered === 2) run.answered_at = performance.now() - start; done(); }, extra.write_delay ?? 0);
     },
     exit: () => {
       run.exits++;
@@ -292,7 +297,7 @@ async function hostAddedKeys(context: {
   const plainRun = await processRun(workspace, rawPlain);
   assert.equal(plainRun.exits, 1);
   assert.deepEqual(plainRun.requests, [], "nothing to report: no diagnostic is started");
-  assert(plainRun.exited_at < 150, `exit at ${plainRun.exited_at} ms`);
+  assert(afterAnswer(plainRun) < 150, `exit after the answer ${afterAnswer(plainRun)} ms`);
 
   const slow = await processRun(workspace, raw321, { run_diagnostic: slowWriter(3000), write_delay: 60 });
   assert.equal(slow.exits, 1);
@@ -319,12 +324,12 @@ async function hostAddedKeys(context: {
   assert(slow.evidence.every((line) => line.endsWith("\n")) && slow.output.every((line) => line.endsWith("\n")));
 
   const fast = await processRun(workspace, raw321, { run_diagnostic: slowWriter(5) });
-  assert(fast.exited_at < 150, `fast diagnostic: exit at ${fast.exited_at} ms`);
+  assert(afterAnswer(fast) < 150, `fast diagnostic: exit after the answer ${afterAnswer(fast)} ms`);
 
   const exhausted = await processRun(workspace, raw321, { clock: (answered) => (answered ? 6_500 : 0) });
   assert.deepEqual(exhausted.requests, [], "less than the floor is left: the diagnostic is not started");
   assert.equal(exhausted.exits, 1);
-  assert(exhausted.exited_at < 150, `exhausted: exit at ${exhausted.exited_at} ms`);
+  assert(afterAnswer(exhausted) < 150, `exhausted: exit after the answer ${afterAnswer(exhausted)} ms`);
   assert.deepEqual(exhausted.evidence, plainRun.evidence);
 
   const thrown = await processRun(workspace, raw321, { run_diagnostic: () => { throw new Error("writer threw"); } });
@@ -334,7 +339,7 @@ async function hostAddedKeys(context: {
   const refused = await processRun(workspace, JSON.stringify({ ...base, model: null, session_title: MARK }));
   assert.deepEqual(refused.requests, [], "a refused input starts no diagnostic");
   assert.equal(refused.exits, 1);
-  assert(refused.exited_at < 150);
+  assert(afterAnswer(refused) < 150);
 
   // End to end through the real command: the ignored name is recorded, the value is nowhere.
   const home = join(root, "e2e-home");
