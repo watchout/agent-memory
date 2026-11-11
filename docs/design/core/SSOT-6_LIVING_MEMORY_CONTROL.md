@@ -120,34 +120,39 @@ Wasurezu supplies:
 Wasurezu must not independently restart an AUN-supervised runtime or mutate AUN
 queue lifecycle.
 
-Session rotation watcher (261110-session-rotation, FR5): the watcher that types
-`/clear` (Claude Code) or `/new` (Codex) into a seat's terminal is a separate,
-LLM-free script, not part of the Wasurezu MCP server or hooks. It runs only on
-seats installed by an Owner decision after an arc-sec check. On a seat marked
-AUN-supervised it does nothing unless that seat's watcher config carries an
-Owner decision reference (control_source URL and body SHA-256), and even then it
+Session rotation watcher (261110-session-rotation, FR5): the watcher that cuts a
+seat's conversation is a separate, LLM-free script, not part of the Wasurezu MCP
+server or hooks. It restarts the seat's tmux pane with the pane's own registered
+launch command (`tmux respawn-pane -k`, no command string supplied), and it sends
+no keys to the seat at all. It runs only on seats installed by an Owner decision
+after an arc-sec check, and the launch script of each seat is registered in its
+watcher config by that decision. On a seat marked AUN-supervised it does nothing
+unless that seat's watcher config carries an Owner decision reference
+(control_source URL and body SHA-256) that names this restart, and even then it
 never touches AUN queue lifecycle (claim, requeue, finalize, close). The
-Wasurezu MCP server and hooks themselves still never cut a conversation or type
-into a terminal: they measure, save the handoff, emit the safe-to-cut marker,
-and inject the continuation at the next SessionStart.
+Wasurezu MCP server and hooks themselves still never cut a conversation or touch
+a terminal: they measure, save the handoff, emit the safe-to-cut marker, and
+inject the continuation at the next SessionStart (including a SessionStart with
+source `startup` that follows a watcher restart).
 
-The only keys the watcher sends are the fixed cut command's characters (`/clear`
-for Claude Code, `/new` for Codex) and one Enter; it never types a continuation
-prompt and never sends corrective keys (no BSpace, C-u or Escape). The cut
-command is not a recovery path: the recovery pack is delivered by the
-structured SessionStart hook (additionalContext, plus initialUserMessage on
-Claude Code), so no recovery depends on text typed into a live TUI (§9 is
-unchanged). If the command is not typed, the conversation simply is not cut and
-nothing is lost.
-Before typing, the watcher proves that the marker's session, the pane and the
-host process match, that the input line is empty with the cursor at its start,
-and that no tmux client has operated recently, and it takes an exclusive durable
-claim for the marker, so one marker cuts at most once. After typing, it sends
-Enter only if the line, cursor and client activity still match what it just
-typed, and Enter is evaluated and sent inside one tmux command. If anything can
-no longer be confirmed after typing, it sends no further key, records the
-outcome as unknown, and halts the seat; a person removes the leftover command
-text.
+The recovery pack is delivered by the structured SessionStart hook
+(additionalContext, plus initialUserMessage on Claude Code), so no recovery
+depends on text typed into a live TUI (§9 is unchanged). If the restart does not
+happen, the conversation simply is not cut and nothing is lost.
+The watcher restarts a pane only when the seat is idle, the input line is
+observed empty with the cursor at its start, no tmux client has operated
+recently, and the marker, the pane, the pane's start command, the launch
+script's SHA-256, the host process (number and start time) and the conversation
+all match. It takes an exclusive durable claim for the marker first, so one
+marker restarts at most once, and it never repeats a restart whose outcome is
+unknown: it queries, and if it cannot confirm, it halts the seat.
+No exclusion exists between a person typing and the pane, so some losses cannot
+be ruled out and are declared: text a person starts typing after the last
+observation is lost (not sent); work started after the last observation is cut;
+a process that replaces the host inside the window between the last check and the
+restart is ended; a hook that is still running is cut; and a new conversation
+may fail to start, which halts the seat. These residual risks are recorded in the
+design record and accepted by the Owner at install time.
 
 ---
 
@@ -171,7 +176,7 @@ For the session rotation watcher, the three conditions map as follows:
 - pre-authorized at install time: the Owner decision that installs the watcher
   on that seat, taken after the arc-sec check
 
-The watcher's design record (version 3) is
+The watcher's design record (version 4) is
 `aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/watcher-design.md`.
 
 ---

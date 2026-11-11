@@ -44,8 +44,16 @@
 ### Step 3c: 設計監査の 2 回目（BLOCK、F1・F2 が残り、F3〜F5 は解消）を受けた直し
 - [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6784766255 （本文の SHA-256 `5d249b3955dc14ff57d64c8cb65449a0d3cbf93ef5ed6f6b1bb1921dc4bf3738`）。F1 = 読み戻しと BSpace では人の入力との競合を安全に戻せない、F2 = 結びを失った後にも BSpace を送る遷移がある。
 - [x] 直し方は作者の判断: 戻しのキーを全部やめ、入力欄が空と証明でき人が触っていないと観測できる時だけ打ち、打った後に確かめられなくなったら追加のキーを送らずに止まる。Enter は tmux の中で条件を評価して 1 回だけ送る。arc の提案（席に打たず起動し直す形）は今は採らず、設計の記録の 11 に残した。
-- [ ] 見張りの設計の記録（版 3）・SSOT-6 §5・要件 FR5.2・FR9.2・監査の項目の file・この計画と試験の手順を直し、PR に足す。
-- [ ] CI が新しい head で終わるのを待ち、3 回目の `sds-audit-request/1` を同じ PR に出し、前検査を流す。返却が来るまで push しない。
+- [x] 見張りの設計の記録（版 3）・SSOT-6 §5・要件 FR5.2・FR9.2・監査の項目の file・この計画と試験の手順を直し、PR に足した（head `adf22e5`）。
+- [x] 作者の受領（BLOCK のまま。返却を `--review` で流す前に push した手順の順序の誤りも書いた）: https://github.com/watchout/agent-memory/pull/341#issuecomment-6785112981
+- [x] CI（build-and-test 18・20・22、run 42945241303）が成功で終わったのを確かめ、3 回目の `sds-audit-request/1` を同じ PR に出した（https://github.com/watchout/agent-memory/pull/341#issuecomment-6785116415 、本文の SHA-256 `6e2a16e0a667ed3fbbceadb8e138397daac24fd485c295d4067cb85f62d84a27`）。前検査は READY_FOR_REVIEW。返却を `--review` で流すまで push しない。
+
+### Step 3d: 設計監査の 3 回目（BLOCK、F1・F2 が残り、F3〜F5 は解消）を受けた向きの変更
+- [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6785277864 （本文の SHA-256 `77541cf6b025ba23f639f1cc938dca9644e186afe53b1bcb9301e850eb3cf389`）。`--review` の結果は BLOCKED（Open or unspecified blocking findings）。作者の受領として、その結果をそのまま PR に書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6785405953 ）。
+- [x] F1 = 条件つきの Enter は、観測の後に行が置き換わりカーソルが戻ると人の未送信の文を送る、F2 = 結びが `pane_pid` と command 名だけで同じ pane の同名 CLI への入れ替わりを拒めない。arc の答え（Owner の委任 #49 6762288830）: 画面にキーを打つ限り競合は閉じられない。キーを打たず、手すきで入力欄が空と観測できた時に、席の起動の script で pane を起動し直す形に変える。
+- [x] 設計の記録（版 4）・SSOT-6 §5（§9 は変えない）・要件 FR5.1〜FR5.4・FR5.7（新）・FR6.1・FR6.2・FR9.2・NFR3・この計画を直した。使い捨ての tmux（3.6a）で、起動の command の再実行・条件が偽の時の `NOT_RESPAWNED`・同じ観測での 2 回目の拒否・`pane_start_command` が引用符つきで返ることを確かめた。
+- [ ] 監査の項目の file と試験の手順を版 4 に合わせ、PR に足す。
+- [ ] 4 回目の `sds-audit-request/1` は、返却の next_action が求める「公開された Owner の判断（URL と本文の SHA-256）」が出るまで出さない（審査の回数の扱いは Owner の判断。#108 の答えは 3 回目までを個別の許可なしとし、4 回目以降は変えていない）。出たら、CI の後に同じ PR へ出し、前検査を流し、返却が来るまで push しない。
 
 ### Step 4: 成功の場面の試験を先に書いて失敗を確かめる（Testing Contract の順番）
 - [ ] `src/test-session-rotation-scenario.ts` を書く。Claude Code と Codex の transcript の見本（閾値の上）と、試験用の Store（SQLite か JSON、`HOME` を一時の folder にする）で、次の流れを確かめる: 1 回目の Stop の hook が block と理由の文を返す → 席の引き継ぎの文を含む 2 回目の Stop の hook が、作業の状態と回復の束を DB に書き、印を出す → SessionStart（source = `clear`）が、頭に残した「次の 1 歩」と FR7.1 の決まった文を入れた additionalContext を返す（Claude Code は initialUserMessage も）→ 同じ束は 2 回使わない。
@@ -67,12 +75,12 @@
 - [ ] `src/transcript-stop-capture.ts` から呼ぶ。今の取り込み（非同期）とは別に、切り直しの判定は同期で返す必要がある。hook の登録を同期の別の hook にするか、今の hook の中で順を決めるかを決め、決めた理由を `code-summary.md` に書く（席への据え付けは守る物なので、この PR では command の形と installer だけを用意する）。
 
 ### Step 8: 「切ってよい」の印（FR4）
-- [ ] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 3（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。tmux の外の席は pane を null にして書く。
+- [ ] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 4（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。印と手番には host の process の起動した時刻（`host_started_at`、`ps -o lstart=` の値）も書く。tmux の外の席は pane を null にして書く。
 - [ ] 今の印の状態を見る command（例: `wasurezu-restart` の下位の command）を足す。
 
 ### Step 9: 次の会話で続きから動く（FR6、FR7.1）
 - [ ] 新しい module `src/session-rotation-start.ts`: 準備した束を 1 回だけ取り出し、残した文を頭にした回復の文を作る。上限は 10,000 トークン（FR6.4、既定は `src/constants.ts` の 1 か所）。FR7.1 の決まった文（曖昧な点は推測で埋めず Kusabi の DB を当たる、当たる tool の名前）を入れる。
-- [ ] `src/claude-session-start.ts`（source = `clear`・`compact`）は additionalContext と initialUserMessage を返す。`src/codex-session-start.ts` は additionalContext を返す。束が無い時は今までどおり DB から作る（FR6.3）。
+- [ ] `src/claude-session-start.ts`（source = `clear`・`compact`、および見張りの起動し直しの続きの `startup`）は additionalContext と initialUserMessage を返す。`src/codex-session-start.ts` は additionalContext を返す。`startup` を切り直しの続きとして使うのは、その席の claim が `respawning` で、`TMUX_PANE` と tmux のソケットが合い、`respawn_started_at` から確認の待ち時間以内の時だけ（FR6.1）。使った時は手番の `started` に `source` と `rotation_marker_id` を書く。合わない `startup` と、束が無い時は今までどおり（FR6.3）。claim の file は読むだけで書かない。
 
 ### Step 10: MCP の server を先に接続し、起動のたびの表の変更をやめる（FR7.2、FR7.3）
 - [ ] `src/index.ts`: transport に先に接続して tool の一覧を返し、Store の用意はその後で行う。tool の呼び出しは用意が済むのを待つ。用意に失敗した時は、tool の呼び出しが理由つきの誤りを返す（黙らない）。新しい働きは新しい module（例: `src/mcp-store-readiness.ts`）に置く。
@@ -92,18 +100,21 @@
 - [ ] `npx tsc --noEmit`、`npm run build`、CI と同じ試験の一覧を手元で流し、全部通ることを確かめる。
 
 ### Step 14: 見張りを作る（設計監査の PASS の後だけ）
-- [ ] 設計監査の返却が PASS で、作者の受領を PR に書いた後に始める。返却が BLOCK なら、設計の記録を直して設計監査をもう一度依頼し、PASS まで code を書かない。
-- [ ] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 3 のとおりに作る。画面に打つ所・`ps`・tmux の読み取り・時計・file は差し替えられる形にし、試験では本物の tmux を使わない（差し替えの tmux は呼び出しの引数の列を全部記録する）。見張りが送れるキーは `/clear`・`/new` の文字と `Enter` だけで、BSpace・C-u・Escape・矢印を送る経路も定数も code に持たない。
-- [ ] 試験（設計の記録の版 3 の 12 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
-  - 送るキーの型: どの試験でも、送ったキーの列が〔command の文字、条件つきの Enter〕（成功）、〔command の文字〕だけ（打った後に止まった）、〔〕（打つ前に止まった）のどれかに完全に一致する。ほかのキーが 1 度でも現れたら失敗。
-  - 基本: 印あり・手すき・入力欄が空・人が触っていない・結びが合う時に command を 1 回打つ。応答の途中・手すきを確かめられない・対応に無い画面は打たない。Codex は `/new` と Enter だけ。
-  - F1 入力欄と人の入力: 静止した書きかけ、複数行の書きかけ、薄い案内文に合わない文、入力の行を見つけられない、カーソルが入力の頭に無い、client の最終操作が新しい、`list-clients` が失敗する、は打たない。client が付いていなければ打つ。打った後に書きかけが前・後ろに足された、行が置き換わった、カーソルが動いた、client の最終操作が新しくなった、手番が `busy` に変わった、は〔command の文字〕だけで止まり、`abandoned_after_typing` と HALT を残す（人の入力を減らす方向のキーは 0 件）。
-  - F1 条件つきの Enter: 条件が偽（桁・行・`pane_pid`・command 名・`pane_id`・client の数のどれかが違う）の時、`ENTER_NOT_SENT` を読み、Enter も追加のキーも 0 件で止まる。tmux が条件つきの形に対応しなければ打たない。
-  - F2 結び: 打つ前に、別の pane、同じ名前の別の会話、host の process が死んでいる・pane の子孫でない、pane の再利用、tmux のソケット違い、pane が null は打たない。打った後に、host が終了して前面が shell や別の CLI になった、`ps` が読めなくなった、`capture-pane` が失敗した、tmux が応答しない、は追加のキー 0 件で止まる。古い・別の起動・別の pane の `started` は確認として受けない。
-  - F3 一度だけ: 2 つの見張りが同時に同じ印を取りに行き送るのは 1 つ。claim の取得が最初の send-keys より前。`typing`・`enter` の各段で止めた後の再起動で再送せず追加のキーも送らない（結果不明は照会、照会できなければ HALT）。claim か帳面が書けなければ送らない（打った後に書けなくなっても追加のキー 0 件）。同じキーで別の command は断る。
-  - F4 証拠: `intent` 行が最初の send-keys より前で、host・旧 session_id・席・案件・pane を持つ。印が次の会話の物に置き換わった後も旧会話を求められる。帳面に画面の中身・秘密の値が無い。
-  - F5: 打てる文字列の定数が上の 3 つ（2 つの command と Enter）だけ。SSOT-6 の §9 に差分が無い。
-  - `probe`: 送るキーの列が空。真偽・桁と行・`A0`・tmux の版・対応の有無・SHA-256 だけを出す。
+- [ ] 設計監査の返却が PASS で、作者の受領を PR に書いた後に始める。返却が BLOCK なら、設計の記録を直し、公開された Owner の判断を受けてから設計監査をもう一度依頼し、PASS まで code を書かない。
+- [ ] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 4 のとおりに作る。`ps`・tmux の読み取りと起動し直し・画面・時計・file は差し替えられる形にし、試験では本物の tmux を使わない（差し替えの tmux は呼び出しの引数の列を全部記録する）。見張りが実行する tmux の命令は、閉じた集合（`display-message -p`・`list-clients -F`・`capture-pane -p`・`if-shell -F` の then の枝の `respawn-pane -k -t <pane_id>`）だけで、`send-keys` 系を呼ぶ経路も定数も code に持たない。`respawn-pane` に command の文字列を渡す経路も持たない。
+- [ ] 試験（設計の記録の版 4 の 13 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
+  - キーが 0 件の型: どの試験でも、記録した tmux の呼び出しは閉じた集合だけで、`send-keys` 系が 0 件。`respawn-pane` は `if-shell -F` の then の枝の中だけで、command の引数を持たず、1 つの印につき 0 回か 1 回。`probe` では 0 回。
+  - 基本: 印あり・手すき・入力欄が空・人が触っていない・結びが合う時に、条件つきの起動し直しを 1 回だけ起こす。応答の途中・手すきを確かめられない・対応に無い画面は何もしない。Codex も同じ（続きの文は無い）。
+  - 3 回目 F1: 観測の後にカーソルが動いた・client が付いた／外れた・client の最終操作が新しくなった・pane がコピー・モードになった・手番が `busy` に変わった、のそれぞれで `respawn-pane` が 0 回、claim は `aborted_before_respawn`。行が置き換わってカーソルが戻る窓は、起動し直しが起きうること（未送信の文の消失 R-A）と、席に届く文が 0 件であることを確かめ、「防いだ」とは主張しない。
+  - 3 回目 F2: 印を書いた host が終了し、同じ shell の下の別の CLI が前面（`pane_pid`・command 名・カーソルが同じ）で、`respawn-pane` が 0 回（host の番号が死んでいる、または起動した時刻が違う）。pane の起動の command が登録と違う、起動の script の SHA-256 が違う、`expected_command` が違う、別のソケット・別の `pane_id`、`session_id` 違い、`drain_commands` に当たる process がある、も 0 回。確かめた後に host が替わる窓（R-C）は、1 回起きること・観測が帳面に残ることを確かめる。
+  - 入力欄と人の観測: 静止した書きかけ、複数行の書きかけ、薄い案内文に合わない文、入力の行を見つけられない（許可・問いの画面）、カーソルが入力の頭に無い、client の最終操作が新しい、`list-clients` が失敗する、は 0 回。client が付いていなければ進む。
+  - F3 一度だけ: 2 つの見張りが同時に同じ印を取りに行き実行は 1 つ。claim の取得が起動し直しより前。`claimed`・`respawning` の各段で止めた後の再起動で再実行せず（結果不明は照会、照会できなければ HALT）、`pane_pid` が古い値の 2 回目の命令は `NOT_RESPAWNED`。claim か帳面が書けなければ実行しない。
+  - 確認: `started` が古い・別の起動・別の pane・同じ `session_id`・`rotation_marker_id` 違い・`host_pid` が旧と同じ・`source` が `startup` でない、は `unconfirmed` と HALT。`pane_pid` が変わらない `started` も合わせない。
+  - F4 証拠: `intent` 行が起動し直しより前で、host・旧 session_id・席・案件・pane・`host_started_at` を持つ。印が次の会話の物に置き換わった後も旧会話を求められる。帳面に画面の中身・秘密の値が無い。
+  - 設定: `launch_command` に使えない文字、`owner_decision_ref` 無し、持ち主・権限が違う、`launch_script` の SHA-256 違いは 0 回。
+  - F5: 見張りの module が実行できる tmux の命令が閉じた集合だけ。SSOT-6 の §9 に差分が無い。
+  - `probe`: `respawn-pane` が 0 回。真偽・桁と行・`A0`・tmux の版・`pane_start_command` の値・対応の有無・SHA-256 だけを出す。
+  - hook 側（Step 9）: `startup` で claim が合う時だけ切り直しの続きの束と initialUserMessage を返し、合わない時は今までと同じ。同じ束を 2 回使わない。
   - 網羅率 100%。
 
 ### Step 15: 記録と実装監査

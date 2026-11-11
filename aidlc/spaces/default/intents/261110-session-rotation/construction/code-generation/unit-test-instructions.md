@@ -26,7 +26,7 @@ HOME=$(mktemp -d) npx tsx src/test-mcp-store-readiness.ts
 HOME=$(mktemp -d) npx tsx src/test-conversation-capture-repair.ts
 ```
 
-見張りの試験（Step 14。設計監査の PASS の後に作る。中身は見張りの設計の記録の版 3 の 12 のとおり: 入力欄の証明・人の入力の観測・打った後の競合・条件つきの Enter=F1、席と画面の結び（打った後を含む）と追加のキー 0 件=F2、排他の取得と各段の停止=F3、帳面の旧 session_id=F4、打てる文字列（2 つの command と Enter だけ）と SSOT-6 §9 の差分なし=F5。送ったキーの列を全部記録して完全に照らす。本物の tmux は使わない）:
+見張りの試験（Step 14。設計監査の PASS の後に作る。中身は見張りの設計の記録の版 4 の 13 のとおり: 観測の後の変化で起動し直しが実行されない=F1、入力欄の証明・人の入力の観測、結び（同じ shell の下の別の CLI・起動の command・起動の script の SHA-256・host の起動時刻）=F2、排他の取得と各段の停止、同じ観測の 2 回目の拒否=F3、帳面の旧 session_id=F4、実行できる tmux の命令が閉じた集合だけ（`send-keys` 系が 0 件）と SSOT-6 §9 の差分なし=F5。記録した tmux の呼び出しを全部照らす。本物の tmux は使わない）:
 
 ```bash
 HOME=$(mktemp -d) npx tsx src/test-rotation-watcher.ts
@@ -75,7 +75,7 @@ HOME=$(mktemp -d) node --test --experimental-test-coverage --test-reporter=lcov 
 
 - 時刻・乱数・識別子は、試験から渡す（標準 S4）。今の module の `dependencies` 引数（`now`・`createStore`・`loadRecovery` など）の形に合わせる。
 - transcript の見本は、試験の中で一時の file に書く。Claude Code は usage を持つ assistant の行、Codex は `token_count` の行（`last_token_usage`）を持つ rollout の行で作る。量が閾値の下・上・usage 無しの 3 種を作る。
-- 見張りの画面への打ち込みは、差し替えられる executor にし、試験では本物の tmux を使わず、打った文字列と回数を記録する偽物で確かめる。
+- 見張りの tmux の呼び出し（読むだけの物と、条件つきの起動し直し）は、差し替えられる executor にし、試験では本物の tmux を使わず、呼び出しの引数の列を全部記録する偽物で確かめる（`send-keys` 系は 0 件）。
 - 秘密の値（DB の URL など）は見本に入れず、証拠や log に出ないことを確かめる。
 
 ## 期待する網羅の内訳
