@@ -17,6 +17,13 @@ import {
 } from "./constants.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
+import {
+  composeRotationContext,
+  prepareRotationRecovery,
+  type RotationBlock,
+  type RotationStartDependencies,
+  type RotationStartEvidence,
+} from "./session-rotation-start.js";
 import { receiveCurrentSessionTranscript } from "./session-start-auto-receive.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
@@ -198,6 +205,8 @@ export interface LoadedCodexRecovery {
   recovery_pack: CodexRecoveryPackEvidence;
   recovery_quality_log_ref: string | null;
   store_binding?: CodexStoreBindingEvidence;
+  /** Session-rotation hand-off, delivered in front of the capped recovery text. */
+  rotation?: RotationBlock;
 }
 
 export interface RecoveryOutputWithMetrics {
@@ -227,12 +236,15 @@ export interface CodexSessionStartDependencies {
     input: CodexSessionStartInput,
   ) => Promise<LoadedCodexRecovery>;
   now?: () => number;
+  /** Used by the default store loader only; an injected loadRecovery is unaffected. */
+  rotation?: RotationStartDependencies;
 }
 
 export interface CodexSessionStartRunResult {
   output: CodexSessionStartOutput;
   evidence: CodexSessionStartEvidence;
   exit_code: 0;
+  rotation_evidence?: RotationStartEvidence;
 }
 
 class HookDegradedError extends Error {
@@ -791,6 +803,7 @@ export function buildCodexSessionStartRecordNotes(input: {
 export async function loadCodexRecoveryFromStore(
   binding: CodexSessionStartBinding,
   input: CodexSessionStartInput,
+  rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
   const storeBinding = resolveCodexStoreBinding();
   const store = await createStore({ skipPostgresMigrations: true });
@@ -804,6 +817,13 @@ export async function loadCodexRecoveryFromStore(
       session_id: input.session_id,
       transcript_path: input.transcript_path,
     });
+    const rotation = await prepareRotationRecovery(store, {
+      agent_id: binding.agent_id,
+      project: binding.project,
+      host: "codex",
+      session_id: input.session_id,
+      source: input.source,
+    }, rotationDependencies);
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
     const packData = await loadRestartPackData(store, {
       agent_id: binding.agent_id,
@@ -835,6 +855,7 @@ export async function loadCodexRecoveryFromStore(
       recovery_pack: packEvidence,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
+      ...(rotation ? { rotation } : {}),
     };
   } finally {
     await store.close();
@@ -862,10 +883,11 @@ export async function runCodexSessionStart(
     verifyCodexHookWorkspace(binding, hookInput);
     identityVerified = true;
     const loaded = await withTimeout(
-      (dependencies.loadRecovery ?? loadCodexRecoveryFromStore)(binding, hookInput),
+      (dependencies.loadRecovery ?? ((b, i) => loadCodexRecoveryFromStore(b, i, dependencies.rotation)))(binding, hookInput),
       binding.timeout_ms,
     );
     const recovery = enforceCodexRecoveryCaps(loaded.recovery, binding);
+    const rotationContext = loaded.rotation ? composeRotationContext(loaded.rotation, recovery.text) : undefined;
     const evidenceLogMissing = loaded.recovery_quality_log_ref === null;
     const completedAt = now();
     const evidence = buildEvidence({
@@ -890,11 +912,12 @@ export async function runCodexSessionStart(
           : {}),
         hookSpecificOutput: {
           hookEventName: "SessionStart",
-          additionalContext: recovery.text,
+          additionalContext: rotationContext ? rotationContext.text : recovery.text,
         },
       },
       evidence,
       exit_code: 0,
+      ...(rotationContext ? { rotation_evidence: rotationContext.evidence } : {}),
     };
   } catch (error) {
     const reason = reasonFromError(error);

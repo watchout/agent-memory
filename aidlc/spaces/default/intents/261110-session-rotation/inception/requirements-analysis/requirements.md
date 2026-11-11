@@ -119,6 +119,15 @@
 - **FR8.1** 会話の全文の取り込みが 2026-10-16 から止まっている原因を、Stop の hook の取り込み（`src/transcript-stop-capture.ts`）と、取り込みの常駐（launchd の raw-capture。誤り `store.recordRawEvent is not a function`）の両方で確かめ、直す。（`[arc の補い]`、https://github.com/watchout/agent-memory/issues/330#issuecomment-6761345791 ）
 - **FR8.2** 直した後、見本の transcript を取り込むと `conversation_events` と `raw_events` に行が入る。
 - **FR8.3** 動いている常駐と席の hook の差し替えは守る物（展開）なので、この PR には入れず、Owner の決定で行う。
+- **FR8.4** Claude Code の会話の身元は、hook の入力の `session_id` と `transcript_path` で決める（置き場: projects の直下の 1 つの dir の中の regular file。持ち主は今の uid、symlink でない。file 名 `<session_id>.jsonl`。dir 名は席が宣言した起動の dir の符号化）。record ごとの cwd は身元の条件にしない。規則 R1〜R9 は設計の記録 `construction/code-generation/capture-identity-design.md` に書く。（`[arc の補い]`、arc の答え: Owner の委任 iyasaka-arc#49 6762288830。arc-sec の確かめ: https://github.com/watchout/iyasaka-arc/issues/57#issuecomment-6786650040 、本文の SHA-256 `487b93c6d403593069e0ca4eda945269ad1f97de964863dfff00870203bbf34d`。セキュリティに関わる規則の変更なので、統合の前に Owner の exact-head を通す。）
+- **FR8.5** 取り込みの結果は 3 値（取り込んだ／拒んだ + 理由コード／観測できず）で受領に残し、観測できずを成功に数えない。cwd の種類の数と、席の workspace の外の record の数を、数として受領に残す（門ではない）。
+- **FR8.6** 取り込みは冪等で、同じ file を 2 回取り込んでも行が重ならない。
+
+受入（FR8.4〜FR8.6）:
+- Given cwd が 6 種以上ある本物の形の transcript、When Stop の hook を流すと、Then 取り込まれ、受領の `cwd_kinds` が 6 以上になる。
+- Given hook の cwd が起動の dir と違う（cd の後の Stop）、When 流すと、Then 取り込まれる。
+- Given 次の 5 つ（file 名が session_id と違う／1 record だけ別の sessionId／別の workspace の dir の下の file／projects の dir の中の symlink が外の file を指す／regular file でない）、When 流すと、Then 取り込まれず、理由コードが受領に出る。
+- Given 同じ file を 2 回、Then 2 回目は重ならない。
 
 受入:
 - Given 止まった原因を再現する見本、When 直した取り込みを流すと、Then 行が入り、同じ入力の 2 回目は重ねて入れない。

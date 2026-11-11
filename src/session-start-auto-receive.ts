@@ -16,6 +16,11 @@ import {
 } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import {
+  checkClaudeTranscriptPlacement,
+  judgeClaudeRecords,
+  type ClaudeIdentityReason,
+} from "./claude-transcript-identity.js";
+import {
   getAntigravityBrainDir,
   ingestAntigravityConversationEvents,
   isAntigravityConversationId,
@@ -67,15 +72,21 @@ export interface SessionStartAutoReceiveResult {
     | "transcript_unstable"
     | "workspace_mismatch"
     | "session_mismatch"
-    | "ingest_failed";
+    | "ingest_failed"
+    | ClaudeIdentityReason;
   events_saved: number;
   events_duplicate: number;
+  /** Claude only (R5): number of distinct record cwd values, kept as a number, not a gate. */
+  cwd_kinds?: number;
+  /** Claude only (R5): records whose cwd is outside the seat's declared workspace. */
+  records_outside_workspace?: number;
 }
 
 export async function receiveCurrentSessionTranscript(
   store: Store,
   input: SessionStartAutoReceiveInput,
 ): Promise<SessionStartAutoReceiveResult> {
+  if (input.host === "claude_code") return receiveClaudeTranscript(store, input);
   try {
     if (!input.transcript_path) return skipped("transcript_unavailable");
     if (input.host === "antigravity_cli" &&
@@ -83,8 +94,7 @@ export async function receiveCurrentSessionTranscript(
       return skipped("transcript_invalid");
     }
     const requestedRoot = rootForHost(input);
-    const transcript = input.snapshot_mode === "tail" &&
-        (input.host === "codex" || input.host === "claude_code")
+    const transcript = input.snapshot_mode === "tail" && input.host === "codex"
       ? readBoundedTranscriptTailSnapshot(input.host, input.transcript_path, input.tail_bytes)
       : readBoundedTranscriptSnapshot(
         input.host,
@@ -116,11 +126,9 @@ export async function receiveCurrentSessionTranscript(
     };
     const result = input.host === "codex"
       ? await ingestCodexConversationEvents(store, input.agent_id, common)
-      : input.host === "claude_code"
-        ? await ingestClaudeConversationEvents(store, input.agent_id, common)
-        : input.host === "gemini_cli"
-          ? await ingestGeminiConversationEvents(store, input.agent_id, common)
-          : await ingestAntigravityConversationEvents(store, input.agent_id, {
+      : input.host === "gemini_cli"
+        ? await ingestGeminiConversationEvents(store, input.agent_id, common)
+        : await ingestAntigravityConversationEvents(store, input.agent_id, {
             project: input.project,
             root,
             files: [transcript.path],
@@ -144,6 +152,61 @@ export async function receiveCurrentSessionTranscript(
       events_saved: 0,
       events_duplicate: 0,
     };
+  }
+}
+
+/**
+ * Claude Code (FR8, capture-identity-design.md): identity comes from the hook's
+ * session_id and transcript_path, the file's place, and every record's sessionId.
+ * The hook's cwd is not consulted (R1); record cwd values are only counted (R5).
+ */
+async function receiveClaudeTranscript(
+  store: Store,
+  input: SessionStartAutoReceiveInput,
+): Promise<SessionStartAutoReceiveResult> {
+  try {
+    if (!input.transcript_path) return skipped("transcript_unavailable");
+    const requestedRoot = rootForHost(input);
+    const placement = checkClaudeTranscriptPlacement({
+      transcript_path: input.transcript_path,
+      projects_root: requestedRoot,
+      session_id: input.session_id,
+      declared_workspace: input.workspace,
+      uid: process.getuid?.() ?? null,
+    });
+    if (!placement.ok) return skipped(placement.reason);
+
+    const transcript = input.snapshot_mode === "tail"
+      ? readBoundedTranscriptTailSnapshot("claude_code", placement.real_path, input.tail_bytes)
+      : readBoundedTranscriptSnapshot("claude_code", placement.real_path, input.max_bytes);
+    if (transcript.status !== "valid") return skipped(transcript.reason);
+
+    const workspaceRoots = [resolve(input.workspace), realpathSync(resolve(input.workspace))];
+    const judged = judgeClaudeRecords(transcript.validation_raw ?? transcript.raw, input.session_id, workspaceRoots);
+    if (!judged.ok) {
+      return judged.reason === "parse_error"
+        ? { status: "failed_open", reason: "parse_error", events_saved: 0, events_duplicate: 0 }
+        : skipped(judged.reason);
+    }
+
+    const result = await ingestClaudeConversationEvents(store, input.agent_id, {
+      project: input.project,
+      since: INGEST_FROM_EPOCH,
+      root: realpathSync(resolve(requestedRoot)),
+      max_files: 1,
+      files: [transcript.path],
+      contents: new Map([[transcript.path, transcript.raw]]),
+    });
+    return {
+      status: "captured",
+      reason: "captured",
+      events_saved: result.events_saved,
+      events_duplicate: result.events_duplicate,
+      cwd_kinds: judged.cwd_kinds,
+      records_outside_workspace: judged.records_outside_workspace,
+    };
+  } catch {
+    return { status: "failed_open", reason: "ingest_failed", events_saved: 0, events_duplicate: 0 };
   }
 }
 
@@ -322,13 +385,6 @@ function matchesCurrentSession(
   root: string,
 ): boolean {
   if (input.host === "codex") return matchesCodexSession(raw, input.session_id, workspace, cwd);
-  if (input.host === "claude_code") {
-    // Claude encodes the lexical hook cwd in the projects directory name;
-    // record-level cwd comparison below uses the canonical path.
-    const expectedProjectDir = join(root, encodeClaudeProjectPath(resolve(input.cwd)));
-    if (!isWithin(expectedProjectDir, transcript)) return false;
-    return matchesClaudeSession(raw, transcript, input.session_id, workspace, cwd);
-  }
   if (input.host === "antigravity_cli") {
     const expected = join(root, input.session_id, ".system_generated", "logs", "transcript.jsonl");
     return transcript === expected;
@@ -347,25 +403,6 @@ function matchesCodexSession(raw: string, sessionId: string, workspace: string, 
     if (recordCwd && recordCwd === cwd && isWithin(workspace, recordCwd)) return true;
   }
   return false;
-}
-
-function matchesClaudeSession(
-  raw: string,
-  transcript: string,
-  sessionId: string,
-  workspace: string,
-  cwd: string,
-): boolean {
-  if (basename(transcript, ".jsonl") !== sessionId) return false;
-  let sawMatchingIdentity = false;
-  for (const record of jsonlRecords(raw)) {
-    const recordSession = stringValue(record.sessionId) ?? stringValue(record.session_id);
-    if (recordSession && recordSession !== sessionId) return false;
-    const recordCwd = canonicalExistingPath(stringValue(record.cwd));
-    if (recordCwd && (recordCwd !== cwd || !isWithin(workspace, recordCwd))) return false;
-    if (recordSession === sessionId && recordCwd === cwd) sawMatchingIdentity = true;
-  }
-  return sawMatchingIdentity;
 }
 
 function matchesGeminiSession(
@@ -419,10 +456,6 @@ function canonicalExistingPath(value: string | undefined): string | null {
   } catch {
     return null;
   }
-}
-
-function encodeClaudeProjectPath(cwd: string): string {
-  return cwd.replaceAll("/", "-");
 }
 
 function isWithin(parent: string, child: string): boolean {

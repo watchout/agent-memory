@@ -29,7 +29,7 @@ SSOT-6 §9（live TUI への文の送信を通常の回復の道にしない）�
 ### 2.1 印の file（FR4 が書く）
 
 - 置き場: `$AGENT_MEMORY_HOME/rotation/<agent_id>/<project>/marker.json`（`AGENT_MEMORY_HOME` が無い時は `$HOME/.agent-memory`）。folder は 0700、file は 0600。一時の file に書いてから rename で置き換える。
-- 中身（`kusabi-rotation-marker/v1`）: `agent_id`・`project`・`host`（`claude_code` か `codex`）・`session_id`（切る会話）・`pane_id`・`tmux_socket`・`host_pid`・`host_started_at`（その process の起動した時刻。`ps -o lstart= -p <host_pid>` の値の前後の空白を除き、続く空白を 1 つにした文字列）・`pack_ref`（DB に置いた回復の束）・`pack_content_sha256`・`measured_tokens`・`threshold_tokens`・`saved_at`（Stop の hook が受け取った時刻を呼び手が渡す）・`handoff_source`（`seat_text` か `existing_records`）・`marker_id`（上の値を正規の JSON にした SHA-256）。
+- 中身（`kusabi-rotation-marker/v1`）: `agent_id`・`project`・`host`（`claude_code` か `codex`）・`session_id`（切る会話）・`pane_id`・`tmux_socket`・`host_pid`・`host_started_at`（その process の起動した時刻。`ps -o lstart= -p <host_pid>` の値の前後の空白を除き、続く空白を 1 つにした文字列。`lstart` の表記は環境の言語で変わる（日本語の環境では曜日と月日の並びが違う）ので、印と手番を書く hook も、見張りの `ps` の読みも、`LC_ALL=C` を付けて呼び、同じ表記で比べる。実装で見つけた点で、版 4 の監査の後に足した明確化）・`pack_ref`（DB に置いた回復の束）・`pack_content_sha256`・`measured_tokens`・`threshold_tokens`・`saved_at`（Stop の hook が受け取った時刻を呼び手が渡す）・`handoff_source`（`seat_text` か `existing_records`）・`marker_id`（上の値を正規の JSON にした SHA-256）。
 - Stop の hook は、Store への保存が終わった後にだけ印を書く（FR4.1）。保存に失敗したら印を書かない。
 
 ### 2.2 手番の file（席の hook が書く）

@@ -24,6 +24,27 @@ export const DEFAULT_RECOVERY_CONFIG: Omit<RecoveryConfig, "agent_id"> = {
   restart_message_threshold: 100,
 };
 
+/**
+ * Session rotation (261110-session-rotation). One place for every tunable
+ * value so no judgement number is written twice (standard S3).
+ */
+export const ROTATION_DEFAULT_THRESHOLD_TOKENS = 300_000;
+export const ROTATION_START_MAX_TOKENS = 10_000;
+export const ROTATION_START_MAX_BYTES = 120_000;
+export const ROTATION_MARKER_TTL_SECONDS = 1_800;
+export const ROTATION_CONFIRM_WAIT_SECONDS = 60;
+export const ROTATION_HANDOFF_MAX_CHARS = 12_000;
+
+/** Rotation watcher defaults (watcher-design.md 3.1, 5, 7). A seat's config may override them. */
+export const ROTATION_WATCHER_QUIET_SECONDS = 20;
+export const ROTATION_WATCHER_HUMAN_QUIET_SECONDS = 30;
+export const ROTATION_WATCHER_MIN_INTERVAL_SECONDS = 900;
+export const ROTATION_WATCHER_MAX_PER_HOUR = 4;
+export const ROTATION_WATCHER_NO_PROGRESS_HALT_LIMIT = 30;
+export const ROTATION_WATCHER_POLL_SECONDS = 5;
+export const ROTATION_WATCHER_ANCESTOR_DEPTH = 8;
+export const ROTATION_WATCHER_CONFIRM_POLL_SECONDS = 2;
+
 export const SEARCH_MEMORY_TOOL_DESCRIPTION =
   "Search agent memory by keyword or natural language. Use this as the adaptive retrieval layer: call it before making architectural or design decisions, when project context is unfamiliar, when restart_pack feels incomplete, when memory and external state may conflict, or before asking the user to restate context. For missing recent conversation after restart, use scope=conversation with focused queries. For truncated conversation results, use read_memory_source with the returned source_ref, project and content_hash to retrieve only the needed portion. PR/status answers must be verified with the relevant external SSOT before acting.";
 

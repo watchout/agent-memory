@@ -22,6 +22,7 @@ import {
   type SessionStartAutoReceiveResult,
   type SessionStartTranscriptHost,
 } from "./session-start-auto-receive.js";
+import { receiptOutcome, type ReceiptOutcome } from "./claude-transcript-identity.js";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 
@@ -50,6 +51,8 @@ export interface TranscriptStopInput {
   hook_event_name: "Stop" | "UserPromptSubmit";
   session_id: string;
   transcript_path: string;
+  stop_hook_active?: boolean;
+  last_assistant_message?: string;
 }
 
 export interface TranscriptStopRunResult {
@@ -65,8 +68,13 @@ export interface TranscriptStopRunResult {
     hook_event_name: "Stop" | "UserPromptSubmit" | null;
     status: "captured" | "skipped" | "failed_open";
     reason: SessionStartAutoReceiveResult["reason"] | "malformed_input" | "identity_binding_invalid";
+    /** FR8 R7: ingested / refused (reason code) / unobserved. Unobserved is never success. */
+    outcome: ReceiptOutcome;
     events_saved: number;
     events_duplicate: number;
+    /** FR8 R5 (Claude only): numbers kept for the receipt, not a gate. */
+    cwd_kinds?: number;
+    records_outside_workspace?: number;
     private_reasoning_persisted: false;
     protected_instruction_bodies_persisted: false;
   };
@@ -85,7 +93,7 @@ function nonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.trim() === value && value.length > 0 && !value.includes("\0");
 }
 
-function isWithin(parent: string, child: string): boolean {
+export function isWithin(parent: string, child: string): boolean {
   const rel = relative(resolve(parent), resolve(child));
   return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
@@ -113,6 +121,8 @@ export function parseTranscriptStopInput(raw: string): TranscriptStopInput {
     hook_event_name: value.hook_event_name,
     session_id: value.session_id,
     transcript_path: value.transcript_path,
+    ...(typeof value.stop_hook_active === "boolean" ? { stop_hook_active: value.stop_hook_active } : {}),
+    ...(typeof value.last_assistant_message === "string" ? { last_assistant_message: value.last_assistant_message } : {}),
   };
 }
 
@@ -140,6 +150,7 @@ function failedResult(
       hook_event_name: hookEventName,
       status: "failed_open",
       reason,
+      outcome: receiptOutcome({ status: "failed_open", reason }),
       events_saved: 0,
       events_duplicate: 0,
       private_reasoning_persisted: false,
@@ -148,10 +159,20 @@ function failedResult(
   };
 }
 
-function verifyBinding(binding: CodexSessionStartBinding, input: TranscriptStopInput): void {
+/**
+ * Claude Code identity does not use the hook's cwd (FR8 R1): after a `cd` it can
+ * legitimately be outside the declared workspace, so only the declared workspace
+ * itself is checked there. Codex keeps its cwd binding.
+ */
+export function verifyBinding(
+  binding: CodexSessionStartBinding,
+  input: TranscriptStopInput,
+  host: TranscriptStopHost,
+): void {
   if (!nonEmptyText(binding.agent_id) || !nonEmptyText(binding.project) || !nonEmptyText(binding.workspace) ||
     !nonEmptyText(binding.binding_source_ref)) throw new Error("identity_binding_invalid");
   const workspace = realpathSync(resolve(binding.workspace));
+  if (host === "claude_code") return;
   const cwd = realpathSync(resolve(input.cwd));
   if (!isWithin(workspace, cwd)) throw new Error("identity_binding_invalid");
 }
@@ -169,7 +190,7 @@ export async function runTranscriptStopCapture(
     return failedResult(host, binding, "malformed_input");
   }
   try {
-    verifyBinding(binding, input);
+    verifyBinding(binding, input, host);
   } catch {
     return failedResult(host, binding, "identity_binding_invalid", input.session_id, input.hook_event_name);
   }
@@ -201,8 +222,13 @@ export async function runTranscriptStopCapture(
           hook_event_name: input.hook_event_name,
           status: result.status,
           reason: result.reason,
+          outcome: receiptOutcome(result),
           events_saved: result.events_saved,
           events_duplicate: result.events_duplicate,
+          ...(result.cwd_kinds === undefined ? {} : { cwd_kinds: result.cwd_kinds }),
+          ...(result.records_outside_workspace === undefined
+            ? {}
+            : { records_outside_workspace: result.records_outside_workspace }),
           private_reasoning_persisted: false,
           protected_instruction_bodies_persisted: false,
         },

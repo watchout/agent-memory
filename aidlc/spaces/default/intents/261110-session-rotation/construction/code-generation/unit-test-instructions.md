@@ -16,21 +16,26 @@
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 ```
 
-要件ごとの試験（Step 12。file の名前は作る時に決め、ここに足す）:
+要件ごとの試験（Step 12。作った file。どれも `package.json` の既存の npm script に入っていて CI で回る）:
 
 ```bash
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-usage.ts
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-stop.ts
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-start.ts
-HOME=$(mktemp -d) npx tsx src/test-mcp-store-readiness.ts
-HOME=$(mktemp -d) npx tsx src/test-conversation-capture-repair.ts
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形（20 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、hook の command を別 process で起動する場合（24 cases）
+HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し（10 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示（8 cases）
+HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
 ```
 
-見張りの試験（Step 14。設計監査の PASS の後に作る。中身は見張りの設計の記録の版 4 の 13 のとおり: 観測の後の変化で起動し直しが実行されない=F1、入力欄の証明・人の入力の観測、結び（同じ shell の下の別の CLI・起動の command・起動の script の SHA-256・host の起動時刻）=F2、排他の取得と各段の停止、同じ観測の 2 回目の拒否=F3、帳面の旧 session_id=F4、実行できる tmux の命令が閉じた集合だけ（`send-keys` 系が 0 件）と SSOT-6 §9 の差分なし=F5。記録した tmux の呼び出しを全部照らす。本物の tmux は使わない）:
+`npm run test:session-rotation` は core・flow・hook-registration・status・watcher-units・watcher-flow・scenario を順に流す。`test:claude-hook` の最後がこれを呼び、`test:automatic-receive` が身元の試験を呼ぶ。
+
+見張りの試験（Step 14。設計監査の PASS と作者の受領の後に作った。中身は見張りの設計の記録の版 4 の 13 のとおり: 観測の後の変化で起動し直しが実行されない=F1、入力欄の証明・人の入力の観測、結び（同じ shell の下の別の CLI・起動の command・起動の script の SHA-256・host の起動時刻）=F2、排他の取得と各段の停止、同じ観測の 2 回目の拒否=F3、帳面の旧 session_id=F4、実行できる tmux の命令が閉じた集合だけ（`send-keys` 系が 0 件）と SSOT-6 §9 の差分なし=F5。記録した tmux の呼び出しを全部照らす。単体の試験は本物の tmux を使わない）:
 
 ```bash
-HOME=$(mktemp -d) npx tsx src/test-rotation-watcher.ts
+HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-units.ts   # 設定・画面・tmux・ps・核（82 cases）
+HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・確認・帳面・HALT・閉じた命令の集合（85 cases）
 ```
+
+`src/test-rotation-watcher-world.ts` は上の 2 つが使う、差し替えの tmux・ps・file の世界（試験の道具で、単独では動かさない）。見張りの正例の確かめ（本物の tmux、使い捨ての server、自分の socket）は手元で行い、結果を `code-summary.md` に書いた。この確かめは CI に入れていない。
 
 触る所の今の試験（通ったまま保つ。Step 1 で基準を取る）:
 
@@ -62,14 +67,10 @@ CI で回すために、新しい試験の file を、CI が呼ぶ npm の scrip
 ## 網羅率
 
 - 床: 変えた行と新しい行の網羅率 100%（team.md）。
-- 測り方: Node に組み込みの網羅率。新しい依存は足さない。
-
-```bash
-HOME=$(mktemp -d) node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=<一時の file> --import tsx src/test-session-rotation-scenario.ts
-```
-
-  上の命令を、この取り組みの試験の file ごとに流し、lcov を行ごとに足し合わせる。新しい module は全部の行、触った file は変えた行を見る。測った Node の版を記録する（Node の版で数え方が少し違いうる）。
+- 測り方（作る時に採った形）: Node に組み込みの `NODE_V8_COVERAGE` を、変えた file を読む試験の命令（上の試験と `test:claude-hook`・`test:codex-hook`・`test:gemini-hook`・`test:gemini-conversation-ingest`・`test:antigravity-hook`・`test:automatic-receive`・`test:transcript-stop`・core・SQLite 付きの post-tool-hook・boot recovery）の全部につけて動かし、process をまたいで 0 回の範囲を足し合わせ、新しい module は全部の行、触った file は base から足した行と重ねる。新しい依存は足さない。V8 の範囲は分岐の腕も数えるので行の網羅率より厳しい。子 process として起動する hook の command の分も集まる。測った Node の版を記録する（Node の版で数え方が少し違いうる）。
+- 計画の時に書いた `node --test --experimental-test-coverage --test-reporter=lcov` を file ごとに足す形は使わなかった（`code-summary.md` の「計画からの外れ」に採った判断と採らなかった案を書く）。
 - 届かない行は数えから外さず、理由を `code-summary.md` と PR に書いて、独立の監査で見る。
+- post-tool-hook の試験は `DATABASE_URL` が無いと 0 で先に終わる（main でも同じ）ので、網羅率の時だけ `AGENT_MEMORY_DB_TYPE=sqlite` を足す。
 
 ## 差し替えと見本の扱い
 
@@ -80,5 +81,5 @@ HOME=$(mktemp -d) node --test --experimental-test-coverage --test-reporter=lcov 
 
 ## 期待する網羅の内訳
 
-- 試験の数の目安: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとに 1 つ以上（FR1〜FR8 で約 15）、見張り 7 つ。
+- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 20・flow 24・hook-registration 10・status 8・身元 25）、見張り 2 file（units 82・flow 85）。
 - 各試験は、正しい場合と、2 つ以上の誤りや境目の場合（usage 無し・閾値ちょうど・文が取れない・束が無い・用意の失敗など）を持つ。

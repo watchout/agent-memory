@@ -32,6 +32,11 @@ import {
 } from "./codex-session-start.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
+import {
+  prepareRotationRecovery,
+  type RotationStartDependencies,
+  type RotationStartEvidence,
+} from "./session-rotation-start.js";
 import { receiveCurrentSessionTranscript } from "./session-start-auto-receive.js";
 import {
   RECOVERY_PACK_SCHEMA_REF,
@@ -87,7 +92,12 @@ export interface ClaudeSessionStartInput {
   agent_type?: string;
 }
 
-export type ClaudeSessionStartOutput = CodexSessionStartOutput;
+export type ClaudeSessionStartOutput = Omit<CodexSessionStartOutput, "hookSpecificOutput"> & {
+  hookSpecificOutput?: NonNullable<CodexSessionStartOutput["hookSpecificOutput"]> & {
+    /** Set only for a session-rotation start (FR6.1). */
+    initialUserMessage?: string;
+  };
+};
 export type ClaudeSessionStartDegradedReason =
   | "MALFORMED_HOOK_INPUT"
   | "UNSUPPORTED_HOOK_EVENT"
@@ -131,12 +141,15 @@ export interface ClaudeSessionStartDependencies {
     input: ClaudeSessionStartInput,
   ) => Promise<LoadedCodexRecovery>;
   now?: () => number;
+  /** Used by the default store loader only; an injected loadRecovery is unaffected. */
+  rotation?: RotationStartDependencies;
 }
 
 export interface ClaudeSessionStartRunResult {
   output: ClaudeSessionStartOutput;
   evidence: ClaudeSessionStartEvidence;
   exit_code: 0;
+  rotation_evidence?: RotationStartEvidence;
 }
 
 class ClaudeInputError extends Error {
@@ -275,6 +288,7 @@ function sha256(value: string): string {
 export async function loadClaudeRecoveryFromStore(
   binding: ClaudeSessionStartBinding,
   input: ClaudeSessionStartInput,
+  rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
   const storeBinding = resolveCodexStoreBinding();
   const store = await createStore({ skipPostgresMigrations: true });
@@ -288,6 +302,13 @@ export async function loadClaudeRecoveryFromStore(
       session_id: input.session_id,
       transcript_path: input.transcript_path,
     });
+    const rotation = await prepareRotationRecovery(store, {
+      agent_id: binding.agent_id,
+      project: binding.project,
+      host: "claude_code",
+      session_id: input.session_id,
+      source: input.source,
+    }, rotationDependencies);
     const packTokenBudget = Math.max(500, binding.max_tokens - 150);
     const packData = await loadRestartPackData(store, {
       agent_id: binding.agent_id,
@@ -338,15 +359,19 @@ export async function loadClaudeRecoveryFromStore(
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
+      ...(rotation ? { rotation } : {}),
     };
   } finally {
     await store.close();
   }
 }
 
-function transformOutput(output: CodexSessionStartOutput): ClaudeSessionStartOutput {
+function transformOutput(output: CodexSessionStartOutput, initialUserMessage?: string): ClaudeSessionStartOutput {
   return {
     ...output,
+    ...(initialUserMessage && output.hookSpecificOutput
+      ? { hookSpecificOutput: { ...output.hookSpecificOutput, initialUserMessage } }
+      : {}),
     ...(output.systemMessage
       ? { systemMessage: output.systemMessage.replaceAll("Codex", "Claude Code") }
       : {}),
@@ -403,18 +428,23 @@ export async function runClaudeSessionStart(
   } catch (error) {
     codexRaw = error instanceof ClaudeInputError ? proxyForInputError(error, rawInput) : "{}";
   }
+  let initialUserMessage: string | undefined;
   const codexDependencies: CodexSessionStartDependencies = {
     ...(dependencies.now ? { now: dependencies.now } : {}),
     loadRecovery: async (resolvedBinding) => {
       if (!input) throw new Error("CLAUDE_INPUT_INVALID");
-      return (dependencies.loadRecovery ?? loadClaudeRecoveryFromStore)(resolvedBinding, input);
+      const loaded = await (dependencies.loadRecovery ??
+        ((b, i) => loadClaudeRecoveryFromStore(b, i, dependencies.rotation)))(resolvedBinding, input);
+      initialUserMessage = loaded.rotation?.initial_user_message;
+      return loaded;
     },
   };
   const result = await runCodexSessionStart(codexRaw, binding, codexDependencies);
   return {
-    output: transformOutput(result.output),
+    output: transformOutput(result.output, initialUserMessage),
     evidence: transformEvidence(result.evidence, input),
     exit_code: 0,
+    ...(result.rotation_evidence ? { rotation_evidence: result.rotation_evidence } : {}),
   };
 }
 

@@ -17,6 +17,14 @@ import {
   CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID,
   TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS,
 } from "./transcript-stop-capture.js";
+import {
+  buildRotationHookGroup,
+  resolveRotationInstall,
+  rotationGroupsFor,
+  splitRotationHandlers,
+  type RotationInstall,
+} from "./rotation-hook-registration.js";
+import { CLAUDE_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
 
 export const CLAUDE_HOOK_CONFIG_RELATIVE_PATH = ".claude/settings.json" as const;
 export const CLAUDE_HOOK_MATCHER = "startup|resume|clear|compact" as const;
@@ -37,6 +45,8 @@ export interface ClaudeHookInstallOptions {
   timeout_ms?: number;
   create_backup?: boolean;
   runtime_event_manifest_path?: string;
+  /** Opt-in: undefined leaves an existing rotation handler as it is; "off" removes it. */
+  rotation?: RotationInstall;
 }
 
 export interface ClaudeHookInstallReport {
@@ -358,7 +368,16 @@ export function mergeClaudeSessionStartHook(
   existing: ClaudeSettingsFile,
   runtimeRoot: string,
   binding: ClaudeSessionStartBinding,
+  rotation?: RotationInstall,
 ): { settings: ClaudeSettingsFile; unrelatedBefore: number; unrelatedAfter: number } {
+  const stopSplit = splitRotationHandlers(existing.hooks.Stop ?? [], CLAUDE_ROTATION_STOP_ADAPTER_ID);
+  const promptSplit = splitRotationHandlers(existing.hooks.UserPromptSubmit ?? [], CLAUDE_ROTATION_STOP_ADAPTER_ID);
+  const buildRotation = (thresholdTokens?: number): HookGroup => buildRotationHookGroup({
+    runtime_root: runtimeRoot,
+    adapter_id: CLAUDE_ROTATION_STOP_ADAPTER_ID,
+    binding,
+    ...(thresholdTokens === undefined ? {} : { threshold_tokens: thresholdTokens }),
+  });
   const groups = existing.hooks.SessionStart ?? [];
   let unrelatedBefore = 0;
   const preserved: HookGroup[] = [];
@@ -367,14 +386,14 @@ export function mergeClaudeSessionStartHook(
     unrelatedBefore += unrelated.length;
     if (unrelated.length > 0) preserved.push({ ...group, hooks: unrelated });
   }
-  const stopGroups = existing.hooks.Stop ?? [];
+  const stopGroups = stopSplit.rest;
   const preservedStop: HookGroup[] = [];
   for (const group of stopGroups) {
     const unrelated = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
     unrelatedBefore += unrelated.length;
     if (unrelated.length > 0) preservedStop.push({ ...group, hooks: unrelated });
   }
-  const promptGroups = existing.hooks.UserPromptSubmit ?? [];
+  const promptGroups = promptSplit.rest;
   const preservedPrompt: HookGroup[] = [];
   for (const group of promptGroups) {
     const unrelated = group.hooks.filter((handler) => !isManagedTranscriptStopHandler(handler));
@@ -390,8 +409,8 @@ export function mergeClaudeSessionStartHook(
       hooks: {
         ...existing.hooks,
         SessionStart: nextGroups,
-        Stop: nextStopGroups,
-        UserPromptSubmit: nextPromptGroups,
+        Stop: [...nextStopGroups, ...rotationGroupsFor(stopSplit.rotation, rotation, buildRotation)],
+        UserPromptSubmit: [...nextPromptGroups, ...rotationGroupsFor(promptSplit.rotation, rotation, buildRotation)],
       },
     },
     unrelatedBefore,
@@ -433,6 +452,13 @@ export async function installClaudeSessionStartHook(
   if (!captureRunnerInfo.isFile() || captureRunnerInfo.isSymbolicLink()) {
     throw new Error(`invalid hook runner: ${captureRunner}`);
   }
+  if (options.rotation?.mode === "on") {
+    const rotationRunner = join(runtimeRoot, "dist", "session-rotation-stop.js");
+    const rotationRunnerInfo = await lstat(rotationRunner);
+    if (!rotationRunnerInfo.isFile() || rotationRunnerInfo.isSymbolicLink()) {
+      throw new Error(`invalid hook runner: ${rotationRunner}`);
+    }
+  }
   const binding: ClaudeSessionStartBinding = {
     agent_id: requiredText(options.agent_id, "agent_id"),
     project: requiredText(options.project, "project"),
@@ -450,7 +476,7 @@ export async function installClaudeSessionStartHook(
   await assertNotSymlink(claudeDir, true);
   await assertNotSymlink(settingsFile, true);
   const existing = await readExisting(settingsFile);
-  const merged = mergeClaudeSessionStartHook(existing.settings, runtimeRoot, binding);
+  const merged = mergeClaudeSessionStartHook(existing.settings, runtimeRoot, binding, options.rotation);
   const desired = canonicalJson(merged.settings);
   const configMatch = existing.raw === null
     ? "absent" as const
@@ -519,6 +545,8 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
   let maxTokens: number | undefined;
   let maxBytes: number | undefined;
   let timeoutMs: number | undefined;
+  let rotationFlag: string | undefined;
+  let rotationThreshold: number | undefined;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     const next = () => {
@@ -538,8 +566,11 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     else if (arg === "--max-bytes") maxBytes = positiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = positiveInteger(next(), arg);
     else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
+    else if (arg === "--rotation") rotationFlag = next();
+    else if (arg === "--rotation-threshold-tokens") rotationThreshold = positiveInteger(next(), arg);
     else throw new Error(`unknown argument: ${arg}`);
   }
+  const rotation = resolveRotationInstall(rotationFlag, rotationThreshold);
   return {
     mode,
     workspace: values.workspace ?? "",
@@ -553,6 +584,7 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     ...(values.runtime_event_manifest_path === undefined ? {} : {
       runtime_event_manifest_path: values.runtime_event_manifest_path,
     }),
+    ...(rotation === undefined ? {} : { rotation }),
   };
 }
 

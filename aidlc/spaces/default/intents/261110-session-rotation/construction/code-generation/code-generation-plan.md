@@ -54,56 +54,60 @@
 - [x] 設計の記録（版 4）・SSOT-6 §5（§9 は変えない）・要件 FR5.1〜FR5.4・FR5.7（新）・FR6.1・FR6.2・FR9.2・NFR3・この計画を直した。使い捨ての tmux（3.6a）で、起動の command の再実行・条件が偽の時の `NOT_RESPAWNED`・同じ観測での 2 回目の拒否・`pane_start_command` が引用符つきで返ることを確かめた。
 - [x] 監査の項目の file と試験の手順を版 4 に合わせ、PR に足した（head `7c827db`、CI の run 42949095366 で build-and-test 18・20・22 が success）。arc-73 に、向きの変更・tmux で確かめた事実・残る危険 R-A〜R-E を知らせ、公開された Owner の判断を求めた。
 - [x] 公開された Owner の判断: OD-KUSABI-ROTATION-WATCHER-RESPAWN-NOT-KEYS-20261111-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6785869798 、投稿者 watchout、本文の SHA-256 `f65ca4e11c9f71b3b31d34bdb17c3736f1add64705b9fc827ccb5dcff1f1dd3e`、API の本文から数え直して一致を確かめた）。原文「1はいい」。キーを送らず起動し直す向きと、残る危険 R-A〜R-E を受け入れて 4 回目の設計監査に出すこと、依頼を作者が出してよいことが決まった。席ごとの起動の script の登録・据え付け・席の hook の差し替えは含まない。
-- [ ] CI の後に 4 回目の `sds-audit-request/1` を同じ PR に出し、前検査を流し、READY_FOR_REVIEW を確かめる。返却が来るまで push しない。返却を `--review` で流し、結果をそのまま作者の受領として PR に書く。
+- [x] CI（build-and-test 18・20・22、run 42951313450、head `8bde7ff`）が成功で終わったのを確かめ、4 回目の `sds-audit-request/1` を同じ PR に出した（https://github.com/watchout/agent-memory/pull/341#issuecomment-6785911824 、本文の SHA-256 `a7a900e88d9f3724ed47205743e41a187aeb5641338f82a5a1ef778c6fa18b68`、item_set の SHA-256 `148d62c1f1f1771b9f72e18eae5d30ab0df7a6ed6f69efafe7fce7788bb596ff`）。前検査は READY_FOR_REVIEW。返却が来るまで push しない。
+- [x] 返却を `--review` で流し（push の前に）、結果をそのまま作者の受領として PR に書く（4 回目の返却は PASS、`--request … --sha256 … --review …` は RECEIPT_ACCEPTED、作者の受領 https://github.com/watchout/agent-memory/pull/341#issuecomment-6786349956 ）。PASS で受領が RECEIPT_ACCEPTED になるまで、Step 4 以降の code と試験の code は書かない。BLOCK なら、指摘を受け入れ、直し方が Owner の判断を要するか（向きの変更・守る物）を見てから、続きを決める（4 回目以降の依頼は、Owner の判断を要する扱いのまま）。
 
 ### Step 4: 成功の場面の試験を先に書いて失敗を確かめる（Testing Contract の順番）
-- [ ] `src/test-session-rotation-scenario.ts` を書く。Claude Code と Codex の transcript の見本（閾値の上）と、試験用の Store（SQLite か JSON、`HOME` を一時の folder にする）で、次の流れを確かめる: 1 回目の Stop の hook が block と理由の文を返す → 席の引き継ぎの文を含む 2 回目の Stop の hook が、作業の状態と回復の束を DB に書き、印を出す → SessionStart（source = `clear`）が、頭に残した「次の 1 歩」と FR7.1 の決まった文を入れた additionalContext を返す（Claude Code は initialUserMessage も）→ 同じ束は 2 回使わない。
-- [ ] 実装の前に動かし、失敗することを確かめて、その出力を `code-summary.md` に残す。
+- [x] `src/test-session-rotation-scenario.ts` を書く。Claude Code と Codex の transcript の見本（閾値の上）と、試験用の Store（SQLite か JSON、`HOME` を一時の folder にする）で、次の流れを確かめる: 1 回目の Stop の hook が block と理由の文を返す → 席の引き継ぎの文を含む 2 回目の Stop の hook が、作業の状態と回復の束を DB に書き、印を出す → SessionStart（source = `clear`）が、頭に残した「次の 1 歩」と FR7.1 の決まった文を入れた additionalContext を返す（Claude Code は initialUserMessage も）→ 同じ束は 2 回使わない。
+- [x] 実装の前に動かし、失敗することを確かめて、その出力を `code-summary.md` に残す（`npx tsx src/test-session-rotation-scenario.ts` は `ERR_MODULE_NOT_FOUND`（`src/session-rotation-stop.js` が無い）で落ちた。出力は `code-summary.md` を書く時に載せる）。
 
 ### Step 5: 量を測る（FR1）
-- [ ] 新しい module `src/session-rotation-usage.ts`: Claude Code の最後の応答の usage（input + cache_read + cache_creation）と、Codex の最後の `token_count` の `last_token_usage` の入力の量を、transcript の行から求める純粋な関数。時刻・環境・file を読まない（S4）。読めない時は「観測できず」と理由を返す（S5）。今の `src/codex-context-measurement.ts` の Codex の読み方と同じ知識を 2 か所に持たない（S3）。同じ関数を使うか、そちらへ寄せる。
-- [ ] adapter: transcript の末尾 4 MiB だけを読む（今の `TRANSCRIPT_CAPTURE_TAIL_BYTES` を使う）。
+- [x] 新しい module `src/session-rotation-usage.ts`: Claude Code の最後の応答の usage（input + cache_read + cache_creation）と、Codex の最後の `token_count` の `last_token_usage` の入力の量を、transcript の行から求める純粋な関数。時刻・環境・file を読まない（S4）。読めない時は「観測できず」と理由を返す（S5）。今の `src/codex-context-measurement.ts` の Codex の読み方と同じ知識を 2 か所に持たない（S3）。同じ関数を使うか、そちらへ寄せる。
+- [x] adapter: transcript の末尾 4 MiB だけを読む（今の `TRANSCRIPT_CAPTURE_TAIL_BYTES` を使う）。
 
 ### Step 6: 閾値（FR2）
-- [ ] 既定の 300,000 を `src/constants.ts` の 1 か所に置く。
-- [ ] Stop の hook の command に、席ごとの値の引数（`--rotation-threshold-tokens`）を任意で足せるようにする。`src/claude-hook-installer.ts`・`src/codex-hook-installer.ts` の command の組み立てと読み戻し（同じ文字列に戻ること）も、引数の有る形と無い形の両方を受けるように直す。
-- [ ] 切り直しの判定が今の帯の判定に触れる時は、`src/restart-prepare.ts` と `src/context-window-resolution.ts` に literal で 2 か所ある帯の値を 1 か所に寄せる（FR2.3）。触れない時は直さず、その旨を `code-summary.md` に書く。
+- [x] 既定の 300,000 を `src/constants.ts` の 1 か所に置く。
+- [x] Stop の hook の command に、席ごとの値の引数（`--rotation-threshold-tokens`）を任意で足せるようにする。`src/claude-hook-installer.ts`・`src/codex-hook-installer.ts` の command の組み立てと読み戻し（同じ文字列に戻ること）も、引数の有る形と無い形の両方を受けるように直す。
+- [x] 切り直しの判定が今の帯の判定に触れる時は、`src/restart-prepare.ts` と `src/context-window-resolution.ts` に literal で 2 か所ある帯の値を 1 か所に寄せる（FR2.3）。触れない時は直さず、その旨を `code-summary.md` に書く。
 
 ### Step 7: 切る前に残す（FR3）
-- [ ] 新しい module `src/session-rotation-stop.ts`: 量が閾値以上で、その会話でまだ残していない時に、block と理由の文（「済んだこと・次の 1 歩・まだ決まっていないこと」を書いて終える）を返す。1 つの会話で block は最大 1 回。
-- [ ] 次の Stop で、席の書いた文を transcript から取り出し、秘匿処理を通して、Store に直接書く（作業の状態と、1 回だけ使う回復の束とその metadata）。MCP は通さない。DB の作りは変えない。
-- [ ] 席の文が取れない時は、既にある記録だけで束を作り、落ちた理由を残す（FR3.3）。
-- [ ] `src/transcript-stop-capture.ts` から呼ぶ。今の取り込み（非同期）とは別に、切り直しの判定は同期で返す必要がある。hook の登録を同期の別の hook にするか、今の hook の中で順を決めるかを決め、決めた理由を `code-summary.md` に書く（席への据え付けは守る物なので、この PR では command の形と installer だけを用意する）。
+- [x] 新しい module `src/session-rotation-stop.ts`: 量が閾値以上で、その会話でまだ残していない時に、block と理由の文（「済んだこと・次の 1 歩・まだ決まっていないこと」を書いて終える）を返す。1 つの会話で block は最大 1 回。
+- [x] 次の Stop で、席の書いた文を transcript から取り出し、秘匿処理を通して、Store に直接書く（作業の状態と、1 回だけ使う回復の束とその metadata）。MCP は通さない。DB の作りは変えない。
+- [x] 席の文が取れない時は、既にある記録だけで束を作り、落ちた理由を残す（FR3.3）。
+- [x] `src/transcript-stop-capture.ts` から呼ぶ。今の取り込み（非同期）とは別に、切り直しの判定は同期で返す必要がある。hook の登録を同期の別の hook にするか、今の hook の中で順を決めるかを決め、決めた理由を `code-summary.md` に書く（席への据え付けは守る物なので、この PR では command の形と installer だけを用意する）。
 
 ### Step 8: 「切ってよい」の印（FR4）
-- [ ] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 4（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。印と手番には host の process の起動した時刻（`host_started_at`、`ps -o lstart=` の値）も書く。tmux の外の席は pane を null にして書く。
-- [ ] 今の印の状態を見る command（例: `wasurezu-restart` の下位の command）を足す。
+- [x] 保存が Store に入った後にだけ印を出す。印は席・案件・会話と、その会話が動いている画面（`TMUX_PANE` の pane_id・`TMUX` のソケット・hook の親 process の番号）に結ぶ。UserPromptSubmit・Stop・SessionStart の hook が書く手番の file も同じ値を持つ。置き場と形は見張りの設計の記録の版 4（2.1・2.2）で決めた物にする（見張りが LLM を使わずに読める形）。印と手番には host の process の起動した時刻（`host_started_at`、`ps -o lstart=` の値）も書く。tmux の外の席は pane を null にして書く。
+- [x] 今の印の状態を見る command を足す（作った物: 読むだけの `src/session-rotation-status.ts`。`wasurezu-restart` の下位ではなく単独の module。監査済みの見張りの設計には無かったので、PR の deviation_ledger に 1 行書く）。
 
 ### Step 9: 次の会話で続きから動く（FR6、FR7.1）
-- [ ] 新しい module `src/session-rotation-start.ts`: 準備した束を 1 回だけ取り出し、残した文を頭にした回復の文を作る。上限は 10,000 トークン（FR6.4、既定は `src/constants.ts` の 1 か所）。FR7.1 の決まった文（曖昧な点は推測で埋めず Kusabi の DB を当たる、当たる tool の名前）を入れる。
-- [ ] `src/claude-session-start.ts`（source = `clear`・`compact`、および見張りの起動し直しの続きの `startup`）は additionalContext と initialUserMessage を返す。`src/codex-session-start.ts` は additionalContext を返す。`startup` を切り直しの続きとして使うのは、その席の claim が `respawning` で、`TMUX_PANE` と tmux のソケットが合い、`respawn_started_at` から確認の待ち時間以内の時だけ（FR6.1）。使った時は手番の `started` に `source` と `rotation_marker_id` を書く。合わない `startup` と、束が無い時は今までどおり（FR6.3）。claim の file は読むだけで書かない。
+- [x] 新しい module `src/session-rotation-start.ts`: 準備した束を 1 回だけ取り出し、残した文を頭にした回復の文を作る。上限は 10,000 トークン（FR6.4、既定は `src/constants.ts` の 1 か所）。FR7.1 の決まった文（曖昧な点は推測で埋めず Kusabi の DB を当たる、当たる tool の名前）を入れる。
+- [x] `src/claude-session-start.ts`（source = `clear`・`compact`、および見張りの起動し直しの続きの `startup`）は additionalContext と initialUserMessage を返す。`src/codex-session-start.ts` は additionalContext を返す。`startup` を切り直しの続きとして使うのは、その席の claim が `respawning` で、`TMUX_PANE` と tmux のソケットが合い、`respawn_started_at` から確認の待ち時間以内の時だけ（FR6.1）。使った時は手番の `started` に `source` と `rotation_marker_id` を書く。合わない `startup` と、束が無い時は今までどおり（FR6.3）。claim の file は読むだけで書かない。
 
 ### Step 10: MCP の server を先に接続し、起動のたびの表の変更をやめる（FR7.2、FR7.3）
-- [ ] `src/index.ts`: transport に先に接続して tool の一覧を返し、Store の用意はその後で行う。tool の呼び出しは用意が済むのを待つ。用意に失敗した時は、tool の呼び出しが理由つきの誤りを返す（黙らない）。新しい働きは新しい module（例: `src/mcp-store-readiness.ts`）に置く。
-- [ ] `src/index.ts`・`src/boot.ts`・`src/post-tool-hook.ts` の `createStore()` を、表の変更を流さない形（`skipPostgresMigrations: true`）にする。表の変更は `src/migrate.ts`（`npm run migrate`）だけが流す。今ある Gate 0 の試験（`tests/gate0/migration-idempotency.ts`）が通ったままかを確かめる。
+- [x] `src/index.ts`: transport に先に接続して tool の一覧を返し、Store の用意はその後で行う。tool の呼び出しは用意が済むのを待つ。用意に失敗した時は、tool の呼び出しが理由つきの誤りを返す（黙らない）。新しい働きは新しい module（例: `src/mcp-store-readiness.ts`）に置く。
+- [x] `src/index.ts`・`src/boot.ts`・`src/post-tool-hook.ts` の `createStore()` を、表の変更を流さない形（`skipPostgresMigrations: true`）にする。表の変更は `src/migrate.ts`（`npm run migrate`）だけが流す。今ある Gate 0 の試験（`tests/gate0/migration-idempotency.ts`）が通ったままかを確かめる。
 
 ### Step 11: 会話の取り込みを直す（FR8）
-- [ ] 2026-10-16 から `conversation_events`・`raw_events` が増えない原因を、Stop の hook の取り込み（`src/transcript-stop-capture.ts` と各 host の ingest）と、取り込みの常駐（`store.recordRawEvent is not a function` を出している古い daemon と、今の `src/raw-capture-service.ts`）の両方で、手元の試験と読み取りだけで確かめる。本番の DB には書かない。
-- [ ] 原因を直し、見本の transcript で行が入ること、同じ入力の 2 回目は重ねないことを試験で確かめる。原因が DB の作りの変更を要するなら、そこで止めて arc に知らせる（NFR5）。常駐の差し替えは守る物なので、この PR には入れない。
+- [x] 2026-10-16 から `conversation_events`・`raw_events` が増えない原因を、Stop の hook の取り込み（`src/transcript-stop-capture.ts` と各 host の ingest）と、取り込みの常駐（`store.recordRawEvent is not a function` を出している古い daemon と、今の `src/raw-capture-service.ts`）の両方で、手元の試験と読み取りだけで確かめる。本番の DB には書かない。
+- [x] 原因を直し、見本の transcript で行が入ること、同じ入力の 2 回目は重ねないことを試験で確かめる。原因が DB の作りの変更を要するなら、そこで止めて arc に知らせる（NFR5）。常駐の差し替えは守る物なので、この PR には入れない。
+
+- [x] 原因の確かめ（読み取り）: Claude の取り込みは身元の規則（hook の cwd と全 record の cwd の一致）で 0 件、Codex の code は動く、常駐は main に無い古い build（#339 に案を追記）。
+- [x] 身元の規則 R1〜R9（`capture-identity-design.md`、arc-sec 止める点なし）で Claude の規則を直す: 先に試験（R9 の正例 2・負例 5 ほか）を書いて落ちることを確かめてから、`src/claude-transcript-identity.ts` と `src/session-start-auto-receive.ts`・`src/transcript-stop-capture.ts` を直す。Claude の席の `workspace_mismatch`・`session_mismatch` を前提にしていた今の試験は、新しい理由コードに合わせて直す（直した所を `code-summary.md` に書く）。
 
 ### Step 12: 層ごとの細かい試験と網羅率
-- [ ] Step 4 の成功の場面の試験が通ることを確かめる。
-- [ ] 要件ごとの試験を足す（`src/test-session-rotation-*.ts`）: FR1（Claude・Codex・usage 無し）、FR2（既定・席の値・帯の値が 1 か所）、FR3（block 1 回・保存・落ちる形・秘匿処理）、FR4（保存の前は印が無い）、FR6（Claude と Codex の返し方・1 回だけ・上限）、FR7.1（決まった文）、FR7.2（tool の一覧が先に返る・用意の後に答える・用意の失敗）、FR7.3（起動で表の変更を流さない）、FR8（取り込みの直し）。各試験は正しい場合と、2 つ以上の誤りや境目の場合を持つ。
-- [ ] 新しい試験を、CI が呼ぶ npm の script（`test:claude-hook`・`test:codex-hook`・`test:automatic-receive` など）に足す。workflow の file は変えない。
-- [ ] 変えた行と新しい行の網羅率を、Node に組み込みの網羅率（`node --test --experimental-test-coverage --test-reporter=lcov --import tsx <試験の file>`）で測り、100% を確かめる。届かない行は数えから外さず、理由を `code-summary.md` と PR に書く。
+- [x] Step 4 の成功の場面の試験が通ることを確かめる。
+- [x] 要件ごとの試験を足す（`src/test-session-rotation-*.ts`）: FR1（Claude・Codex・usage 無し）、FR2（既定・席の値・帯の値が 1 か所）、FR3（block 1 回・保存・落ちる形・秘匿処理）、FR4（保存の前は印が無い）、FR6（Claude と Codex の返し方・1 回だけ・上限）、FR7.1（決まった文）、FR7.2（tool の一覧が先に返る・用意の後に答える・用意の失敗）、FR7.3（起動で表の変更を流さない）、FR8（取り込みの直し）。各試験は正しい場合と、2 つ以上の誤りや境目の場合を持つ。
+- [x] 新しい試験を、CI が呼ぶ npm の script（`test:claude-hook`・`test:codex-hook`・`test:automatic-receive` など）に足す。workflow の file は変えない。
+- [x] 変えた行と新しい行の網羅率を、Node に組み込みの網羅率（`node --test --experimental-test-coverage --test-reporter=lcov --import tsx <試験の file>`）で測り、100% を確かめる。届かない行は数えから外さず、理由を `code-summary.md` と PR に書く。
 
 ### Step 13: 型・build・今の試験の全体
-- [ ] `npx tsc --noEmit`、`npm run build`、CI と同じ試験の一覧を手元で流し、全部通ることを確かめる。
+- [x] `npx tsc --noEmit`、`npm run build`、CI と同じ試験の一覧を手元で流し、全部通ることを確かめる。
 
 ### Step 14: 見張りを作る（設計監査の PASS の後だけ）
-- [ ] 設計監査の返却が PASS で、作者の受領を PR に書いた後に始める。返却が BLOCK なら、設計の記録を直し、公開された Owner の判断を受けてから設計監査をもう一度依頼し、PASS まで code を書かない。
-- [ ] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 4 のとおりに作る。`ps`・tmux の読み取りと起動し直し・画面・時計・file は差し替えられる形にし、試験では本物の tmux を使わない（差し替えの tmux は呼び出しの引数の列を全部記録する）。見張りが実行する tmux の命令は、閉じた集合（`display-message -p`・`list-clients -F`・`capture-pane -p`・`if-shell -F` の then の枝の `respawn-pane -k -t <pane_id>`）だけで、`send-keys` 系を呼ぶ経路も定数も code に持たない。`respawn-pane` に command の文字列を渡す経路も持たない。
-- [ ] 試験（設計の記録の版 4 の 13 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
+- [x] 設計監査の返却が PASS で、作者の受領を PR に書いた後に始める。返却が BLOCK なら、設計の記録を直し、公開された Owner の判断を受けてから設計監査をもう一度依頼し、PASS まで code を書かない。
+- [x] `src/rotation-watcher.ts`（と CLI の入口、読むだけの `probe`）を、設計の記録の版 4 のとおりに作る。`ps`・tmux の読み取りと起動し直し・画面・時計・file は差し替えられる形にし、試験では本物の tmux を使わない（差し替えの tmux は呼び出しの引数の列を全部記録する）。見張りが実行する tmux の命令は、閉じた集合（`display-message -p`・`list-clients -F`・`capture-pane -p`・`if-shell -F` の then の枝の `respawn-pane -k -t <pane_id>`）だけで、`send-keys` 系を呼ぶ経路も定数も code に持たない。`respawn-pane` に command の文字列を渡す経路も持たない。
+- [x] 試験（設計の記録の版 4 の 13 のとおり。どれも設計監査の指摘 F1〜F5 に対応する）:
   - キーが 0 件の型: どの試験でも、記録した tmux の呼び出しは閉じた集合だけで、`send-keys` 系が 0 件。`respawn-pane` は `if-shell -F` の then の枝の中だけで、command の引数を持たず、1 つの印につき 0 回か 1 回。`probe` では 0 回。
   - 基本: 印あり・手すき・入力欄が空・人が触っていない・結びが合う時に、条件つきの起動し直しを 1 回だけ起こす。応答の途中・手すきを確かめられない・対応に無い画面は何もしない。Codex も同じ（続きの文は無い）。
   - 3 回目 F1: 観測の後にカーソルが動いた・client が付いた／外れた・client の最終操作が新しくなった・pane がコピー・モードになった・手番が `busy` に変わった、のそれぞれで `respawn-pane` が 0 回、claim は `aborted_before_respawn`。行が置き換わってカーソルが戻る窓は、起動し直しが起きうること（未送信の文の消失 R-A）と、席に届く文が 0 件であることを確かめ、「防いだ」とは主張しない。
@@ -119,7 +123,7 @@
   - 網羅率 100%。
 
 ### Step 15: 記録と実装監査
-- [ ] `code-summary.md`・`traceability.json` を書く。監査の項目の file に実装の項目を足す。
+- [x] `code-summary.md`・`traceability.json` を書く。監査の項目の file に実装の項目を足す。
 - [ ] code を同じ PR に push し、CI の後に実装監査を依頼する（`audit_stage` は実装の後）。PR の本文に deviation_ledger（大きな file の扱い、届かない網羅率があればその理由）と「AI-DLC の単位の作る段の出力」を書く。
 - [ ] 統合の後の席への据え付け（FR9.2・FR9.3）は、arc-sec の確かめと Owner の決定を受けてから、Owner の手作業として別に行う。
 
@@ -193,7 +197,7 @@
 | FR5.1〜FR5.6 | Step 2・3・14 |
 | FR6.1〜FR6.5 | Step 4・9・12 |
 | FR7.1〜FR7.3 | Step 9・10・12 |
-| FR8.1〜FR8.3 | Step 11・12 |
+| FR8.1〜FR8.6 | Step 11・12 |
 | FR9.1 | Step 4・12・14 |
 | FR9.2・FR9.3 | Step 15（統合の後、Owner の決定で据える） |
 | NFR1〜NFR7 | Step 5〜14 の試験と Step 12・13 |
