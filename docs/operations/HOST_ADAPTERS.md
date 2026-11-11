@@ -263,7 +263,10 @@ refusing the whole input would silently stop recovery, capture, and rotation.
 The names of ignored keys (names, event, count, and times only) are written to a
 per-seat diagnostic file under `$AGENT_MEMORY_HOME/hook-input/`, which is not part
 of any evidence contract; if it cannot be written, the hook answer and evidence
-are unchanged. The Codex `Stop`/`UserPromptSubmit` hooks share the transcript-capture
+are unchanged. The diagnostic write starts only after the hook answer and
+evidence are final, and only when enough of the hook time budget remains
+(`HOOK_DIAGNOSTIC_MIN_REMAINING_MS`); otherwise it is skipped as a whole. How an
+optional key with the wrong type is handled is unchanged for each hook. The Codex `Stop`/`UserPromptSubmit` hooks share the transcript-capture
 parser, so the same rule applies to them; the Codex `SessionStart` parser is
 unchanged. `host_contract_version` (`2.1.220`) records the host version the
 contract was last checked against, not the host's current version. The hook

@@ -27,6 +27,8 @@
 | hook の node の実在 | 設定の hook の command の先頭の node が実在し実行できる | 合格（実在し、SessionStart の hook がその node で動いた） |
 | AI-DLC の hook の健全 | 最初の人手の起動で整合性の誤りを出さない | 合格（終了 0、stderr 空、案内が届いた） |
 | Kusabi の SessionStart の入力の受理 | 証拠が `input_valid: true`、`auto_receive.status` と `store_binding` が出る | **不合格**（C2。`MALFORMED_HOOK_INPUT`） |
+| host の版と、契約を確かめた版のずれ | 配備を行う席が手順の 1 行として `claude --version` を流し、この表に『観測した版と契約を確かめた版 2.1.220 のずれ』の 1 行を**必ず**書く。読めない時は『観測できず』と書き、ずれ無しと読まない。この 1 行を必ず書くことは agent-memory#339 の comment 6793417308（A3 の 2）が記録し、arc-sec の読み（iyasaka-arc#57 の comment 6792778481）も実装の PR で見る点に挙げている。この 1 行が無い配備の記録を完了としない手順と、実施者を配備を行う席にすることは作者の決め（GitHub の記録は無い）。code にしない | Step 16 の配備の後に行う（未実施） |
+| 診断の記録（知らない key の名前） | `session-rotation-status` の `hook_input` の節が名前と件数だけを出す。『記録なし』は『知らない key を見なかった』の証明ではないので、同じ session の SessionStart の証拠の `input_valid` と合わせて読む | Step 16 の配備の後に行う（未実施） |
 | 見張りの動作 | 記録（`watcher-ledger.jsonl`）に新しい周回の行が出る。停止の印で止まる | S6 で確かめる（未実施） |
 | 切り直し | 席が手すきの時だけ起動し直しが起き、新しい session id の会話が続きを受け取る | S7 で確かめる（未実施） |
 | 圧縮との前後 | 閾値 240000 で、窓 300000 の圧縮より先に切り直しが来たか | S7 で記録する（未実施） |
