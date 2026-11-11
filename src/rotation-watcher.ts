@@ -12,13 +12,14 @@ import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ROTATION_WATCHER_POLL_SECONDS } from "./constants.js";
+import { currentUid } from "./process-uid.js";
 import { rotationRoot } from "./session-rotation-files.js";
 import { nodeWatcherFs } from "./rotation-watcher-store.js";
 import { psTableExec } from "./rotation-watcher-ps.js";
 import { tmuxExec } from "./rotation-watcher-tmux.js";
 import type { WatcherPorts } from "./rotation-watcher-observe.js";
 import { probeSeat, type ProbeOptions } from "./rotation-watcher-probe.js";
-import { runPass, runWatcher } from "./rotation-watcher-run.js";
+import { runPass, runWatcher, runnerMustStop } from "./rotation-watcher-run.js";
 
 export type WatcherCommand =
   | { command: "run"; max_passes: number | null }
@@ -78,7 +79,7 @@ export function realPorts(env: NodeJS.ProcessEnv): WatcherPorts {
     ps: psTableExec,
     fs: nodeWatcherFs,
     root: rotationRoot(env),
-    uid: process.getuid ? process.getuid() : -1,
+    uid: currentUid(),
     now_ms: () => Date.now(),
     sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
     hash_file: sha256OfFile,
@@ -105,15 +106,16 @@ export async function runWatcherCli(
   }
   if (parsed.command === "once") {
     const pass = await runPass(ports, new Map());
+    const mustStop = runnerMustStop(ports, pass);
     write(`${JSON.stringify(pass)}\n`);
-    return pass.config_reason === null ? 0 : 1;
+    return mustStop ? 4 : pass.config_reason === null ? 0 : 1;
   }
   const result = await runWatcher(ports, {
     poll_ms: pollMs,
     ...(parsed.max_passes === null ? {} : { max_passes: parsed.max_passes }),
     log: (line) => write(`${line}\n`),
   });
-  return result.halted_global ? 3 : 0;
+  return result.stopped ? 4 : result.halted_global ? 3 : 0;
 }
 
 async function main(): Promise<void> {

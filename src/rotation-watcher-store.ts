@@ -207,14 +207,26 @@ export function appendLedger(fs: WatcherFs, rotationRoot: string, kind: LedgerKi
   }
 }
 
-export interface LedgerSummary {
-  last_respawn_ms: number | null;
-  respawns_in_last_hour: number;
-}
+/**
+ * What the ledger says about one seat's respawns. "Unreadable" is its own answer:
+ * a ledger that exists but cannot be read in full is not an empty history (S5), and
+ * the caller must not respawn on it.
+ */
+export type LedgerSummary =
+  | { readable: true; last_respawn_ms: number | null; respawns_in_last_hour: number }
+  | { readable: false; reason: string };
 
 const HOUR_MS = 3_600_000;
 
-/** Respawn history for one seat: lines that mean a respawn was issued or may have been. */
+/** Lines that mean a respawn was issued, may have been, or was found to have happened. */
+const COUNTING_KINDS: readonly string[] = ["respawn_issued", "outcome_unknown", "confirmed"];
+
+/**
+ * Respawn history for one seat. One attempt counts once, at the latest time of its
+ * counting lines - a respawn that was only found by the later inquiry has no
+ * `respawn_issued` line and still counts. A missing ledger is an empty history; a
+ * ledger that is unreadable, or has a line that cannot be understood, is unreadable.
+ */
 export function summarizeLedger(
   fs: WatcherFs,
   rotationRoot: string,
@@ -222,24 +234,38 @@ export function summarizeLedger(
   project: string,
   nowMs: number,
 ): LedgerSummary {
-  const text = fs.readText(ledgerPath(rotationRoot)) ?? "";
-  let last: number | null = null;
-  let recent = 0;
+  const path = ledgerPath(rotationRoot);
+  if (!fs.exists(path)) return { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 };
+  const text = fs.readText(path);
+  if (text === null) return { readable: false, reason: "ledger_unreadable" };
+  const attempts = new Map<string, number>();
   for (const row of text.split("\n")) {
     if (row === "") continue;
+    let entry: unknown;
     try {
-      const entry = JSON.parse(row) as Record<string, unknown>;
-      if (entry.agent_id !== agentId || entry.project !== project) continue;
-      if (entry.kind !== "respawn_issued" && entry.kind !== "outcome_unknown") continue;
-      const at = typeof entry.at === "string" ? Date.parse(entry.at) : Number.NaN;
-      if (Number.isNaN(at)) continue;
-      last = last === null ? at : Math.max(last, at);
-      if (nowMs - at < HOUR_MS) recent += 1;
+      entry = JSON.parse(row);
     } catch {
-      continue;
+      return { readable: false, reason: "ledger_line_unparsable" };
     }
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      return { readable: false, reason: "ledger_line_not_an_object" };
+    }
+    const line = entry as Record<string, unknown>;
+    if (line.agent_id !== agentId || line.project !== project) continue;
+    if (typeof line.kind !== "string" || !COUNTING_KINDS.includes(line.kind)) continue;
+    const at = typeof line.at === "string" ? Date.parse(line.at) : Number.NaN;
+    if (Number.isNaN(at)) return { readable: false, reason: "ledger_line_time_invalid" };
+    if (typeof line.attempt_id !== "string" || line.attempt_id === "") {
+      return { readable: false, reason: "ledger_line_attempt_missing" };
+    }
+    attempts.set(line.attempt_id, Math.max(attempts.get(line.attempt_id) ?? at, at));
   }
-  return { last_respawn_ms: last, respawns_in_last_hour: recent };
+  const times = [...attempts.values()];
+  return {
+    readable: true,
+    last_respawn_ms: times.length === 0 ? null : Math.max(...times),
+    respawns_in_last_hour: times.filter((at) => nowMs - at < HOUR_MS).length,
+  };
 }
 
 export const globalHaltPath = (rotationRoot: string): string => join(rotationRoot, "HALT");

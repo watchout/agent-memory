@@ -12,7 +12,9 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getClaudeProjectsDir } from "./claude-conversation-ingest.js";
+import { checkClaudeTranscriptPlacement, judgeClaudeRecords } from "./claude-transcript-identity.js";
 import { getCodexSessionsDir } from "./codex-conversation-ingest.js";
+import { currentUid } from "./process-uid.js";
 import {
   CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
   type CodexSessionStartBinding,
@@ -23,7 +25,7 @@ import {
   ROTATION_MARKER_TTL_SECONDS,
 } from "./constants.js";
 import { redactText } from "./redact.js";
-import { readBoundedTranscriptTailSnapshot } from "./session-start-auto-receive.js";
+import { matchesCodexSession, readBoundedTranscriptTailSnapshot } from "./session-start-auto-receive.js";
 import {
   buildMarker,
   readHookState,
@@ -113,7 +115,14 @@ export interface RotationStopDependencies {
   ps?: PsRunner;
   rotation_root?: string;
   createStore?: () => Promise<Store>;
-  read_transcript?: (host: RotationHost, path: string) => TranscriptTail;
+  read_transcript?: (host: RotationHost, path: string, expected: ExpectedTranscript) => TranscriptTail;
+}
+
+/** What the hook itself says this conversation is; the transcript must prove it is that one. */
+export interface ExpectedTranscript {
+  session_id: string;
+  workspace: string;
+  cwd: string;
 }
 
 export type TranscriptTail = { status: "ok"; lines: string[] } | { status: "unreadable"; reason: string };
@@ -174,14 +183,48 @@ function boundedHandoff(text: string): string {
     : redacted;
 }
 
-export function readTranscriptTail(host: RotationHost, transcriptPath: string): TranscriptTail {
-  const snapshot = readBoundedTranscriptTailSnapshot(host, transcriptPath, TRANSCRIPT_CAPTURE_TAIL_BYTES);
-  if (snapshot.status !== "valid") return { status: "unreadable", reason: snapshot.reason };
+const unreadable = (reason: string): TranscriptTail => ({ status: "unreadable", reason });
+
+/**
+ * The tail of this conversation's transcript, only if the file can be shown to be
+ * this seat's own (FR8 R1-R5 for Claude Code, the rollout's session_meta for Codex).
+ * A transcript of another workspace or session is "unreadable", never text to save.
+ */
+export function readTranscriptTail(host: RotationHost, transcriptPath: string, expected: ExpectedTranscript): TranscriptTail {
+  return host === "claude_code" ? readClaudeTail(transcriptPath, expected) : readCodexTail(transcriptPath, expected);
+}
+
+function readClaudeTail(transcriptPath: string, expected: ExpectedTranscript): TranscriptTail {
+  const placement = checkClaudeTranscriptPlacement({
+    transcript_path: transcriptPath,
+    projects_root: getClaudeProjectsDir(),
+    session_id: expected.session_id,
+    declared_workspace: expected.workspace,
+    uid: currentUid(),
+  });
+  if (!placement.ok) return unreadable(placement.reason);
+  const snapshot = readBoundedTranscriptTailSnapshot("claude_code", placement.real_path, TRANSCRIPT_CAPTURE_TAIL_BYTES);
+  if (snapshot.status !== "valid") return unreadable(snapshot.reason);
+  const judged = judgeClaudeRecords(snapshot.validation_raw ?? snapshot.raw, expected.session_id, [resolve(expected.workspace)]);
+  return judged.ok ? { status: "ok", lines: snapshot.raw.split("\n") } : unreadable(judged.reason);
+}
+
+function readCodexTail(transcriptPath: string, expected: ExpectedTranscript): TranscriptTail {
+  const snapshot = readBoundedTranscriptTailSnapshot("codex", transcriptPath, TRANSCRIPT_CAPTURE_TAIL_BYTES);
+  if (snapshot.status !== "valid") return unreadable(snapshot.reason);
+  let root: string;
+  let workspace: string;
+  let cwd: string;
   try {
-    const root = realpathSync(resolve(host === "claude_code" ? getClaudeProjectsDir() : getCodexSessionsDir()));
-    if (!isWithin(root, snapshot.path)) return { status: "unreadable", reason: "transcript_outside_host_root" };
+    root = realpathSync(resolve(getCodexSessionsDir()));
+    workspace = realpathSync(resolve(expected.workspace));
+    cwd = realpathSync(resolve(expected.cwd));
   } catch {
-    return { status: "unreadable", reason: "transcript_root_unavailable" };
+    return unreadable("transcript_root_unavailable");
+  }
+  if (!isWithin(root, snapshot.path)) return unreadable("transcript_outside_host_root");
+  if (!matchesCodexSession(snapshot.validation_raw ?? snapshot.raw, expected.session_id, workspace, cwd)) {
+    return unreadable("session_mismatch");
   }
   return { status: "ok", lines: snapshot.raw.split("\n") };
 }
@@ -222,6 +265,36 @@ function evidence(
 
 const PASS: RotationStopOutput = { continue: true, suppressOutput: true };
 
+const DEADLINE_REASON = "internal_deadline_exceeded";
+
+/** The hook's own limit is 9 s (the host kills it); the work gives up at the configured time, 7 s at most (NFR1). */
+export const rotationDeadlineMs = (timeoutMs: number): number =>
+  Math.min(timeoutMs, CODEX_SESSION_START_INTERNAL_TIMEOUT_MS);
+
+/**
+ * The time budget of one hook run. It belongs to the command layer (a real
+ * timer), not to the decision core. Once it has lapsed nothing durable is
+ * written, and `committed` holds the result that was final before it lapsed.
+ */
+interface Deadline {
+  lapsed: Promise<void>;
+  isExpired(): boolean;
+  cancel(): void;
+  committed: RotationStopResult | null;
+}
+
+function startDeadline(budgetMs: number): Deadline {
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout>;
+  const lapsed = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      expired = true;
+      resolve();
+    }, budgetMs);
+  });
+  return { lapsed, isExpired: () => expired, cancel: () => clearTimeout(timer), committed: null };
+}
+
 interface SaveContext {
   store: Store;
   host: RotationHost;
@@ -233,6 +306,7 @@ interface SaveContext {
   measured_tokens: number;
   threshold_tokens: number;
   handoff: { text: string; source: HandoffSource; reason: string };
+  deadline: Deadline;
 }
 
 async function saveHandoff(context: SaveContext): Promise<string> {
@@ -281,6 +355,8 @@ async function saveHandoff(context: SaveContext): Promise<string> {
     saved_at: savedAt,
     handoff_source: handoff.source,
   });
+  // "Safe to cut" is never announced after the hook has already given up (NFR1).
+  if (context.deadline.isExpired()) throw new Error(DEADLINE_REASON);
   writeMarker(context.directory, marker);
   return marker.marker_id;
 }
@@ -305,6 +381,22 @@ export async function runSessionRotationStop(
   binding: CodexSessionStartBinding,
   options: RotationStopOptions = {},
   dependencies: RotationStopDependencies = {},
+): Promise<RotationStopResult> {
+  const deadline = startDeadline(rotationDeadlineMs(binding.timeout_ms));
+  try {
+    return await runWithin(raw, host, binding, options, dependencies, deadline);
+  } finally {
+    deadline.cancel();
+  }
+}
+
+async function runWithin(
+  raw: string,
+  host: RotationHost,
+  binding: CodexSessionStartBinding,
+  options: RotationStopOptions,
+  dependencies: RotationStopDependencies,
+  deadline: Deadline,
 ): Promise<RotationStopResult> {
   const threshold = options.threshold_tokens ?? ROTATION_DEFAULT_THRESHOLD_TOKENS;
   let input: TranscriptStopInput;
@@ -341,7 +433,11 @@ export async function runSessionRotationStop(
     });
 
   try {
-    const tail = (dependencies.read_transcript ?? readTranscriptTail)(host, input.transcript_path);
+    const tail = (dependencies.read_transcript ?? readTranscriptTail)(host, input.transcript_path, {
+      session_id: input.session_id,
+      workspace: binding.workspace,
+      cwd: input.cwd,
+    });
     const lines = tail.status === "ok" ? tail.lines : [];
     const measurement: ContextMeasurement = tail.status === "ok"
       ? measureContextTokens(host, lines)
@@ -374,31 +470,43 @@ export async function runSessionRotationStop(
       };
     }
     if (decision.action === "save") {
+      // A transcript that cannot be shown to be this conversation's is never a source of the hand-off (FR8, S5).
+      if (tail.status !== "ok") {
+        return { output: PASS, evidence: failedEvidence(host, binding, `transcript_unverified:${tail.reason}`, threshold, input) };
+      }
       const handoff = chooseHandoff(host, lines, input, decision.answered);
-      const markerId = await withStore(dependencies, (store) =>
-        saveHandoff({
-          store,
-          host,
-          binding,
-          input,
-          directory,
-          identity,
-          now,
-          measured_tokens: decision.measured_tokens,
-          threshold_tokens: threshold,
-          handoff,
-        }));
-      turn("idle");
-      return {
-        output: PASS,
-        evidence: evidence(host, binding, input, threshold, {
-          action: "saved",
-          reason: handoff.reason,
-          measured_tokens: measured,
-          handoff_source: handoff.source,
-          marker_id: markerId,
+      const finished = await Promise.race([
+        withStore(dependencies, deadline, async (store) => {
+          const markerId = await saveHandoff({
+            store,
+            host,
+            binding,
+            input,
+            directory,
+            identity,
+            now,
+            measured_tokens: decision.measured_tokens,
+            threshold_tokens: threshold,
+            handoff,
+            deadline,
+          });
+          turn("idle");
+          // The save is final here; a close that never returns must not turn it into a failure.
+          deadline.committed = {
+            output: PASS,
+            evidence: evidence(host, binding, input, threshold, {
+              action: "saved",
+              reason: handoff.reason,
+              measured_tokens: measured,
+              handoff_source: handoff.source,
+              marker_id: markerId,
+            }),
+          };
+          return deadline.committed;
         }),
-      };
+        deadline.lapsed.then(() => null),
+      ]);
+      return finished ?? deadline.committed ?? { output: PASS, evidence: failedEvidence(host, binding, DEADLINE_REASON, threshold, input) };
     }
     turn("idle");
     return { output: PASS, evidence: evidence(host, binding, input, threshold, { action: "none", reason: decision.reason, measured_tokens: measured }) };
@@ -407,8 +515,17 @@ export async function runSessionRotationStop(
   }
 }
 
-async function withStore<T>(dependencies: RotationStopDependencies, work: (store: Store) => Promise<T>): Promise<T> {
+async function withStore<T>(
+  dependencies: RotationStopDependencies,
+  deadline: Deadline,
+  work: (store: Store) => Promise<T>,
+): Promise<T> {
   const store = await (dependencies.createStore ?? (() => createStore({ skipPostgresMigrations: true })))();
+  if (deadline.isExpired()) {
+    // Opened after the hook gave up: nothing is done with it.
+    await store.close().catch(() => undefined);
+    throw new Error(DEADLINE_REASON);
+  }
   try {
     return await work(store);
   } finally {
@@ -508,7 +625,12 @@ try {
   invokedPath = "";
 }
 if (invokedPath === realpathSync(fileURLToPath(import.meta.url))) {
-  main().catch(() => {
-    process.stdout.write(`${JSON.stringify(PASS)}\n`);
-  });
+  main()
+    .catch(() => {
+      process.stdout.write(`${JSON.stringify(PASS)}\n`);
+    })
+    // The answer is out; a store that never returned must not keep the hook alive until the host kills it (NFR1).
+    .finally(() => {
+      process.stdout.write("", () => process.stderr.write("", () => process.exit(0)));
+    });
 }

@@ -159,12 +159,14 @@ const ROTATION_TRUNCATION_MARK = "\n…(rotation cap applied)";
 export function composeRotationContext(
   block: RotationBlock,
   ordinaryText: string,
+  caps: { max_tokens: number; max_bytes: number } = { max_tokens: ROTATION_START_MAX_TOKENS, max_bytes: ROTATION_START_MAX_BYTES },
 ): { text: string; evidence: RotationStartEvidence } {
   const tail = `\n\n${ordinaryText}`;
-  const byteRoom = Math.max(0, ROTATION_START_MAX_BYTES - Buffer.byteLength(tail, "utf8"));
-  const tokenRoom = Math.max(0, ROTATION_START_MAX_TOKENS * 4 - tail.length);
-  const tokenBounded = block.text.slice(0, tokenRoom);
-  const fits = tokenBounded.length === block.text.length && Buffer.byteLength(block.text, "utf8") <= byteRoom;
+  const byteRoom = Math.max(0, caps.max_bytes - Buffer.byteLength(tail, "utf8"));
+  const tokenRoom = Math.max(0, caps.max_tokens * 4 - tail.length);
+  const fits = block.text.length <= tokenRoom && Buffer.byteLength(block.text, "utf8") <= byteRoom;
+  // When the block is cut, the cut mark is part of the text and is paid for out of both caps.
+  const tokenBounded = block.text.slice(0, Math.max(0, tokenRoom - ROTATION_TRUNCATION_MARK.length));
   const head = fits
     ? block.text
     : utf8Prefix(tokenBounded, Math.max(0, byteRoom - Buffer.byteLength(ROTATION_TRUNCATION_MARK, "utf8"))) +
@@ -178,8 +180,8 @@ export function composeRotationContext(
       token_estimate: estimateTokens(text),
       byte_count: Buffer.byteLength(text, "utf8"),
       truncated: !fits,
-      token_cap: ROTATION_START_MAX_TOKENS,
-      byte_cap: ROTATION_START_MAX_BYTES,
+      token_cap: caps.max_tokens,
+      byte_cap: caps.max_bytes,
     },
   };
 }

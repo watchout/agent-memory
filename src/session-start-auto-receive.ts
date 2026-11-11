@@ -41,6 +41,7 @@ import {
   getGeminiChatsDir,
   ingestGeminiConversationEvents,
 } from "./gemini-conversation-ingest.js";
+import { currentUid } from "./process-uid.js";
 import type { Store } from "./stores/types.js";
 
 export const SESSION_START_TRANSCRIPT_MAX_BYTES = 8 * 1024 * 1024;
@@ -172,7 +173,7 @@ async function receiveClaudeTranscript(
       projects_root: requestedRoot,
       session_id: input.session_id,
       declared_workspace: input.workspace,
-      uid: process.getuid?.() ?? null,
+      uid: currentUid(),
     });
     if (!placement.ok) return skipped(placement.reason);
 
@@ -395,7 +396,7 @@ function matchesCurrentSession(
 }
 
 
-function matchesCodexSession(raw: string, sessionId: string, workspace: string, cwd: string): boolean {
+export function matchesCodexSession(raw: string, sessionId: string, workspace: string, cwd: string): boolean {
   for (const record of jsonlRecords(raw)) {
     if (record.type !== "session_meta" || !isRecord(record.payload)) continue;
     if (stringValue(record.payload.id) !== sessionId) continue;

@@ -30,6 +30,7 @@ import {
   writeTurn,
 } from "./session-rotation-files.js";
 import { StoreNotReadyError, createStoreReadiness } from "./mcp-store-readiness.js";
+import { currentUid } from "./process-uid.js";
 import type { Store } from "./stores/types.js";
 
 const cases: Array<[string, () => Promise<void> | void]> = [];
@@ -300,6 +301,14 @@ test("FR7.3 every startup path opens the store without running the schema migrat
   }
   assert.deepEqual(offenders, []);
   assert.ok(checked >= 10, `checked ${checked} call sites`);
+});
+
+test("currentUid: the process's own id, or null where the platform has none", () => {
+  assert.equal(currentUid({ getuid: () => 501 }), 501);
+  assert.equal(currentUid({ getuid: () => 0 }), 0, "root is an id, not 'no id'");
+  assert.equal(currentUid({}), null);
+  const own = currentUid();
+  assert.ok(own === null || Number.isInteger(own));
 });
 
 let failed = 0;

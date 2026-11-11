@@ -17,6 +17,7 @@ import {
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { ROTATION_SEAT_SEGMENT } from "./constants.js";
 import type { RotationHost } from "./session-rotation-usage.js";
 
 export const ROTATION_MARKER_SCHEMA = "kusabi-rotation-marker/v1" as const;
@@ -76,7 +77,6 @@ export interface RotationClaim {
   respawn_started_at: string | null;
 }
 
-const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const PANE_ID = /^%[0-9]+$/;
 
 export function sha256Hex(value: string): string {
@@ -104,7 +104,7 @@ export function rotationRoot(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function seatDirectory(root: string, agentId: string, project: string): string {
-  if (!SEGMENT.test(agentId) || !SEGMENT.test(project)) throw new Error("rotation_seat_name_invalid");
+  if (!ROTATION_SEAT_SEGMENT.test(agentId) || !ROTATION_SEAT_SEGMENT.test(project)) throw new Error("rotation_seat_name_invalid");
   return join(root, agentId, project);
 }
 

@@ -33,9 +33,10 @@ export type SeatTickClass = "idle" | "waiting" | "unobservable" | "mismatch" | "
 export interface SeatTick {
   class: SeatTickClass;
   reason: string;
+  /** The seat could not be kept safe on disk after a respawn (not even a HALT file): the runner must stop (S8). */
+  stop_runner?: true;
 }
 
-const progress = (reason: string): SeatTick => ({ class: "progress", reason });
 const stopped = (reason: SkipReason): SeatTick => ({ class: skipClass(reason), reason });
 
 function baseFields(ports: WatcherPorts, seat: WatcherSeat, marker: RotationMarker, attemptId: string | null): LedgerFields {
@@ -70,8 +71,46 @@ function lookConfirmed(
   });
 }
 
-function haltSeat(ports: WatcherPorts, seatDir: string, reason: string): void {
-  writeHalt(ports.fs, seatHaltPath(seatDir), reason, isoAt(ports.now_ms()));
+function haltSeat(ports: WatcherPorts, seatDir: string, reason: string): boolean {
+  return writeHalt(ports.fs, seatHaltPath(seatDir), reason, isoAt(ports.now_ms()));
+}
+
+/** How one attempt ended once the respawn was (or may have been) issued. */
+interface Outcome {
+  state: "done" | "unconfirmed" | "unknown_quarantined";
+  resolution: string;
+  kind: "confirmed" | "unconfirmed" | "outcome_unknown";
+  detail?: string;
+  /** The tick reason when everything was recorded. */
+  tick: string;
+  /** Written to the seat's HALT file even when everything was recorded; null when the seat may go on. */
+  halt: string | null;
+}
+
+/**
+ * Records the end of an attempt - the claim and the ledger line - and stops the seat
+ * when either could not be written, because the interval and hourly limits would no
+ * longer be true. The respawn already happened and is never undone; the tick says it
+ * was not recorded, and if not even a HALT file can be written the runner is asked to stop.
+ */
+function finishAttempt(
+  ports: WatcherPorts,
+  seat: WatcherSeat,
+  seatDir: string,
+  marker: RotationMarker,
+  claim: ClaimRecord,
+  outcome: Outcome,
+): SeatTick {
+  const claimWritten = advanceClaim(ports.fs, seatDir, claim, { state: outcome.state, resolution: outcome.resolution }) !== null;
+  const ledgerWritten = appendLedger(ports.fs, ports.root, outcome.kind, {
+    ...baseFields(ports, seat, marker, claim.attempt_id),
+    ...(outcome.detail === undefined ? {} : { detail: outcome.detail }),
+  });
+  const recorded = claimWritten && ledgerWritten;
+  const reason = recorded ? outcome.tick : `${outcome.tick}_unrecorded`;
+  const halt = recorded ? outcome.halt : reason;
+  const unstoppable = halt !== null && !haltSeat(ports, seatDir, halt);
+  return { class: "progress", reason, ...(unstoppable ? { stop_runner: true as const } : {}) };
 }
 
 /** Ends a claim that never reached the respawn, and records why. */
@@ -106,16 +145,23 @@ function resolveUnknown(
     claim.respawn_started_at !== null &&
     marker.pane_id !== null &&
     lookConfirmed(ports, seat, seatDir, marker, marker.pane_id, claim.pane_pid_before, Date.parse(claim.respawn_started_at));
-  const fields = baseFields(ports, seat, marker, claim.attempt_id);
   if (confirmed) {
-    advanceClaim(ports.fs, seatDir, claim, { state: "done", resolution: "confirmed_by_inquiry" });
-    appendLedger(ports.fs, ports.root, "confirmed", { ...fields, detail: "by_inquiry" });
-    return progress("confirmed_by_inquiry");
+    return finishAttempt(ports, seat, seatDir, marker, claim, {
+      state: "done",
+      resolution: "confirmed_by_inquiry",
+      kind: "confirmed",
+      detail: "by_inquiry",
+      tick: "confirmed_by_inquiry",
+      halt: null,
+    });
   }
-  advanceClaim(ports.fs, seatDir, claim, { state: "unknown_quarantined", resolution: "outcome_unknown" });
-  appendLedger(ports.fs, ports.root, "outcome_unknown", fields);
-  haltSeat(ports, seatDir, "outcome_unknown");
-  return progress("outcome_unknown");
+  return finishAttempt(ports, seat, seatDir, marker, claim, {
+    state: "unknown_quarantined",
+    resolution: "outcome_unknown",
+    kind: "outcome_unknown",
+    tick: "outcome_unknown",
+    halt: "outcome_unknown",
+  });
 }
 
 /** A claim found at the start of a pass. Terminal ones are left alone; a live watcher keeps its own. */
@@ -141,20 +187,26 @@ async function confirmAfterRespawn(
   startedMs: number,
 ): Promise<SeatTick> {
   const deadline = startedMs + seat.confirm_wait_seconds * 1_000;
-  const fields = baseFields(ports, seat, marker, claim.attempt_id);
   for (;;) {
     if (lookConfirmed(ports, seat, seatDir, marker, plan.pane_id, plan.pane_pid, startedMs)) {
-      advanceClaim(ports.fs, seatDir, claim, { state: "done", resolution: "confirmed" });
-      appendLedger(ports.fs, ports.root, "confirmed", fields);
-      return progress("confirmed");
+      return finishAttempt(ports, seat, seatDir, marker, claim, {
+        state: "done",
+        resolution: "confirmed",
+        kind: "confirmed",
+        tick: "confirmed",
+        halt: null,
+      });
     }
     if (ports.now_ms() >= deadline) break;
     await ports.sleep(ROTATION_WATCHER_CONFIRM_POLL_SECONDS * 1_000);
   }
-  advanceClaim(ports.fs, seatDir, claim, { state: "unconfirmed", resolution: "unconfirmed" });
-  appendLedger(ports.fs, ports.root, "unconfirmed", fields);
-  haltSeat(ports, seatDir, "unconfirmed");
-  return progress("unconfirmed");
+  return finishAttempt(ports, seat, seatDir, marker, claim, {
+    state: "unconfirmed",
+    resolution: "unconfirmed",
+    kind: "unconfirmed",
+    tick: "unconfirmed",
+    halt: "unconfirmed",
+  });
 }
 
 /**
@@ -225,6 +277,8 @@ export async function attemptRelaunch(
     pane_id: fresh.pane_id,
     pane_pid: fresh.pane_pid,
   });
-  if (!recorded) haltSeat(ports, seatDir, "ledger_unwritable_after_respawn");
-  return confirmAfterRespawn(ports, seat, seatDir, marker, respawning, fresh, startedMs);
+  // Without this line the interval and hourly limits would not see the respawn: stop the seat, and the runner if even that fails.
+  const unstoppable = !recorded && !haltSeat(ports, seatDir, "ledger_unwritable_after_respawn");
+  const tick = await confirmAfterRespawn(ports, seat, seatDir, marker, respawning, fresh, startedMs);
+  return unstoppable ? { ...tick, stop_runner: true as const } : tick;
 }

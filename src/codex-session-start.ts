@@ -18,6 +18,7 @@ import {
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import {
+  ROTATION_UNCERTAINTY_SENTENCE,
   composeRotationContext,
   prepareRotationRecovery,
   type RotationBlock,
@@ -509,6 +510,25 @@ function capUtf8(text: string, maxBytes: number): { text: string; truncated: boo
   return { text: out + marker, truncated: true };
 }
 
+/**
+ * FR7.1: after a summary (compact) the seat is told to look in the DB before
+ * guessing, whether or not a hand-off bundle exists. With a bundle the sentence is
+ * already part of it. Added before the caps so a long recovery text is cut, not the sentence.
+ */
+function withCompactUncertaintySentence(
+  loaded: LoadedCodexRecovery,
+  source: CodexSessionStartSource,
+): RecoveryOutputWithMetrics {
+  if (source !== "compact" || loaded.rotation) return loaded.recovery;
+  const text = `${ROTATION_UNCERTAINTY_SENTENCE}\n\n${loaded.recovery.text}`;
+  return {
+    ...loaded.recovery,
+    text,
+    token_estimate: estimateTokens(text),
+    byte_count: Buffer.byteLength(text, "utf8"),
+  };
+}
+
 export function enforceCodexRecoveryCaps(
   recovery: RecoveryOutputWithMetrics,
   binding: CodexSessionStartBinding,
@@ -886,7 +906,7 @@ export async function runCodexSessionStart(
       (dependencies.loadRecovery ?? ((b, i) => loadCodexRecoveryFromStore(b, i, dependencies.rotation)))(binding, hookInput),
       binding.timeout_ms,
     );
-    const recovery = enforceCodexRecoveryCaps(loaded.recovery, binding);
+    const recovery = enforceCodexRecoveryCaps(withCompactUncertaintySentence(loaded, hookInput.source), binding);
     const rotationContext = loaded.rotation ? composeRotationContext(loaded.rotation, recovery.text) : undefined;
     const evidenceLogMissing = loaded.recovery_quality_log_ref === null;
     const completedAt = now();

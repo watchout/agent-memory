@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -17,7 +17,10 @@ import {
   ROTATION_HANDOFF_MAX_CHARS,
   ROTATION_MARKER_TTL_SECONDS,
   ROTATION_START_MAX_BYTES,
+  ROTATION_START_MAX_TOKENS,
+  estimateTokens,
 } from "./constants.js";
+import { encodeClaudeProjectDir } from "./claude-transcript-identity.js";
 import {
   CLAUDE_ROTATION_STOP_ADAPTER_ID,
   CODEX_ROTATION_STOP_ADAPTER_ID,
@@ -28,6 +31,7 @@ import {
   parseRotationStopArgs,
   readAll,
   readTranscriptTail,
+  rotationDeadlineMs,
   runRotationCli,
   runSessionRotationStop,
   type RotationStopDependencies,
@@ -65,6 +69,22 @@ const usageLine = (tokens: number) =>
 const textLine = (text: string) =>
   j({ type: "assistant", message: { role: "assistant", model: "m", content: [{ type: "text", text }] } });
 const HANDOFF = "## 済んだこと\n実装を進めた\n## 次の 1 歩\nwatcher の試験を書く\n## まだ決まっていないこと\nなし";
+const withSession = (line: string, id: string): string => j({ ...(JSON.parse(line) as object), sessionId: id });
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Restores the host-folder variables a test sets, whatever the test does. */
+async function withHostRoots(roots: { claude?: string; codex?: string }, run: () => Promise<void> | void): Promise<void> {
+  const saved = { c: process.env.CLAUDE_PROJECTS_DIR, x: process.env.CODEX_SESSIONS_DIR };
+  if (roots.claude !== undefined) process.env.CLAUDE_PROJECTS_DIR = roots.claude;
+  if (roots.codex !== undefined) process.env.CODEX_SESSIONS_DIR = roots.codex;
+  try {
+    await run();
+  } finally {
+    if (saved.c === undefined) delete process.env.CLAUDE_PROJECTS_DIR; else process.env.CLAUDE_PROJECTS_DIR = saved.c;
+    if (saved.x === undefined) delete process.env.CODEX_SESSIONS_DIR; else process.env.CODEX_SESSIONS_DIR = saved.x;
+  }
+}
+const withProjectsDir = (projects: string, run: () => Promise<void> | void) => withHostRoots({ claude: projects }, run);
 
 interface Fake {
   store: Store;
@@ -125,6 +145,20 @@ function deps(s: ReturnType<typeof seat>, lines: string[] | null, store: Fake, e
     read_transcript: () => lines === null ? { status: "unreadable", reason: "transcript_unavailable" } : { status: "ok", lines },
     ...extra,
   };
+}
+
+/** A Claude transcript at the place Claude Code uses: projects/<encoded workspace>/<session>.jsonl, every record carrying its session. */
+function claudeTranscript(
+  s: ReturnType<typeof seat>,
+  lines: string[],
+  options: { session?: string; dirOf?: string; name?: string } = {},
+): { projects: string; path: string } {
+  const projects = join(s.root, "projects");
+  const dir = join(projects, encodeClaudeProjectDir(options.dirOf ?? s.workspace));
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, `${options.name ?? "sess-1"}.jsonl`);
+  writeFileSync(path, `${lines.map((line) => withSession(line, options.session ?? "sess-1")).join("\n")}\n`);
+  return { projects, path };
 }
 
 // ---------- FR2/FR3: pure decision ----------
@@ -235,6 +269,144 @@ test("FR3/NFR: a store failure fails open - the seat continues, no marker is wri
   assert.equal(readMarker(s.directory), null);
   assert.equal(fake.closed, 1);
 });
+// ---------- NFR1 / audit F1: the hook's own deadline ----------
+async function blockedOnce(timeoutMs: number) {
+  const s = seat();
+  const binding = { ...s.binding, timeout_ms: timeoutMs };
+  const lines = [usageLine(BIG), textLine(HANDOFF)];
+  const first = fakeStore();
+  await runSessionRotationStop(s.input("Stop"), "claude_code", binding, {}, deps(s, [usageLine(BIG)], first));
+  const answer = (store: Fake, extra: Partial<RotationStopDependencies> = {}) =>
+    runSessionRotationStop(s.input("Stop", { stop_hook_active: true }), "claude_code", binding, {}, deps(s, lines, store, extra));
+  return { s, answer };
+}
+const PASS_OUTPUT = { continue: true, suppressOutput: true };
+
+test("NFR1: the internal deadline is the configured time, never more than 7 s (the hook's own limit is 9 s)", () => {
+  assert.equal(rotationDeadlineMs(150), 150);
+  assert.equal(rotationDeadlineMs(7_000), 7_000);
+  assert.equal(rotationDeadlineMs(60_000), 7_000);
+});
+test("NFR1/F1: a store that never opens is given up at the deadline - the seat continues and no marker is written", async () => {
+  const { s, answer } = await blockedOnce(150);
+  const started = Date.now();
+  const result = await answer(fakeStore(), { createStore: () => new Promise<Store>(() => undefined) });
+  const elapsed = Date.now() - started;
+  assert.deepEqual(result.output, PASS_OUTPUT);
+  assert.equal(result.evidence.action, "failed_open");
+  assert.equal(result.evidence.reason, "internal_deadline_exceeded");
+  assert.ok(elapsed >= 100 && elapsed < 1_500, `returned after ${elapsed} ms`);
+  assert.equal(readMarker(s.directory), null);
+});
+test("NFR1/F1: a save that finishes after the deadline leaves no marker and no turn record", async () => {
+  const { s, answer } = await blockedOnce(150);
+  const slow = fakeStore();
+  const save = slow.store.saveSelectedRestartPack.bind(slow.store);
+  slow.store.saveSelectedRestartPack = async (input) => { await wait(400); return save(input); };
+  const result = await answer(slow);
+  assert.equal(result.evidence.reason, "internal_deadline_exceeded");
+  await wait(600);
+  assert.equal(slow.packs.size, 1, "the late save did finish");
+  assert.equal(readMarker(s.directory), null, "but the marker that says 'safe to cut' is never written after the deadline");
+  assert.equal(readTurn(s.directory), null);
+});
+test("NFR1/F1: a store that opens after the deadline is closed unused", async () => {
+  const { s, answer } = await blockedOnce(150);
+  const late = fakeStore();
+  const result = await answer(fakeStore(), { createStore: async () => { await wait(400); return late.store; } });
+  assert.equal(result.evidence.reason, "internal_deadline_exceeded");
+  await wait(600);
+  assert.equal(late.closed, 1);
+  assert.deepEqual([late.packs.size, late.tasks.length], [0, 0]);
+  assert.equal(readMarker(s.directory), null);
+});
+test("NFR1/F1: a store that opens after the deadline and then fails to close still ends in a pass", async () => {
+  const { s, answer } = await blockedOnce(150);
+  const late = fakeStore({ failClose: true });
+  const result = await answer(fakeStore(), { createStore: async () => { await wait(400); return late.store; } });
+  assert.deepEqual(result.output, PASS_OUTPUT);
+  assert.equal(result.evidence.reason, "internal_deadline_exceeded");
+  await wait(600);
+  assert.equal(late.closed, 1, "a close was tried, and its failure went nowhere");
+  assert.equal(readMarker(s.directory), null);
+});
+test("NFR1/F1: a close that never returns does not undo a finished save", async () => {
+  const { s, answer } = await blockedOnce(150);
+  const hung = fakeStore();
+  hung.store.close = () => new Promise<void>(() => undefined);
+  const started = Date.now();
+  const result = await answer(hung);
+  const elapsed = Date.now() - started;
+  assert.equal(result.evidence.action, "saved");
+  assert.equal(readMarker(s.directory)?.marker_id, result.evidence.marker_id);
+  assert.equal(readTurn(s.directory)?.state, "idle");
+  assert.ok(elapsed < 1_500, `returned after ${elapsed} ms`);
+});
+
+// ---------- FR8 / audit F6: the hand-off may come only from this seat's own conversation ----------
+test("F6: the hand-off is saved from a verified transcript of this conversation", async () => {
+  const s = seat();
+  const fake = fakeStore();
+  const own = claudeTranscript(s, [usageLine(BIG)]);
+  await withProjectsDir(own.projects, async () => {
+    const { read_transcript: _t, ...real } = deps(s, null, fake);
+    const base = { transcript_path: own.path };
+    assert.equal((await runSessionRotationStop(s.input("Stop", base), "claude_code", s.binding, {}, real)).evidence.action, "blocked");
+    claudeTranscript(s, [usageLine(BIG), textLine(HANDOFF)]);
+    const result = await runSessionRotationStop(s.input("Stop", { ...base, stop_hook_active: true }), "claude_code", s.binding, {}, real);
+    assert.equal(result.evidence.action, "saved");
+    assert.equal(result.evidence.handoff_source, "seat_text");
+    assert.equal(readMarker(s.directory)?.pack_content_sha256, sha256Hex(HANDOFF));
+  });
+});
+test("F6: a transcript that is not this conversation's is never used - nothing is saved and no marker is written", async () => {
+  const variants: Array<[string, (s: ReturnType<typeof seat>, good: string) => string, string]> = [
+    ["another workspace's folder", (s) => claudeTranscript(s, [usageLine(BIG), textLine("## 次の 1 歩\n他の席の続き")], { dirOf: join(s.root, "other-ws") }).path, "projects_dir_mismatch"],
+    ["another conversation's file name", (s) => claudeTranscript(s, [usageLine(BIG), textLine("## 次の 1 歩\n他の会話")], { name: "sess-9" }).path, "basename_mismatch"],
+    ["a file whose records belong to another conversation", (s, good) => { claudeTranscript(s, [usageLine(BIG), textLine("## 次の 1 歩\n他の会話")], { session: "sess-9" }); return good; }, "record_session_mismatch"],
+    ["a file outside the projects folder", (s) => { const p = join(s.root, "stray.jsonl"); writeFileSync(p, `${withSession(textLine("## 次の 1 歩\n外"), "sess-1")}\n`); return p; }, "path_outside_projects"],
+    ["a missing file", (s) => join(s.root, "projects", "gone.jsonl"), "transcript_unavailable"],
+  ];
+  for (const [label, makeBad, reason] of variants) {
+    const s = seat();
+    const fake = fakeStore();
+    const good = claudeTranscript(s, [usageLine(BIG)]);
+    await withProjectsDir(good.projects, async () => {
+      const { read_transcript: _t, ...real } = deps(s, null, fake);
+      const blocked = await runSessionRotationStop(s.input("Stop", { transcript_path: good.path }), "claude_code", s.binding, {}, real);
+      assert.equal(blocked.evidence.action, "blocked", label);
+      const bad = makeBad(s, good.path);
+      const result = await runSessionRotationStop(s.input("Stop", { transcript_path: bad, stop_hook_active: true }), "claude_code", s.binding, {}, real);
+      assert.deepEqual(result.output, PASS_OUTPUT, label);
+      assert.equal(result.evidence.action, "failed_open", label);
+      assert.equal(result.evidence.reason, `transcript_unverified:${reason}`, label);
+      assert.equal(readMarker(s.directory), null, label);
+      assert.deepEqual([fake.packs.size, fake.tasks.length], [0, 0], `${label}: nothing from the transcript reached the store`);
+    });
+  }
+});
+test("F6: the same rule holds for a Codex rollout of another session", async () => {
+  const s = seat("codex");
+  const fake = fakeStore();
+  const root = join(s.root, "sessions");
+  mkdirSync(root);
+  const count = (n: number) => j({ type: "event_msg", payload: { type: "token_count", info: { last_token_usage: { input_tokens: n }, model_context_window: 1_000_000 } } });
+  const meta = (id: string) => j({ type: "session_meta", payload: { id, cwd: s.workspace } });
+  const message = j({ type: "response_item", payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: HANDOFF }] } });
+  const own = join(root, "own.jsonl");
+  writeFileSync(own, `${[meta("sess-1"), count(BIG)].join("\n")}\n`);
+  const other = join(root, "other.jsonl");
+  writeFileSync(other, `${[meta("sess-9"), count(BIG), message].join("\n")}\n`);
+  await withHostRoots({ codex: root }, async () => {
+    const { read_transcript: _t, ...real } = deps(s, null, fake);
+    assert.equal((await runSessionRotationStop(s.input("Stop", { transcript_path: own }), "codex", s.binding, {}, real)).evidence.action, "blocked");
+    const refused = await runSessionRotationStop(s.input("Stop", { transcript_path: other, stop_hook_active: true }), "codex", s.binding, {}, real);
+    assert.equal(refused.evidence.reason, "transcript_unverified:session_mismatch");
+    assert.equal(readMarker(s.directory), null);
+    assert.equal(fake.packs.size, 0);
+  });
+});
+
 test("FR1/FR2: below the threshold, unmeasured, and a seat-specific threshold", async () => {
   const s = seat();
   const fake = fakeStore();
@@ -271,24 +443,20 @@ test("the real clock is the default when no time is passed in (only the hook com
 test("defaults: seat folder from the environment, host identity resolved, transcript read from the host folder, close errors ignored", async () => {
   const s = seat();
   const home = join(s.root, "home");
-  const transcript = join(s.root, "t.jsonl");
-  writeFileSync(transcript, `${usageLine(BIG)}\n`);
-  const saved = process.env.CLAUDE_PROJECTS_DIR;
-  process.env.CLAUDE_PROJECTS_DIR = s.root;
-  try {
+  const { projects, path: transcript } = claudeTranscript(s, [usageLine(BIG)]);
+  await withProjectsDir(projects, async () => {
     const fake = fakeStore({ failClose: true });
     const { rotation_root: _r, identity: _i, read_transcript: _t, ...bare } = deps(s, null, fake);
     const env = { AGENT_MEMORY_HOME: home };
-    await runSessionRotationStop(s.input("Stop"), "claude_code", s.binding, {}, { ...bare, env, ps: () => "" });
+    await runSessionRotationStop(s.input("Stop", { transcript_path: transcript }), "claude_code", s.binding, {}, { ...bare, env, ps: () => "" });
     const directory = seatDirectory(join(home, "rotation"), "kusabi", "agent-memory");
     assert.equal(readHookState(directory)?.measured_tokens, BIG, "read from the real transcript file");
-    const answered = await runSessionRotationStop(s.input("Stop", { stop_hook_active: true, last_assistant_message: HANDOFF }),
+    const answered = await runSessionRotationStop(
+      s.input("Stop", { stop_hook_active: true, last_assistant_message: HANDOFF, transcript_path: transcript }),
       "claude_code", s.binding, {}, { ...bare, env, parent_pid: 1, ps: () => "" });
     assert.equal(answered.evidence.action, "saved", "a store that fails on close does not lose the save");
     assert.equal(readMarker(directory)?.pane_id, null, "no tmux pane in this environment");
-  } finally {
-    if (saved === undefined) delete process.env.CLAUDE_PROJECTS_DIR; else process.env.CLAUDE_PROJECTS_DIR = saved;
-  }
+  });
   const { env: _e, ...noEnv } = deps(seat(), [usageLine(1)], fakeStore());
   const below = await runSessionRotationStop(s.input("Stop"), "claude_code", s.binding, {}, noEnv);
   assert.equal(below.evidence.reason, "below_threshold", "process environment is the default");
@@ -324,27 +492,69 @@ test("Codex hand-off and usage come from the Codex rollout shapes", async () => 
   assert.equal(readMarker(s.directory)?.host, "codex");
 });
 
-test("readTranscriptTail: reads inside the host root; refuses a file outside it or a missing file", () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "rot-tail-")));
-  const inside = join(root, "p", "s.jsonl");
-  mkdirSync(join(root, "p"));
-  writeFileSync(inside, "a\nb\n");
-  const outside = join(realpathSync(mkdtempSync(join(tmpdir(), "rot-tail-out-"))), "s.jsonl");
-  writeFileSync(outside, "c\n");
-  const saved = { c: process.env.CLAUDE_PROJECTS_DIR, x: process.env.CODEX_SESSIONS_DIR };
-  try {
-    process.env.CLAUDE_PROJECTS_DIR = root;
-    process.env.CODEX_SESSIONS_DIR = root;
-    assert.deepEqual(readTranscriptTail("claude_code", inside), { status: "ok", lines: ["a", "b", ""] });
-    assert.equal(readTranscriptTail("codex", inside).status, "ok");
-    assert.deepEqual(readTranscriptTail("claude_code", outside), { status: "unreadable", reason: "transcript_outside_host_root" });
-    assert.equal(readTranscriptTail("claude_code", join(root, "missing.jsonl")).status, "unreadable");
-    process.env.CLAUDE_PROJECTS_DIR = join(root, "no-such-root");
-    assert.deepEqual(readTranscriptTail("claude_code", inside), { status: "unreadable", reason: "transcript_root_unavailable" });
-  } finally {
-    if (saved.c === undefined) delete process.env.CLAUDE_PROJECTS_DIR; else process.env.CLAUDE_PROJECTS_DIR = saved.c;
-    if (saved.x === undefined) delete process.env.CODEX_SESSIONS_DIR; else process.env.CODEX_SESSIONS_DIR = saved.x;
-  }
+test("readTranscriptTail (Claude, FR8 R1-R5): only this seat's own conversation file is read; every other place or content is refused with its reason", async () => {
+  const s = seat();
+  const expected = { session_id: "sess-1", workspace: s.workspace, cwd: s.workspace };
+  const own = claudeTranscript(s, [usageLine(1), textLine("a")]);
+  await withProjectsDir(own.projects, () => {
+    const ok = readTranscriptTail("claude_code", own.path, expected);
+    assert.equal(ok.status, "ok");
+    assert.equal(ok.status === "ok" && ok.lines.length, 3, "two records and the trailing empty line");
+    const refused = (path: string, reason: string, over: Partial<typeof expected> = {}) =>
+      assert.deepEqual(readTranscriptTail("claude_code", path, { ...expected, ...over }), { status: "unreadable", reason }, reason);
+    refused(join(own.projects, "..", "missing.jsonl"), "transcript_unavailable");
+    refused(own.path, "basename_mismatch", { session_id: "sess-2" });
+    refused(claudeTranscript(s, [usageLine(1)], { dirOf: join(s.root, "elsewhere") }).path, "projects_dir_mismatch");
+    refused(claudeTranscript(s, [usageLine(1)], { name: "other" }).path, "basename_mismatch");
+    refused(claudeTranscript(s, [usageLine(1)], { session: "other" }).path, "record_session_mismatch");
+    const bare = join(own.projects, encodeClaudeProjectDir(s.workspace), "sess-3.jsonl");
+    writeFileSync(bare, `${usageLine(1)}\n`);
+    refused(bare, "record_session_missing", { session_id: "sess-3" });
+    const garbage = join(own.projects, encodeClaudeProjectDir(s.workspace), "sess-4.jsonl");
+    writeFileSync(garbage, "not json\n");
+    refused(garbage, "parse_error", { session_id: "sess-4" });
+    const outside = join(realpathSync(mkdtempSync(join(tmpdir(), "rot-tail-out-"))), "sess-1.jsonl");
+    writeFileSync(outside, `${withSession(usageLine(1), "sess-1")}\n`);
+    refused(outside, "path_outside_projects");
+    const link = join(own.projects, encodeClaudeProjectDir(s.workspace), "sess-5.jsonl");
+    symlinkSync(own.path, link);
+    refused(link, "not_regular_file_or_symlink", { session_id: "sess-5" });
+    const empty = join(own.projects, encodeClaudeProjectDir(s.workspace), "sess-6.jsonl");
+    writeFileSync(empty, "");
+    refused(empty, "transcript_unavailable", { session_id: "sess-6" });
+  });
+  await withProjectsDir(join(s.root, "no-such-root"), () => {
+    assert.deepEqual(readTranscriptTail("claude_code", own.path, expected), { status: "unreadable", reason: "path_outside_projects" });
+  });
+});
+test("readTranscriptTail (Codex): the rollout must be this session's, started in this workspace, and inside the sessions folder", async () => {
+  const s = seat("codex");
+  const expected = { session_id: "sess-1", workspace: s.workspace, cwd: s.workspace };
+  const root = join(s.root, "sessions");
+  mkdirSync(root);
+  const meta = (id: string, cwd: string) => j({ type: "session_meta", payload: { id, cwd } });
+  const rollout = (name: string, lines: string[]) => {
+    const path = join(root, name);
+    writeFileSync(path, `${lines.join("\n")}\n`);
+    return path;
+  };
+  const own = rollout("own.jsonl", [meta("sess-1", s.workspace), "tail"]);
+  await withHostRoots({ codex: root }, () => {
+    assert.deepEqual(readTranscriptTail("codex", own, expected), { status: "ok", lines: [meta("sess-1", s.workspace), "tail", ""] });
+    assert.deepEqual(readTranscriptTail("codex", rollout("other-session.jsonl", [meta("other", s.workspace)]), expected),
+      { status: "unreadable", reason: "session_mismatch" });
+    assert.deepEqual(readTranscriptTail("codex", rollout("other-workspace.jsonl", [meta("sess-1", s.root)]), expected),
+      { status: "unreadable", reason: "session_mismatch" });
+    assert.deepEqual(readTranscriptTail("codex", rollout("no-meta.jsonl", ["tail"]), expected), { status: "unreadable", reason: "session_mismatch" });
+    const outside = join(realpathSync(mkdtempSync(join(tmpdir(), "rot-tail-out-"))), "s.jsonl");
+    writeFileSync(outside, `${meta("sess-1", s.workspace)}\n`);
+    assert.deepEqual(readTranscriptTail("codex", outside, expected), { status: "unreadable", reason: "transcript_outside_host_root" });
+    assert.equal(readTranscriptTail("codex", join(root, "missing.jsonl"), expected).status, "unreadable");
+  });
+  await withHostRoots({ codex: join(s.root, "no-such-root") }, () => {
+    assert.deepEqual(readTranscriptTail("codex", own, expected), { status: "unreadable", reason: "transcript_root_unavailable" });
+  });
+  assert.deepEqual(readTranscriptTail("codex", own, { ...expected, cwd: join(s.root, "gone") }).status, "unreadable", "a cwd that cannot be resolved is not verified");
 });
 
 test("process: the hook command run as a file reads standard input, passes on a failure, and importing it runs nothing", () => {
@@ -478,9 +688,45 @@ test("FR6.4 composeRotationContext: the block leads and the whole text stays wit
   assert.doesNotMatch(huge.text, /�/, "no cut inside a character");
   const wide = composeRotationContext({ ...block, text: "a".repeat(100_000) }, "o");
   assert.equal(wide.evidence.truncated, true, "token cap");
-  assert.ok(wide.evidence.token_estimate <= wide.evidence.token_cap + 10);
+  assert.ok(wide.evidence.token_estimate <= wide.evidence.token_cap, "the truncation mark is inside the cap, no slack");
   const roomless = composeRotationContext(block, "x".repeat(ROTATION_START_MAX_BYTES + 10));
   assert.ok(roomless.text.startsWith("\n…(rotation cap applied)"));
+});
+test("F3 composeRotationContext: at the cap's edge the whole text - including the truncation mark - stays within both caps", () => {
+  const tokenChars = ROTATION_START_MAX_TOKENS * 4;
+  for (const ordinaryLength of [0, 1, 7_000, 14_400]) {
+    const ordinary = "o".repeat(ordinaryLength);
+    const room = tokenChars - (2 + ordinaryLength);
+    for (const [char, delta] of [["a", -1], ["a", 0], ["a", 1], ["a", 25], ["a", 5_000], ["あ", -1], ["あ", 0], ["あ", 1], ["あ", 25]] as const) {
+      const block = { text: char.repeat(room + delta), initial_user_message: "m", marker_id: "m" };
+      const { text, evidence } = composeRotationContext(block, ordinary);
+      const label = `ordinary ${ordinaryLength}, ${char} ${delta >= 0 ? "+" : ""}${delta}`;
+      assert.ok(estimateTokens(text) <= ROTATION_START_MAX_TOKENS, `${label}: ${estimateTokens(text)} tokens`);
+      assert.ok(Buffer.byteLength(text, "utf8") <= ROTATION_START_MAX_BYTES, `${label}: ${Buffer.byteLength(text, "utf8")} bytes`);
+      assert.equal(evidence.token_estimate, estimateTokens(text), label);
+      assert.equal(evidence.byte_count, Buffer.byteLength(text, "utf8"), label);
+      assert.ok(text.endsWith(`\n\n${ordinary}`), label);
+      assert.equal(evidence.truncated, delta > 0, `${label}: cut exactly when the block is longer than the room`);
+    }
+  }
+});
+
+test("F3 composeRotationContext: the byte cap binds on its own when it is the tighter one, and the mark is paid out of it", () => {
+  const caps = { max_tokens: 10_000, max_bytes: 3_000 };
+  for (const char of ["a", "あ"]) {
+    const ordinary = "o".repeat(100);
+    const { text, evidence } = composeRotationContext({ text: char.repeat(5_000), initial_user_message: "m", marker_id: "m" }, ordinary, caps);
+    assert.ok(Buffer.byteLength(text, "utf8") <= caps.max_bytes, `${char}: ${Buffer.byteLength(text, "utf8")} bytes`);
+    assert.equal(evidence.truncated, true, char);
+    assert.equal(evidence.byte_cap, caps.max_bytes);
+    assert.equal(evidence.token_cap, caps.max_tokens);
+    assert.ok(text.endsWith(`\n\n${ordinary}`), char);
+    assert.doesNotMatch(text, /�/, `${char}: no cut inside a character`);
+  }
+  const under = composeRotationContext({ text: "b".repeat(500), initial_user_message: "m", marker_id: "m" }, "o", caps);
+  assert.equal(under.evidence.truncated, false);
+  const overBytesOnly = composeRotationContext({ text: "あ".repeat(1_500), initial_user_message: "m", marker_id: "m" }, "o", caps);
+  assert.equal(overBytesOnly.evidence.truncated, true, "1,500 characters are well under the token cap but 4,500 bytes are over the byte cap");
 });
 
 async function startScenario(over: { claim?: boolean; store?: Fake; source?: "startup" | "resume" | "clear" | "compact"; sha?: string; savedAgo?: number } = {}) {

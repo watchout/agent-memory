@@ -26,7 +26,7 @@ import { installClaudeSessionStartHook, parseClaudeHookInstallArgs, parseClaudeS
 import { CODEX_HOOK_CONFIG_RELATIVE_PATH, installCodexSessionStartHook, parseCodexHookInstallArgs, parseHooksFile } from "./codex-hook-installer.js";
 import { runClaudeSessionStart } from "./claude-session-start.js";
 import { runCodexSessionStart, type LoadedCodexRecovery } from "./codex-session-start.js";
-import { ROTATION_INITIAL_USER_MESSAGE } from "./session-rotation-start.js";
+import { ROTATION_INITIAL_USER_MESSAGE, ROTATION_UNCERTAINTY_SENTENCE } from "./session-rotation-start.js";
 
 const cases: Array<[string, () => Promise<void> | void]> = [];
 const test = (name: string, run: () => Promise<void> | void) => cases.push([name, run]);
@@ -223,6 +223,53 @@ test("FR6.1 Codex: the same block leads; no first-message field is added", async
   assert.ok(context.endsWith(ordinary));
   assert.equal("initialUserMessage" in (result.output.hookSpecificOutput ?? {}), false);
   assert.equal(result.rotation_evidence?.marker_id, "m1");
+});
+
+// ---- FR7.1 / audit F2: after a summary (compact) the fixed DB-lookup sentence leads, with or without a hand-off bundle ----
+// "No bundle" and "bundle already taken" reach the runner the same way: prepareRotationRecovery returns null (no `rotation`).
+const occurrences = (text: string, part: string): number => text.split(part).length - 1;
+const startInput = (host: "claude_code" | "codex", root: string, source: string): string => JSON.stringify({
+  session_id: "s", transcript_path: join(root, "t.jsonl"), cwd: root, hook_event_name: "SessionStart", model: "m", source,
+  ...(host === "codex" ? { permission_mode: "default" } : {}),
+});
+const startOn = (host: "claude_code" | "codex", root: string, source: string, load: LoadedCodexRecovery) => {
+  const b = { ...binding, workspace: root, timeout_ms: 500 };
+  const dependencies = { loadRecovery: async () => load };
+  return host === "codex"
+    ? runCodexSessionStart(startInput(host, root, source), b, dependencies)
+    : runClaudeSessionStart(startInput(host, root, source), b, dependencies);
+};
+test("FR7.1 compact: with no hand-off bundle both hosts still lead with the fixed sentence, once; the other starts are unchanged", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rot-compact-"));
+  for (const host of ["claude_code", "codex"] as const) {
+    const compact = await startOn(host, root, "compact", loaded());
+    const context = compact.output.hookSpecificOutput?.additionalContext ?? "";
+    assert.ok(context.startsWith(ROTATION_UNCERTAINTY_SENTENCE), `${host}: the sentence leads`);
+    assert.ok(context.endsWith(ordinary), `${host}: the ordinary recovery text follows`);
+    assert.equal(occurrences(context, ROTATION_UNCERTAINTY_SENTENCE), 1);
+    assert.equal(compact.rotation_evidence, undefined, "no bundle was used");
+    for (const source of ["startup", "resume", "clear"]) {
+      const plain = await startOn(host, root, source, loaded());
+      assert.equal(plain.output.hookSpecificOutput?.additionalContext, ordinary, `${host}/${source}: unchanged`);
+    }
+    const withBundle = await startOn(host, root, "compact", loaded({ ...block, text: `ROTATION HANDOFF BLOCK\n${ROTATION_UNCERTAINTY_SENTENCE}` }));
+    const bundled = withBundle.output.hookSpecificOutput?.additionalContext ?? "";
+    assert.equal(occurrences(bundled, ROTATION_UNCERTAINTY_SENTENCE), 1, `${host}: not added twice when the bundle already carries it`);
+    assert.ok(bundled.startsWith("ROTATION HANDOFF BLOCK"));
+  }
+});
+test("FR7.1 compact: the sentence is kept and the ordinary recovery caps still hold when the recovery text is large", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rot-compact-cap-"));
+  const text = "あ".repeat(20_000);
+  const big = loaded();
+  big.recovery = { ...big.recovery, text, token_estimate: Math.ceil(text.length / 4), byte_count: Buffer.byteLength(text, "utf8") };
+  for (const host of ["claude_code", "codex"] as const) {
+    const result = await startOn(host, root, "compact", big);
+    const context = result.output.hookSpecificOutput?.additionalContext ?? "";
+    assert.ok(context.startsWith(ROTATION_UNCERTAINTY_SENTENCE), host);
+    assert.ok(Math.ceil(context.length / 4) <= binding.max_tokens, `${host}: ${Math.ceil(context.length / 4)} tokens`);
+    assert.ok(Buffer.byteLength(context, "utf8") <= binding.max_bytes, `${host}: ${Buffer.byteLength(context, "utf8")} bytes`);
+  }
 });
 
 let failed = 0;

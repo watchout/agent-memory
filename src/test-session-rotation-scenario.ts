@@ -7,11 +7,12 @@
  * Codex) starts from the saved next step. The same bundle is never used twice.
  */
 import assert from "node:assert/strict";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { encodeClaudeProjectDir } from "./claude-transcript-identity.js";
 
-const root = mkdtempSync(join(tmpdir(), "wasurezu-rotation-scenario-"));
+const root = realpathSync(mkdtempSync(join(tmpdir(), "wasurezu-rotation-scenario-")));
 process.env.HOME = root;
 process.env.AGENT_MEMORY_HOME = join(root, ".agent-memory");
 process.env.AGENT_MEMORY_DB_TYPE = "json";
@@ -56,7 +57,7 @@ const bindingFor = (host: Host) => ({
 
 function transcriptFor(host: Host, sessionId: string): string {
   const dir = host === "claude_code"
-    ? join(root, ".claude", "projects", "workspace")
+    ? join(root, ".claude", "projects", encodeClaudeProjectDir(workspace))
     : join(root, ".codex", "sessions", "2026", "11", "11");
   mkdirSync(dir, { recursive: true });
   return join(dir, host === "claude_code" ? `${sessionId}.jsonl` : `rollout-${sessionId}.jsonl`);

@@ -99,7 +99,7 @@
 - [x] Step 4 の成功の場面の試験が通ることを確かめる。
 - [x] 要件ごとの試験を足す（`src/test-session-rotation-*.ts`）: FR1（Claude・Codex・usage 無し）、FR2（既定・席の値・帯の値が 1 か所）、FR3（block 1 回・保存・落ちる形・秘匿処理）、FR4（保存の前は印が無い）、FR6（Claude と Codex の返し方・1 回だけ・上限）、FR7.1（決まった文）、FR7.2（tool の一覧が先に返る・用意の後に答える・用意の失敗）、FR7.3（起動で表の変更を流さない）、FR8（取り込みの直し）。各試験は正しい場合と、2 つ以上の誤りや境目の場合を持つ。
 - [x] 新しい試験を、CI が呼ぶ npm の script（`test:claude-hook`・`test:codex-hook`・`test:automatic-receive` など）に足す。workflow の file は変えない。
-- [x] 変えた行と新しい行の網羅率を、Node に組み込みの網羅率（`node --test --experimental-test-coverage --test-reporter=lcov --import tsx <試験の file>`）で測り、100% を確かめる。届かない行は数えから外さず、理由を `code-summary.md` と PR に書く。
+- [x] 変えた行と新しい行の網羅率を測り、100% を確かめる。届かない行は数えから外さず、理由を `code-summary.md` と PR に書く。（測り方は、計画の時の「file ごとの lcov」ではなく、試験の process 全部に `NODE_V8_COVERAGE` を付けて足し合わせる形に変えた。手順と script の全文は `coverage-method.md`。採った判断・採らなかった案は `code-summary.md` の「計画からの外れ」。）
 
 ### Step 13: 型・build・今の試験の全体
 - [x] `npx tsc --noEmit`、`npm run build`、CI と同じ試験の一覧を手元で流し、全部通ることを確かめる。
@@ -127,6 +127,13 @@
 - [ ] code を同じ PR に push し、CI の後に実装監査を依頼する（`audit_stage` は実装の後）。PR の本文に deviation_ledger（大きな file の扱い、届かない網羅率があればその理由）と「AI-DLC の単位の作る段の出力」を書く。
 - [ ] 統合の後の席への据え付け（FR9.2・FR9.3）は、arc-sec の確かめと Owner の決定を受けてから、Owner の手作業として別に行う。
 
+### Step 15b: 実装監査の 1 回目（BLOCK、F1〜F6）を受けた直し
+- [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6788119508 を `--review` で流した結果は BLOCKED。作者の受領としてその結果をそのまま PR に書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6788338692 ）。6 件とも指摘のとおり受け止めた。
+- [x] 同じ単位の中で直した（DB の作り・workflow・資格情報・席への据え付けは変えていない。見張りの設計の記録は、F4・F5 が設計の条件の実装なので改版していない）: F1 = Stop の hook の内部期限、F2 = 印の無い compact の決まった文、F3 = 回復の文の上限（切り詰めの印を含む）、F4 = 読めない帳面と照会で確認した起動し直しの数え方、F5 = 確認の記録の失敗を成功にしない、F6 = 保存の前の transcript の帰属の確かめ。参考の S3 は、席名・起動の command の文字の規則と uid の取り方を 1 か所にして解いた。内容は `code-summary.md` の「1 回目の実装監査への直し」。
+- [x] 指摘ごとの試験を足した（core 21・flow 36・registration 12・units 83・watcher-flow 100）。型検査、CI の mirror 18 / 18、変えた行と新しい行の網羅率（動かなかったのは入口の最後の網 2 範囲だけ）をもう一度確かめた。
+- [x] 記録を直した: `code-summary.md`（「量を測るだけ」の説明の訂正、見直しの後の変更と追跡の確かめの開示を含む）、`unit-test-instructions.md`、`coverage-method.md`（新）、`traceability.json`、監査の項目の file。
+- [ ] 直した head を push し、CI（build-and-test 18・20・22）が終わってから、2 回目の `sds-audit-request/1` を同じ PR に出す。返却が来るまで push しない。返却が来たら、`--review` を push の前に流す。
+
 ## Testing Contract
 
 ```json
@@ -145,7 +152,11 @@
     },
     {
       "layer": "team",
-      "text": "- **Methodology**: custom\n- **Methodology evidence**: 成功の条件は「担当交代と再起動の場面を決めた試験で取り出せる割合 100%」（D-06・D-26・D-27）なので、その場面の試験を先に固めて完了の判定をぶれさせない。細かい試験は、今の自前の tsx のスクリプトの形に合わせて実装の後に書く（面談の Q3 = C）。\n- **Ordering**: 成功の条件の場面（担当交代と再起動の後に取り出せるか）の試験を、その場面を作る実装より先に書いて失敗を確かめ、細かい試験は試験できる層ごとに実装の後に書いて動かす。\n- 網羅率: 行の網羅率 100% を床にし、統合の前に CI で確かめる。Build and Test の段でも 100% を確かめ、段を通すために弱めない（社内基準 100% = Owner の決定 OD-COMPANY-AIDLC-LINE-COVERAGE-FLOOR-100-20261105-001、iyasaka-arc#49 6647418162。org.md の既定 80% より厳しい床をここで定める）。届かない行を数えから外す時は、PR に理由を書いて独立の監査で見る。\n- PostgreSQL の試験は、最初は手元で回し、結果を PR に証拠として載せる。置き場所の設計が固まった所で CI に入れる。CI の workflow を変える時は owner の exact-head を得る（面談の Q5 = C）。\n- CI（.github/workflows/ci.yml）は Node 18・20・22 で型検査・ビルド・試験を回す。今ある試験は通ったまま保つ。"
+      "text": "- **Methodology**: custom\n- **Methodology evidence**: 成功の条件は「担当交代と再起動の場面を決めた試験で取り出せる割合 100%」（D-06・D-26・D-27）なので、その場面の試験を先に固めて完了の判定をぶれさせない。細かい試験は、今の自前の tsx のスクリプトの形に合わせて実装の後に書く（面談の Q3 = C）。\n- **Ordering**: 成功の条件の場面（担当交代と再起動の後に取り出せるか）の試験を、その場面を作る実装より先に書いて失敗を確かめ、細かい試験は試験できる層ごとに実装の後に書いて動かす。\n- 網羅率: 行の網羅率 100% を床にし、統合の前に CI で確かめる。Build and Test の段でも 100% を確かめ、段を通すために弱めない（社内基準 100% = Owner の決定 OD-COMPANY-AIDLC-LINE-COVERAGE-FLOOR-100-20261105-001、iyasaka-arc#49 6647418162。org.md の既定 80% より厳しい床をここで定める）。届かない行を数えから外す時は、PR に理由を書いて独立の監査で見る。\n- PostgreSQL の試験は、最初は手元で回し、結果を PR に証拠として載せる。置き場所の設計が固まった所で CI に入れる。CI の workflow を変える時は owner の exact-head を得る（面談の Q5 = C）。\n- CI（.github/workflows/ci.yml）は Node 18・20・22 で型検査・ビルド・試験を回す。今ある試験は通ったまま保つ。\n\n- 行の網羅率は、組み込みの lcov を file ごとに足す形より、NODE_V8_COVERAGE を全試験につけて process をまたいで足す方が、hook を子 process で起動する場合も数えられる。集計は手作業にせず、監査の席が同じ数字を出せる script にする（OmotenasuAI でも、c8 をそのまま包むと子 process と worker が別に数えられる罠が見つかっている）。 (learned 2026-11-11)"
+    },
+    {
+      "layer": "project",
+      "text": "- 試験や確かめの script で既定の createStore() を呼ぶと、JSON の store の置き場が homedir() から決まり、この Mac の実際の保存先に行が入る。必ず一時の HOME を指定して動かす（11-11 の code-generation で conversation-events.json・raw-events.json に試験の行が入った）。 (learned 2026-11-11)"
     }
   ],
   "obligations": {
@@ -181,8 +192,8 @@
       "Documentation and traceability."
     ]
   },
-  "input_sha256": "sha256:ab265ccc099d21d57fe2063d086fd2e6d5b3907ce7076321b0efe27e6c67a5bd",
-  "contract_sha256": "sha256:7be0fb8b16745403a1534ca445a83b546587998941b071c3ec5ab54a45ac8e2a"
+  "input_sha256": "sha256:7a9e5e4c71010efdb12dd8dab66d83d4a38f93aa2615d2bed250b71bedd96422",
+  "contract_sha256": "sha256:4d8448c560303fb3a275a0dbb39a0fd9bcc66003a716a2a687563aa1b7b44665"
 }
 ```
 

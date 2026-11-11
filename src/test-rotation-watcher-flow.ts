@@ -385,6 +385,132 @@ test("flow: when the line after the respawn cannot be written the seat is stoppe
   assert.equal(JSON.parse(nodeWatcherFs.readText(seatHaltPath(world.seatDir))!).reason, "ledger_unwritable_after_respawn");
 });
 
+// ---------- F5: what happens after the respawn is recorded, or the seat is stopped ----------
+const haltReason = (world: World): string | null => {
+  const text = nodeWatcherFs.readText(seatHaltPath(world.seatDir));
+  return text === null ? null : (JSON.parse(text) as { reason: string }).reason;
+};
+/** A write that fails: either a `replace` (claim, HALT) or an ledger append, chosen by what it carries. */
+interface Block {
+  replace?: (path: string, value: unknown) => boolean;
+  append?: (text: string) => boolean;
+}
+const fsWith = (...blocks: Block[]): WatcherFs => ({
+  ...nodeWatcherFs,
+  replace: (path, value) => {
+    if (blocks.some((block) => block.replace?.(path, value))) throw new Error("disk");
+    nodeWatcherFs.replace(path, value);
+  },
+  appendDurable: (path, text) => {
+    if (blocks.some((block) => block.append?.(text))) throw new Error("disk");
+    nodeWatcherFs.appendDurable(path, text);
+  },
+});
+const failClaimState = (state: string): Block => ({ replace: (_path, value) => (value as { state?: string }).state === state });
+const failLedgerKind = (kind: string): Block => ({ append: (text) => text.includes(`"kind":"${kind}"`) });
+const failSeatHalt = (world: World): Block => ({ replace: (path) => path === seatHaltPath(world.seatDir) });
+
+const POST_RESPAWN: Array<[string, RespawnMode, Block, string, string]> = [
+  ["the claim cannot be moved to done after a confirmed respawn", "ok", failClaimState("done"), "confirmed_unrecorded", "confirmed_unrecorded"],
+  ["the confirmed line cannot be written after a confirmed respawn", "ok", failLedgerKind("confirmed"), "confirmed_unrecorded", "confirmed_unrecorded"],
+  ["the claim cannot be moved to done after the inquiry found the respawn", "call_fails_but_happened", failClaimState("done"), "confirmed_by_inquiry_unrecorded", "confirmed_by_inquiry_unrecorded"],
+  ["the confirmed line cannot be written after the inquiry found the respawn", "call_fails_but_happened", failLedgerKind("confirmed"), "confirmed_by_inquiry_unrecorded", "confirmed_by_inquiry_unrecorded"],
+  ["the claim cannot be moved to unconfirmed", "no_start", failClaimState("unconfirmed"), "unconfirmed_unrecorded", "unconfirmed_unrecorded"],
+  ["the unconfirmed line cannot be written", "no_start", failLedgerKind("unconfirmed"), "unconfirmed_unrecorded", "unconfirmed_unrecorded"],
+  ["the claim cannot be quarantined after an unknown result", "call_fails_nothing_happens", failClaimState("unknown_quarantined"), "outcome_unknown_unrecorded", "outcome_unknown_unrecorded"],
+  ["the outcome_unknown line cannot be written", "call_fails_nothing_happens", failLedgerKind("outcome_unknown"), "outcome_unknown_unrecorded", "outcome_unknown_unrecorded"],
+];
+for (const [name, mode, patch, tickReason, halt] of POST_RESPAWN) {
+  test(`flow (F5): ${name} - the seat is stopped and the tick says it was not recorded`, async () => {
+    const world = new World();
+    world.mode = mode;
+    world.fsPort = fsWith(patch);
+    const { second, seat, memory } = await twoLooks(world);
+    assert.deepEqual(second, { class: "progress", reason: tickReason });
+    assert.equal(world.respawns, 1);
+    assert.equal(haltReason(world), halt);
+    assertSafe(world);
+    // Whatever the claim says, the same marker is never respawned again.
+    assert.equal((await tickSeat(world.ports, seat, memory)).class === "progress", false);
+    assert.equal(world.respawns, 1);
+  });
+}
+
+test("flow (F5): the outcomes that were recorded keep their reasons and the halt only where it was always written", async () => {
+  const unconfirmed = new World();
+  unconfirmed.mode = "no_start";
+  assert.deepEqual((await twoLooks(unconfirmed)).second, { class: "progress", reason: "unconfirmed" });
+  assert.equal(haltReason(unconfirmed), "unconfirmed");
+  const unknown = new World();
+  unknown.mode = "call_fails_nothing_happens";
+  assert.deepEqual((await twoLooks(unknown)).second, { class: "progress", reason: "outcome_unknown" });
+  assert.equal(haltReason(unknown), "outcome_unknown");
+  const fine = new World();
+  assert.deepEqual((await twoLooks(fine)).second, { class: "progress", reason: "confirmed" });
+  assert.equal(haltReason(fine), null);
+});
+
+test("flow (F5): when even the HALT cannot be written the tick asks the runner to stop", async () => {
+  for (const [label, mode, patch] of [
+    ["confirmed, claim not recorded", "ok", failClaimState("done")],
+    ["unconfirmed, claim not recorded", "no_start", failClaimState("unconfirmed")],
+    ["unconfirmed, claim recorded (the stop itself is the failure)", "no_start", {}],
+    ["unknown result, ledger not recorded", "call_fails_nothing_happens", failLedgerKind("outcome_unknown")],
+  ] as const) {
+    const world = new World();
+    world.mode = mode;
+    world.fsPort = fsWith(patch, failSeatHalt(world));
+    const { second } = await twoLooks(world);
+    assert.equal(second.class, "progress", label);
+    assert.equal(second.stop_runner, true, label);
+    assert.equal(world.respawns, 1, label);
+    assert.equal(haltReason(world), null, label);
+  }
+});
+
+test("flow (F5): a respawn whose line could not be written, with the HALT also unwritable, asks the runner to stop", async () => {
+  const world = new World();
+  world.fsPort = fsWith(failLedgerKind("respawn_issued"), failSeatHalt(world));
+  const { second } = await twoLooks(world);
+  assert.deepEqual(second, { class: "progress", reason: "confirmed", stop_runner: true });
+  assert.equal(world.respawns, 1);
+});
+
+test("flow (F5): a failed run stops the loop, writes the global HALT, and the command exits 4", async () => {
+  const world = new World();
+  world.writeConfig();
+  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  const out = collect();
+  const { passes } = await (async () => {
+    // first pass only waits for the screen, so run the loop until it stops by itself
+    const result = await runWatcher(world.ports, { poll_ms: 5_000, log: out.log });
+    assert.equal(result.halted_global, false);
+    assert.equal(result.stopped, true);
+    return result;
+  })();
+  assert.ok(passes >= 2);
+  assert.equal(JSON.parse(nodeWatcherFs.readText(globalHaltPath(world.root))!).reason, "state_unrecordable");
+  assert.ok(out.lines.some((line) => JSON.parse(line).halt === "runner_stopped"));
+  assert.equal(world.respawns, 1);
+
+  const second = new World();
+  second.writeConfig();
+  second.fsPort = fsWith(failClaimState("done"), failSeatHalt(second));
+  const run = await cli(second, ["run"], 5_000);
+  assert.equal(run.code, 4);
+  assert.ok(run.out.includes('"halt":"runner_stopped"'));
+
+  // `once` never respawns (it has no memory of the screen), but it does close an abandoned claim.
+  const once = new World();
+  once.writeConfig();
+  createClaim(nodeWatcherFs, once.seatDir, { ...FIELDS, marker_id: once.marker.marker_id });
+  once.fsPort = fsWith(failLedgerKind("outcome_unknown"), failSeatHalt(once));
+  const last = await cli(once, ["once"]);
+  assert.equal(last.code, 4);
+  assert.deepEqual(JSON.parse(last.out).seats[0].tick, { class: "progress", reason: "outcome_unknown_unrecorded", stop_runner: true });
+  assert.equal(JSON.parse(nodeWatcherFs.readText(globalHaltPath(once.root))!).reason, "state_unrecordable");
+});
+
 // ---------- confirmation ----------
 test("flow: a new conversation that starts late but inside the wait is confirmed", async () => {
   const world = new World();
@@ -454,7 +580,7 @@ test("flow: a respawn command that reports failure but did happen is found by th
 // ---------- rate and age limits come from the ledger ----------
 test("flow: a recent respawn in the ledger holds the next one back, and a stale marker is not used", async () => {
   const world = new World();
-  const line = (offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind: "respawn_issued", agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString() })}\n`;
+  const line = (offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind: "respawn_issued", attempt_id: "earlier", agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString() })}\n`;
   nodeWatcherFs.appendDurable(ledgerPath(world.root), line(-60_000));
   const { second } = await twoLooks(world);
   assert.deepEqual(second, { class: "waiting", reason: "min_interval" });
@@ -463,6 +589,46 @@ test("flow: a recent respawn in the ledger holds the next one back, and a stale 
   stale.writeMarkerAndTurn({ marker: { saved_at: stale.iso(-3_600_000) } });
   const result = await twoLooks(stale);
   assert.deepEqual(result.second, { class: "idle", reason: "marker_expired" });
+});
+
+test("flow (F4): an earlier respawn that was only found by the inquiry still holds the next one back", async () => {
+  const world = new World();
+  const line = (kind: string, attempt: string, offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind, attempt_id: attempt, agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString(), ...(kind === "confirmed" ? { detail: "by_inquiry" } : {}) })}\n`;
+  nodeWatcherFs.appendDurable(ledgerPath(world.root), line("intent", "earlier", -30_000) + line("confirmed", "earlier", -25_000));
+  const { second } = await twoLooks(world);
+  assert.deepEqual(second, { class: "waiting", reason: "min_interval" });
+  assert.equal(world.respawns, 0);
+});
+
+test("flow (F4): the hourly limit counts attempts once, including one that has both a respawn line and a confirmed line", async () => {
+  const world = new World();
+  const seat = seatFrom({ max_per_hour: 2, min_interval_seconds: 1 });
+  const line = (kind: string, attempt: string, offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind, attempt_id: attempt, agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString() })}\n`;
+  nodeWatcherFs.appendDurable(ledgerPath(world.root), line("respawn_issued", "one", -1_800_000) + line("confirmed", "one", -1_790_000));
+  const { second } = await twoLooks(world, {}, seat);
+  assert.deepEqual(second, { class: "progress", reason: "confirmed" }, "one attempt in the hour, limit 2: allowed");
+  const full = new World();
+  nodeWatcherFs.appendDurable(ledgerPath(full.root), line("respawn_issued", "one", -1_800_000) + line("confirmed", "one", -1_790_000) + line("confirmed", "two", -1_700_000));
+  const held = await twoLooks(full, {}, seat);
+  assert.deepEqual(held.second, { class: "waiting", reason: "rate_limited" });
+  assert.equal(full.respawns, 0);
+});
+
+test("flow (F4): a ledger that cannot be read in full stops the seat - no respawn - and is counted as 'cannot see'", async () => {
+  const cases: Array<[string, (world: World) => void]> = [
+    ["a torn last line", (w) => nodeWatcherFs.appendDurable(ledgerPath(w.root), '{"kind":"respawn_issued","agent_')],
+    ["a line that is not JSON", (w) => nodeWatcherFs.appendDurable(ledgerPath(w.root), "garbage\n")],
+    ["a counting line with no attempt", (w) => nodeWatcherFs.appendDurable(ledgerPath(w.root), `${JSON.stringify({ kind: "respawn_issued", agent_id: "kusabi", project: "agent-memory", at: w.iso(-60_000) })}\n`)],
+    ["the file cannot be read", (w) => { nodeWatcherFs.appendDurable(ledgerPath(w.root), "{}\n"); w.fsPort = { ...nodeWatcherFs, readText: (path) => (path === ledgerPath(w.root) ? null : nodeWatcherFs.readText(path)) }; }],
+  ];
+  for (const [label, damage] of cases) {
+    const world = new World();
+    damage(world);
+    const { second } = await twoLooks(world);
+    assert.deepEqual(second, { class: "unobservable", reason: "ledger_unreadable" }, label);
+    assert.equal(world.respawns, 0, label);
+    assertSafe(world);
+  }
 });
 
 // ---------- the loop ----------

@@ -31,7 +31,8 @@ export interface WatcherPorts {
   fs: WatcherFs;
   /** Rotation root, e.g. `$AGENT_MEMORY_HOME/rotation`. */
   root: string;
-  uid: number;
+  /** null where the platform has no uid; the config file is then not trusted. */
+  uid: number | null;
   now_ms(): number;
   sleep(ms: number): Promise<void>;
   hash_file(path: string): string | null;

@@ -148,6 +148,8 @@ test("config: the file and its folder must be ours and not writable by others", 
   assert.deepEqual(checkConfigPermissions({ uid: 501, file: mine, folder: { uid: 0, mode: 0o40700 } }), { ok: false, reason: "config_folder_not_ours" });
   assert.deepEqual(checkConfigPermissions({ uid: 501, file: { uid: 501, mode: 0o100666 }, folder: mine }), { ok: false, reason: "config_file_writable_by_others" });
   assert.deepEqual(checkConfigPermissions({ uid: 501, file: mine, folder: { uid: 501, mode: 0o40770 } }), { ok: false, reason: "config_folder_writable_by_others" });
+  assert.deepEqual(checkConfigPermissions({ uid: null, file: mine, folder: { uid: 501, mode: 0o40700 } }), { ok: false, reason: "config_file_not_ours" },
+    "no uid on this platform: ownership cannot be shown, so nothing is trusted (S5)");
 });
 
 // ---------- screen and clients ----------
@@ -585,20 +587,56 @@ test("store: a claim file that is damaged is unreadable, not absent", () => {
 test("store: the ledger appends durable lines and the summary counts only real respawns for the seat", () => {
   const root = tmp();
   const at = (offset: number) => new Date(NOW0 + offset).toISOString();
-  const line = (kind: Parameters<typeof appendLedger>[2], agent: string, offset: number) =>
-    appendLedger(nodeWatcherFs, root, kind, { at: at(offset), attempt_id: "a", marker_id: "m", host: "claude_code", agent_id: agent, project: "p" });
-  assert.equal(line("intent", "kusabi", -100), true);
-  assert.equal(line("respawn_issued", "kusabi", -7_200_000), true);
-  assert.equal(line("respawn_issued", "kusabi", -600_000), true);
-  assert.equal(line("outcome_unknown", "kusabi", -300_000), true);
-  assert.equal(line("respawn_issued", "other", -1_000), true);
-  assert.equal(line("confirmed", "kusabi", -10), true);
-  writeFileSync(ledgerPath(root), `${nodeWatcherFs.readText(ledgerPath(root))}not json\n${JSON.stringify({ kind: "respawn_issued", agent_id: "kusabi", project: "p", at: "bad" })}\n${JSON.stringify({ kind: "respawn_issued", agent_id: "kusabi", project: "p", at: 12345 })}\n\n`);
-  const summary = summarizeLedger(nodeWatcherFs, root, "kusabi", "p", NOW0);
-  assert.deepEqual(summary, { last_respawn_ms: NOW0 - 300_000, respawns_in_last_hour: 2 });
-  assert.deepEqual(summarizeLedger(nodeWatcherFs, tmp(), "kusabi", "p", NOW0), { last_respawn_ms: null, respawns_in_last_hour: 0 });
+  const line = (kind: Parameters<typeof appendLedger>[2], agent: string, offset: number, attempt = "a") =>
+    appendLedger(nodeWatcherFs, root, kind, { at: at(offset), attempt_id: attempt, marker_id: "m", host: "claude_code", agent_id: agent, project: "p" });
+  assert.equal(line("intent", "kusabi", -100, "e"), true);
+  assert.equal(line("skipped", "kusabi", -50, "e"), true);
+  assert.equal(line("respawn_issued", "kusabi", -7_200_000, "old"), true);
+  assert.equal(line("respawn_issued", "kusabi", -600_000, "a"), true);
+  assert.equal(line("outcome_unknown", "kusabi", -300_000, "b"), true);
+  assert.equal(line("respawn_issued", "other", -1_000, "x"), true);
+  assert.equal(line("respawn_issued", "kusabi", -200_000, "c"), true);
+  assert.equal(line("confirmed", "kusabi", -100_000, "c"), true);
+  assert.equal(line("confirmed", "kusabi", -10, "d"), true);
+  // the confirmed-by-inquiry attempt "d" has no respawn_issued line, and counts; "c" has both lines and counts once, at its latest
+  assert.deepEqual(summarizeLedger(nodeWatcherFs, root, "kusabi", "p", NOW0), { readable: true, last_respawn_ms: NOW0 - 10, respawns_in_last_hour: 4 });
+  assert.deepEqual(summarizeLedger(nodeWatcherFs, root, "other", "p", NOW0), { readable: true, last_respawn_ms: NOW0 - 1_000, respawns_in_last_hour: 1 });
+  assert.deepEqual(summarizeLedger(nodeWatcherFs, root, "kusabi", "q", NOW0), { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 });
+  assert.deepEqual(summarizeLedger(nodeWatcherFs, tmp(), "kusabi", "p", NOW0), { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 }, "no ledger yet is an empty history");
   const broken: WatcherFs = { ...nodeWatcherFs, appendDurable: () => { throw new Error("disk"); } };
   assert.equal(appendLedger(broken, root, "skipped", { at: at(0), attempt_id: null, marker_id: "m", host: "h", agent_id: "a", project: "p" }), false);
+});
+
+test("store (F4): a ledger that exists but cannot be read in full is 'unreadable', never an empty history", () => {
+  const entry = (over: Record<string, unknown>) => `${JSON.stringify({ kind: "respawn_issued", agent_id: "kusabi", project: "p", attempt_id: "a", at: new Date(NOW0 - 1_000).toISOString(), ...over })}\n`;
+  const withText = (text: string) => {
+    const root = tmp();
+    writeFileSync(ledgerPath(root), text);
+    return summarizeLedger(nodeWatcherFs, root, "kusabi", "p", NOW0);
+  };
+  assert.deepEqual(withText(entry({})), { readable: true, last_respawn_ms: NOW0 - 1_000, respawns_in_last_hour: 1 });
+  assert.deepEqual(withText(`${entry({})}\n${entry({ kind: "intent" })}`), { readable: true, last_respawn_ms: NOW0 - 1_000, respawns_in_last_hour: 1 }, "blank lines are fine");
+  assert.deepEqual(withText(entry({ agent_id: "other", at: "bad", attempt_id: 1 })), { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 }, "another seat's damaged counting line does not matter");
+  assert.deepEqual(withText(entry({ kind: "skipped", at: "bad", attempt_id: null })), { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 }, "a line that does not count is not checked beyond JSON");
+  for (const [label, text] of [
+    ["a torn line", `${entry({})}{"kind":"respawn_iss`],
+    ["not JSON", `${entry({})}not json\n`],
+    ["a JSON line that is not an object", `${entry({})}[1]\n`],
+    ["a null line", `${entry({})}null\n`],
+    ["a counting line with a bad time", entry({ at: "bad" })],
+    ["a counting line with a numeric time", entry({ at: 12_345 })],
+    ["a counting line with no attempt", entry({ attempt_id: undefined })],
+    ["a counting line with an empty attempt", entry({ attempt_id: "" })],
+    ["a confirmed line with no attempt", entry({ kind: "confirmed", attempt_id: null })],
+  ] as const) {
+    const summary = withText(text);
+    assert.equal(summary.readable, false, label);
+    assert.ok(!summary.readable && summary.reason.length > 0, label);
+  }
+  const root = tmp();
+  writeFileSync(ledgerPath(root), entry({}));
+  const unreadableFs: WatcherFs = { ...nodeWatcherFs, readText: () => null };
+  assert.deepEqual(summarizeLedger(unreadableFs, root, "kusabi", "p", NOW0), { readable: false, reason: "ledger_unreadable" });
 });
 
 test("store: HALT files are written atomically, and a failed write is reported", () => {

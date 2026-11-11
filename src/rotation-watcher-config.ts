@@ -7,7 +7,9 @@
 import { isAbsolute } from "node:path";
 import {
   ROTATION_CONFIRM_WAIT_SECONDS,
+  ROTATION_LAUNCH_COMMAND_CHARS,
   ROTATION_MARKER_TTL_SECONDS,
+  ROTATION_SEAT_SEGMENT,
   ROTATION_WATCHER_HUMAN_QUIET_SECONDS,
   ROTATION_WATCHER_MAX_PER_HOUR,
   ROTATION_WATCHER_MIN_INTERVAL_SECONDS,
@@ -18,9 +20,6 @@ import type { RotationHost } from "./session-rotation-usage.js";
 
 export const WATCHER_CONFIG_SCHEMA = "kusabi-rotation-watcher-config/v1" as const;
 
-/** Characters allowed in a launch command: it is placed inside a tmux condition (design 2.3). */
-const LAUNCH_COMMAND_CHARS = /^[A-Za-z0-9 "_./:=;@+~-]+$/;
-const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const TMUX_TARGET = /^[A-Za-z0-9_.-]+:[0-9]+\.[0-9]+$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const DECISION_URL = /^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\/(issues|pull)\/[0-9]+#issuecomment-[0-9]+$/;
@@ -91,13 +90,13 @@ function parseSeat(value: unknown): ConfigResult<WatcherSeat> {
   const raw = record(value);
   if (!raw) return fail("seat_not_object");
   const { agent_id: agent, project, host } = raw;
-  if (typeof agent !== "string" || !SEGMENT.test(agent)) return fail("agent_id_invalid");
-  if (typeof project !== "string" || !SEGMENT.test(project)) return fail("project_invalid");
+  if (typeof agent !== "string" || !ROTATION_SEAT_SEGMENT.test(agent)) return fail("agent_id_invalid");
+  if (typeof project !== "string" || !ROTATION_SEAT_SEGMENT.test(project)) return fail("project_invalid");
   if (host !== "claude_code" && host !== "codex") return fail("host_invalid");
   if (typeof raw.tmux_target !== "string" || !TMUX_TARGET.test(raw.tmux_target)) return fail("tmux_target_invalid");
   if (typeof raw.expected_command !== "string" || !COMMAND_NAME.test(raw.expected_command)) return fail("expected_command_invalid");
   const launch = raw.launch_command;
-  if (typeof launch !== "string" || launch.length === 0 || launch.length > 1_024 || !LAUNCH_COMMAND_CHARS.test(launch)) {
+  if (typeof launch !== "string" || launch.length === 0 || launch.length > 1_024 || !ROTATION_LAUNCH_COMMAND_CHARS.test(launch)) {
     return fail("launch_command_invalid");
   }
   const script = record(raw.launch_script);
@@ -147,12 +146,13 @@ function parseSeat(value: unknown): ConfigResult<WatcherSeat> {
 
 /** The file must be ours and not writable by anyone else (design 2.3); a bad file starts nothing. */
 export function checkConfigPermissions(input: {
-  uid: number;
+  /** null where the platform has no uid: ownership cannot be shown, so the file is not ours. */
+  uid: number | null;
   file: { uid: number; mode: number };
   folder: { uid: number; mode: number };
 }): ConfigResult<true> {
   for (const [label, stat] of [["file", input.file], ["folder", input.folder]] as const) {
-    if (stat.uid !== input.uid) return fail(`config_${label}_not_ours`);
+    if (input.uid === null || stat.uid !== input.uid) return fail(`config_${label}_not_ours`);
     if ((stat.mode & 0o022) !== 0) return fail(`config_${label}_writable_by_others`);
   }
   return { ok: true, value: true };

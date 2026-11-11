@@ -14,6 +14,7 @@ import {
   seatHaltPath,
   summarizeLedger,
   writeHalt,
+  type LedgerSummary,
 } from "./rotation-watcher-store.js";
 import { decideRotationRelaunch, skipClass, type Skip } from "./rotation-watcher-core.js";
 import {
@@ -68,16 +69,23 @@ export async function tickSeat(ports: WatcherPorts, seat: WatcherSeat, memory: S
     }
   }
 
-  const history = marker === null
-    ? { last_respawn_ms: null, respawns_in_last_hour: 0 }
-    : summarizeLedger(ports.fs, ports.root, seat.agent_id, seat.project, nowMs);
+  let history: Extract<LedgerSummary, { readable: true }> = { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 };
+  if (marker !== null) {
+    const summary = summarizeLedger(ports.fs, ports.root, seat.agent_id, seat.project, nowMs);
+    // Without the history the interval and hourly limits cannot be judged: no respawn (S5).
+    if (!summary.readable) {
+      return noteSkip(ports, seat, memory, marker.marker_id, { action: "skip", reason: "ledger_unreadable", class: skipClass("ledger_unreadable") });
+    }
+    history = summary;
+  }
   const inputs = {
     seat,
     marker,
     turn,
     now_ms: nowMs,
     claim_exists: claimExists,
-    ...history,
+    last_respawn_ms: history.last_respawn_ms,
+    respawns_in_last_hour: history.respawns_in_last_hour,
     halt_global: ports.fs.exists(globalHaltPath(ports.root)),
     halt_seat: ports.fs.exists(seatHaltPath(seatDir)),
     observation: null,
@@ -141,6 +149,18 @@ export interface LoopOptions {
 export interface LoopResult {
   passes: number;
   halted_global: boolean;
+  /** A seat could not be kept safe on disk after a respawn, so the runner stopped (S8). */
+  stopped?: true;
+}
+
+/**
+ * When a seat's tick asks the runner to stop (its state could not be recorded, not even
+ * a HALT), nothing further may run: write the global HALT if that is still possible.
+ */
+export function runnerMustStop(ports: WatcherPorts, pass: PassResult): boolean {
+  if (!pass.seats.some((entry) => entry.tick.stop_runner === true)) return false;
+  writeHalt(ports.fs, globalHaltPath(ports.root), "state_unrecordable", isoAt(ports.now_ms()));
+  return true;
 }
 
 export async function runWatcher(ports: WatcherPorts, options: LoopOptions): Promise<LoopResult> {
@@ -159,6 +179,10 @@ export async function runWatcher(ports: WatcherPorts, options: LoopOptions): Pro
     const summary = JSON.stringify({ config_reason: pass.config_reason, seats: pass.seats });
     if (summary !== lastSummary) options.log(JSON.stringify({ at: isoAt(ports.now_ms()), ...JSON.parse(summary) }));
     lastSummary = summary;
+    if (runnerMustStop(ports, pass)) {
+      options.log(JSON.stringify({ halt: "runner_stopped", reason: "state_unrecordable" }));
+      return { passes, halted_global: false, stopped: true };
+    }
     nonProgress = isNonProgress(pass) ? nonProgress + 1 : 0;
     if (nonProgress >= pass.halt_limit) {
       writeHalt(ports.fs, globalHaltPath(ports.root), "no_progress", isoAt(ports.now_ms()));

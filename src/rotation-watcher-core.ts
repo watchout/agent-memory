@@ -61,6 +61,7 @@ const REASON_CLASS = {
   claim_unreadable: "unobservable",
   claim_unwritable: "unobservable",
   ledger_unwritable: "unobservable",
+  ledger_unreadable: "unobservable",
   in_progress_elsewhere: "idle",
   tmux_condition_false: "waiting",
   config_invalid: "unobservable",

@@ -9,6 +9,7 @@
  * is validated first; a value that fails validation yields "not readable".
  */
 import { execFileSync } from "node:child_process";
+import { ROTATION_LAUNCH_COMMAND_CHARS } from "./constants.js";
 import type { ScreenSnapshot } from "./rotation-watcher-screen.js";
 
 export interface TmuxResult {
@@ -136,7 +137,6 @@ export interface RespawnCondition {
   launch_command: string;
 }
 
-const LAUNCH_COMMAND_IN_CONDITION = /^[A-Za-z0-9 "_./:=;@+~-]+$/;
 
 /**
  * Builds the tmux condition. It only names things tmux can see (pane, pane
@@ -147,7 +147,7 @@ const LAUNCH_COMMAND_IN_CONDITION = /^[A-Za-z0-9 "_./:=;@+~-]+$/;
 export function buildRespawnCondition(condition: RespawnCondition): string | null {
   const integers = [condition.pane_pid, condition.cursor_x, condition.cursor_y, condition.session_attached];
   if (!PANE_ID.test(condition.pane_id) || !integers.every((value) => Number.isInteger(value) && value >= 0)) return null;
-  if (!LAUNCH_COMMAND_IN_CONDITION.test(condition.launch_command)) return null;
+  if (!ROTATION_LAUNCH_COMMAND_CHARS.test(condition.launch_command)) return null;
   const terms = [
     `#{==:#{pane_id},${condition.pane_id}}`,
     `#{==:#{pane_pid},${condition.pane_pid}}`,
