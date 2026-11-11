@@ -24,6 +24,7 @@ import {
   splitRotationHandlers,
   type RotationInstall,
 } from "./rotation-hook-registration.js";
+import { assertHookNodePath } from "./hook-node-path.js";
 import { CLAUDE_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
 
 export const CLAUDE_HOOK_CONFIG_RELATIVE_PATH = ".claude/settings.json" as const;
@@ -45,6 +46,8 @@ export interface ClaudeHookInstallOptions {
   timeout_ms?: number;
   create_backup?: boolean;
   runtime_event_manifest_path?: string;
+  /** The first word of every hook command (an absolute path to node); the node that runs the installer when absent. */
+  node_path?: string;
   /** Opt-in: undefined leaves an existing rotation handler as it is; "off" removes it. */
   rotation?: RotationInstall;
 }
@@ -168,10 +171,11 @@ async function assertNotSymlink(path: string, allowMissing: boolean): Promise<vo
 export function buildClaudeHookCommand(
   runtimeRoot: string,
   binding: ClaudeSessionStartBinding,
+  node: string = process.execPath,
 ): string {
   const runner = join(runtimeRoot, "dist", "claude-session-start.js");
   return [
-    shellQuote(process.execPath),
+    shellQuote(node),
     shellQuote(runner),
     "--adapter-id",
     shellQuote(CLAUDE_SESSION_START_ADAPTER_ID),
@@ -196,8 +200,14 @@ export function buildClaudeHookCommand(
   ].join(" ");
 }
 
-/** Parse only the byte-canonical command emitted by buildClaudeHookCommand. */
-export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand | null {
+/**
+ * Parse only the byte-canonical command emitted by buildClaudeHookCommand. By default the first word must be the
+ * node that runs this code; "any" accepts any absolute first word and still requires every other part of the shape.
+ */
+export function parseClaudeHookCommand(
+  command: string,
+  interpreter: "current" | "any" = "current",
+): ParsedClaudeHookCommand | null {
   const words = parseShellWords(command);
   if (!words || (words.length !== 18 && words.length !== 20)) return null;
   const flags = [
@@ -211,7 +221,8 @@ export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand
     [16, "--timeout-ms"],
   ] as const;
   if (flags.some(([index, flag]) => words[index] !== flag)) return null;
-  if (words[0] !== process.execPath || words[3] !== CLAUDE_SESSION_START_ADAPTER_ID) return null;
+  if (words[3] !== CLAUDE_SESSION_START_ADAPTER_ID) return null;
+  if (interpreter === "current" ? words[0] !== process.execPath : !isAbsolute(words[0])) return null;
   if (!isAbsolute(words[1]) || !isAbsolute(words[9])) return null;
   const runtimeRoot = dirname(dirname(words[1]));
   if (words[1] !== join(runtimeRoot, "dist", "claude-session-start.js")) return null;
@@ -238,19 +249,20 @@ export function parseClaudeHookCommand(command: string): ParsedClaudeHookCommand
   } catch {
     return null;
   }
-  if (command !== buildClaudeHookCommand(runtimeRoot, binding)) return null;
+  if (command !== buildClaudeHookCommand(runtimeRoot, binding, words[0])) return null;
   return { node_executable: words[0], runner: words[1], runtime_root: runtimeRoot, binding };
 }
 
 export function buildClaudeSessionStartHookGroup(
   runtimeRoot: string,
   binding: ClaudeSessionStartBinding,
+  node: string = process.execPath,
 ): HookGroup {
   return {
     matcher: CLAUDE_HOOK_MATCHER,
     hooks: [{
       type: "command",
-      command: buildClaudeHookCommand(runtimeRoot, binding),
+      command: buildClaudeHookCommand(runtimeRoot, binding, node),
       timeout: CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS,
       statusMessage: CLAUDE_HOOK_STATUS_MESSAGE,
     } satisfies HookHandler],
@@ -260,6 +272,7 @@ export function buildClaudeSessionStartHookGroup(
 export function buildClaudeTranscriptStopHookGroup(
   runtimeRoot: string,
   binding: ClaudeSessionStartBinding,
+  node: string = process.execPath,
 ): HookGroup {
   const runner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
   return {
@@ -267,7 +280,7 @@ export function buildClaudeTranscriptStopHookGroup(
     hooks: [{
       type: "command",
       command: [
-        shellQuote(process.execPath),
+        shellQuote(node),
         shellQuote(runner),
         "--adapter-id",
         shellQuote(CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID),
@@ -300,7 +313,7 @@ export function buildClaudeTranscriptStopHookGroup(
 function isManagedHandler(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.command === "string" &&
-    parseClaudeHookCommand(value.command) !== null;
+    parseClaudeHookCommand(value.command, "any") !== null;
 }
 
 function isManagedTranscriptStopHandler(value: unknown): boolean {
@@ -369,6 +382,7 @@ export function mergeClaudeSessionStartHook(
   runtimeRoot: string,
   binding: ClaudeSessionStartBinding,
   rotation?: RotationInstall,
+  node: string = process.execPath,
 ): { settings: ClaudeSettingsFile; unrelatedBefore: number; unrelatedAfter: number } {
   const stopSplit = splitRotationHandlers(existing.hooks.Stop ?? [], CLAUDE_ROTATION_STOP_ADAPTER_ID);
   const promptSplit = splitRotationHandlers(existing.hooks.UserPromptSubmit ?? [], CLAUDE_ROTATION_STOP_ADAPTER_ID);
@@ -376,6 +390,7 @@ export function mergeClaudeSessionStartHook(
     runtime_root: runtimeRoot,
     adapter_id: CLAUDE_ROTATION_STOP_ADAPTER_ID,
     binding,
+    node_path: node,
     ...(thresholdTokens === undefined ? {} : { threshold_tokens: thresholdTokens }),
   });
   const groups = existing.hooks.SessionStart ?? [];
@@ -400,9 +415,9 @@ export function mergeClaudeSessionStartHook(
     unrelatedBefore += unrelated.length;
     if (unrelated.length > 0) preservedPrompt.push({ ...group, hooks: unrelated });
   }
-  const nextGroups = [...preserved, buildClaudeSessionStartHookGroup(runtimeRoot, binding)];
-  const nextStopGroups = [...preservedStop, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding)];
-  const nextPromptGroups = [...preservedPrompt, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding)];
+  const nextGroups = [...preserved, buildClaudeSessionStartHookGroup(runtimeRoot, binding, node)];
+  const nextStopGroups = [...preservedStop, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding, node)];
+  const nextPromptGroups = [...preservedPrompt, buildClaudeTranscriptStopHookGroup(runtimeRoot, binding, node)];
   return {
     settings: {
       ...existing,
@@ -442,6 +457,8 @@ async function readExisting(path: string): Promise<{ raw: string | null; setting
 export async function installClaudeSessionStartHook(
   options: ClaudeHookInstallOptions,
 ): Promise<ClaudeHookInstallReport> {
+  // Checked before anything is read or written, in every mode.
+  const node = options.node_path === undefined ? process.execPath : assertHookNodePath(options.node_path);
   const workspace = await realpath(requiredText(options.workspace, "workspace"));
   const runtimeRoot = await realpath(requiredText(options.runtime_root, "runtime_root"));
   const runner = join(runtimeRoot, "dist", "claude-session-start.js");
@@ -476,7 +493,7 @@ export async function installClaudeSessionStartHook(
   await assertNotSymlink(claudeDir, true);
   await assertNotSymlink(settingsFile, true);
   const existing = await readExisting(settingsFile);
-  const merged = mergeClaudeSessionStartHook(existing.settings, runtimeRoot, binding, options.rotation);
+  const merged = mergeClaudeSessionStartHook(existing.settings, runtimeRoot, binding, options.rotation, node);
   const desired = canonicalJson(merged.settings);
   const configMatch = existing.raw === null
     ? "absent" as const
@@ -566,6 +583,7 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     else if (arg === "--max-bytes") maxBytes = positiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = positiveInteger(next(), arg);
     else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
+    else if (arg === "--node-path") values.node_path = next();
     else if (arg === "--rotation") rotationFlag = next();
     else if (arg === "--rotation-threshold-tokens") rotationThreshold = positiveInteger(next(), arg);
     else throw new Error(`unknown argument: ${arg}`);
@@ -584,6 +602,7 @@ export function parseClaudeHookInstallArgs(args: string[]): ClaudeHookInstallOpt
     ...(values.runtime_event_manifest_path === undefined ? {} : {
       runtime_event_manifest_path: values.runtime_event_manifest_path,
     }),
+    ...(values.node_path === undefined ? {} : { node_path: values.node_path }),
     ...(rotation === undefined ? {} : { rotation }),
   };
 }

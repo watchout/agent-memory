@@ -8,9 +8,10 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import {
   ROTATION_CONFIRM_WAIT_SECONDS,
   ROTATION_DEFAULT_THRESHOLD_TOKENS,
@@ -33,9 +34,13 @@ import {
   readTranscriptTail,
   rotationDeadlineMs,
   runRotationCli,
+  runRotationProcess,
   runSessionRotationStop,
+  startDeadline,
+  type RotationProcessIo,
   type RotationStopDependencies,
 } from "./session-rotation-stop.js";
+import { parseHookInputDiagnostic, type HookDiagnosticRequest } from "./hook-input-diagnostics.js";
 import {
   ROTATION_INITIAL_USER_MESSAGE,
   ROTATION_UNCERTAINTY_SENTENCE,
@@ -881,6 +886,297 @@ test("FR6/FR7.1 edges: an invalid seat name or unwritable turn file never blocks
     { env: { AGENT_MEMORY_HOME: join(s.root, "home") }, parent_pid: process.pid, ps: () => "Tue Nov 3 10:00:00 2026", rotation_root: undefined });
   assert.equal(viaEnv, null);
   assert.equal(readTurn(seatDirectory(join(s.root, "home", "rotation"), "kusabi", "agent-memory"))?.state, "started");
+});
+
+
+// ---------- FR10 (261110 hook input): keys the host added are ignored; the diagnostic never delays the exit ----------
+const MARK = "SENTINEL_VALUE_NEVER_TO_APPEAR_7f3a";
+const U_STOP = { background_tasks: [MARK], effort: MARK, prompt_id: MARK, session_crons: { x: MARK } };
+const U_PROMPT = { prompt_id: MARK, session_title: MARK };
+const slowWriter = (ms: number) => () => new Promise<void>((done) => { setTimeout(done, ms).unref(); });
+
+test("FR10 Deadline.remaining_ms: counts from the injected monotonic clock, keeps counting after cancel, never below 0", () => {
+  let now = 1_000;
+  const deadline = startDeadline(1_000, () => now);
+  assert.equal(deadline.remaining_ms(), 1_000);
+  now = 1_400;
+  assert.equal(deadline.remaining_ms(), 600);
+  deadline.cancel();
+  assert.equal(deadline.remaining_ms(), 600, "still answers after cancel");
+  assert.equal(deadline.isExpired(), false, "the lapse test is unchanged by the clock");
+  now = 5_000;
+  assert.equal(deadline.remaining_ms(), 0, "clamped");
+  now = 0;
+  assert.equal(deadline.remaining_ms(), 1_000, "a clock that moved back is clamped to the budget");
+  const real = startDeadline(5_000);
+  assert.ok(real.remaining_ms() > 4_000 && real.remaining_ms() <= 5_000, "the default clock is real");
+  real.cancel();
+});
+
+test("FR10: a host-added key is ignored on the rotation Stop - the result equals the result without it (differential)", async () => {
+  for (const host of ["claude_code", "codex"] as const) {
+    const s = seat(host);
+    const elsewhere = join(s.root, "elsewhere");
+    mkdirSync(elsewhere);
+    const view = (result: Awaited<ReturnType<typeof runSessionRotationStop>>) => j({
+      output: result.output, action: result.evidence.action, reason: result.evidence.reason,
+      event: result.evidence.hook_event_name, session: result.evidence.session_id, measured: result.evidence.measured_tokens,
+    });
+    const base = JSON.parse(s.input("Stop")) as Record<string, unknown>;
+    const prompt = JSON.parse(s.input("UserPromptSubmit")) as Record<string, unknown>;
+    const without = (key: string) => { const copy = { ...base }; delete copy[key]; return copy; };
+    // Each host's own usage record shape: the Codex rollout carries a token_count event, Claude Code a message usage.
+    const usage = host === "codex"
+      ? j({ type: "event_msg", payload: { type: "token_count", info: { last_token_usage: { input_tokens: 1_000 }, model_context_window: 1_000_000 } } })
+      : usageLine(1_000);
+    const cases: Array<[string, Record<string, unknown>, typeof s.binding, string]> = [
+      ["accepted Stop", base, s.binding, "none/below_threshold"],
+      ["accepted UserPromptSubmit", prompt, s.binding, "busy/prompt_submitted"],
+      ["cwd missing", without("cwd"), s.binding, "failed_open/malformed_input"],
+      ["session id missing", without("session_id"), s.binding, "failed_open/malformed_input"],
+      ["empty transcript path", { ...base, transcript_path: "" }, s.binding, "failed_open/malformed_input"],
+      ["wrong event", { ...base, hook_event_name: "SessionStart" }, s.binding, "failed_open/malformed_input"],
+      ["binding invalid", base, { ...s.binding, agent_id: "" }, "failed_open/identity_binding_invalid"],
+      // FR8 R1: Claude Code identity does not use the hook's cwd; N is accepted there and no cwd check is added.
+      ["cwd outside the workspace", { ...base, cwd: elsewhere }, s.binding, host === "codex" ? "failed_open/identity_binding_invalid" : "none/below_threshold"],
+    ];
+    for (const [label, input, binding, expected] of cases) {
+      const run = (raw: Record<string, unknown>) =>
+        runSessionRotationStop(j(raw), host, binding, {}, deps(s, [usage], fakeStore()));
+      const plain = await run(input);
+      const marked = await run({ ...input, ...(input.hook_event_name === "UserPromptSubmit" ? U_PROMPT : U_STOP), session_title: MARK });
+      assert.equal(`${plain.evidence.action}/${plain.evidence.reason}`, expected, `${host} ${label}: the plain input's result`);
+      assert.equal(view(marked), view(plain), `${host} ${label}: a host-added key must not change the result`);
+      assert.equal(j(marked).includes(MARK), false, `${host} ${label}: no ignored value in the result`);
+    }
+  }
+});
+
+test("FR10: on_ignored_names is called once right after the parser accepts - not for a refusal, also when the identity check refuses later", async () => {
+  const s = seat();
+  const calls: string[][] = [];
+  const watch = { on_ignored_names: (names: readonly string[]) => { calls.push([...names]); } };
+  const run = (raw: string, binding = s.binding, options = {}) =>
+    runSessionRotationStop(raw, "claude_code", binding, options, deps(s, [usageLine(1_000)], fakeStore(), watch));
+  await run(s.input("Stop", { ...U_STOP, zeta: 1 }));
+  assert.deepEqual(calls, [["background_tasks", "effort", "prompt_id", "session_crons", "zeta"]]);
+  calls.length = 0;
+  await run(s.input("UserPromptSubmit", U_PROMPT));
+  assert.deepEqual(calls, [["prompt_id", "session_title"]]);
+  calls.length = 0;
+  await run(s.input("Stop", { session_title: MARK }), { ...s.binding, agent_id: "" });
+  assert.deepEqual(calls, [["session_title"]], "the parser had accepted it");
+  calls.length = 0;
+  await run(s.input("Stop", { session_title: MARK }), s.binding, { off: true });
+  assert.deepEqual(calls, [["session_title"]], "rotation off is decided after the parser");
+  calls.length = 0;
+  for (const refused of ["{}", "{", "[]", j({ ...JSON.parse(s.input("Stop")), hook_event_name: "Other", session_title: MARK })]) await run(refused);
+  assert.deepEqual(calls, []);
+  await run(s.input("Stop"));
+  assert.deepEqual(calls, [[]], "once, with no names, when there is nothing to report");
+  // Callers that do not pass it get the same result shape as before.
+  const result = await runSessionRotationStop(s.input("Stop", U_STOP), "claude_code", s.binding, {}, deps(s, [usageLine(1_000)], fakeStore()));
+  assert.deepEqual(Object.keys(result).sort(), ["evidence", "output"]);
+});
+
+interface CliRun { evidence: string[]; output: string[]; requests: Array<{ names: readonly string[]; remaining_ms: () => number; [key: string]: unknown }> }
+async function cliWithRequests(argv: string[], read: () => Promise<string>, dependencies: RotationStopDependencies, clock?: () => number): Promise<CliRun> {
+  const run: CliRun = { evidence: [], output: [], requests: [] };
+  await runRotationCli({
+    argv, env: {}, read_input: read,
+    write_evidence: (line) => { run.evidence.push(line); },
+    write_output: (line) => { run.output.push(line); },
+    request_diagnostic: (request) => { run.requests.push(request as CliRun["requests"][number]); },
+    ...(clock ? { clock } : {}),
+    dependencies,
+  });
+  return run;
+}
+
+test("FR10: runRotationCli hands over one diagnostic request - only for an accepted input with names; it starts no I/O itself", async () => {
+  const s = seat();
+  const dependencies = deps(s, [usageLine(1_000)], fakeStore());
+  const withKeys = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => s.input("Stop", U_STOP), dependencies);
+  assert.equal(withKeys.requests.length, 1);
+  const request = withKeys.requests[0];
+  assert.deepEqual([...request.names], ["background_tasks", "effort", "prompt_id", "session_crons"]);
+  assert.equal(request.host, "claude_code");
+  assert.equal(request.agent_id, "kusabi");
+  assert.equal(request.project, "agent-memory");
+  assert.equal(request.event, "Stop");
+  assert.equal(typeof request.remaining_ms, "function");
+  const left = request.remaining_ms();
+  assert.ok(left > 5_000 && left <= 7_000, `remaining ${left}`);
+  assert.equal(j(request).includes(MARK), false);
+  assert.equal(withKeys.evidence.length, 1);
+  assert.equal(withKeys.output.length, 1);
+  const prompt = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => s.input("UserPromptSubmit", U_PROMPT), dependencies);
+  assert.equal(prompt.requests[0].event, "UserPromptSubmit");
+  const codex = await cliWithRequests(
+    ["--adapter-id", CODEX_ROTATION_STOP_ADAPTER_ID, ...cliArgs(s.workspace, 7_000).slice(2)],
+    async () => s.input("Stop", U_STOP), dependencies,
+  );
+  assert.equal(codex.requests[0].host, "codex");
+
+  // Nothing to report, a refusal, an unreadable input, a lapsed budget and bad arguments: no request.
+  const none = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => s.input("Stop"), dependencies);
+  assert.deepEqual(none.requests, []);
+  const refused = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => j({ ...JSON.parse(s.input("Stop")), session_id: undefined, ...U_STOP }), dependencies);
+  assert.deepEqual(refused.requests, []);
+  assert.equal(JSON.parse(refused.evidence[0]).reason, "malformed_input");
+  const unreadable = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => { throw new Error("stdin closed"); }, dependencies);
+  assert.deepEqual(unreadable.requests, []);
+  const stalled = await cliWithRequests(cliArgs(s.workspace, 150), () => new Promise<string>(() => undefined), dependencies);
+  assert.deepEqual(stalled.requests, []);
+  const badArgs = await cliWithRequests(["--adapter-id", "nope"], async () => s.input("Stop", U_STOP), dependencies);
+  assert.deepEqual(badArgs.requests, []);
+  // The answer and the evidence are the same bytes with and without the host-added keys.
+  const plain = await cliWithRequests(cliArgs(s.workspace, 7_000), async () => s.input("Stop"), dependencies);
+  assert.deepEqual(withKeys.evidence, plain.evidence);
+  assert.deepEqual(withKeys.output, plain.output);
+  // Without the optional callback the CLI behaves as it did.
+  const bare = await runCli(cliArgs(s.workspace, 7_000), async () => s.input("Stop", U_STOP), dependencies);
+  assert.deepEqual(JSON.parse(bare.output), PASS_OUTPUT);
+});
+
+interface ProcessRun { log: string[]; evidence: string[]; output: string[]; requests: HookDiagnosticRequest[]; exits: number; exited_at: number; answered_at: number }
+// Time from the moment the answer was written to the exit. The start also holds the entry's own file work, which a loaded
+// runner can stretch past a fixed bound; the wait this bound guards (FR10, 5 section) begins only after the answer.
+const afterAnswer = (run: ProcessRun): number => run.exited_at - Math.max(run.answered_at, 0);
+async function processRun(
+  s: ReturnType<typeof seat>,
+  raw: string | Error,
+  extra: {
+    argv?: string[];
+    flush_delay?: number;
+    evidence_throws?: boolean;
+    clock?: (flushed: boolean) => number;
+    run_diagnostic?: (request: HookDiagnosticRequest) => Promise<unknown> | void;
+    dependencies?: RotationStopDependencies;
+  } = {},
+): Promise<ProcessRun> {
+  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1, answered_at: -1 };
+  let flushed = false;
+  const start = performance.now();
+  const io: RotationProcessIo = {
+    argv: extra.argv ?? cliArgs(s.workspace, 7_000),
+    env: {},
+    read_input: async () => { if (raw instanceof Error) throw raw; return raw; },
+    write_evidence: (line) => {
+      if (extra.evidence_throws) throw new Error("the evidence stream is closed");
+      run.log.push("evidence");
+      run.evidence.push(line);
+    },
+    write_output: (line) => { run.log.push("output"); run.output.push(line); },
+    flush: (done) => {
+      run.log.push("flush");
+      setTimeout(() => { flushed = true; run.answered_at = performance.now() - start; run.log.push("flush_done"); done(); }, extra.flush_delay ?? 0);
+    },
+    exit: () => { run.exits++; if (run.exited_at < 0) run.exited_at = performance.now() - start; run.log.push("exit"); },
+    run_diagnostic: async (request) => { run.log.push("diagnostic"); run.requests.push(request); return extra.run_diagnostic?.(request); },
+    clock: () => (extra.clock ? extra.clock(flushed) : performance.now()),
+    now: () => new Date("2026-11-11T10:00:00.000Z"),
+    pid: 4242,
+    dependencies: extra.dependencies ?? deps(s, [usageLine(1_000)], fakeStore()),
+  };
+  await runRotationProcess(io);
+  const limit = performance.now() + 2_500;
+  while (run.exits === 0 && performance.now() < limit) await wait(5);
+  await wait(60);
+  return run;
+}
+
+test("FR10 process: a stream that throws on the evidence still gets the pass on the output, and the process ends", async () => {
+  const s = seat();
+  const run = await processRun(s, s.input("Stop"), { evidence_throws: true });
+  assert.equal(run.exits, 1);
+  assert.deepEqual(run.output.map((line) => JSON.parse(line)), [{ continue: true, suppressOutput: true }]);
+  assert.deepEqual(run.requests, [], "no diagnostic after a write that failed");
+});
+
+test("FR10 process: the diagnostic starts only after the flush, waits at most 200 ms, and the bytes written do not change", async () => {
+  const s = seat();
+  const plain = await processRun(s, s.input("Stop"));
+  assert.equal(plain.exits, 1);
+  assert.deepEqual(plain.requests, []);
+  assert.ok(plain.log.indexOf("flush") > plain.log.indexOf("output"), "flush follows both writes");
+  assert.ok(plain.log.indexOf("exit") > plain.log.indexOf("flush_done"));
+  assert.ok(afterAnswer(plain) < 150, `exit after the answer ${afterAnswer(plain)} ms`);
+
+  const slow = await processRun(s, s.input("Stop", U_STOP), { flush_delay: 80, run_diagnostic: slowWriter(3_000) });
+  assert.equal(slow.requests.length, 1);
+  const at = (entry: string) => slow.log.indexOf(entry);
+  assert.ok(at("diagnostic") > at("flush_done"), `the writer is called after the flush callback: ${j(slow.log)}`);
+  assert.ok(at("diagnostic") > at("output") && at("diagnostic") > at("evidence"));
+  assert.ok(at("exit") > at("diagnostic"));
+  assert.ok(slow.exited_at >= 80 + 180 && slow.exited_at < 1_000, `exit at ${slow.exited_at} ms`);
+  const request = slow.requests[0];
+  assert.equal(request.adapter_id, CLAUDE_ROTATION_STOP_ADAPTER_ID);
+  assert.equal(request.event, "Stop");
+  assert.deepEqual([...request.names], ["background_tasks", "effort", "prompt_id", "session_crons"]);
+  assert.equal(request.agent_id, "kusabi");
+  assert.equal(request.project, "agent-memory");
+  assert.equal(request.pid, 4242);
+  assert.equal(request.now.toISOString(), "2026-11-11T10:00:00.000Z");
+  assert.equal(j(request).includes(MARK), false);
+  assert.deepEqual(slow.evidence, plain.evidence);
+  assert.deepEqual(slow.output, plain.output);
+
+  const codex = await processRun(s, s.input("UserPromptSubmit", U_PROMPT), {
+    argv: ["--adapter-id", CODEX_ROTATION_STOP_ADAPTER_ID, ...cliArgs(s.workspace, 7_000).slice(2)],
+    run_diagnostic: slowWriter(5),
+  });
+  assert.equal(codex.requests[0].adapter_id, CODEX_ROTATION_STOP_ADAPTER_ID);
+  assert.equal(codex.requests[0].event, "UserPromptSubmit");
+  assert.ok(afterAnswer(codex) < 150, `fast writer: exit after the answer ${afterAnswer(codex)} ms`);
+
+  const exhausted = await processRun(s, s.input("Stop", U_STOP), { clock: (flushed) => (flushed ? 6_500 : 0) });
+  assert.deepEqual(exhausted.requests, [], "less than 2000 ms is left: the diagnostic is not started");
+  assert.equal(exhausted.exits, 1);
+  assert.ok(afterAnswer(exhausted) < 150, `exhausted: exit after the answer ${afterAnswer(exhausted)} ms`);
+  assert.deepEqual(exhausted.output, plain.output);
+
+  const thrown = await processRun(s, s.input("Stop", U_STOP), { run_diagnostic: () => { throw new Error("writer threw"); } });
+  assert.equal(thrown.exits, 1);
+  assert.deepEqual(thrown.output, plain.output);
+  const never = await processRun(s, s.input("Stop", U_STOP), { run_diagnostic: () => new Promise<void>(() => undefined) });
+  assert.equal(never.exits, 1);
+  assert.ok(never.exited_at >= 180 && never.exited_at < 1_000, `never-returning writer: exit at ${never.exited_at} ms`);
+
+  // A refusal and the failure paths: the same bytes as before, no diagnostic, and the exit.
+  const plainMalformed = await processRun(s, "{}");
+  const markedMalformed = await processRun(s, j({ ...JSON.parse(s.input("Stop")), cwd: undefined, ...U_STOP }));
+  assert.deepEqual(markedMalformed.evidence, plainMalformed.evidence);
+  assert.deepEqual(markedMalformed.output, plainMalformed.output);
+  for (const run of [plainMalformed, markedMalformed, await processRun(s, new Error("stdin closed")), await processRun(s, "{}", { argv: ["--adapter-id", "nope"] })]) {
+    assert.deepEqual(run.requests, []);
+    assert.equal(run.exits, 1);
+    assert.deepEqual(JSON.parse(run.output[0]), PASS_OUTPUT);
+    assert.ok(afterAnswer(run) < 150);
+  }
+});
+
+test("FR10 process (real command): a host-added key is recorded as a name only, and the answer is the pass", async () => {
+  const home = mkdtempSync(join(tmpdir(), "rotation-stop-hostkey-"));
+  const memoryHome = join(home, "agent-home");
+  const workspace = join(home, "ws");
+  mkdirSync(workspace, { recursive: true });
+  const entry = join(process.cwd(), "src", "session-rotation-stop.ts");
+  const child = spawnSync(process.execPath, ["--import", "tsx", entry, ...cliArgs(workspace, 7_000)], {
+    encoding: "utf8",
+    input: j({ cwd: workspace, hook_event_name: "Stop", session_id: "sess-e2e", transcript_path: join(home, "none.jsonl"), ...U_STOP }),
+    env: { ...process.env, HOME: join(home, "unused"), AGENT_MEMORY_HOME: memoryHome },
+  });
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(JSON.parse(child.stdout), PASS_OUTPUT);
+  assert.equal(child.stdout.includes(MARK) || child.stderr.includes(MARK), false);
+  const file = join(memoryHome, "hook-input", "kusabi", "agent-memory", `${CLAUDE_ROTATION_STOP_ADAPTER_ID}.json`);
+  const record = parseHookInputDiagnostic(readFileSync(file, "utf8"));
+  assert.ok(record, "a valid record");
+  assert.deepEqual(record.entries.map((entry) => [entry.event, entry.name, entry.count]),
+    [["Stop", "background_tasks", 1], ["Stop", "effort", 1], ["Stop", "prompt_id", 1], ["Stop", "session_crons", 1]]);
+  assert.equal(readFileSync(file, "utf8").includes(MARK), false);
+  assert.deepEqual(readdirSync(join(memoryHome, "hook-input", "kusabi", "agent-memory")), [`${CLAUDE_ROTATION_STOP_ADAPTER_ID}.json`]);
 });
 
 let failed = 0;

@@ -9,6 +9,7 @@
  */
 import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import {
   CODEX_SESSION_START_INPUT_MAX_BYTES,
@@ -16,6 +17,12 @@ import {
   parseCodexSessionStartArgs,
   type CodexSessionStartBinding,
 } from "./codex-session-start.js";
+import { parseHookInputShape, type HookInputShape } from "./hook-input.js";
+import {
+  finishAfterAnswer,
+  writeHookInputDiagnostic,
+  type HookDiagnosticRequest,
+} from "./hook-input-diagnostics.js";
 import { redactText } from "./redact.js";
 import {
   receiveCurrentSessionTranscript,
@@ -32,7 +39,7 @@ export const TRANSCRIPT_STOP_ADAPTER_VERSION = "1.0.0" as const;
 export const TRANSCRIPT_STOP_HOOK_TIMEOUT_SECONDS = 9;
 export const TRANSCRIPT_CAPTURE_TAIL_BYTES = 4 * 1024 * 1024;
 
-const OPTIONAL_INPUT_FIELDS = new Set([
+const OPTIONAL_INPUT_FIELDS = [
   "agent_id",
   "agent_type",
   "last_assistant_message",
@@ -41,8 +48,13 @@ const OPTIONAL_INPUT_FIELDS = new Set([
   "prompt",
   "stop_hook_active",
   "turn_id",
-]);
+] as const;
 const REQUIRED_INPUT_FIELDS = ["cwd", "hook_event_name", "session_id", "transcript_path"] as const;
+const INPUT_SHAPE: HookInputShape = {
+  required: REQUIRED_INPUT_FIELDS,
+  optional: OPTIONAL_INPUT_FIELDS,
+  max_bytes: CODEX_SESSION_START_INPUT_MAX_BYTES,
+};
 
 export type TranscriptStopHost = "codex" | "claude_code";
 
@@ -83,6 +95,8 @@ export interface TranscriptStopRunResult {
 export interface TranscriptStopDependencies {
   receive?: typeof receiveCurrentSessionTranscript;
   createStore?: () => Promise<Store>;
+  /** Called once with the key names the entry does not know, right after the parser accepts the input. */
+  on_ignored_names?: (names: readonly string[]) => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,30 +113,40 @@ export function isWithin(parent: string, child: string): boolean {
 }
 
 export function parseTranscriptStopInput(raw: string): TranscriptStopInput {
-  if (Buffer.byteLength(raw, "utf8") > CODEX_SESSION_START_INPUT_MAX_BYTES) throw new Error("malformed_input");
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    throw new Error("malformed_input");
-  }
-  if (!isRecord(value)) throw new Error("malformed_input");
-  const allowed = new Set<string>([...REQUIRED_INPUT_FIELDS, ...OPTIONAL_INPUT_FIELDS]);
-  if (Object.keys(value).some((key) => !allowed.has(key)) ||
-    !REQUIRED_INPUT_FIELDS.every((key) => Object.prototype.hasOwnProperty.call(value, key)) ||
-    !(value.hook_event_name === "Stop" || value.hook_event_name === "UserPromptSubmit") ||
-    !nonEmptyText(value.cwd) ||
-    !nonEmptyText(value.session_id) ||
-    !nonEmptyText(value.transcript_path)) {
+  return parseTranscriptStopInputWithIgnored(raw).input;
+}
+
+/** Same checks as parseTranscriptStopInput; also reports the names of keys the entry does not know. */
+export function parseTranscriptStopInputWithIgnored(
+  raw: string,
+): { input: TranscriptStopInput; ignored_names: readonly string[] } {
+  const shape = parseHookInputShape(raw, INPUT_SHAPE);
+  if (!shape.ok) throw new Error("malformed_input");
+  const { fields } = shape;
+  const hookEventName = fields.get("hook_event_name");
+  const cwd = fields.get("cwd");
+  const sessionId = fields.get("session_id");
+  const transcriptPath = fields.get("transcript_path");
+  const stopHookActive = fields.get("stop_hook_active");
+  const lastAssistantMessage = fields.get("last_assistant_message");
+  if (
+    !(hookEventName === "Stop" || hookEventName === "UserPromptSubmit") ||
+    !nonEmptyText(cwd) ||
+    !nonEmptyText(sessionId) ||
+    !nonEmptyText(transcriptPath)
+  ) {
     throw new Error("malformed_input");
   }
   return {
-    cwd: value.cwd,
-    hook_event_name: value.hook_event_name,
-    session_id: value.session_id,
-    transcript_path: value.transcript_path,
-    ...(typeof value.stop_hook_active === "boolean" ? { stop_hook_active: value.stop_hook_active } : {}),
-    ...(typeof value.last_assistant_message === "string" ? { last_assistant_message: value.last_assistant_message } : {}),
+    input: {
+      cwd,
+      hook_event_name: hookEventName,
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      ...(typeof stopHookActive === "boolean" ? { stop_hook_active: stopHookActive } : {}),
+      ...(typeof lastAssistantMessage === "string" ? { last_assistant_message: lastAssistantMessage } : {}),
+    },
+    ignored_names: shape.ignored_names,
   };
 }
 
@@ -185,7 +209,9 @@ export async function runTranscriptStopCapture(
 ): Promise<TranscriptStopRunResult> {
   let input: TranscriptStopInput;
   try {
-    input = parseTranscriptStopInput(raw);
+    const parsed = parseTranscriptStopInputWithIgnored(raw);
+    input = parsed.input;
+    dependencies.on_ignored_names?.(parsed.ignored_names);
   } catch {
     return failedResult(host, binding, "malformed_input");
   }
@@ -272,30 +298,102 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function writeResult(result: TranscriptStopRunResult): void {
-  process.stderr.write(`${JSON.stringify(result.evidence)}\n`);
-  process.stdout.write(`${JSON.stringify(result.output)}\n`);
+export interface TranscriptStopProcessIo {
+  argv: readonly string[];
+  env: NodeJS.ProcessEnv;
+  read_input: () => Promise<string>;
+  write_evidence: (line: string, done: () => void) => void;
+  write_output: (line: string, done: () => void) => void;
+  exit: () => void;
+  run_diagnostic: (request: HookDiagnosticRequest) => Promise<unknown> | void;
+  /** Monotonic milliseconds; the hook's budget is counted from the first reading. */
+  clock: () => number;
+  now: () => Date;
+  pid: number;
+  dependencies?: TranscriptStopDependencies;
 }
 
-async function main(): Promise<void> {
+function writeLines(io: TranscriptStopProcessIo, evidence: readonly string[], output: string): Promise<void> {
+  const writes = [
+    ...evidence.map((line) => new Promise<void>((done) => io.write_evidence(line, done))),
+    new Promise<void>((done) => io.write_output(output, done)),
+  ];
+  return Promise.all(writes).then(() => undefined);
+}
+
+/**
+ * The whole process, with every side effect passed in. The answer and the evidence are written and flushed
+ * first; only then is the diagnostic of the ignored key names attempted, for at most a bounded wait.
+ */
+export async function runTranscriptStopProcess(io: TranscriptStopProcessIo): Promise<void> {
+  const started = io.clock();
   let host: TranscriptStopHost = "codex";
   let binding: CodexSessionStartBinding = {
-    agent_id: process.env.AGENT_MEMORY_AGENT_ID ?? "invalid",
-    project: process.env.AGENT_MEMORY_PROJECT ?? "invalid",
-    workspace: process.env.AGENT_MEMORY_WORKSPACE ?? "",
-    binding_source_ref: process.env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
+    agent_id: io.env.AGENT_MEMORY_AGENT_ID ?? "invalid",
+    project: io.env.AGENT_MEMORY_PROJECT ?? "invalid",
+    workspace: io.env.AGENT_MEMORY_WORKSPACE ?? "",
+    binding_source_ref: io.env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
     max_tokens: 1_800,
     max_bytes: 8_192,
     timeout_ms: CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
   };
+  const notes: string[] = [];
+  let ignoredNames: readonly string[] = [];
+  let result: TranscriptStopRunResult;
   try {
-    ({ host, binding } = parseTranscriptStopArgs(process.argv.slice(2)));
-    const raw = await readStdin();
-    writeResult(await runTranscriptStopCapture(raw, host, binding));
+    ({ host, binding } = parseTranscriptStopArgs(io.argv.slice(), io.env));
+    const raw = await io.read_input();
+    result = await runTranscriptStopCapture(raw, host, binding, {
+      ...io.dependencies,
+      on_ignored_names: (names) => {
+        ignoredNames = names;
+      },
+    });
   } catch (error) {
-    process.stderr.write(`[transcript-stop-capture] ${redactText(String(error)).text}\n`);
-    writeResult(failedResult(host, binding, "malformed_input"));
+    notes.push(`[transcript-stop-capture] ${redactText(String(error)).text}\n`);
+    ignoredNames = [];
+    result = failedResult(host, binding, "malformed_input");
   }
+  await writeLines(io, [...notes, `${JSON.stringify(result.evidence)}\n`], `${JSON.stringify(result.output)}\n`);
+  const event = result.evidence.hook_event_name;
+  if (ignoredNames.length === 0 || event === null) {
+    io.exit();
+    return;
+  }
+  finishAfterAnswer({
+    remaining_ms: binding.timeout_ms - (io.clock() - started),
+    run_diagnostic: () =>
+      io.run_diagnostic({
+        env: io.env,
+        agent_id: binding.agent_id,
+        project: binding.project,
+        adapter_id: result.evidence.adapter_id,
+        event,
+        names: ignoredNames,
+        now: io.now(),
+        pid: io.pid,
+      }),
+    exit: io.exit,
+  });
+}
+
+async function main(): Promise<void> {
+  await runTranscriptStopProcess({
+    argv: process.argv.slice(2),
+    env: process.env,
+    read_input: readStdin,
+    write_evidence: (line, done) => {
+      process.stderr.write(line, done);
+    },
+    write_output: (line, done) => {
+      process.stdout.write(line, done);
+    },
+    exit: () => process.exit(0),
+    run_diagnostic: writeHookInputDiagnostic,
+    clock: () => performance.now(),
+    now: () => new Date(),
+    pid: process.pid,
+  });
 }
 
 let invokedPath = "";

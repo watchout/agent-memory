@@ -252,6 +252,35 @@ and `--apply` all report `trust_verified=false` and
 `first_context_delivered=false`: placement is never proof that the current
 definition was reviewed or that recovery reached the first model context.
 
+Hook input handling. The Claude Code `SessionStart` hook, the transcript-capture
+`Stop`/`UserPromptSubmit` hook, and the rotation `Stop`/`UserPromptSubmit` hook
+check the host's standard input in one place (`src/hook-input.ts`). The required
+keys and their types, the 64 KiB size limit, and the JSON-object shape are still
+enforced, and an input that fails them is refused with the same reason codes as
+before. A key that is not in the required or optional list is ignored: its value
+is never read or kept, because a host update may add keys at any time and
+refusing the whole input would silently stop recovery, capture, and rotation.
+An input with an unknown key is handled exactly like the same input without it:
+accepted when the rest is valid, and refused with the same reason code when the
+rest is not (for example a wrong event name or an identity mismatch).
+The names of ignored keys (names, event, count, and times only) are written to a
+per-seat diagnostic file under `$AGENT_MEMORY_HOME/hook-input/`, which is not part
+of any evidence contract; if it cannot be written, the hook answer and evidence
+are unchanged. The hook writes its answer and evidence first; the
+diagnostic write is then attempted once, asynchronously, and the hook exits at
+the earlier of the write finishing and a short fixed wait
+(`HOOK_DIAGNOSTIC_MAX_WAIT_MS`), so a slow diagnostic never delays the exit by
+more than that wait. It is not attempted at all when less than
+`HOOK_DIAGNOSTIC_MIN_REMAINING_MS` of the hook time budget remains. How an
+optional key with the wrong type is handled is unchanged for each hook. The Codex `Stop`/`UserPromptSubmit` hooks share the transcript-capture
+parser, so the same rule applies to them; the Codex `SessionStart` parser is
+unchanged. `host_contract_version` (`2.1.220`) records the host version the
+contract was last checked against, not the host's current version. The hook
+input and environment carry no host version, so a step of the deployment health
+check procedure (not code) reads the installed host's version with
+`claude --version` and records the difference from the contract version in the
+deployment record; when it cannot be read, the result is "not observed".
+
 ### Gemini CLI ALPHA-03 native adapter
 
 Gemini CLI 0.38.2 loads a trusted project-local `.gemini/settings.json` and

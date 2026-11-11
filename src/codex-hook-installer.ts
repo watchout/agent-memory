@@ -29,6 +29,7 @@ import {
   splitRotationHandlers,
   type RotationInstall,
 } from "./rotation-hook-registration.js";
+import { assertHookNodePath } from "./hook-node-path.js";
 import { CODEX_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
 
 export const CODEX_HOOK_CONFIG_RELATIVE_PATH = ".codex/hooks.json" as const;
@@ -50,6 +51,8 @@ export interface CodexHookInstallOptions {
   timeout_ms?: number;
   create_backup?: boolean;
   runtime_event_manifest_path?: string;
+  /** The first word of every hook command (an absolute path to node); the node that runs the installer when absent. */
+  node_path?: string;
   /** Opt-in: undefined leaves an existing rotation handler as it is; "off" removes it. */
   rotation?: RotationInstall;
 }
@@ -170,10 +173,11 @@ async function assertNotSymlink(path: string, allowMissing: boolean): Promise<vo
 export function buildCodexHookCommand(
   runtimeRoot: string,
   binding: CodexSessionStartBinding,
+  node: string = process.execPath,
 ): string {
   const runner = join(runtimeRoot, "dist", "codex-session-start.js");
   return [
-    shellQuote(process.execPath),
+    shellQuote(node),
     shellQuote(runner),
     "--adapter-id",
     shellQuote(CODEX_SESSION_START_ADAPTER_ID),
@@ -252,10 +256,11 @@ export function parseCodexHookCommand(command: string): ParsedCodexHookCommand |
 export function buildCodexSessionStartHookGroup(
   runtimeRoot: string,
   binding: CodexSessionStartBinding,
+  node: string = process.execPath,
 ): HookGroup {
   const handler: HookHandler = {
     type: "command",
-    command: buildCodexHookCommand(runtimeRoot, binding),
+    command: buildCodexHookCommand(runtimeRoot, binding, node),
     timeout: CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS,
     statusMessage: CODEX_HOOK_STATUS_MESSAGE,
   };
@@ -268,6 +273,7 @@ export function buildCodexSessionStartHookGroup(
 export function buildCodexTranscriptStopHookGroup(
   runtimeRoot: string,
   binding: CodexSessionStartBinding,
+  node: string = process.execPath,
 ): HookGroup {
   const runner = join(runtimeRoot, "dist", "transcript-stop-capture.js");
   return {
@@ -275,7 +281,7 @@ export function buildCodexTranscriptStopHookGroup(
     hooks: [{
       type: "command",
       command: [
-        shellQuote(process.execPath),
+        shellQuote(node),
         shellQuote(runner),
         "--adapter-id",
         shellQuote(CODEX_TRANSCRIPT_STOP_ADAPTER_ID),
@@ -375,6 +381,7 @@ export function mergeCodexSessionStartHook(
   runtimeRoot: string,
   binding: CodexSessionStartBinding,
   rotation?: RotationInstall,
+  node: string = process.execPath,
 ): { hooksFile: HooksFile; unrelatedBefore: number; unrelatedAfter: number } {
   const stopSplit = splitRotationHandlers(existing.hooks.Stop ?? [], CODEX_ROTATION_STOP_ADAPTER_ID);
   const promptSplit = splitRotationHandlers(existing.hooks.UserPromptSubmit ?? [], CODEX_ROTATION_STOP_ADAPTER_ID);
@@ -382,6 +389,7 @@ export function mergeCodexSessionStartHook(
     runtime_root: runtimeRoot,
     adapter_id: CODEX_ROTATION_STOP_ADAPTER_ID,
     binding,
+    node_path: node,
     ...(thresholdTokens === undefined ? {} : { threshold_tokens: thresholdTokens }),
   });
   const groups = existing.hooks.SessionStart ?? [];
@@ -406,9 +414,9 @@ export function mergeCodexSessionStartHook(
     unrelatedBefore += unrelatedHandlers.length;
     if (unrelatedHandlers.length > 0) preservedPrompt.push({ ...group, hooks: unrelatedHandlers });
   }
-  const nextGroups = [...preserved, buildCodexSessionStartHookGroup(runtimeRoot, binding)];
-  const nextStopGroups = [...preservedStop, buildCodexTranscriptStopHookGroup(runtimeRoot, binding)];
-  const nextPromptGroups = [...preservedPrompt, buildCodexTranscriptStopHookGroup(runtimeRoot, binding)];
+  const nextGroups = [...preserved, buildCodexSessionStartHookGroup(runtimeRoot, binding, node)];
+  const nextStopGroups = [...preservedStop, buildCodexTranscriptStopHookGroup(runtimeRoot, binding, node)];
+  const nextPromptGroups = [...preservedPrompt, buildCodexTranscriptStopHookGroup(runtimeRoot, binding, node)];
   const hooksFile: HooksFile = {
     ...existing,
     description: typeof existing.description === "string"
@@ -452,6 +460,8 @@ async function readExistingHooks(path: string): Promise<{ raw: string | null; ho
 export async function installCodexSessionStartHook(
   options: CodexHookInstallOptions,
 ): Promise<CodexHookInstallReport> {
+  // Checked before anything is read or written, in every mode.
+  const node = options.node_path === undefined ? process.execPath : assertHookNodePath(options.node_path);
   const workspace = await realpath(requiredText(options.workspace, "workspace"));
   const runtimeRoot = await realpath(requiredText(options.runtime_root, "runtime_root"));
   const runner = join(runtimeRoot, "dist", "codex-session-start.js");
@@ -486,7 +496,7 @@ export async function installCodexSessionStartHook(
   await assertNotSymlink(codexDir, true);
   await assertNotSymlink(hooksFile, true);
   const existing = await readExistingHooks(hooksFile);
-  const merged = mergeCodexSessionStartHook(existing.hooksFile, runtimeRoot, binding, options.rotation);
+  const merged = mergeCodexSessionStartHook(existing.hooksFile, runtimeRoot, binding, options.rotation, node);
   const desired = canonicalHooksJson(merged.hooksFile);
   const configMatch = existing.raw === null
     ? "absent" as const
@@ -574,6 +584,7 @@ export function parseCodexHookInstallArgs(args: string[]): CodexHookInstallOptio
     else if (arg === "--max-bytes") maxBytes = positiveInteger(next(), arg);
     else if (arg === "--timeout-ms") timeoutMs = positiveInteger(next(), arg);
     else if (arg === "--runtime-event-manifest") values.runtime_event_manifest_path = next();
+    else if (arg === "--node-path") values.node_path = next();
     else if (arg === "--rotation") rotationFlag = next();
     else if (arg === "--rotation-threshold-tokens") rotationThreshold = positiveInteger(next(), arg);
     else throw new Error(`unknown argument: ${arg}`);
@@ -592,6 +603,7 @@ export function parseCodexHookInstallArgs(args: string[]): CodexHookInstallOptio
     ...(values.runtime_event_manifest_path === undefined ? {} : {
       runtime_event_manifest_path: values.runtime_event_manifest_path,
     }),
+    ...(values.node_path === undefined ? {} : { node_path: values.node_path }),
     ...(rotation === undefined ? {} : { rotation }),
   };
 }

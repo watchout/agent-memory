@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import {
   CODEX_SESSION_START_INPUT_MAX_BYTES,
@@ -30,6 +31,12 @@ import {
   type LoadedCodexRecovery,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
+import { parseHookInputShape, type HookInputShape } from "./hook-input.js";
+import {
+  finishAfterAnswer,
+  writeHookInputDiagnostic,
+  type HookDiagnosticRequest,
+} from "./hook-input-diagnostics.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import {
@@ -50,6 +57,8 @@ import { createStore } from "./stores/index.js";
 export const CLAUDE_SESSION_START_ADAPTER_ID = "wasurezu-claude-session-start" as const;
 export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.3" as const;
 export const CLAUDE_SESSION_START_EVIDENCE_SCHEMA = "claude-session-start-evidence/v1" as const;
+// The Claude Code version this adapter's input and evidence contract was verified against.
+// It is not the host's version at run time (the deployment health check records that).
 export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION = "2.1.220" as const;
 export const CLAUDE_SESSION_START_MODEL_UNSPECIFIED = "claude-code-host-unspecified" as const;
 export const CLAUDE_SESSION_START_INPUT_MAX_BYTES = CODEX_SESSION_START_INPUT_MAX_BYTES;
@@ -76,6 +85,11 @@ const REQUIRED_FIELDS = [
   "transcript_path",
 ] as const;
 const OPTIONAL_FIELDS = ["agent_type", "model", "permission_mode"] as const;
+const INPUT_SHAPE: HookInputShape = {
+  required: REQUIRED_FIELDS,
+  optional: OPTIONAL_FIELDS,
+  max_bytes: CLAUDE_SESSION_START_INPUT_MAX_BYTES,
+};
 
 export type ClaudeSessionStartSource = typeof START_SOURCES[number];
 export type ClaudeSessionStartPermissionMode = typeof PERMISSION_MODES[number];
@@ -143,6 +157,8 @@ export interface ClaudeSessionStartDependencies {
   now?: () => number;
   /** Used by the default store loader only; an injected loadRecovery is unaffected. */
   rotation?: RotationStartDependencies;
+  /** Called once with the key names the host added, right after the Claude parser accepts the input. */
+  on_ignored_names?: (names: readonly string[]) => void;
 }
 
 export interface ClaudeSessionStartRunResult {
@@ -168,61 +184,61 @@ function nonEmptyString(value: unknown): value is string {
 }
 
 export function parseClaudeSessionStartInput(raw: string): ClaudeSessionStartInput {
-  if (Buffer.byteLength(raw, "utf8") > CLAUDE_SESSION_START_INPUT_MAX_BYTES) {
-    throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
-  }
-  let input: unknown;
-  try {
-    input = JSON.parse(raw);
-  } catch {
-    throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
-  }
-  if (!isRecord(input)) throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
-  const keys = Object.keys(input);
-  if (
-    !REQUIRED_FIELDS.every((field) => Object.prototype.hasOwnProperty.call(input, field)) ||
-    keys.some((field) =>
-      !REQUIRED_FIELDS.includes(field as typeof REQUIRED_FIELDS[number]) &&
-      !OPTIONAL_FIELDS.includes(field as typeof OPTIONAL_FIELDS[number])
-    )
-  ) {
-    throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
-  }
-  if (input.hook_event_name !== "SessionStart") {
+  return parseClaudeSessionStartInputWithIgnored(raw).input;
+}
+
+/** Same checks as parseClaudeSessionStartInput; also reports the names of keys the entry does not know. */
+export function parseClaudeSessionStartInputWithIgnored(
+  raw: string,
+): { input: ClaudeSessionStartInput; ignored_names: readonly string[] } {
+  const shape = parseHookInputShape(raw, INPUT_SHAPE);
+  if (!shape.ok) throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
+  const { fields } = shape;
+  const sessionId = fields.get("session_id");
+  const transcriptPath = fields.get("transcript_path");
+  const cwd = fields.get("cwd");
+  const source = fields.get("source");
+  const model = fields.get("model");
+  const permissionMode = fields.get("permission_mode");
+  const agentType = fields.get("agent_type");
+  if (fields.get("hook_event_name") !== "SessionStart") {
     throw new ClaudeInputError("UNSUPPORTED_HOOK_EVENT");
   }
-  if (typeof input.source !== "string" || !START_SOURCES.includes(input.source as ClaudeSessionStartSource)) {
+  if (typeof source !== "string" || !START_SOURCES.includes(source as ClaudeSessionStartSource)) {
     throw new ClaudeInputError("UNSUPPORTED_START_SOURCE");
   }
   if (
-    !nonEmptyString(input.session_id) ||
-    !nonEmptyString(input.transcript_path) ||
-    !nonEmptyString(input.cwd) ||
-    !(input.model === undefined || typeof input.model === "string") ||
+    !nonEmptyString(sessionId) ||
+    !nonEmptyString(transcriptPath) ||
+    !nonEmptyString(cwd) ||
+    !(model === undefined || typeof model === "string") ||
     !(
-      input.permission_mode === undefined ||
+      permissionMode === undefined ||
       (
-        typeof input.permission_mode === "string" &&
-        PERMISSION_MODES.includes(input.permission_mode as ClaudeSessionStartPermissionMode)
+        typeof permissionMode === "string" &&
+        PERMISSION_MODES.includes(permissionMode as ClaudeSessionStartPermissionMode)
       )
     ) ||
-    !(input.agent_type === undefined || nonEmptyString(input.agent_type))
+    !(agentType === undefined || nonEmptyString(agentType))
   ) {
     throw new ClaudeInputError("MALFORMED_HOOK_INPUT");
   }
   return {
-    session_id: input.session_id,
-    transcript_path: input.transcript_path,
-    cwd: input.cwd,
-    hook_event_name: "SessionStart",
-    // Claude Code 2.1.220 omits model from native SessionStart stdin. Do not
-    // infer a model from process state; normalize the omission explicitly.
-    model: typeof input.model === "string" ? input.model : CLAUDE_SESSION_START_MODEL_UNSPECIFIED,
-    source: input.source as ClaudeSessionStartSource,
-    ...(typeof input.permission_mode === "string"
-      ? { permission_mode: input.permission_mode as ClaudeSessionStartPermissionMode }
-      : {}),
-    ...(typeof input.agent_type === "string" ? { agent_type: input.agent_type } : {}),
+    input: {
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      cwd,
+      hook_event_name: "SessionStart",
+      // Claude Code 2.1.220 omits model from native SessionStart stdin. Do not
+      // infer a model from process state; normalize the omission explicitly.
+      model: typeof model === "string" ? model : CLAUDE_SESSION_START_MODEL_UNSPECIFIED,
+      source: source as ClaudeSessionStartSource,
+      ...(typeof permissionMode === "string"
+        ? { permission_mode: permissionMode as ClaudeSessionStartPermissionMode }
+        : {}),
+      ...(typeof agentType === "string" ? { agent_type: agentType } : {}),
+    },
+    ignored_names: shape.ignored_names,
   };
 }
 
@@ -245,8 +261,13 @@ function proxyForInputError(error: ClaudeInputError, raw: string): string {
   if (error.reason === "UNSUPPORTED_HOOK_EVENT" || error.reason === "UNSUPPORTED_START_SOURCE") {
     try {
       const input: unknown = JSON.parse(raw);
-      if (isRecord(input) && input.permission_mode === undefined) {
-        return JSON.stringify({ ...input, permission_mode: "default" });
+      if (isRecord(input)) {
+        // Only the keys this entry knows go on: a key the host added never reaches the Codex parser.
+        const known: Record<string, unknown> = {};
+        for (const key of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
+          if (Object.prototype.hasOwnProperty.call(input, key)) known[key] = input[key];
+        }
+        return JSON.stringify(known.permission_mode === undefined ? { ...known, permission_mode: "default" } : known);
       }
     } catch {
       // The original parser has already classified this input.
@@ -421,13 +442,17 @@ export async function runClaudeSessionStart(
   dependencies: ClaudeSessionStartDependencies = {},
 ): Promise<ClaudeSessionStartRunResult> {
   let input: ClaudeSessionStartInput | undefined;
+  let ignoredNames: readonly string[] | undefined;
   let codexRaw = rawInput;
   try {
-    input = parseClaudeSessionStartInput(rawInput);
+    const parsed = parseClaudeSessionStartInputWithIgnored(rawInput);
+    input = parsed.input;
+    ignoredNames = parsed.ignored_names;
     codexRaw = JSON.stringify(toCodexInput(input));
   } catch (error) {
     codexRaw = error instanceof ClaudeInputError ? proxyForInputError(error, rawInput) : "{}";
   }
+  if (ignoredNames !== undefined) dependencies.on_ignored_names?.(ignoredNames);
   let initialUserMessage: string | undefined;
   const codexDependencies: CodexSessionStartDependencies = {
     ...(dependencies.now ? { now: dependencies.now } : {}),
@@ -477,12 +502,12 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function fallbackBinding(): ClaudeSessionStartBinding {
+function fallbackBinding(env: NodeJS.ProcessEnv): ClaudeSessionStartBinding {
   return {
-    agent_id: process.env.AGENT_MEMORY_AGENT_ID ?? "invalid",
-    project: process.env.AGENT_MEMORY_PROJECT ?? "invalid",
-    workspace: process.env.AGENT_MEMORY_WORKSPACE ?? "",
-    binding_source_ref: process.env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
+    agent_id: env.AGENT_MEMORY_AGENT_ID ?? "invalid",
+    project: env.AGENT_MEMORY_PROJECT ?? "invalid",
+    workspace: env.AGENT_MEMORY_WORKSPACE ?? "",
+    binding_source_ref: env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
     max_tokens: CLAUDE_SESSION_START_MAX_TOKENS,
     max_bytes: CLAUDE_SESSION_START_MAX_BYTES,
     timeout_ms: CLAUDE_SESSION_START_INTERNAL_TIMEOUT_MS,
@@ -490,30 +515,101 @@ function fallbackBinding(): ClaudeSessionStartBinding {
   };
 }
 
-function writeCliResult(result: ClaudeSessionStartRunResult): void {
-  let pending = 2;
-  const done = () => {
-    pending--;
-    if (pending === 0) process.exit(0);
-  };
-  process.stderr.write(`${JSON.stringify(result.evidence)}\n`, done);
-  process.stdout.write(`${JSON.stringify(result.output)}\n`, done);
+export interface ClaudeSessionStartProcessIo {
+  argv: readonly string[];
+  env: NodeJS.ProcessEnv;
+  read_input: () => Promise<string>;
+  write_evidence: (line: string, done: () => void) => void;
+  write_output: (line: string, done: () => void) => void;
+  exit: () => void;
+  run_diagnostic: (request: HookDiagnosticRequest) => Promise<unknown> | void;
+  emit_runtime_event: (
+    evidence: ClaudeSessionStartEvidence,
+    options: { manifestPath?: string },
+  ) => Promise<unknown>;
+  /** Monotonic milliseconds; the hook's budget is counted from the first reading. */
+  clock: () => number;
+  now: () => Date;
+  pid: number;
+  dependencies?: ClaudeSessionStartDependencies;
 }
 
-async function main(): Promise<void> {
-  let binding = fallbackBinding();
+function writeAnswer(io: ClaudeSessionStartProcessIo, result: ClaudeSessionStartRunResult): Promise<void> {
+  return new Promise<void>((done) => {
+    let pending = 2;
+    const written = (): void => {
+      pending--;
+      if (pending === 0) done();
+    };
+    io.write_evidence(`${JSON.stringify(result.evidence)}\n`, written);
+    io.write_output(`${JSON.stringify(result.output)}\n`, written);
+  });
+}
+
+/**
+ * The whole process, with every side effect passed in. The answer and the evidence are written and flushed
+ * first; only then is the diagnostic of the ignored key names attempted, for at most a bounded wait.
+ */
+export async function runClaudeSessionStartProcess(io: ClaudeSessionStartProcessIo): Promise<void> {
+  const started = io.clock();
+  let binding = fallbackBinding(io.env);
+  let bound = false;
   let raw = "{}";
   try {
-    binding = parseClaudeSessionStartArgs(process.argv.slice(2));
-    raw = await readStdin();
+    binding = parseClaudeSessionStartArgs(io.argv.slice(), io.env);
+    bound = true;
+    raw = await io.read_input();
   } catch {
     // The normal runner below emits a structured, non-blocking degradation.
   }
-  const result = await runClaudeSessionStart(raw, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-    manifestPath: binding.runtime_event_manifest_path,
+  let ignoredNames: readonly string[] = [];
+  const result = await runClaudeSessionStart(raw, binding, {
+    ...io.dependencies,
+    on_ignored_names: (names) => {
+      ignoredNames = names;
+    },
   });
-  writeCliResult(result);
+  await io.emit_runtime_event(result.evidence, { manifestPath: binding.runtime_event_manifest_path });
+  await writeAnswer(io, result);
+  if (!bound || ignoredNames.length === 0) {
+    io.exit();
+    return;
+  }
+  finishAfterAnswer({
+    remaining_ms: binding.timeout_ms - (io.clock() - started),
+    run_diagnostic: () =>
+      io.run_diagnostic({
+        env: io.env,
+        agent_id: binding.agent_id,
+        project: binding.project,
+        adapter_id: CLAUDE_SESSION_START_ADAPTER_ID,
+        event: "SessionStart",
+        names: ignoredNames,
+        now: io.now(),
+        pid: io.pid,
+      }),
+    exit: io.exit,
+  });
+}
+
+async function main(): Promise<void> {
+  await runClaudeSessionStartProcess({
+    argv: process.argv.slice(2),
+    env: process.env,
+    read_input: readStdin,
+    write_evidence: (line, done) => {
+      process.stderr.write(line, done);
+    },
+    write_output: (line, done) => {
+      process.stdout.write(line, done);
+    },
+    exit: () => process.exit(0),
+    run_diagnostic: writeHookInputDiagnostic,
+    emit_runtime_event: emitKusabiSessionStartRuntimeEvent,
+    clock: () => performance.now(),
+    now: () => new Date(),
+    pid: process.pid,
+  });
 }
 
 let invokedPath = "";

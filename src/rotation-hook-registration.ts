@@ -63,6 +63,8 @@ export function buildRotationHookGroup(input: {
   adapter_id: string;
   binding: RotationHookBinding;
   threshold_tokens?: number;
+  /** The first word of the command; the node that runs the installer when absent. */
+  node_path?: string;
 }): RotationHookGroup {
   const { binding } = input;
   return {
@@ -70,7 +72,7 @@ export function buildRotationHookGroup(input: {
     hooks: [{
       type: "command",
       command: [
-        shellQuote(process.execPath),
+        shellQuote(input.node_path ?? process.execPath),
         shellQuote(join(input.runtime_root, "dist", "session-rotation-stop.js")),
         "--adapter-id",
         shellQuote(input.adapter_id),

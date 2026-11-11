@@ -28,6 +28,11 @@
 - `[設計監査 3 回目]` 見張りの設計監査（devauditor）の 3 回目の返却、BLOCK、F1・F2 が残り、F3〜F5 は解消（https://github.com/watchout/agent-memory/pull/341#issuecomment-6785277864 、本文の SHA-256 `77541cf6b025ba23f639f1cc938dca9644e186afe53b1bcb9301e850eb3cf389`）。F1 = 条件つきの Enter は、観測の後に行が置き換わってカーソルが戻ると人の未送信の文を送ってしまう、F2 = 結びが `pane_pid` と command 名だけで、同じ pane の同名の CLI への入れ替わりを拒めない。arc の答え（Owner の委任 #49 6762288830）: 人の入力と tmux の pane の間に排他の手段が無いので、画面にキーを打つ限りこの競合は閉じられない。キーを打たず、席が手すきで入力欄が空と観測できた時に、席の起動の script で pane の席を起動し直す形に変える（FR5・FR6 の文と設計をこの形に直す）。残る危険は「観測の後に人が書き始めた未送信の文が消える」こと（文が勝手に送られるより安全な側の失敗）で、設計の記録に明記する。結びの確かめは、host の process の番号・起動の script の path・会話の id で行う。席ごとの起動の script を据えることは、今までどおり守る物（Owner の決定）。4 回目の依頼は、返却の next_action が公開された Owner の判断を求めていたので、それが出るまで出さなかった。
 - `[Owner の判断 4 回目の向き]` OD-KUSABI-ROTATION-WATCHER-RESPAWN-NOT-KEYS-20261111-001: https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6785869798 （投稿者 watchout、本文の SHA-256 `f65ca4e11c9f71b3b31d34bdb17c3736f1add64705b9fc827ccb5dcff1f1dd3e`）。Owner の言葉（arc の端末の会話、原文）「1はいい」が、「席の画面にキーを打たずに起動し直す向きで、4 回目の監査に出してよいか」に答えた。決定: (1) 見張りは席の画面にキーを送らず、手すきで入力欄が空と観測できた時に pane の席を起動し直す、(2) 残る危険 R-A〜R-E（FR5.7、設計の記録 3.4）を受け入れて設計を 4 回目の設計監査に出す、(3) 4 回目の依頼は作者が出してよい。含まない: 席ごとの起動の script の登録・見張りの据え付け・席の hook の差し替え（arc-sec の確かめと Owner の決定の後）、DB の作りの変更。
 - `[AUN の調べ]` Kusabi の席が 2026-11-10 に手元の記録だけで確かめた事実: AUN の Claude の席で、MCP の server の接続に 9,498 ms かかり、その前に席が最初の応答を返していた。server の main は DB の用意（接続と起動のたびの表の変更）を済ませてから接続する（`src/index.ts` の 51 行と 993 行）。
+- `[C2]` Kusabi の席が、arc が席を起こし直した後の最初の会話で取った事実（2026-11-11）。Kusabi の SessionStart の証拠が `MALFORMED_HOOK_INPUT`・`input_valid: false`・`store_binding: unknown`・`emission_status: not_emitted` で、原因は Claude Code 2.1.321 が hook の入力に足した key（SessionStart: `session_title`。UserPromptSubmit: `prompt_id`・`session_title`。Stop: `background_tasks`・`effort`・`prompt_id`・`session_crons`）を、Kusabi の 3 つの入口が許可リストの外として入力ごと拒むこと。デプロイ済みの版 `1b731f00…` の parser に同じ key の組を当てて再現した。読み戻しの本文は `operation/deployment-execution/issue-339-readback-c2.md`（agent-memory#339 に未投稿）。
+- `[arc の判断 #339]` arc の技術の判断（Owner の決定ではない）: agent-memory#339 の comment 6791901034（投稿者 watchout、本文の SHA-256 `69ca10d6e8e418ad425e1e9a8f81b73799d49fa8496ad93288dc2882fae59c32`）。知らない key は無視し、必須の key・型・大きさの上限は残す。無視した key の名前は証拠の契約（`claude-session-start-evidence-v1` の schema、`wasurezu-transcript-stop-capture/v1`）に足さず、契約ではない診断の記録に書く。設計の記録だけの PR を先に出して設計監査を 1 回受ける。同じ PR に必須の入口の一覧・installer の `--node-path`・`.gitignore`・記録を入れる。arc-sec の条件（公開。iyasaka-arc#57 の comment 6791886636・6791925065）= 必須の key・型・64 KiB の上限は残す／3 つの入口を 1 か所の parser に／実物の key の形の正例と負例の試験／反転する既存の負例は deviation_ledger に 1 行ずつ／診断の置き場は `$AGENT_MEMORY_HOME` の下・folder 0700・file 0600・一時 file + rename、中身は event 名・key の名前・件数・時刻だけ（名前は 64 字以内、1 件 32 個以内、上限を超えたら古い物から捨てる）、health check は名前と件数だけ報告し読めない時は「観測できず」、診断が書けなくても hook の答えと証拠は変えない。arc-sec の条件 4 は host の契約の版の定数を観測した 2.1.321 に上げることだが、この設計は 2.1.220 のまま保つ（FR10.5。理由は次の `[arc の追記 #339]`）。**#339 の comment 6791901034 には、host の契約の版についての判断は無い。**
+- `[arc の追記 #339]` arc の技術の判断・追記（Owner の決定ではない）: agent-memory#339 の comment 6793417308（投稿者 watchout、本文の SHA-256 `af373c531792b58c7fcd7023d99c4e943c5f50cac54a2d5d1f9745779de43e5c`）。host の契約の版の定数は 2.1.220 のまま（意味は「契約を確かめた版」。v1 の schema の const と .v2 は守る物なので上げない）。観測した host の版は、hook の入力にも環境にも無いので、配備の health check の手順の 1 行（`claude --version`、code は足さない）で取り、配備の記録に契約を確かめた版とのずれを 1 行で必ず書く（読めない時は「観測できず」）。共有の parser により Codex の Stop・UserPromptSubmit も同時に緩み、Codex の SessionStart は範囲外。
+- `[arc-sec の読み]` arc-sec の技術の読み（公開。iyasaka-arc#57 の comment 6792778481、本文の SHA-256 `683847414d37520993afd8de29dced0a4335822d7fe97c6b329039038266bcd6`）: 設計の PR の head `6cae0d93` を読み、止める点 0。独立の設計監査の verdict の代わりではない。実装の PR で見る点 2 つ（共有の parser が入口ごとの確かめを落とさず知らない key の値を下流に出さない事／配備の記録に版のずれの 1 行を必ず入れる事。反転する負例が身元の負例を巻き込まない事も読む）。
+- `[設計監査 1 回目]` devauditor の 1 回目の設計監査（PR #342 の comment 6793000316、BLOCK、P2 が 4 件 F1〜F4）。直しは設計の記録の 13 節。
 - 今のコードの読み解き: `inception/reverse-engineering/developer-scan.md`、`business-overview`、`architecture`、`code-structure`（`aidlc/spaces/default/codekb/agent-memory/`）。
 
 ## 機能の要件
@@ -144,6 +149,26 @@
   - Owner の促しの回数 = 据えた後 200 歩の間に、Owner が「止まってる」「進めて」の類を席に打った回数。
   - 合否の閾値は、測った後に arc が決めて記録する。
 
+### FR10 hook の入力の parser を、host の更新に強くする
+
+- **FR10.1** Claude Code の SessionStart、取り込みの Stop・UserPromptSubmit、切り直しの Stop・UserPromptSubmit の 3 つの入口は、同じ 1 か所の parser で入力を確かめる。（`[C2]`、`[arc の判断 #339]`）
+- **FR10.2** parser は、知らない key を無視する。必須の key（SessionStart: `cwd`・`hook_event_name`・`session_id`・`source`・`transcript_path`。Stop・UserPromptSubmit: `cwd`・`hook_event_name`・`session_id`・`transcript_path`）の欠け、必須の値の型・形の違い、JSON でない入力、object でない入力、64 KiB を超える入力は、今までどおり拒否する。任意の key の型の扱いも入口ごとに今のまま変えない（SessionStart の `model`・`permission_mode`・`agent_type` は型の違いを拒否し、Stop・UserPromptSubmit の任意 8 項目は型が違っても拒否せず省略する。設計の記録 3 節の表）。知らない key の値は読まず、どこにも残さない。取り込みの Stop・UserPromptSubmit の parser は Codex の Stop・UserPromptSubmit と共有するので、Codex のこの 2 つにも同じ規則が同時に当たる（Codex の SessionStart の parser は範囲の外）。知らない key を含まない入力の拒否の理由コードは今のまま写す。知らない key を含む入力は、知らない key を除いた同じ入力と同じ結果（拒否か受理か・理由コード）になる。知らない key が他の拒否と重なる入力は、外形の確かめを通った後の確かめ（`hook_event_name`・`source`・身元・下流）まで進むので、理由コードが今の `MALFORMED_HOOK_INPUT`／`malformed_input` から、その入力の本来の理由コードに変わる（拒否は変わらない。Claude Code の Stop・UserPromptSubmit が cwd を見ない現行の規則は変えず、新しい拒否を足さない。設計の記録 3 節の層の分けと表）。
+- **FR10.3** 無視した key の名前は、契約ではない診断の記録に書く。置き場は `$AGENT_MEMORY_HOME` の下、folder 0700・file 0600、一時 file + rename で置き換える。中身は event 名・key の名前・件数・時刻だけで、値・本文・path は書かない。名前は 64 字以内の安全な文字だけ（それ以外の名前は名前を書かず件数だけ数える）。1 回の入力から扱う名前は 32 個まで（超えた分は数だけ数える）。file の entries は 32 件までで、上限を超えたら古い物から捨てる。
+- **FR10.4** 診断が書けなくても（置き場が書けない・壊れている・上限）、hook の答えと証拠は変えない。診断を読む health check は、名前と件数だけを報告し、読めない時は「観測できず」と返す（0 と読まない）。診断は、hook の答えと証拠を（出力の書き込みが返るまで）書き切った後に、非同期で 1 回だけ試み、hook の終了を、答えを書き終えてから `HOOK_DIAGNOSTIC_MAX_WAIT_MS`（200 ms。1 か所の定数）より遅らせない（診断が先に終われば終わった時、上限が先ならその時に終了する）。答えを書いた時点の残りの予算が `HOOK_DIAGNOSTIC_MIN_REMAINING_MS`（2000 ms。1 か所の定数）未満なら診断を始めない（一部だけ書く形は無い）。診断の I/O は、既存の診断の file の読み 1 回と、一時 file + rename の書き 1 回だけで、再試行は無く、fsync もしない。入口が答えを書いた時点の残りの予算（`remaining_ms`）を渡す（診断の核は時計を読まない）。（設計監査 1 回目の F2、2 回目の F2）
+- **FR10.5** host の契約の版の定数（`CLAUDE_SESSION_START_HOST_CONTRACT_VERSION`）は 2.1.220 のまま、意味は「契約を確かめた版」。v1 の証拠の schema の const は動かさない。観測した host の版は診断の記録には書かない（hook の入力にも環境にも版が無い）。配備の health check の手順の 1 行（code ではない。実施者は配備を行う席）が `claude --version` で取り、契約を確かめた版とのずれを配備の記録に 1 行で必ず書く。読めない時は「観測できず」と返す（ずれが無いとは読まない）。版は証拠にも診断の記録にも書かない。（出所: `[arc の追記 #339]` が、定数を保つ理由、手順の 1 行で取ること、ずれを配備の記録に 1 行で必ず書くこと、読めない時は「観測できず」、版を証拠にも診断にも書かないこと、を記録している。作者の選択で `[arc の追記 #339]` には書かれていない点: 実施者を配備を行う席にすること、`session-rotation-status` も版を取らないこと、ずれの 1 行が無い配備の記録を完了としないこと。arc-sec の条件 4 の「2.1.321 に上げる」とは違う）
+- **FR10.6** 必須の入口の一覧（版を作る道具の `ENTRYPOINTS` と rollout の `REQUIRED_ENTRYPOINTS`）に、切り直しの 2 つ（`dist/session-rotation-stop.js` と `dist/rotation-watcher.js`）を足す。席の hook の installer（`dist/claude-hook-installer.js`・`dist/codex-hook-installer.js`）も今の一覧に無いが、足すかは arc の指示（2 つ）の外なので設計の記録で確かめる。
+- **FR10.7** 席の hook の installer 2 つ（Claude・Codex）に `--node-path`（既定は今の動き = 実行中の node）を足す。受け入れるのは、絶対 path で、basename がちょうど `node`、NUL を含まず、実在する通常 file（symlink は許す）で、実行できる物だけ。それ以外（`nodejs`・`node22` などの別名を含む）は、設定を書かずに止まる。installer が出す 3 つの command（SessionStart・取り込みの Stop・切り直し）は同じ node を使う。installer が管理中の hook を見分ける条件は、node の path に依らない形（先頭が絶対 path で、runner の path・adapter id・引数の並びが canonical に一致）にし、別の node で入れ直しても管理中の hook は 1 つになる。`parseClaudeHookCommand` の既定の結果は変えない。rollout の読み戻し・監査の読みも変えないので、`--node-path` で別の node を入れた席はそれらに数えられず安全側に失敗する（rollout・監査が数える席には使わない）。（設計監査 1 回目の F3、独立の見直しの M2）
+
+受入（FR10.1〜FR10.5・FR10.7）:
+- Given 実物の形の入力（SessionStart に `session_title`、UserPromptSubmit に `prompt_id`・`session_title`、Stop に `background_tasks`・`effort`・`prompt_id`・`session_crons`）、When 3 つの入口に流すと、Then 受理され、診断に key の名前と件数が出て、値は出ない。
+- Given 必須の key の欠け・型の違い・64 KiB 超・JSON でない入力・配列の入力、When 流すと、Then 今までどおり拒否され、理由が証拠に出る。
+- Given 拒否される入力（`hook_event_name`・`source` の違い、binding の不正、cwd が workspace の外など）に知らない key を足した入力、When 流すと、Then 結果（拒否か受理か・理由コード）は、知らない key を足す前の入力と同じ。
+- Given 診断の置き場が書けない、When 流すと、Then hook の答えと証拠は書けた時と同じで、席は止まらない。
+- Given 診断の書き込みが遅い（実時間で 3000 ms・4500 ms かかる書き手、戻らない書き手）、When 流すと、Then 答えと証拠は診断なしと byte で同じで、終了は答えを書き終えてから 200 ms 前後（書き手の遅れを待たない）。Given 残りの予算が 2000 ms 未満（主処理が使い切った場合を含む）、When 流すと、Then 診断の書き手は呼ばれない。残りがちょうど 2000 ms なら呼ばれる。
+- Given Stop・UserPromptSubmit の任意項目の型違い（`model: null` など 8 種）、When 流すと、Then 今までどおり受理され、その項目は返す値に入らない。Given SessionStart の `model: null`・違う `permission_mode`・空の `agent_type`、When 流すと、Then 今までどおり `MALFORMED_HOOK_INPUT`。
+- Given `nodejs` の名前の symlink を `--node-path` に渡す、When installer を流すと、Then 設定を書かずに止まる。Given 別の symlink（名前は `node`）で入れ直す、When 流すと、Then 管理中の hook が 1 つで、先頭の node が新しい path。
+- Given 診断の file が壊れている、When health check が読むと、Then 「観測できず」を返し、0 件と報告しない。
+
 ## 非機能の要件
 
 - **NFR1** 席の起動と応答を止めない。SessionStart の hook は失敗しても席を起動させ（fail-open）、理由を証拠に残す。Stop の hook の block は 1 つの会話で最大 1 回。hook の期限は今と同じ 9 秒、内部の期限は 7 秒。
@@ -174,6 +199,8 @@
 - モデルの切り替え、Claude Code の要約の上限の設定（arc が `[OD-Q1]` 2 で行った）。
 - #339 の席の Kusabi の入れ替え（別の手順）。
 - main に既にある表の変更（knowledge の memory_scope 列、task_state_migration_archive 表）を本番に入れること。本番にはまだ無い（2026-11-10 に読むだけで確かめた）。順番は、FR7.3 の後に DB の基準（Part B の B1・B3、独立の監査 B5）で設計の記録にし、Owner の決定を受けてから migrate で当てる。（`[arc の順番]` (2)(3)）
+- Codex の SessionStart の parser（`parseCodexSessionStartInput`）と、ほかの host の parser（Gemini・Antigravity）。Claude の 3 つの入口と同じ形の脆さがある。直すかは別に決める（arc の判断）。
+- 診断の記録を正式な証拠の項目にすること（後で .v2 として別に決める。arc の判断）。
 - ほかの製品の範囲。
 
 ## まだ決まっていないこと

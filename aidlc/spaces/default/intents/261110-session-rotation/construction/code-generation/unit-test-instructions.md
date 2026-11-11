@@ -22,7 +22,7 @@ HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形・uid の取り方（21 cases）
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（40 cases）
 HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（12 cases）
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示（8 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示と hook_input の節（17 cases）
 HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
 ```
 
@@ -43,6 +43,31 @@ HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・
 - F5（止まる印を返した席の後も回す）: watcher-flow に 3 件（`src/test-rotation-watcher-world.ts` に 2 席目を足す `addSeat`）。同じ pass で後の席を回さない／loop が止まり pass の一覧が回した席だけ／`once` が止まった席で終わり終了コード 4。直す前の code で 3 件とも落ちた。
 
 `src/test-rotation-watcher-world.ts` は上の 2 つが使う、差し替えの tmux・ps・file の世界（試験の道具で、単独では動かさない）。見張りの正例の確かめ（本物の tmux、使い捨ての server、自分の socket）は手元で行い、結果を `code-summary.md` に書いた。この確かめは CI に入れていない。
+
+## 新しい試行（Step 16、hook の入力の parser）の試験
+
+試験の code は、設計の記録だけの PR の設計監査が PASS し、作者の受領が RECEIPT_ACCEPTED になった後に書く。試験だけの commit を実装の前に作り、直す前の code で落ちることを確かめて出力を記録する。下の `src/test-hook-input.ts`・`src/test-hook-input-diagnostics.ts`・`src/test-hook-node-path.ts` は Step 16.8 の試験だけの commit（`ea19ca16`）で作り、Step 16.9 の実装の commit で全部通した。命令は、`HOME` と `AGENT_MEMORY_HOME` の両方を一時の folder にして動かす（診断の記録がこの Mac の実際の置き場に行を書かないように。project の決まり）。
+
+```bash
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-hook-input.ts              # FR10.1・FR10.2: 共通の parser。2.1.321 の実物の key の形の正例（SessionStart・UserPromptSubmit・Stop）、必須の欠け・型の違い・64 KiB 超・JSON でない・配列は拒否の負例、知らない key の値を読まない・残さない
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-hook-input-diagnostics.ts  # FR10.3・FR10.4・FR10.5: 診断の記録。名前だけ・安全な文字だけ・64 字・32 個・古い物から捨てる、0700/0600・一時 file + rename、書けない時に hook の答えと証拠が変わらない、壊れた file を読むと「観測できず」、診断の記録に host の版の欄が無い（観測した版は health check が `claude --version` で取る手順で、試験の対象ではなく Deployment Execution の記録で確かめる）、時間の予算（実時間で測る: 遅い書き手・host の残りを超える遅れ・戻らない書き手でも答えの書き込みから 180 ms 以上 1000 ms 未満で終了、速い書き手は完了時に終了、残りが 2000 ms 未満と予算切れで書き手が呼ばれない・境界 2000 ms は呼ぶ／1999 ms は呼ばない、出力の bytes が診断なしと同じ、書き手の例外、証拠と答えの書き込みの後に書き手が呼ばれる。書き手と exit は注入、経過は実際の時計、実際の遅い disk は使わない）
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-hook-node-path.ts          # FR10.7: `--node-path` の規則。絶対・正規化済み・basename がちょうど node・実行できる通常 file だけ受け入れ、相対・NUL・親の区間・nodejs などの別名・無い物・folder・実行できない file は拒否、symlink は許可
+```
+
+設計監査の指摘（1 回目 F1〜F3、2 回目 F2 の未解消部分・F5）に対応する試験:
+- F1: 入口・項目ごとの現行の挙動の固定（設計の記録 3 節の表）。SessionStart の `model: null`・違う `permission_mode`・空の `agent_type` は `MALFORMED_HOOK_INPUT`。取り込みの Stop／UserPromptSubmit（Claude と Codex）と切り直しの Stop は、`model: null`・`permission_mode: "invalid-mode"`・`stop_hook_active: "yes"`・`last_assistant_message: 42`・`agent_id: null`・`agent_type: false`・`prompt: []`・`turn_id: {}` を 1 つずつ足した入力を受理し、返す値にその項目が入らない。この固定は直す前の code でも通る（挙動を変えていないことの回帰の防ぎ）ので、Red の確認の対象ではなく、直した後も通ることを確かめる。
+- F2: 上の `test-hook-input-diagnostics.ts` の時間の予算。共有の `finishAfterAnswer` の単体と、入口 3 つ（SessionStart・取り込みの Stop・切り直しの Stop）のそれぞれで、遅い書き手（3000 ms）・host の残りを超える遅れ（4500 ms）・戻らない書き手が答えの書き込みから約 200 ms で終了すること、速い書き手が完了時に終了すること、予算切れ・境界、出力の bytes の不変を、実時間で確かめる。取り込みの Stop は書き込みの callback と明示の終了を足すので、その出力と終了コードが今と同じであることも確かめる（入口の層の試験は、既存の `src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-session-rotation-flow.ts` に足す）。
+- 診断の配線: 入口 3 つ（取り込みと切り直しは Claude と Codex）のそれぞれで、知らない key を足した受理される入力から、その入口の adapter id の診断の file に名前と件数が書かれ、拒否される入力では書かれない。入口 3 つとも `on_ignored_names` は、渡した時だけ parse の受理の直後に 1 回呼ばれ（拒否と、SessionStart の `proxyForInputError` の経路では呼ばれず）、渡さない呼び出し元の戻り値は変わらない。切り直しの Stop は `request_diagnostic` が答えと証拠の書き込みの前に呼ばれても、書き手の呼び出しは flush の callback の後であることを、書き込みの callback を遅らせて確かめる。床の境界（2000／1999 ms）は `finishAfterAnswer` の単体で、入口ごとは時計を注入した予算切れと余裕ありの 2 点。`Deadline.remaining_ms` は `cancel()` の後でも値を返す。SessionStart の binding の不正の N+U は直す前でも通る（Red から除く）。`parseClaudeSessionStartInputWithIgnored`・`parseTranscriptStopInputWithIgnored` の `input` が、元の関数の戻り値と同じ（`src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-session-rotation-flow.ts` に足す）。
+- F3: installer の試験（`src/test-claude-hook-installer.ts`・`src/test-codex-hook-installer.ts`）に、`nodejs` の名前の symlink の拒否（設定を書かない）、`node` の名前の symlink の許可、3 つの command が同じ node、別名の symlink での入れ直しと同じ指定の再実行で管理中の hook が 1 つ（冪等）、古い installer が書いた任意の絶対 path の SessionStart の hook の置き換え、相対 path・adapter id の違い・flag の並びの違いは管理外、を足す。`parseClaudeHookCommand` の既定の結果と `src/kusabi-fleet-rollout.ts` の試験が今のまま通ることも確かめる。あわせて、先頭の node が `process.execPath` と違う SessionStart の hook を、`parseClaudeHookCommand`・`parseCodexHookCommand` の既定が今までどおり `null` にすること（`--node-path` で入れた別の node の hook が rollout の読み戻しと監査に数えられず、安全側に失敗する形を変えていないこと。設計 8 節・12 節）を固定する。
+
+入口 3 つが同じ parser を通ること（FR10.1）と、反転する既存の負例は、既存の試験の file の中で確かめる（`src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-session-rotation-flow.ts`。`unexpected: true` を拒否していた所は、受理に変わる。1 件ずつ deviation_ledger に「採った判断・採らなかった代替」を書く）。必須の入口の一覧（FR10.6）は `node scripts/test-kusabi-content-addressed-runtime-release.mjs` と `src/test-kusabi-direct-fleet-rollout.ts`、installer の `--node-path`（FR10.7）は `npm run test:claude-hook` と `npm run test:codex-hook` の installer の試験で確かめる。新しい 3 file（`src/test-hook-input.ts`・`src/test-hook-input-diagnostics.ts`・`src/test-hook-node-path.ts`）は `package.json` の `test:claude-hook` の後ろに足して CI で回す（workflow は変えない）。
+
+arc-sec が実装の時に見る 2 点（公開。iyasaka-arc#57 の comment 6792778481、本文の SHA-256 `683847414d37520993afd8de29dced0a4335822d7fe97c6b329039038266bcd6`。arc-sec の設計の読みは止める点 0、devauditor の verdict の代わりではない）を、次の試験と自己点検に必ず入れる:
+
+1. 共有の parser が、入口ごとの型・event・source・身元（FR8.4 の R1〜R9・`verifyBinding`）の確かめを落とさず、知らない key の値を下流に出さない。
+   - 3 つの入口（Claude の SessionStart、取り込みの Stop／UserPromptSubmit、切り直しの Stop／UserPromptSubmit。取り込みは Claude と Codex の両方）のそれぞれで、確かめを 1 つずつ失敗させる入力 N（型の違い・`hook_event_name` の違い・`source` の違い・`cwd` が workspace の外・`transcript_path` が置き場の外・binding の不一致。身元の N は入口ごとに今ある規則から選び、Claude の取り込み・切り直しの Stop には cwd の外の拒否が無い = FR8 R1 のまま足さない）に、知らない key U（値は他に現れない目印の文字列）を足した N+U を流し、**N+U の結果が、U を除いた N の結果と同じ**であることを確かめる（差分の oracle。設計の記録 3 節・9 節）。N の理由は U を含まない入力で固定し、U を含む入力に「今までの理由コード」を期待しない（知らない key があっても身元の拒否が受理に変わらず、本来の理由で拒否される）。
+   - 受理される入力（知らない key を足しただけ）では、目印の文字列が、返す値・証拠（stdout／stderr の JSON）・hook の答え・診断の file・store の書き込みのどこにも現れない。
+2. 反転する既存の負例が、身元の負例を巻き込んでいない。反転するのは「許可リスト外 = `MALFORMED_HOOK_INPUT`」の物だけ（`src/test-claude-session-start.ts` の 211 行と 240 行の `unexpected: true` の 2 件）。試験だけの commit の差分で、既存の試験 file から消える・弱まる確かめがこの 2 件の許可リスト外の確かめだけであり、身元の負例（`cwd` が workspace の外、`transcript_path`、binding、wrong source、必須の欠け、型の違い、64 KiB 超）が 1 件も変わらないことを、差分を 1 行ずつ読んで自己点検に書く。
 
 触る所の今の試験（通ったまま保つ。Step 1 で基準を取る）:
 

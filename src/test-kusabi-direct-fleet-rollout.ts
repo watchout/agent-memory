@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import {
   KusabiDirectFleetRolloutError,
@@ -40,6 +41,7 @@ const ENTRYPOINTS = [
   "dist/gemini-session-start.js",
   "dist/antigravity-session-start.js", "dist/antigravity-hook-installer.js",
   "dist/kusabi-direct-fleet-rollout.js", "dist/kusabi-fleet-rollout.js", "dist/raw-capture-service.js",
+  "dist/session-rotation-stop.js", "dist/rotation-watcher.js",
 ] as const;
 let assertions = 0;
 
@@ -272,6 +274,28 @@ async function main(): Promise<void> {
     const casRoot = await createCas(root);
     const cas = await readImmutableKusabiCasRoot(casRoot);
     check(cas.exact && cas.release_descriptor_sha256 === basename(casRoot), "immutable CAS exact readback passes");
+
+    // FR10.6: the required entry points are listed in the publisher and here in the reader; the fixture follows both.
+    const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+    const listIn = (source: string, pattern: RegExp): string[] => {
+      const match = pattern.exec(source);
+      assert(match, `entry point list found by ${pattern}`);
+      return Array.from(match[1].matchAll(/"([^"]+)"/g), (item) => item[1]);
+    };
+    const readerList = listIn(
+      await readFile(join(repositoryRoot, "src", "kusabi-direct-fleet-rollout.ts"), "utf8"),
+      /const REQUIRED_ENTRYPOINTS = \[([\s\S]*?)\] as const;/,
+    );
+    const publisherList = listIn(
+      await readFile(join(repositoryRoot, "scripts", "build-kusabi-content-addressed-runtime-release.mjs"), "utf8"),
+      /const ENTRYPOINTS = \[([\s\S]*?)\];/,
+    );
+    assert.deepEqual([...readerList].sort(), [...ENTRYPOINTS].sort(), "the reader's list is the fixture's list");
+    assert.deepEqual([...publisherList].sort(), [...ENTRYPOINTS].sort(), "the publisher's list is the fixture's list");
+    assert.equal(new Set(readerList).size, readerList.length, "no entry point is listed twice");
+    for (const required of ["dist/session-rotation-stop.js", "dist/rotation-watcher.js"]) {
+      check(readerList.includes(required) && publisherList.includes(required), `${required} is a required entry point`);
+    }
     await chmod(join(casRoot, ENTRYPOINTS[0]), 0o644);
     await expectCode("KUSABI_DIRECT_CAS_FILE_MODE", () => readImmutableKusabiCasRoot(casRoot));
     await chmod(join(casRoot, ENTRYPOINTS[0]), 0o444);

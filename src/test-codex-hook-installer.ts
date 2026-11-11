@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import {
   CODEX_HOOK_CONFIG_RELATIVE_PATH,
   CODEX_HOOK_MATCHER,
@@ -18,6 +20,190 @@ import {
   type CodexSessionStartBinding,
 } from "./codex-session-start.js";
 import { CODEX_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
+import { CODEX_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
+
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const quote = (value: string): string => `'${value.replace(/'/g, `'"'"'`)}'`;
+type Handler = { command: string };
+const handlersOf = (hooks: unknown, event: string): string[] =>
+  (((hooks as { hooks: Record<string, Array<{ hooks: Handler[] }> | undefined> }).hooks)[event] ?? [])
+    .flatMap((group) => group.hooks.map((handler) => handler.command));
+const firstWord = (command: string): string => {
+  assert.equal(command.startsWith("'"), true, `a quoted first word: ${command.slice(0, 40)}`);
+  return command.slice(1, command.indexOf("' "));
+};
+
+/** FR10.7: the optional --node-path of the installer, its refusals, and the re-install of managed hooks. */
+async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
+  await writeFile(join(runtimeRoot, "dist", "session-rotation-stop.js"), "#!/usr/bin/env node\n");
+  const nodes = join(root, "nodes");
+  const linkTo = async (dir: string, name: string): Promise<string> => {
+    await mkdir(join(nodes, dir), { recursive: true });
+    const path = join(nodes, dir, name);
+    await symlink(process.execPath, path);
+    return path;
+  };
+  const nodeA = await linkTo("A", "node");
+  const nodeB = await linkTo("B", "node");
+  const workspaceOf = async (name: string): Promise<string> => {
+    const path = join(root, `np-${name}`);
+    await mkdir(path, { recursive: true });
+    return path;
+  };
+  const withNode = (
+    workspace: string,
+    mode: CodexHookInstallOptions["mode"],
+    node_path?: string,
+    rotation = true,
+  ): CodexHookInstallOptions => ({
+    ...options(workspace, runtimeRoot, mode),
+    ...(node_path === undefined ? {} : { node_path }),
+    ...(rotation ? { rotation: { mode: "on" as const } } : {}),
+  });
+  const hooksOf = async (workspace: string): Promise<unknown> =>
+    parseHooksFile(await readFile(join(workspace, CODEX_HOOK_CONFIG_RELATIVE_PATH), "utf8"));
+  const all = (hooks: unknown): string[] => ["SessionStart", "Stop", "UserPromptSubmit"].flatMap((event) => handlersOf(hooks, event));
+  const exists = async (path: string): Promise<boolean> => stat(path).then(() => true, () => false);
+  const realRuntime = await realpath(runtimeRoot);
+  const exactBinding: CodexSessionStartBinding = {
+    agent_id: "kusabi", project: "agent-memory", workspace: await realpath(await workspaceOf("shape")),
+    binding_source_ref: "fixture:verified-binding", max_tokens: 1200, max_bytes: 4096, timeout_ms: 6000,
+  };
+
+  // The default is unchanged: the same bytes as the builder had before the option existed.
+  const defaultCommand = buildCodexHookCommand(realRuntime, exactBinding);
+  assert.equal(defaultCommand, [
+    quote(process.execPath), quote(join(realRuntime, "dist", "codex-session-start.js")),
+    "--adapter-id", quote(CODEX_SESSION_START_ADAPTER_ID),
+    "--agent-id", quote(exactBinding.agent_id), "--project", quote(exactBinding.project),
+    "--workspace", quote(exactBinding.workspace), "--binding-source-ref", quote(exactBinding.binding_source_ref),
+    "--max-tokens", "1200", "--max-bytes", "4096", "--timeout-ms", "6000",
+  ].join(" "));
+  assert.equal(buildCodexHookCommand(realRuntime, exactBinding, process.execPath), defaultCommand);
+  assert.equal(buildCodexHookCommand(realRuntime, exactBinding, "/x/node").startsWith("'/x/node' "), true);
+  assert.equal(parseCodexHookInstallArgs(["--node-path", nodeA]).node_path, nodeA);
+  assert.equal("node_path" in parseCodexHookInstallArgs([]), false, "no flag, no key");
+  assert.throws(() => parseCodexHookInstallArgs(["--node-path"]), /--node-path requires a value/);
+
+  // Without the option every command starts with the node that runs the installer.
+  const defaultWorkspace = await workspaceOf("default");
+  await installCodexSessionStartHook(withNode(defaultWorkspace, "apply"));
+  const defaultAll = all(await hooksOf(defaultWorkspace));
+  assert.equal(defaultAll.length, 5);
+  for (const command of defaultAll) assert.equal(firstWord(command), process.execPath);
+
+  // With the option all five commands share it, kept as given.
+  const workspace = await workspaceOf("main");
+  const dry = await installCodexSessionStartHook(withNode(workspace, "dry-run", nodeA));
+  assert.equal(dry.wrote_hooks_file, false);
+  assert.equal(await exists(join(workspace, CODEX_HOOK_CONFIG_RELATIVE_PATH)), false);
+  await installCodexSessionStartHook(withNode(workspace, "apply", nodeA));
+  const placed = await hooksOf(workspace);
+  assert.equal(all(placed).length, 5);
+  for (const command of all(placed)) assert.equal(firstWord(command), nodeA);
+  assert.equal(handlersOf(placed, "Stop").filter((c) => c.includes(CODEX_ROTATION_STOP_ADAPTER_ID)).length, 1);
+  assert.equal(handlersOf(placed, "UserPromptSubmit").filter((c) => c.includes(CODEX_ROTATION_STOP_ADAPTER_ID)).length, 1);
+  assert.equal(handlersOf(placed, "Stop").filter((c) => c.includes(CODEX_TRANSCRIPT_STOP_ADAPTER_ID)).length, 1);
+
+  // The same specification again changes nothing; the other node is "different".
+  const hooksPath = join(workspace, CODEX_HOOK_CONFIG_RELATIVE_PATH);
+  const before = await readFile(hooksPath, "utf8");
+  const again = await installCodexSessionStartHook(withNode(workspace, "apply", nodeA));
+  assert.equal(again.wrote_hooks_file, false);
+  assert.equal(await readFile(hooksPath, "utf8"), before, "idempotent, byte for byte");
+  assert.equal((await installCodexSessionStartHook(withNode(workspace, "check", nodeA))).config_match, "exact");
+  assert.equal((await installCodexSessionStartHook(withNode(workspace, "check", nodeB))).config_match, "different");
+
+  // Installing again through another symlink leaves one managed hook of each kind, all with the new node.
+  const reinstalled = await installCodexSessionStartHook(withNode(workspace, "apply", nodeB));
+  assert.equal(reinstalled.wrote_hooks_file, true);
+  const second = await hooksOf(workspace);
+  assert.equal(all(second).length, 5, "no managed hook was added next to the old one");
+  for (const command of all(second)) assert.equal(firstWord(command), nodeB);
+  assert.equal(handlersOf(second, "SessionStart").length, 1);
+
+  // An old installer wrote the node it ran with; a different absolute path is replaced and an unrelated handler stays.
+  for (const [label, oldNode] of [["a versioned name", "/opt/old/bin/node20"], ["a removed path", "/gone/node"]] as const) {
+    const oldWorkspace = await workspaceOf(`old-${label.replace(/\W/g, "")}`);
+    await mkdir(join(oldWorkspace, ".codex"), { recursive: true });
+    const oldBinding: CodexSessionStartBinding = { ...exactBinding, workspace: await realpath(oldWorkspace) };
+    await writeFile(join(oldWorkspace, CODEX_HOOK_CONFIG_RELATIVE_PATH), `${JSON.stringify({
+      hooks: {
+        SessionStart: [
+          { matcher: "startup", hooks: [{ type: "command", command: "echo unrelated" }] },
+          { matcher: CODEX_HOOK_MATCHER, hooks: [{ type: "command", command: buildCodexHookCommand(realRuntime, oldBinding, oldNode) }] },
+        ],
+      },
+    }, null, 2)}\n`);
+    await installCodexSessionStartHook(withNode(oldWorkspace, "apply", nodeA, false));
+    const after = handlersOf(await hooksOf(oldWorkspace), "SessionStart");
+    assert.equal(after.length, 2, label);
+    assert.equal(after[0], "echo unrelated");
+    assert.equal(firstWord(after[1]), nodeA);
+  }
+
+  // The check is done before anything is read or written, in every mode, with or without rotation.
+  const refuseWorkspace = await workspaceOf("refuse");
+  await mkdir(join(nodes, "other"), { recursive: true });
+  const nodejsLink = join(nodes, "other", "nodejs");
+  const node22Link = join(nodes, "other", "node22");
+  await symlink(process.execPath, nodejsLink);
+  await symlink(process.execPath, node22Link);
+  await mkdir(join(nodes, "dir", "node"), { recursive: true });
+  const noExec = join(nodes, "noexec", "node");
+  await mkdir(join(nodes, "noexec"), { recursive: true });
+  await writeFile(noExec, "#!/bin/sh\n");
+  await chmod(noExec, 0o644);
+  const refused: Array<[string, string]> = [
+    ["a missing path", join(nodes, "missing", "node")],
+    ["a relative path", "node"],
+    ["a relative path with a directory", "./nodes/A/node"],
+    ["a directory", join(nodes, "dir", "node")],
+    ["not executable", noExec],
+    ["a NUL byte", `${nodeA}\0`],
+    ["the name nodejs", nodejsLink],
+    ["the name node22", node22Link],
+    ["a parent segment", `${join(nodes, "A")}/../A/node`],
+    ["an empty value", ""],
+  ];
+  for (const [label, value] of refused) {
+    for (const mode of ["check", "dry-run", "apply"] as const) {
+      for (const rotation of [false, true]) {
+        await assert.rejects(installCodexSessionStartHook(withNode(refuseWorkspace, mode, value, rotation)), /invalid node path/);
+      }
+    }
+    assert.equal(await exists(join(refuseWorkspace, ".codex")), false, `${label}: nothing was written`);
+  }
+  const keepBefore = await readFile(hooksPath, "utf8");
+  const folderBefore = (await readdir(join(workspace, ".codex"))).sort();
+  await assert.rejects(installCodexSessionStartHook(withNode(workspace, "apply", nodejsLink)), /invalid node path/);
+  assert.equal(await readFile(hooksPath, "utf8"), keepBefore);
+  assert.deepEqual((await readdir(join(workspace, ".codex"))).sort(), folderBefore,
+    "a refused run leaves no backup or temporary file (the earlier successful re-install made its own backup)");
+
+  // The readers of this command are not widened: another node's hook is not counted (the rollout and the recovery-target check fail safe).
+  const foreign = buildCodexHookCommand(realRuntime, exactBinding, "/opt/other/bin/node");
+  assert.equal(parseCodexHookCommand(foreign), null);
+  assert.equal(parseCodexHookCommand(buildCodexHookCommand(realRuntime, exactBinding, nodeA)), null, "a symlink to this node is a different first word");
+  assert.deepEqual(parseCodexHookCommand(defaultCommand)?.binding, exactBinding);
+
+  // The command line: the option is read, a refusal exits 1 on standard error and writes nothing.
+  const cli = spawnSync(process.execPath, [
+    resolve(repositoryRoot, "dist", "codex-hook-installer.js"),
+    "--dry-run", "--workspace", await workspaceOf("cli"), "--runtime-root", repositoryRoot,
+    "--agent-id", "kusabi", "--project", "agent-memory", "--binding-source-ref", "fixture:binding", "--node-path", nodeA,
+  ], { encoding: "utf8" });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).would_change, true);
+  const cliRefused = spawnSync(process.execPath, [
+    resolve(repositoryRoot, "dist", "codex-hook-installer.js"),
+    "--dry-run", "--workspace", await workspaceOf("cli-refused"), "--runtime-root", repositoryRoot,
+    "--agent-id", "kusabi", "--project", "agent-memory", "--binding-source-ref", "fixture:binding", "--node-path", nodejsLink,
+  ], { encoding: "utf8" });
+  assert.equal(cliRefused.status, 1);
+  assert.match(cliRefused.stderr, /\[codex-hook-installer\].*invalid node path/);
+  assert.equal(cliRefused.stdout, "");
+}
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -232,6 +418,8 @@ async function main(): Promise<void> {
       join(root, "immutable-plan", "fleet-manifest.json"),
     );
     assert.equal(parseCodexHookCommand(quotedCommand.replace("--runtime-event-manifest", "--manifest")), null);
+
+    await nodePathCases(root, runtimeRoot);
 
     console.log("codex native hook installer tests passed");
   } finally {

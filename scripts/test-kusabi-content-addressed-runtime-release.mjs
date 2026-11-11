@@ -20,6 +20,8 @@ const ENTRYPOINTS = [
   "dist/kusabi-direct-fleet-rollout.js",
   "dist/raw-capture-service.js",
   "dist/kusabi-fleet-rollout.js",
+  "dist/session-rotation-stop.js",
+  "dist/rotation-watcher.js",
 ];
 const RESOURCES = [
   "docs/design/schemas/aun-gate-evidence-refs-v1.schema.json",
@@ -44,6 +46,8 @@ const REQUIRED_EXPORTS = {
   "dist/kusabi-direct-fleet-rollout.js": ["readImmutableKusabiCasRoot", "runKusabiDirectFleetRollout"],
   "dist/raw-capture-service.js": ["runRawCaptureService"],
   "dist/kusabi-fleet-rollout.js": ["prepareKusabiFleetR0", "applyKusabiFleetRolloutBatch"],
+  "dist/session-rotation-stop.js": ["runSessionRotationStop", "runRotationCli"],
+  "dist/rotation-watcher.js": ["parseWatcherArgs", "runWatcherCli"],
 };
 
 function sha256(value) {
@@ -172,6 +176,35 @@ async function publisherUnit() {
     rejected = error.code === "ARGUMENT_INVALID";
   }
   if (!rejected) fail("PUBLISHER_UNIT_FAILED", "removed gate mode was accepted");
+  // FR10.6: the lists of required entry points are kept in three places (the publisher, this harness, the roll-out
+  // reader). They must be the same set, and the rotation Stop hook and the watcher must be in it.
+  const listFrom = (path, pattern) => {
+    const match = pattern.exec(readFileSync(resolve(path), "utf8"));
+    if (!match) fail("PUBLISHER_UNIT_FAILED", "entry point list not found in " + path);
+    return Array.from(match[1].matchAll(/"([^"]+)"/g), (item) => item[1]);
+  };
+  const publisherList = listFrom(
+    "scripts/build-kusabi-content-addressed-runtime-release.mjs", /const ENTRYPOINTS = \[([\s\S]*?)\];/,
+  );
+  const rolloutList = listFrom(
+    "src/kusabi-direct-fleet-rollout.ts", /const REQUIRED_ENTRYPOINTS = \[([\s\S]*?)\] as const;/,
+  );
+  const asSet = (list) => [...list].sort().join("\n");
+  for (const [name, list] of [["publisher", publisherList], ["harness", ENTRYPOINTS], ["roll-out", rolloutList]]) {
+    if (new Set(list).size !== list.length) fail("PUBLISHER_UNIT_FAILED", name + " list has a duplicate");
+    for (const required of ["dist/session-rotation-stop.js", "dist/rotation-watcher.js"]) {
+      if (!list.includes(required)) fail("PUBLISHER_UNIT_FAILED", name + " list lacks " + required);
+    }
+    if (asSet(list) !== asSet(publisherList)) fail("PUBLISHER_UNIT_FAILED", name + " list differs from the publisher");
+  }
+  for (const entrypoint of publisherList) {
+    if (!Array.isArray(REQUIRED_EXPORTS[entrypoint]) || REQUIRED_EXPORTS[entrypoint].length === 0) {
+      fail("PUBLISHER_UNIT_FAILED", "no required exports for " + entrypoint);
+    }
+  }
+  if (asSet(Object.keys(REQUIRED_EXPORTS)) !== asSet(publisherList)) {
+    fail("PUBLISHER_UNIT_FAILED", "required exports are not the same set as the entry points");
+  }
   const root = mkdtempSync(join(tmpdir(), "wasurezu-release-unit-"));
   try {
     writeFileSync(join(root, "a"), "alpha", { mode: 0o444 });
@@ -255,7 +288,7 @@ async function publisherUnit() {
     schema_version: "wasurezu-direct-publisher-test/v1",
     verdict: "PASS",
     checks: [
-      "argument_boundary", "expected_head_required", "removed_gate_mode",
+      "argument_boundary", "expected_head_required", "removed_gate_mode", "entry_point_lists_agree",
       "deterministic_tree", "symlink_rejection", "directory_mode_drift_rejection",
       "immutable_directory_atomic_rename",
       "owned_final_rollback", "foreign_final_preserved",
