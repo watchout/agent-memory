@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Builds: 会話の量を測り、閾値で 1 回だけ席に引き継ぎを書かせて DB に残し、「切ってよい」の印を出し、次の会話の頭に続きを入れる経路（Claude Code・Codex）。MCP の server を先に接続させ、起動のたびの表の変更をやめる。会話の取り込みの止まりを直す。見張りも含め、この単位の code は設計の記録と設計監査を先に通し、PASS の後に作る。
-- Touches: 新しい module（`src/session-rotation-*.ts`・`src/rotation-watcher.ts`）、`src/transcript-stop-capture.ts`・`src/claude-session-start.ts`・`src/codex-session-start.ts`・`src/index.ts`・`src/boot.ts`・`src/post-tool-hook.ts`・`src/constants.ts`・hook の installer 2 つ・取り込みの直す所、`package.json` の試験の一覧、`docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`、この取り組みの記録。
-- Tests: 成功の場面の試験 1 file（Claude Code と Codex、先に書いて失敗を確かめる）と、要件ごとの試験（FR1〜FR8、約 15）。試験の code も、全部、設計監査の PASS の後に書く。変えた行と新しい行の網羅率 100%。
+- Builds: 会話の量を測り、閾値で 1 回だけ席に引き継ぎを書かせて DB に残し、「切ってよい」の印を出し、次の会話の頭に続きを入れる経路（Claude Code・Codex）。MCP の server を先に接続させ、起動のたびの表の変更をやめる。会話の取り込みの止まりを直す。見張りも含め、この単位の code は設計の記録と設計監査を先に通し、PASS の後に作る。ここまでは #341 で統合済み。2026-11-11 の新しい試行（Step 16）: Claude Code 2.1.321 が hook の入力に足した key で、Kusabi の 3 つの入口が全部拒否する故障を、知らない key を無視する 1 か所の parser に直す（無視した key の名前は契約ではない診断に書く）。あわせて必須の入口の一覧・installer の `--node-path`・`.gitignore` の 1 行。
+- Touches: 前の試行は新しい module（`src/session-rotation-*.ts`・`src/rotation-watcher.ts`）ほか（統合済み）。新しい試行は `src/claude-session-start.ts`・`src/transcript-stop-capture.ts`・`src/session-rotation-stop.ts`（入口 3 つ）、新しい module 2 つ（共通の parser と診断）、`src/claude-hook-installer.ts`・`src/codex-hook-installer.ts`、`scripts/build-kusabi-content-addressed-runtime-release.mjs`・`src/kusabi-direct-fleet-rollout.ts`（必須の入口の一覧）、`.gitignore`、設計の記録と `docs/operations/HOST_ADAPTERS.md`、この取り組みの記録。
+- Tests: 前の試行は成功の場面の試験 1 file と要件ごとの試験（FR1〜FR8、約 15。統合済み）。新しい試行は、2.1.321 の実物の key の形の正例と負例の試験を、設計監査の PASS の後に先に書いて失敗を確かめ、反転する既存の負例は deviation_ledger に 1 行ずつ書く。変えた行と新しい行の網羅率 100%。
 
 ## 前提と入力
 
@@ -143,7 +143,23 @@
   - F5: `src/rotation-watcher-run.ts` の `runPass` は、tick が `stop_runner` を返した席で seat の loop を抜け、後の席を回さない。`runnerMustStop`・loop・`once` の終了コード 4 は、回した席の一覧だけを見る。
   - F1: `src/session-rotation-stop.ts` の `runRotationCli` は、引数を解いた直後に総予算（`--timeout-ms` と 7 秒の小さい方）を始め、標準入力の読みとその予算を競わせる。予算が先に来た時は、席を止めない証拠（理由 `internal_deadline_exceeded`）で PASS を返す。同じ予算を `runSessionRotationStop` に渡し、読みに使った時間は同じ予算から引かれる（2 つ目の予算を作らない）。予算の持ち主（`runRotationCli`）が最後に取り消す。
 - [x] 指摘ごとの試験を足した（flow 40・watcher-flow 103。ほかは変わらず core 21・registration 12・status 8・units 83・身元 25）。型検査、CI の mirror 18 / 18、変えた行と新しい行の網羅率をもう一度確かめる。
-- [ ] 記録（`code-summary.md`・`unit-test-instructions.md`・`coverage-method.md`・`traceability.json`・監査の項目の file）を直した head に合わせ、監査の依頼の前の自己確認（古い言い回し・数の出所・項目の file を見直し役に先に見せる）を流してから、3 回目の `sds-audit-request/1` を同じ PR に出す。返却が来るまで push しない。返却が来たら、`--review` を push の前に流す。
+- [x] この項目（記録を直した head に合わせ、3 回目の依頼を出す）の経過は PR #341 の comment にある。PR #341 は 2026-11-11T07:47:02Z に統合された（merge commit `aa77b683e135beabb9fc54bd3736b47d288d6f46`）。席が確かめたのは統合の事実だけで、監査の返却ごとの結果はこの計画に写さない（写しを作らない）。
+
+### Step 16: hook の入力の parser の直し（2026-11-11 の新しい試行）
+
+出どころ: 席の C2（agent-memory#339 に載せる読み戻しの本文は `operation/deployment-execution/issue-339-readback-c2.md`）と、arc の技術の判断（agent-memory#339 の comment 6791901034、本文 SHA-256 `69ca10d6e8e418ad425e1e9a8f81b73799d49fa8496ad93288dc2882fae59c32`。Owner の決定ではない）。arc-sec の条件（iyasaka-arc#57 の comment 6791886636）と、host の契約の版の扱いは arc の判断（席間の連絡、GitHub への記録はまだ無い）。入力の確かめ（安全）と契約に触れるので、team.md のとおり、設計の記録だけの PR を先に出し、独立の設計監査を 1 回受け、PASS の後に試験だけの commit、その後に実装。段は `jump execute --direction backward` で code-generation に戻した（`jump reopen` は単位ごとの command で、単位の無いこの取り組みでは使えなかった）。
+
+- [x] 16.1 branch `kusabi/hook-input-parser-261111` を `origin/main`（`aa77b683e135beabb9fc54bd3736b47d288d6f46`）から切る（作業場の file は動かさない）。作業場の実装は main と同じ内容であることを file ごとの hash で確かめた（違うのは `.gitignore` の AI-DLC の block だけ）。
+- [x] 16.2 要件 FR10.1〜FR10.7 を `requirements.md` に足した（出どころ `[C2]`・`[arc の判断 #339]`。Codex ほかの host の parser と診断の正式な証拠化は範囲の外に書いた）。
+- [x] 16.3 設計の記録 `hook-input-design.md` を書いた（0〜13 節。arc に確かめる点を 13 節に置いた: 観測した host の版は hook が取れないので health check が取る形、共有の関数による Codex の Stop の同時の緩み、`.gitignore` の範囲、R3 の扱い）。書く予定だった中身: 入口 3 つ（`parseClaudeSessionStartInput`・`parseTranscriptStopInput` を使う取り込みと切り直しの Stop）を 1 か所の parser に通す形、知らない key を無視し必須の key・型・64 KiB の上限は今までどおり拒否する規則、診断の記録（置き場は `$AGENT_MEMORY_HOME` の下・folder 0700・file 0600・一時 file + rename、中身は event 名・key の名前・件数・時刻だけ、名前は 64 字以内で安全な文字だけ・1 件 32 個以内・上限を超えたら古い物から捨てる、診断が書けなくても hook の答えと証拠は変えない）、health check が読む形（名前と件数だけ、読めない時は「観測できず」で 0 と読まない）、host の契約の版の定数は 2.1.220 のまま（意味は「契約を確かめた版」。観測した版は診断にだけ書く。v1 の証拠の schema の const を動かさない）、Codex の SessionStart の parser は範囲外（同じ形の脆さがある。直すかは別に決める）、標準 S4・S5・S7・S8 の当て方、反転する既存の負例の一覧（deviation_ledger の 1 行ずつ）。設計と実装が食い違う所が無いことの確かめ（HOST_ADAPTERS・SSOT-3/5/6 に「知らない key は拒否」と定めた所は無い）。
+- [x] 16.4（済み）`docs/operations/HOST_ADAPTERS.md` に、host の入力の扱い（必須・型・上限は守り、知らない key は無視して名前だけ診断に残す）を 1 段落足す。
+- [x] 16.5（済み。DES-1〜DES-10、control_source_ref は arc の #339 の判断）監査の項目の file `docs/audit/kusabi-hook-input-261111.json`（`sds-audit-items/1`）を作る。項目は arc-sec の条件（必須の key・型・64 KiB の上限が残る／入口 3 つが 1 か所の parser／host の契約の版の定数の扱い／実物の key の形の正例と負例／反転した負例の deviation_ledger）と、診断の記録の安全（a〜d）、標準 S4・S5・S8、v1 の契約に触れていないこと。
+- [ ] 16.6 設計の記録だけの PR に入れる物: この取り組みの記録（`inception/`・`construction/code-generation/`・`operation/`。`audit/` と `.aidlc-engine/` は入れない）、`HOST_ADAPTERS.md` の段落、監査の項目の file、`.gitignore`（`.claude/settings.json.bak*` の 1 行）。入れる前に、手元の path・秘密の値・非公開の repo の中身が無いかを探し、あれば伏せる。依頼の前の自己確認（古い言い回しの grep、数の出所をたどる、項目の file を見直し役に先に見せる）を流す。
+- [ ] 16.7 PR を出し、CI がその head で終わるのを待ち、`sds-audit-request/1`（`audit_stage` は設計）を watchout の名義で投稿し、前検査を流す。PR の URL と head を arc に送る（arc-sec も差分を読む）。返却が来るまで push しない。返却は `--review` を push の前に流し、結果をそのまま作者の受領として PR に書く。BLOCK なら指摘を受け、直し方が Owner の判断を要するか（契約・守る物）を見てから続きを決める。PASS で受領が RECEIPT_ACCEPTED になるまで、16.8 以降は始めない。
+- [ ] 16.8 試験だけの commit（設計監査の PASS の後）: 2.1.321 の実物の key の形（SessionStart に `session_title`、UserPromptSubmit に `prompt_id`・`session_title`、Stop に `background_tasks`・`effort`・`prompt_id`・`session_crons`）で受理される正例、必須の key の欠け・型の違い・64 KiB 超・JSON でない入力・配列の入力は今までどおり拒否される負例、無視した key の名前が診断に出て値が出ない試験、診断が書けない時（置き場が書けない・壊れている）に hook の答えと証拠が変わらない試験、診断の読みが読めない時に「観測できず」を返す試験、入口 3 つが同じ parser を通る試験を書く。反転する既存の負例（`src/test-claude-session-start.ts` の `unexpected: true` の 2 件など）は、直す前の code で落ちることを確かめ、失敗の出力を記録する。実装の前の commit にする（TDD の順）。
+- [ ] 16.9 実装（作る役が行う場合は、取り組みごとの Owner の承認が要る。承認が無ければ席が自分で書く）: 共通の parser の module と診断の module を新しく置き、`src/claude-session-start.ts`・`src/transcript-stop-capture.ts`・`src/session-rotation-stop.ts` は呼び出しだけを差し替える。必須の入口の一覧（`scripts/build-kusabi-content-addressed-runtime-release.mjs` の `ENTRYPOINTS` と `src/kusabi-direct-fleet-rollout.ts` の `REQUIRED_ENTRYPOINTS` と、それぞれの試験）に切り直しの 2 つ（`dist/session-rotation-stop.js` と `dist/rotation-watcher.js`）を足す。installer 2 つに `--node-path`（既定は今の `process.execPath`。実在し実行できる絶対 path だけ受ける）を足す。800 行を超える file（`src/kusabi-direct-fleet-rollout.ts` ほか）は呼び出しの数行だけを足す。DB の作り・workflow・資格情報・席の設定・v1 の証拠の schema は変えない。
+- [ ] 16.10 型検査・build・今の試験の全部・変えた行と新しい行の網羅率 100%（`coverage-method.md` の手順）を確かめ、記録（`code-summary.md`・`unit-test-instructions.md`・`traceability.json`・監査の項目の file）を head に合わせる。依頼の前の自己確認を流し、実装の `sds-audit-request/1` を同じ PR に出す。返却が来るまで push しない。受領は 16.7 と同じ手順。
+- [ ] 16.11 統合の後（作者以外の席 = suite-lead、保護面の無い単位は Owner の exact-head 不要）: 新しい版を作る（S1）→ S3・S4 のやり直しは Owner が arc の script を打つ → 席を起こし直して C2 を取り直す（SessionStart の証拠が `input_valid: true`、`auto_receive.status` と `store_binding` が読める）→ 診断の記録が空でない事を health check が報告する。これは Build and Test 以後の段の仕事で、この段の完了の条件ではない。
 
 ## Testing Contract
 
@@ -167,7 +183,7 @@
     },
     {
       "layer": "project",
-      "text": "- 試験や確かめの script で既定の createStore() を呼ぶと、JSON の store の置き場が homedir() から決まり、この Mac の実際の保存先に行が入る。必ず一時の HOME を指定して動かす（11-11 の code-generation で conversation-events.json・raw-events.json に試験の行が入った）。 (learned 2026-11-11)"
+      "text": "- 試験や確かめの script で既定の createStore() を呼ぶと、JSON の store の置き場が homedir() から決まり、この Mac の実際の保存先に行が入る。必ず一時の HOME を指定して動かす（11-11 の code-generation で conversation-events.json・raw-events.json に試験の行が入った）。 (learned 2026-11-11) \n\n- 手元で使い捨ての PostgreSQL を起動する時は、Unix socket の path が長いと起動できないので socket を切って（unix_socket_directories を空）127.0.0.1 の TCP だけにし、試験が英語の誤り文（duplicate key）を照合するので lc_messages=C を付ける。 (learned 2026-11-11)"
     }
   ],
   "obligations": {
@@ -203,8 +219,8 @@
       "Documentation and traceability."
     ]
   },
-  "input_sha256": "sha256:7a9e5e4c71010efdb12dd8dab66d83d4a38f93aa2615d2bed250b71bedd96422",
-  "contract_sha256": "sha256:4d8448c560303fb3a275a0dbb39a0fd9bcc66003a716a2a687563aa1b7b44665"
+  "input_sha256": "sha256:9ea0e79b5d02dd66f8f6f49dcc9235f9581640877390b41ce18d2c79294e905b",
+  "contract_sha256": "sha256:053223c5619a3b28bc20ca968ea8d30f6caff7814b6926f35778cb7fe1824714"
 }
 ```
 
@@ -223,3 +239,5 @@
 | FR9.1 | Step 4・12・14 |
 | FR9.2・FR9.3 | Step 15（統合の後、Owner の決定で据える） |
 | NFR1〜NFR7 | Step 5〜14 の試験と Step 12・13 |
+| FR10.1〜FR10.5 | Step 16.3〜16.5・16.8・16.9 |
+| FR10.6・FR10.7 | Step 16.9・16.10 |

@@ -3,6 +3,8 @@
 
 ## Interpretations
 <!-- example: 2026-05-29T10:14:32Z — chose REST over GraphQL; the consuming team only needs CRUD, revisit if subscriptions land -->
+- 2026-11-11T09:30:26Z — 新しい試行（Step 16）の範囲を、arc の判断（agent-memory#339 の comment 6791901034）と arc-sec の条件のとおり、「Claude の 3 つの入口が知らない key を拒否する故障を、知らない key を無視する 1 か所の parser に直す」と読んだ。共有の `parseTranscriptStopInput` を直すので Codex の Stop も同時に緩むが、Codex の SessionStart の parser は範囲の外のままにした（設計の記録 4 節・13 節で arc に確かめる）。
+- 2026-11-11T09:30:26Z — 観測した host の版は、hook の入力にも hook の環境にも版が無いため、診断の記録ではなく health check が `claude --version` で取る形にした。arc の判断の文面（診断の記録にだけ書く）と違うので、arc に確かめる（設計の記録 7 節・13 節）。
 
 ## Deviations
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
@@ -12,3 +14,5 @@
 
 ## Open questions
 <!-- example: 2026-05-29T10:14:32Z — confirm the retention window with compliance before the next stage hardens the schema -->
+- 2026-11-11T09:30:26Z — arc に確かめる 4 点（設計の記録 13 節）: 観測した版の取り方、Codex の Stop の同時の緩み、`.gitignore` を 1 行だけにすること、この PR を R3（Owner の exact-head）として扱うこと。設計監査の PASS の前に答えを得る。
+- 2026-11-11T09:30:26Z — 監査の依頼の前の自己確認の 3 つ目（項目の file を AI-DLC の見直し役に先に見せる）は、取り組みごとの承認が今回の試行に及ぶかを arc に確かめてから行う。

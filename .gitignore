@@ -19,3 +19,6 @@ dist/
 .DS_Store
 *.swp
 .vscode/settings.json
+
+# Backups the hook installers write next to .claude/settings.json
+.claude/settings.json.bak*

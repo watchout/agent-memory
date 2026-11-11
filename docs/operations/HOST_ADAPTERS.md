@@ -252,6 +252,21 @@ and `--apply` all report `trust_verified=false` and
 `first_context_delivered=false`: placement is never proof that the current
 definition was reviewed or that recovery reached the first model context.
 
+Hook input handling. The Claude Code `SessionStart` hook, the transcript-capture
+`Stop`/`UserPromptSubmit` hook, and the rotation `Stop`/`UserPromptSubmit` hook
+check the host's standard input in one place (`src/hook-input.ts`). The required
+keys and their types, the 64 KiB size limit, and the JSON-object shape are still
+enforced, and an input that fails them is refused with the same reason codes as
+before. A key that is not in the required or optional list is ignored: its value
+is never read or kept, because a host update may add keys at any time and
+refusing the whole input would silently stop recovery, capture, and rotation.
+The names of ignored keys (names, event, count, and times only) are written to a
+per-seat diagnostic file under `$AGENT_MEMORY_HOME/hook-input/`, which is not part
+of any evidence contract; if it cannot be written, the hook answer and evidence
+are unchanged. `host_contract_version` (`2.1.220`) records the host version the
+contract was last checked against, not the host's current version; the deployment
+health check compares it with the installed host's reported version.
+
 ### Gemini CLI ALPHA-03 native adapter
 
 Gemini CLI 0.38.2 loads a trusted project-local `.gemini/settings.json` and

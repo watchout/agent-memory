@@ -44,6 +44,17 @@ HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・
 
 `src/test-rotation-watcher-world.ts` は上の 2 つが使う、差し替えの tmux・ps・file の世界（試験の道具で、単独では動かさない）。見張りの正例の確かめ（本物の tmux、使い捨ての server、自分の socket）は手元で行い、結果を `code-summary.md` に書いた。この確かめは CI に入れていない。
 
+## 新しい試行（Step 16、hook の入力の parser）の試験
+
+試験の code は、設計の記録だけの PR の設計監査が PASS し、作者の受領が RECEIPT_ACCEPTED になった後に書く。試験だけの commit を実装の前に作り、直す前の code で落ちることを確かめて出力を記録する。下の 2 file は、今は無い（Step 16.8 で作る）。命令は、`HOME` と `AGENT_MEMORY_HOME` の両方を一時の folder にして動かす（診断の記録がこの Mac の実際の置き場に行を書かないように。project の決まり）。
+
+```bash
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-hook-input.ts              # FR10.1・FR10.2: 共通の parser。2.1.321 の実物の key の形の正例（SessionStart・UserPromptSubmit・Stop）、必須の欠け・型の違い・64 KiB 超・JSON でない・配列は拒否の負例、知らない key の値を読まない・残さない
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-hook-input-diagnostics.ts  # FR10.3・FR10.4・FR10.5: 診断の記録。名前だけ・安全な文字だけ・64 字・32 個・古い物から捨てる、0700/0600・一時 file + rename、書けない時に hook の答えと証拠が変わらない、壊れた file を読むと「観測できず」、観測した host の版は診断にだけ出る
+```
+
+入口 3 つが同じ parser を通ること（FR10.1）と、反転する既存の負例は、既存の試験の file の中で確かめる（`src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-session-rotation-flow.ts`。`unexpected: true` を拒否していた所は、受理に変わる。1 件ずつ deviation_ledger に「採った判断・採らなかった代替」を書く）。必須の入口の一覧（FR10.6）は `node scripts/test-kusabi-content-addressed-runtime-release.mjs` と `src/test-kusabi-direct-fleet-rollout.ts`、installer の `--node-path`（FR10.7）は `npm run test:claude-hook` と `npm run test:codex-hook` の installer の試験で確かめる。新しい 2 file は `package.json` の `test:claude-hook` の後ろに足して CI で回す（workflow は変えない）。
+
 触る所の今の試験（通ったまま保つ。Step 1 で基準を取る）:
 
 ```bash
