@@ -19,6 +19,7 @@ import {
   writeTurn,
 } from "./session-rotation-files.js";
 import { ROTATION_STATUS_SCHEMA, buildRotationStatus, runRotationStatusCli } from "./session-rotation-status.js";
+import { buildHookInputStatus } from "./session-rotation-status.js";
 import { hookInputDiagnosticPath, parseHookInputDiagnostic, writeHookInputDiagnostic } from "./hook-input-diagnostics.js";
 import { CLAUDE_SESSION_START_ADAPTER_ID } from "./claude-session-start.js";
 import { CLAUDE_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
@@ -206,6 +207,17 @@ test("hook input: another seat's records are not shown, and a name that is not p
   await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"], T0, "someone-else");
   assert.deepEqual(hookInputOf(statusLines(home)), { file: "none", adapters: [] });
   assert.equal(runRotationStatusCli(["--agent-id", "../escape", "--project", "agent-memory"], { AGENT_MEMORY_HOME: home }, () => undefined), 2);
+});
+
+test("hook input: the user id the trust checks expect is an input - another id, or none, makes a real record unreadable", async () => {
+  const { home } = freshSeat();
+  await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"]);
+  const env = { AGENT_MEMORY_HOME: home };
+  const own = process.getuid!();
+  assert.equal(buildHookInputStatus(env, "kusabi", "agent-memory", own).file, "valid");
+  assert.deepEqual(buildHookInputStatus(env, "kusabi", "agent-memory", own + 1), { file: "unreadable", adapters: [] });
+  assert.deepEqual(buildHookInputStatus(env, "kusabi", "agent-memory", null), { file: "unreadable", adapters: [] });
+  assert.equal(buildHookInputStatus(env, "kusabi", "agent-memory").file, "valid", "the default is the process's own id");
 });
 
 test("hook input: a file that cannot be trusted is unreadable, never none or zero names (S5)", async () => {

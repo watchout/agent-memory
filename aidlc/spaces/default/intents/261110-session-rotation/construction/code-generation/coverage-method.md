@@ -41,7 +41,7 @@
 
 4. 2 回目の監査への直しの後の結果（Node v26.12.1）: 30 file、変えた行と新しい行 4,071 行のうち、0 回の範囲は `src/rotation-watcher.ts` 134〜137 行目と `src/session-rotation-stop.ts` 640〜642 行目（どちらも入口の最後の網 `main().catch(...)`）の 2 つだけ。
 
-5. Step 16（PR 342、hook の入力の parser）の測り方と結果。手順は上の 1〜3 と同じで、次の 3 点だけ違う。(a) `BASE=1eef773be073b4f6526fe5b70f856cf02a0a7256`（PR 342 の base の main）。(b) `run` は `HOME` に加えて `AGENT_MEMORY_HOME="$H/.agent-memory"` も一時の folder にする（診断の記録がこの Mac の実際の置き場に行を書かないように）。(c) 測る命令に `npm run test:kusabi-direct-fleet-rollout` と `npm run test:kusabi-content-addressed-runtime-release` を足す（rollout と publisher の入口の一覧を読む）。結果（Node v26.12.1）: src の 12 file、変えた行と新しい行 930 行のうち、0 回の範囲は `src/session-rotation-stop.ts` 756 行目（入口の最後の網 `main().catch(...)`）の 1 つだけ。
+5. Step 16（PR 342、hook の入力の parser）の測り方と結果。手順は上の 1〜3 と同じで、次の 3 点だけ違う。(a) `BASE=1eef773be073b4f6526fe5b70f856cf02a0a7256`（PR 342 の base の main）。(b) `run` は `HOME` に加えて `AGENT_MEMORY_HOME="$H/.agent-memory"` も一時の folder にする（診断の記録がこの Mac の実際の置き場に行を書かないように）。(c) 測る命令に `npm run test:kusabi-direct-fleet-rollout` と `npm run test:kusabi-content-addressed-runtime-release` を足す（rollout と publisher の入口の一覧を読む）。結果（Node v26.12.1）: src の 12 file、変えた行と新しい行 938 行のうち、0 回の範囲は `src/session-rotation-stop.ts` 756 行目（入口の最後の網 `main().catch(...)`）の 1 つだけ。
 
 V8 の範囲は分岐の腕や無名関数も数えるので、行の網羅率より厳しい。数え方は Node の版で少し違いうる。
 

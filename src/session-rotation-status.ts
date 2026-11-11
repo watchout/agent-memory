@@ -21,6 +21,7 @@ import {
   parseHookInputDiagnostic,
   type HookInputDiagnosticEvent,
 } from "./hook-input-diagnostics.js";
+import { currentUid } from "./process-uid.js";
 import { CLAUDE_ROTATION_STOP_ADAPTER_ID, CODEX_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
 import { CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID, CODEX_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
 import {
@@ -121,11 +122,11 @@ export function buildRotationStatus(directory: string, agentId: string, project:
 
 const isMissing = (error: unknown): boolean => (error as NodeJS.ErrnoException).code === "ENOENT";
 
-function readAdapterRecord(env: NodeJS.ProcessEnv, agentId: string, project: string, adapterId: string): HookInputAdapterStatus | null {
+function readAdapterRecord(env: NodeJS.ProcessEnv, agentId: string, project: string, adapterId: string, uid: number | null): HookInputAdapterStatus | null {
   const file = hookInputDiagnosticPath(env, agentId, project, adapterId);
   const unreadable: HookInputAdapterStatus = { adapter_id: adapterId, file: "unreadable" };
   try {
-    if (!isPrivateRecordInfo(lstatSync(file))) return unreadable;
+    if (!isPrivateRecordInfo(lstatSync(file), uid)) return unreadable;
     const record = parseHookInputDiagnostic(readFileSync(file, "utf8"));
     if (record === null || record.adapter_id !== adapterId) return unreadable;
     return {
@@ -149,18 +150,18 @@ function readAdapterRecord(env: NodeJS.ProcessEnv, agentId: string, project: str
  * Reads the seat's diagnostic records. "none" only when nothing is there; a folder or a file that cannot be
  * trusted is "unreadable", never a count of zero. Reads only (the writer is the hook, in its own process).
  */
-export function buildHookInputStatus(env: NodeJS.ProcessEnv, agentId: string, project: string): HookInputStatus {
+export function buildHookInputStatus(env: NodeJS.ProcessEnv, agentId: string, project: string, uid: number | null = currentUid()): HookInputStatus {
   const seatFolder = hookInputDiagnosticFolder(env, agentId, project);
   for (const folder of [hookInputRoot(env), join(hookInputRoot(env), agentId), seatFolder]) {
     try {
-      if (!isPrivateFolderInfo(lstatSync(folder))) return { file: "unreadable", adapters: [] };
+      if (!isPrivateFolderInfo(lstatSync(folder), uid)) return { file: "unreadable", adapters: [] };
     } catch (error) {
       return { file: isMissing(error) ? "none" : "unreadable", adapters: [] };
     }
   }
   const adapters: HookInputAdapterStatus[] = [];
   for (const adapterId of HOOK_INPUT_ADAPTER_IDS) {
-    const status = readAdapterRecord(env, agentId, project, adapterId);
+    const status = readAdapterRecord(env, agentId, project, adapterId, uid);
     if (status !== null) adapters.push(status);
   }
   if (adapters.length === 0) return { file: "none", adapters };

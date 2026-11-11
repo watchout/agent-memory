@@ -138,7 +138,7 @@
 |------|------|------|
 | FR10.1・FR10.2 | `src/hook-input.ts`（新、38 行） | 外形の確かめを 1 か所に置く純粋な関数 `parseHookInputShape`。64 KiB 超・JSON でない・オブジェクトでない・必須の欠けは拒否し、必須と任意の key だけを取り出し、それ以外の key は名前だけを `ignored_names` に返す（値は読まない・残さない）。型・event・source・身元の確かめは入口に残る |
 | FR10.1・FR10.2 | `src/claude-session-start.ts`、`src/transcript-stop-capture.ts`、`src/session-rotation-stop.ts` | 入口 3 つが `parseHookInputShape` を通る。戻り値の型を変えない姉妹の関数（`parseClaudeSessionStartInputWithIgnored`・`parseTranscriptStopInputWithIgnored`）を足し、既存の `parseClaudeSessionStartInput`・`parseTranscriptStopInput` の署名と戻り値は変えない。Codex の Stop／UserPromptSubmit も共有の parser を通るので同時に緩む（H7）。Stop 系の任意項目の型違いは今のまま拒否せず省略、SessionStart の任意 3 項目は今のまま拒否 |
-| FR10.3・FR10.4 | `src/hook-input-diagnostics.ts`（新、268 行） | 診断の記録（名前・event・件数・時刻だけ）の核（`applyIgnoredNames`、時計を持たない）、読み手の純粋な関数（`parseHookInputDiagnostic`・`isPrivateFolderInfo`・`isPrivateRecordInfo`）、非同期の 1 回の書き手（`writeHookInputDiagnostic`）、答えを書き切った後の終了の予算 `finishAfterAnswer`（`HOOK_DIAGNOSTIC_MAX_WAIT_MS` 200 ms、`HOOK_DIAGNOSTIC_MIN_REMAINING_MS` 2000 ms、どちらも 1 か所） |
+| FR10.3・FR10.4 | `src/hook-input-diagnostics.ts`（新、275 行） | 診断の記録（名前・event・件数・時刻だけ）の核（`applyIgnoredNames`、時計を持たない）、読み手の関数（`parseHookInputDiagnostic` は純粋。`isPrivateFolderInfo`・`isPrivateRecordInfo` は `lstat` の結果と期待する uid を引数に取り、process を読まない（uid は書き手 `writeHookInputDiagnostic` と status が I/O の層で `currentUid()` から取って渡す））、非同期の 1 回の書き手（`writeHookInputDiagnostic`）、答えを書き切った後の終了の予算 `finishAfterAnswer`（`HOOK_DIAGNOSTIC_MAX_WAIT_MS` 200 ms、`HOOK_DIAGNOSTIC_MIN_REMAINING_MS` 2000 ms、どちらも 1 か所） |
 | FR10.4 | `src/session-rotation-status.ts` | 読むだけの `hook_input` の節（記録あり／記録なし／観測できず の 3 値。壊れた file・schema 違い・64 KiB 超・symlink・持ち主違い・権限が広い file は『観測できず』）。`buildRotationStatus` の戻り値は変えず、CLI の出力に `hook_input` を足す |
 | FR10.5 | `src/claude-session-start.ts` | `CLAUDE_SESSION_START_HOST_CONTRACT_VERSION` は `2.1.220` のまま（意味は『契約を確かめた版』と宣言の直前の注釈 2 行）。観測した版は配備の health check の手順（計画 16.11）で取る |
 | FR10.6 | `scripts/build-kusabi-content-addressed-runtime-release.mjs`、`src/kusabi-direct-fleet-rollout.ts`、`scripts/test-kusabi-content-addressed-runtime-release.mjs`、`src/test-kusabi-direct-fleet-rollout.ts` | 必須の入口の一覧に `dist/session-rotation-stop.js`・`dist/rotation-watcher.js` を足した（publisher の `ENTRYPOINTS`、試験の道具の `ENTRYPOINTS` と `REQUIRED_EXPORTS`、rollout の `REQUIRED_ENTRYPOINTS` の 3 か所）。試験で 3 か所が同じ集合であることを確かめる |
@@ -159,7 +159,7 @@
 | `src/test-hook-node-path.ts` | PASS（`--node-path` の規則） |
 | `src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-claude-hook-installer.ts`・`src/test-codex-hook-installer.ts` | PASS |
 | `src/test-rotation-hook-registration.ts` | 13 cases PASS |
-| `src/test-session-rotation-status.ts` | 16 cases PASS |
+| `src/test-session-rotation-status.ts` | 17 cases PASS |
 | `src/test-session-rotation-flow.ts` | 47 cases PASS |
 | `npm run test:kusabi-content-addressed-runtime-release`・`npm run test:kusabi-direct-fleet-rollout` | PASS（入口の一覧が 3 か所で同じ集合） |
 
@@ -184,16 +184,25 @@
 
 ### 行の網羅率（NFR4、Step 16）
 
-- 計り方は `coverage-method.md` の『Step 16』の節。base `1eef773b…`、Node v26.12.1。変えた行と新しい行（src の 12 file、930 行）のうち、動かなかった範囲は次の 1 つだけ（100% に届かない。数えから外さず、理由を書く）:
+- 計り方は `coverage-method.md` の『Step 16』の節。base `1eef773b…`、Node v26.12.1。変えた行と新しい行（src の 12 file、938 行）のうち、動かなかった範囲は次の 1 つだけ（100% に届かない。数えから外さず、理由を書く）:
   1. `src/session-rotation-stop.ts` 756 行目 `main().catch(...)`。`runRotationProcess` が `runRotationCli` の例外を捕まえて PASS を出力し、その後の flush・診断・exit は例外を投げない作りなので、`main` が失敗する道が code の中に無い。入口の最後の網（#341 で受け入れた同じ形の範囲。行番号だけが 640〜642 から 756 に動いた）。
 - ほかの 11 file は 0 範囲。前の測りで出た範囲（`claude-hook-installer.ts` 252、`claude-session-start.ts` 270、`hook-input-diagnostics.ts` の 7 か所、`session-rotation-status.ts` 144・158、`session-rotation-stop.ts` 706〜708、`transcript-stop-capture.ts` の本物の `main`）は試験を足して動かした。
 
-### 計画からの外れ（PR の deviation_ledger に書く。設計の記録 11 節の 15〜17 行目）
+### 計画からの外れ（PR の deviation_ledger に書く。設計の記録 11 節の 15〜18 行目）
 
-- `session-rotation-status` が診断の記録を、同期の `lstatSync`／`readFileSync` と診断の module の純粋な関数で読む（設計監査が PASS した 6 節の文面からの外れ。採った判断: 読む規則を診断の module の 1 か所に置き、status は同期の署名を保つ／採らなかった案: 非同期の読みを status が使う、診断の module に同期の読みを足す）。
+- `session-rotation-status` が診断の記録を、同期の `lstatSync`／`readFileSync` と診断の module の関数（`parseHookInputDiagnostic` は純粋、権限の確かめは `lstat` の結果と期待する uid を引数に取る）で読む（設計監査が PASS した 6 節の文面からの外れ。採った判断: 読む規則を診断の module の 1 か所に置き、status は同期の署名を保つ／採らなかった案: 非同期の読みを status が使う、診断の module に同期の読みを足す）。
+- 権限の確かめ `isPrivateFolderInfo`・`isPrivateRecordInfo` が期待する uid を引数に取る（1 回目の実装監査の F1 への直し。設計の記録 11 節の 18 行目。採った判断: uid は書き手と status が I/O の層で `currentUid()` から取って渡し、確かめは引数だけで決める。規則は診断の module の 1 か所のまま／採らなかった代替: 確かめが `process.getuid` を内で読んだまま、『純粋』の記述の側を直す。同じ引数でも process の uid で結果が変わり、uid を変えた試験ができず、S4 の筋（核は環境を読まない）から外れるため）。
 - 必須の入口の一覧は、設計の 8 節が数えた 2 か所ではなく 3 か所（publisher・試験の道具・rollout）。試験で 3 か所が同じ集合であることを確かめる。
 - 切り直しの Stop の起動の末尾が、旧の `main().catch(PASS を書く).finally(flush して exit(0))` から、`runRotationProcess` が答えを flush した後に終了を呼び、末尾は `main().catch(PASS を書き、callback で exit(0))` になった（診断の待ちを挟むため。`invokedPath` の判定・export の署名・入口の一覧は同じ。設計の記録 11 節の 17 行目）。
 - 型だけの誤り: `tsc`（repo の設定。`src/test*.ts` は対象外）では出ないが、試験 file を含めた型検査では、この PR の試験に 3 件（`test-claude-session-start` 272 行 assert 後の `never`、`test-session-rotation-flow` 989 行の cast、`test-session-rotation-status` 165 行 `event: string`）と、既存の `test-kusabi-direct-fleet-rollout` の host の型の誤り（この PR より前からある）が出る。実行には影響せず、直していない。
+
+### 1 回目の実装監査（BLOCK、F1 の 1 件）への直し
+
+- 返却: PR #342 の comment 6799347841（投稿者 iyasaka-ai）。依頼は comment 6798932751、対象の head は `4c154ce4`。21 件 PASS、IMP-6 と IMP-12 が FAIL で、同じ 1 件（F1、P3）を指す。作者の受領は BLOCKED（comment 6808139002）。
+- F1: `isPrivateFolderInfo`・`isPrivateRecordInfo`（`src/hook-input-diagnostics.ts`）が `process.getuid` を内で読むのに、IMP-6(c) と上の表が『純粋な関数』と書いていた。同じ明示の引数でも process の uid で答えが変わる。権限の迂回や情報の漏えいを見つけた指摘ではない。
+- 直し（返却の `required_change` の 1 つ目。挙動は同じで、渡し方だけ）: 2 つの確かめは `lstat` の結果と期待する uid（`number | null`）を引数に取り、process を読まない。`null`（uid が無い platform）は何も信頼しない側。uid は I/O の層が取る: 書き手 `writeHookInputDiagnostic(request, uid = currentUid())` と `buildHookInputStatus(env, agentId, project, uid = currentUid())`（`currentUid()` は `src/process-uid.ts` の既存の 1 か所）。規則は診断の module の 1 か所のまま、status には写さない（S3）。設計の記録 11 節の 18 行目に、採った判断と採らなかった代替（確かめが `process.getuid` を読んだまま『純粋』の記述を直す）を書いた。
+- 足した試験（足しただけ。既存の確かめは弱めていない）: `src/test-hook-input-diagnostics.ts` に (1) 渡した uid で判定が変わる（501／502／root／`null`、folder・file・mode・大きさの境）と、process が別の uid を名乗る・名乗らない間も同じ引数で同じ答えになること、(2) 書き手に別の uid や `null` を渡すと何も書かず、自分の uid では書くこと、(3) 確かめの本体に `process`・`getuid`・`currentUid` が現れないこと。`src/test-session-rotation-status.ts` に、別の uid や `null` を渡すと本物の記録が『観測できず』になる 1 case（16 → 17 cases）。
+- 数の変化: `src/hook-input-diagnostics.ts` 268 → 275 行、`src/session-rotation-status.ts` の変えた行が 87 → 88、変えた行と新しい行は 930 → 938 行。動かなかった範囲は同じ 1 つ（`src/session-rotation-stop.ts` 756 行目）。
 
 ## 公開してよいかの確かめ
 

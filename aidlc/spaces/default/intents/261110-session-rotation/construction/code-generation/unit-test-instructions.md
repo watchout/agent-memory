@@ -22,7 +22,7 @@ HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形・uid の取り方（21 cases）
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（40 cases）
 HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（12 cases）
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示（8 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示と hook_input の節（17 cases）
 HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
 ```
 

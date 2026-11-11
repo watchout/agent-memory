@@ -7,6 +7,7 @@
 import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ROTATION_SEAT_SEGMENT } from "./constants.js";
+import { currentUid } from "./process-uid.js";
 import { hookInputRoot } from "./session-rotation-files.js";
 
 export const HOOK_INPUT_DIAGNOSTIC_SCHEMA = "kusabi-hook-input-diagnostics/v1" as const;
@@ -183,26 +184,29 @@ export interface FileInfo {
   size: number;
 }
 
-/** A real folder (not a link), owned by this user and closed to group and others. Takes an lstat result. */
-export function isPrivateFolderInfo(info: FileInfo): boolean {
-  return info.isDirectory() && info.uid === process.getuid?.() && (info.mode & 0o077) === 0;
+/**
+ * A real folder (not a link), owned by the expected user and closed to group and others. Takes an lstat result and
+ * the user id the caller expects (null where the platform has none: nothing is trusted). Reads nothing else.
+ */
+export function isPrivateFolderInfo(info: FileInfo, uid: number | null): boolean {
+  return uid !== null && info.isDirectory() && info.uid === uid && (info.mode & 0o077) === 0;
 }
 
-/** A real file (not a link), owned by this user, closed to group and others, within the read limit. Takes an lstat result. */
-export function isPrivateRecordInfo(info: FileInfo): boolean {
-  return info.isFile() && info.uid === process.getuid?.() && (info.mode & 0o077) === 0 && info.size <= HOOK_DIAGNOSTIC_MAX_FILE_BYTES;
+/** A real file (not a link), owned by the expected user, closed to group and others, within the read limit. Same inputs as the folder check. */
+export function isPrivateRecordInfo(info: FileInfo, uid: number | null): boolean {
+  return uid !== null && info.isFile() && info.uid === uid && (info.mode & 0o077) === 0 && info.size <= HOOK_DIAGNOSTIC_MAX_FILE_BYTES;
 }
 
-async function ensurePrivateFolder(path: string): Promise<void> {
+async function ensurePrivateFolder(path: string, uid: number | null): Promise<void> {
   await mkdir(path, { mode: 0o700 }).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
   });
-  if (!isPrivateFolderInfo(await lstat(path))) throw new Error("hook_input_diagnostic_folder_untrusted");
+  if (!isPrivateFolderInfo(await lstat(path), uid)) throw new Error("hook_input_diagnostic_folder_untrusted");
 }
 
-async function readCurrent(target: string, adapterId: string): Promise<HookInputDiagnostic | null> {
+async function readCurrent(target: string, adapterId: string, uid: number | null): Promise<HookInputDiagnostic | null> {
   try {
-    if (!isPrivateRecordInfo(await lstat(target))) return null;
+    if (!isPrivateRecordInfo(await lstat(target), uid)) return null;
     const parsed = parseHookInputDiagnostic(await readFile(target, "utf8"));
     return parsed !== null && parsed.adapter_id === adapterId ? parsed : null;
   } catch {
@@ -210,8 +214,11 @@ async function readCurrent(target: string, adapterId: string): Promise<HookInput
   }
 }
 
-/** Adds the names to the record of this adapter. Never throws: a diagnostic that cannot be written is dropped. */
-export async function writeHookInputDiagnostic(request: HookDiagnosticRequest): Promise<void> {
+/**
+ * Adds the names to the record of this adapter. Never throws: a diagnostic that cannot be written is dropped.
+ * This is the file layer, so it reads the user id (once) and hands it to the trust checks as an input.
+ */
+export async function writeHookInputDiagnostic(request: HookDiagnosticRequest, uid: number | null = currentUid()): Promise<void> {
   let temporary: string | null = null;
   try {
     if (request.names.length === 0 || !EVENTS.includes(request.event) || !Number.isFinite(request.now.getTime())) return;
@@ -220,9 +227,9 @@ export async function writeHookInputDiagnostic(request: HookDiagnosticRequest): 
     const target = hookInputDiagnosticPath(request.env, request.agent_id, request.project, request.adapter_id);
     const root = hookInputRoot(request.env);
     await mkdir(root, { recursive: true, mode: 0o700 });
-    for (const path of [root, join(root, request.agent_id), folder]) await ensurePrivateFolder(path);
+    for (const path of [root, join(root, request.agent_id), folder]) await ensurePrivateFolder(path, uid);
     const next = applyIgnoredNames(
-      await readCurrent(target, request.adapter_id),
+      await readCurrent(target, request.adapter_id, uid),
       request.adapter_id,
       request.event,
       request.names,

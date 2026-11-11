@@ -19,6 +19,8 @@ import {
   applyIgnoredNames,
   finishAfterAnswer,
   hookInputDiagnosticPath,
+  isPrivateFolderInfo,
+  isPrivateRecordInfo,
   parseHookInputDiagnostic,
   writeHookInputDiagnostic,
   type HookInputDiagnostic,
@@ -375,6 +377,60 @@ async function waits(): Promise<void> {
   assert(small.exited_at < 1000);
 }
 
+// The trust checks take the expected user id as an input: the same inputs give the same answer whatever the process is.
+function trustInputs(): void {
+  const folder = (uid: number, mode = 0o40700) => ({ isDirectory: () => true, isFile: () => false, uid, mode, size: 0 });
+  const record = (uid: number, mode = 0o100600, size = 10) => ({ isDirectory: () => false, isFile: () => true, uid, mode, size });
+  const answers = () => [
+    isPrivateFolderInfo(folder(501), 501), isPrivateFolderInfo(folder(501), 502), isPrivateFolderInfo(folder(0), 0),
+    isPrivateFolderInfo(folder(501), null), isPrivateFolderInfo(folder(501, 0o40750), 501), isPrivateFolderInfo(folder(501, 0o40705), 501),
+    isPrivateFolderInfo(record(501), 501),
+    isPrivateRecordInfo(record(501), 501), isPrivateRecordInfo(record(501), 502), isPrivateRecordInfo(record(0), 0),
+    isPrivateRecordInfo(record(501), null), isPrivateRecordInfo(record(501, 0o100640), 501), isPrivateRecordInfo(record(501, 0o100604), 501),
+    isPrivateRecordInfo(record(501, 0o100600, HOOK_DIAGNOSTIC_MAX_FILE_BYTES), 501),
+    isPrivateRecordInfo(record(501, 0o100600, HOOK_DIAGNOSTIC_MAX_FILE_BYTES + 1), 501),
+    isPrivateRecordInfo(folder(501), 501),
+  ];
+  const expected = [true, false, true, false, false, false, false, true, false, true, false, false, false, true, false, false];
+  assert.deepEqual(answers(), expected, "the answer follows the id that is passed in, root included, and none trusts nothing");
+
+  // The process's own id is not read: the answers stay the same while the process claims other ids or none.
+  const holder = process as unknown as { getuid?: () => number };
+  const original = holder.getuid;
+  try {
+    for (const claimed of [() => 501, () => 502, () => 0, undefined]) {
+      holder.getuid = claimed;
+      assert.deepEqual(answers(), expected, `process id ${claimed ? claimed() : "absent"}`);
+    }
+  } finally {
+    holder.getuid = original;
+  }
+}
+
+async function trustInputsInFiles(): Promise<void> {
+  const home = await mkdtemp(join(tmpdir(), "diag-uid-"));
+  try {
+    const env = { AGENT_MEMORY_HOME: home };
+    const request = { env, agent_id: "kusabi", project: "agent-memory", adapter_id: ADAPTER, event: "Stop" as const, names: ["effort"], now: new Date(T0), pid: 4242 };
+    const target = hookInputDiagnosticPath(env, "kusabi", "agent-memory", ADAPTER);
+    const own = process.getuid!();
+    // Another expected id, or none: the folders are not trusted and nothing is recorded.
+    for (const uid of [own + 1, null]) {
+      await writeHookInputDiagnostic(request, uid);
+      await assert.rejects(lstat(target), (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT", `uid ${uid}`);
+    }
+    await writeHookInputDiagnostic(request, own);
+    assert(parseHookInputDiagnostic(await readFile(target, "utf8")), "the process's own id records");
+    // A record that exists is read back only for the id that is passed in: the other id starts a new record.
+    await writeHookInputDiagnostic({ ...request, now: new Date(T1) }, own);
+    assert.deepEqual(parseHookInputDiagnostic(await readFile(target, "utf8"))?.entries.map((entry) => entry.count), [2]);
+    await writeHookInputDiagnostic({ ...request, now: new Date(T1) });
+    assert.deepEqual(parseHookInputDiagnostic(await readFile(target, "utf8"))?.entries.map((entry) => entry.count), [3], "the default is the process's own id");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+}
+
 function staticChecks(): void {
   const source = readFileSync(join(repositoryRoot, "src", "hook-input-diagnostics.ts"), "utf8");
   // (11) asynchronous only: no synchronous file call and no fsync, no process started, no clock read in the core.
@@ -392,6 +448,11 @@ function staticChecks(): void {
   const coreSource = source.slice(coreStart, nextExport < 0 ? source.length : nextExport);
   assert(coreSource.length > 200, "the core slice is the function body");
   assert.doesNotMatch(coreSource, /Date\.now|new Date\(\)|Math\.random|randomUUID|process\./);
+  // The trust checks read only their arguments (the file layer passes the user id in).
+  const trustStart = source.indexOf("export function isPrivateFolderInfo");
+  const trustEnd = source.indexOf("async function ensurePrivateFolder");
+  assert(trustStart >= 0 && trustEnd > trustStart, "the trust checks are found");
+  assert.doesNotMatch(source.slice(trustStart, trustEnd), /process|getuid|currentUid/);
   // The one place of the wait constants.
   assert.equal((source.match(/HOOK_DIAGNOSTIC_MAX_WAIT_MS\s*=/g) ?? []).length, 1);
   assert.equal((source.match(/HOOK_DIAGNOSTIC_MIN_REMAINING_MS\s*=/g) ?? []).length, 1);
@@ -404,7 +465,9 @@ function staticChecks(): void {
 
 async function main(): Promise<void> {
   core();
+  trustInputs();
   await files();
+  await trustInputsInFiles();
   await waits();
   staticChecks();
   process.stdout.write("hook input diagnostics tests passed\n");
