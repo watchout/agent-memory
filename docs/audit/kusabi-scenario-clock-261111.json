@@ -1,0 +1,39 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた版 v1。監査席は作者と別の席（devauditor）。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合のどれも代替しない。",
+  "scope": "watchout/agent-memory の PR #341（取り組み 261110-session-rotation）で統合された試験 src/test-session-rotation-scenario.ts が、実時計が固定の時刻 2026-11-11T10:35Z を過ぎてから落ちる不具合の直し。試験だけの変更（R1）。保護面（DB の構造・権限・契約・workflow・資格情報）には触れない。権限の根拠は要らない（バグの直し方は escalation-policy で席が決めてよい範囲）。席間の連絡で arc から受けた指示は、権限の根拠に引いていない。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "items": [
+    {
+      "id": "CLK-1",
+      "criterion": "範囲: base と head の差分が次に閉じるか。(a) 変わる file は 2 つだけ: src/test-session-rotation-scenario.ts と、この file（docs/audit/kusabi-scenario-clock-261111.json）。(b) src/test-session-rotation-scenario.ts の差分は、44 行目の `const NOW = () => new Date(\"2026-11-11T10:05:00.000Z\");` を、コメント 1 行と `const NOW_BASE = Date.now();` と `const NOW = () => new Date(NOW_BASE);` の 3 行に置き換えた所だけで、ほかの行は base と同じ。(c) src/ の試験でない file、scripts/、package.json、package-lock.json、.github/、.shirube/、migrations、設定の file に差分が無い。git diff --stat base...head と git diff -U0 で確かめる。",
+      "basis": "[R] 試験だけの変更（R1）という区分。[N] 保護面を含まない（workflow・DB の構造・権限・契約・資格情報）。"
+    },
+    {
+      "id": "CLK-2",
+      "criterion": "原因の読み: 落ちる理由が実物の code で言えるか。(a) src/session-rotation-stop.ts の 343 行目で、pack の expires_at は注入された now に ROTATION_MARKER_TTL_SECONDS（src/constants.ts の 34 行目、1800）を足して作られる。(b) src/stores/json-store.ts の findSelectedRestartPack（703 行目で `const now = Date.now()`、709 行目で `new Date(item.expires_at).getTime() <= now` なら取れない）は実時計と比べる。(c) 直す前の試験は NOW を固定の 2026-11-11T10:05:00Z にしているので、pack の expires_at は 2026-11-11T10:35:00Z で、実時計がそれを過ぎると getSelectedRestartPack が null を返し、src/test-session-rotation-scenario.ts の base の 160 行目（直した後の file では 162 行目）の `assert.equal(pack?.status, \"active\")` が undefined になる。(d) この 3 つを実物で追って、PR 本文の説明と食い違いが無い。",
+      "basis": "[R] 試験が成功の条件の場面（担当交代の後に取り出せる）を正しく確かめること。[N] 引用した行は base の内容。"
+    },
+    {
+      "id": "CLK-3",
+      "criterion": "直しの正しさ: (a) 直した試験の NOW は、その試験の process の中で 1 度だけ読んだ実時計（NOW_BASE）から作られ、1 回の実行の中では同じ値を返す（呼ぶたびに変わらない）。(b) NOW を使う所（`deps = { now: NOW, identity: IDENTITY }` と `rotation = { now: NOW, identity: IDENTITY }`）は、日付の値そのものを期待値に使っていない（assert の期待値に固定の日付が残っていない）。(c) pack の有効期間（1800 秒）は、1 回の実行の長さ（数秒）より十分に長く、実時計の起点が変わっても結果が変わらない。(d) host_started_at の IDENTITY（\"Wed Nov 11 10:00:00 2026\"）は src の中で marker と turn の文字列の一致にだけ使われ、NOW とは比べられない（src/rotation-watcher-core.ts の 150〜151・193・263 行）。(e) 試験が確かめる中身（first Stop は block、2 回目の Stop は block しない、marker と turn の内容、SessionStart が保存した次の 1 歩を渡す、同じ束を 2 回使わない）が、直す前と同じ表明のまま残っている（表明を弱めていない）。",
+      "basis": "[R] 試験の確かめる範囲を弱めない。[N] 決定性: 1 回の実行の中で時刻が動かない。"
+    },
+    {
+      "id": "CLK-4",
+      "criterion": "再現と実測: (a) PR 本文に、直す前の main（aa77b683）の試験が落ちる出力（actual: undefined、expected: 'active'、base の 160 行目）と、直した後に PASS した出力が貼られている。(b) 直した試験を、監査席が同じ head で一時の HOME と AGENT_MEMORY_HOME を指定して流して PASS になる（既定の createStore() を使う試験なので、一時の HOME を指定しないと実際の保存先に行が入る。project の決まり）。(c) 直す前の head 6cae0d93 の CI（run 42998477305）が success、af06dd89 の CI（run 43008146139）が failure で、2 つの差が設計の記録だけ（src/ は同じ）であることが、PR 本文の run の URL から確かめられる。",
+      "basis": "[R] 失敗の再現を示す。[N] 試験の実行は一時の HOME。"
+    },
+    {
+      "id": "CLK-5",
+      "criterion": "同じ形の時限の試験が他に無いか: (a) src/stores/json-store.ts で実時計（Date.now()）と有効期限を比べるのは findSelectedRestartPack の 703・709 行だけで、ほかの比べは `new Date().toISOString()` を書き込みの時刻にする所だけ。(b) restart pack や expires_at を使う試験（src/test-boot-recovery.ts・src/test-company-dev-os-recovery-target-audit.ts・src/test-kusabi-checkpoint-recovery.ts・src/test-kusabi-continuity-interruption-e2e.ts・src/test-kusabi-fresh-session-fleet.ts・src/test-session-rotation-flow.ts・src/test-sqlite.ts・tests/gate0/no-secret-recovery.ts）のうち、固定の日付と JSON の store の期限判定を組み合わせた物が、この試験のほかに無い（src/test-session-rotation-flow.ts は store を差し替えた物で期限判定を通らない。src/test-company-dev-os-recovery-target-audit.ts の 2000-01-01 は常に期限切れを意図した値）。(c) CI の「native recovery and automatic receive」の step で落ちた後に走らない 12 本（gemini-hook・gemini-conversation-ingest・automatic-receive・内容固定の公開・direct rollout・spec-enforcement・sqlite・boot recovery・post-tool-hook・Gate 0 の 3 本）と、CI の外にある 3 本（checkpoint-recovery・continuity-interruption-e2e・fresh-session-fleet）を、一時の HOME で流して全部 PASS（PR 本文の 1 行）。",
+      "basis": "[R] 同じ原因の再発を、同じ形の試験の有無で確かめる。[N] 実測の日時は PR 本文に書く。"
+    },
+    {
+      "id": "CLK-6",
+      "criterion": "公開の安全と記録: (a) この head の変更分（上の 2 file）に、利用者の home の下の絶対 path・DB の URL・秘密の値・メールの宛先が無い。(b) この PR が根拠にする決定は、バグの直し方を席が決めてよい範囲（escalation-policy）で、席間の連絡を権限の根拠として引いていない。(c) 必須の検査 build-and-test (18)(20)(22) は、この head で success。必須でない Shirube Rapid/Lite Gates Report が failure の場合、PR 本文にその事実と理由（RL-PR-002。PR #341 でも同じ failure のまま統合された。直すのは .shirube/ か workflow で保護面）が書かれている。",
+      "basis": "[R] 公開してよい内容か。[N] 失敗を隠さない（S8）。"
+    }
+  ]
+}
