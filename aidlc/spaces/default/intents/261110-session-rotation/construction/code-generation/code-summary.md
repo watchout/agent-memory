@@ -127,6 +127,74 @@
 - 見直しの後に変えた物: 公開の repo に実在の home の path を残さないため、`src/test-claude-transcript-identity.ts` の例の文字列と `capture-identity-design.md` の例 1 か所を `/Users/example/...` の仮の値に置き換えた。見直し役への再依頼はしていない（arc の答え。Owner の委任 #49 6762288830 の範囲で、Owner の言葉ではない）。
 - 追跡の確かめ: 段の承認の場の通知に `traceability.json` について 1 件の指摘があるとあったが、本文は出なかった。手で流し直した結果は passed（`aidlc engine sensor fire traceability --stage code-generation --output-path <この取り組みの traceability.json>`、result=passed、detail_path=null）。
 
+## Step 16: hook の入力の parser（PR #342、FR10.1〜FR10.7）
+
+- branch `kusabi/hook-input-parser-261111`、base `1eef773be073b4f6526fe5b70f856cf02a0a7256`（main）。設計は `hook-input-design.md`（設計監査は 3 回目で PASS、依頼 6796476016・返却 6796790683・受領 6796851280）。試験だけの commit は `ea19ca16`（意図して red）。この節は、その後に書いた実装の commit についての記録。
+- code と試験の code は、この会話が書いた（作る役は呼んでいない）。
+
+### 変えた file（base の main に対して。新しい module 3 file、変えた src 9 file、scripts 2 file、`package.json` 1 行、試験の新規 3 file と変えた試験 8 file）
+
+| 要件 | file | 内容 |
+|------|------|------|
+| FR10.1・FR10.2 | `src/hook-input.ts`（新、38 行） | 外形の確かめを 1 か所に置く純粋な関数 `parseHookInputShape`。64 KiB 超・JSON でない・オブジェクトでない・必須の欠けは拒否し、必須と任意の key だけを取り出し、それ以外の key は名前だけを `ignored_names` に返す（値は読まない・残さない）。型・event・source・身元の確かめは入口に残る |
+| FR10.1・FR10.2 | `src/claude-session-start.ts`、`src/transcript-stop-capture.ts`、`src/session-rotation-stop.ts` | 入口 3 つが `parseHookInputShape` を通る。戻り値の型を変えない姉妹の関数（`parseClaudeSessionStartInputWithIgnored`・`parseTranscriptStopInputWithIgnored`）を足し、既存の `parseClaudeSessionStartInput`・`parseTranscriptStopInput` の署名と戻り値は変えない。Codex の Stop／UserPromptSubmit も共有の parser を通るので同時に緩む（H7）。Stop 系の任意項目の型違いは今のまま拒否せず省略、SessionStart の任意 3 項目は今のまま拒否 |
+| FR10.3・FR10.4 | `src/hook-input-diagnostics.ts`（新、268 行） | 診断の記録（名前・event・件数・時刻だけ）の核（`applyIgnoredNames`、時計を持たない）、読み手の純粋な関数（`parseHookInputDiagnostic`・`isPrivateFolderInfo`・`isPrivateRecordInfo`）、非同期の 1 回の書き手（`writeHookInputDiagnostic`）、答えを書き切った後の終了の予算 `finishAfterAnswer`（`HOOK_DIAGNOSTIC_MAX_WAIT_MS` 200 ms、`HOOK_DIAGNOSTIC_MIN_REMAINING_MS` 2000 ms、どちらも 1 か所） |
+| FR10.4 | `src/session-rotation-status.ts` | 読むだけの `hook_input` の節（記録あり／記録なし／観測できず の 3 値。壊れた file・schema 違い・64 KiB 超・symlink・持ち主違い・権限が広い file は『観測できず』）。`buildRotationStatus` の戻り値は変えず、CLI の出力に `hook_input` を足す |
+| FR10.5 | `src/claude-session-start.ts` | `CLAUDE_SESSION_START_HOST_CONTRACT_VERSION` は `2.1.220` のまま（意味は『契約を確かめた版』と注釈 1 行）。観測した版は配備の health check の手順（計画 16.11）で取る |
+| FR10.6 | `scripts/build-kusabi-content-addressed-runtime-release.mjs`、`src/kusabi-direct-fleet-rollout.ts`、`scripts/test-kusabi-content-addressed-runtime-release.mjs`、`src/test-kusabi-direct-fleet-rollout.ts` | 必須の入口の一覧に `dist/session-rotation-stop.js`・`dist/rotation-watcher.js` を足した（publisher の `ENTRYPOINTS`、試験の道具の `ENTRYPOINTS` と `REQUIRED_EXPORTS`、rollout の `REQUIRED_ENTRYPOINTS` の 3 か所）。試験で 3 か所が同じ集合であることを確かめる |
+| FR10.7 | `src/hook-node-path.ts`（新、49 行）、`src/claude-hook-installer.ts`、`src/codex-hook-installer.ts`、`src/rotation-hook-registration.ts` | `--node-path` は絶対・正規化済み・basename がちょうど `node`・実行できる通常 file だけ受け入れる（symlink は許可）。Claude の SessionStart の installer が管理中の hook を見分ける条件は node の path に依らない形。`parseClaudeHookCommand` の既定は変えない |
+| FR10.7 | `src/session-rotation-files.ts` | `<home>` の決め方を `agentMemoryHome` として取り出して診断の module と共有（置き場の決め方を 2 か所にしない） |
+| 試験 | `src/test-hook-input.ts`・`src/test-hook-input-diagnostics.ts`・`src/test-hook-node-path.ts`（新） | `package.json` の `test:claude-hook` の後ろに足した（workflow は変えない） |
+| 試験 | `src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-session-rotation-flow.ts`・`src/test-session-rotation-status.ts`・`src/test-claude-hook-installer.ts`・`src/test-codex-hook-installer.ts`・`src/test-rotation-hook-registration.ts`・`src/test-kusabi-direct-fleet-rollout.ts` | 入口ごとの差分の oracle（N+U）、現行の挙動の固定、時間の予算、診断の配線、installer の node の path の規則 |
+
+- 触った既存の file の行数: `src/session-rotation-stop.ts` 757 行、`src/claude-session-start.ts` 630 行、`src/codex-hook-installer.ts` 630 行、`src/claude-hook-installer.ts` 629 行、`src/transcript-stop-capture.ts` 410 行（どれも 800 行以内）。800 行を超える `src/kusabi-direct-fleet-rollout.ts`（2038 行）には 2 行だけ足した（触る時に直す。まとめて直す計画は作らない）。
+- 作業場の仕組みの file（`.claude/`・`.aidlc-version`・`.framework/`・作業場の `.gitignore` など）はこの PR に入れない。
+
+### 試験の結果（この Mac の Node v26.12.1、`HOME` と `AGENT_MEMORY_HOME` は一時の folder）
+
+| 試験 | 結果 |
+|------|------|
+| `src/test-hook-input.ts` | PASS（共通の parser） |
+| `src/test-hook-input-diagnostics.ts` | PASS（診断の記録、時間の予算、読み手） |
+| `src/test-hook-node-path.ts` | PASS（`--node-path` の規則） |
+| `src/test-claude-session-start.ts`・`src/test-transcript-stop-capture.ts`・`src/test-claude-hook-installer.ts`・`src/test-codex-hook-installer.ts` | PASS |
+| `src/test-rotation-hook-registration.ts` | 13 cases PASS |
+| `src/test-session-rotation-status.ts` | 16 cases PASS |
+| `src/test-session-rotation-flow.ts` | 47 cases PASS |
+| `npm run test:kusabi-content-addressed-runtime-release`・`npm run test:kusabi-direct-fleet-rollout` | PASS（入口の一覧が 3 か所で同じ集合） |
+
+- `npx tsc --noEmit -p .` は 0 で終わる。基準（`unit-test-instructions.md`）の既存の試験は全部通ったまま。
+
+### 試験だけの commit（`ea19ca16`）の試験を、実装の commit で直した所（弱めてはいない。どれも正しい実装でも成り立たない試験の側の誤り）
+
+1. `src/test-session-rotation-flow.ts` の差分の oracle: Codex の host に Claude の形の usage 行を渡していて、平常の入力が `unmeasured:no_usage_record` になっていた。Codex の `token_count` の行にした。期待する結果は変えていない。
+2. `src/test-hook-node-path.ts`: 『親の区間』の見本を `join()` で作っていて、`..` が正規化されて有効な path になっていた。文字列で作り `..` を残した。
+3. `src/test-claude-hook-installer.ts`・`src/test-codex-hook-installer.ts`: 2 と同じ見本の直し。
+4. 同じ 2 つ: 『拒否された実行は backup を残さない』が folder 全体を空の一覧と比べていたが、同じ作業場の前の入れ直しが自分の backup を作っていた。拒否の実行の前後の一覧を比べる形にした。
+5. `src/test-claude-hook-installer.ts`: 『runner が別の場所』の似せた変異が生の path を置き換えていたが、試験の runtime root に引用符が入るので command は引用符つきの形で、変異が効いていなかった。引用符つきの形を置き換える。
+6. `src/test-rotation-hook-registration.ts`: 『最初の語だけが違う』が最初の空白で切っていたが、その空白は node の path（`/opt/n o'de/node`）の中だった。引用符つきの最初の語の後で切る。
+
+### 網羅率のために足した試験（足しただけ。既存の確かめは弱めていない）
+
+- 取り込みの Stop の本物の `main`（別 process で起動。拒否される入力と、知らない key `prompt_id` を含む受理される入力。診断の file に `[["prompt_id",1]]` が出て、目印の値はどこにも出ない）。
+- 診断: 古い物の捨て方（件数・名前・event の同点）、オブジェクトでない・重複した entry、不正な pid の値は何も書かない、権限が広い既存の記録は置き換える、閉じた hook-input folder、改名できない時の一時 file の片付け、入れない folder での片付けの失敗。
+- status: mode 0o000 の記録は『観測できず』、mode 0o000 の hook-input の root は `{file:"unreadable",adapters:[]}`。
+- installer: 管理中の hook の正規の形（引用符なしの node の語、余分な空白）。SessionStart の proxy: 違う event・知らない source に `permission_mode:"default"` を付けた入力。
+- 切り直しの Stop: evidence の stream が投げても、output に PASS を書いて process が終わる。
+
+### 行の網羅率（NFR4、Step 16）
+
+- 計り方は `coverage-method.md` の『Step 16』の節。base `1eef773b…`、Node v26.12.1。変えた行と新しい行（src の 12 file、930 行）のうち、動かなかった範囲は次の 1 つだけ（100% に届かない。数えから外さず、理由を書く）:
+  1. `src/session-rotation-stop.ts` 756 行目 `main().catch(...)`。`runRotationProcess` が `runRotationCli` の例外を捕まえて PASS を出力し、その後の flush・診断・exit は例外を投げない作りなので、`main` が失敗する道が code の中に無い。入口の最後の網（#341 で受け入れた同じ形の範囲。行番号だけが 640〜642 から 756 に動いた）。
+- ほかの 11 file は 0 範囲。前の測りで出た範囲（`claude-hook-installer.ts` 252、`claude-session-start.ts` 270、`hook-input-diagnostics.ts` の 7 か所、`session-rotation-status.ts` 144・158、`session-rotation-stop.ts` 706〜708、`transcript-stop-capture.ts` の本物の `main`）は試験を足して動かした。
+
+### 計画からの外れ（PR の deviation_ledger に書く。設計の記録 11 節の 15〜17 行目）
+
+- `session-rotation-status` が診断の記録を、同期の `lstatSync`／`readFileSync` と診断の module の純粋な関数で読む（設計監査が PASS した 6 節の文面からの外れ。採った判断: 読む規則を診断の module の 1 か所に置き、status は同期の署名を保つ／採らなかった案: 非同期の読みを status が使う、診断の module に同期の読みを足す）。
+- 必須の入口の一覧は、設計の 8 節が数えた 2 か所ではなく 3 か所（publisher・試験の道具・rollout）。試験で 3 か所が同じ集合であることを確かめる。
+- 切り直しの Stop の起動の末尾が、旧の `main().catch(PASS を書く).finally(flush して exit(0))` から、`runRotationProcess` が答えを flush した後に終了を呼び、末尾は `main().catch(PASS を書き、callback で exit(0))` になった（診断の待ちを挟むため。`invokedPath` の判定・export の署名・入口の一覧は同じ。設計の記録 11 節の 17 行目）。
+- 型だけの誤り: `tsc`（repo の設定。`src/test*.ts` は対象外）では出ないが、試験 file を含めた型検査では、この PR の試験に 3 件（`test-claude-session-start` 272 行 assert 後の `never`、`test-session-rotation-flow` 989 行の cast、`test-session-rotation-status` 165 行 `event: string`）と、既存の `test-kusabi-direct-fleet-rollout` の host の型の誤り（この PR より前からある）が出る。実行には影響せず、直していない。
+
 ## 公開してよいかの確かめ
 
 - 公開の repo なので、PR に入れる file の足した行を、手元の path（`/Users/`）、DB の URL・資格情報、秘密の値、勧告の番号、メールアドレスで探す。結果は push の前にもう一度流し、この節に書いた数と同じかを確かめる（伏せた所は 0）。

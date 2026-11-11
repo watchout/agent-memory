@@ -5,11 +5,26 @@
  * writes nothing, calls neither tmux nor ps, and prints ids, states, counts and
  * times only: never conversation text, never a path. A file that exists but
  * cannot be trusted is shown as "unreadable", not as missing (standard S5).
+ *
+ * The `hook_input` section (FR10.4) adds the key names the hook entries ignored, from the diagnostic
+ * records only: names, events, counts and the last time seen, never a value, a path or a process id.
  */
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CLAUDE_SESSION_START_ADAPTER_ID } from "./claude-session-start.js";
 import {
+  hookInputDiagnosticFolder,
+  hookInputDiagnosticPath,
+  isPrivateFolderInfo,
+  isPrivateRecordInfo,
+  parseHookInputDiagnostic,
+  type HookInputDiagnosticEvent,
+} from "./hook-input-diagnostics.js";
+import { CLAUDE_ROTATION_STOP_ADAPTER_ID, CODEX_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
+import { CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID, CODEX_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
+import {
+  hookInputRoot,
   readClaim,
   readHookState,
   readMarker,
@@ -21,6 +36,28 @@ import {
 export const ROTATION_STATUS_SCHEMA = "kusabi-rotation-status/v1" as const;
 
 export type FileState = "none" | "unreadable" | "valid";
+
+/** The hook entries that write a diagnostic record, in the order they are shown. */
+const HOOK_INPUT_ADAPTER_IDS: readonly string[] = [
+  CLAUDE_SESSION_START_ADAPTER_ID,
+  CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID,
+  CODEX_TRANSCRIPT_STOP_ADAPTER_ID,
+  CLAUDE_ROTATION_STOP_ADAPTER_ID,
+  CODEX_ROTATION_STOP_ADAPTER_ID,
+].sort();
+
+export interface HookInputAdapterStatus {
+  adapter_id: string;
+  file: "valid" | "unreadable";
+  entries?: Array<{ event: HookInputDiagnosticEvent; name: string; count: number; last_seen: string }>;
+  dropped_names?: number;
+  invalid_names?: number;
+}
+
+export interface HookInputStatus {
+  file: FileState;
+  adapters: HookInputAdapterStatus[];
+}
 
 export interface RotationStatus {
   schema_version: typeof ROTATION_STATUS_SCHEMA;
@@ -82,6 +119,54 @@ export function buildRotationStatus(directory: string, agentId: string, project:
   };
 }
 
+const isMissing = (error: unknown): boolean => (error as NodeJS.ErrnoException).code === "ENOENT";
+
+function readAdapterRecord(env: NodeJS.ProcessEnv, agentId: string, project: string, adapterId: string): HookInputAdapterStatus | null {
+  const file = hookInputDiagnosticPath(env, agentId, project, adapterId);
+  const unreadable: HookInputAdapterStatus = { adapter_id: adapterId, file: "unreadable" };
+  try {
+    if (!isPrivateRecordInfo(lstatSync(file))) return unreadable;
+    const record = parseHookInputDiagnostic(readFileSync(file, "utf8"));
+    if (record === null || record.adapter_id !== adapterId) return unreadable;
+    return {
+      adapter_id: adapterId,
+      file: "valid",
+      entries: record.entries.map((entry) => ({
+        event: entry.event,
+        name: entry.name,
+        count: entry.count,
+        last_seen: entry.last_seen,
+      })),
+      dropped_names: record.dropped_names,
+      invalid_names: record.invalid_names,
+    };
+  } catch (error) {
+    return isMissing(error) ? null : unreadable;
+  }
+}
+
+/**
+ * Reads the seat's diagnostic records. "none" only when nothing is there; a folder or a file that cannot be
+ * trusted is "unreadable", never a count of zero. Reads only (the writer is the hook, in its own process).
+ */
+export function buildHookInputStatus(env: NodeJS.ProcessEnv, agentId: string, project: string): HookInputStatus {
+  const seatFolder = hookInputDiagnosticFolder(env, agentId, project);
+  for (const folder of [hookInputRoot(env), join(hookInputRoot(env), agentId), seatFolder]) {
+    try {
+      if (!isPrivateFolderInfo(lstatSync(folder))) return { file: "unreadable", adapters: [] };
+    } catch (error) {
+      return { file: isMissing(error) ? "none" : "unreadable", adapters: [] };
+    }
+  }
+  const adapters: HookInputAdapterStatus[] = [];
+  for (const adapterId of HOOK_INPUT_ADAPTER_IDS) {
+    const status = readAdapterRecord(env, agentId, project, adapterId);
+    if (status !== null) adapters.push(status);
+  }
+  if (adapters.length === 0) return { file: "none", adapters };
+  return { file: adapters.some((adapter) => adapter.file === "unreadable") ? "unreadable" : "valid", adapters };
+}
+
 const USAGE = "usage: session-rotation-status --agent-id ID --project NAME (both may come from AGENT_MEMORY_AGENT_ID and AGENT_MEMORY_PROJECT)";
 
 /** Exit code 0 with one JSON line, or 2 with a one-line reason. */
@@ -108,7 +193,7 @@ export function runRotationStatusCli(
     write(`${USAGE}\nthe agent id and project must be plain names\n`);
     return 2;
   }
-  write(`${JSON.stringify(buildRotationStatus(directory, agentId, project))}\n`);
+  write(`${JSON.stringify({ ...buildRotationStatus(directory, agentId, project), hook_input: buildHookInputStatus(env, agentId, project) })}\n`);
   return 0;
 }
 

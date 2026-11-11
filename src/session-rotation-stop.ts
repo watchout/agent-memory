@@ -10,6 +10,7 @@
  */
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { getClaudeProjectsDir } from "./claude-conversation-ingest.js";
 import { checkClaudeTranscriptPlacement, judgeClaudeRecords } from "./claude-transcript-identity.js";
@@ -24,6 +25,12 @@ import {
   ROTATION_HANDOFF_MAX_CHARS,
   ROTATION_MARKER_TTL_SECONDS,
 } from "./constants.js";
+import {
+  finishAfterAnswer,
+  writeHookInputDiagnostic,
+  type HookDiagnosticRequest,
+  type HookInputDiagnosticEvent,
+} from "./hook-input-diagnostics.js";
 import { redactText } from "./redact.js";
 import { matchesCodexSession, readBoundedTranscriptTailSnapshot } from "./session-start-auto-receive.js";
 import {
@@ -55,7 +62,7 @@ import {
   TRANSCRIPT_CAPTURE_TAIL_BYTES,
   isWithin,
   parseTranscriptStopArgs,
-  parseTranscriptStopInput,
+  parseTranscriptStopInputWithIgnored,
   verifyBinding,
   type TranscriptStopInput,
 } from "./transcript-stop-capture.js";
@@ -116,6 +123,8 @@ export interface RotationStopDependencies {
   rotation_root?: string;
   createStore?: () => Promise<Store>;
   read_transcript?: (host: RotationHost, path: string, expected: ExpectedTranscript) => TranscriptTail;
+  /** Called once with the key names the entry does not know, right after the parser accepts the input. */
+  on_ignored_names?: (names: readonly string[]) => void;
 }
 
 /** What the hook itself says this conversation is; the transcript must prove it is that one. */
@@ -280,10 +289,13 @@ export interface Deadline {
   lapsed: Promise<void>;
   isExpired(): boolean;
   cancel(): void;
+  /** Milliseconds of the budget left by the monotonic clock, between 0 and the budget; still answers after cancel. */
+  remaining_ms(): number;
   committed: RotationStopResult | null;
 }
 
-export function startDeadline(budgetMs: number): Deadline {
+export function startDeadline(budgetMs: number, clock: () => number = () => performance.now()): Deadline {
+  const started = clock();
   let expired = false;
   let timer: ReturnType<typeof setTimeout>;
   const lapsed = new Promise<void>((resolve) => {
@@ -292,7 +304,13 @@ export function startDeadline(budgetMs: number): Deadline {
       resolve();
     }, budgetMs);
   });
-  return { lapsed, isExpired: () => expired, cancel: () => clearTimeout(timer), committed: null };
+  return {
+    lapsed,
+    isExpired: () => expired,
+    cancel: () => clearTimeout(timer),
+    remaining_ms: () => Math.min(budgetMs, Math.max(0, budgetMs - (clock() - started))),
+    committed: null,
+  };
 }
 
 interface SaveContext {
@@ -403,7 +421,9 @@ async function runWithin(
   const threshold = options.threshold_tokens ?? ROTATION_DEFAULT_THRESHOLD_TOKENS;
   let input: TranscriptStopInput;
   try {
-    input = parseTranscriptStopInput(raw);
+    const parsed = parseTranscriptStopInputWithIgnored(raw);
+    input = parsed.input;
+    dependencies.on_ignored_names?.(parsed.ignored_names);
   } catch {
     return { output: PASS, evidence: failedEvidence(host, binding, "malformed_input", threshold) };
   }
@@ -573,12 +593,26 @@ export async function readAll(stream: AsyncIterable<Buffer | string>): Promise<s
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/** What the CLI hands over for a diagnostic of ignored key names; the caller decides whether and when to write it. */
+export interface RotationDiagnosticRequest {
+  names: readonly string[];
+  remaining_ms: () => number;
+  host: RotationHost;
+  agent_id: string;
+  project: string;
+  event: HookInputDiagnosticEvent;
+}
+
 export interface RotationCliIo {
   argv: string[];
   env: NodeJS.ProcessEnv;
   read_input: () => Promise<string>;
   write_evidence: (line: string) => void;
   write_output: (line: string) => void;
+  /** Called once, after both lines are written, for an accepted input that carried unknown key names. */
+  request_diagnostic?: (request: RotationDiagnosticRequest) => void;
+  /** Monotonic milliseconds for the time budget; the real clock when absent. */
+  clock?: () => number;
   dependencies?: RotationStopDependencies;
 }
 
@@ -596,18 +630,23 @@ export async function runRotationCli(io: RotationCliIo): Promise<void> {
   };
   let result: RotationStopResult;
   let budget: Deadline | undefined;
+  let ignoredNames: readonly string[] = [];
+  const dependencies = io.request_diagnostic
+    ? { ...io.dependencies, on_ignored_names: (names: readonly string[]) => { ignoredNames = names; } }
+    : io.dependencies;
   try {
     const parsed = parseRotationStopArgs(io.argv, io.env);
     host = parsed.host;
     binding = parsed.binding;
     // The one internal budget starts here, before standard input is read: a host that never closes it must not outlast the deadline (NFR1).
-    const running = startDeadline(rotationDeadlineMs(binding.timeout_ms));
+    const running = startDeadline(rotationDeadlineMs(binding.timeout_ms), io.clock);
     budget = running;
     const raw = await Promise.race([io.read_input(), running.lapsed.then(() => null)]);
     result = raw === null
       ? { output: PASS, evidence: failedEvidence(host, binding, DEADLINE_REASON, parsed.options.threshold_tokens ?? ROTATION_DEFAULT_THRESHOLD_TOKENS) }
-      : await runSessionRotationStop(raw, host, binding, parsed.options, io.dependencies, running);
+      : await runSessionRotationStop(raw, host, binding, parsed.options, dependencies, running);
   } catch {
+    ignoredNames = [];
     result = {
       output: PASS,
       evidence: failedEvidence(host, binding, "malformed_input", ROTATION_DEFAULT_THRESHOLD_TOKENS),
@@ -617,15 +656,92 @@ export async function runRotationCli(io: RotationCliIo): Promise<void> {
   }
   io.write_evidence(`${JSON.stringify(result.evidence)}\n`);
   io.write_output(`${JSON.stringify(result.output)}\n`);
+  const event = result.evidence.hook_event_name;
+  if (io.request_diagnostic && budget !== undefined && ignoredNames.length > 0 && event !== null) {
+    io.request_diagnostic({
+      names: ignoredNames,
+      remaining_ms: budget.remaining_ms,
+      host,
+      agent_id: binding.agent_id,
+      project: binding.project,
+      event,
+    });
+  }
+}
+
+export interface RotationProcessIo {
+  argv: string[];
+  env: NodeJS.ProcessEnv;
+  read_input: () => Promise<string>;
+  write_evidence: (line: string) => void;
+  write_output: (line: string) => void;
+  /** Calls done once everything written so far has reached the host. */
+  flush: (done: () => void) => void;
+  exit: () => void;
+  run_diagnostic: (request: HookDiagnosticRequest) => Promise<unknown> | void;
+  /** Monotonic milliseconds. */
+  clock: () => number;
+  now: () => Date;
+  pid: number;
+  dependencies?: RotationStopDependencies;
+}
+
+/**
+ * The whole process, with every side effect passed in. The answer and the evidence are written and flushed
+ * first; only then is the diagnostic of the ignored key names attempted, for at most a bounded wait.
+ */
+export async function runRotationProcess(io: RotationProcessIo): Promise<void> {
+  const handed: { request: RotationDiagnosticRequest | null } = { request: null };
+  try {
+    await runRotationCli({
+      argv: io.argv,
+      env: io.env,
+      read_input: io.read_input,
+      write_evidence: io.write_evidence,
+      write_output: io.write_output,
+      request_diagnostic: (request) => { handed.request = request; },
+      clock: io.clock,
+      dependencies: io.dependencies,
+    });
+  } catch {
+    io.write_output(`${JSON.stringify(PASS)}\n`);
+  }
+  await new Promise<void>((done) => io.flush(done));
+  const request = handed.request;
+  if (request === null) {
+    io.exit();
+    return;
+  }
+  finishAfterAnswer({
+    remaining_ms: request.remaining_ms(),
+    run_diagnostic: () =>
+      io.run_diagnostic({
+        env: io.env,
+        agent_id: request.agent_id,
+        project: request.project,
+        adapter_id: request.host === "claude_code" ? CLAUDE_ROTATION_STOP_ADAPTER_ID : CODEX_ROTATION_STOP_ADAPTER_ID,
+        event: request.event,
+        names: request.names,
+        now: io.now(),
+        pid: io.pid,
+      }),
+    exit: io.exit,
+  });
 }
 
 async function main(): Promise<void> {
-  await runRotationCli({
+  await runRotationProcess({
     argv: process.argv.slice(2),
     env: process.env,
     read_input: () => readAll(process.stdin),
     write_evidence: (line) => { process.stderr.write(line); },
     write_output: (line) => { process.stdout.write(line); },
+    flush: (done) => { process.stdout.write("", () => process.stderr.write("", () => done())); },
+    exit: () => process.exit(0),
+    run_diagnostic: writeHookInputDiagnostic,
+    clock: () => performance.now(),
+    now: () => new Date(),
+    pid: process.pid,
   });
 }
 
@@ -636,12 +752,6 @@ try {
   invokedPath = "";
 }
 if (invokedPath === realpathSync(fileURLToPath(import.meta.url))) {
-  main()
-    .catch(() => {
-      process.stdout.write(`${JSON.stringify(PASS)}\n`);
-    })
-    // The answer is out; a store that never returned must not keep the hook alive until the host kills it (NFR1).
-    .finally(() => {
-      process.stdout.write("", () => process.stderr.write("", () => process.exit(0)));
-    });
+  // runRotationProcess ends with the exit once the answer is flushed (a store that never returned must not keep the hook alive: NFR1).
+  main().catch(() => process.stdout.write(`${JSON.stringify(PASS)}\n`, () => process.exit(0)));
 }

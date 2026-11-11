@@ -226,7 +226,7 @@ async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
     ["a NUL byte", `${nodeA}\0`],
     ["the name nodejs", nodejsLink],
     ["the name node22", node22Link],
-    ["a parent segment", join(nodes, "A", "..", "A", "node")],
+    ["a parent segment", `${join(nodes, "A")}/../A/node`],
     ["an empty value", ""],
   ];
   for (const [label, value] of refused) {
@@ -242,11 +242,12 @@ async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
   }
   // A refusal does not touch an existing, valid configuration.
   const keepBefore = await readFile(join(workspace, ".claude", "settings.json"), "utf8");
+  const folderBefore = (await readdir(join(workspace, ".claude"))).sort();
   await expectReject(() => installClaudeSessionStartHook(withNode(workspace, "apply", nodejsLink)), /invalid node path/);
   assert.equal(await readFile(join(workspace, ".claude", "settings.json"), "utf8"), keepBefore);
   assert.deepEqual((await readdir(workspace)).sort(), [".claude"]);
-  assert.deepEqual((await readdir(join(workspace, ".claude"))).filter((name) => name.includes("bak")), [],
-    "no backup was made by a refused run");
+  assert.deepEqual((await readdir(join(workspace, ".claude"))).sort(), folderBefore,
+    "a refused run leaves no backup or temporary file (the earlier successful re-install made its own backup)");
 
   // The reader that finds our own hook has a default that did not move (the rollout read-back and the recovery-target check rely on it).
   const foreignNode = "/opt/other/bin/node";
@@ -269,7 +270,9 @@ async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
   assert.equal(parseClaudeHookCommand(foreign.replace(CLAUDE_SESSION_START_ADAPTER_ID, "other-adapter-id"), "any"), null);
   assert.equal(parseClaudeHookCommand(foreign.replace("--agent-id", "--agent"), "any"), null);
   assert.equal(parseClaudeHookCommand(foreign.replace(String(CLAUDE_SESSION_START_MAX_TOKENS), "999999"), "any"), null);
-  assert.equal(parseClaudeHookCommand(foreign.replace(join(realRuntime, "dist", "claude-session-start.js"), join(realRuntime, "dist", "elsewhere.js")), "any"), null);
+  assert.equal(parseClaudeHookCommand(foreign.replace(quote(foreignNode), foreignNode), "any"), null, "the same words written another way are not the command the installer writes");
+  assert.equal(parseClaudeHookCommand(foreign.replace(" --adapter-id", "  --adapter-id"), "any"), null, "an extra space is not the command the installer writes");
+  assert.equal(parseClaudeHookCommand(foreign.replace(quote(join(realRuntime, "dist", "claude-session-start.js")), quote(join(realRuntime, "dist", "elsewhere.js"))), "any"), null);
   assert.equal(parseClaudeHookCommand("", "any"), null);
   assert.equal(parseClaudeHookCommand("'/opt/other/bin/node'", "any"), null);
 

@@ -222,6 +222,8 @@ async function hostAddedKeys(context: {
     ["empty agent type", { ...base, agent_type: "" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
     ["wrong event", { ...base, hook_event_name: "Stop" }, binding(workspace), "UNSUPPORTED_HOOK_EVENT"],
     ["unknown source", { ...base, source: "unknown" }, binding(workspace), "UNSUPPORTED_START_SOURCE"],
+    ["wrong event, permission mode given (it is passed on as it is)", { ...base, permission_mode: "default", hook_event_name: "Stop" }, binding(workspace), "UNSUPPORTED_HOOK_EVENT"],
+    ["unknown source, permission mode given", { ...base, permission_mode: "default", source: "unknown" }, binding(workspace), "UNSUPPORTED_START_SOURCE"],
     ["wrong event, no model (keys do not line up for the Codex parser)", { ...withoutModel, hook_event_name: "Stop" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
     ["unknown source, agent type present", { ...base, source: "unknown", agent_type: "worker" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
     ["binding invalid", base, binding(workspace, { agent_id: "" }), "IDENTITY_BINDING_INVALID"],

@@ -46,6 +46,8 @@ const REQUIRED_ENTRYPOINTS = [
   "dist/kusabi-direct-fleet-rollout.js",
   "dist/kusabi-fleet-rollout.js",
   "dist/raw-capture-service.js",
+  "dist/session-rotation-stop.js",
+  "dist/rotation-watcher.js",
 ] as const;
 
 const ELIGIBLE_PRIMARY_SQL = `

@@ -925,6 +925,10 @@ test("FR10: a host-added key is ignored on the rotation Stop - the result equals
     const base = JSON.parse(s.input("Stop")) as Record<string, unknown>;
     const prompt = JSON.parse(s.input("UserPromptSubmit")) as Record<string, unknown>;
     const without = (key: string) => { const copy = { ...base }; delete copy[key]; return copy; };
+    // Each host's own usage record shape: the Codex rollout carries a token_count event, Claude Code a message usage.
+    const usage = host === "codex"
+      ? j({ type: "event_msg", payload: { type: "token_count", info: { last_token_usage: { input_tokens: 1_000 }, model_context_window: 1_000_000 } } })
+      : usageLine(1_000);
     const cases: Array<[string, Record<string, unknown>, typeof s.binding, string]> = [
       ["accepted Stop", base, s.binding, "none/below_threshold"],
       ["accepted UserPromptSubmit", prompt, s.binding, "busy/prompt_submitted"],
@@ -938,7 +942,7 @@ test("FR10: a host-added key is ignored on the rotation Stop - the result equals
     ];
     for (const [label, input, binding, expected] of cases) {
       const run = (raw: Record<string, unknown>) =>
-        runSessionRotationStop(j(raw), host, binding, {}, deps(s, [usageLine(1_000)], fakeStore()));
+        runSessionRotationStop(j(raw), host, binding, {}, deps(s, [usage], fakeStore()));
       const plain = await run(input);
       const marked = await run({ ...input, ...(input.hook_event_name === "UserPromptSubmit" ? U_PROMPT : U_STOP), session_title: MARK });
       assert.equal(`${plain.evidence.action}/${plain.evidence.reason}`, expected, `${host} ${label}: the plain input's result`);
@@ -1042,6 +1046,7 @@ async function processRun(
   extra: {
     argv?: string[];
     flush_delay?: number;
+    evidence_throws?: boolean;
     clock?: (flushed: boolean) => number;
     run_diagnostic?: (request: HookDiagnosticRequest) => Promise<unknown> | void;
     dependencies?: RotationStopDependencies;
@@ -1054,7 +1059,11 @@ async function processRun(
     argv: extra.argv ?? cliArgs(s.workspace, 7_000),
     env: {},
     read_input: async () => { if (raw instanceof Error) throw raw; return raw; },
-    write_evidence: (line) => { run.log.push("evidence"); run.evidence.push(line); },
+    write_evidence: (line) => {
+      if (extra.evidence_throws) throw new Error("the evidence stream is closed");
+      run.log.push("evidence");
+      run.evidence.push(line);
+    },
     write_output: (line) => { run.log.push("output"); run.output.push(line); },
     flush: (done) => {
       run.log.push("flush");
@@ -1073,6 +1082,14 @@ async function processRun(
   await wait(60);
   return run;
 }
+
+test("FR10 process: a stream that throws on the evidence still gets the pass on the output, and the process ends", async () => {
+  const s = seat();
+  const run = await processRun(s, s.input("Stop"), { evidence_throws: true });
+  assert.equal(run.exits, 1);
+  assert.deepEqual(run.output.map((line) => JSON.parse(line)), [{ continue: true, suppressOutput: true }]);
+  assert.deepEqual(run.requests, [], "no diagnostic after a write that failed");
+});
 
 test("FR10 process: the diagnostic starts only after the flush, waits at most 200 ms, and the bytes written do not change", async () => {
   const s = seat();

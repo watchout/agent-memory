@@ -60,7 +60,7 @@ test("registration (FR10.7): the first word is the node given, the default is th
   assert.equal(byDefault.startsWith(`${quoted(process.execPath)} ${quoted("/rt/dist/session-rotation-stop.js")} `), true);
   const given = String(buildRotationHookGroup({ ...input, node_path: "/opt/n o'de/node" }).hooks[0].command);
   assert.equal(given.startsWith(`${quoted("/opt/n o'de/node")} ${quoted("/rt/dist/session-rotation-stop.js")} `), true);
-  assert.equal(given.slice(given.indexOf(" ")), byDefault.slice(byDefault.indexOf(" ")), "only the first word differs");
+  assert.equal(given.slice(quoted("/opt/n o'de/node").length), byDefault.slice(quoted(process.execPath).length), "only the first word differs");
   assert.equal(String(buildRotationHookGroup({ ...input, node_path: process.execPath }).hooks[0].command), byDefault);
   for (const command of [byDefault, given]) assert.equal(isRotationHandler({ command }, CLAUDE_ROTATION_STOP_ADAPTER_ID), true);
   const otherHost = String(buildRotationHookGroup({

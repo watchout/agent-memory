@@ -163,7 +163,7 @@ async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
     ["a NUL byte", `${nodeA}\0`],
     ["the name nodejs", nodejsLink],
     ["the name node22", node22Link],
-    ["a parent segment", join(nodes, "A", "..", "A", "node")],
+    ["a parent segment", `${join(nodes, "A")}/../A/node`],
     ["an empty value", ""],
   ];
   for (const [label, value] of refused) {
@@ -175,9 +175,11 @@ async function nodePathCases(root: string, runtimeRoot: string): Promise<void> {
     assert.equal(await exists(join(refuseWorkspace, ".codex")), false, `${label}: nothing was written`);
   }
   const keepBefore = await readFile(hooksPath, "utf8");
+  const folderBefore = (await readdir(join(workspace, ".codex"))).sort();
   await assert.rejects(installCodexSessionStartHook(withNode(workspace, "apply", nodejsLink)), /invalid node path/);
   assert.equal(await readFile(hooksPath, "utf8"), keepBefore);
-  assert.deepEqual((await readdir(join(workspace, ".codex"))).sort(), ["hooks.json"], "a refused run leaves no backup or temporary file");
+  assert.deepEqual((await readdir(join(workspace, ".codex"))).sort(), folderBefore,
+    "a refused run leaves no backup or temporary file (the earlier successful re-install made its own backup)");
 
   // The readers of this command are not widened: another node's hook is not counted (the rollout and the recovery-target check fail safe).
   const foreign = buildCodexHookCommand(realRuntime, exactBinding, "/opt/other/bin/node");

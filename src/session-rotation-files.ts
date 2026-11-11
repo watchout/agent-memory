@@ -96,11 +96,19 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function rotationRoot(env: NodeJS.ProcessEnv = process.env): string {
-  const home = env.AGENT_MEMORY_HOME && env.AGENT_MEMORY_HOME.trim() !== ""
+/** The one place that decides where the seat's local state lives (shared by rotation and hook-input files). */
+export function agentMemoryHome(env: NodeJS.ProcessEnv = process.env): string {
+  return env.AGENT_MEMORY_HOME && env.AGENT_MEMORY_HOME.trim() !== ""
     ? env.AGENT_MEMORY_HOME
     : join(env.HOME && env.HOME.trim() !== "" ? env.HOME : homedir(), ".agent-memory");
-  return join(home, "rotation");
+}
+
+export function rotationRoot(env: NodeJS.ProcessEnv = process.env): string {
+  return join(agentMemoryHome(env), "rotation");
+}
+
+export function hookInputRoot(env: NodeJS.ProcessEnv = process.env): string {
+  return join(agentMemoryHome(env), "hook-input");
 }
 
 export function seatDirectory(root: string, agentId: string, project: string): string {

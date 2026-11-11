@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -17,7 +18,7 @@ import {
 } from "./transcript-stop-capture.js";
 import { JsonStore } from "./stores/json-store.js";
 import type { CodexSessionStartBinding } from "./codex-session-start.js";
-import type { HookDiagnosticRequest } from "./hook-input-diagnostics.js";
+import { hookInputDiagnosticPath, type HookDiagnosticRequest } from "./hook-input-diagnostics.js";
 import type { Store } from "./stores/types.js";
 
 const MARK = "SENTINEL_VALUE_NEVER_TO_APPEAR_7f3a";
@@ -100,6 +101,37 @@ async function processRun(
 }
 
 /** FR10: keys the host added (Claude Code 2.1.321) are ignored; every other rule of the entry stays. */
+// The hook command run as a file: standard input is read, the answer and the evidence are written, and the
+// names of the keys the entry does not know are recorded under the (temporary) agent memory home.
+async function realEntry(root: string, workspace: string): Promise<void> {
+  const home = join(root, "real-entry-home");
+  const memoryHome = join(home, "agent-memory-home");
+  const env = { ...process.env, HOME: home, AGENT_MEMORY_HOME: memoryHome };
+  const entry = join(process.cwd(), "src", "transcript-stop-capture.ts");
+  const args = [
+    "--adapter-id", CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID, "--agent-id", "kusabi", "--project", "agent-memory",
+    "--workspace", workspace, "--binding-source-ref", "fixture:binding", "--max-tokens", "1800",
+    "--max-bytes", "8192", "--timeout-ms", "7000",
+  ];
+  const evidenceOf = (stderr: string) => JSON.parse(stderr.split("\n").filter((line) => line.startsWith("{"))[0] ?? "{}") as { reason?: string; hook_event_name?: string | null };
+  const bad = spawnSync(process.execPath, ["--import", "tsx", entry, ...args], { encoding: "utf8", env, input: "not json" });
+  assert.equal(bad.status, 0, bad.stderr);
+  assert.deepEqual(JSON.parse(bad.stdout), { continue: true, suppressOutput: true });
+  assert.equal(evidenceOf(bad.stderr).reason, "malformed_input");
+
+  const sentinel = "SENTINEL_VALUE_NEVER_TO_APPEAR_5c1e";
+  const input = JSON.stringify({
+    cwd: workspace, hook_event_name: "Stop", session_id: "session-real", transcript_path: join(workspace, "missing.jsonl"), prompt_id: sentinel,
+  });
+  const accepted = spawnSync(process.execPath, ["--import", "tsx", entry, ...args], { encoding: "utf8", env, input });
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.deepEqual(JSON.parse(accepted.stdout), { continue: true, suppressOutput: true });
+  assert.equal(evidenceOf(accepted.stderr).hook_event_name, "Stop");
+  const record = await readFile(hookInputDiagnosticPath({ AGENT_MEMORY_HOME: memoryHome }, "kusabi", "agent-memory", CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID), "utf8");
+  assert.deepEqual((JSON.parse(record) as { entries: Array<{ name: string; count: number }> }).entries.map((entry) => [entry.name, entry.count]), [["prompt_id", 1]]);
+  assert.equal(record.includes(sentinel) || accepted.stdout.includes(sentinel) || accepted.stderr.includes(sentinel), false, "no value of an unknown key is written anywhere");
+}
+
 async function hostAddedKeys(root: string, workspace: string, cwd: string, binding: CodexSessionStartBinding): Promise<void> {
   const transcript = join(root, "transcript.jsonl");
   const stop = { cwd, hook_event_name: "Stop", session_id: "session-1", transcript_path: transcript };
@@ -440,6 +472,7 @@ async function main(): Promise<void> {
     assert.throws(() => parseTranscriptStopArgs([]), /missing adapter id/);
 
     await hostAddedKeys(root, workspace, cwd, binding);
+    await realEntry(root, workspace);
 
     console.log("transcript stop capture tests passed");
   } finally {

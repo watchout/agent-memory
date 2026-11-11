@@ -46,7 +46,7 @@ function main(): void {
     ["relative with parent", "../node", "not_absolute"],
     ["NUL inside", `${realNode}\0`, "contains_nul"],
     ["NUL before the name", `${join(root, "real")}\0/node`, "contains_nul"],
-    ["parent segment", join(root, "real", "..", "real", "node"), "not_normalized"],
+    ["parent segment", `${join(root, "real")}/../real/node`, "not_normalized"],
     ["dot segment", `${join(root, "real")}/./node`, "not_normalized"],
     ["double slash", `${join(root, "real")}//node`, "not_normalized"],
     ["trailing slash", `${realNode}/`, "not_normalized"],

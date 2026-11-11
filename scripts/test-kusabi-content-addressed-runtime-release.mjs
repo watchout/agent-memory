@@ -20,6 +20,8 @@ const ENTRYPOINTS = [
   "dist/kusabi-direct-fleet-rollout.js",
   "dist/raw-capture-service.js",
   "dist/kusabi-fleet-rollout.js",
+  "dist/session-rotation-stop.js",
+  "dist/rotation-watcher.js",
 ];
 const RESOURCES = [
   "docs/design/schemas/aun-gate-evidence-refs-v1.schema.json",
@@ -44,6 +46,8 @@ const REQUIRED_EXPORTS = {
   "dist/kusabi-direct-fleet-rollout.js": ["readImmutableKusabiCasRoot", "runKusabiDirectFleetRollout"],
   "dist/raw-capture-service.js": ["runRawCaptureService"],
   "dist/kusabi-fleet-rollout.js": ["prepareKusabiFleetR0", "applyKusabiFleetRolloutBatch"],
+  "dist/session-rotation-stop.js": ["runSessionRotationStop", "runRotationCli"],
+  "dist/rotation-watcher.js": ["parseWatcherArgs", "runWatcherCli"],
 };
 
 function sha256(value) {

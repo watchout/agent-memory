@@ -245,6 +245,7 @@ test("hook input: a file that cannot be trusted is unreadable, never none or zer
     rmSync(file);
     symlinkSync(target, file);
   });
+  await unreadable("a file nobody may read", (file) => chmodSync(file, 0o000));
   await unreadable("a folder in its place", (file) => {
     rmSync(file);
     mkdirSync(file, { mode: 0o700 });
@@ -257,6 +258,12 @@ test("hook input: a folder that cannot be trusted is unreadable with no adapter 
   const folder = dirname(diagnosticFile(open.home, CLAUDE_SESSION_START_ADAPTER_ID));
   chmodSync(folder, 0o755);
   assert.deepEqual(hookInputOf(statusLines(open.home)), { file: "unreadable", adapters: [] }, "open to the group and others");
+
+  const sealed = freshSeat();
+  await record(sealed.home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"]);
+  chmodSync(join(sealed.home, "hook-input"), 0o000);
+  assert.deepEqual(hookInputOf(statusLines(sealed.home)), { file: "unreadable", adapters: [] }, "a folder that cannot be entered is not an empty one");
+  chmodSync(join(sealed.home, "hook-input"), 0o700);
 
   const linked = freshSeat();
   const real = join(linked.home, "real-folder");

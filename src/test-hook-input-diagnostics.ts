@@ -93,6 +93,19 @@ function core(): void {
   assert.equal(afterNew.entries.some((entry) => entry.name === "k000"), false, "oldest last_seen, lowest count, first by name");
   assert(afterNew.entries.some((entry) => entry.name === "k005"), "a name seen again later is kept");
 
+  // Same time seen: the lower count goes first, then the name, then the event.
+  let tied: HookInputDiagnostic = applyIgnoredNames(null, ADAPTER, "Stop", names("t", 32), T0);
+  tied = applyIgnoredNames(tied, ADAPTER, "Stop", ["t000"], T0);
+  tied = applyIgnoredNames(tied, ADAPTER, "Stop", ["t000"], T0);
+  const afterTied = applyIgnoredNames(tied, ADAPTER, "Stop", ["zz_new"], T1);
+  assert.equal(afterTied.entries.some((entry) => entry.name === "t000"), true, "a name seen more often is kept when the time is the same");
+  assert.equal(afterTied.entries.some((entry) => entry.name === "t001"), false, "the same time and count: the first name goes");
+  let twoEvents: HookInputDiagnostic = applyIgnoredNames(null, ADAPTER, "Stop", names("e", 16), T0);
+  twoEvents = applyIgnoredNames(twoEvents, ADAPTER, "UserPromptSubmit", names("e", 16), T0);
+  const afterEvents = applyIgnoredNames(twoEvents, ADAPTER, "Stop", ["zz_new"], T1);
+  assert.equal(afterEvents.entries.some((entry) => entry.name === "e000" && entry.event === "Stop"), false, "the same name and time: the event that sorts first goes");
+  assert.equal(afterEvents.entries.some((entry) => entry.name === "e000" && entry.event === "UserPromptSubmit"), true);
+
   // Deterministic: the same sequence of inputs makes the same record, and it fits in 10 KiB.
   const run = () => {
     let state: HookInputDiagnostic | null = null;
@@ -121,6 +134,10 @@ function core(): void {
   assert.equal(parseHookInputDiagnostic(JSON.stringify({ ...second, entries: [{ ...second.entries[0], extra: MARKER }] })), null);
   assert.equal(parseHookInputDiagnostic(JSON.stringify({ ...second, entries: names("e", 33).map((name) => ({ ...second.entries[0], name })) })), null);
   assert.equal(parseHookInputDiagnostic(" ".repeat(HOOK_DIAGNOSTIC_MAX_FILE_BYTES + 1) + JSON.stringify(second)), null);
+  for (const entry of [null, [], "x", 1]) {
+    assert.equal(parseHookInputDiagnostic(JSON.stringify({ ...second, entries: [entry] })), null, `an entry that is ${JSON.stringify(entry)}`);
+  }
+  assert.equal(parseHookInputDiagnostic(JSON.stringify({ ...second, entries: [second.entries[0], second.entries[0]] })), null, "the same event and name twice");
 }
 
 async function files(): Promise<void> {
@@ -227,6 +244,45 @@ async function files(): Promise<void> {
     await chmod(openToGroup, 0o770);
     await writeHookInputDiagnostic(request({ project: "group-project" }));
     assert.deepEqual(await readdir(openToGroup), []);
+
+    // A process id that is not a count of processes writes nothing.
+    const beforePid = JSON.stringify(await tree(root));
+    for (const pid of [-1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 2]) await writeHookInputDiagnostic(request({ pid, names: ["pid_probe"] }));
+    assert.equal(JSON.stringify(await tree(root)), beforePid);
+
+    // A record that exists but cannot be trusted (open to the group) is not read from; the new record replaces it.
+    const looseProject = join(home, "hook-input", "kusabi", "loose-record");
+    await mkdir(looseProject, { recursive: true, mode: 0o700 });
+    const looseTarget = hookInputDiagnosticPath(env, "kusabi", "loose-record", ADAPTER);
+    const looseOld = applyIgnoredNames(null, ADAPTER, "Stop", ["old_key"], T0);
+    await writeFile(looseTarget, JSON.stringify(looseOld), { mode: 0o644 });
+    await chmod(looseTarget, 0o644);
+    await writeHookInputDiagnostic(request({ project: "loose-record", names: ["new_key"] }));
+    const replaced = parseHookInputDiagnostic(await readFile(looseTarget, "utf8"));
+    assert.deepEqual(replaced?.entries.map((entry) => entry.name), ["new_key"], "nothing is taken from the untrusted record");
+    assert.equal((await stat(looseTarget)).mode & 0o777, 0o600);
+
+    // A folder that cannot be created for a reason other than "already there" writes nothing and does not throw.
+    const sealedHome = join(root, "sealed-home");
+    await mkdir(join(sealedHome, "hook-input"), { recursive: true, mode: 0o700 });
+    await chmod(join(sealedHome, "hook-input"), 0o500);
+    await writeHookInputDiagnostic(request({ env: { AGENT_MEMORY_HOME: sealedHome } }));
+    await chmod(join(sealedHome, "hook-input"), 0o700);
+    assert.deepEqual(await readdir(join(sealedHome, "hook-input")), []);
+
+    // A folder that cannot be entered: nothing is written, the clean-up of the temporary name fails too, and nothing throws.
+    const closedProject = join(home, "hook-input", "kusabi", "closed-record");
+    await mkdir(closedProject, { recursive: true, mode: 0o700 });
+    await chmod(closedProject, 0o600);
+    await writeHookInputDiagnostic(request({ project: "closed-record" }));
+    await chmod(closedProject, 0o700);
+    assert.deepEqual(await readdir(closedProject), []);
+
+    // The temporary file is removed when the final rename cannot happen (a folder stands where the record goes).
+    const blockedProject = join(home, "hook-input", "kusabi", "blocked-record");
+    await mkdir(join(blockedProject, `${ADAPTER}.json`, "inside"), { recursive: true, mode: 0o700 });
+    await writeHookInputDiagnostic(request({ project: "blocked-record" }));
+    assert.deepEqual(await readdir(blockedProject), [`${ADAPTER}.json`], "no temporary file is left behind");
 
     // H5: nothing here may throw into the hook, whatever the place is.
     const notAFolder = join(root, "a-file");
