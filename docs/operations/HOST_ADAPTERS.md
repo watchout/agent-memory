@@ -263,9 +263,14 @@ refusing the whole input would silently stop recovery, capture, and rotation.
 The names of ignored keys (names, event, count, and times only) are written to a
 per-seat diagnostic file under `$AGENT_MEMORY_HOME/hook-input/`, which is not part
 of any evidence contract; if it cannot be written, the hook answer and evidence
-are unchanged. `host_contract_version` (`2.1.220`) records the host version the
-contract was last checked against, not the host's current version; the deployment
-health check compares it with the installed host's reported version.
+are unchanged. The Codex `Stop`/`UserPromptSubmit` hooks share the transcript-capture
+parser, so the same rule applies to them; the Codex `SessionStart` parser is
+unchanged. `host_contract_version` (`2.1.220`) records the host version the
+contract was last checked against, not the host's current version. The hook
+input and environment carry no host version, so a step of the deployment health
+check procedure (not code) reads the installed host's version with
+`claude --version` and records the difference from the contract version in the
+deployment record; when it cannot be read, the result is "not observed".
 
 ### Gemini CLI ALPHA-03 native adapter
 
