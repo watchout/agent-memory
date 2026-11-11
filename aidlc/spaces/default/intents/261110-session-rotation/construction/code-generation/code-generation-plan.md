@@ -52,8 +52,9 @@
 - [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6785277864 （本文の SHA-256 `77541cf6b025ba23f639f1cc938dca9644e186afe53b1bcb9301e850eb3cf389`）。`--review` の結果は BLOCKED（Open or unspecified blocking findings）。作者の受領として、その結果をそのまま PR に書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6785405953 ）。
 - [x] F1 = 条件つきの Enter は、観測の後に行が置き換わりカーソルが戻ると人の未送信の文を送る、F2 = 結びが `pane_pid` と command 名だけで同じ pane の同名 CLI への入れ替わりを拒めない。arc の答え（Owner の委任 #49 6762288830）: 画面にキーを打つ限り競合は閉じられない。キーを打たず、手すきで入力欄が空と観測できた時に、席の起動の script で pane を起動し直す形に変える。
 - [x] 設計の記録（版 4）・SSOT-6 §5（§9 は変えない）・要件 FR5.1〜FR5.4・FR5.7（新）・FR6.1・FR6.2・FR9.2・NFR3・この計画を直した。使い捨ての tmux（3.6a）で、起動の command の再実行・条件が偽の時の `NOT_RESPAWNED`・同じ観測での 2 回目の拒否・`pane_start_command` が引用符つきで返ることを確かめた。
-- [ ] 監査の項目の file と試験の手順を版 4 に合わせ、PR に足す。
-- [ ] 4 回目の `sds-audit-request/1` は、返却の next_action が求める「公開された Owner の判断（URL と本文の SHA-256）」が出るまで出さない（審査の回数の扱いは Owner の判断。#108 の答えは 3 回目までを個別の許可なしとし、4 回目以降は変えていない）。出たら、CI の後に同じ PR へ出し、前検査を流し、返却が来るまで push しない。
+- [x] 監査の項目の file と試験の手順を版 4 に合わせ、PR に足した（head `7c827db`、CI の run 42949095366 で build-and-test 18・20・22 が success）。arc-73 に、向きの変更・tmux で確かめた事実・残る危険 R-A〜R-E を知らせ、公開された Owner の判断を求めた。
+- [x] 公開された Owner の判断: OD-KUSABI-ROTATION-WATCHER-RESPAWN-NOT-KEYS-20261111-001（https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6785869798 、投稿者 watchout、本文の SHA-256 `f65ca4e11c9f71b3b31d34bdb17c3736f1add64705b9fc827ccb5dcff1f1dd3e`、API の本文から数え直して一致を確かめた）。原文「1はいい」。キーを送らず起動し直す向きと、残る危険 R-A〜R-E を受け入れて 4 回目の設計監査に出すこと、依頼を作者が出してよいことが決まった。席ごとの起動の script の登録・据え付け・席の hook の差し替えは含まない。
+- [ ] CI の後に 4 回目の `sds-audit-request/1` を同じ PR に出し、前検査を流し、READY_FOR_REVIEW を確かめる。返却が来るまで push しない。返却を `--review` で流し、結果をそのまま作者の受領として PR に書く。
 
 ### Step 4: 成功の場面の試験を先に書いて失敗を確かめる（Testing Contract の順番）
 - [ ] `src/test-session-rotation-scenario.ts` を書く。Claude Code と Codex の transcript の見本（閾値の上）と、試験用の Store（SQLite か JSON、`HOME` を一時の folder にする）で、次の流れを確かめる: 1 回目の Stop の hook が block と理由の文を返す → 席の引き継ぎの文を含む 2 回目の Stop の hook が、作業の状態と回復の束を DB に書き、印を出す → SessionStart（source = `clear`）が、頭に残した「次の 1 歩」と FR7.1 の決まった文を入れた additionalContext を返す（Claude Code は initialUserMessage も）→ 同じ束は 2 回使わない。
