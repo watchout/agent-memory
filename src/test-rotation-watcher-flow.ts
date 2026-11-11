@@ -12,7 +12,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFile
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClaim, advanceClaim, claimPath, globalHaltPath, ledgerPath, nodeWatcherFs, readClaimRecord, seatHaltPath, writeHalt, type WatcherFs } from "./rotation-watcher-store.js";
-import { isNonProgress, runPass, runWatcher, tickSeat, watcherConfigPath } from "./rotation-watcher-run.js";
+import { isNonProgress, runPass, runWatcher, runnerMustStop, tickSeat, watcherConfigPath } from "./rotation-watcher-run.js";
 import { conditionalRespawn } from "./rotation-watcher-tmux.js";
 import { resolveExistingClaim } from "./rotation-watcher-attempt.js";
 import { parseWatcherArgs, realPorts, runWatcherCli } from "./rotation-watcher.js";
@@ -509,6 +509,56 @@ test("flow (F5): a failed run stops the loop, writes the global HALT, and the co
   assert.equal(last.code, 4);
   assert.deepEqual(JSON.parse(last.out).seats[0].tick, { class: "progress", reason: "outcome_unknown_unrecorded", stop_runner: true });
   assert.equal(JSON.parse(nodeWatcherFs.readText(globalHaltPath(once.root))!).reason, "state_unrecordable");
+});
+
+// ---------- audit 2 F5: a stop request ends the pass at once ----------
+const OTHER_SEAT = { ...SEAT_JSON, agent_id: "other", tmux_target: "other:0.0" };
+const callsAimedAt = (world: World, target: string, from = 0) => world.calls.slice(from).filter((call) => call.some((word) => word.includes(target)));
+
+test("flow (F5, audit 2): once a seat asks the runner to stop, the same pass serves no later seat", async () => {
+  const world = new World();
+  world.addSeat("other");
+  world.writeConfig([SEAT_JSON, OTHER_SEAT]);
+  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  const memories = new Map<string, SeatMemory>();
+  const first = await runPass(world.ports, memories);
+  assert.deepEqual(first.seats.map((entry) => entry.agent_id), ["kusabi", "other"], "while nothing asks to stop, every seat is served");
+  assert.equal(runnerMustStop(world.ports, first), false);
+  await world.settle();
+  const before = world.calls.length;
+  const second = await runPass(world.ports, memories);
+  assert.deepEqual(second.seats.map((entry) => entry.tick), [{ class: "progress", reason: "confirmed_unrecorded", stop_runner: true }]);
+  assert.deepEqual(second.seats.map((entry) => entry.agent_id), ["kusabi"], "the seat after the one that asked to stop was not served");
+  assert.deepEqual(callsAimedAt(world, "other:0.0", before), [], "no tmux command was aimed at the later seat");
+  assert.equal(world.respawns, 1);
+  assert.equal(runnerMustStop(world.ports, second), true);
+  assert.equal(JSON.parse(nodeWatcherFs.readText(globalHaltPath(world.root))!).reason, "state_unrecordable");
+});
+
+test("flow (F5, audit 2): the loop stops after the pass in which a seat asked to stop, and that pass lists only the seats it served", async () => {
+  const world = new World();
+  world.addSeat("other");
+  world.writeConfig([SEAT_JSON, OTHER_SEAT]);
+  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  const out = collect();
+  const result = await runWatcher(world.ports, { poll_ms: 5_000, log: out.log });
+  assert.equal(result.stopped, true);
+  assert.equal(world.respawns, 1);
+  const passes = out.lines.map((line) => JSON.parse(line) as { seats?: Array<{ agent_id: string }>; halt?: string }).filter((line) => line.seats !== undefined);
+  assert.deepEqual(passes[passes.length - 1].seats!.map((entry) => entry.agent_id), ["kusabi"]);
+});
+
+test("flow (F5, audit 2): `once` ends its pass at the seat that asked to stop and exits 4", async () => {
+  const world = new World();
+  world.addSeat("other");
+  world.writeConfig([SEAT_JSON, OTHER_SEAT]);
+  createClaim(nodeWatcherFs, world.seatDir, { ...FIELDS, marker_id: world.marker.marker_id });
+  world.fsPort = fsWith(failLedgerKind("outcome_unknown"), failSeatHalt(world));
+  const result = await cli(world, ["once"]);
+  assert.equal(result.code, 4);
+  const pass = JSON.parse(result.out) as { seats: Array<{ agent_id: string; tick: unknown }> };
+  assert.deepEqual(pass.seats.map((entry) => entry.agent_id), ["kusabi"]);
+  assert.deepEqual(callsAimedAt(world, "other:0.0"), []);
 });
 
 // ---------- confirmation ----------

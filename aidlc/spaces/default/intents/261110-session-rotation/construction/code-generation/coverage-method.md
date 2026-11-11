@@ -39,7 +39,7 @@
 
    `merge-zero.mjs` と `changed-uncovered.py` は下の全文を、repository の外の folder に置く。
 
-4. 1 回目の監査への直しの後の結果（Node v26.12.1）: 30 file、変えた行と新しい行 4,057 行のうち、0 回の範囲は `src/rotation-watcher.ts` 134〜137 行目と `src/session-rotation-stop.ts` 629〜631 行目（どちらも入口の最後の網 `main().catch(...)`）の 2 つだけ。
+4. 2 回目の監査への直しの後の結果（Node v26.12.1）: 30 file、変えた行と新しい行 4,071 行のうち、0 回の範囲は `src/rotation-watcher.ts` 134〜137 行目と `src/session-rotation-stop.ts` 640〜642 行目（どちらも入口の最後の網 `main().catch(...)`）の 2 つだけ。
 
 V8 の範囲は分岐の腕や無名関数も数えるので、行の網羅率より厳しい。数え方は Node の版で少し違いうる。
 

@@ -6,7 +6,7 @@
  * deterministic (standard S4). Each unit has a correct case and error/edge cases.
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -579,6 +579,81 @@ test("process: the hook command run as a file reads standard input, passes on a 
   const noArgument = spawnSync(process.execPath, ["--import", "tsx", "-e", importScript], { encoding: "utf8", env });
   assert.equal(noArgument.status, 0, noArgument.stderr);
   assert.equal(noArgument.stdout, "");
+});
+
+// ---------- audit 2 F1: the one internal budget starts at the entry, before standard input is read ----------
+const cliArgs = (workspace: string, timeoutMs: number) => ["--adapter-id", CLAUDE_ROTATION_STOP_ADAPTER_ID, "--agent-id", "kusabi", "--project", "agent-memory",
+  "--workspace", workspace, "--binding-source-ref", "ref", "--max-tokens", "1800", "--max-bytes", "8192", "--timeout-ms", String(timeoutMs)];
+async function runCli(argv: string[], readInput: () => Promise<string>, dependencies?: RotationStopDependencies) {
+  const written = { evidence: "", output: "" };
+  const started = Date.now();
+  await runRotationCli({
+    argv, env: {}, read_input: readInput,
+    write_evidence: (line) => { written.evidence += line; },
+    write_output: (line) => { written.output += line; },
+    dependencies,
+  });
+  return { ...written, elapsed: Date.now() - started };
+}
+
+test("F1 (audit 2): standard input that never ends is given up at the internal deadline - a pass, with the reason, and no key sent", async () => {
+  const s = seat();
+  const result = await runCli(cliArgs(s.workspace, 150), () => new Promise<string>(() => undefined));
+  assert.ok(result.elapsed >= 100 && result.elapsed < 1_500, `returned after ${result.elapsed} ms`);
+  assert.deepEqual(JSON.parse(result.output), PASS_OUTPUT);
+  const evidence = JSON.parse(result.evidence) as { action: string; reason: string; keys_sent: number; agent_id: string };
+  assert.deepEqual([evidence.action, evidence.reason, evidence.keys_sent, evidence.agent_id], ["failed_open", "internal_deadline_exceeded", 0, "kusabi"]);
+  assert.ok(result.evidence.endsWith("\n") && result.output.endsWith("\n"));
+});
+
+test("F1 (audit 2): input that arrives only after the deadline is not used - nothing is saved and no marker is written", async () => {
+  const s = seat();
+  const fake = fakeStore();
+  const late = () => wait(400).then(() => s.input("Stop", { stop_hook_active: true }));
+  const result = await runCli(cliArgs(s.workspace, 150), late, deps(s, [usageLine(BIG), textLine(HANDOFF)], fake));
+  assert.equal(JSON.parse(result.evidence).reason, "internal_deadline_exceeded");
+  await wait(600);
+  assert.equal(fake.packs.size, 0);
+  assert.equal(readMarker(s.directory), null);
+});
+
+test("F1 (audit 2): the time spent waiting for input comes out of the same budget (it is not a second one)", async () => {
+  const s = seat();
+  const never = { createStore: () => new Promise<Store>(() => undefined) };
+  // The first Stop blocks once, so the next one (the seat's answer) goes on to save.
+  const block = await runSessionRotationStop(s.input("Stop"), "claude_code", { ...s.binding, timeout_ms: 400 }, {}, deps(s, [usageLine(BIG)], fakeStore()));
+  assert.equal(block.evidence.action, "blocked");
+  // One shared budget ends near 1,000 ms; a second budget started after the read would end near 1,600 ms. The limit sits 300 ms from both.
+  const answered = () => wait(600).then(() => s.input("Stop", { stop_hook_active: true }));
+  const result = await runCli(cliArgs(s.workspace, 1_000), answered, deps(s, [usageLine(BIG), textLine(HANDOFF)], fakeStore(), never));
+  assert.equal(JSON.parse(result.evidence).reason, "internal_deadline_exceeded");
+  assert.ok(result.elapsed < 1_300, `a 600 ms read and a store that never opens took ${result.elapsed} ms against one 1,000 ms budget`);
+  assert.equal(readMarker(s.directory), null);
+});
+
+test("F1 (audit 2) process: a hook whose standard input stays open ends by itself at the deadline, with the pass and the evidence", async () => {
+  const home = mkdtempSync(join(tmpdir(), "rotation-stop-stalled-"));
+  const entry = join(process.cwd(), "src", "session-rotation-stop.ts");
+  const env = { ...process.env, AGENT_MEMORY_HOME: join(home, "agent-home") };
+  const child = spawn(process.execPath, ["--import", "tsx", entry, ...cliArgs(home, 700)], { env, stdio: ["pipe", "pipe", "pipe"] });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  let giveUp: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const outcome = await Promise.race([
+      new Promise<number | null>((resolve) => child.on("exit", (code) => resolve(code))),
+      new Promise<string>((resolve) => { giveUp = setTimeout(() => resolve("still running"), 20_000); }),
+    ]);
+    assert.equal(outcome, 0, "the hook ended by itself although its input never closed");
+    assert.deepEqual(JSON.parse(stdout), PASS_OUTPUT);
+    const evidence = JSON.parse(stderr.split("\n").filter((line) => line.startsWith("{"))[0] ?? "{}") as { reason: string; action: string };
+    assert.deepEqual([evidence.action, evidence.reason], ["failed_open", "internal_deadline_exceeded"]);
+  } finally {
+    clearTimeout(giveUp);
+    child.kill("SIGKILL");
+  }
 });
 
 test("parseRotationStopArgs: adapter ids, threshold and off; bad values are rejected", () => {

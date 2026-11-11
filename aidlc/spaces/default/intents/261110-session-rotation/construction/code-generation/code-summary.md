@@ -7,7 +7,7 @@
 
 ## 変えた file
 
-差分は base の main に対して、変更 10 file（src）、新しい module 20 file（src、最大 636 行、どれも 800 行以内）、試験 9 file の新規と `src/test.ts` の 1 行、`package.json`、`docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`（+46 / −0、§5・§6 だけ）、`docs/audit/kusabi-session-rotation-261110.json`（監査の項目）、この取り組みの AI-DLC の記録。
+差分は base の main に対して、変更 10 file（src）、新しい module 20 file（src、最大 647 行、どれも 800 行以内）、試験 9 file の新規と `src/test.ts` の 1 行、`package.json`、`docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`（+46 / −0、§5・§6 だけ）、`docs/audit/kusabi-session-rotation-261110.json`（監査の項目）、この取り組みの AI-DLC の記録。
 
 | 要件 | file | 内容 |
 |------|------|------|
@@ -58,6 +58,18 @@
 - 直した後に分かっている端: F2 は、Store が開けず通常の回復が出せない道（縮退した回復）では決まった文が入らない（compact の通常の回復が出せた場合だけ入る）。F1 は、期限の後に終わる保存の行（pack・作業の状態）自体は Store に残りうる（印が無いので切り直しの根拠にはならない）。
 - 直す前に落ちる所を流して残したのは F1・F3・F6 だけ（`unit-test-instructions.md`）。
 
+## 2 回目の実装監査（BLOCK、F1・F5 の 2 件）への直し
+
+依頼は PR #341 の comment 6788925456（head `f30c8ffd0858859a2c0970bfac061f6a2e83d5dd`）、返却は comment 6789232372、作者の受領（成立していない旨）は comment 6789263317。IMP-1・3・4・5・7・10 は PASS、IMP-2・6・8・9 が FAIL で、ブロックしている指摘は次の 2 件だけ。設計の記録（見張りの設計 版 4）・DB の作り・workflow・資格情報・席への据え付けは変えていない。F5 は設計の「失敗を隠さない」条件を実装する順序の直しなので、設計は改版していない。
+
+| 指摘 | 直し | 試験 |
+|------|------|------|
+| F1（P2）Stop の hook の標準入力の読みが内部期限の外 | `src/session-rotation-stop.ts` の `runRotationCli`: 引数を解いた直後に総予算（`--timeout-ms` と 7 秒の小さい方）を始め、標準入力の読みと予算を競わせる。予算が先に来た時は、席を止めない証拠（理由 `internal_deadline_exceeded`）で PASS を返し、鍵も印も出さない。同じ予算（`Deadline`）を `runSessionRotationStop` に引数で渡し、読みに使った時間はその予算から引かれる（2 つ目の予算を作らない）。予算を始めた `runRotationCli` が最後に取り消す。入力の読みが失敗した時は今までどおり `malformed_input` | flow（4 件）: 閉じない入力は期限で諦める・期限の後に届いた入力は使わず何も保存しない・読みに使った時間が同じ予算から引かれる（読み 600 ms + 予算 1,000 ms で 1,300 ms 未満。2 つ目の予算なら約 1,600 ms になる）・実際の command を別 process で起動して標準入力を開けたままにすると自分で終わる（終了コード 0、PASS、証拠） |
+| F5（P1）見張りが止まる印を返した席の後も次の席を回す | `src/rotation-watcher-run.ts` の `runPass`: tick が `stop_runner` を返した席で seat の loop を抜ける。`runnerMustStop`・loop・`once` の終了コード 4 は、回した席だけを見る | watcher-flow（3 件、2 席目を足して）: 同じ pass で後の席を回さない（tmux の呼び出しに後の席が無い）・loop が止まり pass の一覧が回した席だけ・`once` が止まった席で終わり終了コード 4 |
+
+- 試験は直す前に書いた。直す前の code で、F5 の 3 件は 3 件とも落ち（後の席が `seats` に入った）、F1 の閉じない入力の単体の場合は決着せず、試験の file 全体が Node の決着しない top-level await で終了コード 13 になった。前回 push した code（`f30c8ffd…`）で流すと、F1 の残り 3 件は 3 件とも落ちた: 期限の後に届いた入力を使ってしまい（理由が `unmeasured:usage_field_missing`）、読みに使った時間が予算から引かれず 1,602 ms かかり（予算は 1,000 ms）、別 process で起動した hook は 20 秒待っても終わらなかった。（そのために、前回 push した code を `git archive` で作業場の外に取り出し、閉じない入力の単体の 1 件だけを外して流した。監査の席の観測も、標準入力を開けたままで 7,381 ms 残る。）
+- F1 の端: 予算が先に来た時に読みの Promise は放置される（process は `main()` の最後で終了する。`src/session-rotation-stop.ts` の hook の command）。読み取り自体は取り消さない。
+
 ## 確かめ
 
 ### 成功の場面の試験を先に書いて落ちることを確かめた（計画 Step 4）
@@ -69,15 +81,15 @@
 | 試験 | 結果 |
 |------|------|
 | `src/test-session-rotation-core.ts` | 21 cases PASS（FR1・FR2・FR7.2・FR7.3・file の形・uid の取り方） |
-| `src/test-session-rotation-flow.ts` | 36 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
+| `src/test-session-rotation-flow.ts` | 40 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1（標準入力の読みを含む）・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
 | `src/test-rotation-hook-registration.ts` | 12 cases PASS（FR2.2・installer の引数・戻し・印の無い compact の決まった文 FR7.1） |
 | `src/test-session-rotation-status.ts` | 8 cases PASS（FR4.2） |
 | `src/test-rotation-watcher-units.ts` | 83 cases PASS（設定・画面・tmux・ps・核・帳面の読み取り） |
-| `src/test-rotation-watcher-flow.ts` | 100 cases PASS（一度だけ・確認・帳面・HALT・閉じた命令の集合・読めない帳面・確認の記録の失敗） |
+| `src/test-rotation-watcher-flow.ts` | 103 cases PASS（一度だけ・確認・帳面・HALT・閉じた命令の集合・読めない帳面・確認の記録の失敗・止まる印を返した席の後を回さない） |
 | `src/test-session-rotation-scenario.ts` | PASS（Claude Code と Codex で、量を測る → 保存して印 → 新しい会話の頭に次の 1 歩。FR9.1） |
 | `src/test-claude-transcript-identity.ts` | 25 cases PASS（FR8 の R1〜R9・冪等・拒否・観測できず） |
 
-- CI の mirror（`.github/workflows/ci.yml` の 18 の手順を、1 回目の監査への直しの後に手元で順に流し直した）は 18 / 18 PASS、`failed_steps=0`。内訳: `tsc --noEmit`、`build`、core（1832 passed）、`test:codex-hook`、`test:claude-hook`（切り直しの試験を含む）、`test:gemini-hook`、`test:gemini-conversation-ingest`、`test:automatic-receive`（身元の試験を含む）、`test:transcript-stop`、`test:kusabi-content-addressed-runtime-release`、`test:kusabi-direct-fleet-rollout`、`anti-regression-am027`、`test-sqlite`、`test-boot-recovery`、`test-post-tool-hook`、gate0 の 3 つ。Node 18・20・22 の回は PR の CI で確かめる。
+- CI の mirror（`.github/workflows/ci.yml` の 18 の手順を、2 回目の監査への直しの後に手元で順に流し直した）は 18 / 18 PASS、`failed_steps=0`。内訳: `tsc --noEmit`、`build`、core（1832 passed）、`test:codex-hook`、`test:claude-hook`（切り直しの試験を含む）、`test:gemini-hook`、`test:gemini-conversation-ingest`、`test:automatic-receive`（身元の試験を含む）、`test:transcript-stop`、`test:kusabi-content-addressed-runtime-release`、`test:kusabi-direct-fleet-rollout`、`anti-regression-am027`、`test-sqlite`、`test-boot-recovery`、`test-post-tool-hook`、gate0 の 3 つ。Node 18・20・22 の回は PR の CI で確かめる。
 - `test-post-tool-hook` は `DATABASE_URL` が無いと 0 で先に終わる（main でも同じ）。参考に `AGENT_MEMORY_DB_TYPE=sqlite` を足すと 45 passed・0 failed で、変えた 2 行（`createStore({ skipPostgresMigrations: true })`）が動く。
 - 見張りの正例として、使い捨ての tmux（自分の socket を持つ別の server、system の一時 folder の下）で確かめた: 登録と違う `pane_pid`・カーソルでは `not_respawned`、合っていれば実行されて `pane_pid` が変わり、`pane_id` と起動の command は同じ。古い `pane_pid` の 2 回目は `not_respawned`。
 - Claude の取り込みの正例として、手元の実際の transcript を一時の store に取り込んだ: 約 2,342 行が入り、`cwd_kinds` 5、`records_outside_workspace` 0。
@@ -85,12 +97,12 @@
 ### 行の網羅率（NFR4）
 
 - 計り方: 試験の process 全部を `NODE_V8_COVERAGE` で動かし（上の試験と、変えた file を読む `test:claude-hook`・`test:codex-hook`・`test:gemini-hook`・`test:gemini-conversation-ingest`・`test:antigravity-hook`・`test:automatic-receive`・`test:transcript-stop`・core・sqlite 付きの post-tool-hook・boot recovery）、process をまたいで 0 回の範囲を足し合わせ、新しい file は全行、変えた file は base からの足した行と重ねた。V8 の範囲は分岐の腕も数えるので、行の網羅率より厳しい。`NODE_V8_COVERAGE` は試験が子 process として起動する hook の command の分も集める。`node --test --experimental-test-coverage` の lcov は今回は使っていない（採った判断: V8 の生の網羅率を process をまたいで足す／採らなかった案: file ごとの lcov）。
-- 結果（1 回目の監査への直しの後、Node v26.12.1 でもう一度測った）: 変えた行と新しい行（4,057 行、30 file）のうち、動かなかった範囲は次の 2 つだけ（100% に届かない。数えから外さず、理由を書く）:
+- 結果（2 回目の監査への直しの後、Node v26.12.1 でもう一度測った）: 変えた行と新しい行（4,071 行、30 file）のうち、動かなかった範囲は次の 2 つだけ（100% に届かない。数えから外さず、理由を書く）:
   1. `src/rotation-watcher.ts` 134〜137 行目 `main().catch(...)`。`runWatcherCli` が例外を投げた時の最後の網で、投げる道が code の中に無い。
-  2. `src/session-rotation-stop.ts` 629〜631 行目 `main().catch(...)`。hook の出力の書き込み自体が失敗した時の最後の網で、PASS を返して席を止めない。
+  2. `src/session-rotation-stop.ts` 640〜642 行目 `main().catch(...)`。hook の出力の書き込み自体が失敗した時の最後の網で、PASS を返して席を止めない。
 - 前の測りで動かなかった `getuid` の無い platform の腕（3 か所）は、uid の取り方を `src/process-uid.ts` の 1 か所にし、「uid が無い」場合を試験で通すことで無くした。ほかに前の測りで出た 4 か所（読めない帳面の分岐の `?? null` の腕、バイトの上限が効く腕、空の Claude transcript、後から開いた Store の close の失敗）は、構造を直すか試験を足して動かした。
 - この 2 つ以外の動かなかった範囲は、足した行と重ならなかった（今回触っていない行）。
-- 監査の席が同じ数字を自分で出せるよう、手順と script の全文を `coverage-method.md` に置いた（同じ形の数え直しが 30 file・4,057 行・同じ 2 範囲になることを、この作業場で確かめた）。
+- 監査の席が同じ数字を自分で出せるよう、手順と script の全文を `coverage-method.md` に置いた（同じ形の数え直しが 30 file・4,071 行・同じ 2 範囲になることを、この作業場で確かめた）。
 
 ## 計画からの外れ（PR の deviation_ledger に書く）
 

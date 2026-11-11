@@ -20,7 +20,7 @@ HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 
 ```bash
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形・uid の取り方（21 cases）
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合（36 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（40 cases）
 HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（12 cases）
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示（8 cases）
 HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
@@ -32,10 +32,15 @@ HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身�
 
 ```bash
 HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-units.ts   # 設定・画面・tmux・ps・核・帳面の読み取り（83 cases）
-HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・確認・帳面・HALT・閉じた命令の集合、読めない帳面、確認の記録の失敗（100 cases）
+HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・確認・帳面・HALT・閉じた命令の集合、読めない帳面、確認の記録の失敗、止まる印を返した席の後を回さない（103 cases）
 ```
 
 1 回目の実装監査（BLOCK、F1〜F6）への直しの試験は、指摘の反例ごとに足した: F1（総予算を超える Store の開始・保存・close）・F2（印の無い compact、Claude と Codex）・F3（回復の文の上限、切り詰めの印を含む）・F4（読めない帳面・照会で確認した起動し直しの回数）・F5（確認の記録の失敗を `confirmed` にしない）・F6（別の会話の transcript から保存しない）。直す前の code で落ちる所を実際に流して残したのは F1・F3・F6 だけ（flow の試験が 1 件・7 件落ちた）。F2・F4・F5 は、直す前に落ちたことの記録を残していない。
+
+2 回目の実装監査（BLOCK、F1・F5 の 2 件）への直しの試験は、直す前に書いて落ちることを確かめた:
+
+- F1（Stop の hook の標準入力の読みが内部期限の外）: flow に 4 件。閉じない標準入力は内部期限で諦めて PASS と理由 `internal_deadline_exceeded`（鍵も印も出さない）／期限の後に届いた入力は使わず何も保存しない／読みに使った時間が同じ予算から引かれる（読み 600 ms + 予算 1,000 ms で 1,300 ms 未満。2 つ目の予算なら約 1,600 ms になる）／実際の command を別 process で起動して標準入力を開けたままにすると自分で終わる（終了コード 0）。直す前の code では、閉じない入力の単体の場合が決着せず、file 全体が終了コード 13 で終わった。前回 push した code（`f30c8ffd…`）で流すと、F1 の残り 3 件は 3 件とも落ちた: 期限の後に届いた入力を使ってしまい（理由が `unmeasured:usage_field_missing`）、読みに使った時間が予算から引かれず 1,602 ms かかり（予算は 1,000 ms）、別 process で起動した hook は 20 秒待っても終わらなかった。
+- F5（止まる印を返した席の後も回す）: watcher-flow に 3 件（`src/test-rotation-watcher-world.ts` に 2 席目を足す `addSeat`）。同じ pass で後の席を回さない／loop が止まり pass の一覧が回した席だけ／`once` が止まった席で終わり終了コード 4。直す前の code で 3 件とも落ちた。
 
 `src/test-rotation-watcher-world.ts` は上の 2 つが使う、差し替えの tmux・ps・file の世界（試験の道具で、単独では動かさない）。見張りの正例の確かめ（本物の tmux、使い捨ての server、自分の socket）は手元で行い、結果を `code-summary.md` に書いた。この確かめは CI に入れていない。
 
@@ -83,5 +88,5 @@ CI で回すために、新しい試験の file を、CI が呼ぶ npm の scrip
 
 ## 期待する網羅の内訳
 
-- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 36・hook-registration 12・status 8・身元 25）、見張り 2 file（units 83・flow 100）。
+- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 40・hook-registration 12・status 8・身元 25）、見張り 2 file（units 83・flow 103）。
 - 各試験は、正しい場合と、2 つ以上の誤りや境目の場合（usage 無し・閾値ちょうど・文が取れない・束が無い・用意の失敗など）を持つ。

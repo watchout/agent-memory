@@ -129,7 +129,10 @@ export async function runPass(ports: WatcherPorts, memories: Map<string, SeatMem
     const key = `${seat.agent_id}/${seat.project}`;
     const memory = memories.get(key) ?? {};
     memories.set(key, memory);
-    seats.push({ agent_id: seat.agent_id, project: seat.project, tick: await tickSeat(ports, seat, memory) });
+    const tick = await tickSeat(ports, seat, memory);
+    seats.push({ agent_id: seat.agent_id, project: seat.project, tick });
+    // A seat that could not be kept safe on disk stops the runner: nothing further may run, not even for the next seat (S8).
+    if (tick.stop_runner === true) break;
   }
   return { config_reason: null, rejected: loaded.rejected, halt_limit: loaded.config.no_progress_halt_limit, seats };
 }

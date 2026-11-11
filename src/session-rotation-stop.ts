@@ -276,14 +276,14 @@ export const rotationDeadlineMs = (timeoutMs: number): number =>
  * timer), not to the decision core. Once it has lapsed nothing durable is
  * written, and `committed` holds the result that was final before it lapsed.
  */
-interface Deadline {
+export interface Deadline {
   lapsed: Promise<void>;
   isExpired(): boolean;
   cancel(): void;
   committed: RotationStopResult | null;
 }
 
-function startDeadline(budgetMs: number): Deadline {
+export function startDeadline(budgetMs: number): Deadline {
   let expired = false;
   let timer: ReturnType<typeof setTimeout>;
   const lapsed = new Promise<void>((resolve) => {
@@ -381,12 +381,14 @@ export async function runSessionRotationStop(
   binding: CodexSessionStartBinding,
   options: RotationStopOptions = {},
   dependencies: RotationStopDependencies = {},
+  running?: Deadline,
 ): Promise<RotationStopResult> {
-  const deadline = startDeadline(rotationDeadlineMs(binding.timeout_ms));
+  // The command layer starts the budget before it reads standard input and hands it on; a caller without one starts it here.
+  const deadline = running ?? startDeadline(rotationDeadlineMs(binding.timeout_ms));
   try {
     return await runWithin(raw, host, binding, options, dependencies, deadline);
   } finally {
-    deadline.cancel();
+    if (running === undefined) deadline.cancel();
   }
 }
 
@@ -593,16 +595,25 @@ export async function runRotationCli(io: RotationCliIo): Promise<void> {
     timeout_ms: CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
   };
   let result: RotationStopResult;
+  let budget: Deadline | undefined;
   try {
     const parsed = parseRotationStopArgs(io.argv, io.env);
     host = parsed.host;
     binding = parsed.binding;
-    result = await runSessionRotationStop(await io.read_input(), host, binding, parsed.options, io.dependencies);
+    // The one internal budget starts here, before standard input is read: a host that never closes it must not outlast the deadline (NFR1).
+    const running = startDeadline(rotationDeadlineMs(binding.timeout_ms));
+    budget = running;
+    const raw = await Promise.race([io.read_input(), running.lapsed.then(() => null)]);
+    result = raw === null
+      ? { output: PASS, evidence: failedEvidence(host, binding, DEADLINE_REASON, parsed.options.threshold_tokens ?? ROTATION_DEFAULT_THRESHOLD_TOKENS) }
+      : await runSessionRotationStop(raw, host, binding, parsed.options, io.dependencies, running);
   } catch {
     result = {
       output: PASS,
       evidence: failedEvidence(host, binding, "malformed_input", ROTATION_DEFAULT_THRESHOLD_TOKENS),
     };
+  } finally {
+    budget?.cancel();
   }
   io.write_evidence(`${JSON.stringify(result.evidence)}\n`);
   io.write_output(`${JSON.stringify(result.output)}\n`);

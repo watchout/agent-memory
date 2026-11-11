@@ -193,6 +193,52 @@ export class World {
     });
   }
 
+  /** tmux targets the model answers for; every one of them is the same modelled pane. */
+  targets = new Set<string>(["seat:0.0"]);
+
+  /**
+   * A second seat in the same folder, for the passes that serve several seats. It has a marker and a turn
+   * of its own and answers on its own tmux target (the same modelled pane), so that a tmux command
+   * aimed at it shows that the seat was served.
+   */
+  addSeat(agentId: string): { seatDir: string; target: string } {
+    const seatDir = seatDirectory(this.root, agentId, "agent-memory");
+    const marker = buildMarker({
+      agent_id: agentId,
+      project: "agent-memory",
+      host: "claude_code",
+      session_id: this.sessionId,
+      pack_ref: `pack-${agentId}`,
+      pack_content_sha256: "b".repeat(64),
+      measured_tokens: 310_000,
+      threshold_tokens: 300_000,
+      saved_at: this.iso(-300_000),
+      handoff_source: "seat_text",
+      pane_id: this.pane.id,
+      tmux_socket: this.socket,
+      host_pid: this.hostPid,
+      host_started_at: this.hostStartedAt,
+    });
+    writeMarker(seatDir, marker);
+    writeTurn(seatDir, {
+      agent_id: agentId,
+      project: "agent-memory",
+      host: "claude_code",
+      session_id: this.sessionId,
+      state: "idle",
+      source: null,
+      rotation_marker_id: null,
+      at: this.iso(-120_000),
+      pane_id: this.pane.id,
+      tmux_socket: this.socket,
+      host_pid: this.hostPid,
+      host_started_at: this.hostStartedAt,
+    });
+    const target = `${agentId}:0.0`;
+    this.targets.add(target);
+    return { seatDir, target };
+  }
+
   writeConfig(seats: unknown[] = [SEAT_JSON], extra: Record<string, unknown> = {}): void {
     const path = join(this.root, "watcher-config.json");
     writeFileSync(path, JSON.stringify({ schema_version: "kusabi-rotation-watcher-config/v1", seats, ...extra }), { mode: 0o600 });
@@ -250,7 +296,7 @@ export class World {
     if (this.tmuxDown) return { ok: false, stdout: "" };
     const [command] = argv;
     const target = argv[argv.indexOf("-t") + 1];
-    if (command === "display-message" && argv.includes("-t") && target === "seat:0.0") return { ok: true, stdout: `${this.pane.id}\n` };
+    if (command === "display-message" && argv.includes("-t") && this.targets.has(target)) return { ok: true, stdout: `${this.pane.id}\n` };
     if (command === "display-message") {
       const format = argv[argv.length - 1];
       return { ok: true, stdout: `${expand(format, this.vars())}\n` };

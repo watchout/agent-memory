@@ -124,15 +124,26 @@
 
 ### Step 15: 記録と実装監査
 - [x] `code-summary.md`・`traceability.json` を書く。監査の項目の file に実装の項目を足す。
-- [ ] code を同じ PR に push し、CI の後に実装監査を依頼する（`audit_stage` は実装の後）。PR の本文に deviation_ledger（大きな file の扱い、届かない網羅率があればその理由）と「AI-DLC の単位の作る段の出力」を書く。
+- [x] code を同じ PR に push し、CI の後に実装監査を依頼した（`audit_stage` は実装の後。1 回目 comment 6787884981、2 回目 comment 6788925456、3 回目は Step 15c）。PR の本文に deviation_ledger（大きな file の扱い、届かない網羅率があればその理由）と「AI-DLC の単位の作る段の出力」を書く。
 - [ ] 統合の後の席への据え付け（FR9.2・FR9.3）は、arc-sec の確かめと Owner の決定を受けてから、Owner の手作業として別に行う。
 
 ### Step 15b: 実装監査の 1 回目（BLOCK、F1〜F6）を受けた直し
 - [x] 返却 https://github.com/watchout/agent-memory/pull/341#issuecomment-6788119508 を `--review` で流した結果は BLOCKED。作者の受領としてその結果をそのまま PR に書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6788338692 ）。6 件とも指摘のとおり受け止めた。
 - [x] 同じ単位の中で直した（DB の作り・workflow・資格情報・席への据え付けは変えていない。見張りの設計の記録は、F4・F5 が設計の条件の実装なので改版していない）: F1 = Stop の hook の内部期限、F2 = 印の無い compact の決まった文、F3 = 回復の文の上限（切り詰めの印を含む）、F4 = 読めない帳面と照会で確認した起動し直しの数え方、F5 = 確認の記録の失敗を成功にしない、F6 = 保存の前の transcript の帰属の確かめ。参考の S3 は、席名・起動の command の文字の規則と uid の取り方を 1 か所にして解いた。内容は `code-summary.md` の「1 回目の実装監査への直し」。
-- [x] 指摘ごとの試験を足した（core 21・flow 36・registration 12・units 83・watcher-flow 100）。型検査、CI の mirror 18 / 18、変えた行と新しい行の網羅率（動かなかったのは入口の最後の網 2 範囲だけ）をもう一度確かめた。
+- [x] 指摘ごとの試験を足した（1 回目の直しの時点の数: core 21・flow 36・registration 12・units 83・watcher-flow 100。今の数は Step 15c）。型検査、CI の mirror 18 / 18、変えた行と新しい行の網羅率（動かなかったのは入口の最後の網 2 範囲だけ）をもう一度確かめた。
 - [x] 記録を直した: `code-summary.md`（「量を測るだけ」の説明の訂正、見直しの後の変更と追跡の確かめの開示を含む）、`unit-test-instructions.md`、`coverage-method.md`（新）、`traceability.json`、監査の項目の file。
-- [ ] 直した head を push し、CI（build-and-test 18・20・22）が終わってから、2 回目の `sds-audit-request/1` を同じ PR に出す。返却が来るまで push しない。返却が来たら、`--review` を push の前に流す。
+- [x] 直した head（`f30c8ffd0858859a2c0970bfac061f6a2e83d5dd`）を push し、CI（build-and-test 18・20・22）が通ってから、2 回目の `sds-audit-request/1` を同じ PR に出した（https://github.com/watchout/agent-memory/pull/341#issuecomment-6788925456 ）。返却は BLOCK（https://github.com/watchout/agent-memory/pull/341#issuecomment-6789232372 ）。返却が来るまで push せず、`--review` を push の前に流して BLOCKED を確かめ、作者の受領（成立していない旨）を書いた（https://github.com/watchout/agent-memory/pull/341#issuecomment-6789263317 ）。
+
+### Step 15c: 実装監査の 2 回目（BLOCK、F1・F5 の 2 件）を受けた直し
+- [x] 返却の項目の結果: IMP-1・3・4・5・7・10 は PASS、IMP-2・6・8・9 は FAIL。ブロックしている指摘は 2 件だけ（どちらも指摘のとおり受け止めた）。
+  - F1（P2）Stop の hook の標準入力の読みが内部期限の外にある。`runRotationCli` が入力を読み終えてから期限を始めていたので、標準入力が閉じない hook は 7 秒を超えて残った。
+  - F5（P1）見張りの `runPass` が、ある席の tick が `stop_runner: true` を返しても次の席を続けて回していた。止まるかの確かめは全部の席の後だった。
+- [x] 試験を直しより先に書き、直す前の code で落ちることを確かめた: watcher-flow の 3 件（同じ pass で後の席を回さない・loop が止まり pass の一覧に後の席が無い・`once` が止まった席で終わり終了コード 4）は直す前に 3 件とも落ちた。flow の標準入力の試験は、閉じない入力の単体の場合が直す前は決着せず、試験の file 全体が Node の決着しない top-level await で終了コード 13 になった。前回 push した code（`f30c8ffd…`）で流すと、F1 の残り 3 件は 3 件とも落ちた: 期限の後に届いた入力を使ってしまい（理由が `unmeasured:usage_field_missing`）、読みに使った時間が予算から引かれず 1,602 ms かかり（予算は 1,000 ms）、別 process で起動した hook は 20 秒待っても終わらなかった。（監査の席も、実際の command で標準入力を開けたままにして 7,381 ms 残ることを示している。）
+- [x] 直した（DB の作り・workflow・資格情報・席への据え付けは変えていない。見張りの設計の記録は改版していない。F5 は設計の「失敗を隠さない」条件の実装の順序の直し）:
+  - F5: `src/rotation-watcher-run.ts` の `runPass` は、tick が `stop_runner` を返した席で seat の loop を抜け、後の席を回さない。`runnerMustStop`・loop・`once` の終了コード 4 は、回した席の一覧だけを見る。
+  - F1: `src/session-rotation-stop.ts` の `runRotationCli` は、引数を解いた直後に総予算（`--timeout-ms` と 7 秒の小さい方）を始め、標準入力の読みとその予算を競わせる。予算が先に来た時は、席を止めない証拠（理由 `internal_deadline_exceeded`）で PASS を返す。同じ予算を `runSessionRotationStop` に渡し、読みに使った時間は同じ予算から引かれる（2 つ目の予算を作らない）。予算の持ち主（`runRotationCli`）が最後に取り消す。
+- [x] 指摘ごとの試験を足した（flow 40・watcher-flow 103。ほかは変わらず core 21・registration 12・status 8・units 83・身元 25）。型検査、CI の mirror 18 / 18、変えた行と新しい行の網羅率をもう一度確かめる。
+- [ ] 記録（`code-summary.md`・`unit-test-instructions.md`・`coverage-method.md`・`traceability.json`・監査の項目の file）を直した head に合わせ、監査の依頼の前の自己確認（古い言い回し・数の出所・項目の file を見直し役に先に見せる）を流してから、3 回目の `sds-audit-request/1` を同じ PR に出す。返却が来るまで push しない。返却が来たら、`--review` を push の前に流す。
 
 ## Testing Contract
 
