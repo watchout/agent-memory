@@ -1,40 +1,26 @@
-# 使っている技術 — Kusabi（agent-memory）
+# 技術の組み合わせ — Kusabi（agent-memory）
 
-## 言語と実行環境
+版は package.json と package-lock.json（lockfileVersion 3）から読んだ。依存のつながりは dependencies.md を参照。
 
-| 項目 | 中身 | 出所 |
-|------|------|------|
-| 言語 | TypeScript（ESM、strict） | tsconfig.json |
-| 出力の型 | ES2022 | tsconfig.json |
-| 実行環境 | Node.js 20 以上（CI は 18・20・22） | package.json の engines、.github/workflows/ci.yml |
+| 種類 | 物 | 版 | 用途 |
+|---|---|---|---|
+| 言語 | TypeScript（strict、ESM） | 5.9.3（devDependencies `^5.7.0`） | すべての source。target ES2022、module ESNext、moduleResolution bundler |
+| 実行の環境 | Node.js | `engines.node >=20.0.0` | CI は 18・20・22 で回す（下の注意） |
+| TS をそのまま動かす | tsx | 4.21.0 | 試験と開発の起動（`npm test`・`npm run dev`） |
+| MCP | @modelcontextprotocol/sdk | 1.32.2 | MCP サーバー（stdio） |
+| 入力の確かめ | zod | 4.6.7 | MCP の道具の引数 |
+| JSON Schema | ajv・ajv-formats | 8.20.0・3.0.1 | `recovery-pack/v1`・`host-invocation-context/v1` の確かめ（2020-12） |
+| DB（本番） | PostgreSQL 16 ＋ pgvector、pg | pg 8.20.0 | 社内の記憶の DB。docker-compose.yml は `pgvector/pgvector:pg16` |
+| DB（OSS の既定） | SQLite（sql.js、WASM） | 1.14.1 | `~/.agent-memory/memory.db` |
+| DB（簡易） | JSON ファイル | — | `~/.agent-memory/` |
+| ID | uuid | 11.1.1 | 記録の ID |
+| 埋め込み（任意） | Voyage AI（`voyage-3-lite`、512 次元） | HTTP を直接 | PostgreSQL の意味検索 |
+| 運用の道具 | bash、node の mjs、tmux、git | — | scripts/、Codex の tmux の helper、commit の読み取り |
+| 席の CLI（相手） | Claude Code・Codex・Gemini CLI・Antigravity CLI | 契約の版 2.1.220・0.144.2・0.38.2・1.1.12（各 adapter の定数） | hook と MCP の相手 |
+| 型 | @types/node・@types/pg・@types/sql.js・@types/uuid | 22.19.15 ほか | 開発だけ |
 
-## 枠組みとライブラリ
+## 注意
 
-| 名前 | 版（宣言 / lock の解決） | 使い道 |
-|------|------------------------|--------|
-| @modelcontextprotocol/sdk | ^1.12.1 / 1.28.0 | 本番は MCP サーバー（`server/mcp`・`server/stdio` の stdio だけ）。試験は MCP の client（`client/index`・`client/stdio`）で `dist/index.js` を起動して道具を呼ぶ |
-| zod | 宣言なし / 4.3.6（MCP SDK の依存 `^3.25 \|\| ^4.0` で入る） | 道具の入力の検証（`src/index.ts` が直接読み込む） |
-| pg | ^8.13.0 | PostgreSQL の接続 |
-| sql.js | ^1.14.1 | SQLite（WebAssembly、file に書き出す） |
-| ajv・ajv-formats | ^8.20.0・^3.0.1 | JSON Schema の検証（決まった形の出力） |
-| uuid | ^11.1.0 | 識別子 |
-
-## 保存の技術
-
-| 技術 | 使い道 |
-|------|--------|
-| SQLite（sql.js） | 既定の置き場。`~/.agent-memory/memory.db` |
-| PostgreSQL | 本番の置き場。docker-compose.yml の手元の環境は pgvector/pgvector:pg16 |
-| pgvector | 埋め込みの列（vector(512)）と hnsw の索引 |
-| Voyage AI | 埋め込みを作る外の API（voyage-3-lite） |
-
-## 開発とビルドの道具
-
-| 名前 | 版 | 使い道 |
-|------|----|--------|
-| typescript | ^5.7.0 | 型検査とビルド |
-| tsx | ^4.19.0 | 開発と試験の時に TypeScript を直接動かす |
-| @types/node・@types/pg・@types/sql.js・@types/uuid | ^22.0.0・^8.11.0・^1.4.11・^10.0.0 | 型の定義 |
-| GitHub Actions | — | CI（.github/workflows/ci.yml） |
-
-書式・静的検査の道具は入っていない（code-quality-assessment.md を参照）。
+- Node の版の食い違い: `engines` は 20 以上だが、.github/workflows/ci.yml の matrix は 18・20・22 のまま。workflow は保護面なので、直すなら Owner の決定が要る。
+- 書式・静的検査の道具（Prettier・ESLint など）は入っていない。型検査（`tsc --noEmit`）だけ（team.md の決まり）。
+- 行の網羅率を測る道具（c8・nyc など）は入っていない。

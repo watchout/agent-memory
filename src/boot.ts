@@ -38,7 +38,7 @@ async function boot() {
   // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
   await ensureMemoryTags();
 
-  const store = await createStore();
+  const store = await createStore({ skipPostgresMigrations: true });
 
   try {
     // FEAT-037: Expire stale in_progress tasks (7+ days old)

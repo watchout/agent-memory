@@ -476,6 +476,7 @@ async function testCodexNativeSessionStart() {
           ...process.env,
           AGENT_MEMORY_DB_TYPE: "sqlite",
           AGENT_MEMORY_DB_PATH: join(root, "hook-db", "memory.db"),
+          AGENT_MEMORY_HOME: join(root, "hook-home"),
           DATABASE_URL: "",
           AGENT_MEMORY_DATABASE_URL: "",
         },

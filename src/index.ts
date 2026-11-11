@@ -7,6 +7,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { loadRecoveryContext, normalRecoveryLimits } from "./recovery-context.js";
 import { createStore } from "./stores/index.js";
+import { createStoreReadiness } from "./mcp-store-readiness.js";
 import type { Store } from "./stores/types.js";
 import {
   DEFAULT_RECOVERY_CONFIG,
@@ -48,7 +49,9 @@ async function logCall(tool: string, params: string): Promise<void> {
 }
 
 async function main() {
-  const store = await createStore();
+  // The Store opens after the transport connects (FR7.2); tool calls wait for it.
+  const readiness = createStoreReadiness(() => createStore({ skipPostgresMigrations: true }));
+  const store = readiness.store;
   const continuationTracker = new RecoveryContinuationTracker(AGENT_ID, SESSION_ID);
 
   const logToolCall = async (tool: string, params: string): Promise<void> => {
@@ -992,6 +995,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("[agent-memory] MCP server running on stdio");
+  readiness.begin();
 
   // Graceful shutdown
   const shutdown = async () => {
@@ -1000,7 +1004,7 @@ async function main() {
       await store.updateSearchMemoryCount(recoveryLogId, searchMemoryCountSinceRecovery).catch(() => {});
     }
     if (searchMemoryTimer) clearTimeout(searchMemoryTimer);
-    await store.close();
+    await readiness.close();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);

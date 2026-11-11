@@ -120,6 +120,40 @@ Wasurezu supplies:
 Wasurezu must not independently restart an AUN-supervised runtime or mutate AUN
 queue lifecycle.
 
+Session rotation watcher (261110-session-rotation, FR5): the watcher that cuts a
+seat's conversation is a separate, LLM-free script, not part of the Wasurezu MCP
+server or hooks. It restarts the seat's tmux pane with the pane's own registered
+launch command (`tmux respawn-pane -k`, no command string supplied), and it sends
+no keys to the seat at all. It runs only on seats installed by an Owner decision
+after an arc-sec check, and the launch script of each seat is registered in its
+watcher config by that decision. On a seat marked AUN-supervised it does nothing
+unless that seat's watcher config carries an Owner decision reference
+(control_source URL and body SHA-256) that names this restart, and even then it
+never touches AUN queue lifecycle (claim, requeue, finalize, close). The
+Wasurezu MCP server and hooks themselves still never cut a conversation or touch
+a terminal: they measure, save the handoff, emit the safe-to-cut marker, and
+inject the continuation at the next SessionStart (including a SessionStart with
+source `startup` that follows a watcher restart).
+
+The recovery pack is delivered by the structured SessionStart hook
+(additionalContext, plus initialUserMessage on Claude Code), so no recovery
+depends on text typed into a live TUI (§9 is unchanged). If the restart does not
+happen, the conversation simply is not cut and nothing is lost.
+The watcher restarts a pane only when the seat is idle, the input line is
+observed empty with the cursor at its start, no tmux client has operated
+recently, and the marker, the pane, the pane's start command, the launch
+script's SHA-256, the host process (number and start time) and the conversation
+all match. It takes an exclusive durable claim for the marker first, so one
+marker restarts at most once, and it never repeats a restart whose outcome is
+unknown: it queries, and if it cannot confirm, it halts the seat.
+No exclusion exists between a person typing and the pane, so some losses cannot
+be ruled out and are declared: text a person starts typing after the last
+observation is lost (not sent); work started after the last observation is cut;
+a process that replaces the host inside the window between the last check and the
+restart is ended; a hook that is still running is cut; and a new conversation
+may fail to start, which halts the seat. These residual risks are recorded in the
+design record and accepted by the Owner at install time.
+
 ---
 
 ## 6. Standalone Boundary
@@ -132,6 +166,18 @@ In Wasurezu standalone mode, local session refresh or restart may run only when:
 
 Pure MCP mode may prepare packs, warn, and recommend. It must not claim it can
 force host restart.
+
+For the session rotation watcher, the three conditions map as follows:
+
+- AUN absence is explicitly confirmed: the seat's watcher config is not marked
+  AUN-supervised, or it carries the Owner decision reference required by §5
+- a supported supervisor or host hook is installed: the rotation watcher plus
+  the Wasurezu Stop and SessionStart hooks on that seat
+- pre-authorized at install time: the Owner decision that installs the watcher
+  on that seat, taken after the arc-sec check
+
+The watcher's design record (version 4) is
+`aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/watcher-design.md`.
 
 ---
 

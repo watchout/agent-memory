@@ -272,7 +272,7 @@ async function main() {
     if (!text) process.exit(0);
     if (!parseTag(text)) process.exit(0);
 
-    const store = await createStore();
+    const store = await createStore({ skipPostgresMigrations: true });
     try {
       await processContent(store, text, {
         channel: "mcp",
@@ -293,7 +293,7 @@ async function main() {
     if (!extracted) process.exit(0);
     if (!parseTag(extracted.content)) process.exit(0);
 
-    const store = await createStore();
+    const store = await createStore({ skipPostgresMigrations: true });
     try {
       await processContent(store, extracted.content, {
         channel: "bash",

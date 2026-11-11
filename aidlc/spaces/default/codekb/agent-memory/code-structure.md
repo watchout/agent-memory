@@ -1,46 +1,41 @@
-# コードの構成 — Kusabi（agent-memory）
+# コードの置き場と形 — Kusabi（agent-memory）
 
-## 構成の全体
+ファイルの置き場と種類の一覧はここが持ち主。部品ごとの受け持ちは component-inventory.md を参照。
 
-単一のパッケージ（wasurezu）。TypeScript（ESM）で書き、`tsc` で `src/` を `dist/` に出す（tsconfig.json）。
+## 置き場（git が追う物だけ。AI-DLC の install と build の出力は除く）
 
-```text
-src/                プログラム（平らに並ぶ。保存の層だけ src/stores/ に分かれる）
-src/stores/         保存の層（差し替えの口と SQLite・PostgreSQL・JSON の実装）
-src/test*.ts        試験のスクリプト（ビルドから外す）
-tests/gate0/        門の試験（3 ファイル）
-tests/spec-enforcement/  仕様の守りの試験（1 ファイル）
-docs/design/core/   設計の正本（SSOT-2〜7）
-scripts/・templates/  展開と雛形
-```
+| 置き場 | 数 | 中身 |
+|---|---|---|
+| `src/` 直下 | 試験でない 58・試験 39 | 機能ごとの module が平らに並ぶ。名前の頭で機能が分かる（`claude-*`・`codex-*`・`gemini-*`・`antigravity-*`・`kusabi-*`・`restart-*`・`recovery-*`） |
+| `src/stores/` | 10 | Store の interface（`types.ts`）、選び方（`index.ts`）、実装 3 つ（`pg-store.ts`・`sqlite-store.ts`・`json-store.ts`）、PostgreSQL の表の変更（`pg-migrations.ts`）、埋め込み（`voyage.ts`）、補助（`knowledge-scope.ts`・`raw-events.ts`・`task-id.ts`） |
+| `tests/` | 4 | `gate0/`（秘密を回復に出さない・表の変更の冪等・search_memory の回帰）、`spec-enforcement/`（AM-027 の回帰） |
+| `scripts/` | 16 | shell と mjs の運用の道具。`host-adapters/`（Codex の tmux と launcher の 4 本）、`codex-memory-start.sh`、`install-hook.sh`、`post-tool-hook.sh`、公開の版づくり（`build-kusabi-content-addressed-runtime-release.mjs`）ほか |
+| `templates/` | 4 | `CLAUDE.md.template`、hook と設定の例、`memory-tags.md` |
+| `docs/` | 106 | `design/core/SSOT-2〜7`（設計の正本）、`design/schemas/`（JSON Schema）、`operations/`（運用の手順と設計）、`v2/`（次の版の設計）、`requirements/`・`standards/`・`strategy/` |
+| `.shirube/` | 55 | 社内の門（Shirube）の設定・作業の引き渡し（`control-handoffs/`）・門の道具（`runtime/rapid-lite/`） |
+| `.framework/` | 5 | 以前の開発の枠組み（ADF）の状態の JSON |
+| `.github/` | 6 | CI（`workflows/ci.yml`）、Shirube の門の報告（`workflows/shirube-rapid-lite-gates-report.yml`）、issue と PR の雛形 |
+| 直下 | — | `package.json`・`package-lock.json`・`tsconfig.json`・`docker-compose.yml`・`.env.example`・`AGENTS.md`・`CLAUDE.md`・`README.md` ほか |
 
-## ファイルの分け方
+行の数: 試験でない source は 34,945 行、`src/` の試験は 20,076 行。
 
-部品の名前は component-inventory.md の見出しと同じ。
+## 種類ごとの分け方（`src/` の試験でない物）
 
-| 部品 | 主なファイル |
-|------|-------------|
-| MCP サーバー | src/index.ts、src/constants.ts |
-| 保存の層 | src/stores/types.ts・index.ts・pg-store.ts・sqlite-store.ts・json-store.ts・pg-migrations.ts・knowledge-scope.ts・task-id.ts・raw-events.ts、src/migrate.ts |
-| 意味検索 | src/stores/voyage.ts |
-| 回復 | src/recovery-context.ts、src/recovery-quality.ts、src/restart-pack.ts、src/restart-prepare.ts、src/restart-cli.ts、src/restart-command-preflight.ts、src/kusabi-checkpoint-recovery.ts |
-| 起動の口 | src/boot.ts、src/claude-session-start.ts、src/codex-session-start.ts、src/gemini-session-start.ts、src/antigravity-session-start.ts、src/claude-start.ts、src/codex-start.ts、src/session-start-auto-receive.ts、src/post-tool-hook.ts、各 *-hook-installer.ts |
-| 会話の取り込み | src/claude-conversation-ingest.ts、src/codex-conversation-ingest.ts、src/gemini-conversation-ingest.ts、src/antigravity-conversation-ingest.ts、src/catch-up.ts、src/raw-capture-service.ts、src/transcript-stop-capture.ts、src/fleet-conversation-backfill.ts |
-| 秘匿処理 | src/redact.ts、src/sanitize.ts |
-| 記録の読み出し | src/memory-source.ts |
-| 区画の登録 | src/kusabi-partitions.ts |
-| 席の実行の身元 | src/kusabi-runtime-identity.ts、src/kusabi-runtime-event-emitter.ts、src/kusabi-runtime-event-store.ts |
-| 運用の観測と展開 | src/kusabi-fleet-rollout.ts、src/kusabi-direct-fleet-rollout.ts、src/kusabi-fleet-status.ts、src/kusabi-fleet-status-cli.ts、src/kusabi-one-seat-canary.ts、src/kusabi-fresh-session-fleet.ts、src/continuity-*.ts、src/kusabi-functional-evaluator.ts、src/measure-kusabi-functional.ts、src/raw-capture-coverage.ts、src/company-dev-os-recovery-target-audit.ts など |
+| 種類 | ファイル |
+|---|---|
+| 入口（CLI・MCP・hook） | `index.ts`、`boot.ts`、`claude-session-start.ts`、`codex-session-start.ts`、`gemini-session-start.ts`、`antigravity-session-start.ts`、`transcript-stop-capture.ts`、`claude-start.ts`、`codex-start.ts`、`restart-cli.ts`、`*-hook-installer.ts`（4）、`post-tool-hook.ts`、`migrate.ts`、`fleet-conversation-backfill.ts`、`kusabi-fleet-status-cli.ts`、`kusabi-direct-fleet-rollout.ts`、`continuity-alpha-canary.ts`、`kusabi-fresh-session-fleet.ts`、`measure-kusabi-functional.ts`、`company-dev-os-recovery-target-audit.ts` |
+| 処理（回復・取り込み・準備） | `recovery-context.ts`、`restart-pack.ts`、`restart-prepare.ts`、`recovery-quality.ts`、`session-start-auto-receive.ts`、`*-conversation-ingest.ts`（4）、`catch-up.ts`、`raw-capture-service.ts`、`kusabi-checkpoint-recovery.ts`、`memory-source.ts`、`kusabi-partitions.ts`、運用系（`kusabi-fleet-*`・`kusabi-one-seat-canary.ts`・`continuity-alpha-*`・`kusabi-functional-evaluator.ts`・`kusabi-continuity-interruption-e2e.ts`・`kusabi-direct-db-gate.ts`・`kusabi-runtime-*`） |
+| 保存（Repository） | `stores/*` |
+| 判定・補助（純粋な関数が中心） | `context-window-resolution.ts`、`codex-context-measurement.ts`、`claude-marker-controller.ts`、`restart-command-preflight.ts`、`continuity-analysis.ts`、`constants.ts`、`redact.ts`、`sanitize.ts`、`artifact-schema-validator.ts`、`raw-capture-coverage.ts`、`ensure-tags.ts` |
+| 表の変更 | `stores/pg-migrations.ts`（`migrate.ts` から流す。起動の時にも流す） |
+| 試験 | `src/test*.ts`（39）、`tests/**`（4） |
 
-## コードの型
+## 繰り返し出てくる形
 
-- **差し替えの口**: 保存は Store の interface（src/stores/types.ts 499 行目）だけを通す。呼び手は実装を知らない。選ぶのは `createStore`（src/stores/index.ts）
-- **道具ごとの入力の検証**: 各道具の引数を zod の形で書き、MCP SDK の `server.tool` に渡す（src/index.ts）
-- **身元は process の環境から**: agent_id と project は process の起動の時に環境変数から一度だけ決め、道具の処理はそれを付けて保存の層に渡す
-- **失敗は文で返す**: 道具の処理は try/catch で包み、失敗は `isError: true` の応答で返す
-- **DB の作りの変更**: 文字列の SQL の並びを毎回の起動で流す。どれも `IF NOT EXISTS` の形（src/stores/pg-migrations.ts）
-- **呼び出しの記録**: 道具が呼ばれるたびに `~/.agent-memory/calls.log` に 1 行書く（src/index.ts）
-
-## 大きさ
-
-このリポジトリの決まり（1 ファイル最大 800 行）を超えるファイルが 7 つある。一覧は code-quality-assessment.md の「技術的な負債」を参照。
+- 入口の見分け: 各 CLI の file は関数を export し、`realpath(process.argv[1])` が自分と同じ時だけ `main()` を動かす。試験は同じ file の関数を import して呼ぶ。
+- 試験のための差し替え: `dependencies` 引数で `now`・`loadRecovery`・`createStore`・`receive` などを差し替える（例: src/codex-session-start.ts `runCodexSessionStart`、src/transcript-stop-capture.ts `runTranscriptStopCapture`）。
+- 出力の分け方: host に返す JSON は stdout、証拠の JSON（`*-evidence/v1`）は stderr。
+- fail-open: 失敗は型の付いた理由（`MALFORMED_HOOK_INPUT`・`RECOVERY_TIMEOUT` など）で返し、席の起動は続ける。
+- 束縛の値は引数で渡す: hook の command に `--agent-id`・`--project`・`--workspace`・`--binding-source-ref` を書き込み、環境からの推測をしない。
+- 上限の明記: 入力 64 KiB、回復の文 1,800 token・8,192 byte、内部の期限 7 秒、transcript 8 MiB（起動時）・末尾 4 MiB（Stop）。
+- Codex の口を土台に、Claude Code・Gemini・Antigravity の口が型と関数を借りる（src/claude-session-start.ts は入力を Codex の形に直して `runCodexSessionStart` を呼ぶ）。
