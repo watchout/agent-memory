@@ -8,6 +8,8 @@
 
 ## この取り組みの試験の命令（この取り組みの file だけを動かす）
 
+この取り組みの試験の code は、全部、設計監査の PASS と作者の受領の後に書く（arc の訂正、Owner の委任 #49 6762288830。前の版は見張りの試験だけを PASS の後としていたが、社内の決まり aidlc-only §2 に合わせて全部に直した）。
+
 成功の場面の試験（Step 4。実装の前に動かして失敗を確かめ、実装の後に通ることを確かめる）:
 
 ```bash
@@ -24,7 +26,7 @@ HOME=$(mktemp -d) npx tsx src/test-mcp-store-readiness.ts
 HOME=$(mktemp -d) npx tsx src/test-conversation-capture-repair.ts
 ```
 
-見張りの試験（Step 14。設計監査の PASS の後に作る）:
+見張りの試験（Step 14。設計監査の PASS の後に作る。中身は見張りの設計の記録の版 2 の 12 のとおり: 入力欄の読み戻し=F1、席と画面の結び=F2、排他の取得と各段の停止=F3、帳面の旧 session_id=F4、打てる文字列と SSOT-6 §9 の差分なし=F5。本物の tmux は使わない）:
 
 ```bash
 HOME=$(mktemp -d) npx tsx src/test-rotation-watcher.ts
