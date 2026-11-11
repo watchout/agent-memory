@@ -1,21 +1,28 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import Ajv2020 from "ajv/dist/2020.js";
 import {
   CLAUDE_SESSION_START_ADAPTER_ID,
   CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS,
+  CLAUDE_SESSION_START_HOST_CONTRACT_VERSION,
   CLAUDE_SESSION_START_MAX_BYTES,
   CLAUDE_SESSION_START_MAX_TOKENS,
   CLAUDE_SESSION_START_MODEL_UNSPECIFIED,
   parseClaudeSessionStartArgs,
   parseClaudeSessionStartInput,
+  parseClaudeSessionStartInputWithIgnored,
   runClaudeSessionStart,
+  runClaudeSessionStartProcess,
   type ClaudeSessionStartBinding,
   type ClaudeSessionStartInput,
+  type ClaudeSessionStartProcessIo,
 } from "./claude-session-start.js";
+import { parseHookInputDiagnostic, type HookDiagnosticRequest } from "./hook-input-diagnostics.js";
 import { buildClaudeSessionStartSettings } from "./claude-start.js";
 import type { LoadedCodexRecovery, RecoveryOutputWithMetrics } from "./codex-session-start.js";
 
@@ -83,6 +90,292 @@ function loaded(text?: string): LoadedCodexRecovery {
       credentials_embedded: false,
     },
   };
+}
+
+const MARK = "SENTINEL_VALUE_NEVER_TO_APPEAR_7f3a";
+const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
+
+interface ProcessRun {
+  log: string[];
+  evidence: string[];
+  output: string[];
+  requests: HookDiagnosticRequest[];
+  exits: number;
+  exited_at: number;
+}
+
+/** Runs the SessionStart process function with every side effect injected; waits until exit is called. */
+async function processRun(
+  workspace: string,
+  raw: string,
+  extra: {
+    clock?: (answered: boolean) => number;
+    run_diagnostic?: (request: HookDiagnosticRequest) => Promise<unknown>;
+    write_delay?: number;
+    argv_extra?: string[];
+  } = {},
+): Promise<ProcessRun> {
+  const run: ProcessRun = { log: [], evidence: [], output: [], requests: [], exits: 0, exited_at: -1 };
+  let answered = 0;
+  const start = performance.now();
+  const frozen = () => {
+    const values = [1_000, 1_024];
+    return () => values.shift() ?? 1_024;
+  };
+  const io: ClaudeSessionStartProcessIo = {
+    argv: [
+      "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
+      "--agent-id", "kusabi",
+      "--project", "agent-memory",
+      "--workspace", workspace,
+      "--binding-source-ref", "fixture:process",
+      ...(extra.argv_extra ?? []),
+    ],
+    env: {},
+    read_input: async () => raw,
+    write_evidence: (line, done) => {
+      run.log.push("evidence");
+      run.evidence.push(line);
+      setTimeout(() => { run.log.push("evidence_done"); answered++; done(); }, extra.write_delay ?? 0);
+    },
+    write_output: (line, done) => {
+      run.log.push("output");
+      run.output.push(line);
+      setTimeout(() => { run.log.push("output_done"); answered++; done(); }, extra.write_delay ?? 0);
+    },
+    exit: () => {
+      run.exits++;
+      if (run.exited_at < 0) run.exited_at = performance.now() - start;
+      run.log.push("exit");
+    },
+    run_diagnostic: async (request) => {
+      run.log.push("diagnostic");
+      run.requests.push(request);
+      return extra.run_diagnostic?.(request);
+    },
+    emit_runtime_event: async () => { run.log.push("runtime_event"); },
+    clock: () => (extra.clock ? extra.clock(answered >= 2) : performance.now()),
+    now: () => new Date("2026-11-11T10:00:00.000Z"),
+    pid: 4242,
+    dependencies: { loadRecovery: async () => loaded(), now: frozen() },
+  };
+  await runClaudeSessionStartProcess(io);
+  const limit = performance.now() + 2500;
+  while (run.exits === 0 && performance.now() < limit) await sleep(5);
+  await sleep(60);
+  return run;
+}
+
+const slowWriter = (ms: number) => () => new Promise<void>((done) => { setTimeout(done, ms).unref(); });
+
+/** FR10: keys the host added (Claude Code 2.1.321) are ignored; every other rule of the entry stays. */
+async function hostAddedKeys(context: {
+  child: string;
+  workspace: string;
+  outside: string;
+  validateEvidence: { (value: unknown): boolean; errors?: unknown };
+  root: string;
+}): Promise<void> {
+  const { child, workspace, outside, validateEvidence, root } = context;
+  const base = JSON.parse(hookInput(child)) as Record<string, unknown>;
+  const withoutKey = (key: string) => {
+    const copy = { ...base };
+    delete copy[key];
+    return copy;
+  };
+
+  // The sibling parser reports the names and returns what the original returns.
+  const live321 = { ...base, session_title: MARK };
+  const sibling = parseClaudeSessionStartInputWithIgnored(JSON.stringify(live321));
+  assert.deepEqual(sibling.input, parseClaudeSessionStartInput(JSON.stringify(live321)));
+  assert.deepEqual(sibling.input, parseClaudeSessionStartInput(JSON.stringify(base)));
+  assert.deepEqual([...sibling.ignored_names], ["session_title"]);
+  assert.equal(JSON.stringify(sibling).includes(MARK), false, "an ignored value is never carried");
+  assert.deepEqual([...parseClaudeSessionStartInputWithIgnored(JSON.stringify(base)).ignored_names], []);
+
+  // F1: the type rules of the three optional keys stay refusals, with and without a host-added key.
+  for (const [field, value] of [["model", null], ["permission_mode", "invalid-mode"], ["agent_type", ""]] as const) {
+    for (const extra of [{}, { session_title: MARK }]) {
+      const input = JSON.stringify({ ...base, [field]: value, ...extra });
+      assert.throws(() => parseClaudeSessionStartInput(input), /MALFORMED_HOOK_INPUT/, `${field} ${JSON.stringify(extra)}`);
+      assert.throws(() => parseClaudeSessionStartInputWithIgnored(input), /MALFORMED_HOOK_INPUT/);
+    }
+  }
+
+  // The result for the input with a host-added key equals the result for the same input without it
+  // (accepted or refused, the reason, identity). The reasons of the plain inputs are fixed first.
+  const loaders = { loadRecovery: async () => loaded() };
+  const summary = (result: Awaited<ReturnType<typeof runClaudeSessionStart>>) => JSON.stringify({
+    reason: result.evidence.degraded_reason,
+    verified: result.evidence.identity.verified,
+    outcome: result.evidence.outcome,
+    context: result.output.hookSpecificOutput !== undefined,
+    message: result.output.systemMessage ?? null,
+  });
+  const withoutModel = withoutKey("model");
+  const cases: Array<[string, Record<string, unknown>, ClaudeSessionStartBinding, string | null]> = [
+    ["accepted", base, binding(workspace), null],
+    ["required key missing", withoutKey("cwd"), binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["empty session id", { ...base, session_id: "" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["model null", { ...base, model: null }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["unknown permission mode", { ...base, permission_mode: "invalid-mode" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["empty agent type", { ...base, agent_type: "" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["wrong event", { ...base, hook_event_name: "Stop" }, binding(workspace), "UNSUPPORTED_HOOK_EVENT"],
+    ["unknown source", { ...base, source: "unknown" }, binding(workspace), "UNSUPPORTED_START_SOURCE"],
+    ["wrong event, no model (keys do not line up for the Codex parser)", { ...withoutModel, hook_event_name: "Stop" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["unknown source, agent type present", { ...base, source: "unknown", agent_type: "worker" }, binding(workspace), "MALFORMED_HOOK_INPUT"],
+    ["binding invalid", base, binding(workspace, { agent_id: "" }), "IDENTITY_BINDING_INVALID"],
+    ["cwd outside the workspace", { ...base, cwd: outside }, binding(workspace), "WORKSPACE_IDENTITY_MISMATCH"],
+  ];
+  for (const [label, input, bound, expected] of cases) {
+    const plain = await runClaudeSessionStart(JSON.stringify(input), bound, loaders);
+    assert.equal(plain.evidence.degraded_reason, expected, `${label}: the plain input's reason`);
+    const marked = await runClaudeSessionStart(
+      JSON.stringify({ ...input, session_title: MARK, prompt_id: MARK }),
+      bound,
+      loaders,
+    );
+    assert.equal(summary(marked), summary(plain), `${label}: a host-added key must not change the result`);
+    assert.equal(JSON.stringify(marked).includes(MARK), false, `${label}: no ignored value in the result`);
+    assert(validateEvidence(marked.evidence), JSON.stringify(validateEvidence.errors));
+  }
+
+  // The ignored value does not reach the recovery loader or the store binding either.
+  const seenByLoader: string[] = [];
+  const accepted = await runClaudeSessionStart(JSON.stringify({ ...base, session_title: MARK }), binding(workspace), {
+    loadRecovery: async (_binding, input) => { seenByLoader.push(JSON.stringify(input)); return loaded(); },
+  });
+  assert.equal(accepted.evidence.outcome, "full");
+  assert.equal(seenByLoader.join("").includes(MARK), false);
+  assert.deepEqual(JSON.parse(seenByLoader[0]), JSON.parse(JSON.stringify(sibling.input)));
+
+  // on_ignored_names: once, right after the Claude parser accepts; never for a refusal nor the proxy route.
+  const calls: string[][] = [];
+  await runClaudeSessionStart(JSON.stringify({ ...base, session_title: MARK, zeta: 1 }), binding(workspace), {
+    ...loaders,
+    on_ignored_names: (names) => { calls.push([...names]); },
+  });
+  assert.deepEqual(calls, [["session_title", "zeta"]]);
+  calls.length = 0;
+  for (const refused of [
+    withoutKey("cwd"), { ...base, model: null }, { ...base, hook_event_name: "Stop" }, { ...base, source: "unknown" },
+    { ...withoutModel, hook_event_name: "Stop" },
+  ]) {
+    await runClaudeSessionStart(JSON.stringify({ ...refused, session_title: MARK }), binding(workspace), {
+      ...loaders,
+      on_ignored_names: (names) => { calls.push([...names]); },
+    });
+  }
+  assert.deepEqual(calls, [], "no names are reported for an input the Claude parser refused");
+  await runClaudeSessionStart(JSON.stringify(base), binding(workspace), {
+    ...loaders,
+    on_ignored_names: (names) => { calls.push([...names]); },
+  });
+  assert.deepEqual(calls, [[]], "reported once, with no names, when there is nothing to report");
+  // Callers that do not pass it get the same result shape as before.
+  const shape = await runClaudeSessionStart(JSON.stringify(base), binding(workspace), loaders);
+  assert.deepEqual(Object.keys(shape).sort(), ["evidence", "exit_code", "output"]);
+
+  // The contract-version constant keeps its value and says what it means (H6).
+  assert.equal(CLAUDE_SESSION_START_HOST_CONTRACT_VERSION, "2.1.220");
+  const source = readFileSync(join(process.cwd(), "src", "claude-session-start.ts"), "utf8");
+  const declaration = source.indexOf("export const CLAUDE_SESSION_START_HOST_CONTRACT_VERSION");
+  const comment = source.slice(Math.max(0, declaration - 240), declaration);
+  assert.match(comment, /verified against/i);
+  assert.match(comment, /not the host/i);
+
+  // The process function: order of writes, the bounded wait, and the budget.
+  const raw321 = JSON.stringify({ ...base, session_title: MARK });
+  const rawPlain = JSON.stringify(base);
+  const plainRun = await processRun(workspace, rawPlain);
+  assert.equal(plainRun.exits, 1);
+  assert.deepEqual(plainRun.requests, [], "nothing to report: no diagnostic is started");
+  assert(plainRun.exited_at < 150, `exit at ${plainRun.exited_at} ms`);
+
+  const slow = await processRun(workspace, raw321, { run_diagnostic: slowWriter(3000), write_delay: 60 });
+  assert.equal(slow.exits, 1);
+  assert.equal(slow.requests.length, 1);
+  const request = slow.requests[0];
+  assert.equal(request.adapter_id, CLAUDE_SESSION_START_ADAPTER_ID);
+  assert.equal(request.event, "SessionStart");
+  assert.deepEqual([...request.names], ["session_title"]);
+  assert.equal(request.agent_id, "kusabi");
+  assert.equal(request.project, "agent-memory");
+  assert.equal(request.pid, 4242);
+  assert.equal(request.now.toISOString(), "2026-11-11T10:00:00.000Z");
+  assert.equal(JSON.stringify(request).includes(MARK), false);
+  // The diagnostic starts only after the runtime event, the evidence and the answer are written and flushed.
+  const at = (entry: string) => slow.log.indexOf(entry);
+  assert(at("runtime_event") >= 0 && at("runtime_event") < at("evidence"));
+  assert(at("evidence_done") >= 0 && at("output_done") >= 0);
+  assert(at("diagnostic") > at("evidence_done") && at("diagnostic") > at("output_done"), JSON.stringify(slow.log));
+  assert(at("exit") > at("diagnostic"));
+  assert(slow.exited_at >= 180 + 60 && slow.exited_at < 1000, `slow diagnostic: exit at ${slow.exited_at} ms`);
+  // The bytes written are the same with and without the host-added key.
+  assert.deepEqual(slow.evidence, plainRun.evidence);
+  assert.deepEqual(slow.output, plainRun.output);
+  assert(slow.evidence.every((line) => line.endsWith("\n")) && slow.output.every((line) => line.endsWith("\n")));
+
+  const fast = await processRun(workspace, raw321, { run_diagnostic: slowWriter(5) });
+  assert(fast.exited_at < 150, `fast diagnostic: exit at ${fast.exited_at} ms`);
+
+  const exhausted = await processRun(workspace, raw321, { clock: (answered) => (answered ? 6_500 : 0) });
+  assert.deepEqual(exhausted.requests, [], "less than the floor is left: the diagnostic is not started");
+  assert.equal(exhausted.exits, 1);
+  assert(exhausted.exited_at < 150, `exhausted: exit at ${exhausted.exited_at} ms`);
+  assert.deepEqual(exhausted.evidence, plainRun.evidence);
+
+  const thrown = await processRun(workspace, raw321, { run_diagnostic: () => { throw new Error("writer threw"); } });
+  assert.equal(thrown.exits, 1);
+  assert.deepEqual(thrown.output, plainRun.output);
+
+  const refused = await processRun(workspace, JSON.stringify({ ...base, model: null, session_title: MARK }));
+  assert.deepEqual(refused.requests, [], "a refused input starts no diagnostic");
+  assert.equal(refused.exits, 1);
+  assert(refused.exited_at < 150);
+
+  // End to end through the real command: the ignored name is recorded, the value is nowhere.
+  const home = join(root, "e2e-home");
+  const memoryHome = join(root, "e2e-memory");
+  await mkdir(home, { recursive: true, mode: 0o700 });
+  await mkdir(memoryHome, { recursive: true, mode: 0o700 });
+  const started = performance.now();
+  const e2e = spawnSync(process.execPath, [
+    "--import", "tsx",
+    "src/claude-session-start.ts",
+    "--adapter-id", CLAUDE_SESSION_START_ADAPTER_ID,
+    "--agent-id", "kusabi",
+    "--project", "agent-memory",
+    "--workspace", workspace,
+    "--binding-source-ref", "fixture:e2e-host-added-key",
+  ], {
+    input: raw321,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      AGENT_MEMORY_HOME: memoryHome,
+      AGENT_MEMORY_DB_TYPE: "sqlite",
+      AGENT_MEMORY_DB_PATH: join(root, "e2e.db"),
+    },
+  });
+  assert.equal(e2e.status, 0, e2e.stderr);
+  assert(performance.now() - started < 20_000);
+  assert.equal(e2e.stdout.includes(MARK) || e2e.stderr.includes(MARK), false);
+  const e2eOutput = JSON.parse(e2e.stdout);
+  assert(e2eOutput.hookSpecificOutput.additionalContext.includes("WASUREZU NATIVE STARTUP RECOVERY"));
+  const e2eEvidence = JSON.parse(e2e.stderr.trim().split("\n").filter((line) => line.startsWith("{"))[0]);
+  assert.equal(e2eEvidence.hook.input_valid, true);
+  assert.equal(e2eEvidence.outcome, "full");
+  assert(validateEvidence(e2eEvidence), JSON.stringify(validateEvidence.errors));
+  const diagnosticFolder = join(memoryHome, "hook-input", "kusabi", "agent-memory");
+  const diagnosticFile = join(diagnosticFolder, `${CLAUDE_SESSION_START_ADAPTER_ID}.json`);
+  const record = parseHookInputDiagnostic(await readFile(diagnosticFile, "utf8"));
+  assert(record, "the diagnostic record is a valid record");
+  assert.deepEqual(record.entries.map((entry) => [entry.event, entry.name, entry.count]), [["SessionStart", "session_title", 1]]);
+  assert.equal((await readFile(diagnosticFile, "utf8")).includes(MARK), false);
+  assert.deepEqual(await readdir(diagnosticFolder), [`${CLAUDE_SESSION_START_ADAPTER_ID}.json`]);
+  assert.deepEqual(await readdir(home), [], "the home folder is not touched when AGENT_MEMORY_HOME is set");
 }
 
 async function main(): Promise<void> {
@@ -207,9 +500,10 @@ async function main(): Promise<void> {
       () => parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), source: "unknown" })),
       /UNSUPPORTED_START_SOURCE/,
     );
-    assert.throws(
-      () => parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), unexpected: true })),
-      /MALFORMED_HOOK_INPUT/,
+    // FR10.2: a key the host added is ignored, not a refusal of the whole input (this was an allow-list refusal).
+    assert.deepEqual(
+      parseClaudeSessionStartInput(JSON.stringify({ ...JSON.parse(liveHostInput), unexpected: true })),
+      parsedLiveHost,
     );
 
     const invalidPermissionMode = await runClaudeSessionStart(
@@ -236,11 +530,17 @@ async function main(): Promise<void> {
     );
     assert.match(wrongSource.output.systemMessage ?? "", /UNSUPPORTED_START_SOURCE/);
 
+    // FR10.2: the same input with a host-added key is accepted and gives the same recovery as without it.
     const additionalProperty = await runClaudeSessionStart(
       JSON.stringify({ ...JSON.parse(hookInput(child)), unexpected: true }),
       binding(workspace),
+      { loadRecovery: async () => loaded() },
     );
-    assert.match(additionalProperty.output.systemMessage ?? "", /MALFORMED_HOOK_INPUT/);
+    assert.equal(additionalProperty.evidence.hook.input_valid, true);
+    assert.equal(additionalProperty.evidence.outcome, "full");
+    assert(additionalProperty.output.hookSpecificOutput?.additionalContext.includes("Recovered objective"));
+
+    await hostAddedKeys({ child, workspace, outside, validateEvidence, root });
 
     for (const field of ["cwd", "hook_event_name", "session_id", "source", "transcript_path"]) {
       const input = JSON.parse(hookInput(child));

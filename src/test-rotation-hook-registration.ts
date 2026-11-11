@@ -53,6 +53,22 @@ test("registration: the built command names the runner, adapter and binding; the
   });
   assert.match(String(full.hooks[0].command), /--runtime-event-manifest '\/m\.json' --rotation-threshold-tokens 250000$/);
 });
+test("registration (FR10.7): the first word is the node given, the default is the node that runs the installer, and the handler is ours either way", () => {
+  const input = { runtime_root: "/rt", adapter_id: CLAUDE_ROTATION_STOP_ADAPTER_ID, binding };
+  const quoted = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
+  const byDefault = String(buildRotationHookGroup(input).hooks[0].command);
+  assert.equal(byDefault.startsWith(`${quoted(process.execPath)} ${quoted("/rt/dist/session-rotation-stop.js")} `), true);
+  const given = String(buildRotationHookGroup({ ...input, node_path: "/opt/n o'de/node" }).hooks[0].command);
+  assert.equal(given.startsWith(`${quoted("/opt/n o'de/node")} ${quoted("/rt/dist/session-rotation-stop.js")} `), true);
+  assert.equal(given.slice(given.indexOf(" ")), byDefault.slice(byDefault.indexOf(" ")), "only the first word differs");
+  assert.equal(String(buildRotationHookGroup({ ...input, node_path: process.execPath }).hooks[0].command), byDefault);
+  for (const command of [byDefault, given]) assert.equal(isRotationHandler({ command }, CLAUDE_ROTATION_STOP_ADAPTER_ID), true);
+  const otherHost = String(buildRotationHookGroup({
+    ...input, adapter_id: CODEX_ROTATION_STOP_ADAPTER_ID, node_path: "/opt/node/node", threshold_tokens: 250_000,
+  }).hooks[0].command);
+  assert.equal(isRotationHandler({ command: otherHost }, CODEX_ROTATION_STOP_ADAPTER_ID), true);
+  assert.equal(isRotationHandler({ command: otherHost }, CLAUDE_ROTATION_STOP_ADAPTER_ID), false);
+});
 test("registration: only a command of the exact built shape is ours; lookalikes and odd values are not", () => {
   const ours = String(buildRotationHookGroup({ runtime_root: "/rt", adapter_id: CLAUDE_ROTATION_STOP_ADAPTER_ID, binding }).hooks[0].command);
   assert.equal(isRotationHandler({ command: ours }, CLAUDE_ROTATION_STOP_ADAPTER_ID), true);

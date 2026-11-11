@@ -6,9 +6,9 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   buildMarker,
   seatDirectory,
@@ -19,6 +19,10 @@ import {
   writeTurn,
 } from "./session-rotation-files.js";
 import { ROTATION_STATUS_SCHEMA, buildRotationStatus, runRotationStatusCli } from "./session-rotation-status.js";
+import { hookInputDiagnosticPath, parseHookInputDiagnostic, writeHookInputDiagnostic } from "./hook-input-diagnostics.js";
+import { CLAUDE_SESSION_START_ADAPTER_ID } from "./claude-session-start.js";
+import { CLAUDE_ROTATION_STOP_ADAPTER_ID } from "./session-rotation-stop.js";
+import { CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID } from "./transcript-stop-capture.js";
 
 const cases: Array<[string, () => Promise<void> | void]> = [];
 const test = (name: string, run: () => Promise<void> | void) => cases.push([name, run]);
@@ -142,6 +146,159 @@ test("run as a process: prints the view, and importing the module prints nothing
   const failing = spawnSync(process.execPath, ["--import", "tsx", entry, "--bogus", "x"], { encoding: "utf8", env });
   assert.equal(failing.status, 2);
   assert.ok(failing.stdout.startsWith("usage:"));
+});
+
+
+// ---------- FR10 (261110 hook input): the health check reads the diagnostic names, never the values ----------
+const MARK = "SENTINEL_VALUE_NEVER_TO_APPEAR_7f3a";
+const T0 = "2026-11-11T02:00:00.000Z";
+const T1 = "2026-11-11T02:05:00.000Z";
+const hookInputOf = (lines: string[]) => (JSON.parse(lines.join("")) as { hook_input?: Record<string, unknown> }).hook_input;
+const statusLines = (home: string, agent = "kusabi", project = "agent-memory") => {
+  const lines: string[] = [];
+  assert.equal(runRotationStatusCli(["--agent-id", agent, "--project", project], { AGENT_MEMORY_HOME: home }, (line) => lines.push(line)), 0);
+  return lines;
+};
+const record = (home: string, adapter: string, event: string, names: string[], at = T0, agent = "kusabi") =>
+  writeHookInputDiagnostic({
+    env: { AGENT_MEMORY_HOME: home }, agent_id: agent, project: "agent-memory", adapter_id: adapter,
+    event, names, now: new Date(at), pid: 4242,
+  });
+const diagnosticFile = (home: string, adapter: string) => hookInputDiagnosticPath({ AGENT_MEMORY_HOME: home }, "kusabi", "agent-memory", adapter);
+
+test("hook input: nothing recorded is none - and an empty list, not zero names", () => {
+  const { home } = freshSeat();
+  assert.deepEqual(hookInputOf(statusLines(home)), { file: "none", adapters: [] });
+});
+
+test("hook input: names, events and counts of every adapter that recorded, in adapter order, and nothing else", async () => {
+  const { home } = freshSeat();
+  await record(home, CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID, "UserPromptSubmit", ["prompt_id", "session_title"]);
+  await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"], T0);
+  await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"], T1);
+  await record(home, CLAUDE_ROTATION_STOP_ADAPTER_ID, "Stop", ["effort", "background_tasks"]);
+  const lines = statusLines(home);
+  const hookInput = hookInputOf(lines) as { file: string; adapters: Array<Record<string, unknown>> };
+  assert.equal(hookInput.file, "valid");
+  assert.deepEqual(hookInput.adapters.map((adapter) => adapter.adapter_id), [...[
+    CLAUDE_SESSION_START_ADAPTER_ID, CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID, CLAUDE_ROTATION_STOP_ADAPTER_ID,
+  ]].sort());
+  for (const adapter of hookInput.adapters) {
+    const stored = parseHookInputDiagnostic(readFileSync(diagnosticFile(home, String(adapter.adapter_id)), "utf8"));
+    assert.ok(stored);
+    assert.deepEqual(adapter, {
+      adapter_id: stored.adapter_id, file: "valid",
+      entries: stored.entries.map((entry) => ({ event: entry.event, name: entry.name, count: entry.count, last_seen: entry.last_seen })),
+      dropped_names: stored.dropped_names, invalid_names: stored.invalid_names,
+    });
+  }
+  const start = hookInput.adapters.find((adapter) => adapter.adapter_id === CLAUDE_SESSION_START_ADAPTER_ID);
+  assert.deepEqual(start?.entries, [{ event: "SessionStart", name: "session_title", count: 2, last_seen: T1 }]);
+  const text = lines.join("");
+  assert.equal(text.includes(home), false, "no path");
+  assert.equal(text.includes("first_seen"), false, "names, events, counts and the last time seen only");
+  assert.equal(text.includes("4242"), false, "no process id");
+  assert.equal(text.includes(MARK), false);
+});
+
+test("hook input: another seat's records are not shown, and a name that is not plain is refused before any path is built", async () => {
+  const { home } = freshSeat();
+  await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"], T0, "someone-else");
+  assert.deepEqual(hookInputOf(statusLines(home)), { file: "none", adapters: [] });
+  assert.equal(runRotationStatusCli(["--agent-id", "../escape", "--project", "agent-memory"], { AGENT_MEMORY_HOME: home }, () => undefined), 2);
+});
+
+test("hook input: a file that cannot be trusted is unreadable, never none or zero names (S5)", async () => {
+  const unreadable = async (label: string, damage: (file: string, folder: string) => void | Promise<void>) => {
+    const { home } = freshSeat();
+    await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"]);
+    await record(home, CLAUDE_ROTATION_STOP_ADAPTER_ID, "Stop", ["effort"]);
+    const file = diagnosticFile(home, CLAUDE_SESSION_START_ADAPTER_ID);
+    await damage(file, dirname(file));
+    const hookInput = hookInputOf(statusLines(home)) as { file: string; adapters: Array<{ adapter_id: string; file: string; entries?: unknown }> };
+    assert.equal(hookInput.file, "unreadable", label);
+    const damaged = hookInput.adapters.find((adapter) => adapter.adapter_id === CLAUDE_SESSION_START_ADAPTER_ID);
+    assert.deepEqual(damaged, { adapter_id: CLAUDE_SESSION_START_ADAPTER_ID, file: "unreadable" }, `${label}: no names from a file that cannot be trusted`);
+    const intact = hookInput.adapters.find((adapter) => adapter.adapter_id === CLAUDE_ROTATION_STOP_ADAPTER_ID);
+    assert.equal(intact?.file, "valid", `${label}: another adapter's valid record is still shown`);
+  };
+  const good = (file: string) => JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+  await unreadable("broken JSON", (file) => writeFileSync(file, "{broken", { mode: 0o600 }));
+  await unreadable("empty file", (file) => writeFileSync(file, "", { mode: 0o600 }));
+  await unreadable("another schema", (file) => writeFileSync(file, JSON.stringify({ ...good(file), schema_version: "other/v1" }), { mode: 0o600 }));
+  await unreadable("an extra field that could carry a value", (file) => writeFileSync(file, JSON.stringify({ ...good(file), session_id: MARK }), { mode: 0o600 }));
+  await unreadable("a count that is not a number", (file) => {
+    const stored = good(file) as { entries: Array<Record<string, unknown>> };
+    writeFileSync(file, JSON.stringify({ ...stored, entries: [{ ...stored.entries[0], count: "1" }] }), { mode: 0o600 });
+  });
+  await unreadable("a name that is not a plain name", (file) => {
+    const stored = good(file) as { entries: Array<Record<string, unknown>> };
+    writeFileSync(file, JSON.stringify({ ...stored, entries: [{ ...stored.entries[0], name: `a/${MARK}` }] }), { mode: 0o600 });
+  });
+  await unreadable("a record of another adapter under this name", (file) =>
+    writeFileSync(file, JSON.stringify({ ...good(file), adapter_id: CLAUDE_ROTATION_STOP_ADAPTER_ID }), { mode: 0o600 }));
+  await unreadable("larger than the read limit", (file) => writeFileSync(file, `${JSON.stringify(good(file))}${" ".repeat(70 * 1024)}`, { mode: 0o600 }));
+  await unreadable("open to the group and others", (file) => chmodSync(file, 0o644));
+  await unreadable("a symlink in place of the file", (file, folder) => {
+    const target = join(folder, "elsewhere.json");
+    writeFileSync(target, readFileSync(file), { mode: 0o600 });
+    rmSync(file);
+    symlinkSync(target, file);
+  });
+  await unreadable("a folder in its place", (file) => {
+    rmSync(file);
+    mkdirSync(file, { mode: 0o700 });
+  });
+});
+
+test("hook input: a folder that cannot be trusted is unreadable with no adapter listed", async () => {
+  const open = freshSeat();
+  await record(open.home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"]);
+  const folder = dirname(diagnosticFile(open.home, CLAUDE_SESSION_START_ADAPTER_ID));
+  chmodSync(folder, 0o755);
+  assert.deepEqual(hookInputOf(statusLines(open.home)), { file: "unreadable", adapters: [] }, "open to the group and others");
+
+  const linked = freshSeat();
+  const real = join(linked.home, "real-folder");
+  mkdirSync(real, { recursive: true, mode: 0o700 });
+  mkdirSync(join(linked.home, "hook-input", "kusabi"), { recursive: true, mode: 0o700 });
+  symlinkSync(real, join(linked.home, "hook-input", "kusabi", "agent-memory"));
+  assert.deepEqual(hookInputOf(statusLines(linked.home)), { file: "unreadable", adapters: [] }, "a symlink in place of the folder");
+
+  const fileInPlace = freshSeat();
+  mkdirSync(join(fileInPlace.home, "hook-input", "kusabi"), { recursive: true, mode: 0o700 });
+  writeFileSync(join(fileInPlace.home, "hook-input", "kusabi", "agent-memory"), "x");
+  assert.deepEqual(hookInputOf(statusLines(fileInPlace.home)), { file: "unreadable", adapters: [] }, "a file in place of the folder");
+});
+
+test("hook input: only the adapters the code knows are looked at - temporary and foreign files are ignored", () => {
+  const { home } = freshSeat();
+  const folder = join(home, "hook-input", "kusabi", "agent-memory");
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  writeFileSync(join(folder, `${CLAUDE_SESSION_START_ADAPTER_ID}.json.4242.1700000000000.tmp`), "{broken", { mode: 0o600 });
+  writeFileSync(join(folder, "other-adapter.json"), "{broken", { mode: 0o600 });
+  writeFileSync(join(folder, "notes.txt"), "x", { mode: 0o600 });
+  assert.deepEqual(hookInputOf(statusLines(home)), { file: "none", adapters: [] });
+});
+
+test("hook input: the view is additive and writes nothing", async () => {
+  const { home, directory } = freshSeat();
+  writeMarker(directory, buildMarker(markerFields));
+  await record(home, CLAUDE_SESSION_START_ADAPTER_ID, "SessionStart", ["session_title"]);
+  const before = readdirSync(home, { recursive: true }).map(String).sort();
+  const contents = readFileSync(diagnosticFile(home, CLAUDE_SESSION_START_ADAPTER_ID), "utf8");
+  const lines = statusLines(home);
+  const status = JSON.parse(lines.join("")) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(status).sort(), ["agent_id", "claim", "hook_input", "hook_state", "marker", "project", "schema_version", "turn"]);
+  const { hook_input: _hookInput, ...rest } = status;
+  assert.deepEqual(rest, JSON.parse(JSON.stringify(buildRotationStatus(directory, "kusabi", "agent-memory"))), "the existing fields are the same as without the new section");
+  assert.deepEqual(readdirSync(home, { recursive: true }).map(String).sort(), before);
+  assert.equal(readFileSync(diagnosticFile(home, CLAUDE_SESSION_START_ADAPTER_ID), "utf8"), contents);
+});
+
+test("hook input: asked without the new argument the view has no such section (the existing function is unchanged)", () => {
+  const { directory } = freshSeat();
+  assert.equal("hook_input" in buildRotationStatus(directory, "kusabi", "agent-memory"), false);
 });
 
 let failed = 0;
