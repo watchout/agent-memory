@@ -17,12 +17,12 @@
     },
     {
       "id": "CLK-3",
-      "criterion": "直しの正しさ: (a) 直した試験の NOW は、その試験の process の中で 1 度だけ読んだ実時計（NOW_BASE）から作られ、1 回の実行の中では同じ値を返す（呼ぶたびに変わらない）。(b) NOW を使う所（`deps = { now: NOW, identity: IDENTITY }` と `rotation = { now: NOW, identity: IDENTITY }`）は、日付の値そのものを期待値に使っていない（assert の期待値に固定の日付が残っていない）。(c) pack の有効期間（1800 秒）は、1 回の実行の長さ（数秒）より十分に長く、実時計の起点が変わっても結果が変わらない。(d) host_started_at の IDENTITY（\"Wed Nov 11 10:00:00 2026\"）は src の中で marker と turn の文字列の一致にだけ使われ、NOW とは比べられない（src/rotation-watcher-core.ts の 150〜151・193・263 行）。(e) 試験が確かめる中身（first Stop は block、2 回目の Stop は block しない、marker と turn の内容、SessionStart が保存した次の 1 歩を渡す、同じ束を 2 回使わない）が、直す前と同じ表明のまま残っている（表明を弱めていない）。",
+      "criterion": "直しの正しさ: (a) 直した試験の NOW は、その試験の process の中で 1 度だけ読んだ実時計（NOW_BASE）から作られ、1 回の実行の中では同じ値を返す（呼ぶたびに変わらない）。(b) NOW を使う所（`deps = { now: NOW, identity: IDENTITY }` と `rotation = { now: NOW, identity: IDENTITY }`）は、日付の値そのものを期待値に使っていない（assert の期待値に固定の日付が残っていない）。(c) pack の有効期間は 1800 秒（`expires_at` は NOW_BASE の 1800 秒後）で、試験の 1 回の実行（監査席が流して測った最長の時間）の 100 倍以上であり、試験の中に 1 分を超える待ち（sleep・timeout・polling）が無い。実時計の起点が変わっても、この条件は変わらない。(d) host_started_at の IDENTITY（\"Wed Nov 11 10:00:00 2026\"）は src の中で marker と turn の文字列の一致にだけ使われ、NOW とは比べられない（src/rotation-watcher-core.ts の 150〜151・193・263 行）。(e) 試験が確かめる中身（first Stop は block、2 回目の Stop は block しない、marker と turn の内容、SessionStart が保存した次の 1 歩を渡す、同じ束を 2 回使わない）が、直す前と同じ表明のまま残っている（表明を弱めていない）。",
       "basis": "[R] 試験の確かめる範囲を弱めない。[N] 決定性: 1 回の実行の中で時刻が動かない。"
     },
     {
       "id": "CLK-4",
-      "criterion": "再現と実測: (a) PR 本文に、直す前の main（aa77b683）の試験が落ちる出力（actual: undefined、expected: 'active'、base の 160 行目）と、直した後に PASS した出力が貼られている。(b) 直した試験を、監査席が同じ head で一時の HOME と AGENT_MEMORY_HOME を指定して流して PASS になる（既定の createStore() を使う試験なので、一時の HOME を指定しないと実際の保存先に行が入る。project の決まり）。(c) 直す前の head 6cae0d93 の CI（run 42998477305）が success、af06dd89 の CI（run 43008146139）が failure で、2 つの差が設計の記録だけ（src/ は同じ）であることが、PR 本文の run の URL から確かめられる。",
+      "criterion": "再現と実測: (a) PR 本文に、直す前の main（aa77b683）の試験が落ちる出力（actual: undefined、expected: 'active'、base の 160 行目）と、直した後に PASS した出力が貼られている。(b) 直した試験を、監査席が同じ head で一時の HOME と AGENT_MEMORY_HOME を指定して流して PASS になる（既定の createStore() を使う試験なので、一時の HOME を指定しないと実際の保存先に行が入る。project の決まり）。(c) 直す前の head 6cae0d93 の CI（run 42998477305）が success、af06dd89 の CI（run 43008146139）が failure で、2 つの差が設計の記録だけ（src/ は同じ）であることが、`git fetch origin pull/342/head` の後の `git diff 6cae0d93f0152b03e3064aebdaaf9124b606d81c af06dd89c9691710472de884969f599cb1f5defa -- src` の出力が空であることと、PR 本文の run の URL（run の head SHA と結果）から確かめられる。",
       "basis": "[R] 失敗の再現を示す。[N] 試験の実行は一時の HOME。"
     },
     {
@@ -32,7 +32,7 @@
     },
     {
       "id": "CLK-6",
-      "criterion": "公開の安全と記録: (a) この head の変更分（上の 2 file）に、利用者の home の下の絶対 path・DB の URL・秘密の値・メールの宛先が無い。(b) この PR が根拠にする決定は、バグの直し方を席が決めてよい範囲（escalation-policy）で、席間の連絡を権限の根拠として引いていない。(c) 必須の検査 build-and-test (18)(20)(22) は、この head で success。必須でない Shirube Rapid/Lite Gates Report が failure の場合、PR 本文にその事実と理由（RL-PR-002。PR #341 でも同じ failure のまま統合された。直すのは .shirube/ か workflow で保護面）が書かれている。",
+      "criterion": "公開の安全と記録: (a) この head の変更分（上の 2 file）に、利用者の home の下の絶対 path・DB の URL・秘密の値・メールの宛先が無い。(b) この PR が根拠にする決定は、バグの直し方を席が決めてよい範囲（escalation-policy）で、席間の連絡を権限の根拠として引いていない。(c) 必須の検査 build-and-test (18)(20)(22) は、この head で success。必須でない Shirube Rapid/Lite Gates Report の、この head での結果（success か failure）が PR 本文の記述と一致する。failure の場合、PR 本文が、その run の log から読んだ code と message（item_id・code・message の組）と、この PR の変更が古い cell の allowed_paths・forbidden_paths の外または内にあるという読み、PR #341 でもこの検査が failure のまま統合されたこと、直す所が `.shirube/` か workflow（保護面）であることを書き、本文の組が run の log と食い違わない。",
       "basis": "[R] 公開してよい内容か。[N] 失敗を隠さない（S8）。"
     }
   ]
