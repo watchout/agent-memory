@@ -8,10 +8,13 @@ import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { redactText } from "./redact.js";
 import { readHandoffSource } from "./rotation-handoff-source.js";
 import { rotationRoot } from "./session-rotation-files.js";
+import { createReadOnlyTaskStateReader } from "./stores/read-only-task-states.js";
 
 interface CliOptions {
   command: "prepare" | "fetch" | "preflight" | "handoff-source" | "help";
   agent_id: string;
+  /** The agent id was named (by --agent-id or AGENT_MEMORY_AGENT_ID), not filled in with "default". */
+  agent_id_given?: boolean;
   project?: string;
   pack_ref?: string;
   consume?: boolean;
@@ -47,6 +50,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
   const options: CliOptions = {
     command,
     agent_id: env.AGENT_MEMORY_AGENT_ID || "default",
+    agent_id_given: Boolean(env.AGENT_MEMORY_AGENT_ID),
     project: env.AGENT_MEMORY_PROJECT || undefined,
   };
 
@@ -61,6 +65,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
     switch (arg) {
       case "--agent-id":
         options.agent_id = next();
+        options.agent_id_given = true;
         break;
       case "--project":
         options.project = next();
@@ -144,6 +149,7 @@ export function printRestartCliHelp(): string {
     "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
     "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized]",
     "  wasurezu-restart handoff-source --agent-id ID --project PROJECT   read-only: the seat's hand-off text, from its task state, when it matches the marker",
+    "                                                                    (exit 0 = found, 1 = not found or unreadable, 2 = a missing argument; it opens no store for writing)",
     "",
     "Options:",
     "  --agent-id ID",
@@ -231,8 +237,39 @@ export function runSupervisorPreflight(
   };
 }
 
+/**
+ * handoff-source never opens a Store (opening one prepares it for writing and closing one writes again): it reads through a
+ * reader that can only read (stores/read-only-task-states.ts), and it checks its arguments before it touches anything.
+ */
+async function runHandoffSource(options: CliOptions): Promise<number> {
+  if (!options.agent_id_given || !options.project) {
+    console.error("handoff-source requires --agent-id and --project");
+    return 2;
+  }
+  const found = await readHandoffSource(createReadOnlyTaskStateReader(), {
+    agent_id: options.agent_id,
+    project: options.project,
+    rotation_root: rotationRoot(process.env),
+  });
+  console.log(redactedJson(found));
+  return found.result === "found" ? 0 : 1;
+}
+
 async function main(): Promise<void> {
-  const options = parseRestartCliArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  let options: CliOptions;
+  try {
+    options = parseRestartCliArgs(argv);
+  } catch (error) {
+    if (argv[0] !== "handoff-source") throw error;
+    console.error(redactText(`wasurezu-restart handoff-source: ${(error as Error).message}`).text);
+    process.exitCode = 2;
+    return;
+  }
+  if (options.command === "handoff-source") {
+    process.exitCode = await runHandoffSource(options);
+    return;
+  }
   if (options.command === "help") {
     console.log(printRestartCliHelp());
     return;
@@ -253,13 +290,6 @@ async function main(): Promise<void> {
   }
   const store = await createStore();
   try {
-    if (options.command === "handoff-source") {
-      if (!options.project) throw new Error("handoff-source requires --project");
-      const found = await readHandoffSource(store, { agent_id: options.agent_id, project: options.project, rotation_root: rotationRoot(process.env) });
-      console.log(redactedJson(found));
-      if (found.result !== "found") process.exitCode = 1;
-      return;
-    }
     if (options.command === "fetch") {
       if (!options.pack_ref) throw new Error("fetch requires --pack-ref");
       const pack = options.consume

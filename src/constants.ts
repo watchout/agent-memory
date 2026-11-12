@@ -60,6 +60,12 @@ export const ROTATION_COMMIT_WRITE_RESERVE_MS = 300;
 export const ROTATION_HANDOFF_SOURCE_LIST_LIMIT = 500;
 
 /**
+ * The time the hand-off source read gives a PostgreSQL server to accept the connection and to answer the one query. Used up,
+ * the read is "unreadable" (it did not observe the store), never "absent".
+ */
+export const ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS = 10_000;
+
+/**
  * The two spelling rules every rotation file shares, defined once (standard S3).
  * A seat name or project is one path segment. A launch command is placed inside a
  * tmux condition, so only these characters are allowed (watcher-design.md 2.3).

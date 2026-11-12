@@ -49,7 +49,9 @@ import type {
   GetKusabiPartitionInput,
 } from "./types.js";
 
-const DEFAULT_DATA_DIR = join(homedir(), ".agent-memory");
+/** Where the JSON store keeps its records, and the file that holds the task states: one place, read by the store and by the read-only reader. */
+export const DEFAULT_DATA_DIR = join(homedir(), ".agent-memory");
+export const TASK_STATES_FILE = "task-states.json";
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -93,7 +95,7 @@ export class JsonStore implements Store {
       await mkdir(this.dataDir, { recursive: true });
     }
     this.decisions = await this.loadFile<Decision>(this.dataFile("decisions.json"));
-    this.taskStates = await this.loadFile<TaskState>(this.dataFile("task-states.json"));
+    this.taskStates = await this.loadFile<TaskState>(this.dataFile(TASK_STATES_FILE));
     this.knowledgeItems = await this.loadFile<Knowledge>(this.dataFile("knowledge.json"));
     this.conversationEvents = await this.loadFile<ConversationEvent>(this.dataFile("conversation-events.json"));
     this.rawEvents = await this.loadFile<RawEvent>(this.dataFile("raw-events.json"));
@@ -153,7 +155,7 @@ export class JsonStore implements Store {
   }
 
   private async saveTaskStates(): Promise<void> {
-    await writeFile(this.dataFile("task-states.json"), JSON.stringify(this.taskStates, null, 2));
+    await writeFile(this.dataFile(TASK_STATES_FILE), JSON.stringify(this.taskStates, null, 2));
   }
 
   async logDecision(input: LogDecisionInput): Promise<Decision> {

@@ -47,6 +47,8 @@
 
 6b. Step 17 の 3 回目の返却の直し（F1・F2）の後の測り: 手順は 6 と同じで、変えた file の一覧に `src/restart-cli.ts`・`src/rotation-handoff-source.ts`・`src/session-rotation-stop.ts` が加わった（13 file）。全試験の命令を流した後に `src/test-handoff-source.ts` を同じ `NODE_V8_COVERAGE` に足して流した。結果（Node v26.12.1）: 変えた行と新しい行 623 行のうち、0 回の範囲は 0（数えから外した行は無い）。途中の測りで出た範囲（`restart-cli.ts` の未知の command の `throw` と `--project` の無い時の拒否、`rotation-handoff-source.ts` の progress が無い行と updated_at が無い古い行の腕）は、試験を足して動かした。
 
+6c. Step 17 の 4 回目の返却の直し（F1。`handoff-source` を store を通さない読み手にした）の後の測り: 手順は 6 と同じ。変えた file の一覧に `src/stores/index.ts`・`src/stores/json-store.ts`・`src/stores/sqlite-store.ts`・`src/stores/read-only-task-states.ts`（新）が加わり、20 file を `merge-zero.mjs` に渡した（`hook-input*.ts`・`hook-node-path.ts` の 3 file は base に対して変えた行が 0 なので数えに入らない）。全試験の命令 12 本（`test:session-rotation` の chain は `src/test-handoff-source.ts` と `src/test-handoff-source-cli.ts` を含む）を同じ `NODE_V8_COVERAGE` で流した（全部終了 0）。PostgreSQL の試験（`test-handoff-commit-order-pg.ts`）は含めない（手元の使い捨ての DB でだけ流す試験で、この測りに入れても結果は変わらない）。結果（Node v26.12.1、base `94f1ca6d`）: 変えた行と新しい行 880 行（17 file）のうち、0 回の範囲は **0**（数えから外した行は無い）。途中の測り（7 回目）で出た範囲は、試験を足して動かした: `restart-cli.ts` の他の verb の引数の誤りを投げ直す腕と、誤りが `Error` でない腕（T17(m2)）、`stores/index.ts` の JSON と PostgreSQL の URL が両方ある時の警告（T17(p) の `createStore` との突き合わせ）、`read-only-task-states.ts` の接続が壊れた時に process を落とさない `error` の listener（T17(s)）、`created_at` が無い行の腕（T17(l)）、`end()` の失敗を飲み込む腕（T17(q)）。
+
 V8 の範囲は分岐の腕や無名関数も数えるので、行の網羅率より厳しい。数え方は Node の版で少し違いうる。
 
 ## merge-zero.mjs

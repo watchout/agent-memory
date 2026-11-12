@@ -1,6 +1,6 @@
 import { ROTATION_HANDOFF_SOURCE_LIST_LIMIT } from "./constants.js";
 import { readMarker, rotationHandoffTaskId, seatDirectory, sha256Hex } from "./session-rotation-files.js";
-import type { Store } from "./stores/types.js";
+import type { HandoffTaskReader } from "./stores/read-only-task-states.js";
 
 export const HANDOFF_SOURCE_SCHEMA = "kusabi-rotation-handoff-source/v1" as const;
 
@@ -31,8 +31,12 @@ function notFound(result: Exclude<HandoffSourceResult["result"], "found">, reaso
  * Read-only: brings back the hand-off text of the seat's current marker from the task state the stop side keeps, when
  * the bundle was used up but the host did not take the text (handoff-commit-order-design.md 4.7 R-b). It writes nothing
  * and consumes nothing. The task state is found by its task id, never by its rank among the seat's tasks.
+ *
+ * The reader is the only thing it touches in the store, and the command gives it a reader that can only read
+ * (stores/read-only-task-states.ts): not a Store, whose opening and closing write. A Store also fits the type, so the
+ * tests can seed and check through real stores.
  */
-export async function readHandoffSource(store: Pick<Store, "getTaskStates">, input: HandoffSourceInput): Promise<HandoffSourceResult> {
+export async function readHandoffSource(store: HandoffTaskReader, input: HandoffSourceInput): Promise<HandoffSourceResult> {
   let directory: string;
   try {
     directory = seatDirectory(input.rotation_root, input.agent_id, input.project);
