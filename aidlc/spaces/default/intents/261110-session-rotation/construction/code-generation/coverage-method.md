@@ -43,6 +43,8 @@
 
 5. Step 16（PR 342、hook の入力の parser）の測り方と結果。手順は上の 1〜3 と同じで、次の 3 点だけ違う。(a) `BASE=1eef773be073b4f6526fe5b70f856cf02a0a7256`（PR 342 の base の main）。(b) `run` は `HOME` に加えて `AGENT_MEMORY_HOME="$H/.agent-memory"` も一時の folder にする（診断の記録がこの Mac の実際の置き場に行を書かないように）。(c) 測る命令に `npm run test:kusabi-direct-fleet-rollout` と `npm run test:kusabi-content-addressed-runtime-release` を足す（rollout と publisher の入口の一覧を読む）。結果（Node v26.12.1）: src の 12 file、変えた行と新しい行 938 行のうち、0 回の範囲は `src/session-rotation-stop.ts` 756 行目（入口の最後の網 `main().catch(...)`）の 1 つだけ。
 
+6. Step 17（PR 344、引き継ぎの確定の順番）の測り方と結果。手順は上の 1〜3 と 5 の (b)(c) と同じで、次の点だけ違う。(a) `BASE=94f1ca6d0042bd970d4cc7c4ab9ce9153b7d5c0d`（PR 344 の base の main）。(b) 試験の中に、実際の hook の command（`src/claude-session-start.ts`・`src/codex-session-start.ts`）を別 process で起こす case があり、`NODE_V8_COVERAGE` は子 process の分も集める（`main()` と既定の store を開く道がこれで動く）。(c) zsh は変数を単語に割らないので、変えた file の一覧は file に書いて `xargs node merge-zero.mjs "$COV" < files.txt` で渡す。(d) PostgreSQL の試験（`src/test-handoff-commit-order-pg.ts`）は測りに要らない（使い捨ての DB が無くても結果は同じ。無しで測り直して確かめた）。結果（Node v26.12.1）: src の 10 file、変えた行と新しい行 505 行のうち、0 回の範囲は 0。1 回目の測りで出た範囲（`codex-session-start.ts` の degraded の `catch` と本物の `main`、`rotation-commit.ts` の既定の store・`closeQuietly` の失敗・外側の `catch`・`io.open_store` の空の腕、`session-rotation-files.ts` の `link` の EEXIST 以外の失敗と壊れた記録の検査、`session-rotation-start.ts` の束の読みの失敗）は、試験を足して動かした（数えから外した行は無い）。
+
 V8 の範囲は分岐の腕や無名関数も数えるので、行の網羅率より厳しい。数え方は Node の版で少し違いうる。
 
 ## merge-zero.mjs

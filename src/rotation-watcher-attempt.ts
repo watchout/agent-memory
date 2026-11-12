@@ -5,8 +5,9 @@
  * conditional respawn, then a read-only confirmation. A respawn is never issued
  * twice for a marker, and an unknown result is looked up, never retried.
  */
-import { readMarker, readTurn, sha256Hex, type RotationMarker } from "./session-rotation-files.js";
+import { readMarker, readOutputWritten, readTurn, sha256Hex, type RotationMarker } from "./session-rotation-files.js";
 import {
+  OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
   advanceClaim,
   appendLedger,
   createClaim,
@@ -16,9 +17,10 @@ import {
   type LedgerFields,
 } from "./rotation-watcher-store.js";
 import {
-  isNewConversationConfirmed,
+  confirmationBasis,
   recheckBeforeRespawn,
   skipClass,
+  type ConfirmationBasis,
   type RelaunchPlan,
   type SkipReason,
 } from "./rotation-watcher-core.js";
@@ -50,7 +52,7 @@ function baseFields(ports: WatcherPorts, seat: WatcherSeat, marker: RotationMark
   };
 }
 
-/** Whether the new conversation has started, from a fresh read of tmux, `ps` and the turn file. */
+/** What the new conversation's start stands on (null when it has not started), from a fresh read of tmux, `ps`, the record and the turn file. */
 function lookConfirmed(
   ports: WatcherPorts,
   seat: WatcherSeat,
@@ -59,11 +61,12 @@ function lookConfirmed(
   paneIdBefore: string,
   panePidBefore: number,
   startedMs: number,
-): boolean {
-  return isNewConversationConfirmed({
+): ConfirmationBasis | null {
+  return confirmationBasis({
     seat,
     marker,
     turn: readTurn(seatDir),
+    output_written: readOutputWritten(seatDir, marker.marker_id),
     pane: readPaneState(ports.tmux, paneIdBefore),
     processes: parseProcessTable(ports.ps()),
     pane_pid_before: panePidBefore,
@@ -77,9 +80,9 @@ function haltSeat(ports: WatcherPorts, seatDir: string, reason: string): boolean
 
 /** How one attempt ended once the respawn was (or may have been) issued. */
 interface Outcome {
-  state: "done" | "unconfirmed" | "unknown_quarantined";
+  state: typeof OUTPUT_WRITTEN_RECEIPT_UNOBSERVED | "unconfirmed" | "unknown_quarantined";
   resolution: string;
-  kind: "confirmed" | "unconfirmed" | "outcome_unknown";
+  kind: typeof OUTPUT_WRITTEN_RECEIPT_UNOBSERVED | "unconfirmed" | "outcome_unknown";
   detail?: string;
   /** The tick reason when everything was recorded. */
   tick: string;
@@ -128,8 +131,24 @@ function abortBeforeRespawn(
 }
 
 /**
+ * The end of an attempt whose new conversation was seen to start. The watcher saw the hook write the hand-off to its
+ * output; it did not see the seat take it, so the end is never "done" or "confirmed". One place builds it, for the
+ * wait after the respawn and for the later inquiry.
+ */
+function startSeenOutcome(basis: ConfirmationBasis, byInquiry: boolean): Outcome {
+  return {
+    state: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
+    resolution: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
+    kind: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
+    detail: byInquiry ? `by_inquiry:${basis}` : basis,
+    tick: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
+    halt: null,
+  };
+}
+
+/**
  * Looks up the outcome of a respawn whose result is not known, once, read-only.
- * Confirmed: the claim is `done`. Not confirmed: the claim is quarantined and the
+ * Confirmed: the claim ends as the start-seen value. Not confirmed: the claim is quarantined and the
  * seat is stopped, because a second respawn would end the new conversation.
  */
 function resolveUnknown(
@@ -139,22 +158,14 @@ function resolveUnknown(
   marker: RotationMarker,
   claim: ClaimRecord,
 ): SeatTick {
-  const confirmed =
+  const basis =
     claim.state === "respawning" &&
     claim.pane_pid_before !== null &&
     claim.respawn_started_at !== null &&
-    marker.pane_id !== null &&
-    lookConfirmed(ports, seat, seatDir, marker, marker.pane_id, claim.pane_pid_before, Date.parse(claim.respawn_started_at));
-  if (confirmed) {
-    return finishAttempt(ports, seat, seatDir, marker, claim, {
-      state: "done",
-      resolution: "confirmed_by_inquiry",
-      kind: "confirmed",
-      detail: "by_inquiry",
-      tick: "confirmed_by_inquiry",
-      halt: null,
-    });
-  }
+    marker.pane_id !== null
+      ? lookConfirmed(ports, seat, seatDir, marker, marker.pane_id, claim.pane_pid_before, Date.parse(claim.respawn_started_at))
+      : null;
+  if (basis !== null) return finishAttempt(ports, seat, seatDir, marker, claim, startSeenOutcome(basis, true));
   return finishAttempt(ports, seat, seatDir, marker, claim, {
     state: "unknown_quarantined",
     resolution: "outcome_unknown",
@@ -188,15 +199,8 @@ async function confirmAfterRespawn(
 ): Promise<SeatTick> {
   const deadline = startedMs + seat.confirm_wait_seconds * 1_000;
   for (;;) {
-    if (lookConfirmed(ports, seat, seatDir, marker, plan.pane_id, plan.pane_pid, startedMs)) {
-      return finishAttempt(ports, seat, seatDir, marker, claim, {
-        state: "done",
-        resolution: "confirmed",
-        kind: "confirmed",
-        tick: "confirmed",
-        halt: null,
-      });
-    }
+    const basis = lookConfirmed(ports, seat, seatDir, marker, plan.pane_id, plan.pane_pid, startedMs);
+    if (basis !== null) return finishAttempt(ports, seat, seatDir, marker, claim, startSeenOutcome(basis, false));
     if (ports.now_ms() >= deadline) break;
     await ports.sleep(ROTATION_WATCHER_CONFIRM_POLL_SECONDS * 1_000);
   }

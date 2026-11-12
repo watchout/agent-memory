@@ -225,16 +225,66 @@
 - 手元の試験の中で、既定の `createStore()` を使う確かめの script を 1 つ動かしてしまい、この Mac の既定の保存先（JSON の store の `conversation-events.json` と `raw-events.json`）に、試験用の席（`agent_id` が `control-seat`）の行が入った。2 つの file を退避してから、その席の行だけを消して `[]` に戻した（消した時点で他の席の行は無いことを、全行の `agent_id` で確かめた）。2 つの file が試験の前から有ったかは分からない。本番の DB には書いていない。以降の確かめの script は一時の `HOME` を使う。
 - `ps` の `lstart` の文は locale で変わる（`LC_ALL=C` で解いた）。tmux 3.6a は `pane_start_command` を二重引用符で包んで返す。`if-shell -F` の中の `%` は 2 重にしなくてよい。
 
-## Step 17: 引き継ぎの確定の順番の直し（設計の段まで。code はまだ書いていない）
+## Step 17: 引き継ぎの確定の順番の直し（設計 5 回目の版・試験・実装。PR #344）
 
-配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。今の状態は設計の記録だけ。設計監査の 1 回目（PR #344 の comment 6814171592）は BLOCK（止める 3 件）で、設計の記録を 2 回目の版に書き直した。2 回目の版を見せた見直し役が止める指摘 1 件（OPEN-2）を付けたので、arc の技術の判断（Owner の言葉ではない）で、確認を `turn.json` の外の消えない記録に移す 3 回目の版に書き直した。
+配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。設計監査の 1 回目（PR #344 の comment 6814171592）は BLOCK（止める 3 件）、2 回目（comment 6815818953）も BLOCK（PASS 9・FAIL 5、止める 2 件 = F1・F3）。4 回目の版は順を 出力 → 出力済みの記録 → 消費 にして F1 を閉じたが、見直し役は F3 が名前と意味の言い換えでは閉じないと読んだ（見張りが `done`／`confirmed` を書き続ける。KY の自己判定 r1 の『中』は誤り）。**5 回目の版（O4）**: 見張りは受領を観測していないので成功と書かず、新しい終端の値 `output_written_receipt_unobserved` を claim・台帳・tick に書く（respawn の数えは変えない）。進め方は arc の席間の連絡で、設計の記録・試験だけの commit・実装を同じ PR に載せ、設計と実装を 1 回にまとめた監査を出す（この変更は R2 という arc の判断。GitHub には未 publish）。
 
-| 物 | 状態 |
+### 変えた file（base の main `94f1ca6d` に対して）
+
+| file | 変更 |
 |---|---|
-| 要件 FR11.1〜FR11.6 | `requirements.md` に足した（FR11.6 は 2 回目の版で足し、3 回目の版で『確認の記録は書いたら書き換えない・見張りは記録を読む』に書き直した） |
-| 設計の記録 | `handoff-commit-order-design.md`（3 回目の版: 失敗の場面 F1〜F4、案 A〜J、採る案 A、確定の継続を止める線、確認の記録（`turn.json` の外・書いたら書き換えない）、host の受領の限界 = OPEN-1、確認の組が見える時間 = OPEN-2（閉じた）、S3〜S8、試験 T1〜T13、範囲に入れないこと） |
-| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T13。試験の code は設計監査の PASS の後） |
-| 追跡 | `traceability.json` の FR11.1〜FR11.6 は `Deferred`（実装は設計監査の PASS の後。Step 17.6〜17.8 で `OK` にする） |
-| src の変更 | なし |
-| 開いていること | OPEN-1（印の後に host が出力を捨てる窓。設計 4.8。arc の技術の判断は O1 = 狭めて受け入れる。監査が重大と読めば差し戻しの組み合わせで、O2・O3 は Owner の決定が要る）。OPEN-2（確認の組が見える時間）は、確認を消えない記録に移して閉じた（設計 4.6・4.8） |
-| 次 | 見直し役に 3 回目の版を見せる → 設計の記録だけの PR に積む → 独立の設計監査の 2 回目（devauditor）。PASS の後に試験だけの commit、その後に実装 |
+| `src/rotation-commit.ts`（新、184 行） | 確定 `commitRotationRecovery`（段 0: 残りが `ROTATION_COMMIT_WRITE_RESERVE_MS` 未満なら何もしない → 段 1: claim 経由は出力済みの記録を書き、`written`／`exists` の時だけ進む → 段 2: 消費を 1 回だけ、予算 `min(1,500 ms, commit_by − 経過)` の中で）、`answerHookAndCommit`（stderr と stdout の両方を待ち、stdout が誤りなら確定しない）、`writeLine`（write の callback と `error` event の最初の誤りを 1 回だけ返す） |
+| `src/session-rotation-files.ts` | 出力済みの記録 `output-written/<marker_id>.json`（schema `kusabi-rotation-output-written/v1`）の書き方 `writeOutputWritten`（temp → fsync → `link`、すでにあれば `exists`、mode 0600）と読み方 `readOutputWritten`（壊れた・別 marker・型違いは無いものとして読む）。`readClaim` が marker_id の綴りの確かめを共有 |
+| `src/session-rotation-start.ts` | `prepareRotationRecovery` を読むだけにした（束を消費しない。`turn` の `rotation_marker_id` は常に null）。確定の計画 `RotationCommitPlan`（query・directory・turn・marker_id・via）を結果 `RotationBlock.commit` に載せる |
+| `src/claude-session-start.ts`・`src/codex-session-start.ts` | 出力の後に同じ `answerHookAndCommit` を呼ぶ。Codex は `main` の終わりを `runCodexSessionStartProcess(io)`（時計・store・書き込みを受ける）に切り出した（挙動は同じ。入力の失敗の早い return は確定しない） |
+| `src/rotation-watcher-store.ts`・`-core.ts`・`-attempt.ts` | 見張りは受領を観測していないので `done`／`confirmed` を新しい code から書かず、新しい終端の値 `output_written_receipt_unobserved`（claim の state・resolution、台帳の kind、tick の reason）を書く。確認の根拠は `confirmationBasis`（出力済みの記録、同居の間は旧い形の `turn`）。respawn の間隔・上限の数え（`COUNTING_KINDS`）は変えない |
+| `src/session-rotation-status.ts` | 状態の表示に `output_written`（file の有無と、あれば session と書いた時刻）を足した |
+| `src/constants.ts` | 確定の値 3 つ（`ROTATION_COMMIT_BUDGET_MS` 1,500、`ROTATION_COMMIT_EXIT_MARGIN_MS` 2,000、`ROTATION_COMMIT_WRITE_RESERVE_MS` 300） |
+| `package.json` | scripts の 2 行だけ（`test:session-rotation` に新しい試験を 1 つ足す、`test:handoff-commit-order-pg` を足す）。依存・`package-lock.json` は変えていない |
+| 試験 | 新しい `src/test-handoff-commit-order.ts`・`src/test-handoff-commit-order-pg.ts`。変えた既存の試験 6 file（下） |
+
+DB の作り（`src/migrate.ts`・`src/stores/`）、`turn.json` の schema、`session-rotation-stop.ts`、証拠の契約、出力の形、workflow、`.github/`、`scripts/`、資格情報は変えていない。
+
+### 試験の結果（この Mac の Node v26.12.1、`HOME` と `AGENT_MEMORY_HOME` は一時の folder）
+
+| 試験 | 結果 |
+|------|------|
+| `npx tsc --noEmit` | 0 |
+| `src/test-handoff-commit-order.ts`（新） | 30 cases PASS（T1〜T7・T10〜T15、`answerHookAndCommit`、記録と読みの端、Codex の process の端、JSON の store での T9、Claude と Codex の実際の command を別 process で起こして 出力 → 記録 → 消費 を既定の store で確かめる 2 case） |
+| `src/test-handoff-commit-order-pg.ts`（新。手元の使い捨ての PostgreSQL。CI に入れない） | 4 cases PASS（T9 の a〜d: 新しい確定、同時 8 件、旧い順の hook との競り、期限切れ）。出力は PR の本文 |
+| `src/test-session-rotation-flow.ts` | 47 cases PASS |
+| `src/test-session-rotation-status.ts` | 18 cases PASS |
+| `src/test-rotation-watcher-units.ts` | 86 cases PASS |
+| `src/test-rotation-watcher-flow.ts` | 109 cases PASS |
+| `src/test-session-rotation-scenario.ts` | PASS |
+| `src/test-session-rotation-core.ts`・`test-rotation-hook-registration.ts`・`test-claude-transcript-identity.ts` | 21・13・25 cases PASS（変えていない） |
+| CI の mirror（`.github/workflows/ci.yml` の手順を順に） | 17 / 17 が 0。core は 1832 passed・0 failed |
+
+- 見張りの試験で変えた既存の表明は、『確認 → `done`／`confirmed`／`confirmed_by_inquiry`』を『新しい終端の値 `output_written_receipt_unobserved`（根拠は台帳の detail）』に変えた所（O4 で意味が変わる所）と、`isNewConversationConfirmed` の試験を `confirmationBasis` の試験（出力済みの記録の枝と旧い形の枝）に替えた所だけ。ほかに、見張りの世界の模型（`test-rotation-watcher-world.ts`）が確認の元を出力済みの記録で書く道を足した。`test-session-rotation-flow.ts` は『読んだ時点で束が消費される・`turn` に印が付く』の表明を『読むだけで消費しない・印は常に null』に変えた。消した・緩めた表明は無い。
+- `test-session-rotation-status.ts` の key の一覧に `output_written` を足した。
+
+### 落ちる試験を先に作って確かめた（TDD の順）
+base の `src` に最終の試験を重ねて流した（`git archive` で作った base の tree に試験 8 file を置いた）: `test-handoff-commit-order`・`-pg`・`test-session-rotation-scenario` は `rotation-commit.js` が無く、`test-rotation-watcher-flow`・`-units`・`test-session-rotation-status` は `writeOutputWritten`／`outputWrittenPath` の export が無くて読み込みで落ち、`test-session-rotation-flow` は動いて 47 のうち 3 件が落ちる（『束が読んだ時点で消費される』『`turn` に印が付く』）。読み込みで落ちる 6 file は、振る舞いではなく『新しい部品が無い』を示す。振る舞いの失敗は実装の前の `session-rotation-flow` の 3 件と、実装が入った後に初めて通る順序の表明（T4・T13）が示す。PR の本文に出力を載せた。
+
+### 行の網羅率（NFR4、Step 17）
+- 計り方は `coverage-method.md` の『Step 17』の節（item 6）。base `94f1ca6d…`、Node v26.12.1。変えた行と新しい行（src の 10 file、505 行）のうち、動かなかった範囲は **0**（数えから外した行は無い）。PostgreSQL の試験を除いても同じ。
+- 1 回目の測りで動かなかった範囲（`codex-session-start.ts` の degraded の `catch` と本物の `main`、`rotation-commit.ts` の既定の store・`closeQuietly` の失敗・外側の `catch`・`io.open_store` の空の腕、`session-rotation-files.ts` の `link` の EEXIST 以外の失敗と壊れた記録の検査、`session-rotation-start.ts` の束の読みの失敗）は、端の場面の試験と、実際の command を別 process で起こす試験を足して動かした。
+
+### 見直し役（architecture-reviewer、読み取りだけ、1 体）の結果
+- 設計 5 回目の版を 1 回、実装・試験・監査の項目を 1 回見せた。実装後の判定は READY（返す条件に当たる指摘 0）。直した文面の食い違い 3 件: (F1) 監査の項目 IMP-2 の『消費を呼ぶのは 1 か所』は SessionStart の回復の経路に限ること、(F2) 設計の項目の行番号は base の位置で head では動いていること（項目の file の status に明記）、(F3) 試験の数は実行の出力の `PASS … (N cases)` を引くこと。設計に 1 行足した（壊れた記録は無いものとして扱う。軽）。返さなかった軽 2 件: 出力の callback を timeout なしで待つのは base と同じ挙動、旧い見張りが新しい state の claim を読む実挙動は配備の段 17.9 で観測する。
+- 見直し役が読まなかった所: PostgreSQL の試験の本体、見張りの T8・T15(b)・T16 の本体。これらは作者が流した出力に頼る。
+
+### 計画からの外れ（PR の deviation_ledger に書く）
+- 採った判断: 設計・試験だけの commit・実装を同じ PR にまとめ、設計と実装を 1 回にまとめた監査にかける（arc の席間の連絡。GitHub には未 publish）。採らなかった代替: 設計の PASS を待ってから実装する（team.md の既定）。
+- 採った判断: PostgreSQL の試験（T9）は CI の chain に入れず、手元の使い捨ての DB で 1 回流して出力を PR に載せる（`project.md`・team.md の決まり。CI の workflow を変えるには Owner の exact-head が要る）。採らなかった代替: CI に PostgreSQL を足す。
+- 採った判断: 見張りは受領を観測しないので成功と書かず、新しい終端の値を書く（O4）。採らなかった代替: 名前だけ変える、受領を観測する仕組みを足す（保護面・別の設計）。
+- 採った判断: 差分が 400 行を超える PR は『AI-DLC の単位の作る段の出力』と書く。
+
+### 開いていること
+- 受領の証拠（束が `consumed` で、記録の後に host が出力を捨てると文は席に届かない。見張りの記録は成功を言わない。設計 4.8 の r1・r5）。
+- 旧い見張りが新しい `state` の claim を読む実際の挙動は、配備の段 17.9 で観測する。
+- 入れ替えの順（見張り → hook）と戻しは Owner の差し替えの script。この PR は席に何も据えない。
+- 監査が R3 に上げる場合は Owner の exact-head（arc の判断は R2）。
+
+### 次
+設計と実装をまとめた独立の監査（devauditor）の依頼 → 返却 → 作者の受領 → 統合（作者以外の席）→ 新しい版 → Owner の差し替えの script（見張り → hook）→ 旧い見張りの観測（17.9）→ C2 の取り直し。

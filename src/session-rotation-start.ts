@@ -3,8 +3,10 @@
  *
  * The SessionStart hook calls prepareRotationRecovery() on every start. It
  * records the new conversation's `started` turn and, only when the saved
- * hand-off is fresh and the start matches an order, consumes the one-time
- * bundle and returns a recovery text that leads with the seat's own next step.
+ * hand-off is fresh and the start matches an order, reads the one-time bundle
+ * and returns a recovery text that leads with the seat's own next step plus the
+ * plan of the commit. It consumes nothing: the commit (rotation-commit.ts) runs
+ * after the answer has been written (FR11).
  */
 import {
   ROTATION_CONFIRM_WAIT_SECONDS,
@@ -56,6 +58,28 @@ export interface RotationStartContext {
   source: RotationStartSource;
 }
 
+/** The identity and time of the `started` turn this start wrote; the output-written record is made from it. */
+export interface RotationPlanTurn extends HostIdentity {
+  agent_id: string;
+  project: string;
+  host: RotationHost;
+  session_id: string;
+  source: RotationStartSource;
+  at: string;
+}
+
+/**
+ * What the commit needs, as data only (no store, no function). `turn` is null when the started turn could not be
+ * written; a claim-route start then makes no record and so consumes nothing.
+ */
+export interface RotationCommitPlan {
+  query: { agent_id: string; project: string; pack_ref: string };
+  directory: string;
+  turn: RotationPlanTurn | null;
+  marker_id: string;
+  via: "claim" | "marker";
+}
+
 /**
  * The hand-off block of a rotation start. It is delivered in front of the
  * ordinary recovery text, which stays under the frozen session-start caps and
@@ -65,6 +89,7 @@ export interface RotationBlock {
   text: string;
   initial_user_message: string;
   marker_id: string;
+  commit: RotationCommitPlan;
 }
 
 export interface RotationStartEvidence {
@@ -195,8 +220,8 @@ function safeDirectory(root: string, agentId: string, project: string): string |
 }
 
 /**
- * Records the new conversation's `started` turn (fail-open) and, when allowed,
- * consumes the one-time bundle. Returns null for an ordinary start.
+ * Records the new conversation's `started` turn (fail-open) and, when allowed, reads the one-time bundle.
+ * Returns null for an ordinary start. It never consumes the bundle and never marks the turn with the marker.
  */
 export async function prepareRotationRecovery(
   store: Store,
@@ -223,43 +248,51 @@ export async function prepareRotationRecovery(
     now_ms: now.getTime(),
   });
 
-  let recovery: RotationBlock | null = null;
+  let bundle: Omit<RotationBlock, "commit"> | null = null;
   if (decision.use && marker) {
     try {
-      recovery = await consumeBundle(store, context, marker);
+      bundle = await readBundle(store, context, marker);
     } catch {
-      recovery = null;
+      bundle = null;
     }
   }
+  const planTurn: RotationPlanTurn = {
+    agent_id: context.agent_id,
+    project: context.project,
+    host: context.host,
+    session_id: context.session_id,
+    source: context.source,
+    at: now.toISOString(),
+    ...identity,
+  };
+  let written = false;
   try {
-    writeTurn(directory, {
-      agent_id: context.agent_id,
-      project: context.project,
-      host: context.host,
-      session_id: context.session_id,
-      state: "started",
-      source: context.source,
-      rotation_marker_id: recovery && decision.use && decision.via === "claim" ? marker!.marker_id : null,
-      at: now.toISOString(),
-      ...identity,
-    });
+    writeTurn(directory, { ...planTurn, state: "started", rotation_marker_id: null });
+    written = true;
   } catch {
     // The turn file is a projection for the watcher; a write failure never blocks the start.
   }
-  return recovery;
+  if (bundle === null || !decision.use || !marker) return null;
+  return {
+    ...bundle,
+    commit: {
+      query: { agent_id: context.agent_id, project: context.project, pack_ref: marker.pack_ref },
+      directory,
+      turn: written ? planTurn : null,
+      marker_id: marker.marker_id,
+      via: decision.via,
+    },
+  };
 }
 
-async function consumeBundle(
+async function readBundle(
   store: Store,
   context: RotationStartContext,
   marker: RotationMarker,
-): Promise<RotationBlock | null> {
+): Promise<Omit<RotationBlock, "commit"> | null> {
   const query = { agent_id: context.agent_id, project: context.project, pack_ref: marker.pack_ref };
   const bundle = await store.getSelectedRestartPack(query);
   if (bundle === null || sha256Hex(bundle.content) !== marker.pack_content_sha256) return null;
-  // Consume only after the text is built: a failure above leaves the bundle for the next start,
-  // and a lost race (someone else consumed it first) returns null.
   const text = redactText(rotationText(marker, bundle.content)).text;
-  if ((await store.consumeSelectedRestartPack(query)) === null) return null;
   return { text, initial_user_message: ROTATION_INITIAL_USER_MESSAGE, marker_id: marker.marker_id };
 }

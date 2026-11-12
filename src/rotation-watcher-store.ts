@@ -88,9 +88,23 @@ export const nodeWatcherFs: WatcherFs = {
   },
 };
 
-export type ClaimState = "claimed" | "respawning" | "done" | "unconfirmed" | "aborted_before_respawn" | "unknown_quarantined";
+/**
+ * The one end value for a respawn whose new conversation was seen to start with the hand-off written to its output.
+ * The watcher never observes that the seat took the hand-off, so it is not "done" or "confirmed". The same value is
+ * the claim's state and resolution, the ledger line's kind and the tick's reason (defined once, standard S3).
+ */
+export const OUTPUT_WRITTEN_RECEIPT_UNOBSERVED = "output_written_receipt_unobserved" as const;
 
-const TERMINAL: readonly ClaimState[] = ["done", "unconfirmed", "aborted_before_respawn", "unknown_quarantined"];
+export type ClaimState =
+  | "claimed"
+  | "respawning"
+  | "done"
+  | typeof OUTPUT_WRITTEN_RECEIPT_UNOBSERVED
+  | "unconfirmed"
+  | "aborted_before_respawn"
+  | "unknown_quarantined";
+
+const TERMINAL: readonly ClaimState[] = ["done", OUTPUT_WRITTEN_RECEIPT_UNOBSERVED, "unconfirmed", "aborted_before_respawn", "unknown_quarantined"];
 const IN_PROGRESS: readonly ClaimState[] = ["claimed", "respawning"];
 
 export interface ClaimRecord {
@@ -172,7 +186,14 @@ export function advanceClaim(
   }
 }
 
-export type LedgerKind = "intent" | "respawn_issued" | "confirmed" | "unconfirmed" | "outcome_unknown" | "skipped";
+export type LedgerKind =
+  | "intent"
+  | "respawn_issued"
+  | "confirmed"
+  | typeof OUTPUT_WRITTEN_RECEIPT_UNOBSERVED
+  | "unconfirmed"
+  | "outcome_unknown"
+  | "skipped";
 
 /** Fields the ledger may carry. Screen text, conversation text and environment values have no field. */
 export interface LedgerFields {
@@ -219,7 +240,7 @@ export type LedgerSummary =
 const HOUR_MS = 3_600_000;
 
 /** Lines that mean a respawn was issued, may have been, or was found to have happened. */
-const COUNTING_KINDS: readonly string[] = ["respawn_issued", "outcome_unknown", "confirmed"];
+const COUNTING_KINDS: readonly string[] = ["respawn_issued", "outcome_unknown", "confirmed", OUTPUT_WRITTEN_RECEIPT_UNOBSERVED];
 
 /**
  * Respawn history for one seat. One attempt counts once, at the latest time of its

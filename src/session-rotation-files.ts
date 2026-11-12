@@ -8,10 +8,12 @@ import { createHash } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -23,6 +25,7 @@ import type { RotationHost } from "./session-rotation-usage.js";
 export const ROTATION_MARKER_SCHEMA = "kusabi-rotation-marker/v1" as const;
 export const ROTATION_TURN_SCHEMA = "kusabi-rotation-turn/v1" as const;
 export const ROTATION_HOOK_STATE_SCHEMA = "kusabi-rotation-hook-state/v1" as const;
+export const ROTATION_OUTPUT_WRITTEN_SCHEMA = "kusabi-rotation-output-written/v1" as const;
 
 export interface HostIdentity {
   pane_id: string | null;
@@ -70,6 +73,22 @@ export interface RotationHookState {
   threshold_tokens: number;
 }
 
+/**
+ * The fact that a start hook wrote its answer (with the hand-off text) to stdout, for one rotation marker.
+ * It says only that: not that the host took the answer, nor that the seat read it. Written once, never changed.
+ */
+export interface RotationOutputWritten extends HostIdentity {
+  schema_version: typeof ROTATION_OUTPUT_WRITTEN_SCHEMA;
+  marker_id: string;
+  agent_id: string;
+  project: string;
+  host: RotationHost;
+  session_id: string;
+  source: string;
+  turn_at: string;
+  output_written_at: string;
+}
+
 /** The watcher-written claim, as far as the seat hooks read it (read-only here). */
 export interface RotationClaim {
   state: string;
@@ -78,6 +97,10 @@ export interface RotationClaim {
 }
 
 const PANE_ID = /^%[0-9]+$/;
+const MARKER_ID = /^[0-9a-f]{64}$/;
+
+/** The one check of a marker id's spelling (claims and output-written records are both named by it). */
+export const isMarkerId = (value: string): boolean => MARKER_ID.test(value);
 
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -194,6 +217,36 @@ export function writeJsonAtomic(path: string, value: unknown): void {
   syncPath(folder);
 }
 
+/**
+ * Durable write-once: a temp file is written and fsynced, then linked to the final name. The final name only ever
+ * holds a complete file, and a name that already exists is left as it is ("exists"). Throws when it cannot write.
+ */
+export function writeJsonOnce(path: string, value: unknown): "written" | "exists" {
+  const folder = dirname(path);
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  tempCounter += 1;
+  const temp = `${path}.${process.pid}.${tempCounter}.tmp`;
+  let result: "written" | "exists" = "written";
+  try {
+    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+    syncPath(temp);
+    try {
+      linkSync(temp, path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      result = "exists";
+    }
+  } finally {
+    try {
+      unlinkSync(temp);
+    } catch {
+      // A temp that was never made, or is already gone, is nothing to clean.
+    }
+  }
+  syncPath(folder);
+  return result;
+}
+
 export function readJsonFile(path: string): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -228,7 +281,7 @@ export function readHookState(directory: string): RotationHookState | null {
 }
 
 export function readClaim(directory: string, markerId: string): RotationClaim | null {
-  if (!/^[0-9a-f]{64}$/.test(markerId)) return null;
+  if (!isMarkerId(markerId)) return null;
   const raw = readJsonFile(join(directory, "claims", `${markerId}.json`));
   const state = text(raw?.state);
   if (!raw || state === null || raw.marker_id !== markerId) return null;
@@ -237,6 +290,27 @@ export function readClaim(directory: string, markerId: string): RotationClaim | 
     marker_id: markerId,
     respawn_started_at: text(raw.respawn_started_at),
   };
+}
+
+export const outputWrittenPath = (directory: string, markerId: string): string => join(directory, "output-written", `${markerId}.json`);
+
+/** Records that the start hook wrote its answer for this marker. Throws when it cannot; "exists" keeps the first record. */
+export function writeOutputWritten(directory: string, record: Omit<RotationOutputWritten, "schema_version">): "written" | "exists" {
+  return writeJsonOnce(outputWrittenPath(directory, record.marker_id), { schema_version: ROTATION_OUTPUT_WRITTEN_SCHEMA, ...record });
+}
+
+const isNullableText = (value: unknown): boolean => value === null || typeof value === "string";
+const isNullableCount = (value: unknown): boolean => value === null || (typeof value === "number" && Number.isInteger(value));
+
+/** The record for a marker, or null when it is missing, damaged, or not that marker's (fail closed). */
+export function readOutputWritten(directory: string, markerId: string): RotationOutputWritten | null {
+  if (!isMarkerId(markerId)) return null;
+  const raw = readJsonFile(outputWrittenPath(directory, markerId));
+  if (!raw || raw.schema_version !== ROTATION_OUTPUT_WRITTEN_SCHEMA || raw.marker_id !== markerId) return null;
+  const required = [raw.agent_id, raw.project, raw.host, raw.session_id, raw.source, raw.turn_at, raw.output_written_at];
+  if (!required.every((value) => text(value) !== null)) return null;
+  if (!isNullableText(raw.pane_id) || !isNullableText(raw.tmux_socket) || !isNullableText(raw.host_started_at) || !isNullableCount(raw.host_pid)) return null;
+  return raw as unknown as RotationOutputWritten;
 }
 
 export function writeTurn(directory: string, turn: Omit<RotationTurn, "schema_version">): void {

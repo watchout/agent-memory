@@ -29,6 +29,7 @@ import {
   readClaim,
   readHookState,
   readMarker,
+  readOutputWritten,
   readTurn,
   rotationRoot,
   seatDirectory,
@@ -68,6 +69,8 @@ export interface RotationStatus {
   turn: { file: FileState; state?: string; session_id?: string; at?: string; source?: string | null; rotation_marker_id?: string | null };
   hook_state: { file: FileState; session_id?: string; blocked_at?: string; measured_tokens?: number };
   claim: { file: FileState; state?: string; respawn_started_at?: string | null };
+  /** Whether the start hook wrote its answer for the marker (FR11.6): the fact only, never "received". */
+  output_written: { file: FileState; session_id?: string; output_written_at?: string };
 }
 
 function fileState(directory: string, name: string, valid: boolean): FileState {
@@ -84,6 +87,10 @@ export function buildRotationStatus(directory: string, agentId: string, project:
   const claimFile = marker === null
     ? "none"
     : fileState(join(directory, "claims"), `${marker.marker_id}.json`, claim !== null);
+  const written = marker === null ? null : readOutputWritten(directory, marker.marker_id);
+  const writtenFile = marker === null
+    ? "none"
+    : fileState(join(directory, "output-written"), `${marker.marker_id}.json`, written !== null);
   return {
     schema_version: ROTATION_STATUS_SCHEMA,
     agent_id: agentId,
@@ -117,6 +124,9 @@ export function buildRotationStatus(directory: string, agentId: string, project:
     claim: claim === null
       ? { file: claimFile }
       : { file: "valid", state: claim.state, respawn_started_at: claim.respawn_started_at },
+    output_written: written === null
+      ? { file: writtenFile }
+      : { file: "valid", session_id: written.session_id, output_written_at: written.output_written_at },
   };
 }
 
