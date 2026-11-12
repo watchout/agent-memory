@@ -23,7 +23,7 @@ cd <repo> && python3 -I check-records.py <base> <head> <tree> <logs> <body>
 
 1. 数: 『`path`（N 行）』『`path` は N 行』『| `path` | N cases』『A → B 行』を、`wc -l`（base と head）と、その試験自身の出力の `PASS … (N cases)` に結ぶ。『N commit』『commit は N 個』は `git rev-list --count base..head`、本文の commit の一覧（番号と短い sha の行）は `git rev-list base..head` の全部と過不足なく同じか、『N 項目』『項目の数は N』『DES-1〜DES-N』『IMP-1〜IMP-N』は項目の file 自身の数に結ぶ。不一致は止める。『』の中に引用した旧い記述の数（直す前の値を書く時）は、今の head の主張ではないので照らさず、MANUAL に出す。
 2. 状態: 『未 publish』『まだ publish』『GitHub に無い』『席間の指示／連絡／示唆』『権限としては引用しない』を言う節（、。（）で切った 1 節）は、『』の中の引用か、いつの話かを言う語（『この版を書いた時』『だった』『その後』など）か、publish 済みを言う語を持たなければ指摘にする。
-3. comment: 『comment <10 桁>』の次にある 64 桁の SHA-256 を、`gh api` が返す comment の本文から数え直した値と照らす（次の 10 桁の数が出るまでを、その comment の SHA-256 の読み先にする）。
+3. comment: 同じ行で『comment <10 桁>』の次にある 64 桁の SHA-256（次の 10 桁の数が出るまでを、その comment の SHA-256 の読み先にする）と、項目の file の `control_source_ref`（url と sha256 は別の行なので、JSON として読む）を、`gh api` が返す comment の本文から数え直した値と照らす。別の行に離れて書いた組は照らさない。
 4. 照らす範囲: 設計の記録（全体）・要件の FR11 の節・計画の Step 17 の節・試験の手順の Step 17 の節・追跡・要約の Step 17 の節・項目の file・PR 本文（DES-9 (a) が挙げる記録）。base に対して足した行だけを見る。
 
 ## 照らせない物（出力の MANUAL）
@@ -55,7 +55,8 @@ Three checks (exit 1 when any of them has a finding):
               wc -l at BASE/HEAD and to the case count of the test's own output.
   2. states   a clause that says a decision is not yet published / not on GitHub / only inter-seat must either
               quote the old wording inside 『』, say when it was true ("この版を書いた時" "だった" ...), or say it IS published.
-  3. comments each "comment <id>" followed by a SHA-256 is recomputed from the body GitHub's API returns.
+  3. comments each "comment <id>" followed on the same line by a SHA-256, and the items file's control_source_ref
+              (url + sha256, which sit on separate lines), is recomputed from the body GitHub's API returns.
 Scope = the records DES-9 (a) names: design, requirements FR11, plan Step 17, test instructions
 Step 17, traceability.json, code-summary Step 17, the audit-items file, and the PR body.
 """
@@ -328,6 +329,10 @@ for label, ln, text in targets:
         before = text[max(0, m.start() - 30):m.start()]
         if s and ("comment" in before or "#" in before or "コメント" in before):
             seen.setdefault(m.group(1), set()).add((s.group(1), label, ln))
+csr = json.loads(git("show", f"{HEAD}:{ITEMS}").decode("utf-8")).get("control_source_ref") or {}
+mc = re.search(r"issuecomment-([0-9]+)", csr.get("url", ""))
+if mc and re.fullmatch(r"[0-9a-f]{64}", csr.get("sha256", "")):
+    seen.setdefault(mc.group(1), set()).add((csr["sha256"], "items:control_source_ref", 0))
 for cid in sorted(seen):
     body = None
     for repo in ("watchout/agent-memory", "watchout/iyasaka-arc"):
