@@ -5,6 +5,7 @@ import initSqlJs from "sql.js";
 import pg from "pg";
 import { ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS } from "../constants.js";
 import { DEFAULT_DATA_DIR, TASK_STATES_FILE } from "./json-store.js";
+import { normalizeTaskStates, type TaskStateKeyFields } from "./task-state-normalize.js";
 import { resolveStoreBackend } from "./index.js";
 import { resolveSqliteDbPath } from "./sqlite-store.js";
 import type { GetTaskStatesInput, TaskState } from "./types.js";
@@ -135,16 +136,22 @@ async function readSqlite(dbPath: string, input: GetTaskStatesInput): Promise<Ha
   }
 }
 
+/** A row of the records file as parsed: the fields the clean-up reads are typed, the rest are read as unknown. */
+type RawTaskState = TaskStateKeyFields & Record<string, unknown>;
+
 async function readJson(dataDir: string, input: GetTaskStatesInput): Promise<HandoffTaskRow[]> {
   if (!existsSync(dataDir)) throw new Error("the JSON store folder is not there");
   const file = join(dataDir, TASK_STATES_FILE);
   if (!existsSync(file)) return [];
   const parsed: unknown = JSON.parse(await readFile(file, "utf-8"));
   if (!Array.isArray(parsed)) throw new Error("the task states file is not a list");
-  const rows = parsed.map((entry, index) => {
+  const entries = parsed.map((entry, index) => {
     if (typeof entry !== "object" || entry === null) throw new Error(`the task states file holds an entry that is not an object (${index})`);
-    return { index, raw: entry as Record<string, unknown> };
+    return entry as unknown as RawTaskState;
   });
+  // The store cleans these rows when it opens (a legacy row gets its task id, a duplicate collapses to one row); the same
+  // function does it here in memory, so the reader gives the row the store gives. Nothing is written back.
+  const rows = normalizeTaskStates(entries).rows.map((raw, index) => ({ index, raw }));
   return rows
     .filter(({ raw }) => raw.agent_id === input.agent_id)
     .filter(({ raw }) => !input.project || raw.project === input.project)

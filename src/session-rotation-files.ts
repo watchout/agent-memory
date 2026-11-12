@@ -297,8 +297,12 @@ export function readClaim(directory: string, markerId: string): RotationClaim | 
 
 export const outputWrittenPath = (directory: string, markerId: string): string => join(directory, "output-written", `${markerId}.json`);
 
-/** Records that the start hook wrote its answer for this marker. Throws when it cannot; "exists" keeps the first record. */
+/**
+ * Records that the start hook wrote its answer for this marker. Throws when it cannot, and when the marker id is not a
+ * marker id's spelling (the name of the file is built from it); "exists" keeps the first record.
+ */
 export function writeOutputWritten(directory: string, record: Omit<RotationOutputWritten, "schema_version">): "written" | "exists" {
+  if (!isMarkerId(record.marker_id)) throw new Error("output-written: the marker id is not a marker id's spelling");
   return writeJsonOnce(outputWrittenPath(directory, record.marker_id), { schema_version: ROTATION_OUTPUT_WRITTEN_SCHEMA, ...record });
 }
 
