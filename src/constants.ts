@@ -54,6 +54,12 @@ export const ROTATION_COMMIT_EXIT_MARGIN_MS = 2_000;
 export const ROTATION_COMMIT_WRITE_RESERVE_MS = 300;
 
 /**
+ * How many of a seat's task states the hand-off source read looks through (newest first). A list that fills this and
+ * still does not show the hand-off is "not read to the end", never "absent".
+ */
+export const ROTATION_HANDOFF_SOURCE_LIST_LIMIT = 500;
+
+/**
  * The two spelling rules every rotation file shares, defined once (standard S3).
  * A seat name or project is one path segment. A launch command is placed inside a
  * tmux condition, so only these characters are allowed (watcher-design.md 2.3).

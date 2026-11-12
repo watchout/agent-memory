@@ -45,6 +45,8 @@
 
 6. Step 17（PR 344、引き継ぎの確定の順番）の測り方と結果。手順は上の 1〜3 と 5 の (b)(c) と同じで、次の点だけ違う。(a) `BASE=94f1ca6d0042bd970d4cc7c4ab9ce9153b7d5c0d`（PR 344 の base の main）。(b) 試験の中に、実際の hook の command（`src/claude-session-start.ts`・`src/codex-session-start.ts`）を別 process で起こす case があり、`NODE_V8_COVERAGE` は子 process の分も集める（`main()` と既定の store を開く道がこれで動く）。(c) zsh は変数を単語に割らないので、変えた file の一覧は file に書いて `xargs node merge-zero.mjs "$COV" < files.txt` で渡す。(d) PostgreSQL の試験（`src/test-handoff-commit-order-pg.ts`）は測りに要らない（使い捨ての DB が無くても結果は同じ。無しで測り直して確かめた）。結果（Node v26.12.1）: src の 10 file、変えた行と新しい行 505 行のうち、0 回の範囲は 0。1 回目の測りで出た範囲（`codex-session-start.ts` の degraded の `catch` と本物の `main`、`rotation-commit.ts` の既定の store・`closeQuietly` の失敗・外側の `catch`・`io.open_store` の空の腕、`session-rotation-files.ts` の `link` の EEXIST 以外の失敗と壊れた記録の検査、`session-rotation-start.ts` の束の読みの失敗）は、試験を足して動かした（数えから外した行は無い）。
 
+6b. Step 17 の 3 回目の返却の直し（F1・F2）の後の測り: 手順は 6 と同じで、変えた file の一覧に `src/restart-cli.ts`・`src/rotation-handoff-source.ts`・`src/session-rotation-stop.ts` が加わった（13 file）。全試験の命令を流した後に `src/test-handoff-source.ts` を同じ `NODE_V8_COVERAGE` に足して流した。結果（Node v26.12.1）: 変えた行と新しい行 623 行のうち、0 回の範囲は 0（数えから外した行は無い）。途中の測りで出た範囲（`restart-cli.ts` の未知の command の `throw` と `--project` の無い時の拒否、`rotation-handoff-source.ts` の progress が無い行と updated_at が無い古い行の腕）は、試験を足して動かした。
+
 V8 の範囲は分岐の腕や無名関数も数えるので、行の網羅率より厳しい。数え方は Node の版で少し違いうる。
 
 ## merge-zero.mjs

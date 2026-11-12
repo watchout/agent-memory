@@ -6,9 +6,11 @@ import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type 
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
 import { redactText } from "./redact.js";
+import { readHandoffSource } from "./rotation-handoff-source.js";
+import { rotationRoot } from "./session-rotation-files.js";
 
 interface CliOptions {
-  command: "prepare" | "fetch" | "preflight" | "help";
+  command: "prepare" | "fetch" | "preflight" | "handoff-source" | "help";
   agent_id: string;
   project?: string;
   pack_ref?: string;
@@ -38,7 +40,7 @@ export function parseRestartCliArgs(args: string[], env: NodeJS.ProcessEnv = pro
   if (command === "help" || command === "--help" || command === "-h") {
     return { command: "help", agent_id: env.AGENT_MEMORY_AGENT_ID || "default" };
   }
-  if (command !== "prepare" && command !== "fetch" && command !== "preflight") {
+  if (command !== "prepare" && command !== "fetch" && command !== "preflight" && command !== "handoff-source") {
     throw new Error(`unknown command: ${command}`);
   }
 
@@ -141,6 +143,7 @@ export function printRestartCliHelp(): string {
     "  wasurezu-restart prepare [options]",
     "  wasurezu-restart fetch --pack-ref REF [--consume] [options]",
     "  wasurezu-restart preflight [--restart-command CMD] [--restart-preauthorized]",
+    "  wasurezu-restart handoff-source --agent-id ID --project PROJECT   read-only: the seat's hand-off text, from its task state, when it matches the marker",
     "",
     "Options:",
     "  --agent-id ID",
@@ -250,6 +253,13 @@ async function main(): Promise<void> {
   }
   const store = await createStore();
   try {
+    if (options.command === "handoff-source") {
+      if (!options.project) throw new Error("handoff-source requires --project");
+      const found = await readHandoffSource(store, { agent_id: options.agent_id, project: options.project, rotation_root: rotationRoot(process.env) });
+      console.log(redactedJson(found));
+      if (found.result !== "found") process.exitCode = 1;
+      return;
+    }
     if (options.command === "fetch") {
       if (!options.pack_ref) throw new Error("fetch requires --pack-ref");
       const pack = options.consume

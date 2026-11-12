@@ -102,6 +102,9 @@ const MARKER_ID = /^[0-9a-f]{64}$/;
 /** The one check of a marker id's spelling (claims and output-written records are both named by it). */
 export const isMarkerId = (value: string): boolean => MARKER_ID.test(value);
 
+/** The task id under which the stop side keeps the seat's own hand-off text (one task state per seat and project). */
+export const rotationHandoffTaskId = (project: string): string => `session-rotation-handoff:${project}`;
+
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }

@@ -38,6 +38,7 @@ import {
   readHookState,
   readMarker,
   resolveHostIdentity,
+  rotationHandoffTaskId,
   rotationRoot,
   seatDirectory,
   sha256Hex,
@@ -336,7 +337,7 @@ async function saveHandoff(context: SaveContext): Promise<string> {
     await store.saveTaskState({
       agent_id: binding.agent_id,
       project: binding.project,
-      task_id: `session-rotation-handoff:${binding.project}`,
+      task_id: rotationHandoffTaskId(binding.project),
       task: "会話の切り直しの引き継ぎ",
       status: "in_progress",
       progress: handoff.text,

@@ -127,8 +127,22 @@ export async function commitRotationRecovery(plan: RotationCommitPlan, dependenc
   }
 }
 
+const guardedStreams = new WeakSet<object>();
+
+/**
+ * Node calls a write's callback first and emits the stream's 'error' event after it, and an 'error' event with no
+ * listener stops the process. One listener therefore stays on for the life of the stream; the failure is reported
+ * through the write's callback, so this listener only keeps the late event from being fatal.
+ */
+function keepErrorsFromBeingFatal(stream: NodeJS.WritableStream): void {
+  if (guardedStreams.has(stream)) return;
+  guardedStreams.add(stream);
+  stream.on("error", () => undefined);
+}
+
 /** Writes one line to a stream; the callback gets the first error (from the write or from an 'error' event), once. */
 export function writeLine(stream: NodeJS.WritableStream, line: string, done: (error?: Error | null) => void): void {
+  keepErrorsFromBeingFatal(stream);
   let finished = false;
   const finish = (error?: Error | null): void => {
     if (finished) return;
