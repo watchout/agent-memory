@@ -263,6 +263,8 @@ DB の作り（`src/migrate.ts`・`src/stores/`）、`turn.json` の schema、`s
 - 見張りの試験で変えた既存の表明は、『確認 → `done`／`confirmed`／`confirmed_by_inquiry`』を『新しい終端の値 `output_written_receipt_unobserved`（根拠は台帳の detail）』に変えた所（O4 で意味が変わる所）と、`isNewConversationConfirmed` の試験を `confirmationBasis` の試験（出力済みの記録の枝と旧い形の枝）に替えた所だけ。ほかに、見張りの世界の模型（`test-rotation-watcher-world.ts`）が確認の元を出力済みの記録で書く道を足した。`test-session-rotation-flow.ts` は『読んだ時点で束が消費される・`turn` に印が付く』の表明を『読むだけで消費しない・印は常に null』に変えた。消した・緩めた表明は無い。
 - `test-session-rotation-status.ts` の key の一覧に `output_written` を足した。
 
+- **CI の Node 18 で 2 件落ちた（head `3df0ca09`）→ 直した**: T12(d)・T12(e) が子 process を `node --import tsx -e <script>` で起こし、script の頭に `await import(...)` がある。Node 20 と 22 は module の構文を自動で判定するが、Node 18 は判定しないので `SyntaxError: await is only valid in async functions` になった（手元は Node 26 と 22 のみで、Node 18 は無かったので手元の CI の mirror では見えなかった）。2 つの起動に `--input-type=module` を足した（同じ試験の別の起動は元から付けていた）。Node 18 の step は最初の失敗で止まるため、この直しの前は後ろの試験（status・見張り・scenario）が Node 18 で流れていなかった。
+
 ### 落ちる試験を先に作って確かめた（TDD の順）
 base の `src` に最終の試験を重ねて流した（`git archive` で作った base の tree に試験 8 file を置いた）: `test-handoff-commit-order`・`-pg`・`test-session-rotation-scenario` は `rotation-commit.js` が無く、`test-rotation-watcher-flow`・`-units`・`test-session-rotation-status` は `writeOutputWritten`／`outputWrittenPath` の export が無くて読み込みで落ち、`test-session-rotation-flow` は動いて 47 のうち 3 件が落ちる（『束が読んだ時点で消費される』『`turn` に印が付く』）。読み込みで落ちる 6 file は、振る舞いではなく『新しい部品が無い』を示す。振る舞いの失敗は実装の前の `session-rotation-flow` の 3 件と、実装が入った後に初めて通る順序の表明（T4・T13）が示す。PR の本文に出力を載せた。
 

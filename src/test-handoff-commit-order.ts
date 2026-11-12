@@ -582,7 +582,7 @@ process.stdout.write(out);
 `;
 function runWriter(directory: string, at: string): Promise<{ code: number | null; out: string }> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["--import", "tsx", "-e", WRITER, pathToFileURL(join(process.cwd(), "src", "session-rotation-files.ts")).href, directory, at], { stdio: ["ignore", "pipe", "inherit"] });
+    const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", WRITER, pathToFileURL(join(process.cwd(), "src", "session-rotation-files.ts")).href, directory, at], { stdio: ["ignore", "pipe", "inherit"] });
     let out = "";
     child.stdout.on("data", (chunk) => { out += String(chunk); });
     child.on("close", (code) => resolve({ code, out }));
@@ -610,7 +610,7 @@ const m = await import(file);
 const end = Date.now() + 400;
 while (Date.now() < end) m.writeTurn(directory, { agent_id: "kusabi", project: "agent-memory", host: "claude_code", session_id: "new-sess", state: "busy", source: null, rotation_marker_id: null, at: new Date().toISOString(), pane_id: null, tmux_socket: null, host_pid: null, host_started_at: null });
 `;
-  const child = spawn(process.execPath, ["--import", "tsx", "-e", writerScript, pathToFileURL(join(process.cwd(), "src", "session-rotation-files.ts")).href, sc.directory], { stdio: "ignore" });
+  const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", writerScript, pathToFileURL(join(process.cwd(), "src", "session-rotation-files.ts")).href, sc.directory], { stdio: "ignore" });
   const closed = new Promise<void>((resolve) => child.on("close", () => resolve()));
   await sleep(150);
   expectResult(await commitRotationRecovery(plan, deps(sc)), "written", "consumed", "during the other writer");
