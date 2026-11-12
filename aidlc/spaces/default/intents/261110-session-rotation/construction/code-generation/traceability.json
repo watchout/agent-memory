@@ -12,7 +12,7 @@
     "FR9.1", "FR9.2", "FR9.3",
     "FR10.1", "FR10.2", "FR10.3", "FR10.4", "FR10.5", "FR10.6", "FR10.7",
     "NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7",
-    "FR11.1", "FR11.2", "FR11.3", "FR11.4", "FR11.5"
+    "FR11.1", "FR11.2", "FR11.3", "FR11.4", "FR11.5", "FR11.6"
   ],
   "coverage": [
     {"id": "FR1.1", "status": "OK", "target": "src/session-rotation-usage.ts", "note": "Claude Code: input + cache_read + cache_creation の最後の応答。試験は src/test-session-rotation-core.ts"},
@@ -66,10 +66,11 @@
     {"id": "NFR5", "status": "OK", "target": "docs/audit/kusabi-session-rotation-261110.json", "note": "DB の作り（表・列）は変えていない。src/migrate.ts と src/stores/ は差分に無い"},
     {"id": "NFR6", "status": "OK", "target": "src/rotation-hook-registration.ts", "note": "Claude Code と Codex で同じ働き。違いは FR6.1・FR6.2 の返し方だけ"},
     {"id": "NFR7", "status": "OK", "target": "src/constants.ts", "note": "閾値は 1 か所（S3）、核は時刻を読まない（S4）、観測できずを成功にしない（S5）"},
-    {"id": "FR11.1", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "引き継ぎの消費と rotation_marker_id の書き込みを出力の書き込みの後へ移す。設計の記録 handoff-commit-order-design.md の 4 節 1〜3。実装は設計監査の PASS の後（Step 17.6〜17.7）。試験 T1〜T4"},
-    {"id": "FR11.2", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "読む・文を作るまでを前に置き、出力の形・証拠の契約・DB の構造・store の verb は変えない。設計の記録の 4 節 1・6。実装は設計監査の PASS の後。試験 T4"},
-    {"id": "FR11.3", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "確定の失敗は rotation_marker_id が null の turn と unconfirmed の claim・席の HALT として見える。見張りの動きは変えない（rotation-watcher-attempt.ts:180-210 を読んで確かめた）。同じ文の二重の配達は許す。設計の記録の 4 節 4・5。試験 T5〜T8"},
-    {"id": "FR11.4", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "Claude と Codex の process 層が同じ確定の関数を呼ぶ。時刻は呼ぶ側が渡す（S4）。設計の記録の 4 節 2・3、7 節の 3。実装は設計監査の PASS の後"},
-    {"id": "FR11.5", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "旧い hook と新しい hook は同じ DB に同居できる（status = 'active' の条件つきの更新）。code だけの変更で、戻すのは code を戻すだけ（S6）。設計の記録の 5 節。試験 T9"}
+    {"id": "FR11.1", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "引き継ぎの消費と rotation_marker_id の書き込みを出力の書き込みの後へ移し、印は最後の 1 手にする。設計の記録 handoff-commit-order-design.md の 4.1・4.3・4.4。実装は設計監査の PASS の後（Step 17.6〜17.7）。試験 T1〜T4・T13"},
+    {"id": "FR11.2", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "読む・文を作るまでを前に置き、出力の形・証拠の契約・DB の構造・store の verb・turn.json の schema は変えない。session-rotation-stop.ts には差分を作らず、共有の writeTurn がロックを取る。設計の記録の 4.1・4.9。実装は設計監査の PASS の後。試験 T4"},
+    {"id": "FR11.3", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "確定の失敗は rotation_marker_id が null の turn と unconfirmed の claim・席の HALT として見える。消費の結果（unknown を含む）は印に影響しない。見張りの動きは変えない（rotation-watcher-attempt.ts:180-210 を読んで確かめた）。確認の条件は state = started も要るので、確認の組が見える時間は今の順より短くなる（OPEN-2。長さは測っていない）。同じ文の二重の配達は許す。設計の記録の 4.3・4.5・4.7・4.8。試験 T5〜T8・T12・T13"},
+    {"id": "FR11.4", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "Claude と Codex の process 層が同じ確定の関数を呼ぶ。確定の線（commit_by・消費の予算・遅れた続きは何も書かない・close を待たない）。時刻と経過は呼ぶ側が渡す（S4）。設計の記録の 4.2〜4.5。実装は設計監査の PASS の後。試験 T6・T10・T11"},
+    {"id": "FR11.5", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "旧い hook と新しい hook は同じ DB に同居できる（status = 'active' の条件つきの更新）。code だけの変更で、戻すのは code を戻すだけ（S6）。設計の記録の 5 節。試験 T9"},
+    { "id": "FR11.6", "status": "Deferred", "target": "construction/code-generation/handoff-commit-order-design.md", "note": "turn を書くすべての手（started・busy・idle・確定の印）が同じロック turn.lock の中で置き換え、確定の印は今の turn が計画と同じ時だけ書く。設計の記録の 4.6。実装は設計監査の PASS の後（Step 17.7）。試験 T12"}
   ]
 }

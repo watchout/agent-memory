@@ -173,19 +173,23 @@
 
 ### FR11 引き継ぎの確定を、出力が書かれた後に行う
 
-- **FR11.1** 引き継ぎの束を消費済みにする操作と、`turn` file の `rotation_marker_id` の書き込みは、SessionStart の hook の出力が席に向けて書き込まれた（書き込みの callback が誤りなしで返った）後に行う。出力（stdout）を書けなかった時（callback の誤りか `error` event）、回復の読み込みが例外・期限（`RECOVERY_TIMEOUT`）で終わった時は、束を消費済みにせず、`rotation_marker_id` を null のままにする。確定の対象かどうかは、引き継ぎの文が出力の `additionalContext` に入ったか（確定の計画が結果に付いたか）で決め、出力の `outcome`（full／degraded）では決めない（品質ログの書き込みの失敗で degraded になっても、文が届くなら確定する）。（`[配備の発見]`、`[arc の判断 入れ物]`）
-- **FR11.2** 束の取得・SHA-256 の突き合わせ・redaction・文の組み立てまでは出力の前に行い、出力の形（`additionalContext`・`initialUserMessage`）、証拠の契約（`wasurezu-session-rotation-start/v1` と SessionStart の証拠）、DB の構造、store の verb の数は変えない。
-- **FR11.3** 確定（消費と印の書き込み）が失敗した時（例外・上限 1.5 秒・消費の競り負け）は、握りつぶさず、`rotation_marker_id` が null の `turn` と `unconfirmed` の claim・席の HALT として見える。見張りの動き（確認の待ちを過ぎたら `unconfirmed` と HALT で止まり、2 度目の respawn をしない）は変えない。同じ文の二重の配達は許す（`decideRotationUse` のとおり。`clear`／`compact` は marker が期限内（1800 秒）で、pane id が両方にあって不一致の時だけ拒否。`startup` は claim が `respawning` で、`respawn_started_at` から 60 秒の中で、pane が一致する時だけ）。許さないのは、届いていないのに届いたと記録すること。
-- **FR11.4** Claude と Codex の SessionStart の process 層が、同じ 1 つの確定の関数を、出力の書き込みの後に呼ぶ。確定の計画（束の問い合わせ・`turn` の写し・`marker_id`・`via`）は、内部の戻り値で process 層まで運び、出力・証拠の形には出さない。出力の成否の検知と確定の上限（`min(1.5 秒, 9 秒 − 開始からの経過)`）の判断は共有の 1 か所に置く。時刻は呼ぶ側が渡し、核は取らない（S4）。確定は、今の `turn` がこの process の書いた物の時だけ印を書く。
+- **FR11.1** 引き継ぎの束を消費済みにする操作と、`turn` file の `rotation_marker_id` の書き込みは、SessionStart の hook の出力が席に向けて書き込まれた（書き込みの callback が誤りなしで返った）後に行い、**印（`rotation_marker_id`）は確定の最後の 1 手**にして、書いた後に待つ処理を置かない。出力（stdout）を書けなかった時（callback の誤りか `error` event）、回復の読み込みが例外・期限（`RECOVERY_TIMEOUT`）で終わった時は、束を消費済みにせず、`rotation_marker_id` を null のままにする。確定の対象かどうかは、引き継ぎの文が出力の `additionalContext` に入ったか（確定の計画が結果に付いたか）で決め、出力の `outcome`（full／degraded）では決めない（品質ログの書き込みの失敗で degraded になっても、文が出力に入るなら確定する）。出力の書き込みの成功が示すのは『OS の pipe が bytes を受け取った』ことで、host の受領ではない（host の受領は観測しない。設計 4.8 の OPEN-1）。（`[配備の発見]`、`[arc の判断 入れ物]`）
+- **FR11.2** 束の取得・SHA-256 の突き合わせ・redaction・文の組み立てまでは出力の前に行い、出力の形（`additionalContext`・`initialUserMessage`）、証拠の契約（`wasurezu-session-rotation-start/v1` と SessionStart の証拠）、DB の構造、store の verb の数、`turn.json` の schema、見張りの確認の条件は変えない。Stop／UserPromptSubmit の書き手のファイル（`session-rotation-stop.ts`）には差分を作らず、共有の `writeTurn` がロックを取る（Stop の書き手に増えるのは最大 `ROTATION_TURN_LOCK_WAIT_MS` の待ちだけで、書く内容・判断・出力は変えない）。
+- **FR11.3** 確定の失敗（段 0 の残りが足りず何もしない・印が書けない・出力が書けない・回復が失敗）は、握りつぶさず、`rotation_marker_id` が null の `turn` と `unconfirmed` の claim・席の HALT として見える。見張りの動き（確認の待ちを過ぎたら `unconfirmed` と HALT で止まり、2 度目の respawn をしない）は変えない。**消費の結果（consumed・lost_race・unknown・飛ばした）は印を書くかどうかに影響しない**。消費の更新の応答が失われた時は『更新されなかった』と読まず `unknown` とし、再送しない。同じ文の二重の配達は許す（`decideRotationUse` のとおり。`clear`／`compact` は marker が期限内（1800 秒）で、pane id が両方にあって不一致の時だけ拒否。`startup` は claim が `respawning` で、`respawn_started_at` から 60 秒の中で、pane が一致する時だけ。束も `expires_at` の後は返らない）。許さないのは、届いていないのに届いたと記録すること。確認の条件は `turn.state === "started"` も要るので、確認の組（`started` かつ印）が見える時間は今の順より短くなる（設計 4.5・4.8 の OPEN-2。長さは測っていない。見張りの確認の条件は変えない）。消費が済んだ後に印が付かない時、束は戻らず HALT として見える（設計 4.7）。
+- **FR11.4** Claude と Codex の SessionStart の process 層が、同じ 1 つの確定の関数を、出力の書き込みの後に呼ぶ。確定の計画（束の問い合わせ・`turn` の写し・`marker_id`・`via`）は、内部の戻り値で process 層まで運び、出力・証拠の形には出さない。出力の成否の検知と確定の線（`commit_by` = hook の期限 − `ROTATION_COMMIT_EXIT_MARGIN_MS`、消費の予算 = `min(ROTATION_COMMIT_BUDGET_MS, 残り − ROTATION_TURN_LOCK_WAIT_MS)`）の判断は共有の 1 か所に置き、値は `constants.ts` の 1 か所。時刻と経過は呼ぶ側が渡し、核は取らない（S4）。確定の流れの中で `turn` に触れるのは主の流れだけで、予算の後に完了した store の open・消費の続きは何も書かず、消費を発行せず、store の close を待たない。
 - **FR11.5** 旧い hook（消費が先）と新しい hook（消費が後）は、同じ DB に対して同居できる（消費は `status = 'active'` の条件つきの更新で、PostgreSQL は複数の process が競っても 1 度だけ効く。SQLite（sql.js）と JSON の store は 1 つの process の中でだけ）。code だけの変更で、戻すのは code を戻すだけ（S6）。
+- **FR11.6** `turn` file を書くすべての手（`prepareRotationRecovery` の `started`、Stop／UserPromptSubmit の `busy`／`idle`、確定の印）は、席の置き場の同じロック（`turn.lock`）の中で置き換える（temp は先に書く）。確定の印は、ロックの中で今の `turn` が計画の `turn` と同じ（`session_id`・`state = "started"`・`at` が同じで `rotation_marker_id` が null、`readTurn` が null でない）時だけ書く。確定の印はロックが取れなければ書かず、Stop の書き手と `started` の書き込みは取れなければロックなしで書く。古いロックは更新時刻が `ROTATION_TURN_LOCK_STALE_MS` より古ければ外す。
 
-受入（FR11.1〜FR11.5）:
+受入（FR11.1〜FR11.6）:
 - Given 回復の読み込みが例外を投げる、または期限を超える、When SessionStart を流すと、Then degraded の出力が出て、束は `active` のまま、`turn` の `rotation_marker_id` は null。
 - Given 出力（stdout）の書き込みの callback が誤りを返す、または `error` event が出る、When 流すと、Then 確定は呼ばれず、束は `active` のまま。stderr だけの失敗では確定する。
 - Given 品質ログの書き込みが失敗して結果が degraded だが引き継ぎの文は出力に入っている、When 流すと、Then 出力が書けたなら確定する。
-- Given 通常の起動、When 流すと、Then 出力の書き込みの後に束が `consumed` になり、その後に `turn` に `rotation_marker_id` が入る（順序が記録で見える）。
-- Given 確定の中で消費が競り負けた（null）、または上限を超えた、When 流すと、Then `rotation_marker_id` は書かれず、席の出力は変わらず、例外にならない。
-- Given `rotation_marker_id` が null の `turn`、When 見張りが確認を見ると、Then 確認済みとは読まず、確認の待ちを過ぎたら claim が `unconfirmed`、席に HALT（`unconfirmed`）が書かれる。
+- Given 通常の起動、When 流すと、Then 出力の書き込みの後に束が `consumed` になり、その後に `turn` に `rotation_marker_id` が入り、印と終了の間に待つ処理が無い（順序が記録で見える）。
+- Given 消費が競り負けた（null）、例外になった、更新は効いたが応答が来ない、予算が 0 以下で飛ばした、When 流すと、Then 例外にならず、席の出力は変わらず、条件を満たせば印は書かれる。応答が来ない場合は `unknown` で、再送されない。
+- Given 残りが `ROTATION_TURN_LOCK_WAIT_MS` 未満、When 流すと、Then 消費も印も行われない。Given 消費の予算の後に store が開き終わる、または消費の応答が来る、When 流すと、Then 遅れた続きは消費を発行せず、`turn` にも store にも書かず、store の close を待たない。
+- Given `rotation_marker_id` が null の `turn`、When 見張りが確認を見ると、Then 確認済みとは読まず、確認の待ちを過ぎたら claim が `unconfirmed`、席に HALT（`unconfirmed`）が書かれる。Given 印の後に `busy`（印 null）が書かれた `turn`、Then 確認済みとは読まない（今の動きの固定。設計 4.8 の OPEN-2）。
+- Given 確定の比べと rename の間に Stop の書き手が `turn` を書こうとする（実際の 2 process）、When 流すと、Then 書き手はロックの外で待ち、最後に残るのは新しい状態。Given 確定の前に別の状態が書かれていた、Then 印は書かれない。Given ロックが取れない、Then 確定の印は書かれず、Stop の書き手は書く。Given 古いロック、Then 外れて取り直せる。
+- Given 出力の後・印の前に process が止められる、When 見張りが見ると、Then 印なしで確認済みと読まない。Given 印の後・終了の前に止められる、Then 印は残る（設計 4.8 の OPEN-1 の挙動を文書のとおり固定する）。
 - Given 同じ束に対して旧い hook と新しい hook を流す、When 両方が消費しようとすると、Then 1 度だけ効く（PostgreSQL。SQLite・JSON の store は 1 つの process の中でだけ）。
 
 ## 非機能の要件

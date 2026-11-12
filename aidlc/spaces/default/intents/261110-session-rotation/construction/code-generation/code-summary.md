@@ -227,13 +227,14 @@
 
 ## Step 17: 引き継ぎの確定の順番の直し（設計の段まで。code はまだ書いていない）
 
-配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。今の状態は設計の記録だけ。
+配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。今の状態は設計の記録だけ。設計監査の 1 回目（PR #344 の comment 6814171592）は BLOCK（止める 3 件）で、設計の記録を 2 回目の版に書き直した。
 
 | 物 | 状態 |
 |---|---|
-| 要件 FR11.1〜FR11.5 | `requirements.md` に足した |
-| 設計の記録 | `handoff-commit-order-design.md`（失敗の場面 F1〜F4、案 A〜D、採る案 A、S4〜S8、試験 T1〜T12、範囲に入れないこと。設計の中の未読は 0。見直し役 architecture-reviewer の NOT-READY（止める 2・直す方がよい 3・軽い 1）を 4〜7 に取り込み済み） |
-| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T12。試験の code は設計監査の PASS の後） |
-| 追跡 | `traceability.json` の FR11.1〜FR11.5 は `Deferred`（実装は設計監査の PASS の後。Step 17.6〜17.8 で `OK` にする） |
+| 要件 FR11.1〜FR11.6 | `requirements.md` に足した（FR11.6 = `turn` の書き手の相互排他は 2 回目の版で足した） |
+| 設計の記録 | `handoff-commit-order-design.md`（2 回目の版: 失敗の場面 F1〜F4、案 A〜G、採る案 A、確定の継続を止める線、`turn` の排他、host の受領の限界 = OPEN-1、確認の組が見える時間 = OPEN-2、S3〜S8、試験 T1〜T13、範囲に入れないこと） |
+| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T13。試験の code は設計監査の PASS の後） |
+| 追跡 | `traceability.json` の FR11.1〜FR11.6 は `Deferred`（実装は設計監査の PASS の後。Step 17.6〜17.8 で `OK` にする） |
 | src の変更 | なし |
-| 次 | 監査の項目の file → 設計の記録だけの PR → 独立の設計監査（devauditor）。PASS の後に試験だけの commit、その後に実装 |
+| 開いていること | OPEN-1（印の後に host が出力を捨てる窓。設計 4.8）と OPEN-2（確認の条件が `state = started` も要るので、確認の組が見える時間が今の順より短くなる。設計 4.5・4.8。長さは測っていない）。閉じるかどうかは Owner か arc の決定 |
+| 次 | 見直し役に 2 回目の版を見せる → 設計の記録だけの PR に積む → 独立の設計監査の 2 回目（devauditor）。PASS の後に試験だけの commit、その後に実装 |
