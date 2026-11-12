@@ -6,11 +6,11 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { EventEmitter } from "node:events";
 import fs, { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { ROTATION_COMMIT_BUDGET_MS, ROTATION_COMMIT_EXIT_MARGIN_MS, ROTATION_COMMIT_WRITE_RESERVE_MS } from "./constants.js";
 import {
@@ -331,40 +331,55 @@ test("T3(a)(c): a failing stdout is not committed; a failing stderr alone still 
   }
 });
 
-test("T3(b): a stdout 'error' event counts as a failure whether it comes before or after the callback; the callback after it is ignored", async () => {
-  const stream = (mode: "event_first" | "callback_error" | "ok" | "event_after_ok") => {
-    const emitter = new EventEmitter() as EventEmitter & { write: (line: string, cb: (error?: Error | null) => void) => boolean };
-    emitter.write = (_line, cb) => {
-      if (mode === "event_first") {
-        emitter.emit("error", new Error("EPIPE"));
-        cb();
-      } else if (mode === "callback_error") {
-        cb(new Error("EPIPE"));
-      } else {
-        cb();
-        if (mode === "event_after_ok") emitter.emit("error", new Error("late"));
-      }
-      return true;
-    };
-    return emitter;
+test("T3(b): a real Writable's error - from the write callback or from the 'error' event around it - ends the write once and never reaches the process as an unhandled error", async () => {
+  const uncaught: unknown[] = [];
+  const onUncaught = (error: unknown): void => {
+    uncaught.push(error);
   };
-  const outcome = (mode: Parameters<typeof stream>[0]) => new Promise<unknown>((resolve) => {
-    const target = stream(mode);
-    target.on("error", () => undefined);
-    let calls = 0;
-    writeLine(target as never, "line\n", (error) => {
-      calls += 1;
-      if (calls === 1) setImmediate(() => resolve(error ? "error" : "ok"));
+  process.on("uncaughtException", onUncaught);
+  try {
+    type Mode = "event_first" | "callback_error" | "ok" | "event_after_ok";
+    const make = (mode: Mode): Writable => new Writable({
+      write(_chunk, _encoding, callback) {
+        if (mode === "event_first") {
+          this.emit("error", new Error("EPIPE"));
+          callback();
+        } else if (mode === "callback_error") {
+          callback(new Error("EPIPE"));
+        } else {
+          callback();
+          if (mode === "event_after_ok") setImmediate(() => this.emit("error", new Error("late")));
+        }
+      },
     });
-  });
-  assert.equal(await outcome("event_first"), "error");
-  assert.equal(await outcome("callback_error"), "error");
-  assert.equal(await outcome("ok"), "ok");
-  assert.equal(await outcome("event_after_ok"), "ok", "after a clean callback the answer is written; a late event changes nothing");
-  // The listener is taken off once the write is done.
-  const target = stream("ok");
-  await new Promise<void>((resolve) => writeLine(target as never, "x\n", () => resolve()));
-  assert.equal(target.listenerCount("error"), 0);
+    const outcome = async (mode: Mode): Promise<{ first: string; calls: number; target: Writable }> => {
+      const target = make(mode);
+      let calls = 0;
+      let first = "none";
+      await new Promise<void>((resolve) => writeLine(target, "line\n", (error) => {
+        calls += 1;
+        if (calls === 1) {
+          first = error ? "error" : "ok";
+          resolve();
+        }
+      }));
+      await sleep(40);
+      return { first, calls, target };
+    };
+    for (const [mode, expected] of [["event_first", "error"], ["callback_error", "error"], ["ok", "ok"], ["event_after_ok", "ok"]] as const) {
+      const got = await outcome(mode);
+      assert.equal(got.first, expected, mode);
+      assert.equal(got.calls, 1, `${mode}: the answer comes once`);
+    }
+    assert.deepEqual(uncaught.map(String), [], "no error event was left without a listener (it would stop the process)");
+    // The per-write listener is taken off; one listener stays for the life of the stream, however many lines are written.
+    const twice = make("ok");
+    await new Promise<void>((resolve) => writeLine(twice, "a\n", () => resolve()));
+    await new Promise<void>((resolve) => writeLine(twice, "b\n", () => resolve()));
+    assert.equal(twice.listenerCount("error"), 1);
+  } finally {
+    process.off("uncaughtException", onUncaught);
+  }
 });
 
 // ---------- T4: the usual start ----------
@@ -849,56 +864,119 @@ test("JSON store, one process: four commits at once on one bundle use it up exac
   assert.ok(results.every((r) => r.record === "skipped"), "the marker route makes no record");
 });
 
+interface E2e {
+  env: NodeJS.ProcessEnv;
+  args: string[];
+  input: string;
+  packRef: string;
+  directory: string;
+  marker: RotationMarker;
+}
+
+function prepareE2e(host: Host): E2e {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "commit-order-e2e-")));
+  const memoryHome = join(root, ".agent-memory");
+  const workspace = join(root, "ws");
+  mkdirSync(workspace, { recursive: true });
+  mkdirSync(memoryHome, { recursive: true });
+  const { TMUX: _tmux, TMUX_PANE: _pane, ...inherited } = process.env;
+  const env = { ...inherited, HOME: root, AGENT_MEMORY_HOME: memoryHome, AGENT_MEMORY_DB_TYPE: "json", TMUX_PANE: PANE.pane_id, TMUX: `${PANE.tmux_socket},1,0` } as NodeJS.ProcessEnv;
+  const packRef = storeScript(env, `
+    const { createStore } = await import(${STORE_URL_JS});
+    const store = await createStore();
+    const pack = await store.saveSelectedRestartPack({ agent_id: "kusabi", project: "agent-memory", content: ${JSON.stringify(HANDOFF)}, source: "restart_prepare" });
+    await store.close();
+    console.log(pack.pack_ref);`);
+  const directory = seatDirectory(join(memoryHome, "rotation"), "kusabi", "agent-memory");
+  mkdirSync(directory, { recursive: true });
+  const marker = buildMarker({
+    agent_id: "kusabi", project: "agent-memory", host, session_id: "old", ...PANE, pack_ref: packRef,
+    pack_content_sha256: sha256Hex(HANDOFF), measured_tokens: 310_000, threshold_tokens: 300_000,
+    saved_at: new Date(Date.now() - 120_000).toISOString(), handoff_source: "seat_text",
+  });
+  writeMarker(directory, marker);
+  mkdirSync(join(directory, "claims"), { recursive: true });
+  writeFileSync(join(directory, "claims", `${marker.marker_id}.json`),
+    j({ state: "respawning", marker_id: marker.marker_id, respawn_started_at: new Date(Date.now() - 5_000).toISOString() }));
+  const script = host === "claude_code" ? "claude-session-start.ts" : "codex-session-start.ts";
+  const input = j({
+    session_id: "new-sess", transcript_path: join(root, "none.jsonl"), cwd: workspace, hook_event_name: "SessionStart", model: "m", source: "startup",
+    ...(host === "codex" ? { permission_mode: "default" } : {}),
+  });
+  const args = [
+    "--import", "tsx", join(process.cwd(), "src", script),
+    "--adapter-id", host === "claude_code" ? CLAUDE_SESSION_START_ADAPTER_ID : CODEX_SESSION_START_ADAPTER_ID,
+    "--agent-id", "kusabi", "--project", "agent-memory", "--workspace", workspace, "--binding-source-ref", "fixture:commit-order",
+  ];
+  return { env, args, input, packRef, directory, marker };
+}
+
+function bundleState(e2e: E2e): string {
+  return storeScript(e2e.env, `
+    const { createStore } = await import(${STORE_URL_JS});
+    const store = await createStore();
+    const pack = await store.getSelectedRestartPack({ agent_id: "kusabi", project: "agent-memory", pack_ref: ${JSON.stringify(e2e.packRef)} });
+    await store.close();
+    console.log(pack === null ? "used_up" : "still_active");`);
+}
+
+/**
+ * Runs the real command with one of its output pipes' read ends closed before it writes: the write fails with EPIPE.
+ * NODE_NO_WARNINGS keeps the test loader's own start-up warning (Node writes it to the closed stderr and stops the process
+ * itself) out of the way, so a stop here can only come from the command's own writes.
+ */
+function runWithClosedPipe(e2e: E2e, closed: "stderr" | "stdout"): Promise<{ status: number | null; stdout: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, e2e.args, { env: { ...e2e.env, NODE_NO_WARNINGS: "1" }, cwd: process.cwd(), stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr.on("data", () => undefined);
+    child[closed].destroy();
+    child.stdin.end(e2e.input);
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("the command did not end"));
+    }, 30_000);
+    child.on("close", (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout });
+    });
+  });
+}
+
 for (const host of HOSTS) {
   test(`${host}: the real command writes the answer, then the record, then uses the bundle up - through the default store`, async () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "commit-order-e2e-")));
-    const memoryHome = join(root, ".agent-memory");
-    const workspace = join(root, "ws");
-    mkdirSync(workspace, { recursive: true });
-    mkdirSync(memoryHome, { recursive: true });
-    const { TMUX: _tmux, TMUX_PANE: _pane, ...inherited } = process.env;
-    const env = { ...inherited, HOME: root, AGENT_MEMORY_HOME: memoryHome, AGENT_MEMORY_DB_TYPE: "json", TMUX_PANE: PANE.pane_id, TMUX: `${PANE.tmux_socket},1,0` } as NodeJS.ProcessEnv;
-    const packRef = storeScript(env, `
-      const { createStore } = await import(${STORE_URL_JS});
-      const store = await createStore();
-      const pack = await store.saveSelectedRestartPack({ agent_id: "kusabi", project: "agent-memory", content: ${JSON.stringify(HANDOFF)}, source: "restart_prepare" });
-      await store.close();
-      console.log(pack.pack_ref);`);
-    const directory = seatDirectory(join(memoryHome, "rotation"), "kusabi", "agent-memory");
-    mkdirSync(directory, { recursive: true });
-    const marker = buildMarker({
-      agent_id: "kusabi", project: "agent-memory", host, session_id: "old", ...PANE, pack_ref: packRef,
-      pack_content_sha256: sha256Hex(HANDOFF), measured_tokens: 310_000, threshold_tokens: 300_000,
-      saved_at: new Date(Date.now() - 120_000).toISOString(), handoff_source: "seat_text",
-    });
-    writeMarker(directory, marker);
-    mkdirSync(join(directory, "claims"), { recursive: true });
-    writeFileSync(join(directory, "claims", `${marker.marker_id}.json`),
-      j({ state: "respawning", marker_id: marker.marker_id, respawn_started_at: new Date(Date.now() - 5_000).toISOString() }));
-    const script = host === "claude_code" ? "claude-session-start.ts" : "codex-session-start.ts";
-    const input = j({
-      session_id: "new-sess", transcript_path: join(root, "none.jsonl"), cwd: workspace, hook_event_name: "SessionStart", model: "m", source: "startup",
-      ...(host === "codex" ? { permission_mode: "default" } : {}),
-    });
-    const ran = spawnSync(process.execPath, [
-      "--import", "tsx", join(process.cwd(), "src", script),
-      "--adapter-id", host === "claude_code" ? CLAUDE_SESSION_START_ADAPTER_ID : CODEX_SESSION_START_ADAPTER_ID,
-      "--agent-id", "kusabi", "--project", "agent-memory", "--workspace", workspace, "--binding-source-ref", "fixture:commit-order",
-    ], { input, encoding: "utf8", env, cwd: process.cwd() });
+    const e2e = prepareE2e(host);
+    const ran = spawnSync(process.execPath, e2e.args, { input: e2e.input, encoding: "utf8", env: e2e.env, cwd: process.cwd() });
     assert.equal(ran.status, 0, ran.stderr);
     assert.equal(ran.stdout.trim().split("\n").length, 1);
     assert.ok(ran.stdout.includes("watcher の試験を書く"), "the hand-off text is in the answer");
-    const record = readOutputWritten(directory, marker.marker_id);
+    const record = readOutputWritten(e2e.directory, e2e.marker.marker_id);
     assert.ok(record, "the record is there");
     assert.equal(record.session_id, "new-sess");
     assert.equal(record.host, host);
-    const after = storeScript(env, `
-      const { createStore } = await import(${STORE_URL_JS});
-      const store = await createStore();
-      const pack = await store.getSelectedRestartPack({ agent_id: "kusabi", project: "agent-memory", pack_ref: ${JSON.stringify(packRef)} });
-      await store.close();
-      console.log(pack === null ? "used_up" : "still_active");`);
-    assert.equal(after, "used_up", "the bundle is used up");
+    assert.equal(bundleState(e2e), "used_up", "the bundle is used up");
+  });
+
+  test(`${host}: a real stderr pipe that is closed - the command still ends cleanly with the answer, the record and the consume (the evidence is only evidence)`, async () => {
+    const e2e = prepareE2e(host);
+    const ran = await runWithClosedPipe(e2e, "stderr");
+    assert.notEqual(ran.stdout.trim(), "", "the answer was written");
+    assert.equal(ran.stdout.trim().split("\n").length, 1, "the answer is one line");
+    assert.ok(ran.stdout.includes("watcher の試験を書く"), `status ${String(ran.status)}: ${ran.stdout.slice(0, 600)}`);
+    assert.equal(ran.status, 0, "an error on stderr does not stop the process");
+    assert.ok(readOutputWritten(e2e.directory, e2e.marker.marker_id), "the record is there");
+    assert.equal(bundleState(e2e), "used_up");
+  });
+
+  test(`${host}: a real stdout pipe that is closed - no record and no consume, the bundle stays for the next start`, async () => {
+    const e2e = prepareE2e(host);
+    const ran = await runWithClosedPipe(e2e, "stdout");
+    assert.equal(ran.stdout, "");
+    assert.equal(readOutputWritten(e2e.directory, e2e.marker.marker_id), null, "no record");
+    assert.equal(bundleState(e2e), "still_active");
   });
 }
 

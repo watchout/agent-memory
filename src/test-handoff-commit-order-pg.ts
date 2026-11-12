@@ -14,8 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
 import { commitRotationRecovery } from "./rotation-commit.js";
+import { readHandoffSource } from "./rotation-handoff-source.js";
 import { prepareRotationRecovery } from "./session-rotation-start.js";
-import { buildMarker, readOutputWritten, seatDirectory, sha256Hex, writeMarker } from "./session-rotation-files.js";
+import { buildMarker, readOutputWritten, rotationHandoffTaskId, seatDirectory, sha256Hex, writeMarker } from "./session-rotation-files.js";
 import { PgStore } from "./stores/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -123,6 +124,37 @@ cases.push(["T9(d): a bundle that has expired is not used up and the commit says
   await new Promise((resolve) => setTimeout(resolve, 1_800));
   assert.deepEqual(await commitRotationRecovery(sc.plan, deps()), { record: "written", consume: "lost_race" });
   assert.equal(await statusOf(sc.pack.pack_ref), "active", "an expired row is not turned into 'consumed'");
+}]);
+
+cases.push(["T9(e): the used-up bundle's text comes back from the task state - found by task id, replaced by a later hand-off, and never from another agent", async () => {
+  const agent = `${AGENT}-source`;
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "handoff-source-pg-")));
+  const directory = seatDirectory(join(root, "rotation"), agent, PROJECT);
+  mkdirSync(directory, { recursive: true });
+  const text = Array.from({ length: 40 }, (_, index) => `済んだこと ${index}: 引き継ぎの本文の行`).join("\n") + "\n次の 1 歩: PG の試験を書く";
+  const save = (agentId: string, progress: string) => seed.saveTaskState({
+    agent_id: agentId, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: "会話の切り直しの引き継ぎ", status: "in_progress", progress,
+  });
+  const marker = buildMarker({
+    agent_id: agent, project: PROJECT, host: "claude_code", session_id: "old", ...PANE, pack_ref: "selected_restart_pack:fixture",
+    pack_content_sha256: sha256Hex(text), measured_tokens: 310_000, threshold_tokens: 300_000, saved_at: NOW.toISOString(), handoff_source: "seat_text",
+  });
+  writeMarker(directory, marker);
+  const input = { agent_id: agent, project: PROJECT, rotation_root: join(root, "rotation") };
+  assert.equal((await readHandoffSource(seed, input)).result, "absent");
+  await save(`${agent}-other`, text);
+  assert.equal((await readHandoffSource(seed, input)).result, "absent", "another agent's task state is not this seat's source");
+  await save(agent, text);
+  for (let index = 0; index < 30; index += 1) {
+    await seed.saveTaskState({ agent_id: agent, project: PROJECT, task_id: `other-${index}`, task: `別の作業 ${index}`, status: "in_progress", progress: "x" });
+  }
+  const rowsBefore = JSON.stringify(await seed.getTaskStates({ agent_id: agent, project: PROJECT, status: "all", limit: 100 }));
+  const found = await readHandoffSource(seed, input);
+  assert.equal(found.result, "found");
+  assert.equal(found.result === "found" ? found.text : null, text, "whole, though the ordinary recovery cuts it");
+  assert.equal(JSON.stringify(await seed.getTaskStates({ agent_id: agent, project: PROJECT, status: "all", limit: 100 })), rowsBefore, "the read leaves the task states as they were");
+  await save(agent, `${text}\nその後の切り直しの本文`);
+  assert.equal((await readHandoffSource(seed, input)).result, "overwritten");
 }]);
 
 let failed = 0;
