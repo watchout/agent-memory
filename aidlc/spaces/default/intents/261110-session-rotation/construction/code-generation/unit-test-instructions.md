@@ -85,7 +85,7 @@ CI で回すために、新しい試験の file を、CI が呼ぶ npm の scrip
 
 ## 新しい試行（Step 17、引き継ぎの確定の順番）の試験
 
-試験の code は、設計の記録だけの PR の設計監査が PASS し、作者の受領が RECEIPT_ACCEPTED になった後に書く。試験だけの commit を実装の前に作り、今の code で落ちることを確かめて出力を PR の本文に載せる（T1〜T6・T10・T12・T13(a) は今の code では束が先に消費され印が先に書かれる、または確定の道が無いので落ちる。T7〜T9・T11・T13(b) は今の動きの固定で、通るものは通る理由を書く）。試験の file 名と npm script への入れ方は下書き（実装の時に `test:session-rotation` に足す）。
+試験の code は、設計の記録だけの PR の設計監査が PASS し、作者の受領が RECEIPT_ACCEPTED になった後に書く。試験だけの commit を実装の前に作り、今の code で落ちることを確かめて出力を PR の本文に載せる（T1〜T6・T10・T12・T13(a) は今の code では束が先に消費され印が先に書かれる、または確定の道・確認の記録が無いので落ちる。T8 は確認の記録を読む道が無いので (c)(i) が落ち、旧い形の固定 (h) は通る。T7・T9・T11・T13(b) は今の動きの固定で、通るものは通る理由を書く）。試験の file 名と npm script への入れ方は下書き（実装の時に `test:session-rotation` に足す）。
 
 ```bash
 HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-handoff-commit-order.ts   # FR11.1〜FR11.6: T1〜T13（下の表）
@@ -93,21 +93,21 @@ HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-handoff-commit
 
 | ID | 場面 | 期待 | 要件 |
 |---|---|---|---|
-| T1 | `loadRestartPackData` が例外を投げる | 束は `active` のまま、`turn` の `rotation_marker_id` は null、degraded の出力、確定の計画なし | FR11.1 |
-| T2 | 回復の読み込みが期限（`RECOVERY_TIMEOUT`）を超える | 同上。期限の後に読み込みが終わっても消費されない | FR11.1 |
-| T3 | 出力の書き込みの失敗。(a) stdout の callback が誤りを返す、(b) stdout の `error` event が出る、(c) stderr だけ失敗し stdout は成功 | (a)(b): 確定は呼ばれず、束は `active`、印なし。(c): stdout は成功なので確定する | FR11.1 |
-| T4 | 通常の起動 | (a) 順序が 出力 → 消費 → 印（最後）。(b) 出力の bytes（stdout・stderr）は今までと同じ。(c) 印と `exit` の間に待つ処理が無い（順序を記録で確かめる） | FR11.1・FR11.2 |
-| T5 | 消費の結果。(a) 競り負け（null。期限切れを含む）、(b) 例外、(c) 更新は効いたが応答が来ない（応答が失われた模型）、(d) 予算が 0 以下で飛ばす | どれも例外にならず、条件を満たせば印は書かれる。(c) の結果は `unknown` で、『更新されなかった』とは扱わない。消費の発行は 1 回（再送しない） | FR11.3 |
-| T6 | 確定の線。(a) 残りが `ROTATION_TURN_LOCK_WAIT_MS` 未満 → 消費も印も行わない、(b) 消費の予算が切れる、(c) 予算の後に store が開き終わる → 消費を発行せず store を閉じるだけ、(d) 予算の後に消費の応答が来る → `turn` も store も変わらない、(e) store の close が戻らない → 終了に届く | 席の出力に影響なし。遅れた続きは何も書かない。close を待たない | FR11.3・FR11.4 |
-| T7 | 確定の失敗の後の次の起動 | `decideRotationUse` のとおり。`clear`／`compact`: 期限内で pane id が一致する、またはどちらかが null なら受け取り、両方にあって不一致・期限外なら受け取らない。`startup`: claim が `respawning` で 60 秒の中・pane 一致なら受け取り、それ以外は受け取らない | FR11.3 |
-| T8 | 見張りが `turn` を見る。(a) `rotation_marker_id` なし、(b) 確認の待ちを過ぎる、(c) 印の後に `busy`（印 null）が書かれた `turn` | (a) 確認済みとは読まない。(b) claim が `unconfirmed`、席に HALT（`unconfirmed`）、2 度目の respawn なし。(c) 確認済みとは読まない（今の動きの固定。設計 4.8 の OPEN-2 の依存を表明する。見張りの確認の条件を変える決定が出たら、期待を決定のとおりに書き直す） | FR11.3 |
-| T9 | 同じ束に旧い hook と新しい hook を流す | 1 度だけ効く（PostgreSQL。SQLite・JSON は 1 つの process の中でだけ） | FR11.5 |
-| T10 | 品質ログの書き込みが失敗して結果が degraded（`EVIDENCE_LOG_UNAVAILABLE`）だが、`additionalContext` に引き継ぎの文が入っている | 確定の計画が付き、stdout の書き込みが成功したら確定する（束 `consumed`、印あり） | FR11.1・FR11.4 |
+| T1 | 回復の読み込みが例外を投げる（`loadRestartPackData` が投げる） | 束は `active` のまま、確認の記録なし、degraded の出力、`rotation_commit` なし | FR11.1 |
+| T2 | `withTimeout` が超える | 同上。timeout の後に読み込みが終わっても、何も消費されない | FR11.1 |
+| T3 | 出力の書き込みの失敗。(a) stdout の callback が誤りを返す、(b) stdout の `error` event が出る、(c) stderr だけ失敗し stdout は成功 | (a)(b): 確定は呼ばれない、束は `active`、確認の記録なし。(c): stdout は成功なので確定する | FR11.1 |
+| T4 | 通常の起動 | (a) 順序が 出力 → 消費 → 確認の記録（最後）。(b) 出力の bytes（stdout・stderr）は今までと同じ。(c) 確認の記録と `exit` の間に待つ処理が無い（順序を記録で確かめる）。(d) `turn.json` の `rotation_marker_id` は常に null | FR11.1・FR11.2 |
+| T5 | 消費の結果。(a) 競り負け（null。期限切れを含む）、(b) 例外、(c) 更新は効いたが応答が来ない（応答が失われた模型）、(d) 予算が 0 以下で飛ばす | どれも例外にならず、確認の記録は書かれる（条件を満たす時）。(c) の結果は `unknown` で、束を『更新されなかった』とは扱わない。再送しない（発行は 1 回） | FR11.3 |
+| T6 | 確定の線。(a) 残りが `ROTATION_COMMIT_WRITE_RESERVE_MS` 未満 → 何もしない、(b) 消費の予算が切れる、(c) 予算の後に store が開き終わる → 消費を発行せず、store を閉じるだけ、(d) 予算の後に消費の応答が来る → 確認の記録も store も変わらない、(e) store の close が戻らない → 終了に届く | 席の出力に影響なし。遅れた続きは何も書かない。close を待たない | FR11.3・FR11.4 |
+| T7 | 確定の失敗の後の次の起動 | `decideRotationUse` のとおり。`clear`／`compact`: 期限内で pane id が一致する・どちらかが null なら受け取り、両方にあって不一致・期限外なら受け取らない。`startup`: claim が `respawning` で 60 秒の中・pane 一致なら受け取り、それ以外は受け取らない | FR11.3 |
+| T8 | 見張りの確認の読み。(a) 確認の記録なし、(b) 確認の待ちを過ぎる、(c) 記録が書かれた後に `turn` が `busy`／`idle`（印 null）へ書き換わる、(d) 別の切り直しの記録（`marker_id` が違う）、(e) 古い session（記録の `session_id` が marker の session と同じ）、(f) 記録の `turn_at` が `respawn_started_ms` より古い、(g) 壊れた記録（JSON が壊れている・schema や型が違う・`marker_id` が file 名と違う）、(g2) 記録の `source` が startup でない、pane の process が変わっていない（`pane_pid` が前と同じ）、(g3) 記録はあるが条件を満たさず、同時に `turn` が旧い形（`started` かつ `rotation_marker_id` = marker_id）、(h) 同居: 記録なしで、旧い hook の形（`started` かつ `rotation_marker_id` = marker_id）の `turn`、(i) respawn の結果が分からない時の照会（`resolveUnknown`）で記録がある | (a)(d)(e)(f)(g)(g2) 確認済みとは読まない。(g3) 確認済みとは読まない（旧い形に落ちるのは記録が無い時だけ）。(b) claim が `unconfirmed`、席に HALT（`unconfirmed`）、2 度目の respawn なし。(c) **確認済みと読む**（記録は `turn` の後の書き換えで消えない。OPEN-2 を閉じた形）。(h) 旧い形は同居の間だけ確認と読む（今の動きの固定）。(h') 旧い形でも `turn` が `busy` なら確認でない。(i) 記録があれば `confirmed_by_inquiry` | FR11.3・FR11.6 |
+| T9 | 旧い hook と新しい hook を同じ store に対して流す | 1 つの束を両方が消費しようとしても 1 度だけ効く（PostgreSQL）。SQLite・JSON は 1 つの process の中でだけ | FR11.5 |
+| T10 | 品質ログの書き込みが失敗し、結果が degraded（`EVIDENCE_LOG_UNAVAILABLE`）だが `additionalContext` に引き継ぎの文が入っている | `rotation_commit` が付き、output の書き込みが成功したら確定する（束 `consumed`、確認の記録あり） | FR11.1・FR11.4 |
 | T11 | 無視した key の名前がある起動（`ignoredNames`） | 順序は 出力 → 確定 → 診断。診断の残りの時間は確定の後の時計で数える | FR11.4 |
-| T12 | `turn` の条件と排他。(a) 確定の間に別の状態（`session_id`・`state`・`at` のどれか）に書き換えられた、(b) `turn` が無い・壊れている、(c) 実際の 2 process の順序: 比べる区間の途中に Stop の書き手が来る／先に書き手が書いていた、(d) 古いロック（更新時刻を古くした file）が外される、(e) ロックが取れない、(f) `started` の書き込みもロックを通る | (a)(b): 印は書かれず、新しい `turn` は上書きされず、無い・壊れた file も作り直さない。(c): 新しい状態が失われない（書き手が待つか、印の比べが失敗する）。(d): 取り直せる。(e): 確定の印は書かれず、Stop の書き手は書く | FR11.3・FR11.6 |
-| T13 | 確定の途中で process が止められる。(a) 出力の後・印の前、(b) 印の後・終了の前 | (a): 印なし、束は `active` か `consumed`、見張りは確認済みと読まない。`consumed` の束は戻らない（設計 4.7。取り消しの verb は無い）。(b): 印は残る（設計 4.8 の OPEN-1 の挙動を文書のとおり固定する。閉じたとは主張しない） | FR11.1・FR11.3 |
+| T12 | 確認の記録の書き方と読み方。(a) 通常 → `confirmations/<marker_id>.json` が 1 つ、中身は計画の `turn` の身元・`turn_at`・`confirmed_at`・`marker_id`、mode 0600、temp が残らない、(b) すでにある → 上書きせず `exists`、中身は先のまま、(c) temp の書き込み・`link` の失敗の模型 → 記録なし、temp を片付ける、例外を外へ出さず `failed`、(d) 実際の 2 process が同じ marker_id へ同時に書く → 1 つだけ残り、読み手は途中の内容を見ない、(e) 確定の前後で `turn.json` のバイト列が変わらない。確定の最中に Stop の書き手（実際の別 process）が書いても、記録にも `turn` にも影響しない、(f) 状態の表示が記録の有無（valid／none／unreadable）を出す、(g) 計画に `turn` が無い → 書かない、(h) `via` が `"marker"` → 書かない | (a)(b)(d): 記録は 1 つで完成した内容だけが見える。(c)(g)(h): 記録なし。(e): `turn` の書き手と独立。(f): 既存の欄は変わらず `confirmation` の項が足される | FR11.6 |
+| T13 | 確定の途中で process が止められる。(a) 出力の後、確認の記録の前 → 記録なし、束は `active` か `consumed`、(b) 記録の後、終了の前 → 記録がある（OPEN-1。文書に書いた挙動をそのまま表明する） | (a): 見張りは確認済みと読まない。束が `consumed` なら戻らないことも表明する（4.7。取り消しの verb は無い）。(b): この挙動は 4.8 の閉じない窓で、試験は『今の設計の挙動』を固定するだけ | FR11.1・FR11.3 |
 
-Claude と Codex の両方の process 層について T1・T3・T4・T10・T13 を流す（FR11.4）。PostgreSQL の試験は手元の使い捨て DB（`project.md` の決まり: socket を切る・`lc_messages=C`・一時の HOME）。既存の `test:session-rotation`・`test:claude-hook` は通ったままにする。
+Claude と Codex の両方の process 層について T1・T3・T4・T10・T13 を流す（FR11.4）。PostgreSQL の試験は手元の使い捨て DB（`project.md` の決まり: socket を切る・`lc_messages=C`・一時の HOME）。既存の `test:session-rotation`・`test:claude-hook` は通ったままにする。ただし `src/test-session-rotation-flow.ts:848`（claim 経由の起動の後の `turn.rotation_marker_id === marker.marker_id`）は新しい動きと食い違うので、『`turn` の `rotation_marker_id` は null で、確認の記録が 1 つある』（T4(d)・T12(a)）に書き直す。旧い形の `turn` を作る `test-rotation-watcher-units.ts:526・536`・`test-rotation-watcher-world.ts:280` は、同居の間の旧い形の枝で通る見込み（T8(h)）。
 
 ## 基準（Step 1、main `17676d84`、Node v26.12.1、2026-11-11）
 
