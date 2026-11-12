@@ -7,8 +7,11 @@
  * Requires DATABASE_URL (a throwaway database). Uses a unique schema that is dropped after the run. Without
  * DATABASE_URL it says so and exits 0, as test-pg.ts does; the evidence of a run is the output of this file.
  * Run with a temporary HOME: the rotation files are written under it.
+ * T9(f) also needs a database user that may create roles (a superuser on a throwaway server): it makes two roles for the
+ * run and drops them at the end.
  */
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +21,7 @@ import { readHandoffSource } from "./rotation-handoff-source.js";
 import { prepareRotationRecovery } from "./session-rotation-start.js";
 import { buildMarker, readOutputWritten, rotationHandoffTaskId, seatDirectory, sha256Hex, writeMarker } from "./session-rotation-files.js";
 import { PgStore } from "./stores/pg-store.js";
+import { HANDOFF as SOURCE_TEXT, commandEnv, freshHome, marker as sourceMarker, runRestartCli } from "./test-handoff-source-support.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -84,6 +88,7 @@ const statusOf = async (packRef: string): Promise<string | undefined> =>
   (await admin.query(`SELECT status FROM ${SCHEMA}.selected_restart_packs WHERE pack_ref = $1`, [packRef])).rows[0]?.status;
 
 const cases: Array<[string, () => Promise<void>]> = [];
+const roles: string[] = [];
 
 cases.push(["T9(a): the new commit uses the bundle up once, after the record", async () => {
   const sc = await scenario();
@@ -157,6 +162,63 @@ cases.push(["T9(e): the used-up bundle's text comes back from the task state - f
   assert.equal((await readHandoffSource(seed, input)).result, "overwritten");
 }]);
 
+cases.push(["T9(f): the real command reads the hand-off through a SELECT-only role and through a read-only connection - found, exit 0, the database as it was", async () => {
+  const agent = `${AGENT}-cli`;
+  const databaseName = decodeURIComponent(new URL(DATABASE_URL).pathname.slice(1));
+  await seed.saveTaskState({ agent_id: agent, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: "会話の切り直しの引き継ぎ", status: "in_progress", progress: SOURCE_TEXT });
+  const makeRole = async (grantSelect: boolean): Promise<{ user: string; password: string }> => {
+    const user = `reader_${Date.now()}_${roles.length}`;
+    const password = randomBytes(12).toString("hex");
+    await admin.query(`CREATE ROLE ${user} LOGIN PASSWORD '${password}'`);
+    roles.push(user);
+    await admin.query(`GRANT CONNECT ON DATABASE "${databaseName}" TO ${user}`);
+    await admin.query(`GRANT USAGE ON SCHEMA ${SCHEMA} TO ${user}`);
+    if (grantSelect) await admin.query(`GRANT SELECT ON ${SCHEMA}.task_states TO ${user}`);
+    return { user, password };
+  };
+  const urlFor = (credentials: { user: string; password: string } | null, extraOptions = ""): string => {
+    const url = new URL(DATABASE_URL);
+    if (credentials) {
+      url.username = credentials.user;
+      url.password = credentials.password;
+    }
+    url.searchParams.set("options", `-c search_path=${SCHEMA},public${extraOptions}`);
+    return url.toString();
+  };
+  const snapshot = async (): Promise<string> => JSON.stringify({
+    rows: (await admin.query(`SELECT * FROM ${SCHEMA}.task_states ORDER BY created_at, task_id`)).rows,
+    columns: (await admin.query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = $1 ORDER BY 1, 2", [SCHEMA])).rows,
+  });
+  const run = (url: string) => {
+    const home = freshHome("handoff-pg-cli");
+    const directory = seatDirectory(join(home, ".agent-memory", "rotation"), agent, PROJECT);
+    mkdirSync(directory, { recursive: true });
+    writeMarker(directory, sourceMarker({ agent }));
+    return runRestartCli(
+      commandEnv(home, { AGENT_MEMORY_DB_TYPE: "postgres", AGENT_MEMORY_DATABASE_URL: url }),
+      ["handoff-source", "--agent-id", agent, "--project", PROJECT],
+    );
+  };
+  const before = await snapshot();
+  const reader = await makeRole(true);
+  const noSelect = await makeRole(false);
+  const cases2: Array<[string, string, number, string]> = [
+    ["the ordinary user (control)", urlFor(null), 0, "found"],
+    ["a SELECT-only role", urlFor(reader), 0, "found"],
+    ["a read-only connection (default_transaction_read_only=on)", urlFor(null, " -c default_transaction_read_only=on"), 0, "found"],
+    ["a SELECT-only role over a read-only connection", urlFor(reader, " -c default_transaction_read_only=on"), 0, "found"],
+    ["a role that may not read the task states", urlFor(noSelect), 1, "unreadable"],
+  ];
+  for (const [label, url, status, result] of cases2) {
+    const ran = run(url);
+    assert.equal(ran.status, status, `${label}: ${ran.stderr}`);
+    const answer = JSON.parse(ran.stdout) as { result: string; text?: string };
+    assert.equal(answer.result, result, label);
+    assert.equal(answer.text, result === "found" ? SOURCE_TEXT : undefined, label);
+    assert.equal(await snapshot(), before, `${label}: no row and no table or column of the database changed`);
+  }
+}]);
+
 let failed = 0;
 try {
   await admin.query(`CREATE SCHEMA ${SCHEMA}`);
@@ -174,6 +236,10 @@ try {
   await Promise.all(opened.map((store) => store.close().catch(() => undefined)));
   await seed.close().catch(() => undefined);
   await admin.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`).catch(() => undefined);
+  for (const role of roles) {
+    await admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+    await admin.query(`DROP ROLE IF EXISTS ${role}`).catch(() => undefined);
+  }
   await admin.end().catch(() => undefined);
 }
 if (failed > 0) {

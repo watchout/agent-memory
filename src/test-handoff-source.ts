@@ -5,36 +5,20 @@
  * failures a real store cannot be made to give on demand.
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROTATION_HANDOFF_SOURCE_LIST_LIMIT } from "./constants.js";
 import { parseRestartCliArgs, printRestartCliHelp } from "./restart-cli.js";
 import { buildRecoveryPackArtifact, loadRestartPackData } from "./restart-pack.js";
 import { readHandoffSource, HANDOFF_SOURCE_SCHEMA } from "./rotation-handoff-source.js";
-import {
-  buildMarker,
-  rotationHandoffTaskId,
-  seatDirectory,
-  sha256Hex,
-  writeMarker,
-  type HandoffSource,
-  type RotationMarker,
-} from "./session-rotation-files.js";
+import { rotationHandoffTaskId, seatDirectory, sha256Hex, writeMarker } from "./session-rotation-files.js";
+import { AGENT, HANDOFF, HANDOFF_TASK_NAME, PROJECT, commandEnv, digestOf, freshHome, listing, marker, runRestartCli } from "./test-handoff-source-support.js";
 import { JsonStore } from "./stores/json-store.js";
 import { SqliteStore } from "./stores/sqlite-store.js";
 import type { Store, TaskState } from "./stores/types.js";
 
 const cases: Array<[string, () => Promise<void> | void]> = [];
 const test = (name: string, run: () => Promise<void> | void) => cases.push([name, run]);
-
-const AGENT = "kusabi";
-const PROJECT = "agent-memory";
-const PANE = { pane_id: "%7", tmux_socket: "/tmp/tmux-501/default", host_pid: 4242, host_started_at: "2026-11-12T00:00:00.000Z" };
-const BODY = Array.from({ length: 40 }, (_, index) => `済んだこと ${index}: 引き継ぎの本文の行。長い本文は通常の回復の束では切られる。`).join("\n");
-const HANDOFF = `${BODY}\n次の 1 歩: watcher の試験を書く\nまだ決まっていないこと: なし`;
 
 interface World {
   directory: string;
@@ -45,29 +29,20 @@ interface World {
 }
 
 async function world(kind: "json" | "sqlite"): Promise<World> {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), `handoff-source-${kind}-`)));
+  const home = freshHome(`handoff-source-${kind}`);
   const rotationRoot = join(home, ".agent-memory", "rotation");
   const directory = seatDirectory(rotationRoot, AGENT, PROJECT);
   mkdirSync(directory, { recursive: true });
-  mkdirSync(join(home, "store"), { recursive: true });
   // The JSON store sits where the command's own default store would (HOME/.agent-memory), so the real command reads the same records.
   const store: Store = kind === "json" ? new JsonStore(join(home, ".agent-memory")) : new SqliteStore(join(home, "store", "memory.db"));
   await (store as JsonStore | SqliteStore).initialize();
   return { directory, rotationRoot, store, kind, home };
 }
 
-function marker(over: { agent?: string; project?: string; source?: HandoffSource; text?: string } = {}): RotationMarker {
-  return buildMarker({
-    agent_id: over.agent ?? AGENT, project: over.project ?? PROJECT, host: "claude_code", session_id: "old", ...PANE,
-    pack_ref: "selected_restart_pack:fixture", pack_content_sha256: sha256Hex(over.text ?? HANDOFF),
-    measured_tokens: 310_000, threshold_tokens: 300_000, saved_at: "2026-11-12T00:00:00.000Z", handoff_source: over.source ?? "seat_text",
-  });
-}
-
 /** What the stop side leaves behind when the seat's own text was taken: the bundle, and the task state that holds the same text. */
 async function leaveHandoff(w: World, text = HANDOFF): Promise<void> {
   await w.store.saveTaskState({
-    agent_id: AGENT, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: "会話の切り直しの引き継ぎ", status: "in_progress", progress: text,
+    agent_id: AGENT, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: HANDOFF_TASK_NAME, status: "in_progress", progress: text,
   });
   const pack = await w.store.saveSelectedRestartPack({ agent_id: AGENT, project: PROJECT, content: text, source: "restart_prepare" });
   const used = await w.store.consumeSelectedRestartPack({ agent_id: AGENT, project: PROJECT, pack_ref: pack.pack_ref });
@@ -112,7 +87,7 @@ for (const kind of ["json", "sqlite"] as const) {
     writeMarker(w.directory, marker());
     await leaveHandoff(w);
     await w.store.saveTaskState({
-      agent_id: AGENT, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: "会話の切り直しの引き継ぎ", status: "in_progress", progress: `${HANDOFF}\nその後の切り直しの本文`,
+      agent_id: AGENT, project: PROJECT, task_id: rotationHandoffTaskId(PROJECT), task: HANDOFF_TASK_NAME, status: "in_progress", progress: `${HANDOFF}\nその後の切り直しの本文`,
     });
     const got = await read(w);
     assert.equal(got.result, "overwritten");
@@ -125,7 +100,7 @@ for (const kind of ["json", "sqlite"] as const) {
     writeMarker(w.directory, marker());
     assert.equal((await read(w)).result, "absent");
     for (const [agent, project] of [[AGENT, "other-project"], ["other-agent", PROJECT]] as const) {
-      await w.store.saveTaskState({ agent_id: agent, project, task_id: rotationHandoffTaskId(project), task: "会話の切り直しの引き継ぎ", status: "in_progress", progress: HANDOFF });
+      await w.store.saveTaskState({ agent_id: agent, project, task_id: rotationHandoffTaskId(project), task: HANDOFF_TASK_NAME, status: "in_progress", progress: HANDOFF });
     }
     const still = await read(w);
     assert.equal(still.result, "absent", "another project's or agent's task state is not this seat's source");
@@ -207,51 +182,31 @@ test("T17(g2): a task state row without a progress body is 'overwritten' (never 
   await w.store.close();
 });
 
-test("T17(h): the real command prints the text for a matching task state, exits 1 for each other result, and writes nothing", async () => {
+test("T17(h): the real command prints the text for a matching task state, exits 1 for each other result, exits 2 for a missing argument, and writes nothing", async () => {
   const w = await world("json");
   writeMarker(w.directory, marker());
   await leaveHandoff(w);
-  const env = {
-    ...process.env, HOME: w.home, AGENT_MEMORY_HOME: join(w.home, ".agent-memory"), AGENT_MEMORY_DB_TYPE: "json",
-    AGENT_MEMORY_AGENT_ID: AGENT, AGENT_MEMORY_PROJECT: PROJECT,
-  } as NodeJS.ProcessEnv;
+  const env = commandEnv(w.home, { AGENT_MEMORY_DB_TYPE: "json" });
   const before = listing(w.directory);
   const storeBefore = digestOf(join(w.home, ".agent-memory"));
   assert.ok(storeBefore.some((entry) => entry.includes("task")), "the digest covers the store's records, so the comparison below is not empty");
-  const run = (extra: string[] = []) => spawnSync(process.execPath, ["--import", "tsx", join(process.cwd(), "src", "restart-cli.ts"), "handoff-source", ...extra],
-    { encoding: "utf8", env: { ...env, NODE_NO_WARNINGS: "1" }, cwd: process.cwd() });
-  const ok = run();
+  const run = (extra: string[] = []) => runRestartCli(env, ["handoff-source", "--agent-id", AGENT, ...extra]);
+  const ok = run(["--project", PROJECT]);
   assert.equal(ok.status, 0, ok.stderr);
   const printed = JSON.parse(ok.stdout) as { result: string; text?: string };
   assert.equal(printed.result, "found");
   assert.equal(printed.text, HANDOFF);
-  const noProject = spawnSync(process.execPath, ["--import", "tsx", join(process.cwd(), "src", "restart-cli.ts"), "handoff-source"],
-    { encoding: "utf8", env: { ...env, AGENT_MEMORY_PROJECT: "", NODE_NO_WARNINGS: "1" }, cwd: process.cwd() });
-  assert.equal(noProject.status, 1, "a missing --project is refused before any store is read");
-  assert.ok(noProject.stderr.includes("handoff-source requires --project"), noProject.stderr);
+  const noProject = run();
+  assert.equal(noProject.status, 2, "a missing --project is a usage error, refused before any store is touched");
+  assert.ok(noProject.stderr.includes("handoff-source requires --agent-id and --project"), noProject.stderr);
   assert.equal(noProject.stdout, "");
   const other = run(["--project", "no-such-project"]);
   assert.equal(other.status, 1);
   assert.equal((JSON.parse(other.stdout) as { result: string }).result, "no_marker");
   assert.deepEqual(listing(w.directory), before, "the seat's folder is unchanged");
-  assert.deepEqual(digestOf(join(w.home, ".agent-memory")), storeBefore, "the store's own files (every record) are byte for byte unchanged after the four runs");
+  assert.deepEqual(digestOf(join(w.home, ".agent-memory")), storeBefore, "the store's own files (every record) are byte for byte unchanged after the three runs");
   await w.store.close();
 });
-
-/** Every file under a folder, with a SHA-256 of its bytes: a changed record, a new file or a removed one all show. */
-function digestOf(directory: string): string[] {
-  return readdirSync(directory, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => {
-      const path = join(entry.parentPath, entry.name);
-      return `${path.slice(directory.length)}:${createHash("sha256").update(readFileSync(path)).digest("hex")}`;
-    })
-    .sort();
-}
-
-function listing(directory: string): string[] {
-  return readdirSync(directory, { recursive: true, withFileTypes: false }).map(String).sort().map((name) => `${name}:${statSync(join(directory, name)).size}`);
-}
 
 let failed = 0;
 for (const [name, runCase] of cases) {
