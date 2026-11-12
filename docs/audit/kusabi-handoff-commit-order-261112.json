@@ -96,8 +96,8 @@
     },
     {
       "id": "IMP-2",
-      "criterion": "出力 → 記録 → 消費の順が code で成り立つか（両方の host）。(a) Claude の process 層（claude-session-start.ts:566）と Codex の process 層（codex-session-start.ts:1091。runCodexSessionStartProcess は codex-session-start.ts:1051。その前の codex-session-start.ts:1085 は引数か入力の失敗で degraded を返す道で、確定の計画を持たず確定しない）が、同じ関数 answerHookAndCommit（rotation-commit.ts:155）を呼び、そのほかに消費を呼ぶ経路が無い（SessionStart の回復の経路 = claude／codex の hook と session-rotation-start.ts で消費を呼ぶのは rotation-commit.ts の 1 か所だけ。boot.ts・codex-start.ts・index.ts・restart-cli.ts・kusabi-checkpoint-recovery.ts・kusabi-continuity-interruption-e2e.ts の呼び出しは回復の別の経路で、base と同じ位置で変わっていない）。(b) answerHookAndCommit は stderr と stdout の両方の書き込みが終わるまで待ち、stdout の書き込みが誤り（callback の誤り・error event）なら確定を呼ばない。stderr だけの失敗は数えない（FR11.1）。(c) 確定の計画が無い（rotation_commit が付かない）出力では確定を呼ばない。(d) 証拠の bytes・出力の bytes・exit code は base と同じ（T4(b) と Claude／Codex の実際の command の試験）。",
-      "basis": "[R] FR11.1・FR11.4。[W] 4.1〜4.4。[C] rotation-commit.ts:155、claude-session-start.ts:566、codex-session-start.ts:1091。"
+      "criterion": "出力 → 記録 → 消費の順が code で成り立つか（両方の host）。(a) Claude の process 層（claude-session-start.ts:566）と Codex の process 層（codex-session-start.ts:1091。runCodexSessionStartProcess は codex-session-start.ts:1051。その前の codex-session-start.ts:1085 は引数か入力の失敗で degraded を返す道で、確定の計画を持たず確定しない）が、同じ関数 answerHookAndCommit（rotation-commit.ts:169）を呼び、そのほかに消費を呼ぶ経路が無い（SessionStart の回復の経路 = claude／codex の hook と session-rotation-start.ts で消費を呼ぶのは rotation-commit.ts の 1 か所だけ。boot.ts・codex-start.ts・index.ts・restart-cli.ts・kusabi-checkpoint-recovery.ts・kusabi-continuity-interruption-e2e.ts の呼び出しは回復の別の経路で、base と同じ位置で変わっていない）。(b) answerHookAndCommit は stderr と stdout の両方の書き込みが終わるまで待ち、stdout の書き込みが誤り（callback の誤り・error event）なら確定を呼ばない。stderr だけの失敗は数えない（FR11.1）。(c) 確定の計画が無い（rotation_commit が付かない）出力では確定を呼ばない。(d) 証拠の bytes・出力の bytes・exit code は base と同じ（T4(b) と Claude／Codex の実際の command の試験）。",
+      "basis": "[R] FR11.1・FR11.4。[W] 4.1〜4.4。[C] rotation-commit.ts:169、claude-session-start.ts:566、codex-session-start.ts:1091。"
     },
     {
       "id": "IMP-3",
@@ -111,8 +111,8 @@
     },
     {
       "id": "IMP-5",
-      "criterion": "出力済みの記録（output-written/<marker_id>.json）: (a) 書き込み writeJsonOnce（session-rotation-files.ts:224）は temp に書いて fsync し、link で置く。すでにあれば上書きせず exists を返す（EEXIST だけ）。EEXIST 以外の link の失敗は例外にして temp を片付ける（finally）。mode は 0600。置いた後に folder を fsync する。(b) writeOutputWritten（session-rotation-files.ts:301）は marker_id の綴りを isMarkerId で確かめてから path を作る（path の注入が無い）。**未達**: writeOutputWritten は綴りを確かめずに path を作る（4 回目の返却の観察 O1。作者が認める。呼び元は marker から取った綴りだけを渡す。readClaim・readOutputWritten は確かめる。軽・差し戻しの対象外・次に触る時に合わせる）。(c) readOutputWritten（session-rotation-files.ts:306）は schema 名・marker_id が file 名と同じこと・必須の文字列欄・nullable の欄（pane_id・tmux_socket・host_started_at・host_pid）の型を確かめ、壊れた記録・別の marker の記録・型違いは『記録なし』（null）として読む。(d) 記録は『hook が出力を書き終えた』という観測した事実だけを言い、永続する名前（dir・schema・欄・値）に delivered／received／delivery を使わない（T15(a)(e)）。(e) 同じ marker に 2 つの process が同時に書いても 1 つだけが残り、読み手は途中の内容を見ない（T12(d)）。",
-      "basis": "[R] FR11.6。[W] 4.6。[C] session-rotation-files.ts:224、session-rotation-files.ts:298、session-rotation-files.ts:306。[S] S5。"
+      "criterion": "出力済みの記録（output-written/<marker_id>.json）: (a) 書き込み writeJsonOnce（session-rotation-files.ts:227）は temp に書いて fsync し、link で置く。すでにあれば上書きせず exists を返す（EEXIST だけ）。EEXIST 以外の link の失敗は例外にして temp を片付ける（finally）。mode は 0600。置いた後に folder を fsync する。(b) writeOutputWritten（session-rotation-files.ts:301）は marker_id の綴りを isMarkerId で確かめてから path を作る（path の注入が無い）。**未達**: writeOutputWritten は綴りを確かめずに path を作る（4 回目の返却の観察 O1。作者が認める。呼び元は marker から取った綴りだけを渡す。readClaim・readOutputWritten は確かめる。軽・差し戻しの対象外・次に触る時に合わせる）。(c) readOutputWritten（session-rotation-files.ts:309）は schema 名・marker_id が file 名と同じこと・必須の文字列欄・nullable の欄（pane_id・tmux_socket・host_started_at・host_pid）の型を確かめ、壊れた記録・別の marker の記録・型違いは『記録なし』（null）として読む。(d) 記録は『hook が出力を書き終えた』という観測した事実だけを言い、永続する名前（dir・schema・欄・値）に delivered／received／delivery を使わない（T15(a)(e)）。(e) 同じ marker に 2 つの process が同時に書いても 1 つだけが残り、読み手は途中の内容を見ない（T12(d)）。",
+      "basis": "[R] FR11.6。[W] 4.6。[C] session-rotation-files.ts:227、session-rotation-files.ts:298、session-rotation-files.ts:309。[S] S5。"
     },
     {
       "id": "IMP-6",
