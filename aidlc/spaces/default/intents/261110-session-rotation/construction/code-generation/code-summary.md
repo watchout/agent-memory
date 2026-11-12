@@ -232,8 +232,8 @@
 | 物 | 状態 |
 |---|---|
 | 要件 FR11.1〜FR11.5 | `requirements.md` に足した |
-| 設計の記録 | `handoff-commit-order-design.md`（失敗の場面 F1〜F4、案 A〜D、採る案 A、S4〜S8、試験 T1〜T9、範囲に入れないこと。設計の中の未読は 0） |
-| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T9。試験の code は設計監査の PASS の後） |
+| 設計の記録 | `handoff-commit-order-design.md`（失敗の場面 F1〜F4、案 A〜D、採る案 A、S4〜S8、試験 T1〜T12、範囲に入れないこと。設計の中の未読は 0。見直し役 architecture-reviewer の NOT-READY（止める 2・直す方がよい 3・軽い 1）を 4〜7 に取り込み済み） |
+| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T12。試験の code は設計監査の PASS の後） |
 | 追跡 | `traceability.json` の FR11.1〜FR11.5 は `Deferred`（実装は設計監査の PASS の後。Step 17.6〜17.8 で `OK` にする） |
 | src の変更 | なし |
 | 次 | 監査の項目の file → 設計の記録だけの PR → 独立の設計監査（devauditor）。PASS の後に試験だけの commit、その後に実装 |

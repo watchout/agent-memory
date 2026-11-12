@@ -1,7 +1,7 @@
 {
   "schema": "sds-audit-items/1",
-  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた版 v1。DES-1〜DES-9 は設計監査の項目。実装監査の項目（IMP-*）は、設計監査の PASS の後、実装の commit で足す。監査席は作者と別の席（devauditor）。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合・Owner の exact-head・席への据え付けの Owner の決定のどれも代替しない。この PR は席に何も据えず、常駐も hook も差し替えない。各項目の (a)(b)… は別々の判定で、1 つだけ FAIL にしてよい。**control_source_ref**: 直しの入れ物（同じ取り組みの construction）・案 A・順・C2 の外れは arc の技術の判断で、Owner の決定ではない（Owner の委任 iyasaka-arc#49 6762288830、本文 SHA-256 59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609（GitHub の API が返す本文のまま数えた値。arc の連絡にある 9461db3d… は本文の末尾の空白を落として数えた値で、同じ comment の別の数え方）の技術の範囲）。agent-memory#339 の comment に publish 済みで、url と本文の SHA-256 は control_source_ref のとおり（作者が GitHub の API が返す本文で数え直して一致を確かめた）。守る物（DB の構造・資格情報・本番・workflow・必須の検査）の許可は含まない。",
-  "scope": "watchout/agent-memory の引き継ぎの確定の順番の直し（AI-DLC の取り組み 261110-session-rotation の Step 17、scope express、作業の単位なし）の設計監査（DES-1〜DES-9）。対象 = 依頼の targets の head（base = origin/main）。差分 = 設計の記録 handoff-commit-order-design.md、要件 FR11、計画の Step 17、試験の手順、この file、この取り組みの記録。code と試験は含まない。原典: 配備の第 4 回の C2 の準備で席がコードを読んで見つけた設計の誤り（requirements.md の [配備の発見]）。",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた版 v1。DES-1〜DES-11 は設計監査の項目。実装監査の項目（IMP-*）は、設計監査の PASS の後、実装の commit で足す。監査席は作者と別の席（devauditor）。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合・Owner の exact-head・席への据え付けの Owner の決定のどれも代替しない。この PR は席に何も据えず、常駐も hook も差し替えない。各項目の (a)(b)… は別々の判定で、1 つだけ FAIL にしてよい。**control_source_ref**: 直しの入れ物（同じ取り組みの construction）・案 A・順・C2 の外れは arc の技術の判断で、Owner の決定ではない（Owner の委任 iyasaka-arc#49 6762288830、本文 SHA-256 59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609（GitHub の API が返す本文のまま数えた値。arc の連絡にある 9461db3d… は本文の末尾の空白を落として数えた値で、同じ comment の別の数え方）の技術の範囲）。agent-memory#339 の comment に publish 済みで、url と本文の SHA-256 は control_source_ref のとおり（作者が GitHub の API が返す本文で数え直して一致を確かめた）。守る物（DB の構造・資格情報・本番・workflow・必須の検査）の許可は含まない。",
+  "scope": "watchout/agent-memory の引き継ぎの確定の順番の直し（AI-DLC の取り組み 261110-session-rotation の Step 17、scope express、作業の単位なし）の設計監査（DES-1〜DES-11）。対象 = 依頼の targets の head（base = origin/main）。差分 = 設計の記録 handoff-commit-order-design.md、要件 FR11、計画の Step 17、試験の手順、この file、この取り組みの記録。code と試験は含まない。原典: 配備の第 4 回の C2 の準備で席がコードを読んで見つけた設計の誤り（requirements.md の [配備の発見]）。",
   "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
   "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
   "control_source_ref": {
@@ -16,43 +16,53 @@
     },
     {
       "id": "DES-2",
-      "criterion": "失敗の場面を閉じる: 設計の記録 2 節の F1〜F4 のそれぞれが、4 節の手順で閉じるか。(a) F1（回復の読み込みの期限）: 期限の後に束が消費されない。期限を超えた読み込みの promise が後から完了しても、消費の呼び出しが読み込みの中に無いので束に触れない。(b) F2（読み込み・上限の適用の例外）、(c) F3（出力の書き込みの失敗・hook が書いた直後に止められる）: 確定が出力の書き込みの callback の後にだけ呼ばれ、書き込みの失敗・degraded の出力では呼ばれない。(d) F4（確認の誤読）: 印が確定の後にだけ書かれ、確定が無ければ null のまま。(e) 設計の中に、出力の前に消費か印を書く経路が残っていない（Codex の SessionStart の経路 codex-session-start.ts:840 を含む）。",
-      "basis": "[R] FR11.1。[W] 2 節・4 節の 1〜3。[C] session-rotation-start.ts:229・235-245・263、claude-session-start.ts:326-343、codex-session-start.ts:840・905-958。"
+      "criterion": "失敗の場面を閉じる: 設計の記録 2 節の F1〜F4 のそれぞれが、4 節の手順で閉じるか。(a) F1（回復の読み込みの期限）: 期限の後に束が消費されない。期限を超えた読み込みの promise が後から完了しても、消費の呼び出しが読み込みの中に無いので束に触れない。(b) F2（読み込み・上限の適用の例外）、(c1) F3（出力の書き込みの失敗・hook が書いた直後に止められる）: 確定が、引き継ぎの文が出力に入った時（確定の計画が結果に付いた時）だけ、出力（stdout）の書き込みの成功の後に呼ばれ、stdout の書き込みの失敗（callback の誤り・error event）では呼ばれない。(c2) 確定の対象を出力の outcome（full／degraded）で決めず、品質ログの書き込みの失敗で degraded になっても文が出力に入っていれば確定する基準（設計 4.2・T10）が成り立つか。(d) F4（確認の誤読）: 印が確定の後にだけ書かれ、確定が無ければ null のまま。(e) 設計の中に、出力の前に消費か印を書く経路が残っていない（Codex の SessionStart の経路 codex-session-start.ts:840 を含む）。",
+      "basis": "[R] FR11.1。[W] 2 節・4.1〜4.4。[C] session-rotation-start.ts:229・235-245・263、claude-session-start.ts:326-343、codex-session-start.ts:840・905-958（特に 911・922-935）。"
     },
     {
       "id": "DES-3",
-      "criterion": "案の選び: 採る案 A と、採らない B・C・D の理由が成り立つか。(a) B（消費の取り消しの verb）: timeout の後の消費や hook が止められた場合に取り消しが走らない、store の口が増える、という理由が code に照らして正しいか。(b) C（DB に列を足す）: DB の構造の変更で保護面（Owner の決定が要る）という理由が正しく、A が DB の構造を変えないか。(c) D（消費を出力の直前に寄せる）: 書き込みの失敗・hook の停止の窓が残るという理由が正しいか。(d) A に、A が新しく持ち込む危険（確定が出力の後なので、確定の失敗で同じ文が二重に届きうる）が書かれ、その大きさが許せる理由（引き継ぎは読むだけの文で、期限・pane・claim が範囲を決める）が成り立つか。",
-      "basis": "[R] FR11.2・FR11.3。[W] 3 節・4 節の 5。[C] pg-store.ts:1057-1085、session-rotation-start.ts:102-125。"
+      "criterion": "案の選び: 採る案 A と、採らない B・C・D の理由が成り立つか。(a) B（消費の取り消しの verb）: timeout の後の消費や hook が止められた場合に取り消しが走らない、store の口が増える、という理由が code に照らして正しいか。(b) C（DB に列を足す）: DB の構造の変更で保護面（Owner の決定が要る）という理由が正しく、A が DB の構造を変えないか。(c) D（消費を出力の直前に寄せる）: 書き込みの失敗・hook の停止の窓が残るという理由が正しいか。(d) A に、A が新しく持ち込む危険（確定が出力の後なので、確定の失敗で同じ文が二重に届きうる）が書かれ、その大きさが許せる理由（引き継ぎは読むだけの文で、期限・pane・claim が範囲を決める。条件は設計 4.6 が decideRotationUse と一致するか）が成り立つか。",
+      "basis": "[R] FR11.2・FR11.3。[W] 3 節・4.6。[C] pg-store.ts:1057-1085、session-rotation-start.ts:102-125。"
     },
     {
       "id": "DES-4",
-      "criterion": "「届いていないのに届いたと記録する」が残らない（標準 S5）: (a) 確定が失敗する 3 つの形（例外・上限・消費の競り負け）のそれぞれで、rotation_marker_id が書かれず null のままか。(b) 二重の配達が起きる条件（clear／compact、marker が期限内 1800 秒、pane 一致。startup は claim が respawning の間だけ）が decideRotationUse の実装と一致するか。(c) 確認の印が、宣言でなく配達の後の事実に結ばれているか。",
-      "basis": "[R] FR11.1・FR11.3。[W] 4 節の 5・5 節の S5。[C] session-rotation-start.ts:102-125、rotation-watcher-core.ts:286-300。"
+      "criterion": "「届いていないのに届いたと記録する」が残らない（標準 S5）: (a) 確定が失敗する 3 つの形（例外・上限・消費の競り負け。設計 4.6 の (1)〜(3)）のそれぞれで、rotation_marker_id が書かれず null のままか。確定を呼ばない場合（4.6 の (4)）は DES-2(c1) で判定する。(b) 二重の配達が起きる条件が decideRotationUse（session-rotation-start.ts:102-125）の実装と一致するか。clear／compact は marker が期限内（1800 秒）で、pane id が marker と起動の両方にあって不一致の時だけ拒否（どちらかが null なら通る）。startup は claim が respawning で、respawn_started_at から 60 秒の中で、pane が一致する時だけ。resume は受け取らない。設計 4.6 と T7 がこのとおりに書かれているか。(c) 確認の印が、宣言でなく配達の後の事実に結ばれているか。",
+      "basis": "[R] FR11.1・FR11.3。[W] 4.6・5 節の S5。[C] session-rotation-start.ts:102-125、rotation-watcher-core.ts:286-300。"
     },
     {
       "id": "DES-5",
       "criterion": "見張りの動きの読みが code と合う（T8）: (a) isNewConversationConfirmed が turn.rotation_marker_id === marker.marker_id を必須にしている（rotation-watcher-core.ts:286-300）。(b) 確認の待ちを過ぎると claim が unconfirmed、台帳に unconfirmed、席に HALT（理由 unconfirmed）が書かれ、2 度目の respawn をしない（rotation-watcher-attempt.ts:180-210、finishAttempt の halt）。(c) respawn の結果が分からない時は unknown_quarantined と HALT（outcome_unknown）（同 135-165）。(d) 設計の記録が「安全側に落ちる」と書く根拠が、読んだ行と一致し、読んでいない行に頼っていないか。(e) 確定が出力の直後に行われるので、確認の待ち（60 秒、2 秒ごとに見る）に間に合う、という説明が定数（constants.ts）と合うか。",
-      "basis": "[R] FR11.3。[W] 4 節の 4・5、7 節。[C] 上の行。"
+      "basis": "[R] FR11.3。[W] 4.5（確認の待ちとの関係）・4.6、7 節。[C] 上の行、constants.ts:34-35。"
     },
     {
       "id": "DES-6",
-      "criterion": "触れないものと時間の予算: (a) 出力の形（additionalContext・initialUserMessage）、証拠の契約（wasurezu-session-rotation-start/v1 と SessionStart の証拠）、DB の構造、store の verb の数を変えない。(b) 確定に使える時間が hook の期限（9 秒）と回復の読み込みの期限（7 秒）から導かれ（出力の後の残りは最大 2 秒）、確定の上限 1.5 秒がその中に収まるか。(c) 確定が新しく store を開く理由（loadClaudeRecoveryFromStore が finally で閉じる）が code と合うか。",
-      "basis": "[R] FR11.2・FR11.4。[W] 4 節の 4・6。[C] claude-session-start.ts:67-68・385-387、codex-session-start.ts:45-46。"
+      "criterion": "触れないものと時間の予算: (a) 出力の形（additionalContext・initialUserMessage）、証拠の契約（wasurezu-session-rotation-start/v1 と SessionStart の証拠）、DB の構造、store の verb の数を変えない。(b) 確定の上限が min(1.5 秒, 9 秒 − process の開始からの経過) で、出力の前の emit_runtime_event と書き込み（上限が無い）が使った時間を引いた残りで数えられ、上限が 0 以下なら確定を呼ばない設計（設計 4.5・T6）が、hook の期限 9 秒と回復の読み込みの期限 7 秒（claude-session-start.ts:67-68、codex-session-start.ts:45-46、claude-session-start.ts:572-577）に照らして成り立つか。(c) 確定が新しく store を開く理由（loadClaudeRecoveryFromStore が finally で閉じる）が code と合うか。",
+      "basis": "[R] FR11.2・FR11.4。[W] 4.5・4.8。[C] claude-session-start.ts:67-68・385-387・572-577、codex-session-start.ts:45-46。"
     },
     {
       "id": "DES-7",
-      "criterion": "標準と同居: (a) S4: 確定が時刻を呼ぶ側から受け取り、核が時刻を取らない。(b) S6: 旧い hook（消費が先）と新しい hook（消費が後）が同じ DB で動き、status = 'active' の条件つきの更新が 1 度だけ効く（pg-store.ts:1071-1085、json-store.ts:693、sqlite-store.ts:1480 の 3 つの store で同じか）。戻すのは code を戻すだけか。(c) S7: 確定が競り負けで null を返したら何も書かない（冪等）。(d) S8: 確定の失敗が握りつぶされず、rotation_marker_id が null の turn と unconfirmed の claim・HALT として見える（新しい項目を足さない理由が session-rotation-status.ts:68-70・112・117-119 と合うか）。(e) 行の網羅率 100% を足す code に当てる計画があるか。",
-      "basis": "[R] FR11.4・FR11.5。[W] 5 節。[S] engineering-standards S4・S5・S6・S7・S8。"
+      "criterion": "標準と同居: (a) S4: 確定が時刻を呼ぶ側から受け取り、核が時刻を取らない。(b1) S6: 旧い hook（消費が先）と新しい hook（消費が後）が同じ DB で動き、PostgreSQL は 1 文の条件つき UPDATE（pg-store.ts:1071-1085）なので複数の process が競っても 1 度だけ効くか。(b2) SQLite（sql.js、sqlite-store.ts:445-448 の persist と 1480-1496）と JSON の store（json-store.ts:693-699）は読んでから書く形で、1 つの process の中でだけ 1 度だけ効く、と設計 5 節の S6 が分けて書いているか。この席の本番は PostgreSQL で、SQLite・JSON の複数 process の原子性を範囲に入れない判断が許せるか。(b3) 読んでから消費するまでの間に expires_at が切れる窓（設計 4.6 の (3)）が安全側（印なし → HALT）に落ちるか。(b4) 戻すのは code を戻すだけか。(c) S7: 確定が競り負けで null を返したら何も書かない（冪等）。(d1) S8: 確定の失敗が握りつぶされず、rotation_marker_id が null の turn と unconfirmed の claim・HALT として見える（新しい項目を足さない理由が session-rotation-status.ts:68-70・112・117-119 と合うか）。(d2) 確定が turn を書き直す時に、今の turn がこの process の書いた物（session_id・state・at が同じ）の時だけ書き、readTurn が null（無い・壊れている・schema が違う。session-rotation-files.ts:220-223）の時は書かない（設計 4.3・T12）ことで、新しい状態を古い写しで上書きしないか。(e) 行の網羅率 100% を足す code に当てる計画があるか。",
+      "basis": "[R] FR11.4・FR11.5。[W] 4.3・5 節。[S] engineering-standards S4・S5・S6・S7・S8。"
     },
     {
       "id": "DES-8",
-      "criterion": "試験の項目が場面を閉じる: (a) T1〜T9 が F1〜F4・確定の失敗の 3 つの形・見張りの動き・同居を 1 つ以上の試験で閉じるか（要件の受入の 6 項目との対応）。(b) Claude と Codex の両方の process 層で T1・T3・T4 を流す計画か（FR11.4）。(c) 試験だけの commit を実装の前に作り、今の code で落ちることを確かめて出力を PR の本文に載せる（TDD の順）計画で、今の code で通る項目（T7〜T9 の固定）に通る理由を書く計画か。(d) T7 の期待が decideRotationUse の実装と矛盾しないか。(e) PostgreSQL の試験の条件（使い捨ての DB、socket を切る、lc_messages=C、一時の HOME）が書かれているか。",
+      "criterion": "試験の項目が場面を閉じる: (a1) T1〜T12 が F1〜F4・確定の失敗の 3 つの形と確定を呼ばない場合（設計 4.6 の (1)〜(4)）を 1 つ以上の試験で閉じるか（要件の受入との対応）。(a2) 見張りの動き・同居を閉じるか。(a3) degraded でも文が入った場合（T10）・無視した key の順序（T11）・turn の上書き（T12）を閉じるか。(b1) Claude と Codex の両方の process 層で T1・T3・T4・T10 を流す計画か（FR11.4）。(b2) stdout の callback の誤り・error event・stderr だけの失敗の 3 つを T3 が分けているか。(c) 計画に、試験だけの commit を実装の前に作り、今の code で落ちることを確かめて出力を PR の本文に載せる（TDD の順）手順と、今の code で通る項目（T7〜T9・T11 の固定）に通る理由を書く手順があるか（この PR の時点で判定できるのは、その手順が書かれているかだけ。試験の commit は設計監査の PASS の後に出る）。(d) T7 の期待が decideRotationUse の実装と矛盾しないか。(e) PostgreSQL の試験の条件（使い捨ての DB、socket を切る、lc_messages=C、一時の HOME）が書かれているか。",
       "basis": "[R] 受入（FR11.1〜FR11.5）。[W] 6 節、unit-test-instructions.md の Step 17 の節。[P] project.md の Testing Posture。"
     },
     {
       "id": "DES-9",
-      "criterion": "記録が食い違わない（authority-and-waiting R3・古い言い回し・数の出所）: (a) 設計の記録、要件 FR11、計画 Step 17、試験の手順、traceability.json（FR11.1〜FR11.5 が Deferred で target が実在の file）、code-summary.md の Step 17 の節、この file、PR 本文が同じ言い方か。(b) 数・行番号・定数（60 秒・1800 秒・9 秒・7 秒・1.5 秒・2 秒）が出所の code と一致するか。(c) arc の判断が権限として引用される時、control_source_ref の url が publish された comment に届き、sha256 が本文の SHA-256 と一致するか。arc の判断を『Owner の決定』と書いていないか（この file の status と PR 本文が『Owner の決定ではない』と明記しているか）。守る物の許可を arc の判断に読み替えていないか。(d) 社内の決まり（時間の言葉を書かない）の禁止リストの語が、席間の連絡と依頼の本文に無い。",
+      "criterion": "記録が食い違わない（authority-and-waiting R3・古い言い回し・数の出所）: (a) 設計の記録、要件 FR11、計画 Step 17、試験の手順、traceability.json（FR11.1〜FR11.5 が Deferred で target が実在の file）、code-summary.md の Step 17 の節、この file、PR 本文が同じ言い方か（試験の数 T1〜T12、確定の上限 min(1.5 秒, 9 秒 − 経過)、確定の対象の基準を含む）。(b) 数・行番号・定数（60 秒・1800 秒・9 秒・7 秒・1.5 秒）が出所の code と一致するか。(c) arc の判断が権限として引用される時、control_source_ref の url が publish された comment に届き、sha256 が本文の SHA-256 と一致するか。arc の判断を『Owner の決定』と書いていないか（この file の status と PR 本文が『Owner の決定ではない』と明記しているか）。守る物の許可を arc の判断に読み替えていないか。(d) 社内の決まり（時間の言葉を書かない）の禁止リストの語が、席間の連絡と依頼の本文に無い。",
       "basis": "[R] 全体。[W] 全体。[A] authority-and-waiting R1・R3。"
+    },
+    {
+      "id": "DES-10",
+      "criterion": "確定の計画が process 層に届く道（設計 4.1・4.2）: (a) RotationBlock に足す確定の計画（commit）が、関数や store を持たないデータだけ（束の問い合わせ・directory・turn の写し・marker_id・via）で、実装者が入力の運び方を推測で決めなくてよい形で書かれているか。(b) 運ぶ道（RotationBlock.commit → LoadedCodexRecovery.rotation → runCodexSessionStart の結果の rotation_commit → runClaudeSessionStart の結果）が、実在する行（codex-session-start.ts:248・878・940、claude-session-start.ts:168・383・472）と合い、結果の型を足す所が 2 か所（CodexSessionStartRunResult・ClaudeSessionStartRunResult）で足りているか。(c) 運んだ計画が、process 層が書く output・evidence の bytes に出ない（出力・証拠の契約を変えない）ことを、T4 が固定するか。(d) 確定が via = claim の時だけ rotation_marker_id を書く（marker 経由の clear／compact では書かない、今と同じ）ことが設計 4.3 に書かれているか。",
+      "basis": "[R] FR11.2・FR11.4。[W] 4.1〜4.3。[C] session-rotation-start.ts:64-68・235-245、claude-session-start.ts:168・383・472、codex-session-start.ts:248・878・940。"
+    },
+    {
+      "id": "DES-11",
+      "criterion": "出力の書き込みの成否の検知と、確定を呼ぶ場所（設計 4.4）: (a) 今の書き込みは成否を返さない（claude-session-start.ts:537-547 の writeAnswer は 2 つの書き込みを数えるだけ、codex-session-start.ts:1031-1036 の writeCliResult は 2 つの後に process.exit(0)）ことを認め、成否の基準（stdout の callback が誤りなしで返り、かつ stdout の error event が出ていない。stderr の失敗は基準に入れない）を決めているか。(b1) 確定を呼ぶ場所が、Claude は writeAnswer の後・ignoredNames の分岐と io.exit() の前、Codex は main の終わりの書き込みの後・process.exit(0) の前か。(b2) 確定の間 hook の process が生きているか。(b3) ignoredNames がある起動（finishAfterAnswer の経路）でも順序が 出力 → 確定 → 診断 か（T11）。(c1) 出力の後の挿入点は Claude と Codex で別々に作る（共有なのは prepareRotationRecovery まで）と書かれているか。(c2) Codex の IO を注入できる小さな関数への切り出し（clock を含む）が、挙動を変えずに T3 を書ける形か。入力が壊れている早い return は確定の計画が付かず確定しないこと、最後の main().catch は確定を呼ばないことが書かれているか（codex-session-start.ts:1048 以降・1094-1098）。(d) 「出力が書けた時だけ確定する」判断が共有の 1 か所にあり（S3）、確定の上限の値が constants.ts の 1 か所か。(e) 出力の callback は OS の pipe が受け取ったことしか示さず、host が読む前に止められる窓が残る、という限界が範囲外の失敗として書かれているか（設計 4.7）。",
+      "basis": "[R] FR11.1・FR11.4。[W] 4.4・4.5・4.7。[C] claude-session-start.ts:537-547・572-593、codex-session-start.ts:1031-1036・1070-1099。"
     }
   ]
 }
