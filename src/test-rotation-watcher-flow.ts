@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createClaim, advanceClaim, claimPath, globalHaltPath, ledgerPath, nodeWatcherFs, readClaimRecord, seatHaltPath, writeHalt, type WatcherFs } from "./rotation-watcher-store.js";
+import { OUTPUT_WRITTEN_RECEIPT_UNOBSERVED as RECEIPT_UNOBSERVED, createClaim, advanceClaim, claimPath, globalHaltPath, ledgerPath, nodeWatcherFs, readClaimRecord, seatHaltPath, writeHalt, type WatcherFs } from "./rotation-watcher-store.js";
 import { isNonProgress, runPass, runWatcher, runnerMustStop, tickSeat, watcherConfigPath } from "./rotation-watcher-run.js";
 import { conditionalRespawn } from "./rotation-watcher-tmux.js";
 import { resolveExistingClaim } from "./rotation-watcher-attempt.js";
@@ -78,13 +78,13 @@ test("flow: a fresh marker on a quiet seat is respawned once, confirmed, and not
   };
   const { first, second, seat, memory } = await twoLooks(world);
   assert.deepEqual(first, { class: "waiting", reason: "screen_not_steady" });
-  assert.deepEqual(second, { class: "progress", reason: "confirmed" });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(world.respawns, 1);
   assert.equal(respawnsAtIntent, 0, "intent must be written before the respawn");
   assertSafe(world);
-  assert.deepEqual(kinds(world), ["skipped", "intent", "respawn_issued", "confirmed"]);
+  assert.deepEqual(kinds(world), ["skipped", "intent", "respawn_issued", RECEIPT_UNOBSERVED]);
   const claim = claimOf(world);
-  assert.deepEqual([claim?.state, claim?.resolution, claim?.pane_pid_before], ["done", "confirmed", 5000]);
+  assert.deepEqual([claim?.state, claim?.resolution, claim?.pane_pid_before], [RECEIPT_UNOBSERVED, RECEIPT_UNOBSERVED, 5000]);
   assert.deepEqual(await tickSeat(world.ports, seat, memory), { class: "idle", reason: "claim_exists" });
   assert.equal(world.respawns, 1);
   assert.equal(seatHalted(world), false);
@@ -110,7 +110,7 @@ test("flow: a configured placeholder in the input box counts as empty", async ()
   const world = new World();
   world.screen = ["output", "╭──────────────╮", "│ > Try fix lint errors │", "╰──────────────╯"];
   const { second } = await twoLooks(world);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed" });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(world.respawns, 1);
   assertSafe(world);
 });
@@ -120,7 +120,7 @@ test("flow: a seat with a person attached but idle for longer than the quiet per
   world.pane.attached = 1;
   world.clients = [Math.floor(NOW0 / 1_000) - 600];
   const { second } = await twoLooks(world);
-  assert.equal(second.reason, "confirmed");
+  assert.equal(second.reason, RECEIPT_UNOBSERVED);
   assert.equal(world.respawns, 1);
   assert.equal(ledger(world).find((line) => line.kind === "intent")!.client_activity_max, Math.floor(NOW0 / 1_000) - 600);
   assertSafe(world);
@@ -223,7 +223,7 @@ test("flow: a draft typed in the last moment with the cursor back in place is th
     if (argv[0] === "if-shell") world.screen = [...DRAFT_SCREEN];
   };
   const { second } = await twoLooks(world);
-  assert.equal(second.reason, "confirmed");
+  assert.equal(second.reason, RECEIPT_UNOBSERVED);
   assert.equal(world.respawns, 1);
   assertSafe(world);
   assert.equal(ledger(world).find((line) => line.kind === "intent")!.input_row_sha256, sha256Hex("│ >                          │"));
@@ -266,10 +266,10 @@ test("flow: a respawning claim whose watcher died is closed as confirmed when th
   advanceClaim(nodeWatcherFs, world.seatDir, created.claim, { state: "respawning", respawn_started_at: world.iso(), pane_pid_before: 5000 });
   world.respawn();
   const { first, second } = await twoLooks(world);
-  assert.deepEqual(first, { class: "progress", reason: "confirmed_by_inquiry" });
+  assert.deepEqual(first, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.deepEqual(second, { class: "idle", reason: "claim_exists" });
   assert.equal(world.respawns, 1);
-  assert.deepEqual([claimOf(world)?.state, claimOf(world)?.resolution], ["done", "confirmed_by_inquiry"]);
+  assert.deepEqual([claimOf(world)?.state, claimOf(world)?.resolution], [RECEIPT_UNOBSERVED, RECEIPT_UNOBSERVED]);
   assert.equal(seatHalted(world), false);
 });
 
@@ -338,7 +338,7 @@ test("flow: a second watcher during the confirmation wait does nothing", async (
     },
   };
   const result = await tickSeat(ports, seat, memory);
-  assert.deepEqual(result, { class: "progress", reason: "confirmed" });
+  assert.deepEqual(result, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.deepEqual(seen, [{ class: "idle", reason: "in_progress_elsewhere" }]);
   assert.equal(world.respawns, 1);
   assertSafe(world);
@@ -379,7 +379,7 @@ test("flow: when the line after the respawn cannot be written the seat is stoppe
     },
   };
   const { second } = await twoLooks(world);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed" });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(world.respawns, 1);
   assert.equal(seatHalted(world), true);
   assert.equal(JSON.parse(nodeWatcherFs.readText(seatHaltPath(world.seatDir))!).reason, "ledger_unwritable_after_respawn");
@@ -411,10 +411,10 @@ const failLedgerKind = (kind: string): Block => ({ append: (text) => text.includ
 const failSeatHalt = (world: World): Block => ({ replace: (path) => path === seatHaltPath(world.seatDir) });
 
 const POST_RESPAWN: Array<[string, RespawnMode, Block, string, string]> = [
-  ["the claim cannot be moved to done after a confirmed respawn", "ok", failClaimState("done"), "confirmed_unrecorded", "confirmed_unrecorded"],
-  ["the confirmed line cannot be written after a confirmed respawn", "ok", failLedgerKind("confirmed"), "confirmed_unrecorded", "confirmed_unrecorded"],
-  ["the claim cannot be moved to done after the inquiry found the respawn", "call_fails_but_happened", failClaimState("done"), "confirmed_by_inquiry_unrecorded", "confirmed_by_inquiry_unrecorded"],
-  ["the confirmed line cannot be written after the inquiry found the respawn", "call_fails_but_happened", failLedgerKind("confirmed"), "confirmed_by_inquiry_unrecorded", "confirmed_by_inquiry_unrecorded"],
+  ["the claim cannot be moved to the end state after the output was seen", "ok", failClaimState(RECEIPT_UNOBSERVED), `${RECEIPT_UNOBSERVED}_unrecorded`, `${RECEIPT_UNOBSERVED}_unrecorded`],
+  ["the end line cannot be written after the output was seen", "ok", failLedgerKind(RECEIPT_UNOBSERVED), `${RECEIPT_UNOBSERVED}_unrecorded`, `${RECEIPT_UNOBSERVED}_unrecorded`],
+  ["the claim cannot be moved to the end state after the inquiry found the respawn", "call_fails_but_happened", failClaimState(RECEIPT_UNOBSERVED), `${RECEIPT_UNOBSERVED}_unrecorded`, `${RECEIPT_UNOBSERVED}_unrecorded`],
+  ["the end line cannot be written after the inquiry found the respawn", "call_fails_but_happened", failLedgerKind(RECEIPT_UNOBSERVED), `${RECEIPT_UNOBSERVED}_unrecorded`, `${RECEIPT_UNOBSERVED}_unrecorded`],
   ["the claim cannot be moved to unconfirmed", "no_start", failClaimState("unconfirmed"), "unconfirmed_unrecorded", "unconfirmed_unrecorded"],
   ["the unconfirmed line cannot be written", "no_start", failLedgerKind("unconfirmed"), "unconfirmed_unrecorded", "unconfirmed_unrecorded"],
   ["the claim cannot be quarantined after an unknown result", "call_fails_nothing_happens", failClaimState("unknown_quarantined"), "outcome_unknown_unrecorded", "outcome_unknown_unrecorded"],
@@ -446,13 +446,13 @@ test("flow (F5): the outcomes that were recorded keep their reasons and the halt
   assert.deepEqual((await twoLooks(unknown)).second, { class: "progress", reason: "outcome_unknown" });
   assert.equal(haltReason(unknown), "outcome_unknown");
   const fine = new World();
-  assert.deepEqual((await twoLooks(fine)).second, { class: "progress", reason: "confirmed" });
+  assert.deepEqual((await twoLooks(fine)).second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(haltReason(fine), null);
 });
 
 test("flow (F5): when even the HALT cannot be written the tick asks the runner to stop", async () => {
   for (const [label, mode, patch] of [
-    ["confirmed, claim not recorded", "ok", failClaimState("done")],
+    ["confirmed, claim not recorded", "ok", failClaimState(RECEIPT_UNOBSERVED)],
     ["unconfirmed, claim not recorded", "no_start", failClaimState("unconfirmed")],
     ["unconfirmed, claim recorded (the stop itself is the failure)", "no_start", {}],
     ["unknown result, ledger not recorded", "call_fails_nothing_happens", failLedgerKind("outcome_unknown")],
@@ -472,14 +472,14 @@ test("flow (F5): a respawn whose line could not be written, with the HALT also u
   const world = new World();
   world.fsPort = fsWith(failLedgerKind("respawn_issued"), failSeatHalt(world));
   const { second } = await twoLooks(world);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed", stop_runner: true });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED, stop_runner: true });
   assert.equal(world.respawns, 1);
 });
 
 test("flow (F5): a failed run stops the loop, writes the global HALT, and the command exits 4", async () => {
   const world = new World();
   world.writeConfig();
-  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  world.fsPort = fsWith(failClaimState(RECEIPT_UNOBSERVED), failSeatHalt(world));
   const out = collect();
   const { passes } = await (async () => {
     // first pass only waits for the screen, so run the loop until it stops by itself
@@ -495,7 +495,7 @@ test("flow (F5): a failed run stops the loop, writes the global HALT, and the co
 
   const second = new World();
   second.writeConfig();
-  second.fsPort = fsWith(failClaimState("done"), failSeatHalt(second));
+  second.fsPort = fsWith(failClaimState(RECEIPT_UNOBSERVED), failSeatHalt(second));
   const run = await cli(second, ["run"], 5_000);
   assert.equal(run.code, 4);
   assert.ok(run.out.includes('"halt":"runner_stopped"'));
@@ -519,7 +519,7 @@ test("flow (F5, audit 2): once a seat asks the runner to stop, the same pass ser
   const world = new World();
   world.addSeat("other");
   world.writeConfig([SEAT_JSON, OTHER_SEAT]);
-  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  world.fsPort = fsWith(failClaimState(RECEIPT_UNOBSERVED), failSeatHalt(world));
   const memories = new Map<string, SeatMemory>();
   const first = await runPass(world.ports, memories);
   assert.deepEqual(first.seats.map((entry) => entry.agent_id), ["kusabi", "other"], "while nothing asks to stop, every seat is served");
@@ -527,7 +527,7 @@ test("flow (F5, audit 2): once a seat asks the runner to stop, the same pass ser
   await world.settle();
   const before = world.calls.length;
   const second = await runPass(world.ports, memories);
-  assert.deepEqual(second.seats.map((entry) => entry.tick), [{ class: "progress", reason: "confirmed_unrecorded", stop_runner: true }]);
+  assert.deepEqual(second.seats.map((entry) => entry.tick), [{ class: "progress", reason: `${RECEIPT_UNOBSERVED}_unrecorded`, stop_runner: true }]);
   assert.deepEqual(second.seats.map((entry) => entry.agent_id), ["kusabi"], "the seat after the one that asked to stop was not served");
   assert.deepEqual(callsAimedAt(world, "other:0.0", before), [], "no tmux command was aimed at the later seat");
   assert.equal(world.respawns, 1);
@@ -539,7 +539,7 @@ test("flow (F5, audit 2): the loop stops after the pass in which a seat asked to
   const world = new World();
   world.addSeat("other");
   world.writeConfig([SEAT_JSON, OTHER_SEAT]);
-  world.fsPort = fsWith(failClaimState("done"), failSeatHalt(world));
+  world.fsPort = fsWith(failClaimState(RECEIPT_UNOBSERVED), failSeatHalt(world));
   const out = collect();
   const result = await runWatcher(world.ports, { poll_ms: 5_000, log: out.log });
   assert.equal(result.stopped, true);
@@ -566,7 +566,7 @@ test("flow: a new conversation that starts late but inside the wait is confirmed
   const world = new World();
   world.mode = "delayed";
   const { second } = await twoLooks(world);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed" });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(world.respawns, 1);
 });
 
@@ -604,6 +604,128 @@ test("flow: a start that arrives after the wait is too late and counts as unconf
   assert.equal(second.reason, "unconfirmed");
 });
 
+// ---------- Step 17 (FR11.6): the end state says only what was observed ----------
+const OUTPUT_FILE = (world: World) => join(world.seatDir, "output-written", `${world.marker.marker_id}.json`);
+/** After the respawn the new conversation's turn becomes busy or idle, as the Stop and prompt hooks write it. */
+function turnChangesAfterRespawn(world: World, state: "busy" | "idle"): void {
+  const original = world.respawn.bind(world);
+  world.respawn = () => {
+    original();
+    world.writeTurn({ state, session_id: "new-session", source: "startup", rotation_marker_id: null, at: world.iso(), host_pid: world.hostPid, host_started_at: world.hostStartedAt });
+  };
+}
+const ENDS_UNOBSERVED = async (world: World, detail: string, previousKind: string = "respawn_issued") => {
+  const { second, seat, memory } = await twoLooks(world);
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
+  assert.equal(world.respawns, 1);
+  const claim = claimOf(world);
+  assert.deepEqual([claim?.state, claim?.resolution], [RECEIPT_UNOBSERVED, RECEIPT_UNOBSERVED]);
+  assert.deepEqual(kinds(world).slice(-2), [previousKind, RECEIPT_UNOBSERVED]);
+  assert.equal(ledger(world).at(-1)!.detail, detail);
+  assert.equal(seatHalted(world), false);
+  assert.deepEqual(await tickSeat(world.ports, seat, memory), { class: "idle", reason: "claim_exists" });
+  assert.equal(world.respawns, 1);
+  assertSafe(world);
+};
+
+test("T8(c)(i): an output-written record is the basis; the turn turning busy or idle afterwards does not remove it", async () => {
+  for (const state of ["busy", "idle"] as const) {
+    const world = new World();
+    turnChangesAfterRespawn(world, state);
+    await ENDS_UNOBSERVED(world, "output_written");
+  }
+});
+
+test("T8(i): when the respawn result is not known, the inquiry reads the record and writes the same end state with a by_inquiry detail", async () => {
+  const world = new World();
+  world.mode = "call_fails_but_happened";
+  await ENDS_UNOBSERVED(world, "by_inquiry:output_written", "intent");
+});
+
+test("T8(h)(h')(i'): while an old hook can still be running, its turn mark is a basis too - and ends in the same value, with its own detail", async () => {
+  const legacy = new World();
+  legacy.hook = "legacy";
+  await ENDS_UNOBSERVED(legacy, "legacy_turn_marker");
+  const inquiry = new World();
+  inquiry.hook = "legacy";
+  inquiry.mode = "call_fails_but_happened";
+  await ENDS_UNOBSERVED(inquiry, "by_inquiry:legacy_turn_marker", "intent");
+  const busy = new World();
+  busy.hook = "legacy";
+  turnChangesAfterRespawn(busy, "busy");
+  const { second } = await twoLooks(busy);
+  assert.equal(second.reason, "unconfirmed", "the old form needs the turn to still be started");
+  assert.equal(seatHalted(busy), true);
+});
+
+test("T8(g)(g3): a broken record is no basis, and an unfit record is not rescued by an old-form turn", async () => {
+  const broken = new World();
+  const original = broken.respawn.bind(broken);
+  broken.respawn = () => {
+    original();
+    writeFileSync(OUTPUT_FILE(broken), "{ not json");
+  };
+  assert.equal((await twoLooks(broken)).second.reason, "unconfirmed");
+  assert.equal(seatHalted(broken), true);
+  for (const mode of ["same_session", "source_clear", "old_turn"] as const) {
+    const world = new World();
+    world.mode = mode;
+    const respawn = world.respawn.bind(world);
+    world.respawn = () => {
+      respawn();
+      // An old-form turn that would pass on its own (new session, startup, fresh, in the new host): the record is there, so the turn is not read.
+      world.writeTurn({ state: "started", source: "startup", session_id: "another-new-session", rotation_marker_id: world.marker.marker_id, at: world.iso(), host_pid: world.hostPid, host_started_at: world.hostStartedAt });
+    };
+    const { second } = await twoLooks(world);
+    assert.equal(second.reason, "unconfirmed", mode);
+  }
+});
+
+test("T15(b): no path of the new code writes done / confirmed / confirmed_by_inquiry - not the claim, the ledger, nor the tick", async () => {
+  const worlds: World[] = [];
+  const make = (build: (world: World) => void) => {
+    const world = new World();
+    build(world);
+    worlds.push(world);
+    return world;
+  };
+  const scenarios = [
+    make(() => undefined),
+    make((world) => { world.hook = "legacy"; }),
+    make((world) => { world.mode = "call_fails_but_happened"; }),
+    make((world) => { world.mode = "delayed"; }),
+    make((world) => { world.mode = "no_start"; }),
+  ];
+  for (const world of scenarios) {
+    const { second } = await twoLooks(world);
+    assert.ok(!second.reason.startsWith("confirmed"), second.reason);
+    const claim = claimOf(world);
+    assert.ok(claim && !["done"].includes(claim.state), String(claim?.state));
+    assert.ok(!String(claim?.resolution).startsWith("confirmed"), String(claim?.resolution));
+    assert.ok(!kinds(world).includes("confirmed"));
+    const text = nodeWatcherFs.readText(ledgerPath(world.root)) ?? "";
+    assert.ok(!/delivered|received|delivery/.test(text), "the ledger names only what was observed");
+  }
+});
+
+test("T16(a): the end state is counted like a respawn - one attempt once, the interval and the hourly limit hold, also when only the inquiry line exists", async () => {
+  const line = (kind: string, attempt: string, offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind, attempt_id: attempt, agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString() })}\n`;
+  const recent = new World();
+  nodeWatcherFs.appendDurable(ledgerPath(recent.root), line("intent", "earlier", -30_000) + line(RECEIPT_UNOBSERVED, "earlier", -25_000));
+  const held = await twoLooks(recent);
+  assert.equal(held.second.reason, "min_interval", "a respawn found only by the inquiry holds the next one back");
+  assert.equal(recent.respawns, 0);
+  const hourly = new World();
+  const seat = seatFrom({ min_interval_seconds: 60, max_per_hour: 2 });
+  nodeWatcherFs.appendDurable(ledgerPath(hourly.root), line("respawn_issued", "one", -1_800_000) + line(RECEIPT_UNOBSERVED, "one", -1_790_000));
+  assert.equal((await twoLooks(hourly, {}, seat)).second.reason, RECEIPT_UNOBSERVED, "one attempt in the hour is one, not two");
+  const full = new World();
+  nodeWatcherFs.appendDurable(ledgerPath(full.root), line("respawn_issued", "one", -1_800_000) + line(RECEIPT_UNOBSERVED, "one", -1_790_000) + line(RECEIPT_UNOBSERVED, "two", -1_700_000));
+  const stopped = await twoLooks(full, {}, seat);
+  assert.equal(stopped.second.reason, "rate_limited");
+  assert.equal(full.respawns, 0);
+});
+
 test("flow: a respawn command that reports failure but did nothing is not retried, the seat stops", async () => {
   const world = new World();
   world.mode = "call_fails_nothing_happens";
@@ -620,10 +742,10 @@ test("flow: a respawn command that reports failure but did happen is found by th
   const world = new World();
   world.mode = "call_fails_but_happened";
   const { second } = await twoLooks(world);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed_by_inquiry" });
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED });
   assert.equal(world.respawns, 1);
-  assert.deepEqual([claimOf(world)?.state, claimOf(world)?.resolution], ["done", "confirmed_by_inquiry"]);
-  assert.equal(ledger(world).at(-1)!.detail, "by_inquiry");
+  assert.deepEqual([claimOf(world)?.state, claimOf(world)?.resolution], [RECEIPT_UNOBSERVED, RECEIPT_UNOBSERVED]);
+  assert.equal(ledger(world).at(-1)!.detail, "by_inquiry:output_written");
   assert.equal(seatHalted(world), false);
 });
 
@@ -656,7 +778,7 @@ test("flow (F4): the hourly limit counts attempts once, including one that has b
   const line = (kind: string, attempt: string, offset: number) => `${JSON.stringify({ schema_version: "kusabi-rotation-watcher-evidence/v1", kind, attempt_id: attempt, agent_id: "kusabi", project: "agent-memory", at: new Date(NOW0 + offset).toISOString() })}\n`;
   nodeWatcherFs.appendDurable(ledgerPath(world.root), line("respawn_issued", "one", -1_800_000) + line("confirmed", "one", -1_790_000));
   const { second } = await twoLooks(world, {}, seat);
-  assert.deepEqual(second, { class: "progress", reason: "confirmed" }, "one attempt in the hour, limit 2: allowed");
+  assert.deepEqual(second, { class: "progress", reason: RECEIPT_UNOBSERVED }, "one attempt in the hour, limit 2: allowed");
   const full = new World();
   nodeWatcherFs.appendDurable(ledgerPath(full.root), line("respawn_issued", "one", -1_800_000) + line("confirmed", "one", -1_790_000) + line("confirmed", "two", -1_700_000));
   const held = await twoLooks(full, {}, seat);
@@ -741,7 +863,7 @@ test("loop: a fresh marker is respawned once over many passes", async () => {
   const result = await runWatcher(world.ports, { poll_ms: 5_000, max_passes: 12, log: out.log });
   assert.equal(result.halted_global, false);
   assert.equal(world.respawns, 1);
-  assert.equal(claimOf(world)?.resolution, "confirmed");
+  assert.equal(claimOf(world)?.resolution, RECEIPT_UNOBSERVED);
   assertSafe(world);
 });
 
