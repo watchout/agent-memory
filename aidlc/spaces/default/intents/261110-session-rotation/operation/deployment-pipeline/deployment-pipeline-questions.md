@@ -83,3 +83,35 @@ X. Other (please specify)
 
 [Answer]: A（arc の答え。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 。Owner の言葉ではない。守る物ではないので Owner には回さない。既にある kusabi:direct-fleet-rollout を使い、必須の入口の一覧（版を作る道具と rollout の両方）に dist/session-rotation-stop.js と dist/rotation-watcher.js を足す。repo の code の変更なので、この取り組みの次の PR で独立の監査を通す）
 **Mode:** chat
+
+---
+
+## 第 2 回の据え付けで足す問い（2026-11-12）
+
+PR #342（統合の commit `94f1ca6d0042bd970d4cc7c4ab9ce9153b7d5c0d`）が入り、版は `28596bf0915d16b72bd7b5878aadda6ebe7efd7564b6520d0f938eb668e7cd92` を作り直しました（実行の記録 `deployment-log.md` の S1 のやり直し）。席の設定には、Kusabi の hook が 5 つ（SessionStart 1・Stop 2・UserPromptSubmit 2）が旧い版 `1b731f00…` と版つきの node の path を指して入っています。第 2 回は「新しく入れる」でなく「新しい版へ差し替える」になります。範囲（Kusabi の席だけ）・戻し方つき・DB を変えない点は、Owner の決定（Q1・Q3 = A、#49 6790645694）のままで、聞き直しません。決まっていない次の 2 点だけを聞きます。守る物ではない技術の問いなので、Owner の委任（#49 6762288830）の下で arc に聞きます。
+
+---
+
+## Q6. [配備の担当] 差し替える hook の node の path
+
+背景: installer は、hook の command の先頭に node の path を書きます。指定が無いと、installer を動かした node の実体の path（版つきの Homebrew の folder）を書くので、node を入れ替えると、その hook は黙って起動できなくなります（登録された作業場の hook は、今それで動いていません）。#342 で installer に `--node-path` が入り（既定は今の動きのまま）、絶対 path・正規化済み・最後の名前が `node`・実行できる通常の file（symlink 可）だけを受け付けます。この Mac の Homebrew の `/opt/homebrew/bin/node` は、今の版つきの node への symlink です。前の回の arc の判断（O11）は、「この試しは今の実体の path のまま。`--node-path` は次の PR で足す」でした。
+
+A. 前の回のまま、`--node-path` を付けない（実体の path を書く。node の入れ替えで壊れる）。
+B. 差し替えで `--node-path` に版に依らない symlink（`/opt/homebrew/bin/node`）を指定する（node を入れ替えても hook は壊れない。symlink の先を同じ利用者が付け替えられる点は、同じ利用者の悪意を防げない既存の限界の内）。
+X. Other (please specify)
+
+[Answer]: B（arc の答え。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 。Owner の言葉ではない。守る物ではないので Owner には回さない。`--node-path /opt/homebrew/bin/node` を使い、#342 で入った FR10.7 で、node の入れ替えで hook が黙って壊れないようにする。arc の席間の連絡。GitHub への記録はまだ無い）
+**Mode:** chat
+
+---
+
+## Q7. [配備の担当] 差し替えの操作の分け方
+
+背景: 切り直しの hook は、`--rotation` を付けない適用では「今あるものをそのまま残す」仕様です（コードで確かめた）。取り込みの hook 3 つだけを新しい版へ替えると、切り直しの hook 2 つは旧い版 `1b731f00…` のままです（旧い版は新しい key を拒否して「通す + 診断の証拠」になるだけで、席は止まりません）。前の回は、S3（取り込み）と S4（切り直し）を別々の操作・別々の backup にして、読み戻しが通ってから進めました。
+
+A. 前の回と同じに、2 つの操作にする。S3 の差し替え（`--rotation` なし。取り込みの 3 つ）→ 読み戻し → S4 の差し替え（`--rotation on --rotation-threshold-tokens 240000`。切り直しの 2 つ）→ 読み戻し。backup は 2 つ。途中に、取り込みは新しい版・切り直しは旧い版の状態がある。
+B. 1 つの操作にする。`--apply --rotation on --rotation-threshold-tokens 240000` で 5 つを一度に新しい版へ替える。backup は 1 つ。途中の混在がない代わりに、読み戻しの失敗の時は 5 つ全部を戻す。
+X. Other (please specify)
+
+[Answer]: B（arc の答え。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 。Owner の言葉ではない。1 回で 5 つを替える: `--apply --rotation on --rotation-threshold-tokens 240000`。途中で新旧が混ざらず、backup は 1 つ。arc は Owner が打つ script を、この形に直して席の今の settings.json の写しで流した: dry-run 1 回（`would_change: true`、無関係 3・3）→ apply → 差分は Kusabi の hook の入れ替えだけ → check exact → 5 つとも `/opt/homebrew/bin/node` → 前の版 `1b731f00` を指す hook 0・新しい版 `28596bf0` が 5。席が script の本文を読んで、同文であることを確かめた: script の SHA-256 `541b4fef2db5dcc51d8ef4c440e7a0f816facb9de94c1007df45ac011d8dd6a7`。arc の席間の連絡。GitHub への記録はまだ無い）
+**Mode:** chat

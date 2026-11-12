@@ -32,6 +32,8 @@
 - `[arc の判断 #339]` arc の技術の判断（Owner の決定ではない）: agent-memory#339 の comment 6791901034（投稿者 watchout、本文の SHA-256 `69ca10d6e8e418ad425e1e9a8f81b73799d49fa8496ad93288dc2882fae59c32`）。知らない key は無視し、必須の key・型・大きさの上限は残す。無視した key の名前は証拠の契約（`claude-session-start-evidence-v1` の schema、`wasurezu-transcript-stop-capture/v1`）に足さず、契約ではない診断の記録に書く。設計の記録だけの PR を先に出して設計監査を 1 回受ける。同じ PR に必須の入口の一覧・installer の `--node-path`・`.gitignore`・記録を入れる。arc-sec の条件（公開。iyasaka-arc#57 の comment 6791886636・6791925065）= 必須の key・型・64 KiB の上限は残す／3 つの入口を 1 か所の parser に／実物の key の形の正例と負例の試験／反転する既存の負例は deviation_ledger に 1 行ずつ／診断の置き場は `$AGENT_MEMORY_HOME` の下・folder 0700・file 0600・一時 file + rename、中身は event 名・key の名前・件数・時刻だけ（名前は 64 字以内、1 件 32 個以内、上限を超えたら古い物から捨てる）、health check は名前と件数だけ報告し読めない時は「観測できず」、診断が書けなくても hook の答えと証拠は変えない。arc-sec の条件 4 は host の契約の版の定数を観測した 2.1.321 に上げることだが、この設計は 2.1.220 のまま保つ（FR10.5。理由は次の `[arc の追記 #339]`）。**#339 の comment 6791901034 には、host の契約の版についての判断は無い。**
 - `[arc の追記 #339]` arc の技術の判断・追記（Owner の決定ではない）: agent-memory#339 の comment 6793417308（投稿者 watchout、本文の SHA-256 `af373c531792b58c7fcd7023d99c4e943c5f50cac54a2d5d1f9745779de43e5c`）。host の契約の版の定数は 2.1.220 のまま（意味は「契約を確かめた版」。v1 の schema の const と .v2 は守る物なので上げない）。観測した host の版は、hook の入力にも環境にも無いので、配備の health check の手順の 1 行（`claude --version`、code は足さない）で取り、配備の記録に契約を確かめた版とのずれを 1 行で必ず書く（読めない時は「観測できず」）。共有の parser により Codex の Stop・UserPromptSubmit も同時に緩み、Codex の SessionStart は範囲外。
 - `[arc-sec の読み]` arc-sec の技術の読み（公開。iyasaka-arc#57 の comment 6792778481、本文の SHA-256 `683847414d37520993afd8de29dced0a4335822d7fe97c6b329039038266bcd6`）: 設計の PR の head `6cae0d93` を読み、止める点 0。独立の設計監査の verdict の代わりではない。実装の PR で見る点 2 つ（共有の parser が入口ごとの確かめを落とさず知らない key の値を下流に出さない事／配備の記録に版のずれの 1 行を必ず入れる事。反転する負例が身元の負例を巻き込まない事も読む）。
+- `[配備の発見]` 配備の途中（第 4 回の C2 の取り直しの準備、2026-11-12）で席がコードを読んで見つけた設計の誤り: 引き継ぎの束の消費と `turn` の `rotation_marker_id` の書き込みが、出力が席に向けて書かれる前に済む（`session-rotation-start.ts`）。出力までの失敗では束が取り戻せず、見張りは届いていないのに「受け取った」と読む。詳細は `construction/code-generation/handoff-commit-order-design.md`。
+- `[arc の判断 入れ物]` arc の技術の判断（Owner の委任 iyasaka-arc#49 6762288830 の技術の範囲。Owner の決定ではない）: 直しは同じ取り組みの construction で行い（Code Generation に戻す）、案 A（消費と印を出力の後へ）で進め、設計の記録だけの PR → 独立の設計監査（devauditor）→ PASS の後に試験だけの commit → 実装の順にする。 出典: agent-memory#339 の comment 6812844309（本文の SHA-256 `141b188728c12f07e477bc0a65776cf5d328b411915d24f9bf1ad997a9737187`）。
 - `[設計監査 1 回目]` devauditor の 1 回目の設計監査（PR #342 の comment 6793000316、BLOCK、P2 が 4 件 F1〜F4）。直しは設計の記録の 13 節。
 - 今のコードの読み解き: `inception/reverse-engineering/developer-scan.md`、`business-overview`、`architecture`、`code-structure`（`aidlc/spaces/default/codekb/agent-memory/`）。
 
@@ -168,6 +170,22 @@
 - Given Stop・UserPromptSubmit の任意項目の型違い（`model: null` など 8 種）、When 流すと、Then 今までどおり受理され、その項目は返す値に入らない。Given SessionStart の `model: null`・違う `permission_mode`・空の `agent_type`、When 流すと、Then 今までどおり `MALFORMED_HOOK_INPUT`。
 - Given `nodejs` の名前の symlink を `--node-path` に渡す、When installer を流すと、Then 設定を書かずに止まる。Given 別の symlink（名前は `node`）で入れ直す、When 流すと、Then 管理中の hook が 1 つで、先頭の node が新しい path。
 - Given 診断の file が壊れている、When health check が読むと、Then 「観測できず」を返し、0 件と報告しない。
+
+### FR11 引き継ぎの確定を、出力が書かれた後に行う
+
+- **FR11.1** 引き継ぎの束を消費済みにする操作と、`turn` file の `rotation_marker_id` の書き込みは、SessionStart の hook の出力が席に向けて書き込まれた（書き込みの callback が誤りなしで返った）後に行う。出力を書けなかった時、degraded の出力の時、回復の読み込みが例外・期限（`RECOVERY_TIMEOUT`）で終わった時は、束を消費済みにせず、`rotation_marker_id` を null のままにする。（`[配備の発見]`、`[arc の判断 入れ物]`）
+- **FR11.2** 束の取得・SHA-256 の突き合わせ・redaction・文の組み立てまでは出力の前に行い、出力の形（`additionalContext`・`initialUserMessage`）、証拠の契約（`wasurezu-session-rotation-start/v1` と SessionStart の証拠）、DB の構造、store の verb の数は変えない。
+- **FR11.3** 確定（消費と印の書き込み）が失敗した時（例外・上限 1.5 秒・消費の競り負け）は、握りつぶさず、`rotation_marker_id` が null の `turn` と `unconfirmed` の claim・席の HALT として見える。見張りの動き（確認の待ちを過ぎたら `unconfirmed` と HALT で止まり、2 度目の respawn をしない）は変えない。同じ文の二重の配達は許す（`clear`／`compact` の起動で、marker が期限内（1800 秒）・pane 一致の時だけ。`startup` は claim が `respawning` の間だけ）。許さないのは、届いていないのに届いたと記録すること。
+- **FR11.4** Claude と Codex の SessionStart の process 層が、同じ 1 つの確定の関数を呼ぶ。時刻は呼ぶ側が渡し、核は取らない（S4）。
+- **FR11.5** 旧い hook（消費が先）と新しい hook（消費が後）は、同じ DB に対して同居できる（消費は `status = 'active'` の条件つきの更新で 1 度だけ効く）。code だけの変更で、戻すのは code を戻すだけ（S6）。
+
+受入（FR11.1〜FR11.5）:
+- Given 回復の読み込みが例外を投げる、または期限を超える、When SessionStart を流すと、Then degraded の出力が出て、束は `active` のまま、`turn` の `rotation_marker_id` は null。
+- Given 出力の書き込みの callback が誤りを返す、When 流すと、Then 確定は呼ばれず、束は `active` のまま。
+- Given 通常の起動、When 流すと、Then 出力の書き込みの後に束が `consumed` になり、その後に `turn` に `rotation_marker_id` が入る（順序が記録で見える）。
+- Given 確定の中で消費が競り負けた（null）、または上限を超えた、When 流すと、Then `rotation_marker_id` は書かれず、席の出力は変わらず、例外にならない。
+- Given `rotation_marker_id` が null の `turn`、When 見張りが確認を見ると、Then 確認済みとは読まず、確認の待ちを過ぎたら claim が `unconfirmed`、席に HALT（`unconfirmed`）が書かれる。
+- Given 同じ束に対して旧い hook と新しい hook を流す、When 両方が消費しようとすると、Then 1 度だけ効く。
 
 ## 非機能の要件
 

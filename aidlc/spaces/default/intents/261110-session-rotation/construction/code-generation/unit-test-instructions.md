@@ -20,8 +20,8 @@ HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 
 ```bash
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形・uid の取り方（21 cases）
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（40 cases）
-HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（12 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（47 cases。Step 16 の hook の入力の直しを含む）
+HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（13 cases）
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示と hook_input の節（17 cases）
 HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
 ```
@@ -83,6 +83,28 @@ HOME=$(mktemp -d) npx tsx tests/gate0/migration-idempotency.ts
 
 CI で回すために、新しい試験の file を、CI が呼ぶ npm の script（`test:claude-hook`・`test:codex-hook`・`test:automatic-receive` など）の後ろに足す。workflow の file（`.github/workflows/ci.yml`）は変えない。
 
+## 新しい試行（Step 17、引き継ぎの確定の順番）の試験
+
+試験の code は、設計の記録だけの PR の設計監査が PASS し、作者の受領が RECEIPT_ACCEPTED になった後に書く。試験だけの commit を実装の前に作り、今の code で落ちることを確かめて出力を PR の本文に載せる（T1〜T6 は今の code では束が先に消費されるので落ちる。T7〜T9 は今の動きの固定で、通るものは通る理由を書く）。試験の file 名と npm script への入れ方は下書き（実装の時に `test:session-rotation` に足す）。
+
+```bash
+HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-handoff-commit-order.ts   # FR11.1〜FR11.5: T1〜T9（下の表）
+```
+
+| ID | 場面 | 期待 | 要件 |
+|---|---|---|---|
+| T1 | `loadRestartPackData` が例外を投げる | 束は `active` のまま、`turn` の `rotation_marker_id` は null、degraded の出力 | FR11.1 |
+| T2 | 回復の読み込みが期限（`RECOVERY_TIMEOUT`）を超える | 同上。期限の後に消費されない | FR11.1 |
+| T3 | 出力の書き込みの callback が誤りを返す | 確定は呼ばれない。束は `active` | FR11.1 |
+| T4 | 通常の起動 | 出力の書き込みの後に束が `consumed`、その後に `turn` へ `rotation_marker_id`。順序（出力 → 消費 → 印）を記録で確かめる。出力の bytes は今までと同じ | FR11.1・FR11.2 |
+| T5 | 確定の中で消費が競り負け（null） | `rotation_marker_id` は書かれない。例外にならない | FR11.3 |
+| T6 | 確定が上限（1.5 秒）を超える | 席の出力に影響なし。束は `active` のまま、印なし | FR11.3 |
+| T7 | 確定の失敗の後の次の起動 | `clear`／`compact` で marker が期限内・pane 一致なら同じ文を受け取る。期限外・pane 不一致・`startup`（claim が `respawning` でない）では受け取らない | FR11.3 |
+| T8 | 見張りが `rotation_marker_id` なしの `turn` を見る | 確認済みとは読まない。確認の待ちを過ぎると claim が `unconfirmed`、席に HALT（`unconfirmed`）、2 度目の respawn なし | FR11.3 |
+| T9 | 同じ束に旧い hook と新しい hook を流す | 1 度だけ効く | FR11.5 |
+
+Claude と Codex の両方の process 層について T1・T3・T4 を流す（FR11.4）。PostgreSQL の試験は手元の使い捨て DB（`project.md` の決まり: socket を切る・`lc_messages=C`・一時の HOME）。既存の `test:session-rotation`・`test:claude-hook` は通ったままにする。
+
 ## 基準（Step 1、main `17676d84`、Node v26.12.1、2026-11-11）
 
 | 命令 | main の結果 |
@@ -113,5 +135,5 @@ CI で回すために、新しい試験の file を、CI が呼ぶ npm の scrip
 
 ## 期待する網羅の内訳
 
-- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 40・hook-registration 12・status 8・身元 25）、見張り 2 file（units 83・flow 103）。
+- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 47・hook-registration 13・status 17・身元 25。Step 16 の後の数。流して確かめた）、見張り 2 file（units 83・flow 103）。
 - 各試験は、正しい場合と、2 つ以上の誤りや境目の場合（usage 無し・閾値ちょうど・文が取れない・束が無い・用意の失敗など）を持つ。

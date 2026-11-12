@@ -1,12 +1,12 @@
 # 単位をまたぐ最後の行き先の確かめ — 会話の切り直し（261110-session-rotation）
 
-`aidlc engine sensor-traceability --stage build-and-test` の出力から書いた（要件と受け入れ基準 44 件）。この取り組みは単位が 1 つ（express）で、行き先はすべて作る段（code-generation）。
+`aidlc engine sensor-traceability --stage build-and-test` の出力から書いた（2026-11-12、統合された main `94f1ca6d` の記録に対して。要件と受け入れ基準 51 件）。この取り組みは単位が 1 つ（express）で、行き先はすべて作る段（code-generation）。前回（2026-11-11）の 44 件に、PR #342 で足された FR10.1〜FR10.7 の 7 件が加わった。
 
 ## 判定
 
-**FAIL** — 行き先の無い ID が 2 件（FR9.2, FR9.3）。作った 39 件、N/A（理由つき）3 件。
+**FAIL** — 行き先の無い ID が 2 件（FR9.2, FR9.3）。作った 46 件、N/A（理由つき）3 件。
 
-未達の 2 件は、作る段の承認の場で「この build に入れない」と知らせた物と同じで、統合の後に Owner の決定を受けて行う要件である。
+未達の 2 件は、作る段の承認の場で「この build に入れない」と知らせた物と同じで、統合の後に Owner の決定を受けて行う要件である。FR10.1〜FR10.7 は 7 件とも行き先がある（FR10.5 の配備の記録の 1 行は、下の「限界」に書く）。
 
 | ID | 状態 | 受け持ち | 行き先の file / N/A の理由 |
 |---|---|---|---|
@@ -47,6 +47,13 @@
 | FR9.1 | 作った | code-generation（単位は 1 つ、express） | src/test-session-rotation-scenario.ts |
 | FR9.2 | 未達 | — | — |
 | FR9.3 | 未達 | — | — |
+| FR10.1 | 作った | code-generation（単位は 1 つ、express） | src/hook-input.ts |
+| FR10.2 | 作った | code-generation（単位は 1 つ、express） | src/hook-input.ts |
+| FR10.3 | 作った | code-generation（単位は 1 つ、express） | src/hook-input-diagnostics.ts |
+| FR10.4 | 作った | code-generation（単位は 1 つ、express） | src/hook-input-diagnostics.ts |
+| FR10.5 | 作った | code-generation（単位は 1 つ、express） | src/claude-session-start.ts（定数と注釈。`claude --version` の 1 行は配備の記録の手順で、code ではない） |
+| FR10.6 | 作った | code-generation（単位は 1 つ、express） | scripts/build-kusabi-content-addressed-runtime-release.mjs |
+| FR10.7 | 作った | code-generation（単位は 1 つ、express） | src/hook-node-path.ts |
 | NFR1 | 作った | code-generation（単位は 1 つ、express） | src/session-rotation-stop.ts |
 | NFR2 | 作った | code-generation（単位は 1 つ、express） | src/session-rotation-stop.ts |
 | NFR3 | 作った | code-generation（単位は 1 つ、express） | src/rotation-watcher-tmux.ts |
@@ -64,3 +71,7 @@
 
 どちらも、この build の外の要件で、`確かめていない` のまま次の段に渡る。この段の失敗の決まり（目標が `Not Met`・`Unverified`）には当たらない: 目標の表（`build-and-test-summary.md`）は、作る段の Testing Contract・team.md・要件の NFR から作った物で、FR9.2・FR9.3 は目標ではなく要件であり、ここで未達として表れる。
 
+## 限界（行き先はあるが、この build では確かめていない物）
+
+- FR10.5 の「`claude --version` で取った版と、契約を確かめた版（2.1.220）とのずれを、配備の記録に 1 行で必ず書く」は、配備の健康の確かめの手順（deployment-execution、計画 Step 16.11）で行う。この build では code の側（定数を動かさない・注釈）だけを確かめた。読めない時は「観測できず」と書く。
+- FR10.6 の必須の入口の一覧は 12 件（切り直しの 2 つを足した形）で、席の hook の installer 2 つ（`dist/claude-hook-installer.js`・`dist/codex-hook-installer.js`）は今も入っていない。FR10.6 は、これを足すかを arc の指示の外として設計の記録で確かめる、としていた。足していないことは版を作る道具の読み戻し（`required_entrypoint_sha256_map` 12 件）で見える。この build では、足していないという事実を記録するだけで、足すかどうかは決めない。

@@ -81,9 +81,9 @@
 | 試験 | 結果 |
 |------|------|
 | `src/test-session-rotation-core.ts` | 21 cases PASS（FR1・FR2・FR7.2・FR7.3・file の形・uid の取り方） |
-| `src/test-session-rotation-flow.ts` | 40 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1（標準入力の読みを含む）・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
-| `src/test-rotation-hook-registration.ts` | 12 cases PASS（FR2.2・installer の引数・戻し・印の無い compact の決まった文 FR7.1） |
-| `src/test-session-rotation-status.ts` | 8 cases PASS（FR4.2） |
+| `src/test-session-rotation-flow.ts` | 47 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1（標準入力の読みを含む）・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
+| `src/test-rotation-hook-registration.ts` | 13 cases PASS（FR2.2・installer の引数・戻し・印の無い compact の決まった文 FR7.1） |
+| `src/test-session-rotation-status.ts` | 17 cases PASS（FR4.2・hook_input の節） |
 | `src/test-rotation-watcher-units.ts` | 83 cases PASS（設定・画面・tmux・ps・核・帳面の読み取り） |
 | `src/test-rotation-watcher-flow.ts` | 103 cases PASS（一度だけ・確認・帳面・HALT・閉じた命令の集合・読めない帳面・確認の記録の失敗・止まる印を返した席の後を回さない） |
 | `src/test-session-rotation-scenario.ts` | PASS（Claude Code と Codex で、量を測る → 保存して印 → 新しい会話の頭に次の 1 歩。FR9.1） |
@@ -204,6 +204,13 @@
 - 足した試験（足しただけ。既存の確かめは弱めていない）: `src/test-hook-input-diagnostics.ts` に (1) 渡した uid で判定が変わる（501／502／root／`null`、folder・file・mode・大きさの境）と、process が別の uid を名乗る・名乗らない間も同じ引数で同じ答えになること、(2) 書き手に別の uid や `null` を渡すと何も書かず、自分の uid では書くこと、(3) 確かめの本体に `process`・`getuid`・`currentUid` が現れないこと。`src/test-session-rotation-status.ts` に、別の uid や `null` を渡すと本物の記録が『観測できず』になる 1 case（16 → 17 cases）。
 - 数の変化: `src/hook-input-diagnostics.ts` 268 → 275 行、`src/session-rotation-status.ts` の変えた行が 87 → 88、変えた行と新しい行は 930 → 938 行。動かなかった範囲は同じ 1 つ（`src/session-rotation-stop.ts` 756 行目）。
 
+### 2 回目の実装監査（PASS）と統合
+
+- 依頼: PR #342 の comment 6808343122（対象の head `23ddb0cf18f49b94444bf6900fca0155d93887a2`、前検査 READY_FOR_REVIEW）。返却: comment 6808507295（devauditor = iyasaka-ai、PASS。固定 23 項目すべて PASS、blocking 0、F1 は解消、新しい指摘 0）。作者の受領: comment 6808706214（`--review` の結果 RECEIPT_ACCEPTED、終了コード 0）。
+- 返却が書いている限り: DES-1〜DES-11 は設計監査の判定の再利用で、現在の head に code の差分が無いという判定ではない。`Shirube Rapid/Lite Gates Report` の failure は成功と数えない。今回の PASS は実装監査で、統合・Owner の exact-head・配備の Owner の決定・実環境での受け入れの代わりにならない。新しい試験の型検査の除外は既存の tsconfig どおり。
+- Owner の exact-head: OD-KUSABI-PR342-R3-EXACT-HEAD-23DDB0CF-20261112-001（PR #342 の comment 6808786916、記録 = arc）。統合: suite-lead が merge commit `94f1ca6d0042bd970d4cc7c4ab9ce9153b7d5c0d`（読み戻し comment 6808846277）。統合の後の main の CI run 43113722371 は build-and-test 18・20・22 すべて success。席への新しい版の据え直しは、この統合に含まれない。
+- この段で実行していない確かめ: 席への配備、障害のあった席・disk での実環境の確かめ、Claude Code 2.1.321 など別の版での動き（手元は Node v26 だけで、Node 18・20・22 は CI の結果）。これらは Build and Test 以後の段（計画 16.11）の仕事。
+
 ## 公開してよいかの確かめ
 
 - 公開の repo なので、PR に入れる file の足した行を、手元の path（`/Users/`）、DB の URL・資格情報、秘密の値、勧告の番号、メールアドレスで探す。結果は push の前にもう一度流し、この節に書いた数と同じかを確かめる（伏せた所は 0）。
@@ -217,3 +224,16 @@
 - 帯の値（`BAND_THRESHOLDS` と `contextSignalFor` の比率）は 2 か所に literal がある既存の重複で、切り直しは絶対の量で判定するので触れていない（FR2.3、記録だけ）。
 - 手元の試験の中で、既定の `createStore()` を使う確かめの script を 1 つ動かしてしまい、この Mac の既定の保存先（JSON の store の `conversation-events.json` と `raw-events.json`）に、試験用の席（`agent_id` が `control-seat`）の行が入った。2 つの file を退避してから、その席の行だけを消して `[]` に戻した（消した時点で他の席の行は無いことを、全行の `agent_id` で確かめた）。2 つの file が試験の前から有ったかは分からない。本番の DB には書いていない。以降の確かめの script は一時の `HOME` を使う。
 - `ps` の `lstart` の文は locale で変わる（`LC_ALL=C` で解いた）。tmux 3.6a は `pane_start_command` を二重引用符で包んで返す。`if-shell -F` の中の `%` は 2 重にしなくてよい。
+
+## Step 17: 引き継ぎの確定の順番の直し（設計の段まで。code はまだ書いていない）
+
+配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。今の状態は設計の記録だけ。
+
+| 物 | 状態 |
+|---|---|
+| 要件 FR11.1〜FR11.5 | `requirements.md` に足した |
+| 設計の記録 | `handoff-commit-order-design.md`（失敗の場面 F1〜F4、案 A〜D、採る案 A、S4〜S8、試験 T1〜T9、範囲に入れないこと。設計の中の未読は 0） |
+| 試験の手順 | `unit-test-instructions.md` の「Step 17」の節（T1〜T9。試験の code は設計監査の PASS の後） |
+| 追跡 | `traceability.json` の FR11.1〜FR11.5 は `Deferred`（実装は設計監査の PASS の後。Step 17.6〜17.8 で `OK` にする） |
+| src の変更 | なし |
+| 次 | 監査の項目の file → 設計の記録だけの PR → 独立の設計監査（devauditor）。PASS の後に試験だけの commit、その後に実装 |
