@@ -589,6 +589,31 @@ test("T12(c): a record that cannot be written is 'failed', throws nothing, and m
   expectResult(await commitRotationRecovery(await planFor(seam), deps(seam, { write_record: () => { throw new Error("disk"); } })), "failed", "skipped", "a throwing writer");
 });
 
+test("T12(i): the writer refuses a marker id that is not a marker id's spelling - it throws, makes no file and no folder, and the commit says 'failed' and consumes nothing", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rotation-writer-spelling-"));
+  const seat = join(root, "seat");
+  mkdirSync(seat, { recursive: true });
+  const at = NOW.toISOString();
+  const record = (marker_id: string): Parameters<typeof writeOutputWritten>[1] => ({
+    marker_id, agent_id: "kusabi", project: "agent-memory", host: "claude_code", session_id: "s", source: "startup", ...PANE, turn_at: at, output_written_at: at,
+  });
+  const spellings = ["", "../escape", "..", "a/b", "A".repeat(64), "a".repeat(63), "a".repeat(65), "g".repeat(64), `${"a".repeat(64)}\n`, `${"a".repeat(32)}/../${"b".repeat(27)}`];
+  for (const bad of spellings) {
+    assert.throws(() => writeOutputWritten(seat, record(bad)), /marker id/, `refused: ${JSON.stringify(bad)}`);
+  }
+  assert.deepEqual(readdirSync(seat), [], "no output-written folder and no file was made in the seat folder");
+  assert.deepEqual(readdirSync(root), ["seat"], "nothing was made beside the seat folder either (no path was built from the spelling)");
+  assert.equal(writeOutputWritten(seat, record("a".repeat(64))), "written", "a marker id's spelling still writes");
+  assert.equal(writeOutputWritten(seat, record("a".repeat(64))), "exists", "and the second write still keeps the first");
+
+  const sc = scenario();
+  const plan = await planFor(sc);
+  const before = readdirSync(sc.directory).sort();
+  expectResult(await commitRotationRecovery({ ...plan, marker_id: "../escape" }, deps(sc)), "failed", "skipped", "a plan whose marker id is not a marker id's spelling");
+  assert.equal(sc.fake.consumeCalls, 0, "nothing was used up");
+  assert.deepEqual(readdirSync(sc.directory).sort(), before, "the seat folder is as it was");
+});
+
 const WRITER = `
 const [file, directory, at] = process.argv.slice(1);
 const m = await import(file);

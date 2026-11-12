@@ -481,6 +481,91 @@ test("T17(r): the reader gives the rows a store gives - the same filter, the sam
   }
 });
 
+test("T17(t): on duplicate and legacy rows the reader gives what the real JSON store gives after its start-up clean-up - the same row of a duplicate, the same task id and update time of a legacy row - and it leaves the records as they were", async () => {
+  const { readTaskStatesReadOnly } = await import("./stores/read-only-task-states.js");
+  const pick = (rows: Array<{ task_id?: string; progress?: string; created_at: string; updated_at?: string }>) =>
+    JSON.stringify(rows.map((row) => ({ task_id: row.task_id, progress: row.progress, created_at: row.created_at, updated_at: row.updated_at })));
+  const home = freshHome("handoff-cli-equal-duplicates");
+  const readerDir = join(home, "reader-records");
+  const storeDir = join(home, "store-records");
+  mkdirSync(readerDir, { recursive: true });
+  mkdirSync(storeDir, { recursive: true });
+  const SAME = "2026-03-01T00:00:00.000Z";
+  const raw = (task: string, over: Record<string, unknown>) => ({
+    id: `${task}-${String(over.progress ?? "")}`, agent_id: AGENT, project: PROJECT, task_id: task, task, status: "in_progress", progress: `progress of ${task}`, files_modified: [],
+    created_at: SAME, updated_at: SAME, ...over,
+  });
+  const rows = [
+    raw("dup-same", { progress: "first" }), raw("dup-same", { progress: "second" }),
+    raw("dup-newer-later", { progress: "older", created_at: "2026-02-01T00:00:00.000Z" }), raw("dup-newer-later", { progress: "newer", created_at: "2026-04-01T00:00:00.000Z" }),
+    raw("dup-newer-first", { progress: "newer", created_at: "2026-04-01T00:00:00.000Z" }), raw("dup-newer-first", { progress: "older", created_at: "2026-02-01T00:00:00.000Z" }),
+    raw("dup-same", { agent_id: "someone-else", progress: "another agent's row of the same task" }),
+    { ...raw("legacy-no-task-id", {}), task_id: undefined },
+    { ...raw("legacy-no-updated-at", {}), updated_at: undefined },
+    raw("tie-1", {}), raw("tie-2", {}),
+  ];
+  const text = JSON.stringify(rows);
+  writeFileSync(join(readerDir, "task-states.json"), text);
+  writeFileSync(join(storeDir, "task-states.json"), text);
+
+  const store = new JsonStore(storeDir);
+  await store.initialize();
+  const inputs = [{ agent_id: AGENT, limit: 50 }, { agent_id: AGENT }, { agent_id: AGENT, limit: 3 }, { agent_id: "someone-else", limit: 50 }];
+  for (const input of inputs) {
+    const fromStore = await store.getTaskStates(input);
+    const fromReader = await readTaskStatesReadOnly({ AGENT_MEMORY_DB_TYPE: "json" } as NodeJS.ProcessEnv, input, { json_dir: readerDir });
+    assert.equal(pick(fromReader), pick(fromStore), `json ${JSON.stringify(input)}`);
+  }
+  const everything = await store.getTaskStates({ agent_id: AGENT, limit: 50 });
+  const progressOf = (task: string) => everything.filter((row) => row.task_id === task).map((row) => row.progress);
+  assert.deepEqual(progressOf("dup-same"), ["first"], "the comparison is over the duplicate: one row of equal times, the first");
+  assert.deepEqual(progressOf("dup-newer-later"), ["newer"]);
+  assert.deepEqual(progressOf("dup-newer-first"), ["newer"]);
+  assert.deepEqual(progressOf("legacy-no-task-id"), ["progress of legacy-no-task-id"], "a legacy row is given its task id from the task name");
+  assert.equal(everything.find((row) => row.task_id === "legacy-no-updated-at")?.updated_at, SAME, "and its update time from its creation time");
+  await store.close();
+  assert.equal(readFileSync(join(readerDir, "task-states.json"), "utf8"), text, "the reader left the records byte for byte as they were");
+});
+
+test("T17(u): one function decides the start-up clean-up of task states (S3) - the store and the reader both call it, it does not change its input, it keeps the first of equal times, and cleaning twice changes nothing more", async () => {
+  const { normalizeTaskStates } = await import("./stores/task-state-normalize.js");
+  const row = (agent: string, task: string, at: string, tag: string, over: Record<string, unknown> = {}) => ({ agent_id: agent, task, task_id: task, created_at: at, updated_at: at, tag, ...over });
+  const A = "2026-03-01T00:00:00.000Z";
+  const B = "2026-04-01T00:00:00.000Z";
+
+  const clean = [row("x", "t1", A, "1"), row("x", "t2", B, "2"), row("y", "t1", A, "3")];
+  const untouched = normalizeTaskStates(clean);
+  assert.equal(untouched.changed, false, "rows with a task id, an update time and no duplicate are not a change");
+  assert.deepEqual(untouched.rows, clean);
+
+  const input = [
+    row("x", "t1", A, "first"), row("x", "t1", A, "second"), row("x", "t1", B, "newest"), row("x", "t1", B, "newest-again"),
+    row("x", "t2", B, "kept-first"), row("x", "t2", A, "older"),
+    row("y", "t1", A, "other agent"),
+    { agent_id: "x", task: "t3", created_at: A, tag: "legacy" },
+  ];
+  const before = JSON.stringify(input);
+  const result = normalizeTaskStates(input);
+  assert.equal(JSON.stringify(input), before, "the input is not changed");
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.rows.map((r) => (r as { tag: string }).tag), ["newest", "kept-first", "other agent", "legacy"],
+    "one row per agent and task: the newest, the first of equal times; a kept row stays where the key first appeared");
+  const legacy = result.rows.find((r) => (r as { tag: string }).tag === "legacy") as unknown as { task_id: string; updated_at: string };
+  assert.equal(legacy.task_id, "t3", "a missing task id is the task name");
+  assert.equal(legacy.updated_at, A, "a missing update time is the creation time");
+  const again = normalizeTaskStates(result.rows);
+  assert.equal(again.changed, false, "cleaning twice changes nothing more");
+  assert.deepEqual(again.rows, result.rows);
+
+  const { readFileSync: read } = await import("node:fs");
+  const storeSource = read(join(process.cwd(), "src", "stores", "json-store.ts"), "utf8");
+  const readerSource = read(join(process.cwd(), "src", "stores", "read-only-task-states.ts"), "utf8");
+  for (const [name, source] of [["json-store.ts", storeSource], ["read-only-task-states.ts", readerSource]] as const) {
+    assert.ok(source.includes("normalizeTaskStates("), `${name} calls the one function`);
+    assert.ok(!/latestPerKey|\$\{[^}]*agent_id\}::/.test(source), `${name} does not carry the rule's own copy (the key and the choice of row are in one file)`);
+  }
+});
+
 let failed = 0;
 for (const [name, runCase] of cases) {
   try {
