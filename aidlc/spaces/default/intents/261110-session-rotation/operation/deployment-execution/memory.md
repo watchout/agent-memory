@@ -14,6 +14,11 @@
 - 2026-11-11T09:12:52Z — arc の「A で進める」を、席の判断でなく arc の判断（Owner の言葉ではなく、GitHub にも未記録）として記録に書き、評価の元にしない; 入力検証・契約に触れる決定は、公開された決定だけを権限とする決まりと、escalation-policy の「セキュリティに関わる設計変更」のため。Owner/arc-sec の確認と GitHub への記録は arc が持つ。
 - 2026-11-11T09:12:52Z — 「証拠に無視した key の名前を記録する」は v1 の証拠 schema（`additionalProperties: false`）に触れると見て、実装に入る前に arc に聞いた; 契約の .v2 は保護面で、席が決めない。
 - 2026-11-11T09:16:06Z — 段を戻すのに、team.md の `jump reopen` でなく `jump execute --direction backward` を使った（arc の指示）; reopen は単位ごとの command で、単位の無い express の取り組みでは満たせず、Operation から Construction への phase をまたぐ戻りには使えないため。席が単位の名前を作って流すことはしなかった。team.md の「止まった時の手順」は、単位の無い取り組みの時は `jump execute` と書き足す必要がある（次に team.md を直す時の候補。席は直接直さない）。
+- 2026-11-11T23:20:43Z — 第 2 回の実行では、S0・S2 を読み取りだけで再確認し（書き込み 0）、第 1 回の実物の記録は書き換えず「第 2 回の実行」の節を足した; 第 1 回の S0 の Owner の決定・S2 の停止は有効なままで、やり直しは不要なため。
+- 2026-11-11T23:20:43Z — S3・S4 の差し替えは、条件（arc-sec の第 2 版の手順の読み直し O12）が満たされるまで、席が実行も準備の書き込みもしない; 席は設定を書かない決まりで、実行の主体は Owner が打つ arc の script。待ち中に成果物を作らず、記録と diary を保存して止まる。
+- 2026-11-12T02:28:14Z — arc の依頼の「hook が書いた証拠の file」を、診断の記録の 3 file と読み、SessionStart の証拠の JSON（`input_valid`・`store_binding`・`auto_receive`・`forbidden_effects`）は file でなく stderr だけに出る作りだと確かめた（runtime event はこの席の hook の引数に manifest が無く無効）; 依頼は「会話の記録の jsonl から抜き出さない」と読み先を絞っていたので、席が読み先を広げず（jsonl も DB も読まず）、取れた物を「直接」「推論」「観測できず」に分けて書いた。
+- 2026-11-12T02:28:14Z — `RECOVERY_UNAVAILABLE` が消えたことを、届いた `additionalContext` から推論で言った; degraded の出力は `systemMessage` だけで `hookSpecificOutput` を持たないコードを読んで根拠にした。ただし `full` と `degraded`／`EVIDENCE_LOG_UNAVAILABLE` は区別できないので、`outcome: full` とは書かなかった。
+- 2026-11-12T02:28:14Z — SessionStart の証拠の `forbidden_effects` は `forbiddenEffects()` が 0 を固定で返す定数なので、読めても実測にならない。C2 の表の「副作用」を証拠の値だけで合格にしない（S5）。
 
 ## Deviations
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
@@ -31,3 +36,12 @@
 - 2026-11-11T09:12:52Z — 無視した key の名前の置き場: 既存の v1 の証拠 schema に optional 項目を足すか、.v2 にするか、証拠には足さず別の場所（試験の中でだけ確かめる、または件数だけ）にするか。arc に聞いた。
 - 2026-11-11T09:08:17Z — 席の対話の起動での SessionStart・Stop・UserPromptSubmit の入力の key の全部は、まだ取れていない（`-p` の probe だけ）。直しの後の C2 の取り直しで、証拠が `input_valid: true` になるかで確かめる。
 - 2026-11-11T09:08:17Z — Stop の取り込みの hook が付く設定は `async: true`。拒否されて通した時に、証拠はどこにも残らないのか（stderr は非同期の hook では見えない）。直しの後に、取り込みの件数が 0 から増えるかで確かめる。
+- 2026-11-11T23:20:43Z — arc-sec の読み直し（O12）の完了と、Owner が script を打つ時機（席が手すきの時）。打った後、arc が席を起こし直し、この会話は終わる。次の会話が C2 の取り直しと S5〜S7 を行う。
+- 2026-11-12T00:57:35Z — 解決: arc-sec の読み直し（O12）は済み（iyasaka-arc#57 の comment 6811122140、止める点 0、本文 SHA-256 e84e8b7b…8787f を席が取り直して一致）。残る条件は席が手すきであることと Owner の操作。arc の注記 3 により S1 のやり直しの読み戻しを #339 に出す必要があるが、投稿は前に権限の判定が拒否したので繰り返さず、本文（issue-339-readback-s1-redo.md）を用意して S3 の読み戻しと一緒に出す（arc の指示）。
+- 2026-11-12T02:28:14Z — C2 の表の 4 項目（`outcome` が `full` か、`auto_receive.status`、`store_binding` の値、SessionStart の `forbidden_effects`）の読み先: (a) 会話の記録の SessionStart の hook の結果 1 行を、残す key を決めた script で読む（席の勧め。第 3 回と同じ道）、(b) 人が画面の文を見て答える（`outcome` の区別だけ）、(c) 品質ログ（`recovery_quality_log`）の 1 行を READ ONLY で読む（`store_binding` は入らない）。arc に伺う。将来、証拠を file にも書く設計にする案は、契約（証拠の .v2）に触れるので席は決めない。
+- 2026-11-12T02:28:14Z — 取り込みの件数の増減は、DB を読む許可が要る（arc に伺う項目と一緒に）。
+- 2026-11-12T02:38:00Z — arc の (c)（品質ログの 1 行を READ ONLY で読む）を流したところ、席の柵（auto mode の判定「Production Reads」）が拒否した; 回避せず、再試行せず、arc に代わりに流してもらうこともしない（拒否された操作を他の席に頼むと、柵の判断を迂回する）。`auto_receive.status` は観測できないまま記録し、Owner の判断に回したが、その後 arc が合格の条件から外す判断をした（次の行）。arc が済ませた画面の観測（`outcome`）と別の道の結びつきの値（`store_binding`）は、「arc の観測」と書いて足し、席が見た値とは書いていない。
+- 2026-11-12T02:55:00Z — arc の指示で、引き継ぎの確定の順番の直しの設計の記録の下書きを `handoff-commit-order-design-draft.md` に書いた（code は書いていない）; 採った案 = 消費と確認の印を出力の書き込みの後へ移す（A）。採らなかった代替 = 消費の取り消しの verb を足す（B）、DB に列を足す（C。保護面）、消費を出力の直前に寄せる（D。窓が残る）。出す入れ物（reopen か新しい bugfix の取り組みか）は engine と arc の判断を待つ（席が順を決めない）。commit・push・PR は出していない。
+- 2026-11-12T02:40:00Z — arc の判断（Owner の委任 iyasaka-arc#49 6762288830 の技術の範囲。Owner の言葉ではない）で、`auto_receive.status` を C2 の合格の条件から外した; 採った判断 = 「続きの案内（`wasurezu-recovery-pack/v1`）が会話の文脈に実際に届いた」事実の観測で置き換える（pack ref の時刻 11:22:42.288 JST と診断の記録の更新 11:22:42.333 JST の一致、差 45 ミリ秒）。採らなかった代替 = 本番の DB の品質ログを読む／Owner に端末で流してもらう。値は観測できていないので、「値を観測した」とは書かず、「置き換えた合格」と書く（S5）。外れは `cd-config.md` の C2 の表の直下に 1 行ずつ書いた。C2（第 4 回）は合格と記録。
+- 2026-11-12T02:38:00Z — `outcome: full` の記録は、コードで「`EVIDENCE_LOG_UNAVAILABLE` を作る箇所が 1 つで、必ず `systemMessage` を足す」ことを確かめたうえでの推論（arc の画面の観測 + コード）。hook の証拠の値を読めていないので、読めたとは書かない。
+- 2026-11-12T02:30:00Z — この会話の Stop の診断は、最初の応答が終わった後に取り直した: 11:28:59 JST に 2 つの Stop の file が更新され、Stop の件数が 6 になった（落とした名前 0・不正な名前 0）。arc には 1 通で送った後なので、追加の連絡はせず、arc の返事への答えに含める。

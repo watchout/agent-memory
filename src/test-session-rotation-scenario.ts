@@ -24,6 +24,8 @@ const { runClaudeSessionStart } = await import("./claude-session-start.js");
 const { runCodexSessionStart } = await import("./codex-session-start.js");
 const { ROTATION_UNCERTAINTY_SENTENCE } = await import("./session-rotation-start.js");
 const { createStore } = await import("./stores/index.js");
+const { commitRotationRecovery } = await import("./rotation-commit.js");
+import type { RotationCommitPlan } from "./rotation-commit.js";
 
 type Host = "claude_code" | "codex";
 
@@ -190,6 +192,17 @@ async function runScenario(host: Host): Promise<void> {
   assert.equal(startedTurn.state, "started");
   assert.equal(startedTurn.session_id, newSession);
   assert.equal(startedTurn.source, "clear");
+
+  // FR11.1: reading consumed nothing; the commit after the output is what uses the bundle up.
+  const readAgain = host === "claude_code"
+    ? await runClaudeSessionStart(startRaw, binding, { rotation })
+    : await runCodexSessionStart(startRaw, binding, { rotation });
+  assert.ok((readAgain.output.hookSpecificOutput as { additionalContext: string }).additionalContext.includes(ROTATION_UNCERTAINTY_SENTENCE), `${host}: reading alone leaves the bundle`);
+  const plan = (started as { rotation_commit?: RotationCommitPlan }).rotation_commit;
+  assert.ok(plan, `${host}: the result carries the commit plan`);
+  assert.equal(plan.via, "marker");
+  const committed = await commitRotationRecovery(plan, { now: NOW, elapsed_ms: () => 100, hook_timeout_ms: 9_000, open_store: () => createStore() });
+  assert.deepEqual(committed, { record: "skipped", consume: "consumed" }, `${host}: a /clear start has no record and consumes once`);
 
   // The same bundle is not used twice.
   const again = host === "claude_code"

@@ -76,14 +76,14 @@
 
 - `npx tsx src/test-session-rotation-scenario.ts` は、実装の前に `ERR_MODULE_NOT_FOUND`（`src/session-rotation-stop.js` が無い）で落ちた。実装の後は PASS。
 
-### 試験（この Mac の Node v26.12.1・npm 11.20.0）
+### 試験（この Mac の Node v26.12.1・npm 11.20.0。数は Step 16 の PR #342 の head `23ddb0cf` の時点の実物。PR #344 の head では `src/test-session-rotation-status.ts` は 18 cases、`src/test-rotation-watcher-units.ts` は 86 cases、`src/test-rotation-watcher-flow.ts` は 109 cases で、ほかは同じ）
 
 | 試験 | 結果 |
 |------|------|
 | `src/test-session-rotation-core.ts` | 21 cases PASS（FR1・FR2・FR7.2・FR7.3・file の形・uid の取り方） |
-| `src/test-session-rotation-flow.ts` | 40 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1（標準入力の読みを含む）・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
-| `src/test-rotation-hook-registration.ts` | 12 cases PASS（FR2.2・installer の引数・戻し・印の無い compact の決まった文 FR7.1） |
-| `src/test-session-rotation-status.ts` | 8 cases PASS（FR4.2） |
+| `src/test-session-rotation-flow.ts` | 47 cases PASS（FR3・FR4・FR6・FR7.1・内部期限 NFR1（標準入力の読みを含む）・transcript の帰属 FR8・回復の文の上限 FR6.4・hook の command を別 process で起動する場合を含む） |
+| `src/test-rotation-hook-registration.ts` | 13 cases PASS（FR2.2・installer の引数・戻し・印の無い compact の決まった文 FR7.1） |
+| `src/test-session-rotation-status.ts` | 17 cases PASS（FR4.2・hook_input の節） |
 | `src/test-rotation-watcher-units.ts` | 83 cases PASS（設定・画面・tmux・ps・核・帳面の読み取り） |
 | `src/test-rotation-watcher-flow.ts` | 103 cases PASS（一度だけ・確認・帳面・HALT・閉じた命令の集合・読めない帳面・確認の記録の失敗・止まる印を返した席の後を回さない） |
 | `src/test-session-rotation-scenario.ts` | PASS（Claude Code と Codex で、量を測る → 保存して印 → 新しい会話の頭に次の 1 歩。FR9.1） |
@@ -204,6 +204,13 @@
 - 足した試験（足しただけ。既存の確かめは弱めていない）: `src/test-hook-input-diagnostics.ts` に (1) 渡した uid で判定が変わる（501／502／root／`null`、folder・file・mode・大きさの境）と、process が別の uid を名乗る・名乗らない間も同じ引数で同じ答えになること、(2) 書き手に別の uid や `null` を渡すと何も書かず、自分の uid では書くこと、(3) 確かめの本体に `process`・`getuid`・`currentUid` が現れないこと。`src/test-session-rotation-status.ts` に、別の uid や `null` を渡すと本物の記録が『観測できず』になる 1 case（16 → 17 cases）。
 - 数の変化: `src/hook-input-diagnostics.ts` 268 → 275 行、`src/session-rotation-status.ts` の変えた行が 87 → 88、変えた行と新しい行は 930 → 938 行。動かなかった範囲は同じ 1 つ（`src/session-rotation-stop.ts` 756 行目）。
 
+### 2 回目の実装監査（PASS）と統合
+
+- 依頼: PR #342 の comment 6808343122（対象の head `23ddb0cf18f49b94444bf6900fca0155d93887a2`、前検査 READY_FOR_REVIEW）。返却: comment 6808507295（devauditor = iyasaka-ai、PASS。固定 23 項目すべて PASS、blocking 0、F1 は解消、新しい指摘 0）。作者の受領: comment 6808706214（`--review` の結果 RECEIPT_ACCEPTED、終了コード 0）。
+- 返却が書いている限り: DES-1〜DES-11 は設計監査の判定の再利用で、現在の head に code の差分が無いという判定ではない。`Shirube Rapid/Lite Gates Report` の failure は成功と数えない。今回の PASS は実装監査で、統合・Owner の exact-head・配備の Owner の決定・実環境での受け入れの代わりにならない。新しい試験の型検査の除外は既存の tsconfig どおり。
+- Owner の exact-head: OD-KUSABI-PR342-R3-EXACT-HEAD-23DDB0CF-20261112-001（PR #342 の comment 6808786916、記録 = arc）。統合: suite-lead が merge commit `94f1ca6d0042bd970d4cc7c4ab9ce9153b7d5c0d`（読み戻し comment 6808846277）。統合の後の main の CI run 43113722371 は build-and-test 18・20・22 すべて success。席への新しい版の据え直しは、この統合に含まれない。
+- この段で実行していない確かめ: 席への配備、障害のあった席・disk での実環境の確かめ、Claude Code 2.1.321 など別の版での動き（手元は Node v26 だけで、Node 18・20・22 は CI の結果）。これらは Build and Test 以後の段（計画 16.11）の仕事。
+
 ## 公開してよいかの確かめ
 
 - 公開の repo なので、PR に入れる file の足した行を、手元の path（`/Users/`）、DB の URL・資格情報、秘密の値、勧告の番号、メールアドレスで探す。結果は push の前にもう一度流し、この節に書いた数と同じかを確かめる（伏せた所は 0）。
@@ -217,3 +224,110 @@
 - 帯の値（`BAND_THRESHOLDS` と `contextSignalFor` の比率）は 2 か所に literal がある既存の重複で、切り直しは絶対の量で判定するので触れていない（FR2.3、記録だけ）。
 - 手元の試験の中で、既定の `createStore()` を使う確かめの script を 1 つ動かしてしまい、この Mac の既定の保存先（JSON の store の `conversation-events.json` と `raw-events.json`）に、試験用の席（`agent_id` が `control-seat`）の行が入った。2 つの file を退避してから、その席の行だけを消して `[]` に戻した（消した時点で他の席の行は無いことを、全行の `agent_id` で確かめた）。2 つの file が試験の前から有ったかは分からない。本番の DB には書いていない。以降の確かめの script は一時の `HOME` を使う。
 - `ps` の `lstart` の文は locale で変わる（`LC_ALL=C` で解いた）。tmux 3.6a は `pane_start_command` を二重引用符で包んで返す。`if-shell -F` の中の `%` は 2 重にしなくてよい。
+
+## Step 17: 引き継ぎの確定の順番の直し（設計 5 回目の版・試験・実装。PR #344）
+
+配備の途中（2026-11-12）で見つかった設計の誤りを、同じ取り組みの construction で直す（arc の技術の判断。Owner の決定ではない）。設計監査の 1 回目（PR #344 の comment 6814171592）は BLOCK（止める 3 件）、2 回目（comment 6815818953）も BLOCK（PASS 9・FAIL 5、止める 2 件 = F1・F3）。4 回目の版は順を 出力 → 出力済みの記録 → 消費 にして F1 を閉じたが、見直し役は F3 が名前と意味の言い換えでは閉じないと読んだ（見張りが `done`／`confirmed` を書き続ける。KY の自己判定 r1 の『中』は誤り）。**5 回目の版（O4）**: 見張りは受領を観測していないので成功と書かず、新しい終端の値 `output_written_receipt_unobserved` を claim・台帳・tick に書く（respawn の数えは変えない）。進め方は arc の判断で、設計の記録・試験だけの commit・実装を同じ PR に載せ、設計と実装を 1 回にまとめた監査を出す（この変更は R2 という arc の判断。agent-memory#339 の comment 6817476604、本文の SHA-256 `c6d63f5ac30f59b0316796932255363e9409c6a6b30df4d7c7bdc583d7659063` の本文「設計と実装を、1 回の監査にまとめてよい」「区分は R2 のまま」に publish 済み。Owner の決定ではない）。
+
+**3 回目の返却（設計 5 回目の版と実装への 1 回目の監査。comment 6817841956。BLOCK）への直し（6 回目の版）**: F1 = 消費済みで host が文を受け取らなかった時の復旧が確かめられていない。`restart-cli` に読むだけの verb `handoff-source` を足し（`src/rotation-handoff-source.ts`）、marker と task_state（task_id は `rotationHandoffTaskId` の 1 か所）を読んで、SHA-256 が marker と合う時だけ全文を返す。設計 4.7 に R-a／R-b の対の表を足した。DB の構造・列・状態・store の verb は足さない。F2 = `writeLine` が callback で `error` の listener を外し、stderr だけの失敗が未処理の `error` で process を止めた。stream ごとに 1 つの『`error` を致命にしない』listener を残す。試験は手作りの EventEmitter をやめ、実際の `node:stream` の Writable と、実際の閉じた pipe の子 process に替えた。arc の指示（この版を書いた時は席間の連絡で GitHub に未 publish だったので、権限としては引用しなかった。その後、agent-memory#339 の comment 6818980536、本文の SHA-256 `e34b8289b8f4db78c6bc087a3f600a39e6a814a28401fc309fc222937a800a5d` の本文「F1（消費の後に host が出力を捨てた状態からの復旧）は、案 B で閉じる」「採らない物: 案 A（使用中→使用済みの 2 段。DB の契約の変更で Owner の判断が要る）、案 C（出し直し。FR6 の振る舞いを変える）、案 D（閉じない）」「区分は R2 のまま」に publish された。Owner の決定ではない）。
+
+**4 回目の返却（実装への 2 回目の監査。comment 6820405103。BLOCK）への直し（7 回目の版）**: 止める 1 件 F1（重大×低）= 読むだけの `handoff-source` が `createStore()` と `store.close()` を通っていた。SQLite は初期化と閉じる時に DB 全体を書き出すので別の process の保存を失い、PostgreSQL は読み取り専用の接続や SELECT だけの role で migration が失敗し、JSON は古い形の行を書き換え、`--project` が無くても SQLite の file を作った。arc の指示（この版を書いた時は席間の連絡で、GitHub には未 publish だったので権限としては引用しなかった。その後 agent-memory#339 の comment 6821221767 の本文「読むだけの読み手を backend ごとに足す」に publish された。この変更が区分 R2 であることは agent-memory#339 の comment 6818980536、本文の SHA-256 `e34b8289b8f4db78c6bc087a3f600a39e6a814a28401fc309fc222937a800a5d` の本文「区分は R2 のまま」に publish 済み）に従い、verb の枝と引数の確かめを `createStore()` の前に置き、store を通さない読み手（`src/stores/read-only-task-states.ts`）で読む。store の契約・DB の構造・列・状態・verb は変えない。観察 O2（壊れた JSON を `absent` と読む）は読み手で直した。観察 O1（`writeOutputWritten` の `isMarkerId` の確かめと監査の項目 IMP-5 (b) の食い違い）は直さず、IMP-5 (b) は未達として項目に書く（軽。差し戻しの対象外）。
+
+**5 回目の返却（実装への 3 回目の監査。comment 6821662088。BLOCKED_RECEIPT）への直し（8 回目の版）**: 止める指摘は 0 で、受領の契約（項目が全部 PASS。`audit-admission.mjs` が確かめる）の側で止まった。項目 28 件が PASS、5 件（DES-9・IMP-1・IMP-5・IMP-13・IMP-16）が FAIL で、観察は 3 件。直す範囲は O1・O2・O3 だけ（arc の判断。agent-memory#339 の comment 6822942877、本文の SHA-256 `96bfebe0e0dedfecbeab43a9cf1a4995c5e69c1094eaaf8650f0412d4f83aa69`。Owner の決定ではない。この段落を最初に書いた時は出典を comment 6821221767 としたが、それは 4 回目の返却 F1 の直し方の指示で、6 回目の返却の観察 O4 を受けて直した）。O1 = `writeOutputWritten` が綴りでない marker id を断らなかった。`isMarkerId` の確かめを足し、綴りでない id は何も作らずに投げる（確定は `failed`、消費しない。T12(i)）。O3 = 同じ agent・task・`created_at` の重複行で、読み手と JSON の store が別の行を返した（読み手が store の起動時の整理を再現しなかった。4 回目の返却の直しで書いた『同じ行に当たる』は、同時刻の重複では誤りだった）。整理を純粋な関数 `normalizeTaskStates`（`src/stores/task-state-normalize.ts`）に出し、`JsonStore.initialize` と読み手が呼ぶ（S3。規則の写しを持たない。T17(t)(u)）。O2 = 項目 IMP-1 の (a)(b) が古かった（`src/stores/` に差分が無い、試験を 1 つ足す）ので、実際の差分に合わせ、機械で数えられる形に書き直した（Store の契約を変えないという狙いは緩めない）。DB の構造・列・状態・verb・外部の依存は足していない。
+
+**6 回目の返却（実装への 4 回目の監査。PR #344 の comment 6822881416。BLOCKED_RECEIPT）への直し（9 回目の版）**: 製品の差し戻しは 0 件で、受領の契約（項目が全部 PASS）の側で止まった。項目 30 件が PASS、3 件（DES-9・IMP-10・IMP-14）が FAIL。O1・O2・O3 の実装は是正済みと判定された。直す範囲は記録の文と数だけ（arc の判断。agent-memory#339 の comment 6822942877、本文の SHA-256 `96bfebe0e0dedfecbeab43a9cf1a4995c5e69c1094eaaf8650f0412d4f83aa69`。Owner の決定ではない）。code・試験は動かさない。DES-9 (k) = 直す範囲の出典（comment 6822942877）と 4 回目の返却 F1 の直し方の出典（comment 6821221767）を分けた（観察 O4）。IMP-10 (c) = 35／13／14 cases・T9 は a〜f の 6 cases に。IMP-14 (f) = src/stores/ の差分を 5 file の言い方に（観察 O5）。あわせて、項目の file の全部の数・file 名・範囲の文を head の実物と機械で突き合わせ、ほかに古かった所を直した: IMP-16 (g) = 800 行を超える file（既存の本体 `codex-session-start.ts`・`stores/sqlite-store.ts`・`stores/json-store.ts`、既存の試験 `test-rotation-watcher-flow.ts`・`test-session-rotation-flow.ts`、新しい試験 `test-handoff-commit-order.ts` の 1022 行）、DES-6 = hook の期限 9 秒の定数は base も head も 6 か所（『2 か所』は誤り）、項目の file の scope と status。突き合わせた command と出力は PR の本文にある。見直し役（architecture-reviewer、読み取りだけ）の突き合わせで見つかった 4 か所も、同じ記録だけの commit で直した: IMP-2 (a) = restart-cli.ts の consumeSelectedRestartPack の呼び出しは中身が base と同じで、verb handoff-source の追加で位置が 256 → 296 に動いた（ほかの 5 file は同じ位置）。DES-6 (b) = 出力済みの記録の schema 定数の位置（既存の 3 つは base の 23-25・head の 25-27、新しい定数は head の 28）。DES-9 (d) = 禁止の語は『この PR が足した行』で数え、名前に含まれる物は語として数えない。IMP-16 (e) = 4 回目の返却の F1 の赤の数を実物に合わせた（test-handoff-source-cli.ts は 12 case のうち 11 case、test-handoff-source.ts は 13 case のうち 1 case が落ちる）。DES-9 (j) には、T12(f)（状態の表示）が test-session-rotation-status.ts の FR11.6 の case であることも足した。DB の構造・列・状態・verb・外部の依存は足していない。
+
+**7 回目の返却（実装への 5 回目の監査。PR #344 の comment 6824016504。BLOCKED_RECEIPT）への直し（10 回目の版）**: 製品の差し戻しは 0 件で、受領の契約（項目が全部 PASS）の側で止まった。項目 32 件が PASS、1 件（DES-9）が FAIL で、観察は O6 の 1 件（起きやすさ 低 × 困る大きさ 軽。差し戻しの対象外）。O4・O5 は是正済みと判定された。O6 は要約の Step 17 の節の 2 か所: `src/rotation-commit.ts`（新、198 行）の行数が旧い記述で 184 行になっていたことと、設計と実装を 1 回にまとめた監査の進め方を『GitHub には未 publish』と書いた文（その進め方は agent-memory#339 の comment 6817476604 の本文「設計と実装を、1 回の監査にまとめてよい」に publish 済みだった）。直す範囲は記録の文と数だけ（arc の判断。agent-memory#339 の comment 6822942877、本文の SHA-256 `96bfebe0e0dedfecbeab43a9cf1a4995c5e69c1094eaaf8650f0412d4f83aa69`。Owner の決定ではない）。code・試験・package.json・scripts・.github は動かさない。毎回違う古い行が見つかるので、形で止めた。(1) 記録に手で書いた数（『N 行』『N cases』『N 項目』）と、publish の状態の文と、引く comment の SHA-256 を、head から出す script（`record-check-method.md`）で照らし、見つかった食い違いを全部直した。数の食い違いは次の 3 種: `src/codex-session-start.ts`（1099 → 1122 行。base → head）の旧い記述は base の値だった、`src/stores/json-store.ts`（927 → 907 行。base → head）の旧い記述 929 行は base でも head でもなかった、`src/test-session-rotation-status.ts` は 18 cases（FR11.6 の case を足した後の数。Step 16 の表は PR #342 の head の時点の実物と書いた）。状態の文の食い違いは、F1 の案 B と区分 R2（comment 6818980536）、設計と実装を 1 回にまとめた監査と O4（comment 6817476604）を、『未 publish』『席間の指示』のまま残していた所（要約・計画・設計・試験の手順・項目の file の status と DES-14 (f)・PR 本文）で、『この版を書いた時は…だった。その後 …に publish された』の形か publish 済みの URL に直した。(2) 項目 DES-9 は、(h) を publish 済みの comment ごとに引く物を分けた形にし、(l) に『数と状態の文を script で照らす』を足した。DB の構造・列・状態・verb・外部の依存は足していない。
+
+**8 回目の返却（実装への 6 回目の監査。PR #344 の comment 6840277099。BLOCKED_RECEIPT）への直し（11 回目の版）**: 製品の差し戻しは 0 件で、受領の契約（項目が全部 PASS）の側で止まった。項目 32 件が PASS、1 件（DES-9）が FAIL で、観察は O7 の 1 件（起きやすさ 低 × 困る大きさ 軽。差し戻しの対象外）。O6 は是正済みと判定された。O7 は、設計の記録の 7 行目が、comment 6817476604 の本文に無い物（F1 の消費を 2 段にする示唆・依頼の前の点検表の 5 点・見直し役 1 回）まで、その comment に『publish された』と書いていたこと。直す範囲は記録の出典の文だけ（arc の技術の指示、agent-memory#339 の comment 6840293090、本文の SHA-256 `473b05650fed9b5e83f6e195549e2f8bdd7b02a32acba773eb8a45f28edf3d52` の本文「形で止める（10 回目を作らない）」。Owner の決定ではなく、独立の監査の判定でもない）。code・試験・package.json・scripts・.github・項目の水準は動かさない。(1) 設計の 7 行目を、comment 6817476604 の本文が言う物（「F3（host が出力を捨てても完了と数える）は O4 で閉じる」「設計と実装を、1 回の監査にまとめてよい」「区分は R2 のまま」）だけに直し、公開されていない席の間の連絡は『当時の席の間の連絡（公開なし）』と書いた。F1 の 2 段の示唆は、comment 6818980536 の採らない案 A としてだけ結んだ。(2) 記録の中で『publish 済み／された』と言う文はすべて、出典の本文から写した句（「…」）を持つ形に直した。(3) 記録の照らしの script に 4 つ目の『出典の照らし』を足した。DB の構造・列・状態・verb・外部の依存は足していない。(4) 見直し役の突き合わせで、本文の言葉でなく作者の読みを comment の言葉のように書いていた所（計画の R2 の理由、項目 DES-14 (f) の列挙、設計 4.7 の『保つ』）と、F3 の意味の部分が comment 6815595874 の本文にあること（設計 7 行目）、『案 A』が 2 つの comment で別の案を指すこと（項目 DES-9 (h)）を直した。
+
+### 変えた file（base の main `94f1ca6d` に対して）
+
+| file | 変更 |
+|---|---|
+| `src/stores/read-only-task-states.ts`（新、165 行） | store を通さない読み手。SQLite = file の bytes を読んで sql.js でメモリ上に開き SELECT するだけ（書き出さない・file を作らない・無ければ失敗）、PostgreSQL = `BEGIN READ ONLY` → SELECT 1 本 → `ROLLBACK` → `end()`（接続・query・statement の時間は `ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS`。idle 中の `error` で process を落とさない）、JSON = 読んで parse し、store の起動時の整理と同じ関数 `normalizeTaskStates` をメモリの中だけでかける（書き戻さない。folder が無い・parse できない・配列でない・オブジェクトでない行・`created_at` が無い行は失敗。folder があって file が無ければ空）。読めない物は空の一覧にしない（`unreadable`）。store の verb・表・列・状態は足さない |
+| `src/stores/task-state-normalize.ts`（新、42 行） | JSON の store の起動時の整理を 1 つの純粋な関数 `normalizeTaskStates` にした: `task_id` が無い行は `task`、`updated_at` が無い行は `created_at` を補い、同じ (agent_id, task_id) を `created_at` が最新の 1 行へ畳む（同時刻は先の行。残る行は key が最初に現れた位置）。入力を変えず、時計も file も読まない。`JsonStore.initialize`（結果を書き戻す）と読み手（書かない）が呼ぶ |
+| `src/stores/index.ts`・`src/stores/sqlite-store.ts`・`src/stores/json-store.ts` | 読み手と `createStore` が同じ選び方をするための取り出しだけ: `resolveStoreBackend(env)`（`createStore` が使う。選び方・誤りの文・出す警告は同じ）、`resolveSqliteDbPath(explicit, env)`（コンストラクタが使う）、`DEFAULT_DATA_DIR`・`TASK_STATES_FILE` の export。`json-store.ts` の起動時の整理は、同じ規則のまま 1 つの関数 `normalizeTaskStates` の呼び出しに替えた（約 30 行が 7 行になった。5 回目の返却の O3）。store の挙動と契約は変えない。`sqlite-store.ts`（1,883 行）と `json-store.ts`（907 行）は 800 行を超える既存の file で、触る時に直す決まりに対して export を数行足しただけ（分割しない。下の計画からの外れ） |
+| `src/rotation-handoff-source.ts`（新） | 読むだけの `readHandoffSource`（marker → task_state を task_id で探す → SHA-256 を marker と突き合わせる。結果は `found`／`no_marker`／`other_seat`／`not_seat_text`／`absent`／`overwritten`／`unreadable`）。一覧が上限で切れて行が見えない時は `unreadable`（`absent` と言わない）。何も書かず、何も消費しない |
+| `src/restart-cli.ts` | verb `handoff-source` を足す（`found` は終了 0、それ以外は理由つきの JSON と終了 1、引数の欠け・値の欠け・知らない option は stderr に文を出して終了 2、stdout は空）。この verb は `createStore()` の前に分岐し、store を開かず `createReadOnlyTaskStateReader` で読む。既存の `prepare`・`fetch`・`preflight` の挙動と引数の誤りの扱い（終了 1）は変えない |
+| `src/rotation-commit.ts`（新、198 行） | 確定 `commitRotationRecovery`（段 0: 残りが `ROTATION_COMMIT_WRITE_RESERVE_MS` 未満なら何もしない → 段 1: claim 経由は出力済みの記録を書き、`written`／`exists` の時だけ進む → 段 2: 消費を 1 回だけ、予算 `min(1,500 ms, commit_by − 経過)` の中で）、`answerHookAndCommit`（stderr と stdout の両方を待ち、stdout が誤りなら確定しない）、`writeLine`（write の callback と `error` event の最初の誤りを 1 回だけ返す。stream ごとに 1 つの『`error` を致命にしない』listener を残し、書く 1 回ごとの listener は callback で外す） |
+| `src/session-rotation-files.ts` | 出力済みの記録 `output-written/<marker_id>.json`（schema `kusabi-rotation-output-written/v1`）の書き方 `writeOutputWritten`（temp → fsync → `link`、すでにあれば `exists`、mode 0600）と読み方 `readOutputWritten`（壊れた・別 marker・型違いは無いものとして読む）。`readClaim` と `writeOutputWritten` が marker_id の綴りの確かめ（`isMarkerId`）を共有し、綴りでない id は書く前に投げる（5 回目の返却の O1） |
+| `src/session-rotation-start.ts` | `prepareRotationRecovery` を読むだけにした（束を消費しない。`turn` の `rotation_marker_id` は常に null）。確定の計画 `RotationCommitPlan`（query・directory・turn・marker_id・via）を結果 `RotationBlock.commit` に載せる |
+| `src/claude-session-start.ts`・`src/codex-session-start.ts` | 出力の後に同じ `answerHookAndCommit` を呼ぶ。Codex は `main` の終わりを `runCodexSessionStartProcess(io)`（時計・store・書き込みを受ける）に切り出した（挙動は同じ。入力の失敗の早い return は確定しない） |
+| `src/rotation-watcher-store.ts`・`-core.ts`・`-attempt.ts` | 見張りは受領を観測していないので `done`／`confirmed` を新しい code から書かず、新しい終端の値 `output_written_receipt_unobserved`（claim の state・resolution、台帳の kind、tick の reason）を書く。確認の根拠は `confirmationBasis`（出力済みの記録、同居の間は旧い形の `turn`）。respawn の間隔・上限の数え（`COUNTING_KINDS`）は変えない |
+| `src/session-rotation-status.ts` | 状態の表示に `output_written`（file の有無と、あれば session と書いた時刻）を足した |
+| `src/constants.ts` | 確定の値 3 つ（`ROTATION_COMMIT_BUDGET_MS` 1,500、`ROTATION_COMMIT_EXIT_MARGIN_MS` 2,000、`ROTATION_COMMIT_WRITE_RESERVE_MS` 300）と、`handoff-source` の一覧の上限 `ROTATION_HANDOFF_SOURCE_LIST_LIMIT` 500、PostgreSQL の読みの時間 `ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS` 10,000 |
+| `src/session-rotation-files.ts`・`src/session-rotation-stop.ts` | task_id を作る `rotationHandoffTaskId(project)` を 1 か所に置き、保存側（`saveHandoff`）と読む側が同じ関数を使う（S3）。`session-rotation-stop.ts` の変更はこの 1 行だけ |
+| `package.json` | scripts の 2 行だけ（`test:session-rotation` の chain に新しい試験を 3 つ足す〔commit-order・source・source-cli〕、`test:handoff-commit-order-pg` を足す）。依存・`package-lock.json` は変えていない |
+| 試験 | 新しい `src/test-handoff-commit-order.ts`・`src/test-handoff-commit-order-pg.ts`・`src/test-handoff-source.ts`・`src/test-handoff-source-cli.ts`・`src/test-handoff-source-support.ts`（共有の fixture）。変えた既存の試験 6 file（下） |
+
+DB の作り（`src/migrate.ts`、表・列・状態・`Store` の verb。`src/stores/` の差分は新 file 2 つ〔読み手・整理の関数〕と、export の取り出しと整理の呼び出しの差し替えだけ。`Store` の型〔`src/stores/types.ts`〕の差分は 0）、`turn.json` の schema、`session-rotation-stop.ts` の書き手の挙動（task id の綴りを関数にした 1 行だけ）、証拠の契約、出力の形、workflow、`.github/`、`scripts/`、資格情報は変えていない。
+
+### 試験の結果（この Mac の Node v26.12.1、`HOME` と `AGENT_MEMORY_HOME` は一時の folder）
+
+| 試験 | 結果 |
+|------|------|
+| `npx tsc --noEmit` | 0 |
+| `src/test-handoff-source.ts`（新） | 13 cases PASS（T17(a)〜(h): 実際の JSON と SQLite の store で、全文が戻る・置き換えられた・無い・他の project／agent・多数の新しい作業・marker の理由・store の失敗と一覧の切れ・引数と help・実際の command を別 process で（`--project` の無い時は終了 2）。『読むだけ』は、読む verb 以外に触ると投げる store を通しても同じ答えになること、task_state の行と store の file 全部の SHA-256 が前後で変わらないことで示す） |
+| `src/test-handoff-source-cli.ts`（新、4 回目の返却の F1） | 14 cases PASS（T17(i)〜(u): 実際の command を別 process で、SQLite の file の bytes と更新時刻が同じ・別の process の保存が残る・JSON の旧い行を書き換えない・読めない物は `unreadable`・引数の欠けは終了 2 で何も作らない・他の verb の誤りは終了 1・marker の無い席は何も作らない・届かない／答えない PostgreSQL・読み手と `createStore` の選び方の一致・偽の client で文の列・読み手の行が実際の store と同じ・(t) 旧い行と重複行〔同時刻を含む〕を持つ同じ file を、起動で整理した実際の JSON の store と読み手に読ませて同じ行が返り、読み手は file を書き換えない・(u) `normalizeTaskStates` の単体と、store と読み手が両方それを呼ぶ源の検査） |
+| `src/test-handoff-commit-order.ts`（新） | 35 cases PASS（T1〜T7・T10〜T15、T12(i) の綴りでない marker id、F2 の実際の `node:stream` の Writable と閉じた pipe の子 process 4 件を含む、`answerHookAndCommit`、記録と読みの端、Codex の process の端、JSON の store での T9、Claude と Codex の実際の command を別 process で起こして 出力 → 記録 → 消費 を既定の store で確かめる 2 case） |
+| `src/test-handoff-commit-order-pg.ts`（新。手元の使い捨ての PostgreSQL。CI に入れない） | 6 cases PASS（T9 の a〜f: 新しい確定、同時 8 件、旧い順の hook との競り、期限切れ、`handoff-source` の読み戻し、f = 実際の command を SELECT だけの role・読み取り専用の接続・両方で `found`・行と列が前後で同じ・SELECT の無い role は `unreadable`）。出力は PR の本文 |
+| `src/test-session-rotation-flow.ts` | 47 cases PASS |
+| `src/test-session-rotation-status.ts` | 18 cases PASS |
+| `src/test-rotation-watcher-units.ts` | 86 cases PASS |
+| `src/test-rotation-watcher-flow.ts` | 109 cases PASS |
+| `src/test-session-rotation-scenario.ts` | PASS |
+| `src/test-session-rotation-core.ts`・`test-rotation-hook-registration.ts`・`test-claude-transcript-identity.ts` | 21・13・25 cases PASS（変えていない） |
+| CI の mirror（`.github/workflows/ci.yml` の手順を順に） | 17 / 17 が 0。core は 1832 passed・0 failed（Node 18・20・22 の CI は push 後に確かめる）。この後に T17(a)(h) と T9(e) の『読むだけ』の表明を足した（case の数は同じ）ので、`npm run test:session-rotation` の chain（全部 PASS）、PostgreSQL の試験、型検査（0）を流し直した。**4 回目の返却の直しの後（最終の code）**: `npx tsc --noEmit` 0、`npm run build` 0、`npm run test:session-rotation`（使い捨ての HOME）0、PostgreSQL の試験 6 cases PASS。**5 回目の返却の直しの後（最終の code）**: `npx tsc --noEmit` 0、`npm run build` 0、`npm run test:session-rotation`（使い捨ての HOME。core 21・flow 47・commit-order 35・source 13・source-cli 14・registration 13・status 18・watcher-units 86・watcher-flow 109・scenario PASS）0、core の `src/test.ts` は 1832 passed・0 failed、PostgreSQL の試験 6 cases PASS（使い捨ての DB。止めた） |
+
+- 見張りの試験で変えた既存の表明は、『確認 → `done`／`confirmed`／`confirmed_by_inquiry`』を『新しい終端の値 `output_written_receipt_unobserved`（根拠は台帳の detail）』に変えた所（O4 で意味が変わる所）と、`isNewConversationConfirmed` の試験を `confirmationBasis` の試験（出力済みの記録の枝と旧い形の枝）に替えた所だけ。ほかに、見張りの世界の模型（`test-rotation-watcher-world.ts`）が確認の元を出力済みの記録で書く道を足した。`test-session-rotation-flow.ts` は『読んだ時点で束が消費される・`turn` に印が付く』の表明を『読むだけで消費しない・印は常に null』に変えた。消した・緩めた表明は無い。
+- `test-session-rotation-status.ts` の key の一覧に `output_written` を足した。
+
+- **3 回目の返却の F2 の赤→緑**: `writeLine` の永続の listener を外した版に最終の試験を流すと 3 件が落ちた（T3(b)、Claude と Codex の stderr を閉じた pipe の子 process）。直した版では 34 cases が通る（その時点の数。5 回目の返却の直しで T12(i) を足して 35）。`stdout` を閉じた pipe の子 process は、直す前も後も『出力なし・記録なし・消費なし』で通る（stdout の失敗は元から確定を呼ばない側）。子 process に `NODE_NO_WARNINGS=1` を付けたのは、tsx の起動時の警告（DEP0205）を Node 自身が閉じた stderr へ書いて試験の子が落ちるのを避けるため（本番の hook は tsx を通らない）。
+- **CI の Node 18 で 2 件落ちた（head `3df0ca09`）→ 直した**: T12(d)・T12(e) が子 process を `node --import tsx -e <script>` で起こし、script の頭に `await import(...)` がある。Node 20 と 22 は module の構文を自動で判定するが、Node 18 は判定しないので `SyntaxError: await is only valid in async functions` になった（手元は Node 26 と 22 のみで、Node 18 は無かったので手元の CI の mirror では見えなかった）。2 つの起動に `--input-type=module` を足した（同じ試験の別の起動は元から付けていた）。Node 18 の step は最初の失敗で止まるため、この直しの前は後ろの試験（status・見張り・scenario）が Node 18 で流れていなかった。
+
+### 落ちる試験を先に作って確かめた（TDD の順）
+base の `src` に最終の試験を重ねて流した（`git archive` で作った base の tree に試験 8 file を置いた）: `test-handoff-commit-order`・`-pg`・`test-session-rotation-scenario` は `rotation-commit.js` が無く、`test-rotation-watcher-flow`・`-units`・`test-session-rotation-status` は `writeOutputWritten`／`outputWrittenPath` の export が無くて読み込みで落ち、`test-session-rotation-flow` は動いて 47 のうち 3 件が落ちる（『束が読んだ時点で消費される』『`turn` に印が付く』）。読み込みで落ちる 6 file は、振る舞いではなく『新しい部品が無い』を示す。振る舞いの失敗は実装の前の `session-rotation-flow` の 3 件と、実装が入った後に初めて通る順序の表明（T4・T13）が示す。PR の本文に出力を載せた。
+
+**4 回目の返却の F1 の赤→緑**: 試験を先に書き、試験だけの commit の tree（直す前の head `e6e5159b` の code に最終の試験を重ねた物）を取り出して流した。`src/test-handoff-source-cli.ts` は 12 case のうち 11 case が落ちた: (i) SQLite の file が変わる、(j) 通常の保存が command の終了で巻き戻る、(k) JSON の旧い行に `task_id`・`updated_at` が書き込まれる、(l) 壊れた JSON が `unreadable` にならない、(m) 引数の欠けが終了 2 にならない、(n) marker の無い席でも既定の SQLite の store が作られる、(o) 届かない PostgreSQL の答えが JSON で読めない、(p) `resolveStoreBackend` が無い、(q)(r)(s) は新しい読み手の module が無くて読み込みで落ちる（振る舞いではなく『部品が無い』を示す）。通るのは (m2) 1 case だけで、これは他の verb の引数の誤りが今までどおり終了 1 であることの確かめ（直す前の動きを守る）。`src/test-handoff-source.ts` は T17(h) だけが落ちた（`--project` の無い時が終了 2 でない。T17(a)〜(g2) の 12 case は直す前も通る）。`src/test-handoff-commit-order-pg.ts` は T9(f) だけが落ちた（SELECT だけの role で `permission denied for schema` = migration が走る。T9(a)〜(e) の 5 case は直す前も通る）。実装の commit の tree では 13・12・6 case が全部通る（上の表）。出力は PR の本文。
+
+**5 回目の返却の O1・O3 の赤→緑**: 試験を先に書き、直す前の code（head `518c0639`）で流した。`src/test-handoff-commit-order.ts` は 35 case のうち T12(i) の 1 case が落ちた（空の marker id でも `writeOutputWritten` が投げない。`Missing expected exception: refused: ""`）。`src/test-handoff-source-cli.ts` は 14 case のうち 2 case が落ちた: T17(t) は同じ内容の file を読ませて読み手と実際の JSON の store の答えが違う（同時刻の重複行で読み手は後の行、store は先の行。旧い行の `task_id` も読み手は補わない）、T17(u) は `./stores/task-state-normalize.js` が無くて読み込みで落ちる（振る舞いではなく『部品が無い』を示す）。T17(a)〜(s) の 12 case は直す前も通る。直した code では 35・14 case が全部通る。出力は PR の本文。
+
+### 行の網羅率（NFR4、Step 17）
+- 計り方は `coverage-method.md` の『Step 17』の節（item 6）。base `94f1ca6d…`、Node v26.12.1。**5 回目の返却の直しの後（最終）**: 変えた行と新しい行（src の 18 file、940 行）のうち、動かなかった範囲は **0**（数えから外した行は無い。21 file を渡し、3 file は base に対して変えた行が 0）。測り方は `coverage-method.md` の 6d。
+- 4 回目の返却の直しの後: 変えた行と新しい行（src の 17 file、880 行）のうち、動かなかった範囲は **0**（数えから外した行は無い）。PostgreSQL の試験を除いても同じ。測り方と、途中の測りで出た範囲（`restart-cli.ts` の他の verb の誤りを投げ直す腕、`stores/index.ts` の警告、`read-only-task-states.ts` の idle の `error` の listener・`created_at` が無い腕・`end()` の失敗の腕）を試験で動かしたことは `coverage-method.md` の 6c。3 回目の返却の直しの後（623 行・13 file・0）は 6b。
+- 1 回目の測りで動かなかった範囲（`codex-session-start.ts` の degraded の `catch` と本物の `main`、`rotation-commit.ts` の既定の store・`closeQuietly` の失敗・外側の `catch`・`io.open_store` の空の腕、`session-rotation-files.ts` の `link` の EEXIST 以外の失敗と壊れた記録の検査、`session-rotation-start.ts` の束の読みの失敗）は、端の場面の試験と、実際の command を別 process で起こす試験を足して動かした。
+
+### 記録の数と状態の文の照らし（DES-9 (l)）
+
+- 手順と script の全文は `record-check-method.md`。head から出した実物で、記録に手で書いた数（`path` の行数・各試験の `PASS … (N cases)`・項目の数）と、『未 publish』『席間の指示』を言う文と、引く comment の SHA-256（GitHub の API が返す本文）と、「…」で引いた句が出典の comment の本文に有るか（『publish 済み／された』と言う文は「…」を持つか）を照らす。LLM を使わず、外の依存も足さない（Python 3・git・gh）。
+- 照らす範囲は DES-9 (a) が挙げる記録（設計・要件 FR11・計画 Step 17・試験の手順 Step 17・追跡・この要約の Step 17 の節・項目の file・PR 本文）。
+- 最初に流した時（10 回目の版を書く前の head）に見つかった食い違いは、上の 10 回目の版の段落に挙げた物。直した後の command と出力は PR の本文にある。出典の照らしを足した時（11 回目の版を書く前の head）は、『publish 済み／された』と言う文がどれも「…」を持たず、上の 11 回目の版の段落のとおり直した。
+
+### 見直し役（architecture-reviewer、読み取りだけ、1 体）の結果
+- **4 回目の返却の直しの後（7 回目の版）**: 読み手・`restart-cli`・試験・記録を 1 回見せた。判定は READY（止める件 0）。直す方がよい 1 件: M1 = T17(r) の JSON の行は旧い行・重複行を持たず、JSON の store が起動時にやる整理（補いと畳み）を読み手は再現しない。ただし探す側は新しい順の先頭で `task_id` が合う行を取るので、畳んだ後に残る最新の行と同じ行に当たる（KY: 起きやすさ 低 × 困る大きさ 軽）。軽い 3 件: 不正な `created_at` の同点の並び、問い合わせ失敗で `ROLLBACK` を送らず接続を閉じる（書き込みは起きない）、PostgreSQL の SQL の同等が T17(r) の外（`pg-store` の `getTaskStates` と同じ条件・並びなのを作者が読み比べた）。どれも差し戻さず、設計 4.7 の読み手の段落に書いた。見直し役が読まなかった所: `rotation-handoff-source.ts` の現在の版、`package.json` の chain、監査の項目の file、`test-handoff-commit-order-pg.ts` の T9(f) の後半。試験は流していない（作者の出力に頼る）。なお M1（旧い行・重複行を読み手が再現しない）は、5 回目の返却の O3 の直しで整理の関数を共有する形に改め、T17(t)(u) で固定した。
+- **5 回目の返却の直しの後（8 回目の版）**: O1・O2・O3 の直し（`writeOutputWritten` の綴りの確かめ・整理の関数 `normalizeTaskStates`・項目 IMP-1 ほかの文）を 1 回見せた。判定は READY（止める件 0）。確かめた事: `normalizeTaskStates` が直す前の `JsonStore.initialize` の整理と同じ結果を返すこと（補い・同時刻は先の行・残る位置・`changed`。違いは入力を書き換えず写しを返す点だけで、`getTaskStates` の `indexOf` と `saveTaskStates` は新しい配列で壊れない）、読み手の後半が `getTaskStates` と同じ行を返すこと（残る差は NaN の並びだけで設計 4.7 と一致）、`writeOutputWritten` の確かめが commit の経路で `failed`・消費なしになり呼び元に綴りでない id を渡す所が無いこと、項目 IMP-1 の command を base と作業場の差分で数え直して期待（18 file・`types.ts` と `migrate.ts` の差分 0・async のメソッド行 0・SQLite の表の語 0・`package.json` は scripts のみで chain に 3 つ）と合うこと、記録が現在形で古い言い方を残さないこと、直す範囲（O1・O2・O3）を超えた変更・時間の言葉・私的な情報が無いこと。直した軽い 2 件: 設計 4.7 の『`created_at` が無い行は読み手が失敗にする』は返す範囲に入った時だけなのでそう書いた、計画の対応表の `17.1〜17.14` を `17.1〜17.15` にした。残した軽い 1 件: NaN の並び（起きやすさ 低 × 困る大きさ 軽。設計 4.7）。指摘された作業場の食い違い（`.gitignore`・別の取り組みの file が作業場にあること）はこの回の変更ではなく、commit は一時の index に上の file だけを足して作るので PR には入らない（push の前に `git diff --name-status` で 14 file であることを確かめる）。見直し役が読まなかった所: PostgreSQL の試験の本体、`rotation-handoff-source.ts`、見張りの試験の本体、項目 file の 33 項目の全文、試験の実行（作者の出力に頼る）。
+- 設計 5 回目の版を 1 回、実装・試験・監査の項目を 1 回見せた。実装後の判定は READY（返す条件に当たる指摘 0）。直した文面の食い違い 3 件: (F1) 監査の項目 IMP-2 の『消費を呼ぶのは 1 か所』は SessionStart の回復の経路に限ること、(F2) 設計の項目の行番号は base の位置で head では動いていること（項目の file の status に明記）、(F3) 試験の数は実行の出力の `PASS … (N cases)` を引くこと。設計に 1 行足した（壊れた記録は無いものとして扱う。軽）。返さなかった軽 2 件: 出力の callback を timeout なしで待つのは base と同じ挙動、旧い見張りが新しい state の claim を読む実挙動は配備の段 17.9 で観測する。
+- 見直し役が読まなかった所: PostgreSQL の試験の本体、見張りの T8・T15(b)・T16 の本体。これらは作者が流した出力に頼る。
+
+### 計画からの外れ（PR の deviation_ledger に書く）
+- 採った判断: 設計・試験だけの commit・実装を同じ PR にまとめ、設計と実装を 1 回にまとめた監査にかける（arc の技術の判断。agent-memory#339 の comment 6817476604 の本文「設計と実装を、1 回の監査にまとめてよい」に publish 済み。Owner の決定ではない）。採らなかった代替: 設計の PASS を待ってから実装する（team.md の既定）。
+- 採った判断: PostgreSQL の試験（T9）は CI の chain に入れず、手元の使い捨ての DB で 1 回流して出力を PR に載せる（`project.md`・team.md の決まり。CI の workflow を変えるには Owner の exact-head が要る）。採らなかった代替: CI に PostgreSQL を足す。
+- 採った判断: 見張りは受領を観測しないので成功と書かず、新しい終端の値を書く（O4）。採らなかった代替: 名前だけ変える、受領を観測する仕組みを足す（保護面・別の設計）。
+- 採った判断: 消費済みで host が文を受け取らなかった時の復旧は、`restart-cli` に読むだけの verb `handoff-source` を足し、`saveHandoff` が保存する task_state から全文を読み戻す（3 回目の返却の F1。arc の指示）。採らなかった代替: 消費を『使用中 → 使用済み』の 2 段にする（`selected_restart_packs.status` の意味と 3 つの store の verb を変える DB の契約の変更で、Owner の判断が要る）、SessionStart で文を出し直す（FR6 の挙動を変える）。
+- 採った判断（4 回目の返却の F1）: 『読むだけ』を、`Store` と別の小さい読み手（`HandoffTaskReader`、`getTaskStates` だけ）で示す。採らなかった代替: `Store` に読み取り専用の open や verb を足す（store の契約の変更で、公開の仕様・DB の契約に当たり Owner の判断が要る）、SQLite を別の道具で読み取り専用に開く（新しい外部の依存）。
+- 採った判断（4 回目の返却の F1）: 800 行を超える既存の `src/stores/sqlite-store.ts`（1,883 行）と `src/stores/json-store.ts`（907 行）は export を数行足し、整理を関数の呼び出しに替えただけで分割しない（設計・実装の標準『既にあるものは触る時に直す。まとめて直す計画を作らない』。分割は F1 の範囲と差分の見通しを超える）。採らなかった代替: この PR で 2 つの file を分ける。
+- 採った判断（5 回目の返却の O3）: JSON の store の起動時の整理を、純粋な関数 `normalizeTaskStates`（新 file `src/stores/task-state-normalize.ts`）に出し、store と読み手が呼ぶ。採らなかった代替: 読み手に整理の規則をもう一度書く（知識の重複。標準 S3 に反し、同時刻の重複でまた食い違う）、読み手が store を通して読む（4 回目の返却の F1 に戻る）。
+- 採った判断（5 回目の返却の O1）: 観察を carried にせず直す。受領の契約（項目が全部 PASS）が、未達の項目を持ったままの受領を許さないため。採らなかった代替: 項目 IMP-5 (b) を未達のまま残す（4 回目の返却の時の扱い）。
+- 採った判断: 差分が 400 行を超える PR は『AI-DLC の単位の作る段の出力』と書く。
+
+### 開いていること
+- 受領の証拠（束が `consumed` で、記録の後に host が出力を捨てると文は席に届かない。見張りの記録は成功を言わない。席の文が取れていた時は R-b で全文を読み戻せる。次の切り直しで task_state が置き換わった後、または席の文が取れなかった時は戻せない。設計 4.8 の r1・r5）。
+- 観察 O1（`writeOutputWritten` の `isMarkerId` の確かめが無い）は 5 回目の返却の直しで直した（T12(i)）。観察 O2（壊れた JSON を `absent` と読む）は 4 回目の返却の直しで読み手が直した（T17(l)）。観察 O3（同時刻の重複行で読み手と store が別の行を返す）は、整理の関数を共有する形に直した（T17(t)(u)）。
+- 読み手と store の食い違いで残る物: 不正な `created_at`（時刻差が NaN）の行の並びだけ（JSON の store は array の順、読み手は後の行が先。整理の後は (agent_id, task_id) ごとに 1 行なので、task_id で探す側の答えは変わらない）。起きやすさ 低 × 困る大きさ 軽。設計 4.7 に書いた。
+- 旧い見張りが新しい `state` の claim を読む実際の挙動は、配備の段 17.9 で観測する。
+- 入れ替えの順（見張り → hook）と戻しは Owner の差し替えの script。この PR は席に何も据えない。
+- 監査が R3 に上げる場合は Owner の exact-head（arc の判断は R2）。
+
+### 次
+設計と実装をまとめた独立の監査（devauditor）の依頼 → 返却 → 作者の受領 → 統合（作者以外の席）→ 新しい版 → Owner の差し替えの script（見張り → hook）→ 旧い見張りの観測（17.9）→ C2 の取り直し。

@@ -17,11 +17,13 @@ import {
 } from "./constants.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
+import { answerHookAndCommit, writeLine, type CommitSeams } from "./rotation-commit.js";
 import {
   ROTATION_UNCERTAINTY_SENTENCE,
   composeRotationContext,
   prepareRotationRecovery,
   type RotationBlock,
+  type RotationCommitPlan,
   type RotationStartDependencies,
   type RotationStartEvidence,
 } from "./session-rotation-start.js";
@@ -246,6 +248,8 @@ export interface CodexSessionStartRunResult {
   evidence: CodexSessionStartEvidence;
   exit_code: 0;
   rotation_evidence?: RotationStartEvidence;
+  /** Set when the answer carries the hand-off text: the commit that follows the write of the answer. */
+  rotation_commit?: RotationCommitPlan;
 }
 
 class HookDegradedError extends Error {
@@ -938,6 +942,7 @@ export async function runCodexSessionStart(
       evidence,
       exit_code: 0,
       ...(rotationContext ? { rotation_evidence: rotationContext.evidence } : {}),
+      ...(loaded.rotation ? { rotation_commit: loaded.rotation.commit } : {}),
     };
   } catch (error) {
     const reason = reasonFromError(error);
@@ -1028,35 +1033,41 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function writeCliResult(result: CodexSessionStartRunResult): void {
-  let pendingWrites = 2;
-  const finished = () => {
-    pendingWrites--;
-    if (pendingWrites === 0) process.exit(0);
-  };
-  process.stderr.write(`${JSON.stringify(result.evidence)}\n`, finished);
-  process.stdout.write(`${JSON.stringify(result.output)}\n`, finished);
+export interface CodexSessionStartProcessIo extends CommitSeams {
+  argv: readonly string[];
+  env: NodeJS.ProcessEnv;
+  read_input: () => Promise<string>;
+  write_evidence: (line: string, done: (error?: Error | null) => void) => void;
+  write_output: (line: string, done: (error?: Error | null) => void) => void;
+  exit: () => void;
+  emit_runtime_event: (evidence: CodexSessionStartEvidence, options: { manifestPath?: string }) => Promise<unknown>;
+  /** Monotonic milliseconds; the commit's time is counted from the first reading. */
+  clock: () => number;
+  now: () => Date;
+  dependencies?: CodexSessionStartDependencies;
 }
 
-async function main(): Promise<void> {
+/** The whole process with every side effect passed in: the answer is written, the hand-off committed (FR11), then exit. */
+export async function runCodexSessionStartProcess(io: CodexSessionStartProcessIo): Promise<void> {
+  const started = io.clock();
   let rawInput = "";
   let binding: CodexSessionStartBinding | undefined;
   try {
-    binding = parseCodexSessionStartArgs(process.argv.slice(2));
-    rawInput = await readStdin();
+    binding = parseCodexSessionStartArgs(io.argv.slice(), io.env);
+    rawInput = await io.read_input();
   } catch (error) {
     const evidenceBinding = binding ?? {
-      agent_id: process.env.AGENT_MEMORY_AGENT_ID ?? "invalid",
-      project: process.env.AGENT_MEMORY_PROJECT ?? "invalid",
-      workspace: process.env.AGENT_MEMORY_WORKSPACE ?? "",
-      binding_source_ref: process.env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
+      agent_id: io.env.AGENT_MEMORY_AGENT_ID ?? "invalid",
+      project: io.env.AGENT_MEMORY_PROJECT ?? "invalid",
+      workspace: io.env.AGENT_MEMORY_WORKSPACE ?? "",
+      binding_source_ref: io.env.AGENT_MEMORY_BINDING_SOURCE_REF ?? "invalid",
       max_tokens: CODEX_SESSION_START_MAX_TOKENS,
       max_bytes: CODEX_SESSION_START_MAX_BYTES,
       timeout_ms: CODEX_SESSION_START_INTERNAL_TIMEOUT_MS,
       runtime_event_manifest_path: undefined,
     };
     const reason = error instanceof HookDegradedError ? error.reason : "IDENTITY_BINDING_INVALID";
-    const observedAt = Date.now();
+    const observedAt = io.now().getTime();
     const result: CodexSessionStartRunResult = {
       output: degradedOutput(reason),
       evidence: buildEvidence({
@@ -1070,17 +1081,29 @@ async function main(): Promise<void> {
       }),
       exit_code: 0,
     };
-    await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-      manifestPath: evidenceBinding.runtime_event_manifest_path,
-    });
-    writeCliResult(result);
+    await io.emit_runtime_event(result.evidence, { manifestPath: evidenceBinding.runtime_event_manifest_path });
+    await answerHookAndCommit(io, result, started, CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS * 1_000);
+    io.exit();
     return;
   }
-  const result = await runCodexSessionStart(rawInput, binding);
-  await emitKusabiSessionStartRuntimeEvent(result.evidence, {
-    manifestPath: binding.runtime_event_manifest_path,
+  const result = await runCodexSessionStart(rawInput, binding, io.dependencies);
+  await io.emit_runtime_event(result.evidence, { manifestPath: binding.runtime_event_manifest_path });
+  await answerHookAndCommit(io, result, started, CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS * 1_000);
+  io.exit();
+}
+
+async function main(): Promise<void> {
+  await runCodexSessionStartProcess({
+    argv: process.argv.slice(2),
+    env: process.env,
+    read_input: readStdin,
+    write_evidence: (line, done) => writeLine(process.stderr, line, done),
+    write_output: (line, done) => writeLine(process.stdout, line, done),
+    exit: () => process.exit(0),
+    emit_runtime_event: emitKusabiSessionStartRuntimeEvent,
+    clock: () => performance.now(),
+    now: () => new Date(),
   });
-  writeCliResult(result);
 }
 
 const modulePath = realpathSync(fileURLToPath(import.meta.url));

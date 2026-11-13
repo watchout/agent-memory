@@ -5,7 +5,7 @@
  * random source (standard S4). Anything unreadable or unmatched returns a skip
  * with a reason; "could not observe" is never read as "ok" (standard S5).
  */
-import type { RotationMarker, RotationTurn } from "./session-rotation-files.js";
+import type { RotationMarker, RotationOutputWritten, RotationTurn } from "./session-rotation-files.js";
 import type { PaneState } from "./rotation-watcher-tmux.js";
 import type { HumanProof, InputProof } from "./rotation-watcher-screen.js";
 import { checkHost, descendantsNamed, isSameOrDescendant, type ProcessTable } from "./rotation-watcher-ps.js";
@@ -272,36 +272,64 @@ export interface ConfirmInputs {
   seat: WatcherSeat;
   marker: RotationMarker;
   turn: RotationTurn | null;
+  /** The record the start hook wrote after its answer (null when there is none or it cannot be read). */
+  output_written: RotationOutputWritten | null;
   pane: PaneState | null;
   processes: ProcessTable | null;
   pane_pid_before: number;
   respawn_started_ms: number;
 }
 
+/** What the confirmation stands on: the hook's output-written record, or (only without one) an old hook's turn mark. */
+export type ConfirmationBasis = "output_written" | "legacy_turn_marker";
+
+interface StartFacts {
+  agent_id: string;
+  project: string;
+  host: string;
+  session_id: string;
+  source: string | null;
+  pane_id: string | null;
+  tmux_socket: string | null;
+  host_pid: number | null;
+  at: string;
+}
+
 /**
- * Whether the new conversation really started after the respawn (3.2 step 7):
- * the pane process changed, and the new `started` turn came from the ordered
- * start of the same seat in the same pane, with a different conversation and host.
+ * Whether the new conversation really started after the respawn (3.2 step 7): the pane process changed, and the start
+ * came from the ordered start of the same seat in the same pane, with a different conversation and host process.
+ * The basis is the output-written record when there is one (it alone decides); with none, an old hook's `started`
+ * turn that carries this marker is read as before (standard S6: old and new hooks live side by side).
  */
-export function isNewConversationConfirmed(input: ConfirmInputs): boolean {
+export function confirmationBasis(input: ConfirmInputs): ConfirmationBasis | null {
   const { seat, marker, turn, pane, processes } = input;
-  if (turn === null || pane === null || processes === null) return false;
-  if (pane.pane_id !== marker.pane_id || pane.pane_pid === input.pane_pid_before) return false;
-  const turnAt = parseTime(turn.at);
-  return (
-    turn.state === "started" &&
-    turn.source === "startup" &&
-    turn.rotation_marker_id === marker.marker_id &&
-    turn.agent_id === seat.agent_id &&
-    turn.project === seat.project &&
-    turn.host === seat.host &&
-    turn.pane_id === marker.pane_id &&
-    turn.tmux_socket === marker.tmux_socket &&
-    turn.session_id !== marker.session_id &&
-    turn.host_pid !== null &&
-    turn.host_pid !== marker.host_pid &&
-    isSameOrDescendant(processes, pane.pane_pid, turn.host_pid) &&
-    turnAt !== null &&
-    turnAt >= input.respawn_started_ms
-  );
+  if (pane === null || processes === null) return null;
+  if (pane.pane_id !== marker.pane_id || pane.pane_pid === input.pane_pid_before) return null;
+  const record = input.output_written;
+  let basis: ConfirmationBasis;
+  let facts: StartFacts;
+  if (record !== null) {
+    if (record.marker_id !== marker.marker_id) return null;
+    basis = "output_written";
+    facts = { ...record, at: record.turn_at };
+  } else {
+    if (turn === null || turn.state !== "started" || turn.rotation_marker_id !== marker.marker_id) return null;
+    basis = "legacy_turn_marker";
+    facts = turn;
+  }
+  const at = parseTime(facts.at);
+  const fits =
+    facts.source === "startup" &&
+    facts.agent_id === seat.agent_id &&
+    facts.project === seat.project &&
+    facts.host === seat.host &&
+    facts.pane_id === marker.pane_id &&
+    facts.tmux_socket === marker.tmux_socket &&
+    facts.session_id !== marker.session_id &&
+    facts.host_pid !== null &&
+    facts.host_pid !== marker.host_pid &&
+    isSameOrDescendant(processes, pane.pane_pid, facts.host_pid) &&
+    at !== null &&
+    at >= input.respawn_started_ms;
+  return fits ? basis : null;
 }

@@ -6,6 +6,7 @@ import { homedir } from "os";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { deriveTaskIdFromTask } from "./task-id.js";
+import { normalizeTaskStates } from "./task-state-normalize.js";
 import { conversationEventToRawEventInput, rawEventSourceRef } from "./raw-events.js";
 import {
   assertKusabiRuntimeEventHash,
@@ -49,7 +50,9 @@ import type {
   GetKusabiPartitionInput,
 } from "./types.js";
 
-const DEFAULT_DATA_DIR = join(homedir(), ".agent-memory");
+/** Where the JSON store keeps its records, and the file that holds the task states: one place, read by the store and by the read-only reader. */
+export const DEFAULT_DATA_DIR = join(homedir(), ".agent-memory");
+export const TASK_STATES_FILE = "task-states.json";
 
 function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -93,7 +96,7 @@ export class JsonStore implements Store {
       await mkdir(this.dataDir, { recursive: true });
     }
     this.decisions = await this.loadFile<Decision>(this.dataFile("decisions.json"));
-    this.taskStates = await this.loadFile<TaskState>(this.dataFile("task-states.json"));
+    this.taskStates = await this.loadFile<TaskState>(this.dataFile(TASK_STATES_FILE));
     this.knowledgeItems = await this.loadFile<Knowledge>(this.dataFile("knowledge.json"));
     this.conversationEvents = await this.loadFile<ConversationEvent>(this.dataFile("conversation-events.json"));
     this.rawEvents = await this.loadFile<RawEvent>(this.dataFile("raw-events.json"));
@@ -103,35 +106,12 @@ export class JsonStore implements Store {
     this.selectedRestartPacks = await this.loadFile<SelectedRestartPack>(this.dataFile("selected-restart-packs.json"));
     this.catchUpLog = await this.loadFile<CatchUpLog>(this.dataFile("catch-up-log.json"));
     this.kusabiPartitions = await this.loadFile<KusabiPartition>(this.dataFile("kusabi-agent-memory-partitions.json"));
-    // AM-023: back-fill + dedup legacy task_states from before the
-    // task_id schema change. Mirrors the SQL migration in pg-store /
-    // sqlite-store: copy `task` into `task_id` for any row that's
-    // missing one, then collapse to one row per (agent_id, task_id),
-    // keeping the entry with the latest created_at.
-    let mutated = false;
-    for (const ts of this.taskStates) {
-      if (!ts.task_id) {
-        ts.task_id = ts.task;
-        mutated = true;
-      }
-      if (!ts.updated_at) {
-        ts.updated_at = ts.created_at;
-        mutated = true;
-      }
-    }
-    const latestPerKey = new Map<string, TaskState>();
-    for (const ts of this.taskStates) {
-      const key = `${ts.agent_id}::${ts.task_id}`;
-      const prev = latestPerKey.get(key);
-      if (!prev || new Date(ts.created_at).getTime() > new Date(prev.created_at).getTime()) {
-        latestPerKey.set(key, ts);
-      }
-    }
-    if (latestPerKey.size !== this.taskStates.length) {
-      this.taskStates = Array.from(latestPerKey.values());
-      mutated = true;
-    }
-    if (mutated) {
+    // AM-023: back-fill + dedup legacy task_states from before the task_id schema change. Mirrors the SQL migration in
+    // pg-store / sqlite-store; the rule (and which of two equal rows is kept) lives in one place, shared with the
+    // hand-off reader.
+    const cleaned = normalizeTaskStates(this.taskStates);
+    this.taskStates = cleaned.rows;
+    if (cleaned.changed) {
       await this.saveTaskStates();
     }
   }
@@ -153,7 +133,7 @@ export class JsonStore implements Store {
   }
 
   private async saveTaskStates(): Promise<void> {
-    await writeFile(this.dataFile("task-states.json"), JSON.stringify(this.taskStates, null, 2));
+    await writeFile(this.dataFile(TASK_STATES_FILE), JSON.stringify(this.taskStates, null, 2));
   }
 
   async logDecision(input: LogDecisionInput): Promise<Decision> {

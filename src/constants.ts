@@ -46,6 +46,26 @@ export const ROTATION_WATCHER_ANCESTOR_DEPTH = 8;
 export const ROTATION_WATCHER_CONFIRM_POLL_SECONDS = 2;
 
 /**
+ * The commit after the SessionStart answer is written (261110-session-rotation, FR11.4): the consume's own time budget,
+ * the margin kept before the hook's time limit, and the room the record's synchronous write needs.
+ */
+export const ROTATION_COMMIT_BUDGET_MS = 1_500;
+export const ROTATION_COMMIT_EXIT_MARGIN_MS = 2_000;
+export const ROTATION_COMMIT_WRITE_RESERVE_MS = 300;
+
+/**
+ * How many of a seat's task states the hand-off source read looks through (newest first). A list that fills this and
+ * still does not show the hand-off is "not read to the end", never "absent".
+ */
+export const ROTATION_HANDOFF_SOURCE_LIST_LIMIT = 500;
+
+/**
+ * The time the hand-off source read gives a PostgreSQL server to accept the connection and to answer the one query. Used up,
+ * the read is "unreadable" (it did not observe the store), never "absent".
+ */
+export const ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS = 10_000;
+
+/**
  * The two spelling rules every rotation file shares, defined once (standard S3).
  * A seat name or project is one path segment. A launch command is placed inside a
  * tmux condition, so only these characters are allowed (watcher-design.md 2.3).

@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -809,6 +809,9 @@ test("F3 composeRotationContext: the byte cap binds on its own when it is the ti
   assert.equal(overBytesOnly.evidence.truncated, true, "1,500 characters are well under the token cap but 4,500 bytes are over the byte cap");
 });
 
+/** The output-written records in a seat's folder (the data a commit would leave). */
+const listCommitData = (directory: string): string[] => (existsSync(join(directory, "output-written")) ? readdirSync(join(directory, "output-written")) : []);
+
 async function startScenario(over: { claim?: boolean; store?: Fake; source?: "startup" | "resume" | "clear" | "compact"; sha?: string; savedAgo?: number } = {}) {
   const s = seat();
   const fake = over.store ?? fakeStore();
@@ -840,18 +843,29 @@ test("FR6: an ordered startup takes the one-time hand-off, leads with the seat's
   assert.match(block.text, /watcher の試験を書く/);
   assert.match(block.text, new RegExp(marker.marker_id));
   assert.ok(block.text.includes(ROTATION_UNCERTAINTY_SENTENCE), "uncertainty sentence names where to look");
-  assert.equal(fake.packs.get("pack-1")?.consumed, true);
+  // FR11.1: reading the hand-off consumes nothing; the commit comes after the output is written (rotation-commit).
+  assert.equal(fake.packs.get("pack-1")?.consumed, false);
   const turn = readTurn(s.directory)!;
   assert.equal(turn.state, "started");
   assert.equal(turn.source, "startup");
   assert.equal(turn.session_id, "new-sess");
-  assert.equal(turn.rotation_marker_id, marker.marker_id);
-  assert.equal(await run(), null, "the bundle is consumed once");
+  assert.equal(turn.rotation_marker_id, null, "FR11.6: the turn no longer carries the mark; the output-written record does");
+  assert.deepEqual(block.commit.query, { agent_id: "kusabi", project: "agent-memory", pack_ref: "pack-1" });
+  assert.equal(block.commit.directory, s.directory);
+  assert.equal(block.commit.marker_id, marker.marker_id);
+  assert.equal(block.commit.via, "claim");
+  assert.deepEqual(block.commit.turn, {
+    agent_id: "kusabi", project: "agent-memory", host: "claude_code", session_id: "new-sess", source: "startup", at: turn.at, ...PANE,
+  }, "the plan carries the identity and time of the turn that was written");
+  assert.equal(listCommitData(s.directory).length, 0, "no output-written record is made while reading");
+  assert.ok(await run(), "reading again changes nothing: the bundle is still there");
 });
-test("FR6: /clear takes the marker without a claim; the started turn then carries no marker id", async () => {
+test("FR6: /clear takes the marker without a claim; the started turn then carries no marker id and the plan says marker", async () => {
   const { s, run } = await startScenario({ source: "clear", claim: false });
-  assert.ok(await run());
+  const block = await run();
+  assert.ok(block);
   assert.equal(readTurn(s.directory)?.rotation_marker_id, null);
+  assert.equal(block.commit.via, "marker");
 });
 test("FR6 edges: no order, resume, stale marker, other pane, changed bundle, lost race and store errors are ordinary starts", async () => {
   const noOrder = await startScenario({ claim: false });
@@ -862,11 +876,20 @@ test("FR6 edges: no order, resume, stale marker, other pane, changed bundle, los
   assert.equal(await (await startScenario({ savedAgo: ROTATION_MARKER_TTL_SECONDS + 100 })).run(), null);
   assert.equal(await (await startScenario()).run({ identity: { ...PANE, pane_id: "%99" } }), null);
   assert.equal(await (await startScenario({ sha: sha256Hex("changed") })).run(), null, "bundle digest differs from the marker");
+  // FR11.1: a lost race or a failing consume is seen only when the commit runs (rotation-commit), not while reading.
   const raced = await startScenario({ store: fakeStore({ raceLost: true }) });
-  assert.equal(await raced.run(), null);
+  assert.ok(await raced.run());
   const failing = await startScenario({ store: fakeStore({ failConsume: true }) });
-  assert.equal(await failing.run(), null);
+  assert.ok(await failing.run());
+  assert.equal(failing.fake.packs.get("pack-1")?.consumed, false);
   assert.equal(readTurn(failing.s.directory)?.state, "started");
+  // A start whose turn cannot be written still returns the block, with no turn in the plan (no record can be made from it).
+  const noTurn = await startScenario();
+  rmSync(join(noTurn.s.directory, "turn.json"), { force: true });
+  mkdirSync(join(noTurn.s.directory, "turn.json"));
+  const noTurnBlock = await noTurn.run();
+  assert.ok(noTurnBlock);
+  assert.equal(noTurnBlock.commit.turn, null);
   const missing = await startScenario();
   missing.fake.packs.clear();
   assert.equal(await missing.run(), null);

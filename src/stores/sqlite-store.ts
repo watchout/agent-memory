@@ -53,6 +53,11 @@ import type {
 
 const DEFAULT_DB_PATH = join(homedir(), ".agent-memory", "memory.db");
 
+/** Where the SQLite store lives: the path it is given, else AGENT_MEMORY_DB_PATH, else the default under the home folder. One place, read by the store and by the read-only reader. */
+export function resolveSqliteDbPath(explicit?: string, env: NodeJS.ProcessEnv = process.env): string {
+  return explicit ?? env.AGENT_MEMORY_DB_PATH ?? DEFAULT_DB_PATH;
+}
+
 const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS decisions (
     id TEXT PRIMARY KEY,
@@ -357,7 +362,7 @@ export class SqliteStore implements Store {
   private fts5Available = false;
 
   constructor(dbPath?: string) {
-    this.dbPath = dbPath ?? process.env.AGENT_MEMORY_DB_PATH ?? DEFAULT_DB_PATH;
+    this.dbPath = resolveSqliteDbPath(dbPath);
   }
 
   async initialize(): Promise<void> {

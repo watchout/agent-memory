@@ -15,7 +15,9 @@ import {
   sha256Hex,
   writeHookState,
   writeJsonAtomic,
+  outputWrittenPath,
   writeMarker,
+  writeOutputWritten,
   writeTurn,
 } from "./session-rotation-files.js";
 import { ROTATION_STATUS_SCHEMA, buildRotationStatus, runRotationStatusCli } from "./session-rotation-status.js";
@@ -47,7 +49,7 @@ test("an empty seat: every file is none", () => {
   const status = buildRotationStatus(directory, "kusabi", "agent-memory");
   assert.deepEqual(status, {
     schema_version: ROTATION_STATUS_SCHEMA, agent_id: "kusabi", project: "agent-memory",
-    marker: { file: "none" }, turn: { file: "none" }, hook_state: { file: "none" }, claim: { file: "none" },
+    marker: { file: "none" }, turn: { file: "none" }, hook_state: { file: "none" }, claim: { file: "none" }, output_written: { file: "none" },
   });
 });
 
@@ -79,6 +81,30 @@ test("the watcher's claim for the current marker is shown; a claim for another m
   assert.deepEqual(buildRotationStatus(directory, "kusabi", "agent-memory").claim, { file: "unreadable" }, "present but not this marker's claim");
 });
 
+test("FR11.6: the output-written record of the current marker is shown by its presence and times only; another marker's is not", () => {
+  const { directory } = freshSeat();
+  const marker = buildMarker(markerFields);
+  writeMarker(directory, marker);
+  assert.deepEqual(buildRotationStatus(directory, "kusabi", "agent-memory").output_written, { file: "none" });
+  const record = {
+    marker_id: marker.marker_id, agent_id: "kusabi", project: "agent-memory", host: "claude_code" as const, session_id: "s2", source: "startup" as const, ...identity,
+    turn_at: "2026-11-11T01:01:00.000Z", output_written_at: "2026-11-11T01:01:00.500Z",
+  };
+  assert.equal(writeOutputWritten(directory, record), "written");
+  const shown = buildRotationStatus(directory, "kusabi", "agent-memory").output_written;
+  assert.deepEqual(shown, { file: "valid", session_id: "s2", output_written_at: "2026-11-11T01:01:00.500Z" });
+  const text = JSON.stringify(buildRotationStatus(directory, "kusabi", "agent-memory"));
+  assert.ok(!/delivered|received|delivery/.test(text), "the view names only the observed fact");
+  assert.ok(!text.includes("/tmp/sock"), "no socket path");
+  // The existing items are unchanged by the new one.
+  assert.deepEqual(buildRotationStatus(directory, "kusabi", "agent-memory").claim, { file: "none" });
+  writeFileSync(outputWrittenPath(directory, marker.marker_id), "{broken");
+  assert.deepEqual(buildRotationStatus(directory, "kusabi", "agent-memory").output_written, { file: "unreadable" });
+  // No marker, so no record is looked up.
+  const empty = freshSeat();
+  assert.deepEqual(buildRotationStatus(empty.directory, "kusabi", "agent-memory").output_written, { file: "none" });
+});
+
 test("a file that exists but cannot be trusted is unreadable, never none (S5)", () => {
   const { directory } = freshSeat();
   const marker = buildMarker(markerFields);
@@ -92,6 +118,7 @@ test("a file that exists but cannot be trusted is unreadable, never none (S5)", 
   assert.deepEqual(status.turn, { file: "unreadable" });
   assert.deepEqual(status.hook_state, { file: "unreadable" });
   assert.deepEqual(status.claim, { file: "none" }, "no trusted marker, so no claim is looked up");
+  assert.deepEqual(status.output_written, { file: "none" }, "nor an output-written record");
 });
 
 test("the view writes nothing", () => {
@@ -308,7 +335,7 @@ test("hook input: the view is additive and writes nothing", async () => {
   const contents = readFileSync(diagnosticFile(home, CLAUDE_SESSION_START_ADAPTER_ID), "utf8");
   const lines = statusLines(home);
   const status = JSON.parse(lines.join("")) as Record<string, unknown>;
-  assert.deepEqual(Object.keys(status).sort(), ["agent_id", "claim", "hook_input", "hook_state", "marker", "project", "schema_version", "turn"]);
+  assert.deepEqual(Object.keys(status).sort(), ["agent_id", "claim", "hook_input", "hook_state", "marker", "output_written", "project", "schema_version", "turn"]);
   const { hook_input: _hookInput, ...rest } = status;
   assert.deepEqual(rest, JSON.parse(JSON.stringify(buildRotationStatus(directory, "kusabi", "agent-memory"))), "the existing fields are the same as without the new section");
   assert.deepEqual(readdirSync(home, { recursive: true }).map(String).sort(), before);

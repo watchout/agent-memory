@@ -39,8 +39,10 @@ import {
 } from "./hook-input-diagnostics.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
+import { answerHookAndCommit, writeLine, type CommitSeams } from "./rotation-commit.js";
 import {
   prepareRotationRecovery,
+  type RotationCommitPlan,
   type RotationStartDependencies,
   type RotationStartEvidence,
 } from "./session-rotation-start.js";
@@ -166,6 +168,7 @@ export interface ClaudeSessionStartRunResult {
   evidence: ClaudeSessionStartEvidence;
   exit_code: 0;
   rotation_evidence?: RotationStartEvidence;
+  rotation_commit?: RotationCommitPlan;
 }
 
 class ClaudeInputError extends Error {
@@ -470,6 +473,7 @@ export async function runClaudeSessionStart(
     evidence: transformEvidence(result.evidence, input),
     exit_code: 0,
     ...(result.rotation_evidence ? { rotation_evidence: result.rotation_evidence } : {}),
+    ...(result.rotation_commit ? { rotation_commit: result.rotation_commit } : {}),
   };
 }
 
@@ -515,12 +519,12 @@ function fallbackBinding(env: NodeJS.ProcessEnv): ClaudeSessionStartBinding {
   };
 }
 
-export interface ClaudeSessionStartProcessIo {
+export interface ClaudeSessionStartProcessIo extends CommitSeams {
   argv: readonly string[];
   env: NodeJS.ProcessEnv;
   read_input: () => Promise<string>;
-  write_evidence: (line: string, done: () => void) => void;
-  write_output: (line: string, done: () => void) => void;
+  write_evidence: (line: string, done: (error?: Error | null) => void) => void;
+  write_output: (line: string, done: (error?: Error | null) => void) => void;
   exit: () => void;
   run_diagnostic: (request: HookDiagnosticRequest) => Promise<unknown> | void;
   emit_runtime_event: (
@@ -534,21 +538,10 @@ export interface ClaudeSessionStartProcessIo {
   dependencies?: ClaudeSessionStartDependencies;
 }
 
-function writeAnswer(io: ClaudeSessionStartProcessIo, result: ClaudeSessionStartRunResult): Promise<void> {
-  return new Promise<void>((done) => {
-    let pending = 2;
-    const written = (): void => {
-      pending--;
-      if (pending === 0) done();
-    };
-    io.write_evidence(`${JSON.stringify(result.evidence)}\n`, written);
-    io.write_output(`${JSON.stringify(result.output)}\n`, written);
-  });
-}
-
 /**
  * The whole process, with every side effect passed in. The answer and the evidence are written and flushed
- * first; only then is the diagnostic of the ignored key names attempted, for at most a bounded wait.
+ * first, then the hand-off is committed (record, then consume; FR11); only then is the diagnostic of the
+ * ignored key names attempted, for at most a bounded wait.
  */
 export async function runClaudeSessionStartProcess(io: ClaudeSessionStartProcessIo): Promise<void> {
   const started = io.clock();
@@ -570,7 +563,7 @@ export async function runClaudeSessionStartProcess(io: ClaudeSessionStartProcess
     },
   });
   await io.emit_runtime_event(result.evidence, { manifestPath: binding.runtime_event_manifest_path });
-  await writeAnswer(io, result);
+  await answerHookAndCommit(io, result, started, CLAUDE_SESSION_START_HOOK_TIMEOUT_SECONDS * 1_000);
   if (!bound || ignoredNames.length === 0) {
     io.exit();
     return;
@@ -598,10 +591,10 @@ async function main(): Promise<void> {
     env: process.env,
     read_input: readStdin,
     write_evidence: (line, done) => {
-      process.stderr.write(line, done);
+      writeLine(process.stderr, line, done);
     },
     write_output: (line, done) => {
-      process.stdout.write(line, done);
+      writeLine(process.stdout, line, done);
     },
     exit: () => process.exit(0),
     run_diagnostic: writeHookInputDiagnostic,

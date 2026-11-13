@@ -14,6 +14,7 @@ import {
   buildMarker,
   seatDirectory,
   writeMarker,
+  writeOutputWritten,
   writeTurn,
   type RotationMarker,
   type RotationTurn,
@@ -118,6 +119,8 @@ export class World {
   violations: string[] = [];
   respawns = 0;
   mode: RespawnMode = "ok";
+  /** Which hook the new conversation runs: the new one leaves an output-written record, the old one marks the turn (kept while both exist). */
+  hook: "record" | "legacy" = "record";
   delayMs = 10_000;
   tmuxDown = false;
   clientsReadable = true;
@@ -273,15 +276,33 @@ export class World {
     }
     this.hostPid = this.mode === "same_host_pid" ? oldHost : this.nextHost++;
     this.hostStartedAt = started(5);
-    const write = () => this.writeTurn({
-      session_id: this.mode === "same_session" ? oldSession : "new-session",
-      state: "started",
-      source: this.mode === "source_clear" ? "clear" : "startup",
-      rotation_marker_id: this.mode === "wrong_marker" ? "c".repeat(64) : this.marker.marker_id,
-      at: this.mode === "old_turn" ? this.iso(-60_000) : this.iso(),
-      host_pid: this.hostPid,
-      host_started_at: this.hostStartedAt,
-    });
+    const write = () => {
+      const fields = {
+        session_id: this.mode === "same_session" ? oldSession : "new-session",
+        source: this.mode === "source_clear" ? "clear" : "startup",
+        at: this.mode === "old_turn" ? this.iso(-60_000) : this.iso(),
+        host_pid: this.hostPid,
+        host_started_at: this.hostStartedAt,
+      };
+      const wrongMarker = this.mode === "wrong_marker" ? "c".repeat(64) : this.marker.marker_id;
+      this.writeTurn({ ...fields, state: "started", rotation_marker_id: this.hook === "legacy" ? wrongMarker : null });
+      if (this.hook === "record") {
+        writeOutputWritten(this.seatDir, {
+          marker_id: wrongMarker,
+          agent_id: "kusabi",
+          project: "agent-memory",
+          host: "claude_code",
+          session_id: fields.session_id,
+          source: fields.source,
+          pane_id: this.pane.id,
+          tmux_socket: this.socket,
+          host_pid: fields.host_pid,
+          host_started_at: fields.host_started_at,
+          turn_at: fields.at,
+          output_written_at: this.iso(),
+        });
+      }
+    };
     if (this.mode === "no_start") return;
     if (this.mode === "delayed") this.scheduled.push({ at: this.now + this.delayMs, run: write });
     else write();

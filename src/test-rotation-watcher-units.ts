@@ -41,8 +41,8 @@ import {
   type TmuxRun,
 } from "./rotation-watcher-tmux.js";
 import {
+  confirmationBasis,
   decideRotationRelaunch,
-  isNewConversationConfirmed,
   recheckBeforeRespawn,
   skipClass,
   type Observation,
@@ -50,6 +50,7 @@ import {
   type RelaunchPlan,
 } from "./rotation-watcher-core.js";
 import {
+  OUTPUT_WRITTEN_RECEIPT_UNOBSERVED,
   advanceClaim,
   appendLedger,
   claimPath,
@@ -62,7 +63,7 @@ import {
   writeHalt,
   type WatcherFs,
 } from "./rotation-watcher-store.js";
-import { buildMarker, sha256Hex, type RotationMarker, type RotationTurn } from "./session-rotation-files.js";
+import { ROTATION_OUTPUT_WRITTEN_SCHEMA, buildMarker, sha256Hex, type RotationMarker, type RotationOutputWritten, type RotationTurn } from "./session-rotation-files.js";
 import { EMPTY_SCREEN, LAUNCH_COMMAND, LAUNCH_SHA, NOW0, SEAT_JSON, seatFrom } from "./test-rotation-watcher-world.js";
 
 const cases: Array<[string, () => Promise<void> | void]> = [];
@@ -519,14 +520,48 @@ test("core: the last look before acting needs the same marker, the same idle tur
   expectSkip(marker(), turn(), observation({ processes: quietProcesses, pane: pane({ cursor_x: 9 }), input: proof(EMPTY_SCREEN, 9, 2) }), "cursor_not_at_input_head");
 });
 
-test("core: confirmation needs a changed pane process and the ordered start of a new conversation", () => {
+const outputWritten = (over: Partial<RotationOutputWritten> = {}): RotationOutputWritten => ({
+  schema_version: ROTATION_OUTPUT_WRITTEN_SCHEMA, marker_id: "a".repeat(64), agent_id: "kusabi", project: "agent-memory", host: "claude_code",
+  session_id: "new", source: "startup", pane_id: "%7", tmux_socket: "/tmp/sock", host_pid: 201, host_started_at: "Tue Nov 3 12:00:01 2026",
+  turn_at: new Date(NOW0 + 1_000).toISOString(), output_written_at: new Date(NOW0 + 1_100).toISOString(), ...over,
+});
+
+test("core: the basis of a confirmation is the output-written record, and the pane process must have changed (T8)", () => {
+  const seat = seatFrom();
+  const m = marker();
+  const table = parseProcessTable("200 1 Tue Nov 3 12:00:00 2026 /bin/sh\n201 200 Tue Nov 3 12:00:01 2026 /usr/bin/claude\n");
+  const record = outputWritten({ marker_id: m.marker_id });
+  const base = { seat, marker: m, turn: null, output_written: record, pane: pane({ pane_pid: 200 }), processes: table, pane_pid_before: 100, respawn_started_ms: NOW0 };
+  assert.equal(confirmationBasis(base), "output_written");
+  const reject = (over: object) => assert.equal(confirmationBasis({ ...base, ...over }), null, JSON.stringify(over));
+  reject({ output_written: null });
+  reject({ pane: null });
+  reject({ processes: null });
+  reject({ pane: pane({ pane_pid: 100 }) });
+  reject({ pane: pane({ pane_id: "%9", pane_pid: 200 }) });
+  for (const over of [
+    { marker_id: "e".repeat(64) }, { source: "clear" }, { source: null }, { agent_id: "x" }, { project: "x" }, { host: "codex" }, { pane_id: "%9" },
+    { tmux_socket: "/x" }, { session_id: "old" }, { host_pid: null }, { host_pid: 101 }, { host_pid: 999 }, { turn_at: "bad" },
+    { turn_at: new Date(NOW0 - 1).toISOString() },
+  ]) reject({ output_written: { ...record, ...over } });
+  // The record decides alone: an old-form turn does not rescue an unfit record, and does not change a fit one.
+  const legacyTurn = turn({ state: "started", source: "startup", rotation_marker_id: m.marker_id, session_id: "new", host_pid: 201, at: new Date(NOW0 + 1_000).toISOString() });
+  reject({ output_written: { ...record, source: "clear" }, turn: legacyTurn });
+  assert.equal(confirmationBasis({ ...base, turn: legacyTurn }), "output_written");
+  // A turn that has moved on (busy, idle, no mark) changes nothing about a fit record.
+  for (const state of ["busy", "idle"] as const) {
+    assert.equal(confirmationBasis({ ...base, turn: turn({ state, session_id: "new", host_pid: 201, rotation_marker_id: null }) }), "output_written", state);
+  }
+});
+
+test("core: with no record, an old hook's turn mark is a basis in its own name - only while the turn is still 'started' (T8 h)", () => {
   const seat = seatFrom();
   const m = marker();
   const table = parseProcessTable("200 1 Tue Nov 3 12:00:00 2026 /bin/sh\n201 200 Tue Nov 3 12:00:01 2026 /usr/bin/claude\n");
   const started = turn({ state: "started", source: "startup", rotation_marker_id: m.marker_id, session_id: "new", host_pid: 201, at: new Date(NOW0 + 1_000).toISOString() });
-  const base = { seat, marker: m, turn: started, pane: pane({ pane_pid: 200 }), processes: table, pane_pid_before: 100, respawn_started_ms: NOW0 };
-  assert.equal(isNewConversationConfirmed(base), true);
-  const reject = (over: object) => assert.equal(isNewConversationConfirmed({ ...base, ...over }), false, JSON.stringify(over));
+  const base = { seat, marker: m, turn: started, output_written: null, pane: pane({ pane_pid: 200 }), processes: table, pane_pid_before: 100, respawn_started_ms: NOW0 };
+  assert.equal(confirmationBasis(base), "legacy_turn_marker");
+  const reject = (over: object) => assert.equal(confirmationBasis({ ...base, ...over }), null, JSON.stringify(over));
   reject({ turn: null });
   reject({ pane: null });
   reject({ processes: null });
@@ -605,6 +640,35 @@ test("store: the ledger appends durable lines and the summary counts only real r
   assert.deepEqual(summarizeLedger(nodeWatcherFs, tmp(), "kusabi", "p", NOW0), { readable: true, last_respawn_ms: null, respawns_in_last_hour: 0 }, "no ledger yet is an empty history");
   const broken: WatcherFs = { ...nodeWatcherFs, appendDurable: () => { throw new Error("disk"); } };
   assert.equal(appendLedger(broken, root, "skipped", { at: at(0), attempt_id: null, marker_id: "m", host: "h", agent_id: "a", project: "p" }), false);
+});
+
+test("T16: the new end state is a terminal claim that is read back and counted; an unknown state is still unreadable (FR11.6)", () => {
+  const dir = join(tmp(), "k", "p");
+  const created = createClaim(nodeWatcherFs, dir, claimFields);
+  const claim = (created as { claim: Parameters<typeof advanceClaim>[2] }).claim;
+  const ended = advanceClaim(nodeWatcherFs, dir, claim, { state: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED, resolution: OUTPUT_WRITTEN_RECEIPT_UNOBSERVED });
+  assert.equal(ended !== null && isTerminalClaim(ended), true);
+  const read = readClaimRecord(nodeWatcherFs, dir, claimFields.marker_id);
+  assert.equal(read.kind === "found" && read.claim.state, OUTPUT_WRITTEN_RECEIPT_UNOBSERVED);
+  // A state this code does not know stays unreadable (the closed side), and so does the old value's neighbour spelled wrong.
+  writeFileSync(claimPath(dir, claimFields.marker_id), JSON.stringify({ ...ended, state: "output_written_receipt_unobserve" }));
+  assert.equal(readClaimRecord(nodeWatcherFs, dir, claimFields.marker_id).kind, "unreadable");
+  // Past data stays readable: a claim that ended as 'done' before this change.
+  writeFileSync(claimPath(dir, claimFields.marker_id), JSON.stringify({ ...ended, state: "done", resolution: "confirmed" }));
+  const past = readClaimRecord(nodeWatcherFs, dir, claimFields.marker_id);
+  assert.equal(past.kind === "found" && isTerminalClaim(past.claim), true);
+});
+
+test("T16(a)(b): the new kind counts exactly as the old 'confirmed' did - once per attempt, at its latest line, and old lines still count", () => {
+  const root = tmp();
+  const at = (offset: number) => new Date(NOW0 + offset).toISOString();
+  const line = (kind: Parameters<typeof appendLedger>[2], offset: number, attempt: string) =>
+    appendLedger(nodeWatcherFs, root, kind, { at: at(offset), attempt_id: attempt, marker_id: "m", host: "claude_code", agent_id: "kusabi", project: "p" });
+  assert.equal(line("respawn_issued", -200_000, "c"), true);
+  assert.equal(line(OUTPUT_WRITTEN_RECEIPT_UNOBSERVED, -100_000, "c"), true, "both lines of one attempt: one count");
+  assert.equal(line(OUTPUT_WRITTEN_RECEIPT_UNOBSERVED, -10, "d"), true, "found only by the inquiry: counts");
+  assert.equal(line("confirmed", -300_000, "past"), true, "a line written before this change still counts");
+  assert.deepEqual(summarizeLedger(nodeWatcherFs, root, "kusabi", "p", NOW0), { readable: true, last_respawn_ms: NOW0 - 10, respawns_in_last_hour: 3 });
 });
 
 test("store (F4): a ledger that exists but cannot be read in full is 'unreadable', never an empty history", () => {
