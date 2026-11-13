@@ -3,7 +3,7 @@
 監査の返却のたびに、記録に手で書いた数や『publish 済み／未』の文が、直した後も別の所に古いまま残っていた（直した所は毎回違った）。記録を直した後、監査の依頼の前に、**head から出した実物と機械で照らす**。手で突き合わせない。
 
 - 道具: 下の script（Python 3・git・gh だけ。LLM を使わず、外の依存も足さない）。この記録は PR に入れた記録であって、`scripts/`・`package.json`・CI には入れていない（code の差分は 0）。
-- 流す時: 記録を直したら、PR の head になる commit を作った後、監査の依頼を投稿する前に毎回。出力が数の不一致 0・状態の指摘 0・comment の不一致 0（終了 0）になってから依頼を出す。
+- 流す時: 記録を直したら、PR の head になる commit を作った後、監査の依頼を投稿する前に毎回。出力が数の不一致 0・状態の指摘 0・comment の不一致 0・出典の句の不一致 0（終了 0）になってから依頼を出す。
 
 ## 準備
 
@@ -19,12 +19,19 @@ cd <repo> && python3 -I check-records.py <base> <head> <tree> <logs> <body>
 
 `SHOW=ok,manual` を付けると、一致した行と、script が事実に結べなかった数（手で読む物）も出す。
 
-## 照らす 4 つ
+## 照らす 4 つと範囲
 
 1. 数: 『`path`（N 行）』『`path` は N 行』『| `path` | N cases』『A → B 行』を、`wc -l`（base と head）と、その試験自身の出力の `PASS … (N cases)` に結ぶ。『N commit』『commit は N 個』は `git rev-list --count base..head`、本文の commit の一覧（番号と短い sha の行）は `git rev-list base..head` の全部と過不足なく同じか、『N 項目』『項目の数は N』『DES-1〜DES-N』『IMP-1〜IMP-N』は項目の file 自身の数に結ぶ。不一致は止める。『』の中に引用した旧い記述の数（直す前の値を書く時）は、今の head の主張ではないので照らさず、MANUAL に出す。
 2. 状態: 『未 publish』『まだ publish』『GitHub に無い』『席間の指示／連絡／示唆』『権限としては引用しない』を言う節（、。（）で切った 1 節）は、『』の中の引用か、いつの話かを言う語（『この版を書いた時』『だった』『その後』など）か、publish 済みを言う語を持たなければ指摘にする。
 3. comment: 同じ行で『comment <10 桁>』の次にある 64 桁の SHA-256（次の 10 桁の数が出るまでを、その comment の SHA-256 の読み先にする）と、項目の file の `control_source_ref`（url と sha256 は別の行なので、JSON として読む）を、`gh api` が返す comment の本文から数え直した値と照らす。別の行に離れて書いた組は照らさない。
-4. 照らす範囲: 設計の記録（全体）・要件の FR11 の節・計画の Step 17 の節・試験の手順の Step 17 の節・追跡・要約の Step 17 の節・項目の file・PR 本文（DES-9 (a) が挙げる記録）。base に対して足した行だけを見る。
+4. 出典の句: 記録の中で『comment <10 桁>』を言う文に「…」があれば、その「…」を、文の中で直前にある（無ければ直後にある）comment の本文から写した句と数え、GitHub の API が返す本文に文字列として有るかを照らす（空白・バッククォート・`*` を除いて比べる）。無ければ不一致。『publish 済み』『publish された』と言う文（『』の中を除く）は「…」を 1 つ以上持たなければ指摘にする。comment の id を言う文の中では、「…」は出典の本文から写した句だけに使い、作者の旧い言い方や言い換えの引用は『…』で書く（id を言わない文の「…」、例えば用語の定義は照らさない）。
+5. 照らす範囲: 設計の記録（全体）・要件の FR11 の節・計画の Step 17 の節・試験の手順の Step 17 の節・追跡・要約の Step 17 の節・項目の file・PR 本文（DES-9 (a) が挙げる記録）。base に対して足した行だけを見る。
+
+## 出典の照らしで見つけられない物
+
+- 「…」を持たない言い換え（例: 『案 B と区分 R2 が書かれている』のような要約）と、comment の id を書かずに出典を言う文。script では照らせないので、見直し役（読むだけ）が引いた本文と突き合わせる。
+- 句が複数の comment の本文に有る時（例: 『区分は R2 のまま』）、句を結んだ id が正しいかは script では決まらない。句は、その文の中の結びたい id の直後に置く。
+- 引いた句が出典の本文と同じでも、その文の主張（誰が何を決めたか・何を公開したか）が正しいかは人が読む。この規則は、7 行目が『出典に無い物まで publish されたと書く』形の誤り（8 回目の返却の O7）を、句を持たせることで目に見える形にするためのもの。
 
 ## 照らせない物（出力の MANUAL）
 
@@ -33,6 +40,8 @@ script が file の行数や試験の cases に結べない数（『1 行』『�
 ## 最初に流した時に見つかった物
 
 10 回目の版を書く前の head で流すと、数の不一致（`rotation-commit.ts` の行数、`codex-session-start.ts`・`json-store.ts` の行数、PR 本文の『commit は 14 個』= 実物は 18 個で、一覧に 4 個の設計の commit が無かった）と、状態の指摘（`GitHub には未 publish` ほか）が出た。直した所と直し方は `code-summary.md` の 10 回目の版の段落にある。
+
+出典の照らしを足した時（11 回目の版を書く前の head）に流すと、『publish 済み／された』と言う文がどれも「…」を持たず、すべて指摘になった。直した所と直し方は `code-summary.md` の 11 回目の版の段落にある。
 
 ## script
 
@@ -50,13 +59,18 @@ usage: python3 -I check-records.py BASE HEAD TREE TESTLOGS PRBODY
   BASE, HEAD  commits.  TREE = `git archive HEAD` extracted dir.
   TESTLOGS    dir of per-test logs (`*.log`, each with a line `PASS <name> (<N> cases)`).
   PRBODY      the PR body text without the section that pastes this script's output.
-Three checks (exit 1 when any of them has a finding):
+Four checks (exit 1 when any of them has a finding):
   1. numbers  "`path`（N 行）", "`path` は N 行", "| `path` | N cases", "A → B 行": bound to
               wc -l at BASE/HEAD and to the case count of the test's own output.
   2. states   a clause that says a decision is not yet published / not on GitHub / only inter-seat must either
               quote the old wording inside 『』, say when it was true ("この版を書いた時" "だった" ...), or say it IS published.
   3. comments each "comment <id>" followed on the same line by a SHA-256, and the items file's control_source_ref
               (url + sha256, which sit on separate lines), is recomputed from the body GitHub's API returns.
+  4. cites    what a record says a comment says. A 「...」 in a sentence that names a comment id is a phrase taken from
+              that comment's body (the nearest id before it; the nearest after it when none is before), and must occur in the
+              body GitHub's API returns (blanks, `, * removed on both sides). A sentence that says a comment published
+              something ("publish 済み" / "publish された") must carry at least one such 「...」, or it is UNQUOTED. 『...』
+              stays for the author's own old wording and is not checked here.
 Scope = the records DES-9 (a) names: design, requirements FR11, plan Step 17, test instructions
 Step 17, traceability.json, code-summary Step 17, the audit-items file, and the PR body.
 """
@@ -350,6 +364,50 @@ for cid in sorted(seen):
         else:
             cm_bad.append((cid, f"stated {sha[:12]} api {real[:12]} at {label}:{ln}"))
 
+# ---------------------------------------------------------------- cites
+ID_RE = re.compile(r"(?<![0-9])(\d{10})(?![0-9])")
+PUB = re.compile(r"publish (済み|された)")
+QUOTE = re.compile(r"「([^」]+)」")
+squash = lambda t: re.sub(r"[\s*`]", "", t)
+bodies = {}
+
+
+def comment_body(cid):
+    if cid not in bodies:
+        bodies[cid] = None
+        for repo in ("watchout/agent-memory", "watchout/iyasaka-arc"):
+            p = subprocess.run(["gh", "api", f"repos/{repo}/issues/comments/{cid}"], capture_output=True)
+            if p.returncode == 0:
+                bodies[cid] = squash(json.loads(p.stdout)["body"])
+                break
+    return bodies[cid]
+
+
+cite_ok, cite_bad = 0, []
+for label, ln, text in targets:
+    if not ID_RE.search(text):
+        continue
+    for sent in split_sentences(text):
+        ids = [(m.start(), m.group(1)) for m in ID_RE.finditer(sent)]
+        if not ids:
+            continue
+        quotes = [(m.start(), m.group(1)) for m in QUOTE.finditer(sent)]
+        pubs = [m for m in PUB.finditer(sent) if not any(q.start() <= m.start() < q.end() for q in re.finditer(r"『[^』]*』", sent))]
+        if pubs and not quotes:
+            cite_bad.append((label, ln, "UNQUOTED: " + sent.strip()[:150]))
+            continue
+        for pos, phrase in quotes:
+            before = [i for i in ids if i[0] < pos]
+            after = [i for i in ids if i[0] > pos]
+            cid = (before[-1] if before else after[0])[1]
+            body = comment_body(cid)
+            if body is None:
+                cite_bad.append((label, ln, f"comment {cid} not fetched"))
+            elif squash(phrase) in body:
+                cite_ok += 1
+            else:
+                cite_bad.append((label, ln, f"「{phrase}」 is not in the body of comment {cid}"))
+
 # ---------------------------------------------------------------- report
 print(f"base {BASE[:8]}  head {HEAD[:8]}  commits {ncommit}  scoped added lines {len(targets)}")
 print("case facts:", json.dumps(cases, sort_keys=True))
@@ -362,11 +420,14 @@ for r in state_bad:
 print(f"comments: OK {cm_ok}  MISMATCH {len(cm_bad)}  (distinct comments {len(seen)})")
 for r in cm_bad:
     print(f"  MISMATCH {r[0]}  {r[1]}")
+print(f"cites   : OK {cite_ok}  MISMATCH {len(cite_bad)}  (distinct comments {len([c for c in bodies if bodies[c] is not None])})")
+for r in cite_bad:
+    print(f"  MISMATCH {r[0]}:{r[1]}  {r[2]}")
 if "ok" in SHOW:
     for r in res["OK"]:
         print("  ok", r[0], r[1], r[2])
 if "manual" in SHOW:
     for r in res["MANUAL"]:
         print("  manual", r[0], r[1], f"[{r[2]}]", r[3])
-sys.exit(1 if (res["MISMATCH"] or state_bad or cm_bad) else 0)
+sys.exit(1 if (res["MISMATCH"] or state_bad or cm_bad or cite_bad) else 0)
 ```

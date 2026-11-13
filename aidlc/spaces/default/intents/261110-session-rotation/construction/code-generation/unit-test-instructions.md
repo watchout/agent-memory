@@ -85,7 +85,7 @@ CI で回すために、新しい試験の file を、CI が呼ぶ npm の scrip
 
 ## 新しい試行（Step 17、引き継ぎの確定の順番）の試験
 
-試験だけの commit を実装の前に作り（arc の技術の判断で、設計と実装を同じ PR にまとめて 1 回の監査にする進め方。agent-memory#339 の comment 6817476604 に publish 済み。設計の PASS を待たない）、今の code で落ちることを確かめて出力を PR の本文に載せる（T1〜T6・T10・T12〜T16 は今の code では束が先に消費され印が先に書かれる、または確定の道・出力済みの記録・新しい終端の値・台帳の `detail` の値が無いので落ちる。T8 は出力済みの記録を読む道と新しい終端の値が無いので落ち、旧い形の固定は新しい終端の値（旧い形でも `confirmed` を書かない）に変わるので落ちる。T7・T9・T11 は今の動きの固定で、通るものは通る理由を書く）。試験の file 名と npm script への入れ方は下書き（実装の時に `test:session-rotation` に足す）。
+試験だけの commit を実装の前に作り（arc の技術の判断で、設計と実装を同じ PR にまとめて 1 回の監査にする進め方。agent-memory#339 の comment 6817476604 の本文「設計と実装を、1 回の監査にまとめてよい」に publish 済み。設計の PASS を待たない）、今の code で落ちることを確かめて出力を PR の本文に載せる（T1〜T6・T10・T12〜T16 は今の code では束が先に消費され印が先に書かれる、または確定の道・出力済みの記録・新しい終端の値・台帳の `detail` の値が無いので落ちる。T8 は出力済みの記録を読む道と新しい終端の値が無いので落ち、旧い形の固定は新しい終端の値（旧い形でも `confirmed` を書かない）に変わるので落ちる。T7・T9・T11 は今の動きの固定で、通るものは通る理由を書く）。試験の file 名と npm script への入れ方は下書き（実装の時に `test:session-rotation` に足す）。
 
 ```bash
 HOME=$(mktemp -d) AGENT_MEMORY_HOME=$(mktemp -d) npx tsx src/test-handoff-commit-order.ts   # FR11.1〜FR11.6: T1〜T7・T10〜T15・端の場面・JSON の store での T9・F2 の実際の stream と閉じた pipe・T12(i) の綴りでない marker id（35 cases。T8・T15(b)〜(d)・T16 は見張りの試験 src/test-rotation-watcher-{flow,units,world}.ts）
