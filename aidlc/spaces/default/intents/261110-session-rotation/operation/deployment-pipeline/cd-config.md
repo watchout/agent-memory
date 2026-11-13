@@ -17,7 +17,7 @@
 5. 戻した後に旧い見張りが新しい記録を読めるかの確かめ（(c)）を、使い捨ての場所で行った（下の「(c) 戻した後の読み」）。
 6. 切り直しの閾値 240000・`--node-path /opt/homebrew/bin/node`・1 回の操作で 5 つを替える形（Q6 = B・Q7 = B）は、第 2 版のまま。
 7. 範囲の外で見つけた点に O13〜O25 を足した（「範囲の外で見つけた点」の表）。O13・O14・O17・O20・O21 は arc の判断で解決した（各行の「（行き先）」）。O22〜O25 は、席が読み取りの probe と code の読みで見つけた点。
-8. 2026-11-13、arc が Owner の script の分け方を決めた（O20 の行き先）: 1 本目 = Claude の席の hook の差し替え（A）＋ Codex の席の `hooks.json` の差し替え（B）＋ Claude の席だけの見張り（S5・S6）。2 本目 = Codex の席の起こし直し（`<arc の持ち物>/tools/seat-launchers/start-kusabi-codex.sh`）。席が下書きを同じ記録の directory に置く（`owner-script-1.sh`・`owner-script-2.sh`。席は流さない）。[訂正 2026-11-13] この下書きは作られていない。席の柵が、hook の差し替えを扱う script を記録の folder に書くのを拒否し、arc の答えで、席は下書きを置かず arc が script を書く形に改めた（`memory.md` の同じ日の記録）。第 2 版の Q8 = B（Claude・Codex の 2 本）は、arc の分け方に替わった。
+8. 2026-11-13、arc が Owner の script の分け方を決めた（O20 の行き先）: 1 本目 = Claude の席の hook の差し替え（A）＋ Codex の席の `hooks.json` の差し替え（B）＋ Claude の席だけの見張り（S5・S6）。2 本目 = Codex の席の起こし直し（`<arc の持ち物>/tools/seat-launchers/start-kusabi-codex.sh`）。席が下書きを同じ記録の directory に置く（`owner-script-1.sh`・`owner-script-2.sh`。席は流さない）。[訂正 2026-11-13] この下書きは作られていない。席の柵が、hook の差し替えを扱う script を記録の folder に書くのを拒否し、arc の答えで、席は下書きを置かず arc が script を書く形に改めた（`memory.md` の同じ日の記録）。第 2 版の Q8 = B（Claude・Codex の 2 本）は、arc の分け方に替わった。[訂正 2026-11-13] この 1 本目・2 本目の分けも前の案。今の分けは、下の「第 3 版の実行の順と関門 O25」の節（arc の連絡）。
 
 表記の決まり: 絶対 path は書かない。`<作業場>` は Kusabi の席が読む AI-DLC の作業場（この repo の clone）、`<release>` は S1 で作る中身の決まった版の root、`<席の起動の script>` は Kusabi 自身の席の起動の script（作業場の外にある。arc が作った物）。見張りの置き場は `<rotation root>`（切り直しの記録の root。見張りの設定 `watcher-config.json`・停止の印 `HALT`・記録 `watcher-ledger.jsonl` が下にある）。
 
@@ -151,7 +151,7 @@ arc が席を 1 回起こし直し、起こし直し後の最初の会話が読�
 - 出典（control_source_ref）: agent-memory#339 の comment 6812844309 の (1)、本文の SHA-256 `141b188728c12f07e477bc0a65776cf5d328b411915d24f9bf1ad997a9737187`（arc の技術の判断。Owner の決定ではない。作者が GitHub の API が返す本文で数え直して一致を確かめた）。
 - 残ること: `auto_receive.status` の値は観測できていない。観測できないものを成功とは読まない（S5）ので、この行は「値を観測した」ではなく「届いた事実で置き換えた」と書く。品質ログの読みは、S5 の見張りの probe を据える時に、その段の手順で改めて扱う。
 
-## Codex の席（第 3 版で足す。script B。arc の分けで 1 本目の中で A の後に続け、Codex の席の起こし直しは 2 本目。席は何も書かない）
+## Codex の席（第 3 版で足す。script B。arc の分けで 1 本目の中で A の後に続ける。席は何も書かない。[訂正 2026-11-13] 前の見出しは「Codex の席の起こし直しは 2 本目」と書いたが、2 本目は関門・S5・S6 の script に替わった。Codex の席の起こし直しの script の呼び方は arc が決める）
 
 Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（tmux `kusabi`）の手順。範囲の読み（席の読み。Owner の言葉ではない）は、Codex の席が読む Kusabi の登録された作業場の `.codex/hooks.json` だけ。`~/.codex/config.toml` のほかの行・ほかの作業場の `hooks.json`・Onza／Totonoe など別の Codex の席には触れない。DB の構造・本番にも触れない。**Claude の席の script（上の S3・S4）とは別の script にする**（Q8 = B）。
 
@@ -175,12 +175,12 @@ Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（t
 
 | 番号 | 決定 | 席の下書きでの扱い |
 |---|---|---|
-| O13 | 起動の script は `/tmp` の外: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（arc の持ち物。SHA-256 `09f8c869032c653059eee1e94e3581cd4a207e1b2e368a1761497bbc2ceb00b0`、権限 700。席が読み取りで SHA-256 と権限を確かめた）。中身は動いている席（pid 6792）の argv の写し。変えたのは、先頭の node を絶対 path（`/opt/homebrew/opt/node@24/bin/node`）にしたことと、最初の入力の終わりに O14 の 1 文を足したこと。最初の連絡の path（`kusabi-self-seat/`）は取り下げられ、この path に替わった | 2 本目は、この file の SHA-256 と権限を表明してから起こし直す。中身（DB の指定を含む）は席も script も写さない。起こし直しは `tmux respawn-pane -k -t kusabi:0.0 'bash <起動の script>; exec zsh -l'` の形（arc の指定） |
+| O13 | 起動の script は `/tmp` の外: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（arc の持ち物。SHA-256 `09f8c869032c653059eee1e94e3581cd4a207e1b2e368a1761497bbc2ceb00b0`、権限 700。席が読み取りで SHA-256 と権限を確かめた）。中身は動いている席（pid 6792）の argv の写し。変えたのは、先頭の node を絶対 path（`/opt/homebrew/opt/node@24/bin/node`）にしたことと、最初の入力の終わりに O14 の 1 文を足したこと。最初の連絡の path（`kusabi-self-seat/`）は取り下げられ、この path に替わった | Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める）は、この file の SHA-256 と権限を表明してから起こし直す。中身（DB の指定を含む）は席も script も写さない。起こし直しは `tmux respawn-pane -k -t kusabi:0.0 'bash <起動の script>; exec zsh -l'` の形（arc の指定） |
 | O14 | 固定の最初の入力を持たせる。今の入力の文のまま、終わりに「SessionStart の引き継ぎ（additionalContext）があれば、それを読み、その続きから動く。」の 1 文を足す | 起動の script の中身（arc の持ち物）。席は文を書かない |
 | O17 | Codex の席の閾値は **200000**（窓 258400 の約 77%。Codex 自身の圧縮が先に来て切り直しが観測できない形を避けるため）。Claude の席は 240000 のまま。実際の切り直しの記録で見直す | script の Codex の installer の引数は `--rotation-threshold-tokens 200000` |
-| O20 | S5（見張りの設定の file）と S6（見張りの窓）は Owner の script の中。probe（読むだけ）は席が先に流し、`prompt_markers`・`placeholder_patterns` の値を arc に渡す | 1 本目の script が設定の file を書き、窓を起こす。probe の値は O22・O23 |
+| O20 | S5（見張りの設定の file）と S6（見張りの窓）は Owner の script の中。probe（読むだけ）は席が先に流し、`prompt_markers`・`placeholder_patterns` の値を arc に渡す | 1 本目の script が設定の file を書き、窓を起こす。[訂正 2026-11-13] 設定の file と窓は、2 本目の script（関門 O25・停止の印の確かめの後）が行う。1 本目（A → B）は書かない。probe の値は O22・O23 |
 | O21 | 自然に届くのを待つ。閾値を一時に下げる操作は足さない。届いたかは席が見て記録する | S7 は席が見て読む。script に閾値を動かす操作は無い |
-| 順序 | 1 本目 = A ＋ S5・S6（見張りは Claude の席だけ）＋ B（Codex の `hooks.json` だけ。見張りには足さない）。#49 の記録に (i)(ii)(iii) を書く。Claude の席の実際の切り直しを確かめた後に、2 本目 = Codex の起動の script での起こし直し（hook の信頼の画面は Owner）と、見張りへの Codex の席の追加 | O23・O25 の席の指摘を arc が決めるまで、2 本目の見張りへの追加は下書きに入れない。1 本目の S5・S6 には O25 の確かめの関門を入れた |
+| 順序 | [訂正 2026-11-13] 前の案（使わない。順は上の「第 3 版の実行の順と関門 O25」の節）: 1 本目 = A ＋ S5・S6（見張りは Claude の席だけ）＋ B（Codex の `hooks.json` だけ。見張りには足さない）。#49 の記録に (i)(ii)(iii) を書く。Claude の席の実際の切り直しを確かめた後に、2 本目 = Codex の起動の script での起こし直し（hook の信頼の画面は Owner）と、見張りへの Codex の席の追加 | O23・O25 の席の指摘を arc が決めるまで、2 本目の見張りへの追加は下書きに入れない。1 本目の S5・S6 には O25 の確かめの関門を入れた |
 
 ### 順序（script B。arc の決定で、1 本目の Owner の script の中で、Claude の席の hook の差し替え（A）の後に続けて行う。第 2 版の席の勧め（別の script）は arc の分け方に替わった）
 
@@ -191,7 +191,7 @@ Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（t
 4. 読み戻し（script が行う）: backup の SHA-256 が書く前の file と一致。`diff -u <backup> <hooks.json>`。Kusabi の handler（command に `.kusabi-releases/sha256/` を含む）を前後から外すと前後が同じ（= 差分は Kusabi の handler の入れ替えだけ）。`--check`（同じ引数）が exact。先頭の node が実在し実行できる。旧い版 `dd806dbe…` を指す handler が 0。合わなければ、今の file が「書いた直後の file」と同じ時だけ backup に戻し、止まる。
 5. 読み戻しに席が足す物: 差分の全文。**新しい版を指す Kusabi の handler が 5**（SessionStart 1・Stop 2・UserPromptSubmit 2）、**5 つの先頭の word が `/opt/homebrew/bin/node`**、`--binding-source-ref`・`--runtime-event-manifest`・`--workspace`・`--agent-id`・`--project`・上限 3 つの値が、差し替えの前後で同一（値の SHA-256 を比べる。値は貼らない）。
 6. 戻し: `rollback-runbook.md` の「Codex の席」。
-7. 打つ時: Codex の席の起こし直しは、arc が行う。席が手すきの時に打つ。打った後、arc が起動の script（P1）で席を起こし直し、Owner が信頼の確認を画面で行う（P3）。
+7. 打つ時: Codex の席の起こし直しは、arc が行う。席が手すきの時に打つ。打った後、arc が起動の script（P1）で席を起こし直し、Owner が信頼の確認を画面で行う（P3）。[訂正 2026-11-13] この「打った後」は、script B を打った直後の意味ではない。起こし直す時期は、上の「第 3 版の実行の順と関門 O25」の末尾のとおり、Claude の席の実際の切り直しを確かめた後（C2c）で、この順の外。
 
 引数 A-c（Codex の installer）: `--workspace <Codex の作業場> --runtime-root <release> --agent-id kusabi --project agent-memory --binding-source-ref '<今の handler の値をそのまま>' --max-tokens 1800 --max-bytes 8192 --timeout-ms 7000 --runtime-event-manifest '<今の handler の値をそのまま>' --node-path /opt/homebrew/bin/node`。`--binding-source-ref` と `--runtime-event-manifest` は、Claude の席と違って組み立てない。Codex の作業場は DB に登録された作業場で、今の handler が持つ値（3 つで同一）を、script が `hooks.json` から読んでそのまま渡す。Codex の installer には `--adapter-id` の引数が無く、adapter は installer が固定で持つ（SessionStart と取り込みと切り直しの 3 つ）。呼び出しは `HOME=<home> <node の実体> <release>/dist/codex-hook-installer.js <mode> A-c <追加の引数>`。
 
@@ -213,7 +213,7 @@ Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（t
 
 - S5c: Claude の席の S5 と同じ形で、見張りの設定に席を 1 件足す。`host` = `codex`、`tmux_target` = `kusabi:0.0`、`launch_command` = 起こし直した後の `#{pane_start_command}` の値そのまま、`launch_script` = `{ path: <P1 の新しい起動の script>, sha256: <その SHA-256> }`、`expected_command` = P4 で確かめた値、`drain_commands` = 空（Stop の hook の上限 9 秒が静けさの条件 20 秒より短い。Codex の下の process が増えるかは S5c の probe で見る）、`prompt_markers`・`placeholder_patterns` は probe の出力から、`owner_decision_ref` = 上の新しい Owner の決定（URL と本文の SHA-256。`names_aun_supervised_relaunch: false`）、`aun_supervised: false`。
 - 見張りは設定を 1 周ごとに読み直す（`runPass` が毎回 `loadConfig`）ので、Codex の席は見張りを止めずに足せる。ただし 1 つの席が観測できない（`unobservable`）と、見張りの「非進捗の周回」が増え、上限（既定 30 周。poll は 5 秒。`ROTATION_WATCHER_NO_PROGRESS_HALT_LIMIT`、2026-11-13 に席が定数を読んで訂正。前の版の記録は「3」と誤っていた）で見張り全体が止まる（`isNonProgress`）。**Codex の席は、probe が通り、起動の script と `expected_command` が確かめられるまで登録しない**。Claude の席の実際の切り直し（S7）が済んでから足すのを勧める（席の順の判断。Owner の言葉ではない）。
-- **第 3 版の席の読み（probe の結果。O23）**: Codex の席の画面は、入力欄の行（`›` + 空白 + 文）の下に、枠線でない行（モデル名と作業場の行・ショートカットの行）が 2 行ある。見張りの入力欄の判定（`proveInputRow`）は、入力欄の下に枠線だけの行以外の行があると `text_below_input_row` で「見つかったが空でない」を返し、`input_not_empty`（分類は `waiting`）で切り直しを見送る。席は probe を、マーカー `›` と `› `、placeholder の文を入れた形で流したが、どれも `input_empty: false` だった。つまり**今の見張りの code では、Codex の席は登録しても切り直しが起きない**（失敗側。`waiting` は非進捗に数えないので、見張り全体は止まらない）。切り直しを Codex の席で起こすには、入力欄の判定を Codex の画面に合わせる code の変更（新しい単位。守る物に触れるかは arc が決める）が要る。この判断が付くまで、2 本目の下書きに見張りへの追加を入れない。
+- **第 3 版の席の読み（probe の結果。O23）**: Codex の席の画面は、入力欄の行（`›` + 空白 + 文）の下に、枠線でない行（モデル名と作業場の行・ショートカットの行）が 2 行ある。見張りの入力欄の判定（`proveInputRow`）は、入力欄の下に枠線だけの行以外の行があると `text_below_input_row` で「見つかったが空でない」を返し、`input_not_empty`（分類は `waiting`）で切り直しを見送る。席は probe を、マーカー `›` と `› `、placeholder の文を入れた形で流したが、どれも `input_empty: false` だった。つまり**今の見張りの code では、Codex の席は登録しても切り直しが起きない**（失敗側。`waiting` は非進捗に数えないので、見張り全体は止まらない）。切り直しを Codex の席で起こすには、入力欄の判定を Codex の画面に合わせる code の変更（新しい単位。守る物に触れるかは arc が決める）が要る。この判断が付くまで、どの script の下書きにも、Codex の席を見張りへ足す物を入れない。[訂正 2026-11-13] 前の文は「2 本目の下書き」と書いた。「2 本目」の呼び方が替わった（上の「第 3 版の実行の順と関門 O25」）。
 - S7c: Claude の席の S7 の表と同じ確かめ（切り直しが 1 回起きる・続きが届く・引き継ぎの保存が DB に入る・圧縮より先に来たか・人が見ている間は触らない・作業中は切らない・席の hook も切れる・停止の印）に、Codex に固有の次を足す: (1) 起動の script が `codex` を新しい会話で起こし、SessionStart の `additionalContext` に引き継ぎの文が入る。(2) P2 で決めた最初の入力の形のとおりに、新しい会話が続きから動く（動かない形を受け入れたなら、その事実を記録して、次の入力で動く）。(3) 前の会話は `codex resume <old_session_id>` で再開できる。
 
 ## (c) 戻した後の読み（旧い見張りが新しい記録を読めるか。第 3 版。使い捨ての場所で確かめた。席への効果なし）
@@ -235,9 +235,46 @@ Owner の決定の (c)。確かめ方: 新しい版 `5fd29e06…` の `dist/rota
 3. 新しい hook と旧い見張りの組み合わせは、**読んだだけで流していない**が、旧い見張りの `isNewConversationConfirmed` が `turn.rotation_marker_id` と marker id の一致を要求し、#344 の hook はその欄を claim 経路で常に null にする（設計の記録 `handoff-commit-order-design.md` の 17.7）ため、旧い見張りは新しい会話を確認できず、`unconfirmed` で席の印を置く。失敗側に倒れるが、切り直しは続かない。**このため、見張りと hook の版は同時に替え、戻す時も同時に戻す**（arc の判断を、この確かめが支える）。
 4. 新しい見張り（`5fd29e06…`）と旧い hook（`28596bf0…`）の組み合わせは、新しい見張りが output-written の記録を要るため、同じく確認できない形になる見込み（流していない）。新しい見張りを起こすのは、Claude の席の hook が新しい版であることを確かめた後だけ。
 
+## 第 3 版の実行の順と関門 O25（S5 の前。正本）
+
+[訂正 2026-11-13] この節が、第 3 版の実行の順と関門の正本（arc の連絡。席間の連絡で、GitHub への記録はまだ無い。arc の技術の判断で、Owner の言葉ではない。権限の根拠として引かない）。前の案は順を 2 通り書いていた（「A ＋ S5・S6 ＋ B」の順と、`deployment-strategy.md` の表の「SA → C2 → S5・S6 → S7 → SB」の順）。どちらも前の案で、使わない。
+
+### 順（席は何も実行しない。script は arc が書き、arc-sec が読み、Owner が打つ）
+
+1. A: Claude の席の hook の差し替え（閾値 240000）。
+2. B: Codex の席の `hooks.json` の差し替え（閾値 200000。見張りには足さない）。
+3. Claude の席の起こし直し（arc が行う。変わった hook の確認の画面は Owner が押す）。
+4. 関門 O25（下の (a)(b)）。
+5. S5: 見張りの設定に Claude の席だけを登録する。
+6. 停止の印の確かめ（置く → 消す）。
+7. 印の file が無いことの確かめ。
+8. S6: 席と別の tmux の session で見張りを起こす（`remain-on-exit on`）。
+
+S7（実際の切り直し）は S6 の後、閾値に自然に届くのを待つ（O21）。Codex の席の起こし直し（C2c）は、Claude の席の実際の切り直しを確かめた後（O23 の arc の答え）で、この順の外。
+
+### script の分け（arc の連絡）
+
+1 本目の script（`install3.sh`）は 1・2 だけ（A → B）。3 の起こし直しは arc が行う。4〜8 は 2 本目の script（arc が書き、arc-sec が読む）。2 本目を打つのは、3 の後の最初のターンが済んでから（(b) が、その後の `turn.json` を読むため）。前の記録は「1 本目に A・B・S5・S6 を続ける」「2 本目 = Codex の席の起こし直し」と書いたが、この分けに替わった。Codex の席の起こし直しの script の呼び方は、arc の連絡に無い（arc が決める。席は決めない）。
+
+### 関門 O25（(a)(b) の 2 つとも通ること。通らない・読めない（観測できず）のどれでも、そこで止まり、S5・S6 に進まない。成功と記録しない）
+
+**(a) 起動が backup より後**
+- 入力: 席の pane（`aidlc-kusabi:0.0`。arc の連絡では pane id `%43`）の claude の process の pid。pane の木から引く（席の読み: pane の最初の process から子を辿り、`ps -o comm=` が `claude` の物）。Claude の席の最新の installer の backup（`.claude/settings.json.bak.wasurezu-<ISO 時刻>-…` の名前の時刻）。
+- 取り方: どちらも関門の時点で取り直す（前に取った値を使わない）。起動時刻は `LC_ALL=C ps -o lstart= -p <pid>`。backup の一覧は、A の apply の後に取り直す。A の前の一覧で比べると関門が通ってしまう: 今の process は、今ある最新の backup（名前の時刻 `2026-11-12T01-34-40Z`）より後に起きている（席が 2026-11-13 に `ps` と `ls` で読んだ）。
+- 比べ方: `lstart` は現地時間（この Mac は JST）で、時区が付かない。backup の名前は UTC（installer が `toISOString()` の `:` と `.` を `-` に替えて作る）。同じ表し方（epoch 秒）に直し、起動時刻（秒に切り捨て）が最新の backup の時刻より後であること。同じ秒は後に数えず、止める。
+
+**(b) 新しい process で hook が動いている**
+- 入力: 起こし直した後の最初のターンの後に、`<rotation root>/kusabi/agent-memory/turn.json` を読む（0700 の置き場）。見る欄は `host_pid`・`host_started_at`・`at`（hook の code `session-rotation-files.ts` で確かめた欄の名前）。
+- 比べ方: `host_pid` が (a) の pid と同じ。`host_started_at` が (a) の `lstart` の文字と同じ（hook は空白を 1 つにそろえて書くので、(a) の側も同じにそろえる）。`at`（`toISOString()` の UTC）が起動時刻より後。3 つとも成り立つこと。
+- 不一致の例: 起こし直しの前から有る `turn.json`（今は `host_started_at` が `Thu Nov 12 11:22:41 2026`）のままなら、`host_pid` か `host_started_at` が (a) と合わず止まる。最初のターンが済んでいない時、変わった hook の確認の画面が承認されず hook が動かない時も、同じく止まる。
+
+**(b) を使う理由**: `turn.json` の有る・無いだけでは、新旧どちらの hook が書いたかを区別できない（`memory.md` の 12:38:45Z）。会話は同じ（同じ session_id）で起こし直すので、session_id でも区別できない。区別には pid と起動時刻を使う。(a) が成り立てば、その process は新しい設定の後に起きている。だからその pid の `turn.json` が (b) の 3 つで合えば、新しい hook が実際に動いた証拠になる。
+
+**席が確かめていない物**: pid の引き方と時刻の変換は arc の script が書く。席は、code（欄の名前と時刻の作り方）と今の実物（`turn.json` の欄・`lstart` の表記・backup の名前の形）を読んだだけで、この関門を実機で流していない。
+
 ## S5 見張りの設定への登録と probe
 
-**第 3 版の読み替え**: 見張りは今どこにも動いていない（見張りの設定 `watcher-config.json`・記録 `watcher-ledger.jsonl`・停止の印 `HALT` が無い。2026-11-13 の読み取り）。`<rotation root>`（`~/.agent-memory/rotation`、0700）は実在し、席の旧い hook が `kusabi/agent-memory/` の下に `turn.json`（`host_pid` が席の claude の process）と `hook-state.json` を書いている（前の記録の「folder も無い」は誤りで、書いた後に読み直して訂正した）。S5 の 1 は「設定の file を新しく作る」になり、既にある folder の権限（0700）を確かめる。`owner_decision_ref` は新しい Owner の決定（`#49 6847683704`、本文の SHA-256 `d2749ed886a695d92f67410057cd2c53888550edd3cfd96a5ab843bf09932e5c`、`names_aun_supervised_relaunch: false`）を使う（席の読み。下の値の古い URL `6790645694` は第 1・2 版の決定で、新しい決定が、見張りの起動を含む再配備を述べているため。最終の値は arc が script と見張りの設定の中で決める）。`launch_script` の SHA-256 は Claude の席のものが `496f71ff…4126` のまま（2026-11-13 に取り直して一致）。Claude の席の登録は、S3・S4 の差し替えの読み戻しと C2 の取り直しが合った後。
+**第 3 版の読み替え**: 見張りは今どこにも動いていない（見張りの設定 `watcher-config.json`・記録 `watcher-ledger.jsonl`・停止の印 `HALT` が無い。2026-11-13 の読み取り）。`<rotation root>`（`~/.agent-memory/rotation`、0700）は実在し、席の旧い hook が `kusabi/agent-memory/` の下に `turn.json`（`host_pid` が席の claude の process）と `hook-state.json` を書いている（前の記録の「folder も無い」は誤りで、書いた後に読み直して訂正した）。S5 の 1 は「設定の file を新しく作る」になり、既にある folder の権限（0700）を確かめる。`owner_decision_ref` は新しい Owner の決定（`#49 6847683704`、本文の SHA-256 `d2749ed886a695d92f67410057cd2c53888550edd3cfd96a5ab843bf09932e5c`、`names_aun_supervised_relaunch: false`）を使う（席の読み。下の値の古い URL `6790645694` は第 1・2 版の決定で、新しい決定が、見張りの起動を含む再配備を述べているため。最終の値は arc が script と見張りの設定の中で決める）。`launch_script` の SHA-256 は Claude の席のものが `496f71ff…4126` のまま（2026-11-13 に取り直して一致）。Claude の席の登録は、S3・S4 の差し替えの読み戻しと C2 の取り直しが合った後。[訂正 2026-11-13] さらに、関門 O25（(a)(b)。上の節）が通った後。前の文は C2 の後と書いたが、関門が間に入る。
 
 1. `<rotation root>/watcher-config.json` に席を 1 件書く。値（arc-sec の C3）:
    - `agent_id`、`project`、`host` = `claude_code`、`tmux_target` = `aidlc-kusabi:0.0`
@@ -256,6 +293,8 @@ Owner の決定の (c)。確かめ方: 新しい版 `5fd29e06…` の `dist/rota
 4. S5 の前に、人が席を 1 回起こし直して確かめる事（C2）は、上の「C2 の取り直し」の表。`initialUserMessage` が効くかの確かめ（O5）は、その表では取れない（下の O5）。
 
 ## S6 見張りを tmux の窓で起こす（Q2 = A）
+
+[訂正 2026-11-13] 順の読み替え（席の読み。arc の script が正で、違う分け方ならこの読みを直す）: 上の「第 3 版の実行の順」は、S5 の後・S6 の前に「停止の印の確かめ（置く → 消す）」と「印の file が無いことの確かめ」を置く。この節の 2 の「起こす前に、停止の印が置いていないこと」は、後者に当たる。前者は、見張りを起こす前に、印の置き場に印が置けて消せること。見張りが動いている間に印で周回が止まる確かめ（下の 3）は、S6 の後に残す（省かない）。
 
 1. **`aidlc-kusabi` とは別の tmux の session** に窓を作り、見張りを起こす（LLM を使わない script。席の画面にキーを送らない）。同じ session に置くと、見張りの窓を操作する人の client の最終操作が、席の「人が触っている」に数えられ、安全側に倒れて一度も動かない（C4）。
 2. 起こす前に、停止の印が置いていないことを確かめる。起こした後、窓が動き、記録（`watcher-ledger.jsonl`）に起動の行が出ること。
@@ -306,15 +345,15 @@ Owner の決定の (c)。確かめ方: 新しい版 `5fd29e06…` の `dist/rota
 | O18 | **第 3 版**: Codex の取り込みの効果。今の Codex の取り込みの hook は存在しない node を指して起動できず、取り込みは 0 件。差し替えで、Codex の席の会話（redaction の後の、利用者と AI の見える文と tool の名前）が、席の通常の経路で Kusabi の DB に取り込まれ始める（O4 のとおり、hook の process に DB の指定が届くことが前提）。DB の構造は変えない | Owner の記録（script B の前の投稿）で承認される効果。DB の書き込みは席の通常の経路で、この手順が追加で書かない | Owner（記録の投稿を打つことが承認） |
 | O20 | **第 3 版**: S5（見張りの設定の file を作る・probe）と S6（見張りの窓を起こす）を誰が行うか。第 1・2 版の記録は「S5〜S7 は席が行う」としたが、第 3 版の Owner の決定は「新しい見張りを起こす」を arc が作り Owner が打つ script の中に置いた（見張りの起動は、席が書かない保護面の動作）。席の読み: 設定の file を書く・見張りを起こす動作は、script の中（Owner が打つ）。probe は書かず席の画面を読むだけなので、席が先に流して `prompt_markers`・`placeholder_patterns` の値を渡せる。席の読みで、決めるのは arc | 席が書く・起こす形にすると、決定の「Owner が打つ」の外になる | arc |
 | O21 | **第 3 版**: 切り直しを実際に 1 回起こす条件（(d)）。席の hook の閾値は 240000 で、見張りは席の会話の量がそこに届いた時だけ切る。今の席の会話の量で届くまでに時間がかかるなら、(d) の確かめがいつ起きるかは席の使われ方で決まる。閾値を一時的に下げて確かめる形は、hook の引数の変更（もう 1 回の installer の適用）になり、確かめた後に 240000 へ戻す操作も要る。席は決めない | (d) が実際に起きる時期が読めない／閾値を動かす操作が増える | arc（自然に届くのを待つか、閾値を下げて試すか。守る物ではない技術の判断） |
-| O13（行き先） | 解決: arc の判断で、起動の script を `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（SHA-256 `09f8c869…00b0`、700）に作った（上の「第 3 版の arc の決定」）。席が SHA-256 と権限を読み取りで確かめた。2 本目の script が、見張りの設定ではなく Codex の席の起こし直しに使う。見張りの `launch_script` への登録は、O23 が解決するまで入れない | — | arc |
+| O13（行き先） | 解決: arc の判断で、起動の script を `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（SHA-256 `09f8c869…00b0`、700）に作った（上の「第 3 版の arc の決定」）。席が SHA-256 と権限を読み取りで確かめた。Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める）が、見張りの設定ではなく Codex の席の起こし直しに使う。見張りの `launch_script` への登録は、O23 が解決するまで入れない | — | arc |
 | O14（行き先） | 解決: arc の判断で、起動の script に固定の最初の入力を持たせる（終わりに 1 文を足す）。Claude の席で「固定の最初の指示を外した」判断とは別（Codex は SessionStart が続きの入力を出さないため） | — | arc |
 | O17（行き先） | 解決: arc の判断で、Codex の席の閾値は 200000。S7c で、圧縮が先に来たかを記録して見直す | — | arc |
 | O20（行き先） | 解決: arc の判断で、S5・S6 は Owner の script の中。probe は席が先に流した（O22・O23） | — | arc |
 | O21（行き先） | 解決: arc の判断で、自然に届くのを待つ。閾値を一時に下げる操作は足さない。席が S7 を見て記録する | 届くまでの時間は席の使われ方で決まる | arc |
 | O22 | **第 3 版（probe）**: Claude の席の入力欄の行は、`❯`（U+276F）の直後が NO-BREAK SPACE（U+00A0）で、通常の空白（U+0020）ではない。見張りの枠線の読み飛ばし（`FRAME`）は U+2500〜U+257F・空白・tab だけで、U+00A0 を含まない。`prompt_markers` に `❯` だけを書くと、手すきでも入力欄が「空でない」と読まれ、切り直しの条件（`input_not_empty`）に通らず、切り直しが起きない（失敗側）。マーカーを `❯` + U+00A0 にすると、`input_row_found`・`input_empty`・`cursor_at_input_head` がすべて true（席が新しい版の見張りの probe で確かめた） | S5 のマーカーの値を間違えると、見張りは動いても切らない。気づきにくい（毎周回「待ち」が続く） | arc。script の設定の file に `prompt_markers` = [U+276F U+00A0] を入れた。ほかの席（Onza・Totonoe の Codex・Claude）のマーカーの値は範囲の外 |
-| O23 | **第 3 版（probe）**: Codex の席の画面は、入力欄の下に枠線でない行（モデル名と作業場の行・ショートカットの行）があり、見張りの入力欄の判定が `text_below_input_row` で「空でない」を返す（上の Codex の節の「probe の結果」）。今の code では、Codex の席は登録しても切り直しが起きない。非進捗には数えないので、見張り全体は止まらない | Codex の席の実際の切り直し（Owner の決定の (d) の Codex 分）が、code の変更なしには起きない。席の切り直しの設計が Claude の席の画面の形を前提にしている | arc（判定を Codex の画面に合わせる code の変更を、新しい単位として行うか。守る物に触れるかも arc の判断。席は決めない）。席の勧め: 1 本目・2 本目の Codex の hook と起こし直しまでは進め、見張りへの追加は code の変更の後 **arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い）**: Codex の席を見張りに足すのは、入力欄の判定を Codex の画面（入力欄の下の 2 行）に合わせる code の変更の後。その変更は新しい小さい単位（bugfix、Kusabi の repo の code、守る物には触れない）として、この取り組みの配る段の後に立てる。それまでは B（Codex の hooks.json の差し替え、閾値 200000）だけを入れ、Codex の席の切り直しは、hook が印を置いたのを席か arc が見て、人（arc）が起動の script で起こし直す（これで「Codex でも続きから動く」を確かめる）。 |
-| O24 | **第 3 版**: Codex の版。PATH の `codex` は 0.166.0、席が使う bun の `codex`（node@24 で動かす形。arc の起動の script が起こす）は 0.163.0。第 3 版の最初の記録の「0.166.0」は PATH の方を読んだ誤り（arc の指摘で直した）。今動いている Codex の process（2026-10-16 の起動）の版は確かめていない | Codex の hook の契約を確かめた版と席の版がずれると、hook の入力の形が違う恐れ | 席。1 本目・2 本目の前の確かめに「どの codex を読んだか」の 1 行を足した |
-| O25 | **第 3 版**: arc の分け方（1 本目に A と S5・S6 を続ける）では、見張りが、まだ新しい hook を読み込んでいない席（今動いている claude の process）を見る恐れがある。席は、Claude Code が設定の hook を起動時の写しで使うのか、変更をその場で読むのかを、文書では確かめていない（席の記憶: 起動時の写しで、外から書き換えた hook は再確認が要る形）。見張りの動き（コードを読んだ）: 席に印（marker）が無い間は `no_marker`（`idle`）で何も起きず、非進捗にも数えない。**席の会話の量が閾値に届いて旧い hook（`28596bf0…`）が印を作った時**に、新しい見張りがそれを見ると、(c) の 4 の形（新しい見張りと旧い hook の組。確認できない形になる見込み。流していない）になる。今のこの席は長い会話で、閾値に届く時期は読めない | 1 回の打鍵で hook を替えて見張りまで起こすと、席を起こし直していない間に、旧い hook の印を新しい見張りが読む恐れ | arc。席の下書きは、S5・S6 の前に関門を置いた: 席の claude の process の起動時刻が、最後の Kusabi の installer の apply の時刻（`settings.json.bak.wasurezu-<時刻>-<uuid>` の名前の時刻。AI-DLC の hook などが同じ file を書いても動かない）より後であること。`turn.json` は旧い hook も書くので、関門には使わない（`turn.json` の `host_pid` は、`expected_command` = `claude` の確かめだけに使う）。満たさなければ止まり、「席を 1 回起こし直してから同じ script をもう 1 回打つ」と表示する（A・B は済んでいれば飛ばす）。この関門は、席の hook の読み込みの仕組みに依らず成り立つ **arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い）**: 関門 (a)(b) の形でよい。changed_hook_requires_operator_review の確認の画面は Owner が押す、と script の出力に書く。 |
+| O23 | **第 3 版（probe）**: Codex の席の画面は、入力欄の下に枠線でない行（モデル名と作業場の行・ショートカットの行）があり、見張りの入力欄の判定が `text_below_input_row` で「空でない」を返す（上の Codex の節の「probe の結果」）。今の code では、Codex の席は登録しても切り直しが起きない。非進捗には数えないので、見張り全体は止まらない | Codex の席の実際の切り直し（Owner の決定の (d) の Codex 分）が、code の変更なしには起きない。席の切り直しの設計が Claude の席の画面の形を前提にしている | arc（判定を Codex の画面に合わせる code の変更を、新しい単位として行うか。守る物に触れるかも arc の判断。席は決めない）。席の勧め: [訂正 2026-11-13: 「1 本目・2 本目」は前の分けの呼び名。今の分けは上の「第 3 版の実行の順と関門 O25」] 1 本目・2 本目の Codex の hook と起こし直しまでは進め、見張りへの追加は code の変更の後 **arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い）**: Codex の席を見張りに足すのは、入力欄の判定を Codex の画面（入力欄の下の 2 行）に合わせる code の変更の後。その変更は新しい小さい単位（bugfix、Kusabi の repo の code、守る物には触れない）として、この取り組みの配る段の後に立てる。それまでは B（Codex の hooks.json の差し替え、閾値 200000）だけを入れ、Codex の席の切り直しは、hook が印を置いたのを席か arc が見て、人（arc）が起動の script で起こし直す（これで「Codex でも続きから動く」を確かめる）。 |
+| O24 | **第 3 版**: Codex の版。PATH の `codex` は 0.166.0、席が使う bun の `codex`（node@24 で動かす形。arc の起動の script が起こす）は 0.163.0。第 3 版の最初の記録の「0.166.0」は PATH の方を読んだ誤り（arc の指摘で直した）。今動いている Codex の process（2026-10-16 の起動）の版は確かめていない | Codex の hook の契約を確かめた版と席の版がずれると、hook の入力の形が違う恐れ | 席。[訂正 2026-11-13: 「1 本目・2 本目」は前の分けの呼び名。Codex の席の script の前の確かめ] 1 本目・2 本目の前の確かめに「どの codex を読んだか」の 1 行を足した |
+| O25 | **第 3 版**: arc の分け方（1 本目に A と S5・S6 を続ける）では、見張りが、まだ新しい hook を読み込んでいない席（今動いている claude の process）を見る恐れがある。席は、Claude Code が設定の hook を起動時の写しで使うのか、変更をその場で読むのかを、文書では確かめていない（席の記憶: 起動時の写しで、外から書き換えた hook は再確認が要る形）。見張りの動き（コードを読んだ）: 席に印（marker）が無い間は `no_marker`（`idle`）で何も起きず、非進捗にも数えない。**席の会話の量が閾値に届いて旧い hook（`28596bf0…`）が印を作った時**に、新しい見張りがそれを見ると、(c) の 4 の形（新しい見張りと旧い hook の組。確認できない形になる見込み。流していない）になる。今のこの席は長い会話で、閾値に届く時期は読めない | 1 回の打鍵で hook を替えて見張りまで起こすと、席を起こし直していない間に、旧い hook の印を新しい見張りが読む恐れ | arc。[訂正 2026-11-13] 前の案（関門は、起動時刻と backup の比較だけ。決めはこの行の末尾）: 席の下書きは、S5・S6 の前に関門を置いた: 席の claude の process の起動時刻が、最後の Kusabi の installer の apply の時刻（`settings.json.bak.wasurezu-<時刻>-<uuid>` の名前の時刻。AI-DLC の hook などが同じ file を書いても動かない）より後であること。`turn.json` は旧い hook も書くので、関門には使わない（`turn.json` の `host_pid` は、`expected_command` = `claude` の確かめだけに使う）。満たさなければ止まり、「席を 1 回起こし直してから同じ script をもう 1 回打つ」と表示する（A・B は済んでいれば飛ばす）。この関門は、席の hook の読み込みの仕組みに依らず成り立つ。[訂正 2026-11-13] ここまでが前の案。 **arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い）**: 関門 (a)(b) の形でよい。changed_hook_requires_operator_review の確認の画面は Owner が押す、と script の出力に書く。[訂正 2026-11-13] arc の決め（席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い。権限の根拠として引かない）: 関門は (a)(b) の 2 つとも使う。入力・取り方・比べ方・不一致で止まることは、上の「第 3 版の実行の順と関門 O25」の節（正本）。前の案の「`turn.json` は旧い hook も書くので、関門には使わない」は、(a) が成り立てば、その pid の `turn.json` が新しい hook の動いた証拠になるので、(b) に使う形に替わった（`turn.json` の有る・無いだけでは新旧を区別できない事実は変わらない）。 |
 | O19 | **第 3 版**: 見張りと hook の版の同時の入れ替え（arc の判断。arc の席間の連絡で、GitHub への記録はまだ無い）。上の (c) が、その根拠をコードと使い捨ての確かめで支える（旧い見張りは新しい終わりの値を読めず `unreadable`。新しい hook は `rotation_marker_id` を claim 経路で常に null にするので、旧い見張りは確認できない） | 一方だけ戻すと、切り直しが続かない（失敗側に倒れる） | 記録のみ。`rollback-runbook.md` に同時に戻す順を書いた |
 
 ## arc-sec の確かめ（iyasaka-arc#57 6791098364、止める指摘 0）への答え

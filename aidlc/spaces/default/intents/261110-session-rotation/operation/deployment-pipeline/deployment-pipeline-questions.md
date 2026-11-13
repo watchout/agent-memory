@@ -140,23 +140,23 @@ B. 2 つの script にする。Claude の席の script を先に打ち、読み�
 
 ### arc の答え（第 3 回。arc の技術の判断。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 の技術の範囲で、Owner の言葉ではない）
 
-- Q8 の分け方は、arc の分け方で置き換わった: 1 本目の script = Claude の席の hook の差し替え（A）＋見張りの設定の file と起動（S5・S6。Claude の席だけ）＋Codex の席の `hooks.json` だけの差し替え（B。見張りには足さない）。2 本目の script = Claude の席の実際の切り直しが済んだ後の、Codex の席の起こし直し。上の Q8 の [Answer] の本文は、席が先に勧めた形の記録として残す。
+- Q8 の分け方は、arc の分け方で置き換わった: 1 本目の script = Claude の席の hook の差し替え（A）＋見張りの設定の file と起動（S5・S6。Claude の席だけ）＋Codex の席の `hooks.json` だけの差し替え（B。見張りには足さない）。2 本目の script = Claude の席の実際の切り直しが済んだ後の、Codex の席の起こし直し。上の Q8 の [Answer] の本文は、席が先に勧めた形の記録として残す。[訂正 2026-11-13] この分け方も前の案。今の分けは `cd-config.md` の「第 3 版の実行の順と関門 O25」の節: 1 本目（`install3.sh`）は A → B だけ、Claude の席の起こし直しは arc、関門 O25・S5・停止の印の確かめ・S6 は 2 本目。Codex の席の起こし直しの script の呼び方は arc が決める。
 - O13: Codex の起動の script は arc が `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh` に作った（SHA-256 `09f8c869…00b0`、権限 700）。起こし直しは `tmux respawn-pane -k` の形。見張りの `launch_script` への登録は、Codex の席を足す時。
 - O14: 固定の最初の入力を持たせる（現行の文に 1 文を足す）。文面は arc の file の中。
 - O17: Codex の閾値は 200000（窓 258400 の約 77%）。Claude の席は 240000 のまま。実際の切り直しの後に見直す。
 - O20: S5・S6 は Owner の script の中。probe は席が先に流す（流した: O22・O23）。
 - O21: 閾値に自然に届くのを待つ。閾値を一時に下げる操作は足さない。席が観測して記録する。
-- 順: 1 本目を打ち、Claude の席の実際の切り直しを確かめた後に 2 本目を打つ。
+- 順: 1 本目を打ち、Claude の席の実際の切り直しを確かめた後に 2 本目を打つ。[訂正 2026-11-13] 前の案。今は、1 本目の後に arc が Claude の席を起こし直し、最初のターンの後に 2 本目（関門 O25・S5・S6）を打つ。Codex の席の起こし直しの script は、Claude の席の実際の切り直しの後（呼び方は arc が決める）。
 
 ### 席から arc への補足（問いではない。事実の報告。第 3 回）
 
 - 旧い見張りは今どこにも動いていない（`ps` に rotation-watcher が無く、見張りの設定・記録・停止の印の file が 1 つも無い。S5・S6 は第 1・2 回で起こしていない）。そのため (b) の「旧い見張りを止める」は、止める物が無い。新しい見張りを初めて起こす形になる。「見張りと hook を同じ版で同時に替える」という arc の判断は、そのまま守れる（hook を新しい版に替えて確かめた後にだけ、見張りに席を登録する）。
 - Codex の席の tmux の起動 command が指す script（`/tmp/codex-leads-restart-20261016/` の下）は、今は存在しない。見張りの切り直しは、その起動 command をそのまま流して席を起こし直すので、このままでは Codex の席は切り直しで起きない。席の起動の script を作り直すのは arc の仕事なので、前提として arc に渡す（`cd-config.md` の「Codex の席」）。
-- probe の結果（読み取りだけ。第 3 回）: Claude の席の入力欄は `❯` の直後が NO-BREAK SPACE のため、見張りの設定の `prompt_markers` は `❯` と NO-BREAK SPACE の 2 文字にする（O22）。Codex の席の画面では、入力欄の下に枠線でない行が 2 つあり、今の入力欄の判定が通らない（O23）。そのため、Codex の席を見張りに足す手順は 2 本目の script の下書きに入れず、arc の判断を待つ。
+- probe の結果（読み取りだけ。第 3 回）: Claude の席の入力欄は `❯` の直後が NO-BREAK SPACE のため、見張りの設定の `prompt_markers` は `❯` と NO-BREAK SPACE の 2 文字にする（O22）。Codex の席の画面では、入力欄の下に枠線でない行が 2 つあり、今の入力欄の判定が通らない（O23）。そのため、Codex の席を見張りに足す手順は 2 本目の script の下書きに入れず、arc の判断を待つ。[訂正 2026-11-13] 「2 本目」の呼び方は替わった（上の Q8 の分けの訂正）。見張りに足さないことは変わらない。
 - 訂正: 見張りの非進捗の上限は 30 周（poll 5 秒）で、席が前に送った「既定 3」は誤り。
 
 ### arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い） — O23・O25・script の担当
 
 - O23: Codex の席を見張りに足すのは、見張りの入力欄の判定を Codex の画面に合わせる code の変更の後。新しい小さい単位（bugfix、Kusabi の repo の code、守る物には触れない）として、この取り組みの配る段の後に立てる。それまでは B（Codex の `hooks.json` の差し替え、閾値 200000）だけを入れる。Codex の席の切り直しは、hook が印を置いたのを席か arc が見て、人（arc）が起動の script で起こし直す。
-- O25: 関門 (a)(b) の形でよい。`changed_hook_requires_operator_review` の確認の画面は Owner が押す、と script の出力に書く。
-- script: arc が書く（席の下書きは、席の柵に拒否されて書けなかった）。1 本目の中身 = A → B → Claude の席を起こし直す（Owner の確認の画面）→ 関門 → S5 → 停止の印の確かめ → 印の file が無いことの確かめ → S6。足りない値は `cd-config.md` から読む。
+- O25: 関門 (a)(b) の形でよい。`changed_hook_requires_operator_review` の確認の画面は Owner が押す、と script の出力に書く。[訂正 2026-11-13] (a)(b) の中身は、`cd-config.md` の「第 3 版の実行の順と関門 O25」に書いた（arc の連絡で決まった）。
+- script: arc が書く（席の下書きは、席の柵に拒否されて書けなかった）。1 本目の中身 = A → B → Claude の席を起こし直す（Owner の確認の画面）→ 関門 → S5 → 停止の印の確かめ → 印の file が無いことの確かめ → S6。足りない値は `cd-config.md` から読む。[訂正 2026-11-13] 前の案: 1 本目の中身を A から S6 までの 1 本に書いた。今は 1 本目（`install3.sh`）が A → B だけ、起こし直しは arc、関門・S5・停止の印の確かめ・印の file が無いことの確かめ・S6 は 2 本目（arc の連絡。arc が書き、arc-sec が読む）。順は同じ。
