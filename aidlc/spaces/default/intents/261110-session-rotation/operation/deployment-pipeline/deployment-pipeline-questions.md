@@ -115,3 +115,48 @@ X. Other (please specify)
 
 [Answer]: B（arc の答え。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 。Owner の言葉ではない。1 回で 5 つを替える: `--apply --rotation on --rotation-threshold-tokens 240000`。途中で新旧が混ざらず、backup は 1 つ。arc は Owner が打つ script を、この形に直して席の今の settings.json の写しで流した: dry-run 1 回（`would_change: true`、無関係 3・3）→ apply → 差分は Kusabi の hook の入れ替えだけ → check exact → 5 つとも `/opt/homebrew/bin/node` → 前の版 `1b731f00` を指す hook 0・新しい版 `28596bf0` が 5。席が script の本文を読んで、同文であることを確かめた: script の SHA-256 `541b4fef2db5dcc51d8ef4c440e7a0f816facb9de94c1007df45ac011d8dd6a7`。arc の席間の連絡。GitHub への記録はまだ無い）
 **Mode:** chat
+
+---
+
+## 第 3 回の据え付けで足す事項（2026-11-13）
+
+第 2 回の後、取り組みの construction へ戻って #344（統合の commit `ffe511e5ec655078dba631997397b371d55131ac`）が入り、Build and Test が済みました。Owner の新しい決定が出ました。この段の第 3 版は、この決定と arc の依頼に合わせて書き直しました。
+
+### Owner の決定（原文。聞き直さない）
+
+- `OD-KUSABI-ROTATION-REDEPLOY-A-TO-D-PLUS-CODEX-SEAT-20261113-001`: https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6847683704 （投稿者 watchout、2026-11-13T08:12:10Z、本文の SHA-256 `d2749ed886a695d92f67410057cd2c53888550edd3cfd96a5ab843bf09932e5c`。席が GitHub の API が返す本文で数えて一致を確かめた）。
+- Owner の言葉（原文）: 「a-dでよい。kusabiだけの影響ならすぐやれ。codexも対応してテストするんだろ？それもやれ」。
+- 決定の中身: (a) #344 の統合の commit から、中身の決まった版を別の清潔な copy で作り直す、(c) 戻した後に旧い見張りが新しい記録を読めるかを使い捨ての場所で確かめる、は席が進める。(b) 旧い見張りを止める → 席の hook を新しい版へ差し替える → 新しい見張りを起こす、(d) 席を起こし直して切り直しを実際に 1 回試す、は arc が script を作り、arc-sec が読み、Owner が打つ（打つことが承認）。範囲は Kusabi の Claude Code の席（tmux `aidlc-kusabi`）に、Kusabi の Codex の席（tmux `kusabi`）を足す。DB の構造・ほかの席・本番には触れない。
+
+### Q8. [配備の担当] Codex の席の差し替えを、Claude の席と同じ 1 つの script にするか、2 つにするか
+
+arc の依頼（席間の連絡。arc の技術の依頼で、Owner の言葉ではない。GitHub への記録はまだ無い）は、Codex の席を Claude の席と同じ 1 つの script で当てるか、2 つ目の script にするかを、この段の記録の中で席が決めること。
+
+A. 1 つの script で、Claude の席の設定と Codex の席の設定を続けて替える。
+B. 2 つの script にする。Claude の席の script を先に打ち、読み戻しと席の起こし直しの確かめが済んでから、Codex の席の script を打つ。
+
+[Answer]: B（席が決めた技術の判断。arc の依頼による。守る物の判断（Owner の決定）ではないので Owner には回さない。arc が script を作る時に変えてよい。理由は `cd-config.md` の「Codex の席」の節。要点: (1) 書き換える file・席・再起動・信頼の確認が別で、失敗の形が違う。(2) 読み戻しの失敗で戻す範囲を、その席の file だけにできる。(3) Codex には、Claude にない前提（起動の script が無い・続きの最初の入力が無い・hook の信頼の確認・host の process の確かめ）が残っていて、その結果が出る前に Claude の席の確かめを止めたくない。(4) Owner の「打つこと」が承認の単位なので、席ごとに分けた方が、打つ前に読む範囲が小さい）
+**Mode:** chat
+
+### arc の答え（第 3 回。arc の技術の判断。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 の技術の範囲で、Owner の言葉ではない）
+
+- Q8 の分け方は、arc の分け方で置き換わった: 1 本目の script = Claude の席の hook の差し替え（A）＋見張りの設定の file と起動（S5・S6。Claude の席だけ）＋Codex の席の `hooks.json` だけの差し替え（B。見張りには足さない）。2 本目の script = Claude の席の実際の切り直しが済んだ後の、Codex の席の起こし直し。上の Q8 の [Answer] の本文は、席が先に勧めた形の記録として残す。
+- O13: Codex の起動の script は arc が `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh` に作った（SHA-256 `09f8c869…00b0`、権限 700）。起こし直しは `tmux respawn-pane -k` の形。見張りの `launch_script` への登録は、Codex の席を足す時。
+- O14: 固定の最初の入力を持たせる（現行の文に 1 文を足す）。文面は arc の file の中。
+- O17: Codex の閾値は 200000（窓 258400 の約 77%）。Claude の席は 240000 のまま。実際の切り直しの後に見直す。
+- O20: S5・S6 は Owner の script の中。probe は席が先に流す（流した: O22・O23）。
+- O21: 閾値に自然に届くのを待つ。閾値を一時に下げる操作は足さない。席が観測して記録する。
+- 順: 1 本目を打ち、Claude の席の実際の切り直しを確かめた後に 2 本目を打つ。
+
+### 席から arc への補足（問いではない。事実の報告。第 3 回）
+
+- 旧い見張りは今どこにも動いていない（`ps` に rotation-watcher が無く、見張りの設定・記録・停止の印の file が 1 つも無い。S5・S6 は第 1・2 回で起こしていない）。そのため (b) の「旧い見張りを止める」は、止める物が無い。新しい見張りを初めて起こす形になる。「見張りと hook を同じ版で同時に替える」という arc の判断は、そのまま守れる（hook を新しい版に替えて確かめた後にだけ、見張りに席を登録する）。
+- Codex の席の tmux の起動 command が指す script（`/tmp/codex-leads-restart-20261016/` の下）は、今は存在しない。見張りの切り直しは、その起動 command をそのまま流して席を起こし直すので、このままでは Codex の席は切り直しで起きない。席の起動の script を作り直すのは arc の仕事なので、前提として arc に渡す（`cd-config.md` の「Codex の席」）。
+- probe の結果（読み取りだけ。第 3 回）: Claude の席の入力欄は `❯` の直後が NO-BREAK SPACE のため、見張りの設定の `prompt_markers` は `❯` と NO-BREAK SPACE の 2 文字にする（O22）。Codex の席の画面では、入力欄の下に枠線でない行が 2 つあり、今の入力欄の判定が通らない（O23）。そのため、Codex の席を見張りに足す手順は 2 本目の script の下書きに入れず、arc の判断を待つ。
+- 訂正: 見張りの非進捗の上限は 30 周（poll 5 秒）で、席が前に送った「既定 3」は誤り。
+
+### arc の答え（2026-11-13、席間の連絡。arc の技術の判断で、Owner の言葉ではない。GitHub への記録はまだ無い） — O23・O25・script の担当
+
+- O23: Codex の席を見張りに足すのは、見張りの入力欄の判定を Codex の画面に合わせる code の変更の後。新しい小さい単位（bugfix、Kusabi の repo の code、守る物には触れない）として、この取り組みの配る段の後に立てる。それまでは B（Codex の `hooks.json` の差し替え、閾値 200000）だけを入れる。Codex の席の切り直しは、hook が印を置いたのを席か arc が見て、人（arc）が起動の script で起こし直す。
+- O25: 関門 (a)(b) の形でよい。`changed_hook_requires_operator_review` の確認の画面は Owner が押す、と script の出力に書く。
+- script: arc が書く（席の下書きは、席の柵に拒否されて書けなかった）。1 本目の中身 = A → B → Claude の席を起こし直す（Owner の確認の画面）→ 関門 → S5 → 停止の印の確かめ → 印の file が無いことの確かめ → S6。足りない値は `cd-config.md` から読む。

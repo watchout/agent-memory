@@ -7,6 +7,8 @@
 
 ## 変えた file
 
+（この節の数は PR #341 の時点（base `17676d84`）の数。PR #342・#344 が足した file と数は、下の Step 16・Step 17 の「変えた file」の節にある。）
+
 差分は base の main に対して、変更 10 file（src）、新しい module 20 file（src、最大 647 行、どれも 800 行以内）、試験 9 file の新規と `src/test.ts` の 1 行、`package.json`、`docs/design/core/SSOT-6_LIVING_MEMORY_CONTROL.md`（+46 / −0、§5・§6 だけ）、`docs/audit/kusabi-session-rotation-261110.json`（監査の項目）、この取り組みの AI-DLC の記録。
 
 | 要件 | file | 内容 |
@@ -102,6 +104,7 @@
   2. `src/session-rotation-stop.ts` 640〜642 行目 `main().catch(...)`。hook の出力の書き込み自体が失敗した時の最後の網で、PASS を返して席を止めない。
 - 前の測りで動かなかった `getuid` の無い platform の腕（3 か所）は、uid の取り方を `src/process-uid.ts` の 1 か所にし、「uid が無い」場合を試験で通すことで無くした。ほかに前の測りで出た 4 か所（読めない帳面の分岐の `?? null` の腕、バイトの上限が効く腕、空の Claude transcript、後から開いた Store の close の失敗）は、構造を直すか試験を足して動かした。
 - この 2 つ以外の動かなかった範囲は、足した行と重ならなかった（今回触っていない行）。
+- PR #344 の後の単位全体（Build and Test の QT-04）では、動かなかった範囲は次の 2 つの入口の最後の網 `main().catch(...)` が残る（100% に届かない。数えから外さず理由を書き、監査で見る）: `src/rotation-watcher.ts` 134〜137 行目と、`src/session-rotation-stop.ts` 757 行目（上の 640〜642 行目は、後の変更で行が動いた同じ網）。下の Step 17 の節の「動かなかった範囲 0」は、Step 17 の変更行だけの数で、単位全体の数ではない。
 - 監査の席が同じ数字を自分で出せるよう、手順と script の全文を `coverage-method.md` に置いた（同じ形の数え直しが 30 file・4,071 行・同じ 2 範囲になることを、この作業場で確かめた）。
 
 ## 計画からの外れ（PR の deviation_ledger に書く）
@@ -327,7 +330,7 @@ base の `src` に最終の試験を重ねて流した（`git archive` で作っ
 - 読み手と store の食い違いで残る物: 不正な `created_at`（時刻差が NaN）の行の並びだけ（JSON の store は array の順、読み手は後の行が先。整理の後は (agent_id, task_id) ごとに 1 行なので、task_id で探す側の答えは変わらない）。起きやすさ 低 × 困る大きさ 軽。設計 4.7 に書いた。
 - 旧い見張りが新しい `state` の claim を読む実際の挙動は、配備の段 17.9 で観測する。
 - 入れ替えの順（見張り → hook）と戻しは Owner の差し替えの script。この PR は席に何も据えない。
-- 監査が R3 に上げる場合は Owner の exact-head（arc の判断は R2）。
+- 監査が R3 に上げる場合は Owner の exact-head（arc の判断は R2）。[その後] 統合の後に Owner が R3 として追認した。根拠は `construction/build-and-test/test-results.md` の区分の節（Owner の言葉の引用つき）。
 
 ### 次
 設計と実装をまとめた独立の監査（devauditor）の依頼 → 返却 → 作者の受領 → 統合（作者以外の席）→ 新しい版 → Owner の差し替えの script（見張り → hook）→ 旧い見張りの観測（17.9）→ C2 の取り直し。

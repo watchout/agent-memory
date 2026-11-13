@@ -1,0 +1,63 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場。Deployment Pipeline の段の承認の後、Deployment Execution の段の前）が書いた版 v1。監査席は作者と別の席。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合のどれも代替しない。区分（R1 など）は作者の見立てで、決めるのは監査席と arc。作者は R2・R3 を決めない。",
+  "scope": "watchout/agent-memory の取り組み 261110-session-rotation（AI-DLC の scope express、作業の単位なし）の、記録だけの PR。対象 = 依頼の targets の head（base = origin/main）。差分 = Build and Test の段・Code Generation の段・Deployment Pipeline の段の記録 15 file と、この file。code・試験・script・workflow・設定・DB の構造は変えない。席への効果は 1 つも無い（hook の差し替え・見張りの起動・席の起こし直し・実際の切り直しは、Owner が arc の script を打つ時にだけ起き、この PR は記録だけ）。範囲の根拠は Owner の決定（control_source_ref）。席間の連絡で arc から受けた判断は、権限の根拠に引いていない（arc の技術の判断で、Owner の言葉ではない）。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6847683704",
+    "sha256": "d2749ed886a695d92f67410057cd2c53888550edd3cfd96a5ab843bf09932e5c"
+  },
+  "items": [
+    {
+      "id": "REC-1",
+      "criterion": "範囲: base と head の差分が次に閉じるか。(a) 変わる file は 16 個だけ: この取り組みの記録 15 個（`aidlc/spaces/default/intents/261110-session-rotation/` の下の、construction/build-and-test の 5 個〔build-and-test-summary.md・build-instructions.md・cross-unit-traceability.md・memory.md・test-results.md〕、construction/code-generation の 5 個〔code-generation-plan.md・memory.md・reviews/review-04.md（新）・unit-test-instructions.md・code-summary.md〕、operation/deployment-pipeline の 5 個〔cd-config.md・deployment-pipeline-questions.md・deployment-strategy.md・memory.md・rollback-runbook.md〕）と、この file（docs/audit/kusabi-records-deploy-pipeline-261113.json）。(b) src/・scripts/・package.json・package-lock.json・.github/・.shirube/・.claude/・.codex/・migrations・設定の file・aidlc/active-memory・aidlc-state.md・runtime-graph.json・project-description.json・audit/・.aidlc-engine/ に差分が無い。operation/deployment-execution/（第 1・2 版の実行の記録）にも差分が無い。deployment-strategy.md の「次の PR（記録の PR）に入れる物」の文は、Deployment Execution の記録を入れないと「[訂正 2026-11-13]」付きで書き直してある。(c) 新しい外部の依存・DB の構造の変更・workflow の変更・資格情報・契約の .v2・料金の変更が 0 件。`git diff --name-status BASE...HEAD` と `git diff --stat BASE...HEAD` で確かめる。",
+      "basis": "[R] 記録だけの変更で、保護面を含まない（作者の見立ては R1。区分は監査席と arc が決める）。[N] code も試験も変えないので、行の網羅率・設計・実装の標準 S1〜S9・DB の基準の対象になる変更が無い。"
+    },
+    {
+      "id": "REC-2",
+      "criterion": "公開の repo への漏れ: head の 16 file の足した行（`git diff -U0 BASE...HEAD` の + 行）に、次が 0 件か。(a) 手元の home の path（利用者の home の directory を指す先頭の文字列。code-summary.md の既存の 2 行〔例の仮の値の説明と、探す文字列の説明〕は base にある行で、足した行ではない）。(b) DB の接続文字列・資格情報・秘密の値・token。`DATABASE_URL` の語は変数名として出てよく、値が無いこと。(c) メールアドレス。(d) Claude の `--binding-source-ref` の値、Codex の hooks.json の `--binding-source-ref` と `--runtime-event-manifest` の値、fleet の manifest の path。(e) arc の起動の script の中身（記録には path と SHA-256 だけが書いてある。中身に DB の接続文字列が入る）。",
+      "basis": "[V] 作者が足した行を走査した結果は (a)〜(d) とも 0 件。監査席が同じ走査を自分で流す。[N] 公開の repo では漏れを戻せない。"
+    },
+    {
+      "id": "REC-3",
+      "criterion": "時間の言葉: 足した行に、社内の決まり（時間の言葉を書かない）の禁止の語が 0 件か。禁止の語の一覧は社内の決まりの file no-time-constraints-keywords.md（直接の単語 約 10 個と、数字 + 時間の単位の形）。この item には語そのものを書かない（走査に掛かるため）。base にある英語の語（code-generation-plan.md・unit-test-instructions.md・code-summary.md の各 2 行。内部の時間切れを表す型の名前と、その理由の符号。どちらも code の識別子で、各 file の 2 行は base と head で同じ行）は、この PR が足した行でないので対象外。足した行の確かめは、単語の境界を使わない綴りの一致（underscore でつながった綴りを含む）でも 0 件。",
+      "basis": "[V] 作者が走査した結果、足した行で 0 件。[N] 記録・PR 本文・監査の依頼に書く時間の言葉は機械で弾かれる決まり。"
+    },
+    {
+      "id": "REC-4",
+      "criterion": "外の事実の照らし: 記録に書いた外の事実が実物と一致するか。(a) 統合の commit `ffe511e5ec655078dba631997397b371d55131ac` が PR #344 の統合で、依頼の base と同じ。(b) Owner の決定 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6847683704 の本文（GitHub の API が返す形）の SHA-256 が `d2749ed886a695d92f67410057cd2c53888550edd3cfd96a5ab843bf09932e5c`、投稿者 watchout。(c) R3 の追認 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6842000444 の本文の SHA-256 が `abe07f18e33e85fe2310f513ea988ae2587b3d5cf42d80e6fb89fd7d3f2a4591`、投稿者 watchout。(d) 中身の決まった版 `5fd29e06bf735432a1186e2bf209eb444aba5413dbb0691d911bbaeaaacf0d8c`（その版の release.json の SHA-256 と directory 名が一致）、`dist/claude-hook-installer.js` = `422041d19e565e77f1d4e4fbd084e05801a5b573816e3e747c2bf051713dd8f8`、`dist/codex-hook-installer.js` = `57e0452906a15c6a60a241d1fb75e41203ca2aaddc124c956a498cc87f541c4f`、`dist/session-rotation-stop.js` = `c7b0d097e03a93ff4e57afa617879afad4edbb79a8a2a1ec45305b101eec2fd3`、`dist/rotation-watcher.js` = `d79947366454d4ea96fd6d2aa3418f29d052c12e6120b249d0e607973e82e273`。版の置き場は作業場の 2 つ上の directory の `.kusabi-releases/sha256/<版>/`。監査席がその置き場を読めない時は「見られなかった」と書き、記録どうしの値の一致（cd-config.md の S1 の表と、deployment-strategy.md・rollback-runbook.md の値が同じ）だけを判定する。",
+      "basis": "[V] 作者が 4 つの comment の本文と版の file を取り直して一致を確かめた。[R] 決定を引く時は control_source_ref（url と SHA-256）を伴う決まり。"
+    },
+    {
+      "id": "REC-5",
+      "criterion": "権限と出典の書き方: (a) 足した行の中で、10 桁の comment の番号を持つ文が「publish された」「公開した」と言う時は、その comment の本文から写した「…」の句を同じ文に持ち、その句が引いた comment の本文（GitHub の API）に実在する。(b) arc の席間の連絡から来た判断（O13〜O25 の答え、script の分け方、O23 = Codex の席を見張りに足す前の code の変更、O25 = 関門の形）は、別の文で「arc の技術の判断。Owner の言葉ではない」「GitHub への記録はまだ無い」と分けて書かれ、権限の根拠として引かれていない。(c) 守る物の判断（DB の構造・資格情報・workflow・契約 .v2・料金・新しい外部の依存・保護面の実行）を、記録が自分で下していない。判断が要る点は「arc の判断。席は決めない」「Owner が打つまで席は実行しない」と書かれている。",
+      "basis": "[V] 作者の照らしの script を head の足した行に流し、「…」の句が実在しない文・句の無い公開の文は 0 件。[R] 権限は GitHub に記録された決定だけ（社内の決まり）、文が出典を言い当て過ぎない（チームの訂正の記録）。"
+    },
+    {
+      "id": "REC-6",
+      "criterion": "配備の設計が code と一致するか（origin/main の src で読む）。(a) Claude の installer の引数: `--rotation on --rotation-threshold-tokens 240000`・`--node-path`・`--dry-run`／`--apply`／`--check`（src/claude-hook-installer.ts の引数の解釈）。Codex の installer: `--rotation on --rotation-threshold-tokens 200000`。`--adapter-id` は installer の引数でなく、installer が hook の command に固定で入れる引数（src/codex-hook-installer.ts の command の組み立て）で、記録がそう書いている。(b) 報告の項目名: Claude = `unrelated_hook_handler_count_before/after`・`wrote_settings_file`・`changed_hook_requires_operator_review`、Codex = `unrelated_hook_group_count_before/after`・`wrote_hooks_file`（2 つの installer で違う）。(c) 見張りの設定の schema 名が `kusabi-rotation-watcher-config/v1`（src/rotation-watcher-config.ts の `WATCHER_CONFIG_SCHEMA`）。(d) 非進捗の上限が 30 周、poll が 5 秒（src/constants.ts の `ROTATION_WATCHER_NO_PROGRESS_HALT_LIMIT`・`ROTATION_WATCHER_POLL_SECONDS`）で、記録の上限の数がすべて 30（「3」は前の版の誤りとして訂正と書いてある）。(e) 差し替えの後の Kusabi の handler が 5（SessionStart 1・Stop 2・UserPromptSubmit 2）で、2 つの installer の試験（src/test-claude-hook-installer.ts・src/test-codex-hook-installer.ts の `assert.equal(..., 5)`）と一致する。",
+      "basis": "[V] 作者が origin/main の src を読んで 5 点を確かめた。[N] 設計と実装を黙って食い違わせない（権限と待機の決まりの R3）。"
+    },
+    {
+      "id": "REC-7",
+      "criterion": "順序・関門・戻しが、Owner の決定と記録の中で食い違わないか。(a) 1 本目 = A（Claude の席の hook・閾値 240000）→ B（Codex の席の hooks.json・閾値 200000）→ Claude の席の起こし直し（変わった hook の確認の画面は Owner が押す）→ 関門 O25 → S5（見張りの設定は Claude の席だけ）→ 停止の印を置く・消す確かめ → 印の file が無い確かめ → S6（席と別の tmux の session、`remain-on-exit on`）。2 本目 = Codex の席の起こし直し。(b) O23: Codex の席は、入力欄の判定を Codex の画面に合わせる code の変更の後に見張りに足す。それまでは B だけで、席は人が起こし直す。(c) 関門 O25 は、claude の process の起動が最後の installer の backup より後であること、起こし直した後の turn.json の host_pid と起動時刻が今の process と一致すること。(d) 古い「2 つの script（Claude の席と Codex の席。Q8 = B）」の文が、cd-config.md の 3 か所と deployment-strategy.md の 1 か所で「[訂正 2026-11-13]」付き、または arc の分けを書いた見出しになっている。cd-config.md の「席が下書きを同じ記録の directory に置く」の文は、下書きは作られていない（席の柵が拒否し、arc が script を書く形に改めた）と「[訂正 2026-11-13]」付きで書き直してあり、記録の directory に下書きの file（`owner-script-*.sh`）が存在しない。(e) rollback-runbook.md は、どの段で失敗しても最初に見張りを止めること、hook を戻す操作（backup の名前の形 `settings.json.bak.wasurezu-…`・`hooks.json.bak.wasurezu-…`）を書き、戻した後の読みの確かめのうち、使い捨ての場所で流した物と、コードの読みだけの物（新しい hook と旧い見張りの組など）の分けは cd-config.md の (c) の節に書いてある（rollback-runbook.md は「コードの読み」と書いて、その節を指す）。",
+      "basis": "[V] 作者が cd-config.md・deployment-strategy.md・rollback-runbook.md・deployment-pipeline-questions.md を読み比べた。[R] 戻しを試験した形で持つ（設計・実装の標準 S6）。"
+    },
+    {
+      "id": "REC-8",
+      "criterion": "席への効果が無いこと: (a) 記録のどの文も、第 3 版の席への効果（第 3 版の版 `5fd29e06…` への hook の差し替え・Codex の席の B・見張りの起動・席の起こし直し・実際の切り直しの観測）が済んだと言わない。済んだと言うのは、S1（版を作る。席への効果なし）と、読み取りだけの確かめ（画面や process の読み・使い捨ての場所での installer の確かめ）だけ。第 1・2 版の効果（S2 第 1 版・S3・S4 の第 2 版・C2 第 4 回）は base の deployment-execution の記録にある済んだ事実で、第 3 版の効果ではない。cd-config.md と deployment-strategy.md の冒頭の「何も実行していない」は、第 3 版の手順に限ると「[訂正 2026-11-13]」付きで書いてある。(b) 席が流さず、Owner が arc の script を打つ、という文が cd-config.md・deployment-strategy.md・rollback-runbook.md の実行の節にある。(c) operation/deployment-execution/ の file に差分が無い。第 1 版の実行の記録を書き換えていない。(d) 第 3 版で足した事実（O13〜O25）は、実行の前の読み取りの結果として書かれ、Deployment Execution の段の観測として書かれていない。",
+      "basis": "[V] 作者が記録を読んで確かめた。[N] 席の起動・展開は保護面で、Owner の認可を得てから行う（チームの決まり）。"
+    },
+    {
+      "id": "REC-9",
+      "criterion": "Build and Test と Code Generation の記録の直し: (a) unit-test-instructions.md の試験の並びと数が、head の package.json の `test:session-rotation`（core → flow → handoff-commit-order → handoff-source → handoff-source-cli → rotation-hook-registration → session-rotation-status → rotation-watcher-units → rotation-watcher-flow → session-rotation-scenario の 10 本）と、test-results.md の「PASS <file>（N cases）」の数（status 18・watcher-units 86・watcher-flow 109 ほか）に一致する。Step 16 の後の数は「Step 16 の後の数」と分けて残してある。(b) code-summary.md の「変えた file」の節が #341 の時点の数であると書いてあり、単位全体で動かなかった範囲 2 つ（src/rotation-watcher.ts の 134〜137 行目と src/session-rotation-stop.ts の 757 行目の `main().catch(...)`）が、head の src の実在する行と一致する。「Step 17 の動かなかった範囲 0」は Step 17 の変更行だけの数だと書いてある。(c) 「統合の後に Owner が R3 として追認した」の根拠が test-results.md の区分の節（REC-4 (c) の comment、SHA-256 つき）にあり、code-summary.md の開いていることの最終行がそれを指す。(d) reviews/review-04.md の指摘 R-09・R-10・R-11 の扱いが、記録の中で食い違わない（R-09 = R3 の追認で閉じる、R-10・R-11 = この PR の直し）。",
+      "basis": "[V] 作者が head の package.json と src、test-results.md を読んで一致を確かめた。[R] 数は書く前に定義・実物を読んで写す（チームの訂正の記録）。"
+    },
+    {
+      "id": "REC-10",
+      "criterion": "PR 本文と依頼の本文の件数・範囲の文: 変更 file の数・commit の数・足した行の数・公開の状態の文が、head から機械で作り直した値と同じで、「いつの時点か」（head の 8 桁）が添えてある。PR 本文の deviation_ledger が「採った判断」と「採らなかった代替」を 1 行ずつ書いている。PR 本文に、REC-2・REC-3 の禁止の語・手元の path・接続文字列が無い。",
+      "basis": "[V] 作者が head から作り直した。[R] 手で直した数が古くなって返却の指摘になる事例が続いた（チームの訂正の記録）。"
+    }
+  ]
+}
