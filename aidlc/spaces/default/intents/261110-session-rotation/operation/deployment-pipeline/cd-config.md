@@ -145,7 +145,7 @@ arc が席を 1 回起こし直し、起こし直し後の最初の会話が読�
 
 期待と違った時（`input_valid: false` のまま、`degraded` のまま、`forbidden_effects` に 0 でない項目）は、S5 に進まず、出力をそのまま Owner に見せて止まる。戻し方は `rollback-runbook.md`。
 
-**外れ（deviation）— 第 4 回の C2、「取り込みの経路」の行**（2026-11-12。arc の判断。Owner の委任 iyasaka-arc#49 6762288830 の技術の範囲で、Owner の言葉ではない。席は柵が拒んだ読みを回避も代行もしていない）:
+**外れ（deviation）— 第 4 回の C2、取り込みの経路の行**（2026-11-12。arc の判断。Owner の委任 iyasaka-arc#49 6762288830 の技術の範囲で、Owner の言葉ではない。席は柵が拒んだ読みを回避も代行もしていない）:
 - 採った判断: `auto_receive.status` を C2 の合格の条件から外し、「続きの案内（`wasurezu-recovery-pack/v1`）が、この会話の文脈に実際に届いた」事実の観測で置き換える。観測の中身は、案内の pack ref の時刻（11:22:42.288 JST）と診断の記録の SessionStart の更新時刻（11:22:42.333 JST）の一致（差 45 ミリ秒）。
 - 採らなかった代替: (1) 本番の DB の品質ログ（`recovery_quality_log`）の 1 行を READ ONLY の SELECT で読む（席の柵が「Production Reads」で拒否した）。(2) Owner に端末で同じ SELECT を流して出力を見せてもらう。
 - 出典（control_source_ref）: agent-memory#339 の comment 6812844309 の (1)、本文の SHA-256 `141b188728c12f07e477bc0a65776cf5d328b411915d24f9bf1ad997a9737187`（arc の技術の判断。Owner の決定ではない。作者が GitHub の API が返す本文で数え直して一致を確かめた）。
@@ -260,7 +260,7 @@ S7（実際の切り直し）は S6 の後、閾値に自然に届くのを待�
 
 **(a) 起動が backup より後**
 - 入力: 席の pane（`aidlc-kusabi:0.0`。arc の連絡では pane id `%43`）の claude の process の pid。pane の木から引く（席の読み: pane の最初の process から子を辿り、`ps -o comm=` が `claude` の物）。Claude の席の最新の installer の backup（`.claude/settings.json.bak.wasurezu-<ISO 時刻>-…` の名前の時刻）。
-- 取り方: どちらも関門の時点で取り直す（前に取った値を使わない）。起動時刻は `LC_ALL=C ps -o lstart= -p <pid>`。backup の一覧は、A の apply の後に取り直す。A の前の一覧で比べると関門が通ってしまう: 今の process は、今ある最新の backup（名前の時刻 `2026-11-12T01-34-40Z`）より後に起きている（席が 2026-11-13 に `ps` と `ls` で読んだ）。
+- 取り方: どちらも関門の時点で取り直す（前に取った値を使わない）。起動時刻は `LC_ALL=C ps -o lstart= -p <pid>`。backup の一覧は、A の apply の後に取り直す。A の前の一覧で比べると関門が通ってしまう: 今の process は、今ある最新の backup（名前の時刻 `2026-11-12T01-34-40-344Z`）より後に起きている（席が 2026-11-13 に `ps` と `ls` で読んだ）。
 - 比べ方: `lstart` は現地時間（この Mac は JST）で、時区が付かない。backup の名前は UTC（installer が `toISOString()` の `:` と `.` を `-` に替えて作る）。同じ表し方（epoch 秒）に直し、起動時刻（秒に切り捨て）が最新の backup の時刻より後であること。同じ秒は後に数えず、止める。
 
 **(b) 新しい process で hook が動いている**
