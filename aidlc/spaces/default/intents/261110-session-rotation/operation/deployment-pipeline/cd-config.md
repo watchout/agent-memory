@@ -151,7 +151,7 @@ arc が席を 1 回起こし直し、起こし直し後の最初の会話が読�
 - 出典（control_source_ref）: agent-memory#339 の comment 6812844309 の (1)、本文の SHA-256 `141b188728c12f07e477bc0a65776cf5d328b411915d24f9bf1ad997a9737187`（arc の技術の判断。Owner の決定ではない。作者が GitHub の API が返す本文で数え直して一致を確かめた）。
 - 残ること: `auto_receive.status` の値は観測できていない。観測できないものを成功とは読まない（S5）ので、この行は「値を観測した」ではなく「届いた事実で置き換えた」と書く。品質ログの読みは、S5 の見張りの probe を据える時に、その段の手順で改めて扱う。
 
-## Codex の席（第 3 版で足す。script B。arc の分けで 1 本目の中で A の後に続ける。席は何も書かない。[訂正 2026-11-13] 前の見出しは「Codex の席の起こし直しは 2 本目」と書いたが、2 本目は関門・S5・S6 の script に替わった。Codex の席の起こし直しの script の呼び方は arc が決める）
+## Codex の席（第 3 版で足す。script B。arc の分けで 1 本目の中で A の後に続ける。席は何も書かない。[訂正 2026-11-13] 前の見出しは「Codex の席の起こし直しは 2 本目」と書いたが、2 本目は関門・S5・S6 の script に替わった。Codex の席の起こし直しの script の呼び方は arc が決める。[訂正 2026-11-14] 答えが出た: Owner が打つ script ではなく、人が行う別の段。下の「script の分け」）
 
 Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（tmux `kusabi`）の手順。範囲の読み（席の読み。Owner の言葉ではない）は、Codex の席が読む Kusabi の登録された作業場の `.codex/hooks.json` だけ。`~/.codex/config.toml` のほかの行・ほかの作業場の `hooks.json`・Onza／Totonoe など別の Codex の席には触れない。DB の構造・本番にも触れない。**Claude の席の script（上の S3・S4）とは別の script にする**（Q8 = B）。
 
@@ -175,7 +175,7 @@ Owner の決定 #49 6847683704 が範囲に入れた Kusabi の Codex の席（t
 
 | 番号 | 決定 | 席の下書きでの扱い |
 |---|---|---|
-| O13 | 起動の script は `/tmp` の外: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（arc の持ち物。SHA-256 `09f8c869032c653059eee1e94e3581cd4a207e1b2e368a1761497bbc2ceb00b0`、権限 700。席が読み取りで SHA-256 と権限を確かめた）。中身は動いている席（pid 6792）の argv の写し。変えたのは、先頭の node を絶対 path（`/opt/homebrew/opt/node@24/bin/node`）にしたことと、最初の入力の終わりに O14 の 1 文を足したこと。最初の連絡の path（`kusabi-self-seat/`）は取り下げられ、この path に替わった | Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める）は、この file の SHA-256 と権限を表明してから起こし直す。中身（DB の指定を含む）は席も script も写さない。起こし直しは `tmux respawn-pane -k -t kusabi:0.0 'bash <起動の script>; exec zsh -l'` の形（arc の指定） |
+| O13 | 起動の script は `/tmp` の外: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（arc の持ち物。SHA-256 `09f8c869032c653059eee1e94e3581cd4a207e1b2e368a1761497bbc2ceb00b0`、権限 700。席が読み取りで SHA-256 と権限を確かめた）。中身は動いている席（pid 6792）の argv の写し。変えたのは、先頭の node を絶対 path（`/opt/homebrew/opt/node@24/bin/node`）にしたことと、最初の入力の終わりに O14 の 1 文を足したこと。最初の連絡の path（`kusabi-self-seat/`）は取り下げられ、この path に替わった | Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める。[訂正 2026-11-14] 答えが出た: Owner が打つ script ではなく、人が行う別の段。下の「script の分け」）は、この file の SHA-256 と権限を表明してから起こし直す。中身（DB の指定を含む）は席も script も写さない。起こし直しは `tmux respawn-pane -k -t kusabi:0.0 'bash <起動の script>; exec zsh -l'` の形（arc の指定） |
 | O14 | 固定の最初の入力を持たせる。今の入力の文のまま、終わりに「SessionStart の引き継ぎ（additionalContext）があれば、それを読み、その続きから動く。」の 1 文を足す | 起動の script の中身（arc の持ち物）。席は文を書かない |
 | O17 | Codex の席の閾値は **200000**（窓 258400 の約 77%。Codex 自身の圧縮が先に来て切り直しが観測できない形を避けるため）。Claude の席は 240000 のまま。実際の切り直しの記録で見直す | script の Codex の installer の引数は `--rotation-threshold-tokens 200000` |
 | O20 | S5（見張りの設定の file）と S6（見張りの窓）は Owner の script の中。probe（読むだけ）は席が先に流し、`prompt_markers`・`placeholder_patterns` の値を arc に渡す | 1 本目の script が設定の file を書き、窓を起こす。[訂正 2026-11-13] 設定の file と窓は、2 本目の script（関門 O25・停止の印の確かめの後）が行う。1 本目（A → B）は書かない。probe の値は O22・O23 |
@@ -254,14 +254,15 @@ S7（実際の切り直し）は S6 の後、閾値に自然に届くのを待�
 
 ### script の分け（arc の連絡）
 
-1 本目の script（`install3.sh`）は 1・2 だけ（A → B）。3 の起こし直しは arc が行う。4〜8 は 2 本目の script（arc が書き、arc-sec が読む）。2 本目を打つのは、3 の後の最初のターンが済んでから（(b) が、その後の `turn.json` を読むため）。前の記録は「1 本目に A・B・S5・S6 を続ける」「2 本目 = Codex の席の起こし直し」と書いたが、この分けに替わった。Codex の席の起こし直しの script の呼び方は、arc の連絡に無い（arc が決める。席は決めない）。
+Owner が打つ script は 2 本。1 本目の script（`install3.sh`）は 1・2 だけ（A → B）。3 の起こし直しは arc が行う。4〜8 は 2 本目の script（arc が書き、arc-sec が読む）。2 本目を打つのは、3 の後の最初のターンが済んでから（(b) が、その後の `turn.json` を読むため）。前の記録は「1 本目に A・B・S5・S6 を続ける」「2 本目 = Codex の席の起こし直し」と書いたが、この分けに替わった。Codex の席の起こし直しの script の呼び方は、arc の連絡に無い（arc が決める。席は決めない）。[訂正 2026-11-14] この最後の文は答えが出た（arc の連絡。席間の連絡で、GitHub への記録はまだ無い。arc の技術の判断で、Owner の言葉ではない）: Codex の席の起こし直しは、Owner が打つ script ではない。O23 の code の変更の後に、起動の script（`start-kusabi-codex.sh`。arc の持ち物。記録にはパスと SHA だけを書き、中身は写さない）で人が行う別の段で、上の 1〜8 の順の外。
 
 ### 関門 O25（(a)(b) の 2 つとも通ること。通らない・読めない（観測できず）のどれでも、そこで止まり、S5・S6 に進まない。成功と記録しない）
 
 **(a) 起動が backup より後**
-- 入力: 席の pane（`aidlc-kusabi:0.0`。arc の連絡では pane id `%43`）の claude の process の pid。pane の木から引く（席の読み: pane の最初の process から子を辿り、`ps -o comm=` が `claude` の物）。Claude の席の最新の installer の backup（`.claude/settings.json.bak.wasurezu-<ISO 時刻>-…` の名前の時刻）。
-- 取り方: どちらも関門の時点で取り直す（前に取った値を使わない）。起動時刻は `LC_ALL=C ps -o lstart= -p <pid>`。backup の一覧は、A の apply の後に取り直す。A の前の一覧で比べると関門が通ってしまう: 今の process は、今ある最新の backup（名前の時刻 `2026-11-12T01-34-40-344Z`）より後に起きている（席が 2026-11-13 に `ps` と `ls` で読んだ）。
-- 比べ方: `lstart` は現地時間（この Mac は JST）で、時区が付かない。backup の名前は UTC（installer が `toISOString()` の `:` と `.` を `-` に替えて作る）。同じ表し方（epoch 秒）に直し、起動時刻（秒に切り捨て）が最新の backup の時刻より後であること。同じ秒は後に数えず、止める。
+- 入力: 席の pane（`aidlc-kusabi:0.0`。arc の連絡では pane id `%43`）の claude の process の pid。pane の木から引く（席の読み: pane の最初の process から子を辿り、`ps -o comm=` が `claude` の物）。Claude の席の最新の installer の backup（`.claude/settings.json.bak.wasurezu-<ISO 時刻>-…` の名前の時刻）。[訂正 2026-11-14] 「最新の installer の backup」を置き場の一覧から取る形は前の案で、使わない（この節の最後の「入力の取り方（替わった）」）。
+- 取り方: どちらも関門の時点で取り直す（前に取った値を使わない）。起動時刻は `LC_ALL=C ps -o lstart= -p <pid>`。backup の一覧は、A の apply の後に取り直す。A の前の一覧で比べると関門が通ってしまう: 今の process は、今ある最新の backup（名前の時刻 `2026-11-12T01-34-40-344Z`）より後に起きている（席が 2026-11-13 に `ps` と `ls` で読んだ）。[訂正 2026-11-14] この行の「backup の一覧は、A の apply の後に取り直す」も前の案。一覧を取る形をやめ、1 本目の log の A の行から取る（この節の最後の「入力の取り方（替わった）」）。
+- 比べ方: `lstart` は現地時間（この Mac は JST）で、時区が付かない。backup の名前は UTC（installer が `toISOString()` の `:` と `.` を `-` に替えて作る）。同じ表し方（epoch 秒）に直し、起動時刻（秒に切り捨て）が最新の backup の時刻より後であること。同じ秒は後に数えず、止める。[訂正 2026-11-14] この行の「最新の backup の時刻」は、最後の「入力の取り方（替わった）」の (iii) の、backup の名前の時刻と backup の file の mtime の両方と読む。
+- **入力の取り方（替わった）**（[訂正 2026-11-14] arc の連絡。席間の連絡で、GitHub への記録はまだ無い。arc の技術の判断で、Owner の言葉ではない）: 「置き場の最新の backup」は使わない。2 本目の script は、1 本目の log（`~/Developer/arc/tools/kusabi-self-seat/run3-*.log` の最新）の `backup: <path> <SHA>  前: <SHA>  後: <SHA>` の行（A の行）から backup の path を取り、次の 3 つを確かめる。どれかが合わなければ止まる（成功と記録しない）。(i) その backup がその path にあり、その SHA が「前」と一致する。(ii) 今の `.claude/settings.json` の SHA が「後」と一致する。(iii) claude の process の起動時刻（`lstart` を UTC に直した物）が、backup の名前の時刻と backup の file の mtime の両方より後である。これで、A の前の一覧で比べて関門が通ってしまう穴が塞がる。席は、この log の書式を実物で確かめていない（arc の連絡の書式をそのまま写した。log は arc の script が書く物）。
 
 **(b) 新しい process で hook が動いている**
 - 入力: 起こし直した後の最初のターンの後に、`<rotation root>/kusabi/agent-memory/turn.json` を読む（0700 の置き場）。見る欄は `host_pid`・`host_started_at`・`at`（hook の code `session-rotation-files.ts` で確かめた欄の名前）。
@@ -345,7 +346,7 @@ S7（実際の切り直し）は S6 の後、閾値に自然に届くのを待�
 | O18 | **第 3 版**: Codex の取り込みの効果。今の Codex の取り込みの hook は存在しない node を指して起動できず、取り込みは 0 件。差し替えで、Codex の席の会話（redaction の後の、利用者と AI の見える文と tool の名前）が、席の通常の経路で Kusabi の DB に取り込まれ始める（O4 のとおり、hook の process に DB の指定が届くことが前提）。DB の構造は変えない | Owner の記録（script B の前の投稿）で承認される効果。DB の書き込みは席の通常の経路で、この手順が追加で書かない | Owner（記録の投稿を打つことが承認） |
 | O20 | **第 3 版**: S5（見張りの設定の file を作る・probe）と S6（見張りの窓を起こす）を誰が行うか。第 1・2 版の記録は「S5〜S7 は席が行う」としたが、第 3 版の Owner の決定は「新しい見張りを起こす」を arc が作り Owner が打つ script の中に置いた（見張りの起動は、席が書かない保護面の動作）。席の読み: 設定の file を書く・見張りを起こす動作は、script の中（Owner が打つ）。probe は書かず席の画面を読むだけなので、席が先に流して `prompt_markers`・`placeholder_patterns` の値を渡せる。席の読みで、決めるのは arc | 席が書く・起こす形にすると、決定の「Owner が打つ」の外になる | arc |
 | O21 | **第 3 版**: 切り直しを実際に 1 回起こす条件（(d)）。席の hook の閾値は 240000 で、見張りは席の会話の量がそこに届いた時だけ切る。今の席の会話の量で届くまでに時間がかかるなら、(d) の確かめがいつ起きるかは席の使われ方で決まる。閾値を一時的に下げて確かめる形は、hook の引数の変更（もう 1 回の installer の適用）になり、確かめた後に 240000 へ戻す操作も要る。席は決めない | (d) が実際に起きる時期が読めない／閾値を動かす操作が増える | arc（自然に届くのを待つか、閾値を下げて試すか。守る物ではない技術の判断） |
-| O13（行き先） | 解決: arc の判断で、起動の script を `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（SHA-256 `09f8c869…00b0`、700）に作った（上の「第 3 版の arc の決定」）。席が SHA-256 と権限を読み取りで確かめた。Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める）が、見張りの設定ではなく Codex の席の起こし直しに使う。見張りの `launch_script` への登録は、O23 が解決するまで入れない | — | arc |
+| O13（行き先） | 解決: arc の判断で、起動の script を `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`（SHA-256 `09f8c869…00b0`、700）に作った（上の「第 3 版の arc の決定」）。席が SHA-256 と権限を読み取りで確かめた。Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める。[訂正 2026-11-14] 答えが出た: Owner が打つ script ではなく、人が行う別の段。下の「script の分け」）が、見張りの設定ではなく Codex の席の起こし直しに使う。見張りの `launch_script` への登録は、O23 が解決するまで入れない | — | arc |
 | O14（行き先） | 解決: arc の判断で、起動の script に固定の最初の入力を持たせる（終わりに 1 文を足す）。Claude の席で「固定の最初の指示を外した」判断とは別（Codex は SessionStart が続きの入力を出さないため） | — | arc |
 | O17（行き先） | 解決: arc の判断で、Codex の席の閾値は 200000。S7c で、圧縮が先に来たかを記録して見直す | — | arc |
 | O20（行き先） | 解決: arc の判断で、S5・S6 は Owner の script の中。probe は席が先に流した（O22・O23） | — | arc |
