@@ -22,17 +22,17 @@ HOME=$(mktemp -d) npx tsx src/test-session-rotation-scenario.ts
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-core.ts        # FR1（量の測り）・FR3.2（席の文の取り出し）・FR7.2・FR7.3・state file の形・uid の取り方（21 cases）
 HOME=$(mktemp -d) npx tsx src/test-session-rotation-flow.ts        # FR1/FR2 の判定・FR3・FR4.1・FR6・FR7.1、内部期限（NFR1）、transcript の帰属（FR8）、回復の文の上限（FR6.4）、hook の command を別 process で起動する場合、標準入力の読みを含む内部期限（47 cases。Step 16 の hook の入力の直しを含む）
 HOME=$(mktemp -d) npx tsx src/test-rotation-hook-registration.ts   # FR2.2・installer の引数と戻し、印の無い compact の決まった文（FR7.1）（13 cases）
-HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示と hook_input の節（17 cases）
+HOME=$(mktemp -d) npx tsx src/test-session-rotation-status.ts      # FR4.2 の状態表示と hook_input の節（18 cases。#344 の後の数。Step 16 の後は 17）
 HOME=$(mktemp -d) npx tsx src/test-claude-transcript-identity.ts   # FR8 の身元の規則 R1〜R9・冪等・3 値の受領（25 cases）
 ```
 
-`npm run test:session-rotation` は core・flow・hook-registration・status・watcher-units・watcher-flow・scenario を順に流す。`test:claude-hook` の最後がこれを呼び、`test:automatic-receive` が身元の試験を呼ぶ。
+`npm run test:session-rotation` は、`package.json` の今の並びで、core・flow・handoff-commit-order・handoff-source・handoff-source-cli・hook-registration・status・watcher-units・watcher-flow・scenario の 10 本を順に流す（handoff の 3 本は #344 が足した。Step 16 の時は core・flow・hook-registration・status・watcher-units・watcher-flow・scenario の 7 本）。`test:claude-hook` の最後がこれを呼び、`test:automatic-receive` が身元の試験を呼ぶ。
 
 見張りの試験（Step 14。設計監査の PASS と作者の受領の後に作った。中身は見張りの設計の記録の版 4 の 13 のとおり: 観測の後の変化で起動し直しが実行されない=F1、入力欄の証明・人の入力の観測、結び（同じ shell の下の別の CLI・起動の command・起動の script の SHA-256・host の起動時刻）=F2、排他の取得と各段の停止、同じ観測の 2 回目の拒否=F3、帳面の旧 session_id=F4、実行できる tmux の命令が閉じた集合だけ（`send-keys` 系が 0 件）と SSOT-6 §9 の差分なし=F5。記録した tmux の呼び出しを全部照らす。単体の試験は本物の tmux を使わない）:
 
 ```bash
-HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-units.ts   # 設定・画面・tmux・ps・核・帳面の読み取り（83 cases）
-HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・確認・帳面・HALT・閉じた命令の集合、読めない帳面、確認の記録の失敗、止まる印を返した席の後を回さない（103 cases）
+HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-units.ts   # 設定・画面・tmux・ps・核・帳面の読み取り（86 cases。#344 の後の数。Step 16 の後は 83）
+HOME=$(mktemp -d) npx tsx src/test-rotation-watcher-flow.ts    # 一度だけ・確認・帳面・HALT・閉じた命令の集合、読めない帳面、確認の記録の失敗、止まる印を返した席の後を回さない（109 cases。#344 の後の数。Step 16 の後は 103）
 ```
 
 1 回目の実装監査（BLOCK、F1〜F6）への直しの試験は、指摘の反例ごとに足した: F1（総予算を超える Store の開始・保存・close）・F2（印の無い compact、Claude と Codex）・F3（回復の文の上限、切り詰めの印を含む）・F4（読めない帳面・照会で確認した起動し直しの回数）・F5（確認の記録の失敗を `confirmed` にしない）・F6（別の会話の transcript から保存しない）。直す前の code で落ちる所を実際に流して残したのは F1・F3・F6 だけ（flow の試験が 1 件・7 件落ちた）。F2・F4・F5 は、直す前に落ちたことの記録を残していない。
@@ -149,5 +149,5 @@ Claude と Codex の両方の process 層について T1・T3・T4・T10・T13 �
 
 ## 期待する網羅の内訳
 
-- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 47・hook-registration 13・status 17・身元 25。Step 16 の後の数。流して確かめた）、見張り 2 file（units 83・flow 103）。
+- 試験の数（作った後）: 成功の場面 1 file（Claude Code と Codex の 2 つの流れ）、要件ごとの試験 5 file（core 21・flow 47・hook-registration 13・status 17・身元 25。Step 16 の後の数。流して確かめた）、見張り 2 file（units 83・flow 103。Step 16 の後の数）。#344（Step 17）の後に origin/main で流した数は status 18・units 86・flow 109（Build and Test の `test-results.md`。流して確かめた）。
 - 各試験は、正しい場合と、2 つ以上の誤りや境目の場合（usage 無し・閾値ちょうど・文が取れない・束が無い・用意の失敗など）を持つ。
