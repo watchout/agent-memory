@@ -37,7 +37,7 @@
 | 7（第 3 版） | Claude の席の hook 5 つを `28596bf0…` から `5fd29e06…` へ差し替える（3・4 と同じ形・同じ引数。script A） | 展開 |
 | 8（第 3 版） | Codex の席の Kusabi の handler 3 つ（版 `dd806dbe…`、存在しない node を指す）を、新しい版の 5 つ（SessionStart 1・Stop 2・UserPromptSubmit 2。先頭は `/opt/homebrew/bin/node`）へ差し替える（script B。Codex の作業場の `.codex/hooks.json` だけ） | 展開 |
 | 9（第 3 版） | 見張りを、新しい版で初めて起こす（旧い見張りは無い）。Claude の席だけを登録する（見張りの起動の前に、席の claude の process が新しい hook で起こし直されていることを確かめる関門を置く: O25。(a)(b) の 2 つ。`cd-config.md` の「第 3 版の実行の順と関門 O25」）。Codex の席は、起動の script・確かめの項目（P1〜P4）に加えて、見張りの入力欄の判定が Codex の画面で通ること（O23）が済んだ後に足す | 席の起動 |
-| 10（第 3 版） | Codex の席の起動の script を `/tmp` の外に作り直す（arc が作った: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`、SHA-256 `09f8c869…00b0`、権限 700。席は SHA-256 と権限を読み取りで確かめた。中身は DB の URL を含むので席は写さない）。Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める）が起こし直しに使う | 席の起動 |
+| 10（第 3 版） | Codex の席の起動の script を `/tmp` の外に作り直す（arc が作った: `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh`、SHA-256 `09f8c869…00b0`、権限 700。席は SHA-256 と権限を読み取りで確かめた。中身は DB の URL を含むので席は写さない）。Codex の席の起こし直しの script（前の記録は「2 本目」と書いた。[訂正 2026-11-13] 呼び方は arc が決める。[訂正 2026-11-14] 答えが出た: Owner が打つ script ではなく、人が行う別の段。`cd-config.md` の「script の分け」）が起こし直しに使う | 席の起動 |
 
 配り方は `aidlc/spaces/default/memory/team.md` の Deployment のとおり: 席の束ごとに R1 → R2 → R3。各束はすべての席が健全と観測されてから次の束へ進み、失敗した束は設定を元に戻す。今回は R1 の束（Kusabi の席）だけを対象にし、R2 以後には進まない（進むのは結果を見た後の、別の Owner の決定）。
 

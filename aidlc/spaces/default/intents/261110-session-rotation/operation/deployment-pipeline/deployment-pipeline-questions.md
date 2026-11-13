@@ -140,7 +140,7 @@ B. 2 つの script にする。Claude の席の script を先に打ち、読み�
 
 ### arc の答え（第 3 回。arc の技術の判断。Owner の委任 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830 の技術の範囲で、Owner の言葉ではない）
 
-- Q8 の分け方は、arc の分け方で置き換わった: 1 本目の script = Claude の席の hook の差し替え（A）＋見張りの設定の file と起動（S5・S6。Claude の席だけ）＋Codex の席の `hooks.json` だけの差し替え（B。見張りには足さない）。2 本目の script = Claude の席の実際の切り直しが済んだ後の、Codex の席の起こし直し。上の Q8 の [Answer] の本文は、席が先に勧めた形の記録として残す。[訂正 2026-11-13] この分け方も前の案。今の分けは `cd-config.md` の「第 3 版の実行の順と関門 O25」の節: 1 本目（`install3.sh`）は A → B だけ、Claude の席の起こし直しは arc、関門 O25・S5・停止の印の確かめ・S6 は 2 本目。Codex の席の起こし直しの script の呼び方は arc が決める。
+- Q8 の分け方は、arc の分け方で置き換わった: 1 本目の script = Claude の席の hook の差し替え（A）＋見張りの設定の file と起動（S5・S6。Claude の席だけ）＋Codex の席の `hooks.json` だけの差し替え（B。見張りには足さない）。2 本目の script = Claude の席の実際の切り直しが済んだ後の、Codex の席の起こし直し。上の Q8 の [Answer] の本文は、席が先に勧めた形の記録として残す。[訂正 2026-11-13] この分け方も前の案。今の分けは `cd-config.md` の「第 3 版の実行の順と関門 O25」の節: 1 本目（`install3.sh`）は A → B だけ、Claude の席の起こし直しは arc、関門 O25・S5・停止の印の確かめ・S6 は 2 本目。Codex の席の起こし直しの script の呼び方は arc が決める。[訂正 2026-11-14] 答えが出た: Owner が打つ script ではなく、O23 の code の変更の後に起動の script で人が行う別の段（arc の連絡。技術の判断で、Owner の言葉ではない）。
 - O13: Codex の起動の script は arc が `~/Developer/arc/tools/seat-launchers/start-kusabi-codex.sh` に作った（SHA-256 `09f8c869…00b0`、権限 700）。起こし直しは `tmux respawn-pane -k` の形。見張りの `launch_script` への登録は、Codex の席を足す時。
 - O14: 固定の最初の入力を持たせる（現行の文に 1 文を足す）。文面は arc の file の中。
 - O17: Codex の閾値は 200000（窓 258400 の約 77%）。Claude の席は 240000 のまま。実際の切り直しの後に見直す。
