@@ -1,0 +1,63 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段の計画まで）が書いた版 v1（設計監査の項目）。監査席は作者と別の席。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合・保護面への Owner の exact-head の決定・席への据え付けのどれも代替しない。区分（R1 など）は作者の見立てで、決めるのは監査席と arc。作者は R2・R3 を決めない。この PR は code を足さず、席に何も据えない。",
+  "scope": "watchout/agent-memory の取り組み 261113-store-resolution-fix（AI-DLC の scope bugfix、作業の単位なし）の、設計の記録だけの PR の設計監査。対象 = 依頼の targets の head（base = origin/main の 27d7f8fc9146e826883b045c1fdca93cc11f93e7。読んだ版 = 27d7f8f）。差分 = 知識の置き場（codekb）の更新 9 file、この取り組みの Reverse Engineering・Requirements Analysis・Code Generation（計画）の記録 9 file、この file。不具合 = Stop の 2 つの hook が保存先を環境変数だけで決め、設定 file にだけ `database_url` がある席が既定の SQLite を開いて書く（読み手は PostgreSQL を見て 0 件になる）こと。直し = 保存先の決め方を 1 つの共有の関数にし、全部の入口（SessionStart 4 種・Stop 2 種・`rotation-commit`・`restart-cli`・emitter）が同じ結果を使う。DB の構造は変えない。code はこの設計監査の PASS の後に書く。原典: 要件 `inception/requirements-analysis/requirements.md`、計画 `construction/code-generation/code-generation-plan.md`、試験の手順 `construction/code-generation/unit-test-instructions.md`。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830",
+    "sha256": "59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609"
+  },
+  "items": [
+    {
+      "id": "SR-1",
+      "criterion": "範囲: base と head の差分が次に閉じるか。(a) 変わる file は 19 個だけ: 知識の置き場 `aidlc/spaces/default/codekb/agent-memory/` の 9 個（api-documentation.md・architecture.md・business-overview.md・code-quality-assessment.md・code-structure.md・component-inventory.md・dependencies.md・reverse-engineering-timestamp.md・technology-stack.md）、この取り組み（`aidlc/spaces/default/intents/261113-store-resolution-fix/`）の記録 9 個（inception/reverse-engineering の developer-scan.md・memory.md、inception/requirements-analysis の memory.md・requirements-analysis-questions.md・requirements.md・reviews/review-01.md、construction/code-generation の code-generation-plan.md・memory.md・unit-test-instructions.md）、この file（docs/audit/kusabi-store-resolution-design-261113.json）。(b) src/・scripts/・package.json・package-lock.json・.github/・.shirube/・.claude/・.codex/・docs/design/・docs/operations/・設定の file・aidlc/spaces/default/memory/・aidlc-state.md・runtime-graph.json・project-description.json・audit/・.aidlc-engine/ に差分が無い。(c) 新しい外部の依存・DB の構造の変更（表・列・index・migration）・workflow の変更・資格情報・契約の .v2・料金の変更が 0 件。`git diff --name-status BASE...HEAD` と `git diff --stat BASE...HEAD` で確かめる。",
+      "basis": "[R] team.md の Way of Working（守る物に触れる単位は、設計の記録だけで単位の PR を先に出す。audit/ と .aidlc-engine/ は入れない）。前の取り組みの設計の記録の PR（#341 の最初の commit）も、知識の置き場の更新と inception・construction の記録を同じ形で入れた。[N] この PR は code も試験も変えないので、行の網羅率・設計・実装の標準 S1〜S9 の機械の検査・DB の基準の対象になる変更は、記録が書く設計の中身であって、この差分には無い。"
+    },
+    {
+      "id": "SR-2",
+      "criterion": "公開の repo への漏れ: head の 19 file の足した行（`git diff -U0 BASE...HEAD` の + 行）に、次が 0 件か。(a) 手元の home の path（利用者の home の directory を指す先頭の文字列）。(b) DB の接続文字列・資格情報・秘密の値・token（`DATABASE_URL`・`AGENT_MEMORY_DATABASE_URL` は変数の名前として出てよく、値が無いこと。試験の例に書いた「資格情報の無い postgres の形の URL」は、値でなく形の説明であること）。(c) メールアドレス。(d) 非公開の repo（iyasaka-arc・iyasaka-org）の中身の原文の引用（決定の記録は URL と本文の SHA-256 で引き、Owner の言葉の短い抜き出しに限る）。",
+      "basis": "[V] 作者が足した行を走査した結果は (a)〜(c) とも 0 件（走査の語の組はこの item に書かない）。監査席が同じ走査を自分で流す。[N] 公開の repo では漏れを戻せない。Owner の指示（この repo は公開）。"
+    },
+    {
+      "id": "SR-3",
+      "criterion": "時間の言葉: 足した行に、社内の決まり（時間の言葉を書かない。no-time-constraints-keywords.md）の禁止の語が 0 件か。禁止の語の一覧は、その file の直接の単語（約 10 個）と、数字 + 時間の単位の形。この item には語そのものを書かない（走査に掛かるため）。完了の条件は、何が済めば終わりかの形（test pass 完了次第・merge 後・監査の PASS 受領後）で書かれているか。",
+      "basis": "[V] 作者が足した行を走査した結果は 0 件。監査席が同じ走査を流す。[R] 社内の決まり（時間の言葉を書かない）。"
+    },
+    {
+      "id": "SR-4",
+      "criterion": "読んだ版との照合: 計画・要件が 27d7f8f の code の事実として書く物が、`origin/main` の 27d7f8fc9146e826883b045c1fdca93cc11f93e7 の blob と合うか。(a) 保存先を決める所の関数名と所在（`resolveStoreBackend`・`createStore`＝`src/stores/index.ts`、`resolveCodexStoreBinding`・`postgresUrl`・`CODEX_USER_CONFIG_RELATIVE_PATH`＝`src/codex-session-start.ts`、`withStore`＝`src/session-rotation-stop.ts`、`runTranscriptStopCapture`＝`src/transcript-stop-capture.ts`、`openDefaultStore`＝`src/rotation-commit.ts`、`runHandoffSource`・`main`＝`src/restart-cli.ts`、`createQuietStore`＝`src/kusabi-runtime-event-emitter.ts`、`createReadOnlyTaskStateReader`＝`src/stores/read-only-task-states.ts`）。(b) 数: 試験を除く src の `createStore(` の行は 16、`resolveCodexStoreBinding` の呼び出しは 4 つの loader（claude・codex・gemini・antigravity の session-start）、環境変数の名前や `database_url` を持つ file は 8（探す語を足すと 11）、emitter は 794 行、`codex-session-start.ts` は 1122 行。(c) Stop の証拠の schema の const（`wasurezu-session-rotation-stop/v1`・`wasurezu-transcript-stop-capture/v1`）が code の中だけで決まっていて、schema の file が無い。(d) 手元の作業場の src・scripts・package.json・.github・docs/operations が 27d7f8f と byte 単位で同じ（blob の hash の突き合わせ）で、記録の「読んだ版 = 27d7f8f」が、この head の base と同じ commit であるか。",
+      "basis": "[V] 作者が 27d7f8f の blob から機械で数え直した（`git grep`・`wc -l`。時点は依頼の本文に書く）。監査席が同じ命令で数える。[R] 要件 AS1・OQ3（読んだ版の食い違いを残さない）。知識の置き場（codekb）の読んだ版の label が手元の branch の古い commit を名指している点は、Q7 の答えのとおり要件の AS1 を正本にしてある。"
+    },
+    {
+      "id": "SR-5",
+      "criterion": "要件との対応: 計画の設計（1 の 1.1〜1.6）と作る手順（5）が、承認済みの要件（FR1〜FR7・NFR1〜NFR9・OQ1〜OQ5）と、arc の持ち越しの決め（R-01〜R-05）を満たすか。(a) 決める順は 環境変数（`AGENT_MEMORY_DB_TYPE` の明示 → postgres の URL）→ 設定 file の `database_url` → 既定の SQLite で、全部の入口（SessionStart 4 種・Stop 2 種×2 host・`rotation-commit`・`restart-cli` の 3 つの動き・emitter）が同じ関数の同じ結果を使う。(b) 環境変数で決まる時は設定 file を読まない（今の SessionStart と同じで、壊れた設定 file が、環境変数で決まる席に新しい失敗を足さない）。(c) 書き手（Stop）と読み手（`handoff-source`・`fetch`・`prepare`）が同じ入口に束ねられ、書いた先と読む先が分かれない。(d) 環境変数への書き込みで効いていた読み手（4 つの loader の既定の `createStore()` と emitter の既定の store の 2 つ）が、結果を引数で受ける形に置き換えられて、書き込みに頼る読み手が残らない。(e) 要件の FR7 の表が計画の「要件の補い」で直され、emitter が持ち越しでなく対象に入っている。",
+      "basis": "[R] 要件 FR1.2・FR2.1〜FR2.6・FR3・FR5.5・FR7、arc の R-01・R-05。標準 S3。project.md の学び（書き手と読み手を同じ入口に束ねる・環境変数への書き込みの副作用）。[V] 計画の 8（追跡）の表が、全部の要件 ID を手順と試験に結んでいる。"
+    },
+    {
+      "id": "SR-6",
+      "criterion": "失敗を隠さない（標準 S5・S8）: (a) 拒否の閉じた集合（未知の `AGENT_MEMORY_DB_TYPE`・環境変数の URL の形・設定 file の種類・設定 file の読み・設定 file の中身・接続先が無い）が、どれも store を開かず、SQLite の file を作らず、理由の種類だけを返し、値・URL・path を含まない。(b) 設定 file の「無い」は ENOENT だけで、読めない・symlink・通常の file でない・JSON でない・object でない・`database_url` が空・`null`・文字列でない・postgres の形でない、は無いこととして扱わず拒否する（R-03。`database_url` が無い時だけ「無い」として次へ）。(c) Stop の拒否は、host を止めず、`failed_open` と `store_refused:<理由>` を返し、store の要らない回（busy・none・blocked）に新しい失敗を足さない（D4）。(d) 開いた store の `backend` を決めた `backend` と突き合わせ、違えば閉じて失敗にする（宣言と観測。S5）。Stop の証拠の `store_backend` は観測、`store_source` は決めた結果で、開かなかった回は両方 `null` で、`null` を成功の印にしない。(e) 今は未知の `AGENT_MEMORY_DB_TYPE` と postgres でない `DATABASE_URL` を Stop が黙って SQLite にしている（R-02）が、直した版で拒否に変わることが、席へ当てる前の確認（7 の 1）に書かれ、OQ2 が未決のまま設計監査へ渡されている。",
+      "basis": "[R] 要件 FR1.3・FR1.4・FR3.1〜FR3.5・FR4・FR5.4、arc の R-02・R-03。標準 S5・S8。authority-and-waiting R3（設計に無い挙動を足したら設計にも足す）。[N] 拒否の組が閉じているので、反例は 7 の確認に当たる席の環境（名前だけを見る）にだけ現れる。"
+    },
+    {
+      "id": "SR-7",
+      "criterion": "接続先と証拠: (a) 接続先（URL。資格情報を含みうる）が不透明な物で、`reveal()` を呼ぶのが store を開く所と binding の digest を作る所に限られ、`JSON.stringify`・`util.inspect`・文字列化・誤りの文・証拠・log のどれにも出ない設計か。(b) Stop の証拠に足す物が `store_backend` と `store_source` の 2 項目だけで、URL・path・digest を足さず、schema の const を動かさず（OQ1・D2）、旧い hook と新しい hook が同じ席の束に同時にいても、証拠は足すだけで旧い読み手が壊れない。(c) SessionStart の証拠（`CodexStoreBindingEvidence` の項目・値）が、直す前に 27d7f8f の関数で取った表と 9 つの組で deep equal になる試験の計画があり、前の取り組み（261110-session-rotation）の deployment-log が、証拠の項目を足すと v1 の契約の変更になると述べた所で「契約の .v2 は保護面」と書く。この取り組みは、schema の file がある `claude-session-start-evidence-v1` の項目を足さず、その schema に触れない。",
+      "basis": "[R] 要件 NFR1・NFR7・FR2.1・FR4。標準 S6（同居）。前の取り組みの hook-input-design H4 と deployment-log の整理（schema の file がある証拠 `claude-session-start-evidence-v1` は項目を足さず、Stop 系の証拠は schema の file が無く code の中だけで決まる）。[N] Stop の証拠を読む別の道具は、試験と監査の項目の記録以外に見つからなかった（検索の時点は計画の D2。作る時に取り直す）。"
+    },
+    {
+      "id": "SR-8",
+      "criterion": "一つの決め・時刻と乱数と環境を渡す（標準 S3・S4）: (a) 核 `decideStore` が時計・乱数・環境を自分で取得せず、`env` と `readConfig`（最大 1 回）だけで答えが決まる。(b) 決め方の literal（環境変数の名前・`database_url`・postgres の形の検査）が、`store-resolution.ts` と、理由つきの持ち越しの一覧（計画の 3 の「機械で数えた事実」の 9 file）以外に増えない確かめ（U11）が計画にある。(c) emitter の worker が共有の関数を自分で呼ぶ判断（D1。arc の R-01 の「結果を受け取る」を、URL を process の境界で運ぶ代わりに同じ関数を呼ぶ形で満たす）が、採らなかった代替（URL を evidence と worker の stdin 経由で運ぶ。3 か所が同時に動き、URL が境界を越える）と並べて書かれ、2 つの決めの間に設定 file が書き換わる残りの余地と、`emitPreparedEvent` の `binding_sha256` の突き合わせで見つかる範囲が書かれている。(d) `resolveStoreBackend` を残す判断（D7。持ち越しの入口の動きを変えない = FR2.5）が、literal が 2 か所に残る S3 の例外として、持ち越しの記録つきで書かれている。",
+      "basis": "[R] 標準 S3・S4。要件 FR2.5・NFR3・NFR4。arc の R-01（decisions は arc の答え。Owner の言葉ではない）。[N] D1 は arc の文言と違う読み方を含むので、判断が割れる所として監査席にも見てもらう。"
+    },
+    {
+      "id": "SR-9",
+      "criterion": "戻し・共存・本番に触れない（標準 S6・DB の基準）: (a) 表・列・index・migration を足さず、DB の設計の記録を作らない（DDL の行 0 件）。DB の基準（commit a48602d3fcf70a5b04a07cf70bcf6824ff259818、file の SHA-256 048c0062d0930756400b96c5539f1a7850924f454e17fe002c58a6791e655036）の版で、計画の 6 が書く「規格 Part A のうち当たる項目」（移行 = A8、冪等 = A10）と「規格からの外れも無い」の読みが妥当か。(b) 戻し方: 修正を戻すと元の決め方に戻り、DB の作りも席の設定も壊れない。旧い hook と新しい hook が同居できる。(c) 壊れた `memory.db` を動かさず、本番の DB・席・hook・見張り・tmux に何も実行しない（Owner の答え Q2 = A）。(d) 直した版が入ると「設定 file にだけ接続先がある席」の Stop が初めて PostgreSQL に書く（今は既定の SQLite に書いている）ことが、席へ当てる前の確認（7 の 2・3）として、本番に Stop の保存が使う表と列があるかの確認と一緒に、Owner と arc が別に見る物として書かれている。",
+      "basis": "[R] 標準 S6・S7。DB の基準 Part A（A8・A10）。要件 FR6。team.md の Deployment（置き場所を切り替える前に戻す手順を一度試す）。[N] Q2 の答えは Owner の言葉を arc の端末の会話から写した物で、GitHub の control_source_ref を持たない写し。この取り組みは「本番に触れない」側の制約としてだけ使い、何かを認可する根拠には使っていない。"
+    },
+    {
+      "id": "SR-10",
+      "criterion": "試験の計画と権限の出どころ: (a) 成功の条件の場面の試験（S1〜S5）が、実装より先に書かれ、直す前の code で、不具合の理由で失敗することを確かめる手順（Step 3）があり、S1 が接続できない PostgreSQL の URL を設定 file にだけ置く形で PostgreSQL の無い CI でも流れ、S2・S5・U12 が使い捨ての PostgreSQL で手元でだけ流れて、結果が PR の証拠になる。(b) 網羅率は、この PR が足した行と変えた行の 100%（R-05）を、前の取り組みの測り方（NODE_V8_COVERAGE を全試験に付けて足す）で、監査席が同じ数字を出せる script で数える。数えから外す行は理由を書く。(c) 今ある試験が通ったままで、`package.json` の変更は試験の命令の追加だけで、workflow・依存を変えない（CI は `npm test` を流す）。(d) 判断の記録（deviation_ledger = 計画の 2 の D1〜D9）が、「採った判断」と「採らなかった代替」を 1 行ずつ持つ。(e) 権限の出どころ: R-01〜R-05・OQ の決め・Q1〜Q7 のうち Owner の言葉と書いた物（Q2）と、arc の答え（Owner の委任）と書いた物が分けて書かれ、arc の答えを Owner の決定として引いていない。保護面（DB の書き込みの経路）に触れるので、統合の前に Owner の exact-head の決定が要ると書かれている。",
+      "basis": "[R] team.md の Testing Posture（custom の順序・100% の床・PostgreSQL の試験は手元）。要件 FR5・NFR6・NFR8・NFR9。arc の R-05。標準 S2（新しい抽象を最初の 1 例で作らない点は、共有の関数が 4 つ以上の入口を持つので 3 例目の条件を満たす）。authority-and-waiting R1（権限は control_source にある物だけ）。protected-surface-owner-gate R1。"
+    }
+  ]
+}
