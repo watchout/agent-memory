@@ -8,6 +8,7 @@
 
 ## Deviations
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
+- 2026-11-16T00:55:54Z — 設計監査 1 回目（返却 https://github.com/watchout/agent-memory/pull/346#issuecomment-6904207773）が BLOCK。SR-BF-01: 計画の「CI は `npm test` を流す」は誤りで、27d7f8f の `ci.yml` は `npm test` を流さない。新しい試験を `test:claude-hook`（CI が呼ぶ）の連なりに足す形に直し（D10）、到達の機械の確かめ・意図的な失敗の確かめ・CI の log の確かめを足した。SR-BF-02: D1 の「`binding_sha256` の突き合わせで見つかる」は誤りで、その突き合わせは SessionStart の証拠から出た 2 つの値どうしの比べだった。worker が決めた結果から実際に開く接続先の binding を作り直して、store を作る前に比べる契約を足した（1.6、S6）。SR-BF-03: 前の取り組みの網羅率の script は、読み込まれていない file を 0 件と数える。byte 同一で写さず、未観測を失敗にする版を書き、負例の自己試験を足した（D11、U14）。
 
 ## Tradeoffs
 <!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->

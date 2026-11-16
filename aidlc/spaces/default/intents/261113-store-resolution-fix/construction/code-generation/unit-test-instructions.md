@@ -1,6 +1,6 @@
 # 試験の手順 — 保存先の決め方を 1 つの関数にする（取り組み 261113-store-resolution-fix）
 
-この文書は、`code-generation-plan.md` の試験の計画（S1〜S5・U1〜U12）を、監査の席が同じ命令で流せる形に書いた物。命令は、この取り組みの単位（1 つの PR）に絞った物だけで、`npm test` の全体を 1 回で流す形は使わない（各 file を個別に流す）。書いた時点では code が無いので、結果の欄は空にしてあり、作る段で埋める。
+この文書は、`code-generation-plan.md` の試験の計画（S1〜S6・U1〜U14・E1・C1）を、監査の席が同じ命令で流せる形に書いた物。命令は、この取り組みの単位（1 つの PR）に絞った物だけで、`npm test` の全体を 1 回で流す形は使わない（各 file を個別に流す）。書いた時点では code が無いので、結果の欄は空にしてあり、作る段で埋める。
 
 ## 1. 流す環境（この Mac の本物の保存先に行を入れない）
 
@@ -21,8 +21,8 @@ run() { HOME="$H" AGENT_MEMORY_HOME="$H/.agent-memory" KUSABI_TEST_TMPDIR="$T" "
 
 | 命令 | 内容 | PostgreSQL |
 |---|---|---|
-| `run npx tsx src/test-store-resolution.ts` | U1〜U6・U11（核・adapter・不透明な接続先・`createStore`・SessionStart の証拠・機械の確かめ）| 不要 |
-| `run npx tsx src/test-store-resolution-scenario.ts` | S1・S3・S4・U7〜U10（Stop 2 種 × 2 host・`rotation-commit`・`restart-cli`・emitter の拒否）| 不要。S1 は、閉じた port を指す URL なので CI でも流れる |
+| `run npx tsx src/test-store-resolution.ts` | U1〜U6・U11・U13（核・adapter・不透明な接続先・`createStore`・SessionStart の証拠・機械の確かめ・CI への到達）。終わりの行は `store-resolution: <件数> checks passed` | 不要 |
+| `run npx tsx src/test-store-resolution-scenario.ts` | S1・S3・S4・S6・U7〜U10（Stop 2 種 × 2 host・`rotation-commit`・`restart-cli`・emitter の拒否と接続先の確かめ）。終わりの行は `store-resolution-scenario: <件数> checks passed` | 不要。S1 は閉じた port を指す URL、S6 は接続を数える listener なので、CI でも流れる |
 | `run env DATABASE_URL=<使い捨ての PostgreSQL> npx tsx src/test-store-resolution-pg.ts` | S2・S5・U12（書いた保存先と読む保存先が同じ・emitter の設定 file だけの形・DDL と表と列の突き合わせ）| 要る（手元でだけ。結果を PR に載せる）。`DATABASE_URL` が無ければ、飛ばさず失敗で終わる（S8）|
 | `run npx tsx src/test-codex-session-start.ts` | 今ある試験（SessionStart の Codex）。通ったまま | 不要 |
 | `run npx tsx src/test-claude-session-start.ts` | 同（Claude Code）| 不要 |
@@ -36,7 +36,7 @@ run() { HOME="$H" AGENT_MEMORY_HOME="$H/.agent-memory" KUSABI_TEST_TMPDIR="$T" "
 | `run npx tsx src/test-session-rotation-scenario.ts` | 同（切り直しの場面）| 不要 |
 | `run npx tsx src/test.ts` | 同（core。`KUSABI_TEST_TMPDIR` が要る）| 不要 |
 
-足す試験の命令は `package.json` に `test:store-resolution` と `test:store-resolution-pg` として置き、`test` の連なりの最後に `npm run test:store-resolution` を足す（CI は `npm test` を流すので workflow は変えない）。今ある試験が通ったまま（FR5.8）であることを、上の表の命令の終了コードで確かめる。
+足す試験の命令は `package.json` に `test:store-resolution` と `test:store-resolution-pg` として置き、`npm run test:store-resolution` を `test:claude-hook` の連なりの最後と `test` の連なりの最後に足す。27d7f8f の `ci.yml` は `npm test` を流さず、step「Run native recovery and automatic receive tests」の `npm run test:claude-hook` から届かせる（workflow は変えない。D10）。今ある試験が通ったまま（FR5.8）であることを、上の表の命令の終了コードで確かめる。
 
 ## 3. 使い捨ての PostgreSQL（手元でだけ）
 
@@ -55,25 +55,42 @@ PostgreSQL の試験は、既存の `src/test-pg.ts` と同じく、試験ごと
 
 ## 4. 失敗の確かめ（FR5.6。直す前の code で流した結果をここに書く）
 
-Step 3 で、S1〜S5 を直す前の code（27d7f8f と同じ内容）に対して流し、失敗の出力と、失敗の理由が不具合の理由であること（試験が読み込みで落ちただけではないこと）を書く。
+Step 3 で、S1〜S6 を直す前の code（27d7f8f と同じ内容）に対して流し、失敗の出力と、失敗の理由が不具合の理由であること（試験が読み込みで落ちただけではないこと）を書く。
 
 - S1: （結果の欄。直す前は Stop が既定の SQLite を開き、SQLite の file が作られて「保存」になる。直した後は `failed_open` で、SQLite の file が作られない）
 - S2: （結果の欄）
 - S3・S4: （結果の欄）
 - S5: （結果の欄）
+- S6: （結果の欄。直す前は、worker が B の listener へ接続を試み〔B への接続が 1 件以上〕、結果が `binding_drift` でなく `store_unavailable` になる。直した後は B への接続が 0 件で `binding_drift`）
 
-## 5. 網羅率（NFR6・R-05）
+## 5. CI への到達の確かめ（D10。SR-BF-01）
 
-対象は、この PR が足した行と変えた行（base との差分の追加行）。前の取り組みの `coverage-method.md`（`aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/coverage-method.md`）の `merge-zero.mjs` と `changed-uncovered.py` を、この取り組みの `coverage-method.md` に同じ byte で写して使う（写した file の SHA-256 が元と同じことを確かめる）。全試験の命令（上の 2 の表）を同じ `NODE_V8_COVERAGE` の folder に流し（子 process の分も集まる）、base から変わった src の file（`src/test` で始まる物を除く）の 0 回の範囲を足し合わせて、追加行と重ねる。結果は、命令・Node の版・base の commit・file の数・追加行の数・0 回の範囲（数えから外した行があれば理由）を、`code-summary.md` に書く（時点を添える）。
+新しい試験が CI から本当に届くことを、3 つの確かめで見る。どれも、PR を出す前の手元か、PR の CI の後に行い、出力を `code-summary.md` に写す。
 
-## 6. DB の確認（FR6）
+- **U13（機械の到達の確かめ）**: `src/test-store-resolution.ts` の中。`.github/workflows/ci.yml` の `run:` の行から、`npm run <名前>` を `package.json` の scripts でたどった集合に、新しい試験 2 file の `tsx` の行が入ることを確かめる。負例（試験の中で組んだ `package.json` の写し）: 連なりを外した写しと、`test` の連なりだけに足した写し（この計画の最初の版）で、同じ確かめが失敗する。限界: 新しい試験が連なりから外れると、U13 自身も流れなくなる。外れたことは E1・C1 と、監査席が同じ命令で流す再実行で見つける。
+- **E1（意図的な失敗。PR を出す前に 1 回）**: 作業場で `src/test-store-resolution-scenario.ts` の先頭に `throw new Error("intentional failure for E1")` を一時的に足す。`ci.yml` の step「Run native recovery and automatic receive tests」の `run:` の文字を機械で取り出し（手で写さない）、`bash -e` で使い捨ての `HOME` を付けて流す。step が 0 でない終了コードで終わり、出力が `test-store-resolution-scenario.ts` を指すことを確かめる。足した 1 行を戻し、`git diff -- src/test-store-resolution-scenario.ts` が（commit 済みの内容と）0 行であることを確かめる。失敗させた状態は commit も push もしない（PR の CI を赤くしない）。
+- **C1（CI の log。PR の CI が終わった後）**: `gh run view <run id> --log` の 3 つの Node の版（18・20・22）の job それぞれで、`store-resolution: <件数> checks passed` と `store-resolution-scenario: <件数> checks passed` の 2 行を数える（3 つの job × 2 行 = 6 行）。欠けた行があれば失敗として PR の本文に書く。件数は出力から写し、手で数えない。
+
+PostgreSQL の試験（`test-store-resolution-pg.ts`）は CI に届かない（CI に PostgreSQL が無い。`ci.yml` の注記のとおり）。手元の結果を PR の証拠にする。
+
+## 6. 網羅率（NFR6・R-05。D11・SR-BF-03）
+
+対象は、この PR が足した行と変えた行（base との差分の追加行）。前の取り組みの 2 つの script（`aidlc/spaces/default/intents/261110-session-rotation/construction/code-generation/coverage-method.md` の `merge-zero.mjs`・`changed-uncovered.py`）は、**byte 同一で写して使わない**: 変えた file が読み込まれていない時に `uncovered_ranges_in_changed=0` を出し、100% と読めてしまう。この取り組みの `coverage-method.md` に、未観測を 0 と数えない版を書く（仕様は計画の Step 12）。
+
+1. 先に、U14 の 6 つの負例（n1 空の報告・n2 未ロード・n3 報告に file が無い・n4 一部だけ未ロード・n5 0 回の範囲が追加行に重なる・n6 正例）を流し、出力と終了コードを記録に残す。n1〜n5 が 0 でない終了コード、n6 が 0。
+2. 全試験の命令（上の 2 の表の全部）を同じ `NODE_V8_COVERAGE` の folder に流す（子 process の分も集まる）。
+3. base から変わった `src/` の試験でない file について、`RESULT PASS` かつ `uncovered_lines=0` と読めた時だけ、100% を満たしたと書く。`RESULT FAIL`・`NOT_LOADED`・`MISSING`・`UNKNOWN` の file が 1 つでもあれば、満たしていない。数えから外した行があれば理由を書く。
+4. 結果は、命令・Node の版・base の commit・file の数・追加行の数・未実行の行・数えられなかった file を、`code-summary.md` に書く（時点を添える）。
+
+## 7. DB の確認（FR6）
 
 - DDL の行: `git diff "$BASE" -- src/stores/pg-migrations.ts` の差分が 0 行であることと、差分全体の中の `CREATE`・`ALTER`・`DROP`・`TRUNCATE` の追加行が 0 件であること（`store` の folder に file が増えるかどうかでは確かめない）。
 - 表と列: U12 が、使い捨ての PostgreSQL に `pg-migrations` を流し、Stop の保存の経路（`saveTaskState`・`saveSelectedRestartPack`・`consumeSelectedRestartPack`・`saveRawEvent`・`saveConversationEvent`・`getRawEvents`）が流す statement を `pg` の query の記録から取り、名指す表と列が `information_schema` に全てあることを確かめる。構文から取れない statement があれば失敗にする（飛ばさない）。確かめた表と列の一覧は、席へ当てる前の本番の確認（計画の 7 の 3）に渡す。
 
-## 7. 結果の欄（作る段で埋める。手で数えた値は書かず、命令の出力から写す）
+## 8. 結果の欄（作る段で埋める。手で数えた値は書かず、命令の出力から写す）
 
 - 試験の命令ごとの終了コードと件数: （空）
-- 網羅率: （空）
+- CI への到達（U13・E1・C1）: （空）
+- 網羅率（U14 の負例の出力を含む）: （空）
 - 型検査の設定の内容と対象 file: （空）
 - DB の確認の一覧: （空）
