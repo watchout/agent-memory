@@ -15,7 +15,7 @@ import { estimateTokens } from "./constants.js";
 import {
   enforceCodexRecoveryCaps,
   recoveryFromPack,
-  resolveCodexStoreBinding,
+  resolveSessionStartStore,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
   type CodexStoreBindingEvidence,
@@ -31,7 +31,7 @@ import {
   loadRestartPackData,
   type RecoveryPackArtifact,
 } from "./restart-pack.js";
-import { createStore } from "./stores/index.js";
+import { openResolvedStore } from "./stores/index.js";
 
 export const GEMINI_SESSION_START_ADAPTER_ID = "wasurezu-gemini-session-start" as const;
 export const GEMINI_SESSION_START_ADAPTER_VERSION = "1.0.2" as const;
@@ -499,8 +499,8 @@ export async function loadGeminiRecoveryFromStore(
   binding: GeminiSessionStartBinding,
   input: GeminiSessionStartInput,
 ): Promise<LoadedGeminiRecovery> {
-  const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore({ skipPostgresMigrations: true });
+  const { binding: storeBinding, resolution } = resolveSessionStartStore();
+  const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "gemini_cli",

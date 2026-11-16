@@ -1,0 +1,301 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "FR1.1",
+    "FR1.2",
+    "FR1.3",
+    "FR1.4",
+    "FR1.5",
+    "FR1.6",
+    "FR2.1",
+    "FR2.2",
+    "FR2.3",
+    "FR2.4",
+    "FR2.5",
+    "FR2.6",
+    "FR3.1",
+    "FR3.2",
+    "FR3.3",
+    "FR3.4",
+    "FR3.5",
+    "FR4.1",
+    "FR4.2",
+    "FR4.3",
+    "FR4.4",
+    "FR5.1",
+    "FR5.2",
+    "FR5.3",
+    "FR5.4",
+    "FR5.5",
+    "FR5.6",
+    "FR5.7",
+    "FR5.8",
+    "FR6.1",
+    "FR6.2",
+    "FR6.3",
+    "FR7",
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR6",
+    "NFR7",
+    "NFR8",
+    "NFR9"
+  ],
+  "coverage": [
+    {
+      "id": "FR1.1",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "核 decideStore は env と設定 file の読み結果だけで答える（時計・乱数なし）。file を読む所は薄い adapter readUserConfig。試験は U1・U3"
+    },
+    {
+      "id": "FR1.2",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "決める順は 1 か所（sqlite・json 明示 → postgres 明示 → 環境の URL → 設定 file の database_url → 既定の SQLite）。環境で決まる時は設定 file を読まない。試験は U1"
+    },
+    {
+      "id": "FR1.3",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "結果は backend・source・不透明な接続先。拒否は閉じた集合の StoreRefusalReason。試験は U2・U4"
+    },
+    {
+      "id": "FR1.4",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "決められない時は SQLite に落とさず拒否する（StoreRefusedError）。試験は U2・S1"
+    },
+    {
+      "id": "FR1.5",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "設定 file があっても database_url が無ければ local_default の SQLite。試験は U1・S4"
+    },
+    {
+      "id": "FR1.6",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "語彙は SessionStart の既存の値のまま。新しい語を作っていない"
+    },
+    {
+      "id": "FR2.1",
+      "status": "OK",
+      "target": "src/codex-session-start.ts",
+      "note": "resolveSessionStartStore が binding と resolution を返し、4 つの loader（claude・codex・gemini・antigravity）が同じ入口を使う。環境変数へ書かない。試験は U5・U6"
+    },
+    {
+      "id": "FR2.2",
+      "status": "OK",
+      "target": "src/session-rotation-stop.ts",
+      "note": "Stop 2 種（session-rotation-stop・transcript-stop-capture）× 2 host が決め方を呼ぶ。試験は S1・U7"
+    },
+    {
+      "id": "FR2.3",
+      "status": "OK",
+      "target": "src/rotation-commit.ts",
+      "note": "SessionStart が決めた結果を引数で受け、openResolvedStore で開く。試験は U8"
+    },
+    {
+      "id": "FR2.4",
+      "status": "OK",
+      "target": "src/restart-cli.ts",
+      "note": "fetch・prepare は resolveStore + openResolvedStore、handoff-source の読むだけの reader は src/stores/read-only-task-states.ts が同じ決め方を使う。試験は U9・S2"
+    },
+    {
+      "id": "FR2.5",
+      "status": "OK",
+      "target": "src/stores/index.ts",
+      "note": "createStore が任意の resolution を受ける。渡さない呼び出し元は今のまま。resolveStoreBackend の注釈を直した。試験は U5"
+    },
+    {
+      "id": "FR2.6",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "S3: 9 通りの組で、SessionStart・Stop 2 種・reader・restart-cli が同じ backend と source を決める（直す前は 2 通りで分かれた）"
+    },
+    {
+      "id": "FR3.1",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "拒否の時は store を開かず、SQLite の file も作らない（requireStore が StoreRefusedError を投げる）。試験は U2"
+    },
+    {
+      "id": "FR3.2",
+      "status": "OK",
+      "target": "src/transcript-stop-capture.ts",
+      "note": "Stop は拒否でも host を止めない（出力は「続ける」）。証拠は failed_open と store_refused:<種類>。session-rotation-stop も同じ。試験は U7"
+    },
+    {
+      "id": "FR3.3",
+      "status": "OK",
+      "target": "src/codex-session-start.ts",
+      "note": "SessionStart の拒否は HookDegradedError の RECOVERY_UNAVAILABLE のまま。試験は U5・U6"
+    },
+    {
+      "id": "FR3.4",
+      "status": "OK",
+      "target": "src/restart-cli.ts",
+      "note": "拒否は標準エラーに種類だけ・終了コード 1。handoff-source の標準出力は unreadable の JSON（計画の標準出力なしから変更。memory.md）。試験は U9"
+    },
+    {
+      "id": "FR3.5",
+      "status": "OK",
+      "target": "src/stores/index.ts",
+      "note": "openResolvedStore・requireStoreBackend: 開いた store の backend が違えば閉じて拒否する（閉じる失敗は拒否を隠さない）。試験は U5・seam"
+    },
+    {
+      "id": "FR4.1",
+      "status": "OK",
+      "target": "src/session-rotation-stop.ts",
+      "note": "証拠に store_backend・store_source を足した（transcript-stop-capture も同じ）。試験は U7"
+    },
+    {
+      "id": "FR4.2",
+      "status": "OK",
+      "target": "src/transcript-stop-capture.ts",
+      "note": "store_backend は決めた値で、書く前に開いた store の backend と一致を確かめる（requireStoreBackend。backend を持たない差し替えの store は確かめを飛ばす）。store_source は決めた結果。開かなかった回は両方 null。試験は U7"
+    },
+    {
+      "id": "FR4.3",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "U7: 証拠に URL・path・digest が無いことを確かめる"
+    },
+    {
+      "id": "FR4.4",
+      "status": "OK",
+      "target": "src/session-rotation-stop.ts",
+      "note": "既存の項目と schema の const を動かさない（足すだけ）。試験は U7"
+    },
+    {
+      "id": "FR5.1",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "S3・S4: 入口どうしの決めが同じ"
+    },
+    {
+      "id": "FR5.2",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "S1: 設定 file にだけ database_url がある時、Stop 2 種 × 2 host が既定の SQLite を開かない"
+    },
+    {
+      "id": "FR5.3",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "S4: database_url を持つ設定 file がある時、local_default の SQLite を選ばない"
+    },
+    {
+      "id": "FR5.4",
+      "status": "OK",
+      "target": "src/test-store-resolution.ts",
+      "note": "U2: 拒否の組の全部で、閉じた理由・値を含まない・store を開かない・SQLite の file が作られない"
+    },
+    {
+      "id": "FR5.5",
+      "status": "OK",
+      "target": "src/test-store-resolution-pg.ts",
+      "note": "S2: Stop が保存した引き継ぎを、同じ保存先（使い捨ての PostgreSQL）から読み戻す。2 host"
+    },
+    {
+      "id": "FR5.6",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/unit-test-instructions.md",
+      "note": "直す前の code に新しい試験を当てた結果は 4（S1 ×4・S6 ×3・S5 ×1 が失敗、S2 と S3 は不具合を再現）"
+    },
+    {
+      "id": "FR5.7",
+      "status": "OK",
+      "target": "src/test-store-resolution-isolation.ts",
+      "note": "一時の HOME・KUSABI_TEST_TMPDIR・使い捨ての PostgreSQL。store の module が読み込まれる前に HOME と保存先の環境変数を切り替える bootstrap（src/test-isolated-home.ts）を最初の import にし、公開の命令 5 本を stand-in の home で流して何も変わらないことを isolation の試験が確かめる。この Mac の実際の保存先に行を入れない（読むだけの触れ方は効果としてしか見えない限界は unit-test-instructions.md の 8）"
+    },
+    {
+      "id": "FR5.8",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/unit-test-instructions.md",
+      "note": "今ある試験 24 本は全部終了コード 0（core は 1832 passed, 0 failed。8 に一覧）"
+    },
+    {
+      "id": "FR6.1",
+      "status": "OK",
+      "target": "src/test-store-resolution-pg.ts",
+      "note": "U12: DDL の行 0 件。pg-migrations.ts は base と byte 同一、追加行 487 のうち DDL の語を含む行 0"
+    },
+    {
+      "id": "FR6.2",
+      "status": "OK",
+      "target": "src/test-store-resolution-sql.ts",
+      "note": "U12: Stop の保存の経路が流す statement が名指す表と列が、pg-migrations の後に全部ある（4 表）"
+    },
+    {
+      "id": "FR6.3",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/unit-test-instructions.md",
+      "note": "本番の DB には触れていない。席へ当てる前の確認に渡す表と列の一覧は 8"
+    },
+    {
+      "id": "FR7",
+      "status": "OK",
+      "target": "src/test-store-resolution.ts",
+      "note": "U11: 決め方の literal を持つ file は store-resolution.ts と、持ち越しの入口の許す一覧だけ。持ち越しの理由と確かめ方は計画の 3"
+    },
+    {
+      "id": "NFR1",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "不透明な接続先（reveal() だけが URL を返す）。誤りの文・証拠・log に URL・path が出ない。PostgreSQL への接続の失敗も、標準エラーと投げる誤りが失敗の種類だけで、TLS の鍵・証明書の path を含む driver の文を出さず cause にも持たない（postgresFailureKind）。試験は U4・U5 (OBS-2)・U7"
+    },
+    {
+      "id": "NFR2",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "核は入力だけで答える。証拠の store_backend は決めた値で、開いた store の backend と一致を確かめてから書く。試験は U1・U7"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "src/test-store-resolution.ts",
+      "note": "U11: 決め方の literal の数を機械で数える"
+    },
+    {
+      "id": "NFR4",
+      "status": "OK",
+      "target": "src/store-resolution.ts",
+      "note": "決める処理は設定 file を 1 つ読むだけで通信しない。環境で決まる時は file を読まない。Stop の時間の上限は変えていない。試験は U1"
+    },
+    {
+      "id": "NFR5",
+      "status": "OK",
+      "target": "src/transcript-stop-capture.ts",
+      "note": "拒否・不一致は成功と数えない証拠（failed_open・store_refused）として残り、host は止めない。試験は U7"
+    },
+    {
+      "id": "NFR6",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/coverage-method.md",
+      "note": "変えた行 487 のうち未実行 0（全部の命令・CI が届く命令の 2 通りとも RESULT PASS）。自己試験 16 件（報告が途中で切れた形を FAIL にする n9・n10 を含む）"
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "src/session-rotation-stop.ts",
+      "note": "DB の構造を変えない（migration なし）。証拠は足すだけで schema の const を動かさない。戻しは merge commit を戻す"
+    },
+    {
+      "id": "NFR8",
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "PR #347 の最初の head の CI（run 43796115600）で build-and-test の Node 18・20・22 がすべて success。C1: 3 つの Node の版すべてで store-resolution が 55 件、store-resolution-scenario が 40 件の終わりの行（6 行）。その後、isolation の試験を足して連なりが 3 行になった。E1 は ci.yml の step の文字を、作業場の写しで流して確かめた（足さない写しは終了コード 0 で 3 行、足した写しは終了コード 1）。最後の head の CI の log の件数は PR の comment で報告する。Node 18 で使えない import.meta.dirname は使っていない"
+    },
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "package.json",
+      "note": "新しい外部の依存 0（scripts の 4 行の追加と 2 行の書き換えだけ）。書式・静的検査の道具を足していない"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   enforceCodexRecoveryCaps,
   recoveryFromPack,
-  resolveCodexStoreBinding,
+  resolveSessionStartStore,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
   type CodexStoreBindingEvidence,
@@ -26,7 +26,7 @@ import {
   buildRestartPack,
   loadRestartPackData,
 } from "./restart-pack.js";
-import { createStore } from "./stores/index.js";
+import { openResolvedStore } from "./stores/index.js";
 
 export const ANTIGRAVITY_SESSION_START_ADAPTER_ID = "wasurezu-antigravity-session-start" as const;
 export const ANTIGRAVITY_SESSION_START_ADAPTER_VERSION = "1.0.0" as const;
@@ -210,8 +210,8 @@ export async function loadAntigravityHookDataFromStore(
   input: AntigravityHookInput,
   event: AntigravityHookEvent,
 ): Promise<LoadedAntigravityHookData> {
-  const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore({ skipPostgresMigrations: true });
+  const { binding: storeBinding, resolution } = resolveSessionStartStore();
+  const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "antigravity_cli",

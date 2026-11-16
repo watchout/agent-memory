@@ -2,6 +2,7 @@ import type { Store } from "./types.js";
 import { PgStore } from "./pg-store.js";
 import { JsonStore } from "./json-store.js";
 import { SqliteStore } from "./sqlite-store.js";
+import type { StoreResolution } from "../store-resolution.js";
 
 export interface CreateStoreOptions {
   /**
@@ -10,6 +11,11 @@ export interface CreateStoreOptions {
    * PostgreSQL connection without replaying every idempotent migration.
    */
   skipPostgresMigrations?: boolean;
+  /**
+   * The decision of the shared resolver (store-resolution.ts). When given, the store is opened from it and the
+   * environment is not read again; when absent the environment decides, as for the MCP server and the CLI.
+   */
+  resolution?: StoreResolution;
 }
 
 export interface StoreBackendChoice {
@@ -23,8 +29,8 @@ export interface StoreBackendChoice {
 }
 
 /**
- * Which storage backend the environment asks for. The one place this is decided: createStore opens the chosen backend, and the
- * read-only reader of the hand-off source (read-only-task-states.ts) looks in the same one.
+ * Which storage backend the environment alone asks for (the MCP server, the CLI and the carry-over entries). The hooks do
+ * not call this: they decide through `resolveStore` (store-resolution.ts), which adds the `database_url` of the user config.
  *
  * Resolution order (matches AM-001 spec):
  *   1. AGENT_MEMORY_DB_TYPE = sqlite | postgres | json  → explicit choice
@@ -50,9 +56,30 @@ export function resolveStoreBackend(env: NodeJS.ProcessEnv = process.env): Store
   return { kind: "sqlite", ignores_postgres_url: false, explicit: false };
 }
 
-/** Factory selecting the storage backend based on environment (see resolveStoreBackend). */
+function choiceFromResolution(resolution: StoreResolution): StoreBackendChoice {
+  const explicit = resolution.source === "environment";
+  if (resolution.backend === "postgres") {
+    return { kind: "postgres", url: resolution.target.reveal(), ignores_postgres_url: false, explicit };
+  }
+  return { kind: resolution.backend, ignores_postgres_url: resolution.ignores_postgres_url, explicit };
+}
+
+/**
+ * Why PostgreSQL did not open, as a short fixed label: the error's own code and nothing else. The driver's text can name
+ * a key or certificate file the URL points at (sslkey, sslcert, sslrootcert), a host or a user, so it is neither printed
+ * nor rethrown (261113-store-resolution-fix, OBS-2).
+ */
+export function postgresFailureKind(err: unknown): string {
+  const code = typeof err === "object" && err !== null ? (err as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^[A-Za-z0-9_]{1,40}$/.test(code) ? code : "unknown";
+}
+
+/**
+ * Factory selecting the storage backend: from the given resolution when there is one, otherwise from the environment
+ * (see resolveStoreBackend).
+ */
 export async function createStore(options: CreateStoreOptions = {}): Promise<Store> {
-  const choice = resolveStoreBackend();
+  const choice = options.resolution ? choiceFromResolution(options.resolution) : resolveStoreBackend();
 
   if (choice.kind === "json") {
     if (choice.ignores_postgres_url) {
@@ -73,10 +100,11 @@ export async function createStore(options: CreateStoreOptions = {}): Promise<Sto
       console.error("[agent-memory] Connected to PostgreSQL");
       return store;
     } catch (err) {
+      const kind = postgresFailureKind(err);
       console.error(
-        `[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured: ${err}`
+        `[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured: kind=${kind}`
       );
-      throw err;
+      throw Object.assign(new Error(`PostgreSQL connection failed (kind=${kind})`), { code: kind });
     }
   }
 
@@ -97,6 +125,26 @@ export async function createStore(options: CreateStoreOptions = {}): Promise<Sto
   await store.initialize();
   console.error("[agent-memory] Using SQLite storage (default)");
   return store;
+}
+
+/**
+ * Checks that a store is of the backend a resolution names: one that opened as anything else is closed and refused, so a
+ * hook never writes to a place the decision did not name. A store that reports no backend (a test double) is not checked.
+ */
+export async function requireStoreBackend(store: Store, resolution: StoreResolution): Promise<Store> {
+  if (store.backend !== undefined && store.backend !== resolution.backend) {
+    await store.close().catch(() => undefined);
+    throw new Error(`opened store backend does not match the decision (${resolution.backend})`);
+  }
+  return store;
+}
+
+/** Opens the store a resolution names and checks it (requireStoreBackend). */
+export async function openResolvedStore(
+  resolution: StoreResolution,
+  options: Omit<CreateStoreOptions, "resolution"> = {},
+): Promise<Store> {
+  return requireStoreBackend(await createStore({ ...options, resolution }), resolution);
 }
 
 export type { Store } from "./types.js";

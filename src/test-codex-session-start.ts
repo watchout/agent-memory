@@ -12,7 +12,7 @@ import {
   parseCodexSessionStartArgs,
   recoveryFromPack,
   resolveCodexHome,
-  resolveCodexStoreBinding,
+  resolveSessionStartStore,
   kusabiStoreBindingSha256,
   runCodexSessionStart,
   type CodexSessionStartBinding,
@@ -108,25 +108,30 @@ async function main(): Promise<void> {
       default_project: "must-not-override-hook-binding",
     }));
 
+    const resolveBinding = (env: NodeJS.ProcessEnv, path: string) => resolveSessionStartStore(env, path).binding;
     const userConfigEnv: NodeJS.ProcessEnv = {};
-    const userConfigBinding = resolveCodexStoreBinding(userConfigEnv, configPath);
+    const userConfigBinding = resolveBinding(userConfigEnv, configPath);
     assert.equal(userConfigBinding.source, "user_config");
     assert.equal(userConfigBinding.backend_intent, "postgres");
     assert.match(userConfigBinding.config_path_sha256 ?? "", /^[a-f0-9]{64}$/);
     assert.equal(userConfigBinding.binding_sha256, kusabiStoreBindingSha256("postgres", syntheticDatabaseUrl));
     assert.equal(userConfigBinding.credentials_embedded, false);
-    assert.equal(userConfigEnv.AGENT_MEMORY_DATABASE_URL, syntheticDatabaseUrl);
+    assert.equal(userConfigEnv.AGENT_MEMORY_DATABASE_URL, undefined, "the decision is returned; it is not written into the environment");
+    const userConfigDecision = resolveSessionStartStore(userConfigEnv, configPath).resolution;
+    assert.equal(userConfigDecision.backend, "postgres");
+    assert.equal(userConfigDecision.source, "user_config");
+    assert.equal(userConfigDecision.backend === "postgres" ? userConfigDecision.target.reveal() : null, syntheticDatabaseUrl);
     assert(!JSON.stringify(userConfigBinding).includes(syntheticDatabaseUrl));
     assert(!JSON.stringify(userConfigBinding).includes("must-not-override-hook-binding"));
 
-    const explicitEnvironmentBinding = resolveCodexStoreBinding({
+    const explicitEnvironmentBinding = resolveBinding({
       AGENT_MEMORY_DATABASE_URL: syntheticDatabaseUrl,
     }, join(root, "not-read.json"));
     assert.equal(explicitEnvironmentBinding.source, "environment");
     assert.equal(explicitEnvironmentBinding.backend_intent, "postgres");
     assert.equal(explicitEnvironmentBinding.config_path_sha256, null);
     assert.equal(explicitEnvironmentBinding.binding_sha256, userConfigBinding.binding_sha256);
-    const distinctEnvironmentBinding = resolveCodexStoreBinding({
+    const distinctEnvironmentBinding = resolveBinding({
       AGENT_MEMORY_DATABASE_URL: "postgresql:///fixture-other?host=/tmp",
     }, join(root, "not-read-either.json"));
     assert.notEqual(distinctEnvironmentBinding.binding_sha256, explicitEnvironmentBinding.binding_sha256);
@@ -136,36 +141,36 @@ async function main(): Promise<void> {
       AGENT_MEMORY_DB_TYPE: "sqlite",
       AGENT_MEMORY_DB_PATH: explicitLocalPath,
     };
-    const explicitLocalBinding = resolveCodexStoreBinding(explicitLocalEnv, configPath);
+    const explicitLocalBinding = resolveBinding(explicitLocalEnv, configPath);
     assert.equal(explicitLocalBinding.source, "environment");
     assert.equal(explicitLocalBinding.backend_intent, "sqlite");
     assert.equal(explicitLocalBinding.binding_sha256, kusabiStoreBindingSha256("sqlite", explicitLocalPath));
     assert.equal(explicitLocalEnv.AGENT_MEMORY_DATABASE_URL, undefined);
 
-    const absentConfigBinding = resolveCodexStoreBinding({}, join(root, "absent-config.json"));
+    const absentConfigBinding = resolveBinding({}, join(root, "absent-config.json"));
     assert.equal(absentConfigBinding.source, "local_default");
     assert.equal(absentConfigBinding.backend_intent, "sqlite");
     assert.match(absentConfigBinding.binding_sha256 ?? "", /^[a-f0-9]{64}$/);
 
     const malformedConfigPath = join(configDir, "malformed.json");
     await writeFile(malformedConfigPath, "not-json");
-    assert.throws(() => resolveCodexStoreBinding({}, malformedConfigPath), /RECOVERY_UNAVAILABLE/);
+    assert.throws(() => resolveBinding({}, malformedConfigPath), /RECOVERY_UNAVAILABLE/);
 
     const invalidUrlConfigPath = join(configDir, "invalid-url.json");
     await writeFile(invalidUrlConfigPath, JSON.stringify({ database_url: "https://not-a-database.invalid" }));
-    assert.throws(() => resolveCodexStoreBinding({}, invalidUrlConfigPath), /RECOVERY_UNAVAILABLE/);
+    assert.throws(() => resolveBinding({}, invalidUrlConfigPath), /RECOVERY_UNAVAILABLE/);
 
     const unreadableConfigPath = join(configDir, "unreadable.json");
     await writeFile(unreadableConfigPath, JSON.stringify({ database_url: syntheticDatabaseUrl }));
     await chmod(unreadableConfigPath, 0o000);
-    assert.throws(() => resolveCodexStoreBinding({}, unreadableConfigPath), /RECOVERY_UNAVAILABLE/);
+    assert.throws(() => resolveBinding({}, unreadableConfigPath), /RECOVERY_UNAVAILABLE/);
     await chmod(unreadableConfigPath, 0o600);
 
     const symlinkConfigPath = join(configDir, "symlink.json");
     await symlink(configPath, symlinkConfigPath);
-    assert.throws(() => resolveCodexStoreBinding({}, symlinkConfigPath), /RECOVERY_UNAVAILABLE/);
+    assert.throws(() => resolveBinding({}, symlinkConfigPath), /RECOVERY_UNAVAILABLE/);
     assert.throws(
-      () => resolveCodexStoreBinding({ AGENT_MEMORY_DB_TYPE: "postgres" }, join(root, "absent-postgres.json")),
+      () => resolveBinding({ AGENT_MEMORY_DB_TYPE: "postgres" }, join(root, "absent-postgres.json")),
       /RECOVERY_UNAVAILABLE/,
     );
 

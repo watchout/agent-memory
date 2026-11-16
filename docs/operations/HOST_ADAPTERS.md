@@ -156,11 +156,48 @@ genuinely absent config preserves the OSS SQLite default. Evidence reports
 only the backend intent, binding-source class, config-path digest, and whether
 the binding was verified.
 
-This storage-resolution rule is shared by the Codex, Claude Code, and Gemini
-CLI native adapters. A host-specific adapter must not skip it or silently fall
-back to a different backend, because the same `agent_id` on different stores
-is not continuity. Each host records the resolved store-binding evidence, and
-G3 rejects a row whose store binding is unverified.
+This storage-resolution rule is shared by the Codex, Claude Code, Gemini CLI,
+and Antigravity CLI native adapters. A host-specific adapter must not skip it
+or silently fall back to a different backend, because the same `agent_id` on
+different stores is not continuity. Each host records the resolved store-binding
+evidence, and G3 rejects a row whose store binding is unverified.
+
+The rule is one function, `src/store-resolution.ts`, and every entry that has
+to agree on where a seat's memory lives calls it instead of deciding for
+itself: the four SessionStart loaders, the transcript-capture Stop hook, the
+session-rotation Stop hook (which hands its decision to the hand-off commit),
+`restart-cli` `fetch` and `prepare`, the read-only reader behind
+`restart-cli handoff-source`, and the runtime-event worker. The order is:
+`AGENT_MEMORY_DB_TYPE` `sqlite` or `json` (even when a PostgreSQL URL is also
+set), then `AGENT_MEMORY_DATABASE_URL` or `DATABASE_URL`, then the config
+`database_url`, then the local SQLite default. It fails closed: an unknown
+`AGENT_MEMORY_DB_TYPE`, a URL that is not a `postgres://` or `postgresql://`
+URL, an explicit `postgres` with no URL anywhere, and a config file that exists
+but cannot be used (not a regular file, unreadable, or a `database_url` that is
+not a PostgreSQL URL) are refused rather than read as "absent". Only a missing
+config file is absent. A refusal names the kind of error (`unknown_db_type`,
+`env_url_shape`, `config_kind`, `config_read`, `config_content`,
+`target_missing`) and never a value, a URL, or a path. A PostgreSQL that was
+decided but cannot be opened is reported the same way: the store factory prints
+`PostgreSQL connection failed; ...: kind=<code>` and throws an error whose
+message is `PostgreSQL connection failed (kind=<code>)` and whose `code` is that
+kind (the driver's own error code, or `unknown`). The driver's text is neither
+printed nor kept as the cause, because it can name a key or certificate file the
+URL points at, a host, or a user.
+
+What a refusal does depends on the entry. A Stop hook opens no store and
+saves nothing: the transcript-capture hook reports `failed_open` and the
+session-rotation hook reports `action: "failed_open"`, each with the reason
+`store_refused:<kind>`, and neither blocks the turn. Both Stop evidences also
+carry `store_backend` and `store_source` (`environment`, `user_config` or
+`local_default`) for what they opened, and `null` for both when nothing was
+opened. `restart-cli fetch` and `prepare` print one `store_refused:<kind>` line
+to standard error, nothing to standard output, and exit with code 1;
+`handoff-source` reports `unreadable`. The runtime-event worker decides again
+and connects only when its decision has the same store-binding digest as the
+SessionStart evidence it was given: a different digest is `binding_drift` with
+no connection made, and an unusable decision is `store_unavailable`. No table,
+column, or migration is added by this rule.
 
 SQLite and PostgreSQL are both supported choices. SQLite remains the OSS
 default when no PostgreSQL URL or explicit backend override is configured;

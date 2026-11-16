@@ -8,7 +8,7 @@
  * for the first model context of the already-starting process.
  */
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,19 @@ import {
   loadRestartPackData,
   type RecoveryPackArtifact,
 } from "./restart-pack.js";
-import { createStore } from "./stores/index.js";
+import {
+  CODEX_USER_CONFIG_RELATIVE_PATH,
+  KUSABI_STORE_BINDING_HASH_VERSION,
+  configPathSha256,
+  defaultUserConfigPath,
+  kusabiStoreBindingSha256,
+  resolveStore,
+  storeBindingSha256,
+  type StoreResolution,
+} from "./store-resolution.js";
+import { openResolvedStore } from "./stores/index.js";
+
+export { CODEX_USER_CONFIG_RELATIVE_PATH, KUSABI_STORE_BINDING_HASH_VERSION, kusabiStoreBindingSha256 };
 
 export const CODEX_SESSION_START_ADAPTER_ID = "wasurezu-codex-session-start" as const;
 export const CODEX_SESSION_START_ADAPTER_VERSION = "1.0.1" as const;
@@ -46,8 +58,6 @@ export const CODEX_SESSION_START_MAX_TOKENS = 1_800;
 export const CODEX_SESSION_START_MAX_BYTES = 8_192;
 export const CODEX_SESSION_START_INTERNAL_TIMEOUT_MS = 7_000;
 export const CODEX_SESSION_START_HOOK_TIMEOUT_SECONDS = 9;
-export const CODEX_USER_CONFIG_RELATIVE_PATH = ".agent-memory/config.json" as const;
-export const KUSABI_STORE_BINDING_HASH_VERSION = "kusabi-store-binding/v1" as const;
 
 const START_SOURCES = ["startup", "resume", "clear", "compact"] as const;
 export type CodexSessionStartSource = typeof START_SOURCES[number];
@@ -208,6 +218,8 @@ export interface LoadedCodexRecovery {
   recovery_pack: CodexRecoveryPackEvidence;
   recovery_quality_log_ref: string | null;
   store_binding?: CodexStoreBindingEvidence;
+  /** The store the recovery was read from; the hand-off commit that follows opens the same one. */
+  store_resolution?: StoreResolution;
   /** Session-rotation hand-off, delivered in front of the capped recovery text. */
   rotation?: RotationBlock;
 }
@@ -250,6 +262,8 @@ export interface CodexSessionStartRunResult {
   rotation_evidence?: RotationStartEvidence;
   /** Set when the answer carries the hand-off text: the commit that follows the write of the answer. */
   rotation_commit?: RotationCommitPlan;
+  /** The store the recovery was read from; the commit consumes the bundle in the same place. */
+  store_resolution?: StoreResolution;
 }
 
 class HookDegradedError extends Error {
@@ -274,115 +288,29 @@ function unknownStoreBinding(): CodexStoreBindingEvidence {
   };
 }
 
-function postgresUrl(value: unknown): value is string {
-  return typeof value === "string" && /^postgres(?:ql)?:\/\//.test(value);
-}
-
-export function kusabiStoreBindingSha256(
-  backend: "postgres" | "sqlite" | "json",
-  locator: string,
-): string {
-  return sha256(`${KUSABI_STORE_BINDING_HASH_VERSION}\0${backend}\0${locator}`);
-}
-
-function localStoreBindingSha256(
-  backend: "sqlite" | "json",
-  env: NodeJS.ProcessEnv,
-): string {
-  const defaultPath = backend === "sqlite"
-    ? join(homedir(), ".agent-memory", "memory.db")
-    : join(homedir(), ".agent-memory");
-  const configuredPath = backend === "sqlite" ? env.AGENT_MEMORY_DB_PATH : undefined;
-  return kusabiStoreBindingSha256(backend, resolve(configuredPath || defaultPath));
-}
-
 /**
- * Bind a standalone native hook to the same legacy user config understood by
- * existing Wasurezu hooks. Explicit environment intent always wins. Only the
- * URL is applied to the one-shot child process; config identity fields never
- * override the exact hook binding, and the URL is never returned as evidence.
+ * The store a SessionStart hook opens, decided by the shared resolver (store-resolution.ts): the environment, then the
+ * `database_url` of the user config, then the local default. The decision is returned, not written into the
+ * environment, so a later reader in this process decides for itself or is handed the same decision. The evidence
+ * carries the kind of place and a digest, never the URL. A refusal degrades the hook (it cannot recover without a store).
  */
-export function resolveCodexStoreBinding(
+export function resolveSessionStartStore(
   env: NodeJS.ProcessEnv = process.env,
-  configPath = join(homedir(), CODEX_USER_CONFIG_RELATIVE_PATH),
-): CodexStoreBindingEvidence {
-  const dbType = (env.AGENT_MEMORY_DB_TYPE ?? "").toLowerCase();
-  if (dbType === "sqlite" || dbType === "json") {
-    return {
-      source: "environment",
-      backend_intent: dbType,
-      config_path_sha256: null,
-      binding_sha256: localStoreBindingSha256(dbType, env),
-      verified: true,
-      credentials_embedded: false,
-    };
-  }
-  if (dbType !== "" && dbType !== "postgres") {
-    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  }
-
-  const environmentUrl = env.AGENT_MEMORY_DATABASE_URL || env.DATABASE_URL || undefined;
-  if (environmentUrl !== undefined) {
-    if (!postgresUrl(environmentUrl)) throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-    return {
-      source: "environment",
-      backend_intent: "postgres",
-      config_path_sha256: null,
-      binding_sha256: kusabiStoreBindingSha256("postgres", environmentUrl),
-      verified: true,
-      credentials_embedded: false,
-    };
-  }
-
-  let stat;
-  try {
-    stat = lstatSync(configPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT" && dbType !== "postgres") {
-      return {
-        source: "local_default",
-        backend_intent: "sqlite",
-        config_path_sha256: null,
-        binding_sha256: localStoreBindingSha256("sqlite", env),
-        verified: true,
-        credentials_embedded: false,
-      };
-    }
-    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  }
-  if (stat.isSymbolicLink() || !stat.isFile()) {
-    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  }
-
-  let config: unknown;
-  try {
-    config = JSON.parse(readFileSync(configPath, "utf8"));
-  } catch {
-    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  }
-  if (config === null || typeof config !== "object" || Array.isArray(config)) {
-    throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  }
-  const configUrl = (config as Record<string, unknown>).database_url;
-  if (configUrl === undefined && dbType !== "postgres") {
-    return {
-      source: "local_default",
-      backend_intent: "sqlite",
-      config_path_sha256: sha256(resolve(configPath)),
-      binding_sha256: localStoreBindingSha256("sqlite", env),
-      verified: true,
-      credentials_embedded: false,
-    };
-  }
-  if (!postgresUrl(configUrl)) throw new HookDegradedError("RECOVERY_UNAVAILABLE");
-  env.AGENT_MEMORY_DATABASE_URL = configUrl;
+  configPath: string = defaultUserConfigPath(),
+): { binding: CodexStoreBindingEvidence; resolution: StoreResolution } {
+  const decision = resolveStore(env, configPath);
+  if (!decision.ok) throw new HookDegradedError("RECOVERY_UNAVAILABLE");
+  const resolution = decision.resolution;
   return {
-    source: "user_config",
-    backend_intent: "postgres",
-    config_path_sha256: sha256(resolve(configPath)),
-    binding_sha256: kusabiStoreBindingSha256("postgres", configUrl),
-    verified: true,
-    credentials_embedded: false,
+    resolution,
+    binding: {
+      source: resolution.source,
+      backend_intent: resolution.backend,
+      config_path_sha256: resolution.config_seen ? configPathSha256(configPath) : null,
+      binding_sha256: storeBindingSha256(resolution, env),
+      verified: true,
+      credentials_embedded: false,
+    },
   };
 }
 
@@ -829,8 +757,8 @@ export async function loadCodexRecoveryFromStore(
   input: CodexSessionStartInput,
   rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
-  const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore({ skipPostgresMigrations: true });
+  const { binding: storeBinding, resolution } = resolveSessionStartStore();
+  const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "codex",
@@ -879,6 +807,7 @@ export async function loadCodexRecoveryFromStore(
       recovery_pack: packEvidence,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
+      store_resolution: resolution,
       ...(rotation ? { rotation } : {}),
     };
   } finally {
@@ -943,6 +872,7 @@ export async function runCodexSessionStart(
       exit_code: 0,
       ...(rotationContext ? { rotation_evidence: rotationContext.evidence } : {}),
       ...(loaded.rotation ? { rotation_commit: loaded.rotation.commit } : {}),
+      ...(loaded.store_resolution ? { store_resolution: loaded.store_resolution } : {}),
     };
   } catch (error) {
     const reason = reasonFromError(error);

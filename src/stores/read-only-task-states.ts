@@ -6,7 +6,7 @@ import pg from "pg";
 import { ROTATION_HANDOFF_SOURCE_PG_TIMEOUT_MS } from "../constants.js";
 import { DEFAULT_DATA_DIR, TASK_STATES_FILE } from "./json-store.js";
 import { normalizeTaskStates, type TaskStateKeyFields } from "./task-state-normalize.js";
-import { resolveStoreBackend } from "./index.js";
+import { requireStore } from "../store-resolution.js";
 import { resolveSqliteDbPath } from "./sqlite-store.js";
 import type { GetTaskStatesInput, TaskState } from "./types.js";
 
@@ -60,9 +60,9 @@ export function createReadOnlyTaskStateReader(env: NodeJS.ProcessEnv = process.e
 }
 
 export async function readTaskStatesReadOnly(env: NodeJS.ProcessEnv, input: GetTaskStatesInput, deps: ReadOnlyTaskStatesDeps = {}): Promise<HandoffTaskRow[]> {
-  const choice = resolveStoreBackend(env);
-  if (choice.kind === "postgres") return readPg(choice.url as string, input, deps.pg_client ?? ((connectionString) => createPgReadClient(connectionString)));
-  if (choice.kind === "json") return readJson(deps.json_dir ?? DEFAULT_DATA_DIR, input);
+  const resolution = requireStore(env);
+  if (resolution.backend === "postgres") return readPg(resolution.target.reveal(), input, deps.pg_client ?? ((connectionString) => createPgReadClient(connectionString)));
+  if (resolution.backend === "json") return readJson(deps.json_dir ?? DEFAULT_DATA_DIR, input);
   return readSqlite(resolveSqliteDbPath(undefined, env), input);
 }
 

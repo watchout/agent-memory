@@ -30,7 +30,15 @@ import {
   type SessionStartTranscriptHost,
 } from "./session-start-auto-receive.js";
 import { receiptOutcome, type ReceiptOutcome } from "./claude-transcript-identity.js";
-import { createStore } from "./stores/index.js";
+import {
+  resolveStore,
+  storeRefusedReason,
+  type StoreBackendName,
+  type StoreRefusalReason,
+  type StoreResolution,
+  type StoreSource,
+} from "./store-resolution.js";
+import { openResolvedStore, requireStoreBackend } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 
 export const CODEX_TRANSCRIPT_STOP_ADAPTER_ID = "wasurezu-codex-transcript-stop" as const;
@@ -79,11 +87,19 @@ export interface TranscriptStopRunResult {
     session_id: string | null;
     hook_event_name: "Stop" | "UserPromptSubmit" | null;
     status: "captured" | "skipped" | "failed_open";
-    reason: SessionStartAutoReceiveResult["reason"] | "malformed_input" | "identity_binding_invalid";
+    reason:
+      | SessionStartAutoReceiveResult["reason"]
+      | "malformed_input"
+      | "identity_binding_invalid"
+      | "ingest_failed"
+      | `store_refused:${StoreRefusalReason}`;
     /** FR8 R7: ingested / refused (reason code) / unobserved. Unobserved is never success. */
     outcome: ReceiptOutcome;
     events_saved: number;
     events_duplicate: number;
+    /** The store the turn was saved to (null when no store was opened); never a URL or a path. */
+    store_backend: StoreBackendName | null;
+    store_source: StoreSource | null;
     /** FR8 R5 (Claude only): numbers kept for the receipt, not a gate. */
     cwd_kinds?: number;
     records_outside_workspace?: number;
@@ -94,7 +110,10 @@ export interface TranscriptStopRunResult {
 
 export interface TranscriptStopDependencies {
   receive?: typeof receiveCurrentSessionTranscript;
-  createStore?: () => Promise<Store>;
+  /** Opens the store the shared resolver decided on (test seam); by default the decided store is opened. */
+  createStore?: (resolution: StoreResolution) => Promise<Store>;
+  /** The process environment the store is decided from; the real hook uses the process's own. */
+  env?: NodeJS.ProcessEnv;
   /** Called once with the key names the entry does not know, right after the parser accepts the input. */
   on_ignored_names?: (names: readonly string[]) => void;
 }
@@ -157,7 +176,7 @@ function adapterId(host: TranscriptStopHost) {
 function failedResult(
   host: TranscriptStopHost,
   binding: CodexSessionStartBinding,
-  reason: "malformed_input" | "identity_binding_invalid" | "ingest_failed",
+  reason: "malformed_input" | "identity_binding_invalid" | "ingest_failed" | `store_refused:${StoreRefusalReason}`,
   sessionId: string | null = null,
   hookEventName: "Stop" | "UserPromptSubmit" | null = null,
 ): TranscriptStopRunResult {
@@ -177,6 +196,8 @@ function failedResult(
       outcome: receiptOutcome({ status: "failed_open", reason }),
       events_saved: 0,
       events_duplicate: 0,
+      store_backend: null,
+      store_source: null,
       private_reasoning_persisted: false,
       protected_instruction_bodies_persisted: false,
     },
@@ -221,8 +242,16 @@ export async function runTranscriptStopCapture(
     return failedResult(host, binding, "identity_binding_invalid", input.session_id, input.hook_event_name);
   }
 
+  const decided = resolveStore(dependencies.env ?? process.env);
+  if (!decided.ok) {
+    return failedResult(host, binding, storeRefusedReason(decided.reason), input.session_id, input.hook_event_name);
+  }
+  const resolution = decided.resolution;
   try {
-    const store = await (dependencies.createStore ?? (() => createStore({ skipPostgresMigrations: true })))();
+    const store = await requireStoreBackend(
+      await (dependencies.createStore ?? ((r) => openResolvedStore(r, { skipPostgresMigrations: true })))(resolution),
+      resolution,
+    );
     try {
       const result = await (dependencies.receive ?? receiveCurrentSessionTranscript)(store, {
         host: host satisfies SessionStartTranscriptHost,
@@ -251,6 +280,8 @@ export async function runTranscriptStopCapture(
           outcome: receiptOutcome(result),
           events_saved: result.events_saved,
           events_duplicate: result.events_duplicate,
+          store_backend: resolution.backend,
+          store_source: resolution.source,
           ...(result.cwd_kinds === undefined ? {} : { cwd_kinds: result.cwd_kinds }),
           ...(result.records_outside_workspace === undefined
             ? {}

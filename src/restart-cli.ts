@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
-import { createStore } from "./stores/index.js";
+import { requireStore, StoreRefusedError } from "./store-resolution.js";
+import { openResolvedStore } from "./stores/index.js";
 import { prepareRestart, type ContinuityGuardMode, type PackInjectionMode, type RestartPackFormat } from "./restart-prepare.js";
 import type { HostInvocationDeliveryMode, HostInvocationTargetRuntime, UntrustedContextPolicy } from "./restart-pack.js";
 import { preflightRestartCommand } from "./restart-command-preflight.js";
@@ -246,11 +247,20 @@ async function runHandoffSource(options: CliOptions): Promise<number> {
     console.error("handoff-source requires --agent-id and --project");
     return 2;
   }
-  const found = await readHandoffSource(createReadOnlyTaskStateReader(), {
-    agent_id: options.agent_id,
-    project: options.project,
-    rotation_root: rotationRoot(process.env),
-  });
+  const reader = createReadOnlyTaskStateReader();
+  const found = await readHandoffSource(
+    {
+      getTaskStates: async (input) => {
+        try {
+          return await reader.getTaskStates(input);
+        } catch (error) {
+          if (error instanceof StoreRefusedError) console.error(error.message);
+          throw error;
+        }
+      },
+    },
+    { agent_id: options.agent_id, project: options.project, rotation_root: rotationRoot(process.env) },
+  );
   console.log(redactedJson(found));
   return found.result === "found" ? 0 : 1;
 }
@@ -288,7 +298,7 @@ async function main(): Promise<void> {
     if (result.status === "fail") process.exit(1);
     return;
   }
-  const store = await createStore();
+  const store = await openResolvedStore(requireStore(process.env));
   try {
     if (options.command === "fetch") {
       if (!options.pack_ref) throw new Error("fetch requires --pack-ref");

@@ -13,7 +13,8 @@ import {
 } from "./constants.js";
 import { writeOutputWritten, type RotationOutputWritten } from "./session-rotation-files.js";
 import type { RotationCommitPlan } from "./session-rotation-start.js";
-import { createStore } from "./stores/index.js";
+import type { StoreResolution } from "./store-resolution.js";
+import { openResolvedStore, requireStoreBackend } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 
 export type { RotationCommitPlan } from "./session-rotation-start.js";
@@ -38,9 +39,21 @@ export interface RotationCommitDependencies extends CommitSeams {
   /** Milliseconds since the hook process began, from the caller's monotonic clock. */
   elapsed_ms: () => number;
   hook_timeout_ms: number;
+  /**
+   * The store the answer was read from (261113-store-resolution-fix). The bundle is consumed in that same place. With
+   * neither this nor an `open_store` seam there is nowhere to consume it, and the result is "unknown" (the bundle stays).
+   */
+  store_resolution?: StoreResolution;
 }
 
-const openDefaultStore = (): Promise<Store> => createStore({ skipPostgresMigrations: true });
+function storeOpener(dependencies: RotationCommitDependencies): (() => Promise<Store>) | null {
+  const resolution = dependencies.store_resolution;
+  if (dependencies.open_store) {
+    const open = dependencies.open_store;
+    return resolution ? async () => requireStoreBackend(await open(), resolution) : open;
+  }
+  return resolution ? () => openResolvedStore(resolution, { skipPostgresMigrations: true }) : null;
+}
 
 /** A close is never awaited (it may not return) and its failure is of no interest. */
 function closeQuietly(store: Store): void {
@@ -50,6 +63,8 @@ function closeQuietly(store: Store): void {
 }
 
 async function consumeWithin(plan: RotationCommitPlan, dependencies: RotationCommitDependencies, budgetMs: number): Promise<ConsumeResult> {
+  const openStore = storeOpener(dependencies);
+  if (openStore === null) return "unknown";
   let abandoned = false;
   let timer: NodeJS.Timeout | undefined;
   const timedOut = new Promise<ConsumeResult>((resolve) => {
@@ -59,7 +74,7 @@ async function consumeWithin(plan: RotationCommitPlan, dependencies: RotationCom
     }, budgetMs);
   });
   const attempt = (async (): Promise<ConsumeResult> => {
-    const store = await (dependencies.open_store ?? openDefaultStore)();
+    const store = await openStore();
     if (abandoned) {
       closeQuietly(store);
       return "unknown";
@@ -168,7 +183,7 @@ export interface HookAnswerIo extends CommitSeams {
  */
 export async function answerHookAndCommit(
   io: HookAnswerIo,
-  answer: { evidence: unknown; output: unknown; rotation_commit?: RotationCommitPlan },
+  answer: { evidence: unknown; output: unknown; rotation_commit?: RotationCommitPlan; store_resolution?: StoreResolution },
   startedAtMs: number,
   hookTimeoutMs: number,
 ): Promise<{ output_written: boolean; commit: RotationCommitResult | null }> {
@@ -193,6 +208,7 @@ export async function answerHookAndCommit(
     hook_timeout_ms: hookTimeoutMs,
     ...(io.open_store ? { open_store: io.open_store } : {}),
     ...(io.write_record ? { write_record: io.write_record } : {}),
+    ...(answer.store_resolution ? { store_resolution: answer.store_resolution } : {}),
   });
   return { output_written: true, commit };
 }
