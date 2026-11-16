@@ -157,7 +157,7 @@
       "id": "FR4.2",
       "status": "OK",
       "target": "src/transcript-stop-capture.ts",
-      "note": "store_backend は開いた store の観測、store_source は決めた結果。開かなかった回は両方 null。試験は U7"
+      "note": "store_backend は決めた値で、書く前に開いた store の backend と一致を確かめる（requireStoreBackend。backend を持たない差し替えの store は確かめを飛ばす）。store_source は決めた結果。開かなかった回は両方 null。試験は U7"
     },
     {
       "id": "FR4.3",
@@ -253,7 +253,7 @@
       "id": "NFR2",
       "status": "OK",
       "target": "src/store-resolution.ts",
-      "note": "核は入力だけで答える。証拠の store_backend は開いた store の観測。試験は U1・U7"
+      "note": "核は入力だけで答える。証拠の store_backend は決めた値で、開いた store の backend と一致を確かめてから書く。試験は U1・U7"
     },
     {
       "id": "NFR3",
@@ -287,8 +287,9 @@
     },
     {
       "id": "NFR8",
-      "status": "Deferred",
-      "target": "PR の CI（Node 18・20・22）と C1 の結果は、PR を出して CI が終わった後に確かめて OK に直す。Node 18 で使えない import.meta.dirname は使っていない（E1 は ci.yml の step の文字を手元で流して確かめ済み）"
+      "status": "OK",
+      "target": "src/test-store-resolution-scenario.ts",
+      "note": "PR #347 の最初の head の CI（run 43796115600）で build-and-test の Node 18・20・22 がすべて success。C1: 3 つの Node の版すべてで store-resolution が 55 件、store-resolution-scenario が 40 件の終わりの行（6 行）。E1 は ci.yml の step の文字を手元で流して確かめ済み。Node 18 で使えない import.meta.dirname は使っていない"
     },
     {
       "id": "NFR9",

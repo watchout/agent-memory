@@ -42,7 +42,7 @@
 | SessionStart 4 種 | loader の頭で `resolveSessionStartStore()` | 同じ loader が `openResolvedStore(resolution, { skipPostgresMigrations: true })` へ。環境変数へは書かない | `HookDegradedError("RECOVERY_UNAVAILABLE")`（今のまま。FR3.3）|
 | Stop 2 種（Claude Code・Codex の両 host） | store が要る時だけ（`session-rotation-stop` は `save` の時の `withStore`、`transcript-stop-capture` は store を開く前）。store の要らない回（busy・none・blocked）は今のまま、決めない | `openResolvedStore` | store を開かず `failed_open`、理由は `store_refused:<閉じた集合の 1 つ>`。host は止めない（FR3.2）|
 | `rotation-commit` | 決めない。同じ process の SessionStart が決めた結果を引数で受ける | `answerHookAndCommit` の `answer` に `store_resolution` を足し、`commitRotationRecovery` が `openResolvedStore` で開く | 結果も `open_store` の seam も無ければ開かず `consume: "unknown"`（環境変数だけの `createStore()` に落とさない）|
-| `restart-cli handoff-source`（読むだけ） | `runHandoffSource` が `resolveStore(process.env)` | `createReadOnlyTaskStateReader(env, { resolution })`。reader は結果が無い時、自分で `resolveStore(env)` を呼び、拒否なら `unreadable` として読めない扱い | 標準エラーに理由の種類だけを出し、終了コード 1。標準出力は、この口がどの読めない保存先にも出す `unreadable` の JSON のまま（呼ぶ側が標準出力の `result` を読むので空にしない。作る段で改めた。`memory.md`）（FR3.4）|
+| `restart-cli handoff-source`（読むだけ） | `runHandoffSource` は決めない。`createReadOnlyTaskStateReader()` が返す reader が、`getTaskStates` の呼び出しごとに `requireStore(env)`（SessionStart・Stop と同じ `resolveStore` の結果を使う関数）で決める | 結果を渡さない（reader に結果を受ける引数は無い）。`runHandoffSource` は reader の拒否（`StoreRefusedError`）を標準エラーに出して投げ直し、`readHandoffSource` が `unreadable`（読めない保存先）として扱う | 標準エラーに理由の種類だけを出し、終了コード 1。標準出力は、この口がどの読めない保存先にも出す `unreadable` の JSON のまま（呼ぶ側が標準出力の `result` を読むので空にしない。作る段で改めた。`memory.md`）（FR3.4）|
 | `restart-cli fetch`・`prepare` | `main` が `resolveStore(process.env)` | `openResolvedStore(resolution)`（移行は今のまま走らせる = `skipPostgresMigrations` を渡さない）| 同上 |
 | emitter（R-01） | worker の `createQuietStore` が `resolveStore(env)` を自分で呼ぶ（2 の D1）| 環境変数の書き込みに頼らない | 今の `store_unavailable` の緊急の記録 |
 
@@ -53,7 +53,7 @@
 ### 1.5 Stop の証拠（Q3 = A、FR4）
 
 - 名前を確定する: `store_backend`（`postgres`・`sqlite`・`json`・`null`）と `store_source`（`environment`・`user_config`・`local_default`・`null`）。2 つの証拠の型（`RotationStopEvidence` と、`transcript-stop-capture` の証拠の型）に足す。
-- 値は store を開いて観測した時だけ入れる。`store_backend` は開いた store の `backend`（観測）、`store_source` は決めた結果（宣言）。開かなかった回（busy・none・blocked・拒否・malformed）は両方 `null`。`null` を成功の印にしない。URL・path・digest は足さない。
+- 値は store を開いた時だけ入れる。`store_backend` は決めた結果の `backend` を、開いた store の `backend` と一致を確かめてから（`requireStoreBackend`）書く。`store_source` は決めた結果。本物の store は `backend` を持つので、一致した時だけ書かれる。`backend` を持たない試験用の差し替えの store は一致の確かめを飛ばすので、その時の `store_backend` は決めた値で、観測ではない。開かなかった回（busy・none・blocked・拒否・malformed）は両方 `null`。`null` を成功の印にしない。URL・path・digest は足さない。
 - schema の const（`wasurezu-session-rotation-stop/v1`・`wasurezu-transcript-stop-capture/v1`）は動かさない（OQ1。2 の D2）。
 - 拒否の理由の型（27d7f8f を読んだ事実）: `transcript-stop-capture` の証拠の `reason` は閉じた union（`SessionStartAutoReceiveResult["reason"] | "malformed_input" | "identity_binding_invalid"`）で、`failedResult` の引数の `reason` も 3 つの文字（`malformed_input`・`identity_binding_invalid`・`ingest_failed`）だけ。拒否の理由 `store_refused:${StoreRefusalReason}` をこの 2 つの型に足す（足すだけ。D2）。`outcome` は `receiptOutcome` の今の写し（`REFUSED_REASONS` に無い理由は `unobserved`）のままにし、`REFUSED_REASONS` には足さない（保存先の拒否は「観測できず」で、成功でも取り込みの拒否でもない = S5）。`session-rotation-stop` の `reason` は `string` で、既にある `transcript_unverified:<理由>` と同じ形で足せる。接続できない PostgreSQL を開く失敗は、今の `ingest_failed`（`transcript-stop-capture`）・`rotation_stop_failed`（`session-rotation-stop`）のままにし、開く前に決まる拒否と区別する。
 - テストの seam: 今の `dependencies.createStore?: () => Promise<Store>` を `(resolution: StoreResolution) => Promise<Store>` に広げる（引数を使わない今の試験はそのまま型が合う）。決める所は seam の外に置くので、seam に偽の store を入れた試験でも、決めた結果（`store_source` と拒否）が試験できる。
@@ -79,7 +79,7 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 | D2 | schema の const を動かさず、証拠の項目を足すだけ（OQ1。S6 の同居: 旧い hook と新しい hook が同じ席の束に同時にいても、証拠は足すだけ） | const を `v2` に上げる。読み手が const で分岐していると新旧の hook の証拠を別々に扱う必要が出る。読み手は試験と監査の項目の記録以外に見つからなかった（検索 2026-11-15T23:37:49Z。作る時に取り直す）ので、上げる利点も無い |
 | D3 | Stop の seam を `(resolution) => Promise<Store>` に広げ、決める所は seam の外 | seam を 2 つ（決めを迂回する旧い seam と新しい seam）にする。迂回する seam では「決めた結果」が試験できず、決めを通らない道が残る |
 | D4 | `session-rotation-stop` は store が要る時（`save`）にだけ決める | hook の頭で決める。store の要らない回（busy を記録するだけ・何もしない）が、設定 file の誤りで新しく失敗になる（今は成功している回を壊す） |
-| D5 | 読むだけの reader は、結果が渡されなければ自分で `resolveStore` を呼ぶ。`runHandoffSource` は先に決め、拒否の理由の種類を標準エラーに出す | reader の中だけで決める。拒否は `unreadable` に潰れ、理由の種類を出せない（FR3.4 に届かない） |
+| D5 | 読むだけの reader は、`getTaskStates` の呼び出しごとに自分で `requireStore(env)` を呼んで決める（結果を受ける引数は無い）。`runHandoffSource` は reader の拒否（`StoreRefusedError`）を受けて理由の種類を標準エラーに出し、そのまま投げ直す（`readHandoffSource` が `unreadable` にする） | `runHandoffSource` が先に決めて結果を reader へ渡す（reader に引数を足す形。`readHandoffSource` が `getTaskStates` を呼ぶのは 1 回（`src/rotation-handoff-source.ts` の 56 行目）なので、今は 1 回の実行で決めが 1 回のまま。呼び出しが増える形に変える時は、この形に直す）。reader の中だけで決めて包みを持たない（拒否は `unreadable` に潰れ、理由の種類を出せない。FR3.4 に届かない） |
 | D6 | 接続先を不透明な物にする | 文字列のまま持つ。証拠・log・誤りの文に URL が入る経路が、型で防げない（NFR1） |
 | D7 | `resolveStoreBackend` を残す（持ち越しの入口のため。決め方の literal が 2 か所に残る S3 の例外を、持ち越しとして記録に書き、持ち越しの入口を触る時に直す） | `resolveStoreBackend` を新しい関数へ委ねる。持ち越しの入口（動いている席の MCP サーバーほか）の動きが変わる（未知の `AGENT_MEMORY_DB_TYPE` の拒否・URL の形の検査）。FR2.5・Q5 = A の範囲を超える |
 | D8 | 核は `readConfig` を最大 1 回だけ呼ぶ関数として受け取り、環境変数で決まる時は呼ばない | 設定 file を先に読んで核に渡す。環境変数で決まる席が、壊れた設定 file で新しく失敗する |
@@ -119,7 +119,7 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
     },
     {
       "layer": "project",
-      "text": "- 試験や確かめの script で既定の createStore() を呼ぶと、JSON の store の置き場が homedir() から決まり、この Mac の実際の保存先に行が入る。必ず一時の HOME を指定して動かす（11-11 の code-generation で conversation-events.json・raw-events.json に試験の行が入った）。 (learned 2026-11-11) \n\n- 手元で使い捨ての PostgreSQL を起動する時は、Unix socket の path が長いと起動できないので socket を切って（unix_socket_directories を空）127.0.0.1 の TCP だけにし、試験が英語の誤り文（duplicate key）を照合するので lc_messages=C を付ける。 (learned 2026-11-11) \n\n- 別に流す型検査は、流した設定の内容と対象の file を記録に書く（前回の記録は設定が無く再現できなかった）。 (learned 2026-11-11) \n\n- core の試験（src/test.ts）を手元で流す時は、試験の親 folder を KUSABI_TEST_TMPDIR（CI は RUNNER_TEMP）で渡し、使い捨ての HOME の中に .agent-memory の folder を先に作る。どちらかが無いと、code の失敗ではなく環境の誤りで止まる（前者は KUSABI_TEST_TMPDIR_REQUIRED、後者は macOS の /var と /private/var の綴りの違いで isolation の 1 件が落ちる）。 (learned 2026-11-13) \n\n- 手元の PostgreSQL の試験（test:pg）は、CREATE EXTENSION vector を入れた DB に向けて流す。入れていないと type \"vector\" does not exist で終了コード 1 になる（環境の誤りで、code の失敗ではない）。 (learned 2026-11-13)"
+      "text": "- 試験や確かめの script で既定の createStore() を呼ぶと、JSON の store の置き場が homedir() から決まり、この Mac の実際の保存先に行が入る。必ず一時の HOME を指定して動かす（11-11 の code-generation で conversation-events.json・raw-events.json に試験の行が入った）。 (learned 2026-11-11) \n\n- 手元で使い捨ての PostgreSQL を起動する時は、Unix socket の path が長いと起動できないので socket を切って（unix_socket_directories を空）127.0.0.1 の TCP だけにし、試験が英語の誤り文（duplicate key）を照合するので lc_messages=C を付ける。 (learned 2026-11-11) \n\n- 別に流す型検査は、流した設定の内容と対象の file を記録に書く（前回の記録は設定が無く再現できなかった）。 (learned 2026-11-11) \n\n- core の試験（src/test.ts）を手元で流す時は、試験の親 folder を KUSABI_TEST_TMPDIR（CI は RUNNER_TEMP）で渡し、使い捨ての HOME の中に .agent-memory の folder を先に作る。どちらかが無いと、code の失敗ではなく環境の誤りで止まる（前者は KUSABI_TEST_TMPDIR_REQUIRED、後者は macOS の /var と /private/var の綴りの違いで isolation の 1 件が落ちる）。 (learned 2026-11-13) \n\n- 手元の PostgreSQL の試験（test:pg）は、CREATE EXTENSION vector を入れた DB に向けて流す。入れていないと type \"vector\" does not exist で終了コード 1 になる（環境の誤りで、code の失敗ではない）。 (learned 2026-11-13) \n\n- 試験の到達は、CI の ci.yml の run: が実際に流す命令から読んで書く（計画の「CI は npm test を流す」は誤りで、ci.yml は npm test を流さない。設計監査 1 回目の指摘）。新しい試験は CI が呼ぶ命令（test:claude-hook の連なりなど）に足し、CI の log に件数の行が出ることを確かめる。 (learned 2026-11-16) \n\n- 網羅率の対象を git diff で作る時は、base にあるが作業場で追跡されていない file を diff が「削除」と読み、追加行なしと数える。base の blob と作業場の file を比べて数え、対象が 0 件の測定を PASS にしない（自己試験の負例で見張る）。 (learned 2026-11-16) \n\n- 行の網羅率は、全部の試験を流した測定に加えて、CI の run: が届く命令だけでも測る。CI が流さない試験の側でだけ実行されていた追加行は、CI が流す試験を足して埋める（この取り組みでは 8 行あり、試験を 2 つ足した）。 (learned 2026-11-16)"
     }
   ],
   "obligations": {
@@ -155,8 +155,8 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
       "Documentation and traceability."
     ]
   },
-  "input_sha256": "sha256:95fa886496a1b9c329c61ed3d23f006bbe5c29384df1a2668bb4d961dcf9d4e9",
-  "contract_sha256": "sha256:0d4ca0134805e36a2576f7f68e9e643c5e5f9285eef3e520ccd9b6691d8a0d6f"
+  "input_sha256": "sha256:856ad691522bbd65b7d8f4a64d8a3f3a89a11768c2dc43c708b1c526cc0cc2a1",
+  "contract_sha256": "sha256:9130e3c2859dc778f75da253031e15d33d7b99f6ec76de22c6182740cbb03a1b"
 }
 ```
 
@@ -178,9 +178,9 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 | U4 | 不透明な接続先: `JSON.stringify`・`util.inspect`・文字列化・誤りの文・証拠のどれにも URL が出ない。`reveal()` だけが返す | NFR1・FR1.3 | 単体 | 不要 |
 | U5 | `createStore({ resolution })`: 3 つの `backend` を開き、stderr の行は今のまま（`ignores_postgres_url` の注意の行を含む）。`resolution` を渡さない呼び出しは今のまま。`openResolvedStore` は、開いた store の `backend` が違えば閉じて失敗にする | FR2.5・FR3.5 | 単体 | 一部要る |
 | U6 | SessionStart の証拠: 直す前に 27d7f8f の `resolveCodexStoreBinding` で取った表（Step 3。digest は作り方から組んだ期待値）と、新しい `resolveSessionStartStore` の `binding` が 9 つの組で deep equal。環境変数へ書き込まない（`process.env` と渡した `env` の差が 0）。拒否は `HookDegradedError` | FR2.1・FR3.3・R-01 | 単体 | 不要 |
-| U7 | Stop の証拠: 保存した回に `store_backend`（観測）と `store_source`、busy・none・blocked・拒否・malformed の回は両方 `null`。URL・path・digest が無い。seam に `backend` が不一致の store を入れると失敗になる。拒否の回は `store_refused:<理由>` で、出力は「続ける」のまま、`transcript-stop-capture` の `outcome` は `unobserved`（成功と数えない）| FR4・FR3.2・FR3.5 | 単体 | 不要 |
+| U7 | Stop の証拠: 保存した回に `store_backend`（決めた値。開いた store の `backend` と一致を確かめてから書く）と `store_source`（決めた値）、busy・none・blocked・拒否・malformed の回は両方 `null`。URL・path・digest が無い。seam に `backend` が不一致の store を入れると失敗になる。拒否の回は `store_refused:<理由>` で、出力は「続ける」のまま、`transcript-stop-capture` の `outcome` は `unobserved`（成功と数えない）| FR4・FR3.2・FR3.5 | 単体 | 不要 |
 | U8 | `rotation-commit`: 結果で store を開いて `consumeSelectedRestartPack` が走る。結果も seam も無ければ開かず `consume: "unknown"`。開いた store の `backend` の不一致で失敗 | FR2.3 | 単体 | 不要 |
-| U9 | `restart-cli`: `handoff-source` の拒否は標準エラーに理由の種類だけ・終了コード 1・標準出力は `unreadable` の JSON（他の読めない保存先と同じ）。成功の出力は直す前と同じ。`fetch`・`prepare` の拒否は標準エラーに理由の種類だけ・終了コード 1・標準出力なし。reader が結果なしで呼ばれた時の拒否は `unreadable` | FR2.4・FR3.4・OQ4 | 単体 | 不要 |
+| U9 | `restart-cli`: `handoff-source` の拒否は標準エラーに理由の種類だけ・終了コード 1・標準出力は `unreadable` の JSON（他の読めない保存先と同じ）。成功の出力は直す前と同じ。`fetch`・`prepare` の拒否は標準エラーに理由の種類だけ・終了コード 1・標準出力なし。reader は呼び出しごとに自分で決め、拒否の時は `StoreRefusedError` を投げて `readHandoffSource` が `unreadable` にする | FR2.4・FR3.4・OQ4 | 単体 | 不要 |
 | U10 | emitter: 拒否は `store_unavailable`、JSON は fixture 専用として拒否のまま、`backend_drift`・`binding_drift` の今の経路（SessionStart の証拠と target の値どうしの比べ）は変わらない。worker の接続先の比べ（1.6 の契約）: digest が違えば store の構成（`PgStore`・`SqliteStore` の生成）が 0 回、同じ結果から digest と store が作られる（`resolveStore` が 1 回）、公開の差し込み口 `options.createStore` の型は変わらない | R-01 | 単体 | 不要 |
 | U11 | 決め方の literal の数（S3、NFR3）: 試験を除く `src` の中で、環境変数の名前と `database_url` と URL の形の検査を持つ file が、`store-resolution.ts` と 5 の Step 11 の許す一覧（持ち越し。理由つき）だけ | NFR3 | 機械の確かめ | 不要 |
 | U12 | DB の確認: DDL の行（`CREATE`・`ALTER`・`DROP`・`pg-migrations` の変更）が差分に 0 件。使い捨ての PostgreSQL に `pg-migrations` を流し、Stop の保存の経路が流す statement が名指す表と列（`pg` の query を記録して構文から取る。取れない statement があれば失敗）が `information_schema` に全てある | FR6.1・FR6.2 | 機械の確かめ | 要る（手元）|

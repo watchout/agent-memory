@@ -1,7 +1,7 @@
 # 作った物のまとめ — 保存先の決め方を 1 つの関数にする（261113-store-resolution-fix）
 
 - 計画: `code-generation-plan.md`。試験の手順と結果: `unit-test-instructions.md`。網羅率の測り方と結果: `coverage-method.md`。作る段の観察と計画からの変更: `memory.md`。
-- base は `origin/main` の `27d7f8fc9146e826883b045c1fdca93cc11f93e7`。設計の PR は watchout/agent-memory#346（設計監査 2 回目が PASS、受領 RECEIPT_ACCEPTED）。実装の PR の branch は `kusabi/store-resolution-261113`（まだ出していない。出した後に PR の番号をここへ足す）。
+- base は `origin/main` の `27d7f8fc9146e826883b045c1fdca93cc11f93e7`。設計の PR は watchout/agent-memory#346（設計監査 2 回目が PASS、受領 RECEIPT_ACCEPTED）。実装の PR は watchout/agent-memory#347（branch は `kusabi/store-resolution-261113`、base は `origin/main` の `27d7f8f`。設計の PR #346 の head には push していない）。
 - 設計監査の PASS の後に code を書いた（aidlc-only §2「設計がずれていないかの確かめ」）。code と試験の code は、この会話が書いた（作る役〔`aidlc-developer-agent`〕は呼んでいない。この取り組みには Owner のサブエージェントの承認が無い）。
 - 数は、命令の出力から写した値（時点は 2026-11-16。`unit-test-instructions.md` の 8）。
 
@@ -19,8 +19,8 @@ Stop の 2 つの hook（`transcript-stop-capture`・`session-rotation-stop`）�
 | FR2.5・FR3.5・S5 | `src/stores/index.ts` | 41 | `createStore` が任意の `resolution` を受ける。`openResolvedStore`・`requireStoreBackend`: 開いた store の `backend` が決めた `backend` と違えば、store を閉じて拒否する（閉じる処理の失敗は拒否を隠さない）。`backend` を持たない試験用の差し替えは確かめない。`resolveStoreBackend` は持ち越しの入口のために残した |
 | FR2.1 | `src/codex-session-start.ts`（1122 行 → 1052 行） | 40 | `resolveSessionStartStore` が `{ binding, resolution }` を返す。`AGENT_MEMORY_DATABASE_URL` への書き込みをやめた（決めた結果は返すだけ）。binding の作り方は結果から 1 か所で作る。SessionStart の証拠の形は変えない。呼び出し元の loader に結果を渡す |
 | FR2.1 | `src/claude-session-start.ts`・`src/gemini-session-start.ts`・`src/antigravity-session-start.ts` | 8・4・4 | 3 つの loader が同じ `resolveSessionStartStore` と `openResolvedStore` を使う |
-| FR2.2・FR4 | `src/transcript-stop-capture.ts` | 36 | store を開く前に決める。拒否は `failed_open` と `store_refused:<種類>`（出力は「続ける」のまま）。証拠に `store_backend`（開いた store の観測）・`store_source`（決めた結果）を足す。開かなかった回は両方 `null` |
-| FR2.2・FR4 | `src/session-rotation-stop.ts` | 29 | 保存の回にだけ決める（busy・none・blocked の回は決めない = 今は成功する回が設定 file の誤りで新しく失敗にならない）。証拠は同じ 2 項目。決めた結果を `rotation-commit` へ渡す。schema の const は動かさない（OQ1） |
+| FR2.2・FR4 | `src/transcript-stop-capture.ts` | 36 | store を開く前に決める。拒否は `failed_open` と `store_refused:<種類>`（出力は「続ける」のまま）。証拠に `store_backend`（決めた値。`requireStoreBackend` で開いた store の `backend` と一致を確かめてから書く。`backend` を持たない差し替えの store は一致の確かめを飛ばす）・`store_source`（決めた結果）を足す。開かなかった回は両方 `null` |
+| FR2.2・FR4 | `src/session-rotation-stop.ts` | 29 | 保存の回にだけ決める（busy・none・blocked の回は決めない = 今は成功する回が設定 file の誤りで新しく失敗にならない）。証拠は同じ 2 項目（`transcript-stop-capture` と同じ決め方・同じ一致の確かめ）。この file は結果を `rotation-commit` へ渡さない（渡すのは SessionStart の 2 つの loader の側。下の `src/rotation-commit.ts` の行）。schema の const は動かさない（OQ1） |
 | FR2.3 | `src/rotation-commit.ts` | 20 | 同じ process の SessionStart が決めた結果を引数で受け、`openResolvedStore` で開いて `consumeSelectedRestartPack` を走らせる。結果も seam も無ければ開かない（`consume: "unknown"`） |
 | FR2.4・FR3.4 | `src/restart-cli.ts`・`src/stores/read-only-task-states.ts` | 17・4 | `fetch`・`prepare` は `resolveStore` で決め、`openResolvedStore` で開く。`handoff-source` の読むだけの reader も同じ決め方を使う。拒否は標準エラーに種類だけ、終了コード 1。`handoff-source` の標準出力は他の読めない保存先と同じ `unreadable` の JSON（`memory.md` の変更の 1） |
 | R-01 | `src/kusabi-runtime-event-emitter.ts`（800 行ちょうど） | 31 | worker の `createQuietStore` が、決め方を自分で呼び（環境変数への書き込みに頼らない）、SessionStart が束ねた接続先の digest と比べ、別の場所なら store を作らず `binding_drift`、読めない・拒否は `store_unavailable`（緊急の記録）。JSON は fixture 専用のまま拒否 |
@@ -46,7 +46,7 @@ Stop の 2 つの hook（`transcript-stop-capture`・`session-rotation-stop`）�
 
 - 網羅率: 全部の命令（13 個）も、CI が届く命令（10 個）だけも、`RESULT PASS changed_files=12 changed_lines=474 uncovered_lines=0 unreadable_files=0`。自己試験 8 件（n1〜n8）が通る（`coverage-method.md`）。数えから外した追加行は無い。
 - 型検査: プロジェクトの `tsc --noEmit -p .`（strict）は終了コード 0。試験の file は、その設定が除いているので別に流した（設定と対象は `unit-test-instructions.md` の 8）。新しい試験の型の誤りは 0 件で、残る 2 件は `origin/main` にもある既存の誤り（`test-codex-session-start.ts`）。
-- E1（`ci.yml` の step の文字をそのまま流す。故意の失敗は step を終了コード 1 にし、足さない実行は 0）: 最後の版の試験 file で確かめた。C1（PR の CI の log に、3 つの Node の版で新しい試験の終わりの行が出ること）は、PR の CI が終わった後に確かめる（まだ）。
+- E1（`ci.yml` の step の文字をそのまま流す。故意の失敗は step を終了コード 1 にし、足さない実行は 0）: 最後の版の試験 file で確かめた。C1（PR の CI の log に、3 つの Node の版で新しい試験の終わりの行が出ること）は、PR #347 の最初の head の CI（run 43796115600）で確かめた: 3 つの版すべてで `store-resolution: 55 checks passed` と `store-resolution-scenario: 40 checks passed`（6 行）。build-and-test は 18・20・22 とも success。
 - DDL の行 0 件: `src/stores/pg-migrations.ts` は base と byte 同一。追加行 474 のうち `CREATE`・`ALTER`・`DROP`・`TRUNCATE` を含む行は 0 件。U12 も通った。表と列の一覧は、席へ当てる前の本番の確認（計画の 7 の 3）に渡す（`unit-test-instructions.md` の 8）。
 - 新しい外部の依存: 0（`package.json` の差分は scripts の 4 行の追加と 2 行の書き換えだけ）。記憶の中身を外の API へ送る経路は足していない。
 
@@ -63,6 +63,10 @@ Stop の 2 つの hook（`transcript-stop-capture`・`session-rotation-stop`）�
 
 `grep` で、保存先の決め方を書いた文書を取り直した。`HOST_ADAPTERS.md` だけが「どの入口が決めるか」を書いていたので直した。`COMMON_DB_ALIGNMENT.md`（共通 DB の見つけ方の将来の案）・`KUSABI_V2_BACKEND_PARITY_MATRIX.md`（環境変数で保存先を指す形の主張）・`SSOT-5_CROSS_CUTTING.md`（接続文字列の認証）・`MEMORY_BINDING_REMEDIATION_RUNBOOK.md`・`MEMORY_PERSISTENCE_AUDIT_2026-06-22.md`（当時の監査の記録）は、環境変数で指す形か当時の記録で、新しい決め方と食い違う文が無いので触っていない（同じ規則を 2 か所に書かない = S3）。
 
+## 持ち越し（記録だけ。この PR では直さない）
+
+- SQLite の binding の digest（`src/store-resolution.ts` の `localStoreBindingSha256`、226-227 行）は `AGENT_MEMORY_DB_PATH || 既定の path` で作る。store の側（`resolveSqliteDbPath(undefined, env)`、`src/stores/sqlite-store.ts` の 58 行）は `AGENT_MEMORY_DB_PATH ?? 既定の path`。2 つが違う答えを返すのは、`AGENT_MEMORY_DB_PATH` が空文字の時だけ（digest は既定の path、store は空の path）。同じ `||` と `??` の違いは `origin/main`（27d7f8f）の `src/codex-session-start.ts` の `localStoreBindingSha256`（295-296 行）と `src/stores/sqlite-store.ts` の 58 行の間に既にあり、この PR が持ち込んだ物ではない（この PR は digest を作る関数を `src/store-resolution.ts` に移した）。この PR の試験は空文字の場合を流していない（コードを読んで確かめただけ）。席の起動の環境は読んでいないので、`AGENT_MEMORY_DB_PATH` が空文字の席があるかは分からない。次にこの 2 か所を触る時に、どちらかの形にそろえる（見直し役の R-04）。
+
 ## この PR に入れていない物（守る物。Owner の決定が要る）
 
 - `.github/workflows/ci.yml`（保護面）。新しい試験は `package.json` の連なりから CI に届く（D10）。
@@ -72,5 +76,5 @@ Stop の 2 つの hook（`transcript-stop-capture`・`session-rotation-stop`）�
 
 ## 次
 
-1. 単位の PR を出す（`kusabi/store-resolution-261113`。一時の index から作る。この単位の AI-DLC の記録を入れる）。R3 の PR（DB の書き込みの経路。守る物）なので、CI（Node 18・20・22）と C1、独立の実装監査 1 回、作者の受領、Owner の exact-head を通してから、作者と別の席が統合する。
+1. 単位の PR #347（`kusabi/store-resolution-261113`。一時の index から作った。この単位の AI-DLC の記録を入れた）は出した。R3 の PR（DB の書き込みの経路。守る物）なので、CI（Node 18・20・22）と C1 は最初の head で通った。残りは、独立の実装監査 1 回、作者の受領、Owner の exact-head で、通してから作者と別の席が統合する。
 2. 後の段: Build and Test → Deployment Pipeline → Deployment Execution（席への配備は保護面。Owner の認可を得てから）。

@@ -77,7 +77,7 @@ PostgreSQL の試験（`test-store-resolution-pg.ts`）は CI に届かない（
 
 - U13: `test-store-resolution.ts` の 1 件（`U13: the commands CI runs reach both new test files, and the check fails on the two wrong shapes`）が通った。負例 2 つ（連なりを外した写しと、`test` の連なりだけに足した写し）で同じ確かめが失敗することを含む。
 - E1（最後の版の試験 file `src/test-store-resolution-scenario.ts` の SHA-256 `cb6875ee6cd5c0b4721b4b27ccf717efbf0c27a351938c0d44c427f0d93754ad` で流した）: `ci.yml` の step の `run:` の文字は、前の実行と同じ（機械で取り出して比べた）。故意に失敗を足した実行は step の終了コード 1 で、出力に `not ok - E1 intentional failure` が 1 行、`store-resolution-scenario: 1 of 41 checks failed`。足した行を戻した後、file は byte 単位で元と同じ（上の SHA-256）。足さない実行は終了コード 0 で、`store-resolution: 55 checks passed` と `store-resolution-scenario: 40 checks passed`。
-- C1: PR の CI が終わった後に埋める（8）。
+- C1: PR #347 の最初の head（`de80f4aa`）の CI（run 43796115600）の log で、3 つの Node の版（18・20・22）の job それぞれに `store-resolution: 55 checks passed` と `store-resolution-scenario: 40 checks passed` の 2 行が出た（3 job × 2 行 = 6 行。`gh run view 43796115600 --log` を grep して数えた）。件数は手元の値（核 55・場面 40）と同じ。この head と後の head は、記録の file だけが違い、`src/` と `package.json` の内容は同じ（監査席は最後の head の CI の log で同じ命令を流して取り直す）。
 
 ## 6. 網羅率（NFR6・R-05。D11・SR-BF-03）
 
@@ -95,7 +95,7 @@ PostgreSQL の試験（`test-store-resolution-pg.ts`）は CI に届かない（
 
 ## 8. 結果の欄（命令の出力から写した値。手で数えていない）
 
-時点: 2026-11-16（作る段の最後。Node v26.13.1。CI は Node 18・20・22 で、PR の CI が終わった後に C1 を埋める）。試験を流した code の対象は、`origin/main` の `27d7f8f` から変えた 12 file（追加行 474）。
+時点: 2026-11-16（作る段の最後。Node v26.13.1。CI は Node 18・20・22 で、C1 は PR #347 の最初の head の CI の後に埋めた）。試験を流した code の対象は、`origin/main` の `27d7f8f` から変えた 12 file（追加行 474）。
 
 - 試験の命令ごとの終了コードと件数（最後の実行）:
 
@@ -107,7 +107,7 @@ PostgreSQL の試験（`test-store-resolution-pg.ts`）は CI に届かない（
   | 今ある試験 24 本（下） | 全部 0 | core は `Results: 1832 passed, 0 failed` |
 
   今ある試験 24 本: `test-codex-session-start`・`test-claude-session-start`・`test-gemini-session-start`・`test-antigravity-session-start`・`test-transcript-stop-capture`・`test-session-rotation-flow`（47 件）・`test-handoff-commit-order`（35 件）・`test-handoff-source`（13 件）・`test-handoff-source-cli`（14 件）・`test-kusabi-runtime-event-emitter`・`test-session-rotation-scenario`・`test`（core）・`test-session-rotation-core`・`test-hook-input`・`test-hook-input-diagnostics`・`test-hook-node-path`・`test-claude-hook-installer`・`test-rotation-hook-registration`（13 件）・`test-session-rotation-status`（18 件）・`test-rotation-watcher-units`・`test-rotation-watcher-flow`（109 件）・`test-codex-hook-installer`・`test-session-start-auto-receive`・`test-claude-transcript-identity`（25 件）。24 本とも終了コード 0（FR5.8）。変えた既存の試験は 3 file: `test-codex-session-start.ts`（追加 17・削除 12 行）、`test-session-rotation-core.ts`（1・1）、`test-transcript-stop-capture.ts`（8・2）。変えた理由: `test-codex-session-start.ts` は、決め方の関数を共有し、環境変数への書き込みをやめた（決めた結果は返すだけ。`memory.md`）ため。`test-session-rotation-core.ts` は、`createStore(` を数える原文の走査が `openResolvedStore(` も数えるようにした 1 行。`test-transcript-stop-capture.ts` は、seam が JSON の store を返すので、渡す決め方も JSON にした（別の backend の store は拒否される）ため。
-- CI への到達（U13・E1・C1）: U13 と E1 は 5 に書いた。C1 は PR の CI の後に埋める（空）。
+- CI への到達（U13・E1・C1）: U13 と E1 は 5 に書いた。C1 は 5 の結果のとおり、PR #347 の最初の head の CI で 6 行（3 job × 2 行）が出た。
 - 網羅率: `coverage-method.md` のとおり。全部の命令（13 個）も、CI が届く命令（10 個）だけも、`RESULT PASS changed_files=12 changed_lines=474 uncovered_lines=0 unreadable_files=0`。自己試験は `coverage-selftest: 8 cases passed`。
 - 型検査の設定の内容と対象 file:
   - プロジェクトの `tsc --noEmit -p .`（`tsconfig.json`: `strict: true`、`target ES2022`、`module ESNext`、`moduleResolution bundler`、`skipLibCheck: true`、`include: src/**/*`、`exclude: node_modules・dist・src/test*.ts`）: 終了コード 0、出力 0 行。**この設定は試験の file を含まない**（`src/test*.ts` を除く）。
