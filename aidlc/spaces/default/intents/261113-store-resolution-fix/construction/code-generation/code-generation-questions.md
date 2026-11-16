@@ -16,8 +16,8 @@ Built without asking: plan approval is off for this piece of work (from AIDLC_DI
 Full plan: aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:3cc9a0e68eecc268f83aa6678e2382a9461497a32f61330e45aa61c421f6b3ab
-[Planned Source]: 55fc30b34dfccdb64d208645d22b02239e6096ff58cc16b7c7e6751a07b1c265
+[Approval Fingerprint]: sha256:v3:778ed6e678a737532b953b103bc8e0abb1a8117331b08828f00c6972d89c7b12
+[Planned Source]: 11ad07d8844317a6fac4699b3b5d05eec16b10a12b180d5f2e217554cf45647b
 
 
 [Answer]: Plan approval off

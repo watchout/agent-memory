@@ -177,7 +177,13 @@ but cannot be used (not a regular file, unreadable, or a `database_url` that is
 not a PostgreSQL URL) are refused rather than read as "absent". Only a missing
 config file is absent. A refusal names the kind of error (`unknown_db_type`,
 `env_url_shape`, `config_kind`, `config_read`, `config_content`,
-`target_missing`) and never a value, a URL, or a path.
+`target_missing`) and never a value, a URL, or a path. A PostgreSQL that was
+decided but cannot be opened is reported the same way: the store factory prints
+`PostgreSQL connection failed; ...: kind=<code>` and throws an error whose
+message is `PostgreSQL connection failed (kind=<code>)` and whose `code` is that
+kind (the driver's own error code, or `unknown`). The driver's text is neither
+printed nor kept as the cause, because it can name a key or certificate file the
+URL points at, a host, or a user.
 
 What a refusal does depends on the entry. A Stop hook opens no store and
 saves nothing: the transcript-capture hook reports `failed_open` and the

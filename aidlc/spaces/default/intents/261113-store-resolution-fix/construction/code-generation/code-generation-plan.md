@@ -162,7 +162,7 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 
 ## 4. 試験の計画（要件 ID ごと。先に書く「場面」の試験は S で、細かい試験は U）
 
-使い捨ての環境の決まり（要件の FR5.7・project.md の学び）: 一時の `HOME`（中に `.agent-memory` を先に作る）、`KUSABI_TEST_TMPDIR`、`lc_messages=C` と `CREATE EXTENSION vector` を入れた使い捨ての PostgreSQL（socket を切って 127.0.0.1 の TCP だけ）。ほかの保存先に書く試験は書かない。
+使い捨ての環境の決まり（要件の FR5.7・project.md の学び）: 一時の `HOME`（中に `.agent-memory` を先に作る。store の module が保存先の path を決めるのは読み込む時なので、HOME の切り替えは store を静的に読み込む試験の最初の import の `src/test-isolated-home.ts` でする。実装監査 1 回目の IM-BF-01）、`KUSABI_TEST_TMPDIR`、`lc_messages=C` と `CREATE EXTENSION vector` を入れた使い捨ての PostgreSQL（socket を切って 127.0.0.1 の TCP だけ）。ほかの保存先に書く試験は書かない。
 
 | ID | 場面・内容 | 要件 | 種別 | PostgreSQL |
 |---|---|---|---|---|
@@ -184,9 +184,9 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 | U10 | emitter: 拒否は `store_unavailable`、JSON は fixture 専用として拒否のまま、`backend_drift`・`binding_drift` の今の経路（SessionStart の証拠と target の値どうしの比べ）は変わらない。worker の接続先の比べ（1.6 の契約）: digest が違えば store の構成（`PgStore`・`SqliteStore` の生成）が 0 回、同じ結果から digest と store が作られる（`resolveStore` が 1 回）、公開の差し込み口 `options.createStore` の型は変わらない | R-01 | 単体 | 不要 |
 | U11 | 決め方の literal の数（S3、NFR3）: 試験を除く `src` の中で、環境変数の名前と `database_url` と URL の形の検査を持つ file が、`store-resolution.ts` と 5 の Step 11 の許す一覧（持ち越し。理由つき）だけ | NFR3 | 機械の確かめ | 不要 |
 | U12 | DB の確認: DDL の行（`CREATE`・`ALTER`・`DROP`・`pg-migrations` の変更）が差分に 0 件。使い捨ての PostgreSQL に `pg-migrations` を流し、Stop の保存の経路が流す statement が名指す表と列（`pg` の query を記録して構文から取る。取れない statement があれば失敗）が `information_schema` に全てある | FR6.1・FR6.2 | 機械の確かめ | 要る（手元）|
-| U13 | CI への到達（D10。SR-BF-01）: `.github/workflows/ci.yml` の `run:` の行（`&&` と改行で分ける）から、`npm run <名前>` を `package.json` の scripts でたどった到達の集合（循環は 1 回だけ数える）に、`src/test-store-resolution.ts` と `src/test-store-resolution-scenario.ts` の `tsx` の行が入る。負例の自己試験: 試験の中で組んだ「新しい試験の連なりを外した `package.json` の写し」と「`test` の連なりだけに足した写し（この計画の最初の版）」で、同じ確かめが失敗する。PostgreSQL の試験（`test-store-resolution-pg.ts`）は対象外（CI に PostgreSQL が無い）。限界: 連なりから外れると U13 自身も流れなくなる（D10）| NFR8・FR5.8 | 機械の確かめ | 不要 |
-| U14 | 網羅率の測りの負例（D11。SR-BF-03）: 測りの script に、6 つの入力を与えて結果を確かめる。n1 報告が空 → 失敗（数えられない）。n2 変えた file が「読み込まれていない」→ 失敗、その file の追加行の全部が未実行。n3 変えた file の節が報告に無い（別の file だけある）→ 失敗。n4 変えた 2 file のうち 1 つだけ読み込まれていない → 失敗。n5 読み込まれた file で、0 回の範囲が追加行に重なる → 失敗。n6 正例: 全部読み込まれ、0 回の範囲が追加行に重ならない → 成功（終了コード 0）。どの失敗も終了コードが 0 でなく、`uncovered_ranges_in_changed=0` のような「0 件」の行だけを根拠にした成功を出さない | NFR6・R-05 | 機械の確かめ（手元）| 不要 |
-| E1 | 意図的な失敗（SR-BF-01。実装の PR を出す前に 1 回）: 作業場で `src/test-store-resolution-scenario.ts` の先頭に失敗を一時的に足し、`ci.yml` の step「Run native recovery and automatic receive tests」の `run:` の文字をそのまま `bash -e` で使い捨ての HOME で流して、step が 0 でない終了コードで終わり、出力が新しい試験の file を指すことを確かめる。戻して、その file の差分が 0 行であることを確かめる。失敗する commit は push しない | NFR8 | CI の確かめ（手元）| 不要 |
+| U13 | CI への到達（D10。SR-BF-01）: `.github/workflows/ci.yml` の `run:` の行（`&&` と改行で分ける）から、`npm run <名前>` を `package.json` の scripts でたどった到達の集合（循環は 1 回だけ数える）に、`src/test-store-resolution.ts`・`src/test-store-resolution-scenario.ts`・`src/test-store-resolution-isolation.ts`（IM-BF-01 で足した 3 つ目）の `tsx` の行が入る。負例の自己試験: 試験の中で組んだ「新しい試験の連なりを外した `package.json` の写し」「`test` の連なりだけに足した写し（この計画の最初の版）」「script から 3 つのうち 2 つを外した写し」「isolation だけを外した写し」で、同じ確かめが失敗する。PostgreSQL の試験（`test-store-resolution-pg.ts`）は対象外（CI に PostgreSQL が無い）。限界: 連なりから外れると U13 自身も流れなくなる（D10）| NFR8・FR5.8 | 機械の確かめ | 不要 |
+| U14 | 網羅率の測りの負例（D11。SR-BF-03。この計画の最初の版は 6 件。作る段で n7・n8 を、実装監査 1 回目の IM-BF-02 で n9・n10 を足して 16 件にした）: 測りの script に、入力を与えて結果を確かめる。最初の 6 つは次のとおり。n1 報告が空 → 失敗（数えられない）。n2 変えた file が「読み込まれていない」→ 失敗、その file の追加行の全部が未実行。n3 変えた file の節が報告に無い（別の file だけある）→ 失敗。n4 変えた 2 file のうち 1 つだけ読み込まれていない → 失敗。n5 読み込まれた file で、0 回の範囲が追加行に重なる → 失敗。n6 正例: 全部読み込まれ、0 回の範囲が追加行に重ならない → 成功（終了コード 0）。n7 対象が 0 件 → 失敗。n8 作業場が追跡していない file の追加行 → 対象に入る。n9 報告を全部の行の境目・行の途中・最後の改行の前で切った形（落ちる報告・通る報告のそれぞれ。IM-BF-02）→ 全部失敗。n10 節の `END` の行・最後の `COLLECTOR_DONE` の行の欠けと不一致 → 失敗。どの失敗も終了コードが 0 でなく、`uncovered_ranges_in_changed=0` のような「0 件」の行だけを根拠にした成功を出さない | NFR6・R-05 | 機械の確かめ（手元）| 不要 |
+| E1 | 意図的な失敗（SR-BF-01。実装の PR を出す前に 1 回。最後の版は作業場の写しで流す）: 作業場の写し 2 つ（`dist/` を作った物）の片方の `src/test-store-resolution-scenario.ts` の先頭に失敗を足し、`ci.yml` の step「Run native recovery and automatic receive tests」の `run:` の文字をそのまま `bash -e` で使い捨ての HOME で流して、足さない写しは終了コード 0、足した写しは 0 でない終了コードで終わり、出力が新しい試験の file を指すことを確かめる。作業場の file は触らない（失敗する commit は作らない）| NFR8 | CI の確かめ（手元）| 不要 |
 | C1 | CI の log（SR-BF-01。実装の PR の CI の後）: `gh run view <run> --log` の 3 つの Node の版の job それぞれに、新しい試験 2 file の終わりの行（`store-resolution: <件数> checks passed`・`store-resolution-scenario: <件数> checks passed`）が出る。1 つでも欠ければ失敗として PR に書く。件数は出力から写す | NFR8 | CI の確かめ | 不要 |
 
 直す前の code に対する S1〜S6 の失敗は、失敗の出力を `unit-test-instructions.md` の「失敗の確かめ」の節に書く（FR5.6）。今ある試験は通ったまま保つ（FR5.8）。
@@ -196,7 +196,7 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 作る場所は、最新の `origin/main` から切った別の作業場（worktree）。branch の名前は `kusabi/store-resolution-261113`。設計の監査が PASS するまで、Step 1 以降は始めない（この計画と `unit-test-instructions.md` と RE・RA の記録だけを設計の PR に出す）。作る役（`aidlc-developer-agent`）の呼び出しは、この取り組みで受けた Owner のサブエージェントの承認の範囲に入るかを段の始めに確かめ、範囲外ならこの席が自分で書く。
 
 - [x] **Step 1 — 構成と版の取り直し**: worktree を作る。27d7f8f から `origin/main` が進んでいたら、関数名と呼び出し（`createStore(` の行・`resolveCodexStoreBinding` の呼び出し・`postgresUrl`・Stop の証拠を読む所）を取り直し、変わった所を `code-summary.md` に書く。`src/store-resolution.ts` は型と閉じた理由の集合だけの骨を置く。新しい外部の依存は足さない（NFR9）。
-- [x] **Step 2 — 試験の命令の確かめと CI への接続**（D10）: 既存の試験の命令を、一時の HOME と `KUSABI_TEST_TMPDIR` で流して今の結果（全部通る）を記録に書く。`package.json` に `test:store-resolution`（`tsx src/test-store-resolution.ts && tsx src/test-store-resolution-scenario.ts`）と `test:store-resolution-pg`（`tsx src/test-store-resolution-pg.ts`）を足し、`npm run test:store-resolution` を **`test:claude-hook` の連なりの最後**（CI の step が今呼ぶ。27d7f8f の `ci.yml` は `npm test` を流さない）と、`test` の連なりの最後（手元の全体の実行用）に足す。workflow は変えない。到達の確かめ U13 を書いて流し、前の版の形（`test` の連なりだけ）で失敗する負例も流す。
+- [x] **Step 2 — 試験の命令の確かめと CI への接続**（D10）: 既存の試験の命令を、一時の HOME と `KUSABI_TEST_TMPDIR` で流して今の結果（全部通る）を記録に書く。`package.json` に `test:store-resolution`（`tsx src/test-store-resolution.ts && tsx src/test-store-resolution-scenario.ts`。実装監査 1 回目の後に `&& tsx src/test-store-resolution-isolation.ts` を足した）と `test:store-resolution-pg`（`tsx src/test-store-resolution-pg.ts`）を足し、`npm run test:store-resolution` を **`test:claude-hook` の連なりの最後**（CI の step が今呼ぶ。27d7f8f の `ci.yml` は `npm test` を流さない）と、`test` の連なりの最後（手元の全体の実行用）に足す。workflow は変えない。到達の確かめ U13 を書いて流し、前の版の形（`test` の連なりだけ）で失敗する負例も流す。
 - [x] **Step 3 — 直す前の動きを表に取り、場面の試験を先に書いて失敗を確かめる（カスタムの順序）**: (a) 27d7f8f の `resolveCodexStoreBinding` に S3 の 9 つの組を（`env` の写しを渡して）流し、戻り値の `source`・`backend_intent`・`verified`・`credentials_embedded`・`config_path_sha256` の有無を、試験の file に literal の表として書く（U6 の元）。digest は、machine ごとに path が違うので literal にせず、作り方（`kusabiStoreBindingSha256(backend, 接続先か path)`・設定 file の path の `sha256(resolve(path))`）から試験の中で期待値を組む。その期待値が、旧い関数の戻り値そのものと一致することを、この Step で 1 回確かめて記録に書く（表が旧い動きを写している証拠）。(b) S1〜S6 を書き、直す前の code で流して、失敗が不具合の理由（SQLite を開いた・読み手が別の保存先を見た・環境変数の書き込みに頼った・worker が SessionStart と別の接続先を開いた）で起きることを確かめ、出力を記録に残す（試験が読み込みの失敗で落ちているだけの場合は、場面の試験として数えない）。
 - [x] **Step 4 — 核と adapter**（FR1）: `decideStore`・`readUserConfig`・`resolveStore`・不透明な接続先。U1〜U4 を書いて流す。
 - [x] **Step 5 — 結果を受けて開く**（FR2.5・FR3.5）: `createStore({ resolution })`・`openResolvedStore`・`resolveStoreBackend` の注釈。U5。
@@ -208,14 +208,15 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 - [x] **Step 11 — 機械の確かめ**: U11（許す一覧は、3 の「機械で数えた事実」の持ち越し 9 file〔`stores/index.ts`・`post-tool-hook.ts`・`codex-start.ts`・`fleet-conversation-backfill.ts`・`kusabi-direct-fleet-rollout.ts`・`kusabi-fresh-session-fleet.ts`・`migrate.ts`・`redact.ts`・`measure-kusabi-functional.ts`〕と `store-resolution.ts`。作る時に取り直す）と U12 を作って流す。あわせて E1（意図的な失敗。4 の表）を流して、出力を `unit-test-instructions.md` に残す（失敗する commit は push しない）。
 - [x] **Step 12 — 網羅率と型検査**（R-05・D11・SR-BF-03）: この取り組みの `coverage-method.md` に、2 つの script（`merge-zero.mjs`・`changed-uncovered.py`）を、前の取り組み（261110）の物を **byte 同一で写さず**、次の仕様で書く。
   - 対象: base（`origin/main` の merge-base）との差分の追加行を持つ file のうち、`src/` の試験でない物（`src/test` で始まる file と `src/` の外は除き、除いた file の名前を出力に出す）。
-  - 対象の file ごとに状態を 1 つ付ける: `LOADED`（読み込んだ process が 1 つ以上。0 回の範囲と追加行が重なる行を未実行に数える）・`NOT_LOADED`（どの process も読み込んでいない）・`MISSING`（報告に file の節が無い）。`NOT_LOADED` と `MISSING` は、追加行の全部を未実行に数え、数えられない file として別に数える。
-  - 報告が空（節が 0 個）・読み込んだ process が全体で 0 の時は、数えられない（`UNKNOWN`）。
+  - 対象の file ごとに状態を 1 つ付ける: `LOADED`（読み込んだ process が 1 つ以上。0 回の範囲と追加行が重なる行を未実行に数える）・`NOT_LOADED`（どの process も読み込んでいない）・`MISSING`（報告に file の節が無い）・`INCOMPLETE`（節に `== <path> END ranges=<n>` の行が無い、または n が節の中の行の数と違う。IM-BF-02 で足した）。`NOT_LOADED` と `MISSING` は、追加行の全部を未実行に数え、数えられない file として別に数える。
+  - 報告が空（節が 0 個）・読み込んだ process が全体で 0 の時は、数えられない（`UNKNOWN`）。IM-BF-02 で、最後が `COLLECTOR_DONE paths=<n>` の行でない（途中で切れた）・n が報告の節の数と違う・その行の後に文字がある・最後の改行が無い時も `UNKNOWN` にした（collector は節ごとの `END` の行と最後の `COLLECTOR_DONE` の行を出す）。
   - 終了コード: 未実行の追加行が 1 行以上、または `NOT_LOADED`・`MISSING`・`UNKNOWN` が 1 つでもあれば 0 でない。最後の 1 行は `RESULT PASS|FAIL changed_files=<数> changed_lines=<数> uncovered_lines=<数> unreadable_files=<数>` の形にする（「0 件」の行だけを根拠にした成功を出さない）。
-  - 先に U14 の 6 つの負例（4 の表）を流し、出力を記録に残してから、本体を流す。本体は `NODE_V8_COVERAGE` を全試験（`unit-test-instructions.md` の命令の表の全部）に付けて流し、`RESULT PASS` かつ `uncovered_lines=0` と読めた時だけ、100% を満たしたと書く。
+  - 先に U14 の負例（4 の表。最終は 16 件）を流し、出力を記録に残してから、本体を流す。本体は `NODE_V8_COVERAGE` を全試験（`unit-test-instructions.md` の命令の表の全部）に付けて流し、`RESULT PASS` かつ `uncovered_lines=0` と読めた時だけ、100% を満たしたと書く。
   - 型検査は `tsc` の strict（`npm run build` と同じ設定）で流し、設定の内容と対象 file を記録に書く。
 - [x] **Step 13 — 設計の文書**（権限と待機の規則の R3。設計に無い挙動を足したら設計にも足す）: 保存先の決め方を書いた文書（`docs/operations/HOST_ADAPTERS.md` ほか。`grep` で取り直す）を、新しい決め方・Stop の証拠の 2 項目・拒否の動きに合わせて直す。
 - [x] **Step 14 — 記録**: `code-summary.md` と `traceability.json`（6 の表の全 ID が、実在する file を指す）。作業の log と engine の内部（`audit/`・`.aidlc-engine/`）は単位の PR に入れない。
-- [ ] **Step 15 — 見直し役と報告**: 段の手順の見直し役の後に `report` する。実装の PR の CI が終わったら C1（CI の log に新しい試験の終わりの行が 3 つの Node の版すべてで出ること）を確かめ、PR の本文に書く。
+- [ ] **Step 15 — 見直し役と報告**: 段の手順の見直し役の後に `report` する。実装の PR の CI が終わったら C1（CI の log に新しい試験の終わりの行〔store-resolution・store-resolution-scenario・store-resolution-isolation の 3 行〕が 3 つの Node の版すべてで出ること）を確かめ、PR の本文に書く。
+- [x] **Step 16 — 実装監査 1 回目の指摘の直し**（IM-BF-01・IM-BF-02・OBS-2。返却 https://github.com/watchout/agent-memory/pull/347#issuecomment-6907118787。`memory.md` の Deviations）: (1) 試験の隔離: `src/test-isolated-home.ts` を store を静的に読み込む 3 つの試験の最初の import にし、公開の命令 5 本を stand-in の home で流して何も変わらないことを確かめる `src/test-store-resolution-isolation.ts` を足し、`test:store-resolution` の連なりに入れた。U13 を 3 つの試験が届くことの確かめに広げた。(2) 網羅率: collector に節ごとの `END` の行と最後の `COLLECTOR_DONE` の行を足し、checker が欠け・不一致を `UNKNOWN`・`INCOMPLETE` にして失敗にする形にし、U14 に n9・n10 を足した。(3) PostgreSQL の接続の失敗は、標準エラーと投げる誤りを失敗の種類だけにした（`postgresFailureKind`）。HOST_ADAPTERS.md にも足した（R3）。取り込み: arc の指示（Owner の委任 #49 6762288830）で、#346 の head `a1d93325b983141cc11faa78ce8015b591fe17c9` をこの PR の branch に取り込んだ（取り込み以外の変更は上の 3 点だけ）。OBS-1 は持ち越しのまま（`code-summary.md`）。
 
 ## 6. DB の基準の照らし
 
@@ -244,10 +245,10 @@ SessionStart は環境変数へ書かないので、設定 file にだけ接続�
 | FR2.5・FR2.6 | Step 5・Step 6 | U5・S3 |
 | FR3.1〜FR3.5 | Step 4・5・6・7・9 | U2・U5・U7・U9 |
 | FR4.1〜FR4.4 | Step 7 | U7 |
-| FR5.1〜FR5.8 | Step 3・Step 2 | S1〜S6・U2・既存の試験 |
+| FR5.1〜FR5.8 | Step 3・Step 2・Step 16 | S1〜S6・U2・既存の試験・隔離の試験（isolation） |
 | FR6.1〜FR6.3 | Step 11 | U12 |
 | FR7 | Step 11・Step 14 | U11 |
-| NFR1 | Step 4 | U4・U7 |
+| NFR1 | Step 4・Step 16 | U4・U5（PostgreSQL の失敗は種類だけ）・U7 |
 | NFR2 | Step 4・7 | U1・U7 |
 | NFR3 | Step 11 | U11 |
 | NFR4 | Step 4 | U1（環境で決まる時に file を読まない）|

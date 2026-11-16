@@ -4,7 +4,11 @@
  * U12 (the tables and columns the Stop save path uses exist after the migrations; no DDL is added).
  * Local only: it needs DATABASE_URL and fails, rather than skipping, when it is missing.
  * Run: DATABASE_URL=postgres://... npx tsx src/test-store-resolution-pg.ts
+ *
+ * The first import sets a throwaway home before any store module is loaded and removes DATABASE_URL from the process
+ * (IM-BF-01); the URL the caller gave is read from CALLER_ENV.
  */
+import { CALLER_ENV } from "./test-isolated-home.js";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
@@ -36,7 +40,7 @@ import {
 
 const { Pool } = pg;
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = CALLER_ENV.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error("store-resolution-pg: DATABASE_URL is not set; this suite does not skip (it fails)");
   process.exit(1);

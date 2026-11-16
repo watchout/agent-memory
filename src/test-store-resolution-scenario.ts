@@ -6,7 +6,11 @@
  * them. No PostgreSQL server is needed: the unreachable place is a closed port, and S6 counts connections on two
  * local listeners that do not speak the PostgreSQL protocol. The cases that need a real server are in
  * test-store-resolution-pg.ts.
+ *
+ * The first import sets the throwaway home before any store module is loaded (IM-BF-01): the JSON and SQLite stores fix
+ * their default path when they are imported, so a home set inside a test would come too late for them.
  */
+import "./test-isolated-home.js";
 import assert from "node:assert/strict";
 import fs, { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
@@ -245,23 +249,24 @@ async function viaReader(jsonDir: string): Promise<Outcome> {
   }
 }
 
-interface Ports {
-  env: number;
-  cfg: number;
-}
-/** restart-cli runs as the real command; the place it tried shows in what it printed. */
-function viaRestartCli(home: string, vars: Record<string, string>, ports: Ports, urls: { env: string; cfg: string }): Outcome {
+/**
+ * restart-cli runs as the real command, and it prints only the kind of failure (OBS-2), never an address. The two URLs of
+ * a combination therefore fail in different ways: the environment's names a port nothing listens on (ECONNREFUSED), the
+ * user config's names a key file that does not exist (ENOENT). The kind it printed is the place the command tried.
+ */
+const KIND_OF_ENV_URL = "ECONNREFUSED";
+const KIND_OF_CONFIG_URL = "ENOENT";
+function viaRestartCli(home: string, vars: Record<string, string>, urls: { env: string; cfg: string }): Outcome {
   const ran = runRestartCli(commandEnv(home, vars), ["fetch", "--agent-id", "kusabi", "--project", "agent-memory", "--pack-ref", "none"]);
   const text = ran.stderr;
+  assert.ok(!text.includes("/nonexistent/"), "restart-cli printed no key or certificate path");
   const refused = /store_refused:(\w+)/.exec(text);
   if (refused) return { refused: refused[1] };
   if (text.includes("Using JSON file storage")) return { backend: "json", source: "environment" };
   if (text.includes("Using SQLite storage")) return { backend: "sqlite", source: text.includes("(default)") ? "local_default" : "environment" };
-  const port = /127\.0\.0\.1:(\d+)/.exec(text)?.[1];
-  if (text.includes("PostgreSQL connection failed") && port !== undefined) {
-    if (Number(port) === ports.env) return { backend: "postgres", source: "environment", url: urls.env };
-    if (Number(port) === ports.cfg) return { backend: "postgres", source: "user_config", url: urls.cfg };
-  }
+  const kind = /PostgreSQL connection failed[^\n]*: kind=(\w+)/.exec(text)?.[1];
+  if (kind === KIND_OF_ENV_URL) return { backend: "postgres", source: "environment", url: urls.env };
+  if (kind === KIND_OF_CONFIG_URL) return { backend: "postgres", source: "user_config", url: urls.cfg };
   throw new Error(`restart-cli fetch left no sign of the store it chose: ${text.slice(0, 300)}`);
 }
 
@@ -285,8 +290,10 @@ const S3_COMBOS: Combo[] = [
 
 for (const combo of S3_COMBOS) {
   test(`S3: SessionStart, both Stop hooks, the reader and restart-cli decide alike for "${combo.name}"`, async () => {
-    const ports: Ports = { env: await closedPort(), cfg: await closedPort() };
-    const urls = { env: pgUrl(ports.env, "s3env"), cfg: pgUrl(ports.cfg, "s3cfg") };
+    const urls = {
+      env: pgUrl(await closedPort(), "s3env"),
+      cfg: `${pgUrl(await closedPort(), "s3cfg")}?sslmode=require&sslkey=/nonexistent/synthetic-sslkey-s3.pem`,
+    };
     await withSeatEnv({}, async (home) => {
       const vars: Record<string, string> = { ...combo.env(urls), AGENT_MEMORY_DB_PATH: join(home, "s3.db") };
       for (const [name, value] of Object.entries(vars)) process.env[name] = value;
@@ -296,7 +303,7 @@ for (const combo of S3_COMBOS) {
         ["transcript-stop-capture", resolved("transcript-stop-capture", await viaTranscriptStop())],
         ["session-rotation-stop", resolved("session-rotation-stop", await viaRotationStop())],
         ["reader", resolved("reader", await viaReader(join(home, "no-json-folder")))],
-        ["restart-cli", resolved("restart-cli", viaRestartCli(home, vars, ports, urls))],
+        ["restart-cli", resolved("restart-cli", viaRestartCli(home, vars, urls))],
       ];
       const wantUrl = combo.expect.url === null ? null : urls[combo.expect.url];
       for (const [entry, got] of seen) {

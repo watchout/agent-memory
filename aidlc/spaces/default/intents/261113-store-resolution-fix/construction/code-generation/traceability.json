@@ -210,8 +210,8 @@
     {
       "id": "FR5.7",
       "status": "OK",
-      "target": "src/test-store-resolution-support.ts",
-      "note": "一時の HOME・KUSABI_TEST_TMPDIR・使い捨ての PostgreSQL。この Mac の実際の保存先に行を入れない"
+      "target": "src/test-store-resolution-isolation.ts",
+      "note": "一時の HOME・KUSABI_TEST_TMPDIR・使い捨ての PostgreSQL。store の module が読み込まれる前に HOME と保存先の環境変数を切り替える bootstrap（src/test-isolated-home.ts）を最初の import にし、公開の命令 5 本を stand-in の home で流して何も変わらないことを isolation の試験が確かめる。この Mac の実際の保存先に行を入れない（読むだけの触れ方は効果としてしか見えない限界は unit-test-instructions.md の 8）"
     },
     {
       "id": "FR5.8",
@@ -223,7 +223,7 @@
       "id": "FR6.1",
       "status": "OK",
       "target": "src/test-store-resolution-pg.ts",
-      "note": "U12: DDL の行 0 件。pg-migrations.ts は base と byte 同一、追加行 474 のうち DDL の語を含む行 0"
+      "note": "U12: DDL の行 0 件。pg-migrations.ts は base と byte 同一、追加行 487 のうち DDL の語を含む行 0"
     },
     {
       "id": "FR6.2",
@@ -247,7 +247,7 @@
       "id": "NFR1",
       "status": "OK",
       "target": "src/store-resolution.ts",
-      "note": "不透明な接続先（reveal() だけが URL を返す）。誤りの文・証拠・log に URL・path が出ない。試験は U4・U7"
+      "note": "不透明な接続先（reveal() だけが URL を返す）。誤りの文・証拠・log に URL・path が出ない。PostgreSQL への接続の失敗も、標準エラーと投げる誤りが失敗の種類だけで、TLS の鍵・証明書の path を含む driver の文を出さず cause にも持たない（postgresFailureKind）。試験は U4・U5 (OBS-2)・U7"
     },
     {
       "id": "NFR2",
@@ -277,7 +277,7 @@
       "id": "NFR6",
       "status": "OK",
       "target": "aidlc/spaces/default/intents/261113-store-resolution-fix/construction/code-generation/coverage-method.md",
-      "note": "変えた行 474 のうち未実行 0（全部の命令・CI が届く命令の 2 通りとも RESULT PASS）。自己試験 8 件"
+      "note": "変えた行 487 のうち未実行 0（全部の命令・CI が届く命令の 2 通りとも RESULT PASS）。自己試験 16 件（報告が途中で切れた形を FAIL にする n9・n10 を含む）"
     },
     {
       "id": "NFR7",
@@ -289,7 +289,7 @@
       "id": "NFR8",
       "status": "OK",
       "target": "src/test-store-resolution-scenario.ts",
-      "note": "PR #347 の最初の head の CI（run 43796115600）で build-and-test の Node 18・20・22 がすべて success。C1: 3 つの Node の版すべてで store-resolution が 55 件、store-resolution-scenario が 40 件の終わりの行（6 行）。E1 は ci.yml の step の文字を手元で流して確かめ済み。Node 18 で使えない import.meta.dirname は使っていない"
+      "note": "PR #347 の最初の head の CI（run 43796115600）で build-and-test の Node 18・20・22 がすべて success。C1: 3 つの Node の版すべてで store-resolution が 55 件、store-resolution-scenario が 40 件の終わりの行（6 行）。その後、isolation の試験を足して連なりが 3 行になった。E1 は ci.yml の step の文字を、作業場の写しで流して確かめた（足さない写しは終了コード 0 で 3 行、足した写しは終了コード 1）。最後の head の CI の log の件数は PR の comment で報告する。Node 18 で使えない import.meta.dirname は使っていない"
     },
     {
       "id": "NFR9",

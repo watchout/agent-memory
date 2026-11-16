@@ -1,6 +1,6 @@
 # 網羅率の測り方と結果 — 保存先の決め方を 1 つの関数にする（取り組み 261113-store-resolution-fix）
 
-この文書は、`code-generation-plan.md` の Step 12（R-05・D11・SR-BF-03）の記録。測った時点は 2026-11-16T02:44:46Z、Node は v26.13.1、base は origin/main の `27d7f8fc9146e826883b045c1fdca93cc11f93e7`。数は、この文書の中の命令の出力から写した値で、手で数えていない。
+この文書は、`code-generation-plan.md` の Step 12（R-05・D11・SR-BF-03）の記録。最後に測った時点は 2026-11-16T04:34:30Z（全部の命令）と 04:36:02Z（CI が届く命令だけ）、Node は v26.13.1、base は origin/main の `27d7f8fc9146e826883b045c1fdca93cc11f93e7`。数は、この文書の中の命令の出力から写した値で、手で数えていない。
 
 ## 1. 何を測るか
 
@@ -16,21 +16,30 @@
 | LOADED | いずれかの process が file を実行した。0 回の範囲（原文の行に直したもの）が追加行に重なる時、その行は未実行 | 追加行のうち 0 回の範囲に重なる行を未実行に数える |
 | NOT_LOADED | 報告に file はあるが、どの process も実行していない | 追加行を全部未実行に数え、読めなかった file にも数える |
 | MISSING | どの報告にも file の節が無い | 同上 |
-| UNKNOWN | 報告が空、または process が何も実行していない（`REPORT_UNKNOWN`） | 全 target を同上 |
+| INCOMPLETE | 節に `== <path> END ranges=<n>` の行が無い、または n が節の中の行の数と違う（IM-BF-02） | 追加行を全部未実行に数え、読めなかった file にも数える |
+| UNKNOWN | 報告全体が信用できない（`REPORT_UNKNOWN`）: 空・process が何も実行していない・最後が `COLLECTOR_DONE` の行でない（途中で切れた）・`COLLECTOR_DONE paths=<n>` の n が報告の節の数と違う・`COLLECTOR_DONE` の後に文字がある・最後の改行が無い | 全 target を同上 |
 
-PASS は、`RESULT PASS` の 1 行だけ。条件は、対象が 1 つ以上・未実行の追加行が 0・読めなかった file が 0・読める報告があること。対象が 0 件の測定（`NO_TARGETS`）は PASS にしない。行の一部の範囲だけが 0 回の時も、その行を未実行に数える（厳しい側）。
+報告の完結の約束（IM-BF-02）: `merge-zero.mjs` は、先頭に `REPORT` の行、節ごとの終わりに `== <path> END ranges=<n>`（n = その節で印字した範囲の行の数）、正常に終わった時の最後に `COLLECTOR_DONE paths=<n>`（n = 渡された path の数）を印字する。collector が途中で失敗した・pipe が閉じた・file が途中で切れた報告には、最後の行が無いので、`changed-uncovered.py check` はどの target も信用せず、`RESULT FAIL` にする。直す前の版は、節の見出しの行（`== <path> state=LOADED`）の直後で切れた報告を、未実行 0 件の `RESULT PASS` と読んだ（監査 1 回目の IM-BF-02。同じ報告を直す前と後の checker に渡した結果は 3 の最後）。
+
+PASS は、`RESULT PASS` の 1 行だけ。条件は、対象が 1 つ以上・未実行の追加行が 0・読めなかった file が 0・完結した報告があること。対象が 0 件の測定（`NO_TARGETS`）は PASS にしない。行の一部の範囲だけが 0 回の時も、その行を未実行に数える（厳しい側）。
 
 ## 2. 手順（作業場の根から）
 
 1. 対象を出す: `python3 -I changed-uncovered.py list 27d7f8f`（`TARGET <path> added_lines=<n>` と、外した file の `EXCLUDED` の行）。
 2. 全試験の命令を、**同じ** `NODE_V8_COVERAGE` の folder に流す（子 process の分も集まる）。使い捨ての `HOME`（中に `.agent-memory`）と `KUSABI_TEST_TMPDIR` を渡し、`AGENT_MEMORY_DB_TYPE`・`AGENT_MEMORY_DATABASE_URL`・`DATABASE_URL` を外す。命令は 13 個: `npm run test:claude-hook`・`test:codex-hook`・`test:gemini-hook`・`test:gemini-conversation-ingest`・`test:antigravity-hook`・`test:automatic-receive`・`test:transcript-stop`・`test:kusabi-direct-fleet-rollout`・`test:kusabi-content-addressed-runtime-release`、`npx tsx src/test-kusabi-runtime-event-emitter.ts`、`npx tsx src/test.ts`、`env AGENT_MEMORY_DB_TYPE=sqlite npx tsx src/test-post-tool-hook.ts`、`npx tsx src/test-boot-recovery.ts`。新しい 2 つの試験（`test-store-resolution.ts`・`test-store-resolution-scenario.ts`）は `test:claude-hook` の連なりの最後に入っている。
 3. 合算: `node merge-zero.mjs <folder> <対象の path ...> > zero.txt`（process をまたいで、offset ごとに回数の最大を取る）。
-4. 判定: `python3 -I changed-uncovered.py check 27d7f8f zero.txt`。終了コードは PASS だけ 0。
+4. 判定: `python3 -I changed-uncovered.py check 27d7f8f zero.txt`。終了コードは PASS だけ 0。3 と 4 は `&&` でつなぐ（collector が 0 で終わらなければ判定に進まない）。つながなくても、途中で切れた報告は 4 が `RESULT FAIL`（`REPORT_UNKNOWN`）にする（IM-BF-02）。
 5. 自己試験: `node coverage-selftest.mjs <script の folder> <node_modules/.bin/tsx のある根>`（3 に結果）。
 
 ## 3. 自己試験（U14。2 つの script が間違った答えを出さないことの確かめ）
 
-使い捨ての git repository に、本物の V8 の報告（tsx）を作って 2 つの script に渡す。n1〜n5・n7 は失敗（終了コード 1）、n6 は PASS（終了コード 0）、n8 は「作業場が追跡していない file の追加行も対象になる」ことの確かめ。コマンドの終了コード 0（8 件とも期待どおり）。
+使い捨ての git repository に、本物の V8 の報告（tsx）を作って 2 つの script に渡す。n1〜n5・n7 は失敗（終了コード 1）、n6 は PASS（終了コード 0）、n8 は「作業場が追跡していない file の追加行も対象になる」ことの確かめ。
+
+n9・n10 は、独立の実装監査 1 回目の IM-BF-02（collector が途中で失敗した、または報告が途中で切れても、節の見出しの行まで届いていれば `RESULT PASS` と読めた）を受けて足した。
+- n9: 落ちる報告（未実行の追加行がある）と通る報告のそれぞれを、全部の行の境目（先頭の 0 行から最後の 1 つ前の行まで）と全部の行の途中（その行の前半だけ）と最後の改行の前で切り（19 か所・17 か所）、どれも FAIL。節の見出しの行の直後で切れた報告（IM-BF-02 の再現）は、`REPORT_UNKNOWN the report has no COLLECTOR_DONE line` と名指しされる。完結した 2 つの報告は内容で決まる（落ちる報告は未実行の行で FAIL、通る報告は PASS で、どちらも `REPORT_UNKNOWN`・`INCOMPLETE` を出さない）。
+- n10: `END` の行が無い節（通る報告から消した）、行が `END` の数より少ない節、節が欠けて `COLLECTOR_DONE paths=<n>` の n と合わない報告、n が違う `COLLECTOR_DONE`、`COLLECTOR_DONE` の後の文字、はどれも FAIL。
+
+コマンドの終了コード 0（16 件とも期待どおり）。
 
 ```
 ok - n1 empty report exit=1 RESULT FAIL changed_files=2 changed_lines=9 uncovered_lines=9 unreadable_files=2
@@ -41,33 +50,51 @@ ok - n5 loaded, a zero-count range on an added line exit=1 RESULT FAIL changed_f
 ok - n6 all changed files ran, no zero-count range on an added line exit=0 RESULT PASS changed_files=2 changed_lines=9 uncovered_lines=0 unreadable_files=0
 ok - n7 no changed file under src is not a pass exit=1 RESULT FAIL changed_files=0 changed_lines=0 uncovered_lines=0 unreadable_files=0
 ok - n8 added lines of a file the working tree does not track but the base has are still targets
-coverage-selftest: 8 cases passed
+ok - n9 a report that would FAIL on its content, cut short in 19 places (every line boundary and the middle of every line): FAIL each time
+ok - n9 a report that would PASS, cut short in 17 places (every line boundary and the middle of every line): FAIL each time
+ok - n9 a report cut right after the section line is named: REPORT_UNKNOWN the report has no COLLECTOR_DONE line
+ok - n10 a section without its END line (it was a PASS report): FAIL
+ok - n10 a section with fewer rows than its END count: FAIL
+ok - n10 a missing section while COLLECTOR_DONE still counts it: FAIL
+ok - n10 a wrong COLLECTOR_DONE count: FAIL
+ok - n10 text after COLLECTOR_DONE: FAIL
+coverage-selftest: 16 cases passed
+```
+
+IM-BF-02 の再現を、直す前の checker（この文書の IM-BF-02 の前の版）と直した checker に同じ報告で流した（使い捨ての git repository、対象 1 つ・追加行 3、報告は `REPORT` の行と `== src/a.ts state=LOADED processes=1` の行だけ）。直す前は PASS、直した後は FAIL になる:
+
+```
+直す前: src/a.ts: state=LOADED processes=1 added_lines=3 uncovered_lines=0
+        RESULT PASS changed_files=1 changed_lines=3 uncovered_lines=0 unreadable_files=0   （終了コード 0）
+直した後: REPORT_UNKNOWN the report has no COLLECTOR_DONE line (it was cut short, or the collector did not finish)
+        src/a.ts: state=UNKNOWN added_lines=3 uncovered_lines=3
+        RESULT FAIL changed_files=1 changed_lines=3 uncovered_lines=3 unreadable_files=1   （終了コード 1）
 ```
 
 ## 4. 測定の結果
 
-測定の命令 13 個は、すべて終了コード 0（最後の測定）。報告は 429 個の JSON、source map のある節 17833、そのうち process が実行した節 17833、読めなかった JSON 0。
+測定の命令 13 個は、すべて終了コード 0（最後の測定、2026-11-16T04:34:30Z。IM-BF-01・IM-BF-02・OBS-2 の直しを入れた code で流した）。報告は 488 個の JSON、source map のある節 20854、そのうち process が実行した節 20854、読めなかった JSON 0。報告は完結していた（`COLLECTOR_DONE paths=12`、節 12 の全部に `END` の行）。
 
 ```
 EXCLUDED_UNCHANGED_UNDER_SRC files=84
-EXCLUDED_OUTSIDE_SRC files=510 top_dirs=.aidlc-version(1), .claude(333), .framework(1), .gitignore(1), aidlc(169), docs(4), package.json(1)
-src/antigravity-session-start.ts: state=LOADED processes=4 added_lines=4 uncovered_lines=0
+EXCLUDED_OUTSIDE_SRC files=517 top_dirs=.aidlc-version(1), .claude(333), .framework(1), .gitignore(1), aidlc(175), docs(5), package.json(1)
+src/antigravity-session-start.ts: state=LOADED processes=5 added_lines=4 uncovered_lines=0
 src/claude-session-start.ts: state=LOADED processes=19 added_lines=8 uncovered_lines=0
-src/codex-session-start.ts: state=LOADED processes=44 added_lines=40 uncovered_lines=0
-src/gemini-session-start.ts: state=LOADED processes=5 added_lines=4 uncovered_lines=0
-src/kusabi-runtime-event-emitter.ts: state=LOADED processes=52 added_lines=31 uncovered_lines=0
-src/restart-cli.ts: state=LOADED processes=60 added_lines=17 uncovered_lines=0
-src/rotation-commit.ts: state=LOADED processes=45 added_lines=20 uncovered_lines=0
-src/session-rotation-stop.ts: state=LOADED processes=19 added_lines=29 uncovered_lines=0
-src/store-resolution.ts: state=LOADED processes=112 added_lines=240 uncovered_lines=0
-src/stores/index.ts: state=LOADED processes=138 added_lines=41 uncovered_lines=0
-src/stores/read-only-task-states.ts: state=LOADED processes=62 added_lines=4 uncovered_lines=0
-src/transcript-stop-capture.ts: state=LOADED processes=23 added_lines=36 uncovered_lines=0
-RESULT PASS changed_files=12 changed_lines=474 uncovered_lines=0 unreadable_files=0
+src/codex-session-start.ts: state=LOADED processes=50 added_lines=40 uncovered_lines=0
+src/gemini-session-start.ts: state=LOADED processes=6 added_lines=4 uncovered_lines=0
+src/kusabi-runtime-event-emitter.ts: state=LOADED processes=63 added_lines=31 uncovered_lines=0
+src/restart-cli.ts: state=LOADED processes=75 added_lines=17 uncovered_lines=0
+src/rotation-commit.ts: state=LOADED processes=51 added_lines=20 uncovered_lines=0
+src/session-rotation-stop.ts: state=LOADED processes=20 added_lines=29 uncovered_lines=0
+src/store-resolution.ts: state=LOADED processes=138 added_lines=240 uncovered_lines=0
+src/stores/index.ts: state=LOADED processes=159 added_lines=54 uncovered_lines=0
+src/stores/read-only-task-states.ts: state=LOADED processes=78 added_lines=4 uncovered_lines=0
+src/transcript-stop-capture.ts: state=LOADED processes=27 added_lines=36 uncovered_lines=0
+RESULT PASS changed_files=12 changed_lines=487 uncovered_lines=0 unreadable_files=0
 ```
 
-- 対象 12 file、追加行 474、未実行 0、読めなかった file 0。**100% を満たした**（この文書の時点）。数えから外した追加行は無い。
-- 測り直しの経緯: 最初の測定は `RESULT FAIL changed_files=12 changed_lines=460 uncovered_lines=3`（`antigravity-session-start.ts` の `loadAntigravityHookDataFromStore` の 2 行が、どの試験も呼ばず未実行。`stores/index.ts` の `requireStoreBackend` の、閉じる処理が失敗した時の分岐 1 行が未実行）。試験を 2 つ足した（`U5 (antigravity)`・`seam`）。次の測定は `RESULT PASS changed_files=12 changed_lines=460 uncovered_lines=0`。その後、`restart-cli handoff-source` が拒否の種類を標準エラーに出すよう直した（FR3.4。`memory.md`）ので追加行が 460 から 474 になり、測り直した（`RESULT PASS`）。さらに、CI が届く命令だけで測ると 474 行のうち 8 行が未実行だった（Gemini の loader の 2 行、emitter の 6 行。CI が流さない試験の側でだけ実行されていた）ので、試験を 2 つ足した（`U5 (gemini)`・`U10 (in process)`）。**この文書の結果は、その後の最後の測定**（全部の命令・CI が届く命令だけの 2 通りとも `RESULT PASS`）。最初の測定の出力（参考）:
+- 対象 12 file、追加行 487、未実行 0、読めなかった file 0。**100% を満たした**（この文書の時点）。数えから外した追加行は無い。
+- 測り直しの経緯: 最初の測定は `RESULT FAIL changed_files=12 changed_lines=460 uncovered_lines=3`（`antigravity-session-start.ts` の `loadAntigravityHookDataFromStore` の 2 行が、どの試験も呼ばず未実行。`stores/index.ts` の `requireStoreBackend` の、閉じる処理が失敗した時の分岐 1 行が未実行）。試験を 2 つ足した（`U5 (antigravity)`・`seam`）。次の測定は `RESULT PASS changed_files=12 changed_lines=460 uncovered_lines=0`。その後、`restart-cli handoff-source` が拒否の種類を標準エラーに出すよう直した（FR3.4。`memory.md`）ので追加行が 460 から 474 になり、測り直した（`RESULT PASS`）。さらに、CI が届く命令だけで測ると 474 行のうち 8 行が未実行だった（Gemini の loader の 2 行、emitter の 6 行。CI が流さない試験の側でだけ実行されていた）ので、試験を 2 つ足した（`U5 (gemini)`・`U10 (in process)`）。その後、独立の実装監査 1 回目（IM-BF-01・IM-BF-02・OBS-2）の直しで、`stores/index.ts` の追加行が 41 から 54 になり（PostgreSQL の失敗の種類だけを出す `postgresFailureKind` と、投げる誤りの作り直し）、全体が 474 から 487 になったので、script の完結の確かめ（IM-BF-02）を入れて測り直した（全部の命令・CI が届く命令だけの 2 通りとも `RESULT PASS`、追加行 487、未実行 0）。**この文書の結果は、その最後の測定**。最初の測定の出力（参考）:
 
 ```
 src/antigravity-session-start.ts: state=LOADED processes=3 added_lines=4 uncovered_lines=2
@@ -89,38 +116,38 @@ RESULT FAIL changed_files=12 changed_lines=460 uncovered_lines=3 unreadable_file
 
 ## 5. 数えから外した物
 
-- 試験の file（`src/test*`）: 61 file（どれも `EXCLUDED ... test_file`）。
+- 試験の file（`src/test*`）: 63 file（どれも `EXCLUDED ... test_file`）。
 - `src/` の中で、base と同じで追加行が無い file: 84。
-- `src/` の外の、変えた file・足した file: 510（内訳の上位 .aidlc-version(1), .claude(333), .framework(1), .gitignore(1), aidlc(169), docs(4), package.json(1)）。code ではない文書・記録・設定・AI-DLC の engine の file。`package.json` は、scripts の 2 行（`test:store-resolution`・`test:store-resolution-pg`）を足し、`test` と `test:claude-hook` の 2 行の終わりに `npm run test:store-resolution` を足した（試験の命令。code ではない）。
+- `src/` の外の、変えた file・足した file: 517（内訳の上位 .aidlc-version(1), .claude(333), .framework(1), .gitignore(1), aidlc(175), docs(5), package.json(1)）。code ではない文書・記録・設定・AI-DLC の engine の file。`package.json` は、scripts の 2 行（`test:store-resolution` = 本体・scenario・isolation の 3 つの試験をつなげた命令、`test:store-resolution-pg`）を足し、`test` と `test:claude-hook` の 2 行の終わりに `npm run test:store-resolution` を足した（試験の命令。code ではない）。
 
 ## 6. 限界と、見つけ方
 
 - この測定は、作った席の手元で流した。CI（`ci.yml`）は網羅率を測らない（workflow は保護面で、変えるには Owner の exact-head が要る）。監査の席は、2 の命令と 3 つの script（下に全文と SHA-256）で、同じ数を出せる。
-- 13 個の命令のうち、CI が流さない物がある: `test:antigravity-hook`・`test:transcript-stop`・emitter の試験（`test-kusabi-runtime-event-emitter.ts`）。そこで、CI の `run:` が届く 10 個の命令だけ（`claude-hook`・`codex-hook`・`gemini-hook`・`gemini-conversation-ingest`・`automatic-receive`・`direct-fleet-rollout`・`content-addressed-release`・`core`・`post-tool-hook`・`boot-recovery`）でも同じ判定を流した（同じ script・同じ時点。10 個とも終了コード 0）。結果は次のとおりで、CI が届く試験だけで 100% を満たす:
+- 13 個の命令のうち、CI が流さない物がある: `test:antigravity-hook`・`test:transcript-stop`・emitter の試験（`test-kusabi-runtime-event-emitter.ts`）。そこで、CI の `run:` が届く 10 個の命令だけ（`claude-hook`・`codex-hook`・`gemini-hook`・`gemini-conversation-ingest`・`automatic-receive`・`direct-fleet-rollout`・`content-addressed-release`・`core`・`post-tool-hook`・`boot-recovery`）でも同じ判定を流した（同じ script・同じ時点。10 個とも終了コード 0。報告は完結していた = `COLLECTOR_DONE paths=12`）。結果は次のとおりで、CI が届く試験だけで 100% を満たす:
 
 ```
-src/antigravity-session-start.ts: state=LOADED processes=2 added_lines=4 uncovered_lines=0
+src/antigravity-session-start.ts: state=LOADED processes=3 added_lines=4 uncovered_lines=0
 src/claude-session-start.ts: state=LOADED processes=18 added_lines=8 uncovered_lines=0
-src/codex-session-start.ts: state=LOADED processes=35 added_lines=40 uncovered_lines=0
-src/gemini-session-start.ts: state=LOADED processes=4 added_lines=4 uncovered_lines=0
-src/kusabi-runtime-event-emitter.ts: state=LOADED processes=40 added_lines=31 uncovered_lines=0
-src/restart-cli.ts: state=LOADED processes=60 added_lines=17 uncovered_lines=0
-src/rotation-commit.ts: state=LOADED processes=36 added_lines=20 uncovered_lines=0
-src/session-rotation-stop.ts: state=LOADED processes=19 added_lines=29 uncovered_lines=0
-src/store-resolution.ts: state=LOADED processes=100 added_lines=240 uncovered_lines=0
-src/stores/index.ts: state=LOADED processes=129 added_lines=41 uncovered_lines=0
-src/stores/read-only-task-states.ts: state=LOADED processes=62 added_lines=4 uncovered_lines=0
-src/transcript-stop-capture.ts: state=LOADED processes=20 added_lines=36 uncovered_lines=0
-RESULT PASS changed_files=12 changed_lines=474 uncovered_lines=0 unreadable_files=0
+src/codex-session-start.ts: state=LOADED processes=41 added_lines=40 uncovered_lines=0
+src/gemini-session-start.ts: state=LOADED processes=5 added_lines=4 uncovered_lines=0
+src/kusabi-runtime-event-emitter.ts: state=LOADED processes=51 added_lines=31 uncovered_lines=0
+src/restart-cli.ts: state=LOADED processes=75 added_lines=17 uncovered_lines=0
+src/rotation-commit.ts: state=LOADED processes=42 added_lines=20 uncovered_lines=0
+src/session-rotation-stop.ts: state=LOADED processes=20 added_lines=29 uncovered_lines=0
+src/store-resolution.ts: state=LOADED processes=126 added_lines=240 uncovered_lines=0
+src/stores/index.ts: state=LOADED processes=150 added_lines=54 uncovered_lines=0
+src/stores/read-only-task-states.ts: state=LOADED processes=78 added_lines=4 uncovered_lines=0
+src/transcript-stop-capture.ts: state=LOADED processes=24 added_lines=36 uncovered_lines=0
+RESULT PASS changed_files=12 changed_lines=487 uncovered_lines=0 unreadable_files=0
 ```
 
-- 使い捨ての PostgreSQL の試験（`test-store-resolution-pg.ts`）は、測定に入れていない（CI に PostgreSQL が無く、手元でだけ流す）。PostgreSQL の枝の行は、閉じた port・接続を数える listener を使う試験（`store-resolution-scenario`）で実行される。
+- 使い捨ての PostgreSQL の試験（`test-store-resolution-pg.ts`）は、測定に入れていない（CI に PostgreSQL が無く、手元でだけ流す）。PostgreSQL の枝の行は、閉じた port・接続を数える listener を使う試験（`store-resolution-scenario`）で実行される。`restart-cli` の経由の試験は、親 process の event loop が子の実行の間止まる（spawnSync）ので listener は使えず、接続が拒まれた種類（環境変数の URL = `ECONNREFUSED`、設定の file の URL = `ENOENT`）で、どちらの URL が使われたかを区別する。
 - V8 のブロックの網羅率を、source map で原文の行に直している。行の網羅率であり、分岐の網羅率ではない。1 行に複数の分岐がある時、一部の範囲が 0 回なら、その行を未実行に数える。
 - `uncovered_lines=0` は、追加行が**実行された**ことだけを言う。正しい結果を確かめたかどうかは、試験の中身（`unit-test-instructions.md`）と監査が見る。
 
 ## 7. script 全文
 
-### `merge-zero.mjs`（SHA-256 `2ffcfb23cd8e54e1940b271fd743b087fe0dc2519c981dde45f4053d363df7c2`、125 行）
+### `merge-zero.mjs`（SHA-256 `ab76f8fc1699343ecb0eefd816ea0a09913495ecabe12fae15ddd9a14b9be701`、133 行）
 
 ````javascript
 // Usage (from the repository root): node merge-zero.mjs <coverage-dir> <repo-relative path> [more paths...]
@@ -129,6 +156,9 @@ RESULT PASS changed_files=12 changed_lines=474 uncovered_lines=0 unreadable_file
 // LOADED: at least one process ran the file; the ORIGINAL source lines of ranges no process ran follow, as "<from>-<to>  <text>".
 // NOT_LOADED: the file is in a report but no process ran it. MISSING: no report has a section for the file.
 // The first line is "REPORT json_files=.. entries=.. loading_entries=.. unreadable_json=..": what the reports hold in all.
+// Every section ends with "== <path> END ranges=<n>" (n = the range rows printed for it) and the last line of a normal
+// run is "COLLECTOR_DONE paths=<n>" (n = the paths asked for): a report cut short has no such line, and the checker
+// refuses it (IM-BF-02).
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { SourceMap } from "node:module";
@@ -204,10 +234,12 @@ for (const path of paths) {
   }
   if (merged === null) {
     console.log(`== ${path} state=MISSING processes=0`);
+    console.log(`== ${path} END ranges=0`);
     continue;
   }
   if (processes === 0) {
     console.log(`== ${path} state=NOT_LOADED processes=0`);
+    console.log(`== ${path} END ranges=0`);
     continue;
   }
   console.log(`== ${path} state=LOADED processes=${processes}`);
@@ -246,11 +278,14 @@ for (const path of paths) {
       start = -1;
     }
   }
-  for (const row of [...rows.values()].sort((x, y) => x.from - y.from)) console.log(`${row.from}-${row.to}  ${row.text}`);
+  const printed = [...rows.values()].sort((x, y) => x.from - y.from);
+  for (const row of printed) console.log(`${row.from}-${row.to}  ${row.text}`);
+  console.log(`== ${path} END ranges=${printed.length}`);
 }
+console.log(`COLLECTOR_DONE paths=${paths.length}`);
 ````
 
-### `changed-uncovered.py`（SHA-256 `8c6a09b7e6b83b01eb1f1d0094abfb4ccf0506a94de256c6d7800c465d90f8f4`、171 行）
+### `changed-uncovered.py`（SHA-256 `4c73c560e3940c16e92fd2614623f8bc1aa67be15b6aee59a2370de256c340ce`、201 行）
 
 ````python
 """Usage (from the repository root):
@@ -263,7 +298,11 @@ list:  prints TARGET <path> added_lines=<n> for each code file under src/ (not s
        working tree does not track but the base has would otherwise read as deleted and its added lines would be lost.
 check: recomputes the same targets, reads the report merge-zero.mjs printed, and gives each target one state:
        LOADED (ran; added lines that fall in a zero-count range are uncovered), NOT_LOADED or MISSING (all added lines count as
-       uncovered and the file is counted as unreadable), UNKNOWN (the report is empty or no process ran anything: every target).
+       uncovered and the file is counted as unreadable), INCOMPLETE (the section has no END line, or its END count differs
+       from the rows it holds: counted as unreadable), UNKNOWN (the report cannot be trusted as a whole: every target).
+       A report is trusted only when it is complete: a REPORT line first, a "== <path> END ranges=<n>" line closing every
+       section, and a last line "COLLECTOR_DONE paths=<n>" with n equal to the sections it holds, followed by a newline and
+       nothing else. A report cut short anywhere (the collector failed or the pipe closed) lacks them (IM-BF-02).
        The last line is RESULT PASS|FAIL changed_files=.. changed_lines=.. uncovered_lines=.. unreadable_files=..
        Exit 0 only for PASS: at least one target, no uncovered line, no unreadable file, a report that can be read."""
 import os
@@ -346,9 +385,15 @@ def print_excluded(base, excluded):
 
 
 def read_report(report_path):
-    """Returns (header or None, {path: {"state", "processes", "ranges"}})."""
+    """Returns (header or None, {path: {"state", "processes", "ranges", "end"}}, trailer) for the report the collector printed.
+    trailer = {"sections": number of section lines, "done": the n of COLLECTOR_DONE or None, "after_done": text after it,
+    "final_newline": whether the file ends with a newline}."""
+    text = open(report_path, encoding="utf8").read()
     header, sections, current = None, {}, None
-    for row in open(report_path, encoding="utf8").read().split("\n"):
+    trailer = {"sections": 0, "done": None, "after_done": False, "final_newline": text.endswith("\n")}
+    for row in text.split("\n"):
+        if trailer["done"] is not None and row != "":
+            trailer["after_done"] = True
         head = re.match(r"^REPORT json_files=(\d+) entries=(\d+) loading_entries=(\d+) unreadable_json=(\d+)$", row)
         if head:
             header = tuple(int(value) for value in head.groups())
@@ -356,17 +401,34 @@ def read_report(report_path):
         section = re.match(r"^== (\S+) state=(\S+) processes=(\d+)$", row)
         if section:
             current = section.group(1)
-            sections[current] = {"state": section.group(2), "processes": int(section.group(3)), "ranges": []}
+            trailer["sections"] += 1
+            sections[current] = {"state": section.group(2), "processes": int(section.group(3)), "ranges": [], "end": None}
+            continue
+        end = re.match(r"^== (\S+) END ranges=(\d+)$", row)
+        if end:
+            if current == end.group(1) and sections[current]["end"] is None:
+                sections[current]["end"] = int(end.group(2))
+            current = None
+            continue
+        done = re.match(r"^COLLECTOR_DONE paths=(\d+)$", row)
+        if done:
+            trailer["done"] = int(done.group(1))
             continue
         zero = re.match(r"^(\d+)-(\d+)\s+(.*)$", row)
         if zero and current:
             sections[current]["ranges"].append((int(zero.group(1)), int(zero.group(2)), zero.group(3)))
-    return header, sections
+    return header, sections, trailer
 
 
-def unknown_reason(header):
+def unknown_reason(header, trailer):
     if header is None:
         return "no REPORT line"
+    if trailer["done"] is None:
+        return "the report has no COLLECTOR_DONE line (it was cut short, or the collector did not finish)"
+    if trailer["after_done"] or not trailer["final_newline"]:
+        return "the report does not end with COLLECTOR_DONE and a newline"
+    if trailer["done"] != trailer["sections"] or trailer["sections"] != trailer["distinct"]:
+        return f"COLLECTOR_DONE paths={trailer['done']} but the report holds {trailer['sections']} section line(s)"
     json_files, entries, loading, unreadable = header
     if unreadable > 0:
         return f"{unreadable} report file(s) could not be read"
@@ -389,8 +451,9 @@ def main(argv):
     if len(argv) == 4 and argv[1] == "check":
         base, report_path = argv[2], argv[3]
         targets, excluded = classify(base)
-        header, sections = read_report(report_path)
-        unknown = unknown_reason(header)
+        header, sections, trailer = read_report(report_path)
+        trailer["distinct"] = len(sections)
+        unknown = unknown_reason(header, trailer)
         print_excluded(base, excluded)
         if unknown:
             print(f"REPORT_UNKNOWN {unknown}")
@@ -400,7 +463,9 @@ def main(argv):
             changed_lines += len(added)
             section = sections.get(path)
             state = "UNKNOWN" if unknown else (section["state"] if section else "MISSING")
-            if state not in ("LOADED", "NOT_LOADED", "MISSING", "UNKNOWN"):
+            if section and not unknown and section["end"] != len(section["ranges"]):
+                state = "INCOMPLETE"
+            if state not in ("LOADED", "NOT_LOADED", "MISSING", "INCOMPLETE", "UNKNOWN"):
                 state = "MISSING"
             if state == "LOADED":
                 missed = {n for a, b, _ in section["ranges"] for n in range(a, b + 1) if n in added}
@@ -426,13 +491,17 @@ def main(argv):
 sys.exit(main(sys.argv))
 ````
 
-### `coverage-selftest.mjs`（SHA-256 `cda858ff9edf9e79721fad5deea82dffac012b3d59794539117590634bdd1a7d`、171 行）
+### `coverage-selftest.mjs`（SHA-256 `8db67d66922754ca956273521c6c0a80a13a7e25d682b2b9cc72eada61ca43b8`、246 行）
 
 ````javascript
 // Usage: node coverage-selftest.mjs <folder holding merge-zero.mjs and changed-uncovered.py> <repository root that has node_modules/.bin/tsx>
-// U14: gives the two measuring scripts six inputs in a throwaway git repository, with real V8 coverage from tsx, and checks the result.
+// U14: gives the two measuring scripts their inputs in a throwaway git repository, with real V8 coverage from tsx, and checks the result.
 //   n1 empty report -> FAIL     n2 changed file not loaded -> FAIL    n3 changed file has no section -> FAIL
 //   n4 one of two changed files not loaded -> FAIL    n5 loaded, zero-count range on an added line -> FAIL    n6 all run -> PASS
+//   n9 (IM-BF-02) a report cut short at every line boundary and in the middle of every line, of a report that would FAIL and of one
+//      that would PASS -> FAIL each time; the two complete reports decide on their content (FAIL with the uncovered line, PASS)
+//   n10 (IM-BF-02) a section without its END line, or with fewer rows than its END count, or a missing section, or a wrong
+//      COLLECTOR_DONE count, or text after COLLECTOR_DONE -> FAIL, also for a report that was PASS
 // Prints one line per case; the last line is "coverage-selftest: <n> cases passed". Any wrong result exits 1.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -576,6 +645,9 @@ try {
   assert.equal(n6.status, 0, `n6: exit code is 0\n${n6.stdout}`);
   assert.match(resultLine(n6.stdout), /^RESULT PASS changed_files=2 changed_lines=9 uncovered_lines=0 unreadable_files=0$/);
   assert.match(n6.stdout, /src\/a\.ts: state=LOADED[\s\S]*src\/b\.ts: state=LOADED/);
+  assert.match(n6.report, /^REPORT /, "n6: the report starts with REPORT");
+  assert.match(n6.report, /\n== src\/a\.ts END ranges=1\n/, "n6: a section ends with its END line, counting the row it holds");
+  assert.match(n6.report, /\nCOLLECTOR_DONE paths=2\n$/, "n6: the report ends with COLLECTOR_DONE and a newline");
   passed += 1;
   console.log(`ok - n6 all changed files ran, no zero-count range on an added line exit=${n6.status} ${resultLine(n6.stdout)}`);
 
@@ -596,9 +668,76 @@ try {
   assert.equal(run("git", ["diff", "-U0", base0, "--", "src/c.ts"]).stdout.includes("deleted file mode"), true, "n8: plain git diff reads that file as deleted (why the script does not use it)");
   passed += 1;
   console.log("ok - n8 added lines of a file the working tree does not track but the base has are still targets");
+
+  // IM-BF-02: a report cut short is not a pass wherever it is cut, and a complete report decides on its content.
+  git("checkout", "HEAD", "--", "src/c.ts"); // n8 left c.ts changed and untracked: the two targets of n6 are the targets again
+  const checkText = (base, text) => {
+    const cutPath = join(work, "cut.txt");
+    writeFileSync(cutPath, text);
+    return run("python3", ["-I", join(scriptsDir, "changed-uncovered.py"), "check", base, cutPath]);
+  };
+  const completeUncovered = judge(base0, partial);
+  const completePass = n6;
+  assert.equal(completeUncovered.status, 1, "n9: the complete report with an uncovered added line fails");
+  assert.match(completeUncovered.stdout, /src\/a\.ts: state=LOADED[\s\S]*uncovered_lines=[1-9]/, "n9: it fails because of the line, not because the report is cut");
+  assert.doesNotMatch(completeUncovered.stdout, /REPORT_UNKNOWN|INCOMPLETE/, "n9: a complete report is not read as cut short");
+  assert.equal(completePass.status, 0, "n9: the complete report with every added line run passes");
+  const cuts = (text) => {
+    const lines = text.split("\n").slice(0, -1);
+    const out = [];
+    for (let k = 0; k < lines.length; k++) {
+      const head = lines.slice(0, k).join("\n") + (k > 0 ? "\n" : "");
+      out.push({ at: `after ${k} line(s)`, text: head });
+      out.push({ at: `in the middle of line ${k + 1}`, text: head + lines[k].slice(0, Math.floor(lines[k].length / 2)) });
+    }
+    out.push({ at: "before the final newline", text: text.slice(0, -1) });
+    return out;
+  };
+  for (const [name, report] of [
+    ["a report that would FAIL on its content", completeUncovered.report],
+    ["a report that would PASS", completePass.report],
+  ]) {
+    const all = cuts(report);
+    for (const cut of all) {
+      const answer = checkText(base0, cut.text);
+      assert.notEqual(answer.status, 0, `n9: ${name} cut ${cut.at} is not a pass\n${answer.stdout}`);
+      assert.match(resultLine(answer.stdout), /^RESULT FAIL /, `n9: ${name} cut ${cut.at}`);
+    }
+    passed += 1;
+    console.log(`ok - n9 ${name}, cut short in ${all.length} places (every line boundary and the middle of every line): FAIL each time`);
+  }
+  const afterSectionLine = completePass.report.slice(0, completePass.report.indexOf("\n", completePass.report.indexOf("== src/a.ts state=LOADED")) + 1);
+  const named = checkText(base0, afterSectionLine);
+  assert.match(named.stdout, /REPORT_UNKNOWN the report has no COLLECTOR_DONE line/, "n9: a report cut right after a section line is named as cut short");
+  assert.match(resultLine(named.stdout), /^RESULT FAIL changed_files=2 /);
+  passed += 1;
+  console.log("ok - n9 a report cut right after the section line is named: REPORT_UNKNOWN the report has no COLLECTOR_DONE line");
+
+  const dropLines = (text, drop) => text.split("\n").filter((row) => !drop(row)).join("\n");
+  const dropSection = (text, path) => {
+    const rows = text.split("\n");
+    const start = rows.findIndex((row) => row.startsWith(`== ${path} state=`));
+    const end = rows.findIndex((row) => row.startsWith(`== ${path} END `));
+    return rows.filter((_, index) => index < start || index > end).join("\n");
+  };
+  const firstRow = completeUncovered.report.split("\n").find((row) => /^\d+-\d+ /.test(row));
+  assert.ok(firstRow, "n10: the report that fails has a range row to drop");
+  const cases10 = [
+    ["a section without its END line (it was a PASS report)", checkText(base0, dropLines(completePass.report, (row) => /^== src\/a\.ts END ranges=\d+$/.test(row))), /src\/a\.ts: state=INCOMPLETE/],
+    ["a section with fewer rows than its END count", checkText(base0, dropLines(completeUncovered.report, (row) => row === firstRow)), /src\/a\.ts: state=INCOMPLETE/],
+    ["a missing section while COLLECTOR_DONE still counts it", checkText(base0, dropSection(completePass.report, "src/b.ts")), /REPORT_UNKNOWN COLLECTOR_DONE paths=2 but the report holds 1 section line/],
+    ["a wrong COLLECTOR_DONE count", checkText(base0, completePass.report.replace("COLLECTOR_DONE paths=2", "COLLECTOR_DONE paths=3")), /REPORT_UNKNOWN COLLECTOR_DONE paths=3 but the report holds 2 section line/],
+    ["text after COLLECTOR_DONE", checkText(base0, `${completePass.report}== src/a.ts state=LOADED processes=1\n`), /REPORT_UNKNOWN the report does not end with COLLECTOR_DONE and a newline/],
+  ];
+  for (const [name, answer, pattern] of cases10) {
+    assert.notEqual(answer.status, 0, `n10: ${name} is not a pass\n${answer.stdout}`);
+    assert.match(resultLine(answer.stdout), /^RESULT FAIL /, `n10: ${name}`);
+    assert.match(answer.stdout, pattern, `n10: ${name}\n${answer.stdout}`);
+    passed += 1;
+    console.log(`ok - n10 ${name}: FAIL`);
+  }
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
 console.log(`coverage-selftest: ${passed} cases passed`);
 ````
-

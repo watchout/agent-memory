@@ -3,8 +3,9 @@
  * opaque target, createStore from a decision, the SessionStart evidence), U11 (the literals that decide a store live in
  * one place) and U13 (CI reaches the new tests). No PostgreSQL server is needed: the PostgreSQL cases point at a closed
  * port. The home folder is a throwaway one, set before any store module is loaded (the JSON and SQLite stores fix their
- * default folder when they are imported).
+ * default folder when they are imported): test-isolated-home.ts, the first import, sets it (IM-BF-01).
  */
+import { ISOLATED_HOME } from "./test-isolated-home.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -15,16 +16,13 @@ import { fileURLToPath } from "node:url";
 import { inspect } from "node:util";
 import type { StoreConfigRead, StoreDecision, StoreRefusalReason, StoreResolution } from "./store-resolution.js";
 
-const HOME = realpathSync(mkdtempSync(join(tmpdir(), "store-res-unit-home-")));
-mkdirSync(join(HOME, ".agent-memory"));
+const HOME = ISOLATED_HOME;
 const STORE_ENV_NAMES = ["AGENT_MEMORY_DB_TYPE", "AGENT_MEMORY_DATABASE_URL", "DATABASE_URL", "AGENT_MEMORY_DB_PATH"] as const;
-for (const name of STORE_ENV_NAMES) delete process.env[name];
-process.env.HOME = HOME;
 
 const {
   StoreRefusedError, StoreTarget, decideStore, readUserConfig, requireStore, resolveStore, storeBindingSha256, storeRefusedReason,
 } = await import("./store-resolution.js");
-const { createStore, openResolvedStore } = await import("./stores/index.js");
+const { createStore, openResolvedStore, postgresFailureKind } = await import("./stores/index.js");
 const { SqliteStore } = await import("./stores/sqlite-store.js");
 const { resolveSessionStartStore } = await import("./codex-session-start.js");
 
@@ -311,8 +309,46 @@ test("U5: a PostgreSQL decision that cannot connect is refused with no SQLite fa
     assert.ok(result.error, "the connection is refused");
     assert.ok(result.lines.some((line) => line.startsWith("[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured")));
     for (const text of [...result.lines, String(result.error)]) assert.ok(!text.includes(SECRET), "no password in the output");
+    assert.ok(result.lines.some((line) => /: kind=[A-Za-z0-9_]+$/.test(line)), "the output names a kind and nothing else");
     assert.equal(existsSync(dbPath), false, "no SQLite file was created");
   });
+});
+
+test("U5 (OBS-2): a PostgreSQL URL that names key and certificate files neither prints nor rethrows their paths", async () => {
+  const dbPath = join(tmp("u5-tls"), "never.db");
+  const marker = "SYNTHETIC-TLS-PATH-MARKER";
+  const names = { sslkey: `/nonexistent/${marker}/client.key`, sslcert: `/nonexistent/${marker}/client.crt`, sslrootcert: `/nonexistent/${marker}/root.crt` };
+  for (const [param, path] of Object.entries(names)) {
+    const url = `postgres://user:${SECRET}@127.0.0.1:${await closedPort()}/db?sslmode=require&${param}=${path}`;
+    await withEnv({ AGENT_MEMORY_DB_PATH: dbPath }, async () => {
+      const result = await captureStderr(() => createStore({ resolution: resolutionOf(decide({ DATABASE_URL: url }).decision), skipPostgresMigrations: true }));
+      const error = result.error as (Error & { code?: string }) | undefined;
+      assert.ok(error instanceof Error, `${param}: the connection is refused`);
+      assert.equal(error.code, "ENOENT", `${param}: the rethrown error carries the kind as its code`);
+      assert.equal(error.cause, undefined, `${param}: the driver's error is not kept as the cause`);
+      assert.ok(result.lines.some((line) => line.endsWith(": kind=ENOENT")), `${param}: the output names the kind`);
+      const everything = [...result.lines, String(error), error.message, error.stack ?? "", inspect(error, { depth: 6 })];
+      for (const text of everything) {
+        assert.ok(!text.includes(marker) && !text.includes("/nonexistent/"), `${param}: no key or certificate path in the output or the error`);
+        assert.ok(!text.includes(SECRET), `${param}: no password in the output or the error`);
+      }
+      assert.equal(existsSync(dbPath), false, `${param}: no SQLite file was created`);
+    });
+  }
+});
+
+test("U5 (OBS-2): the failure kind is the error's own code when it is a plain word, and nothing else", () => {
+  assert.equal(postgresFailureKind(Object.assign(new Error("x"), { code: "ECONNREFUSED" })), "ECONNREFUSED");
+  assert.equal(postgresFailureKind(Object.assign(new Error("x"), { code: "28P01" })), "28P01");
+  for (const odd of [
+    new Error("no code"),
+    Object.assign(new Error("x"), { code: 42 }),
+    Object.assign(new Error("x"), { code: "/nonexistent/path.key" }),
+    Object.assign(new Error("x"), { code: "A".repeat(41) }),
+    "a string",
+    null,
+    undefined,
+  ]) assert.equal(postgresFailureKind(odd), "unknown");
 });
 
 test("U5: createStore() without a decision still reads the environment as before", async () => {
@@ -513,13 +549,13 @@ function reachedTests(commands: string[], scripts: Record<string, string>): Set<
   return files;
 }
 
-const NEW_TESTS = ["src/test-store-resolution.ts", "src/test-store-resolution-scenario.ts"];
+const NEW_TESTS = ["src/test-store-resolution.ts", "src/test-store-resolution-scenario.ts", "src/test-store-resolution-isolation.ts"];
 const missingFrom = (yaml: string, scripts: Record<string, string>) => {
   const reached = reachedTests(runCommandsOf(yaml), scripts);
   return NEW_TESTS.filter((file) => !reached.has(file));
 };
 
-test("U13: the commands CI runs reach both new test files, and the check fails on the two wrong shapes", () => {
+test("U13: the commands CI runs reach the three new test files, and the check fails on the wrong shapes", () => {
   const yaml = readFileSync(join(REPO_ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const scripts = (JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   assert.ok(runCommandsOf(yaml).includes("npm run test:claude-hook"), "the step this check relies on is still in ci.yml");
@@ -532,8 +568,13 @@ test("U13: the commands CI runs reach both new test files, and the check fails o
   assert.deepEqual(missingFrom(yaml, { ...scripts, "test:claude-hook": strip(scripts["test:claude-hook"]) }), NEW_TESTS, "added to `test` only: CI does not run `npm test`");
   assert.deepEqual(
     missingFrom(yaml, { ...scripts, "test:store-resolution": "tsx src/test-store-resolution.ts" }),
-    ["src/test-store-resolution-scenario.ts"],
-    "one of the two files dropped from the script",
+    ["src/test-store-resolution-scenario.ts", "src/test-store-resolution-isolation.ts"],
+    "two of the three files dropped from the script",
+  );
+  assert.deepEqual(
+    missingFrom(yaml, { ...scripts, "test:store-resolution": "tsx src/test-store-resolution.ts && tsx src/test-store-resolution-scenario.ts" }),
+    ["src/test-store-resolution-isolation.ts"],
+    "the isolation check dropped from the script",
   );
 });
 

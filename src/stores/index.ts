@@ -65,6 +65,16 @@ function choiceFromResolution(resolution: StoreResolution): StoreBackendChoice {
 }
 
 /**
+ * Why PostgreSQL did not open, as a short fixed label: the error's own code and nothing else. The driver's text can name
+ * a key or certificate file the URL points at (sslkey, sslcert, sslrootcert), a host or a user, so it is neither printed
+ * nor rethrown (261113-store-resolution-fix, OBS-2).
+ */
+export function postgresFailureKind(err: unknown): string {
+  const code = typeof err === "object" && err !== null ? (err as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^[A-Za-z0-9_]{1,40}$/.test(code) ? code : "unknown";
+}
+
+/**
  * Factory selecting the storage backend: from the given resolution when there is one, otherwise from the environment
  * (see resolveStoreBackend).
  */
@@ -90,10 +100,11 @@ export async function createStore(options: CreateStoreOptions = {}): Promise<Sto
       console.error("[agent-memory] Connected to PostgreSQL");
       return store;
     } catch (err) {
+      const kind = postgresFailureKind(err);
       console.error(
-        `[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured: ${err}`
+        `[agent-memory] PostgreSQL connection failed; refusing SQLite fallback because a PostgreSQL URL is configured: kind=${kind}`
       );
-      throw err;
+      throw Object.assign(new Error(`PostgreSQL connection failed (kind=${kind})`), { code: kind });
     }
   }
 
