@@ -20,7 +20,7 @@ import {
   enforceCodexRecoveryCaps,
   parseCodexSessionStartArgs,
   recoveryFromPack,
-  resolveCodexStoreBinding,
+  resolveSessionStartStore,
   runCodexSessionStart,
   type CodexRecoveryPackEvidence,
   type CodexSessionStartBinding,
@@ -54,7 +54,8 @@ import {
   loadRestartPackData,
   type RecoveryPackArtifact,
 } from "./restart-pack.js";
-import { createStore } from "./stores/index.js";
+import type { StoreResolution } from "./store-resolution.js";
+import { openResolvedStore } from "./stores/index.js";
 
 export const CLAUDE_SESSION_START_ADAPTER_ID = "wasurezu-claude-session-start" as const;
 export const CLAUDE_SESSION_START_ADAPTER_VERSION = "1.0.3" as const;
@@ -169,6 +170,7 @@ export interface ClaudeSessionStartRunResult {
   exit_code: 0;
   rotation_evidence?: RotationStartEvidence;
   rotation_commit?: RotationCommitPlan;
+  store_resolution?: StoreResolution;
 }
 
 class ClaudeInputError extends Error {
@@ -314,8 +316,8 @@ export async function loadClaudeRecoveryFromStore(
   input: ClaudeSessionStartInput,
   rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
-  const storeBinding = resolveCodexStoreBinding();
-  const store = await createStore({ skipPostgresMigrations: true });
+  const { binding: storeBinding, resolution } = resolveSessionStartStore();
+  const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {
     const autoReceive = await receiveCurrentSessionTranscript(store, {
       host: "claude_code",
@@ -383,6 +385,7 @@ export async function loadClaudeRecoveryFromStore(
       recovery_pack: recoveryPack,
       recovery_quality_log_ref: qualityId ? `recovery_quality_log:${qualityId}` : null,
       store_binding: storeBinding,
+      store_resolution: resolution,
       ...(rotation ? { rotation } : {}),
     };
   } finally {
@@ -474,6 +477,7 @@ export async function runClaudeSessionStart(
     exit_code: 0,
     ...(result.rotation_evidence ? { rotation_evidence: result.rotation_evidence } : {}),
     ...(result.rotation_commit ? { rotation_commit: result.rotation_commit } : {}),
+    ...(result.store_resolution ? { store_resolution: result.store_resolution } : {}),
   };
 }
 

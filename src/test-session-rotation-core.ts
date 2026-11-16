@@ -291,7 +291,7 @@ test("FR7.3 every startup path opens the store without running the schema migrat
   for (const name of list(srcDir)) {
     if (!name.endsWith(".ts") || name.startsWith("test") || outOfScope.has(name)) continue;
     const source = read(join(srcDir, name), "utf8");
-    for (const match of source.matchAll(/\bcreateStore\(([^)]*)\)/g)) {
+    for (const match of source.matchAll(/\b(?:createStore|openResolvedStore)\(([^)]*)\)/g)) {
       if (/^\s*$/.test(match[1]) || !/skipPostgresMigrations:\s*true/.test(match[1])) {
         if (!/function createStore|import /.test(source.slice(Math.max(0, match.index! - 20), match.index!))) offenders.push(name);
       } else {

@@ -9,8 +9,9 @@ import {
   writeKusabiRuntimeEventEmergency,
   type KusabiEmergencyEvidence,
 } from "./kusabi-runtime-event-store.js";
+import { resolveStore, storeBindingSha256 } from "./store-resolution.js";
 import { PgStore } from "./stores/pg-store.js";
-import { SqliteStore } from "./stores/sqlite-store.js";
+import { SqliteStore, resolveSqliteDbPath } from "./stores/sqlite-store.js";
 import type { KusabiRuntimeEventDocument, Store } from "./stores/types.js";
 import {
   assertKusabiFleetManifest,
@@ -242,7 +243,7 @@ export async function emitKusabiSessionStartRuntimeEvent(
     const event = buildKusabiSessionStartRuntimeEvent(evidence, target);
     const timeoutMs = boundedTimeout(options.timeoutMs);
     if (options.createStore !== undefined) {
-      return emitPreparedEventInProcess(event, evidence, target, options, timeoutMs);
+      return emitPreparedEventInProcess(event, evidence, target, options, options.createStore, timeoutMs);
     }
     return emitPreparedEventInWorker(event, evidence, target, options, timeoutMs);
   } catch {
@@ -316,6 +317,7 @@ async function emitPreparedEventInProcess(
   evidence: KusabiSessionStartEvidence,
   target: KusabiRuntimeEventTargetBinding,
   options: KusabiRuntimeEventEmissionOptions,
+  openStore: (signal: AbortSignal) => Promise<Store>,
   timeoutMs: number,
 ): Promise<KusabiRuntimeEventEmissionResult> {
   const controller = new AbortController();
@@ -327,7 +329,7 @@ async function emitPreparedEventInProcess(
     event,
     evidence.store_binding,
     target,
-    options,
+    openStore,
     emergencyWriter,
     controller.signal,
   );
@@ -429,7 +431,7 @@ async function emitPreparedEvent(
   event: KusabiRuntimeEventDocument,
   storeBinding: KusabiSessionStartEvidence["store_binding"],
   target: KusabiRuntimeEventTargetBinding,
-  options: KusabiRuntimeEventEmissionOptions,
+  openStore: (signal: AbortSignal) => Promise<Store>,
   writeEmergency: (line: string) => void,
   signal: AbortSignal,
 ): Promise<KusabiRuntimeEventEmissionResult> {
@@ -458,16 +460,15 @@ async function emitPreparedEvent(
   let store: Store | null = null;
   try {
     throwIfEmissionAborted(signal);
-    store = await (options.createStore ?? ((workerSignal) =>
-      createQuietStore(options.env ?? process.env, workerSignal)))(signal);
+    store = await openStore(signal);
     throwIfEmissionAborted(signal);
-  } catch {
+  } catch (error) {
     if (store !== null) await closeQuietly(store);
     if (signal.aborted) return emissionResult("failed", event, null);
     return safeEmergencyResult(
       event,
       "evidence_sink_unavailable",
-      "store_unavailable",
+      error instanceof StoreBindingDriftError ? "binding_drift" : "store_unavailable",
       writeEmergency,
     );
   }
@@ -511,28 +512,33 @@ async function emitPreparedEvent(
   }
 }
 
-async function createQuietStore(env: NodeJS.ProcessEnv, signal: AbortSignal): Promise<Store> {
+class StoreBindingDriftError extends Error {}
+
+/**
+ * The worker's store: decided once by the shared resolver; its binding digest is recomputed from that decision and
+ * compared with the bound one before anything is built (a different place: `binding_drift`, nothing opened).
+ */
+export async function createQuietStore(
+  env: NodeJS.ProcessEnv,
+  expectedBindingSha256: string,
+  signal: AbortSignal,
+): Promise<Store> {
   throwIfEmissionAborted(signal);
-  const dbType = (env.AGENT_MEMORY_DB_TYPE ?? "").toLowerCase();
-  const dbUrl = env.AGENT_MEMORY_DATABASE_URL ?? env.DATABASE_URL ?? "";
-  const hasPostgresUrl = dbUrl.startsWith("postgres");
-  let store: Store;
-  if (dbType === "json") throw new Error("KUSABI_RUNTIME_EVENT_JSON_FIXTURE_ONLY");
-  if (dbType === "sqlite") store = new SqliteStore();
-  else if (dbType === "postgres" || hasPostgresUrl) {
-    if (!dbUrl) throw new Error("KUSABI_RUNTIME_EVENT_STORE_UNAVAILABLE");
-    store = new PgStore(dbUrl);
-  } else store = new SqliteStore();
+  const decided = resolveStore(env);
+  if (!decided.ok) throw new Error("KUSABI_RUNTIME_EVENT_STORE_UNAVAILABLE");
+  const resolution = decided.resolution;
+  if (resolution.backend === "json") throw new Error("KUSABI_RUNTIME_EVENT_JSON_FIXTURE_ONLY");
+  if (storeBindingSha256(resolution, env) !== expectedBindingSha256) throw new StoreBindingDriftError();
+  const store: Store = resolution.backend === "postgres"
+    ? new PgStore(resolution.target.reveal())
+    : new SqliteStore(resolveSqliteDbPath(undefined, env));
   const closeOnAbort = () => {
     void closeQuietly(store);
   };
   signal.addEventListener("abort", closeOnAbort, { once: true });
   try {
-    // SessionStart has a bounded observability budget and runs only after the
-    // normal recovery result is ready. The release/migration path is
-    // responsible for schema installation; replaying every PostgreSQL
-    // migration here can consume the entire 500 ms emission window. Keep the
-    // connection probe fail-closed, but do not run migrations in this worker.
+    // The 500 ms emission window cannot hold the PostgreSQL migrations (the release path installs the schema):
+    // the connection probe stays fail-closed, but no migration runs in this worker.
     if (store instanceof PgStore) await store.initialize({ run_migrations: false });
     else await store.initialize();
     throwIfEmissionAborted(signal);
@@ -614,7 +620,7 @@ async function runKusabiRuntimeEventWorker(): Promise<void> {
       request.event,
       request.store_binding,
       request.target,
-      { createStore: async (signal) => await createQuietStore(process.env, signal) },
+      (signal) => createQuietStore(process.env, request.target.storage.binding_sha256, signal),
       () => undefined,
       new AbortController().signal,
     );

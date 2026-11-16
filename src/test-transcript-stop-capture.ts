@@ -381,6 +381,8 @@ async function main(): Promise<void> {
       hook_event_name: "SessionStart",
     })), /malformed_input/);
 
+    // The seam hands back a JSON store, so the decision it is given must be the JSON store (a store of another backend is refused).
+    const jsonDecision = { AGENT_MEMORY_DB_TYPE: "json" };
     const stores: JsonStore[] = [];
     const createStore = async () => {
       const store = new JsonStore(join(root, `store-${stores.length}`));
@@ -390,6 +392,7 @@ async function main(): Promise<void> {
     };
     const captured = await runTranscriptStopCapture(raw, "codex", binding, {
       createStore,
+      env: jsonDecision,
       receive: async (_store, input) => {
         assert.equal(input.agent_id, "kusabi");
         assert.equal(input.project, "agent-memory");
@@ -408,6 +411,7 @@ async function main(): Promise<void> {
 
     const claude = await runTranscriptStopCapture(raw, "claude_code", binding, {
       createStore,
+      env: jsonDecision,
       receive: async () => ({
         status: "skipped",
         reason: "transcript_too_large",
@@ -419,7 +423,7 @@ async function main(): Promise<void> {
     assert.equal(claude.evidence.status, "skipped");
     assert.equal(claude.evidence.reason, "transcript_too_large");
 
-    const malformed = await runTranscriptStopCapture("{}", "codex", binding, { createStore });
+    const malformed = await runTranscriptStopCapture("{}", "codex", binding, { createStore, env: jsonDecision });
     assert.equal(malformed.evidence.status, "failed_open");
     assert.equal(malformed.evidence.reason, "malformed_input");
     assert.equal(stores.length, 2, "malformed input must not open a store");
@@ -427,12 +431,13 @@ async function main(): Promise<void> {
     const foreign = await runTranscriptStopCapture(JSON.stringify({
       ...JSON.parse(raw),
       cwd: root,
-    }), "codex", binding, { createStore });
+    }), "codex", binding, { createStore, env: jsonDecision });
     assert.equal(foreign.evidence.reason, "identity_binding_invalid");
     assert.equal(stores.length, 2, "identity mismatch must not open a store");
 
     const failedOpen = await runTranscriptStopCapture(raw, "codex", binding, {
       createStore,
+      env: jsonDecision,
       receive: async () => { throw new Error("fixture failure"); },
     });
     assert.equal(failedOpen.evidence.status, "failed_open");
@@ -447,6 +452,7 @@ async function main(): Promise<void> {
     });
     const prompt = await runTranscriptStopCapture(promptRaw, "codex", binding, {
       createStore,
+      env: jsonDecision,
       receive: async () => ({
         status: "captured",
         reason: "captured",

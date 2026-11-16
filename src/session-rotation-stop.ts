@@ -55,7 +55,14 @@ import {
   type ContextMeasurement,
   type RotationHost,
 } from "./session-rotation-usage.js";
-import { createStore } from "./stores/index.js";
+import {
+  resolveStore,
+  storeRefusedReason,
+  type StoreBackendName,
+  type StoreResolution,
+  type StoreSource,
+} from "./store-resolution.js";
+import { openResolvedStore, requireStoreBackend } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 import {
   CLAUDE_TRANSCRIPT_STOP_ADAPTER_ID,
@@ -102,6 +109,9 @@ export interface RotationStopEvidence {
   threshold_tokens: number;
   handoff_source: HandoffSource | null;
   marker_id: string | null;
+  /** The store the hand-off was saved to (null when no store was opened); never a URL or a path. */
+  store_backend: StoreBackendName | null;
+  store_source: StoreSource | null;
   keys_sent: 0;
   external_api_calls: 0;
 }
@@ -122,7 +132,8 @@ export interface RotationStopDependencies {
   parent_pid?: number;
   ps?: PsRunner;
   rotation_root?: string;
-  createStore?: () => Promise<Store>;
+  /** Opens the store the shared resolver decided on (test seam); by default the decided store is opened. */
+  createStore?: (resolution: StoreResolution) => Promise<Store>;
   read_transcript?: (host: RotationHost, path: string, expected: ExpectedTranscript) => TranscriptTail;
   /** Called once with the key names the entry does not know, right after the parser accepts the input. */
   on_ignored_names?: (names: readonly string[]) => void;
@@ -267,6 +278,8 @@ function evidence(
     threshold_tokens: threshold,
     handoff_source: null,
     marker_id: null,
+    store_backend: null,
+    store_source: null,
     keys_sent: 0,
     external_api_calls: 0,
     ...fields,
@@ -498,8 +511,14 @@ async function runWithin(
         return { output: PASS, evidence: failedEvidence(host, binding, `transcript_unverified:${tail.reason}`, threshold, input) };
       }
       const handoff = chooseHandoff(host, lines, input, decision.answered);
+      // The store is decided only now that one is needed: a turn that opens none cannot fail on the settings of one.
+      const decided = resolveStore(env);
+      if (!decided.ok) {
+        return { output: PASS, evidence: failedEvidence(host, binding, storeRefusedReason(decided.reason), threshold, input) };
+      }
+      const resolution = decided.resolution;
       const finished = await Promise.race([
-        withStore(dependencies, deadline, async (store) => {
+        withStore(dependencies, deadline, resolution, async (store) => {
           const markerId = await saveHandoff({
             store,
             host,
@@ -523,6 +542,8 @@ async function runWithin(
               measured_tokens: measured,
               handoff_source: handoff.source,
               marker_id: markerId,
+              store_backend: resolution.backend,
+              store_source: resolution.source,
             }),
           };
           return deadline.committed;
@@ -541,9 +562,13 @@ async function runWithin(
 async function withStore<T>(
   dependencies: RotationStopDependencies,
   deadline: Deadline,
+  resolution: StoreResolution,
   work: (store: Store) => Promise<T>,
 ): Promise<T> {
-  const store = await (dependencies.createStore ?? (() => createStore({ skipPostgresMigrations: true })))();
+  const store = await requireStoreBackend(
+    await (dependencies.createStore ?? ((decided) => openResolvedStore(decided, { skipPostgresMigrations: true })))(resolution),
+    resolution,
+  );
   if (deadline.isExpired()) {
     // Opened after the hook gave up: nothing is done with it.
     await store.close().catch(() => undefined);
