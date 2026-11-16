@@ -25,7 +25,7 @@ Stop の 2 つの hook（`transcript-stop-capture`・`session-rotation-stop`）�
 | FR2.4・FR3.4 | `src/restart-cli.ts`・`src/stores/read-only-task-states.ts` | 17・4 | `fetch`・`prepare` は `resolveStore` で決め、`openResolvedStore` で開く。`handoff-source` の読むだけの reader も同じ決め方を使う。拒否は標準エラーに種類だけ、終了コード 1。`handoff-source` の標準出力は他の読めない保存先と同じ `unreadable` の JSON（`memory.md` の変更の 1） |
 | R-01 | `src/kusabi-runtime-event-emitter.ts`（800 行ちょうど） | 31 | worker の `createQuietStore` が、決め方を自分で呼び（環境変数への書き込みに頼らない）、SessionStart が束ねた接続先の digest と比べ、別の場所なら store を作らず `binding_drift`、読めない・拒否は `store_unavailable`（緊急の記録）。JSON は fixture 専用のまま拒否 |
 | 試験 | `package.json` | +4 / −2 | scripts `test:store-resolution`・`test:store-resolution-pg`。`npm run test:store-resolution` を `test` と `test:claude-hook` の連なりの最後に足した（`ci.yml` は変えない = 保護面。D10） |
-| 文書 | `docs/operations/HOST_ADAPTERS.md` | +34 / −5 | 決め方の順・入口の一覧・拒否の動きと Stop の証拠の 2 項目を、実装に合わせて書き直した（設計に無い挙動を足したら設計にも足す = R3） |
+| 文書 | `docs/operations/HOST_ADAPTERS.md` | +36 / −5 | 決め方の順・入口の一覧・拒否の動きと Stop の証拠の 2 項目を、実装に合わせて書き直した（設計に無い挙動を足したら設計にも足す = R3） |
 
 触った file のうち、base で 800 行を超えていたのは `codex-session-start.ts`（1122 行）だけで、行数は 1052 行に減った（触る時に直す。まとめて直す計画は作らない）。`kusabi-runtime-event-emitter.ts` は base の 794 行から 800 行ちょうどになった（上限は 800 行。これ以上増やさない）。新しい file は 800 行以内（最大 `test-store-resolution-scenario.ts` の 731 行）。
 
