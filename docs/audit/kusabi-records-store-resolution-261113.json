@@ -1,0 +1,73 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた版 v1。Deployment Execution の段の承認の後、記録を単位の PR に入れる時に書いた。監査席は作者と別の席。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合のどれも代替しない。区分（R1 など）は作者の見立てで、決めるのは監査席と arc。作者は R2・R3 を決めない。",
+  "scope": "watchout/agent-memory の取り組み 261113-store-resolution-fix（AI-DLC の scope bugfix）の、記録だけの PR。対象 = 依頼の targets の head（base = origin/main）。差分 = Build and Test の段・Deployment Pipeline の段・Deployment Execution の段の記録 19 file と、PR の覚え書き 1 file と、この file。code・試験・script・workflow・設定・DB の構造は変えない。席への効果は 1 つも無い。範囲の根拠は Owner の決定（control_source_ref = 決定 77）と、1 単位 = 1 PR の決まり。席間の連絡で arc から受けた判断は、権限の根拠に引いていない。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6910764201",
+    "sha256": "a378655b6cd927b24a9c6da1cc5025f268b29f9dd581caf2a75bd71eef1ca881"
+  },
+  "items": [
+    {
+      "id": "REC-1",
+      "criterion": "範囲: base と head の差分が次に閉じるか。(a) 変わる file は 21 個だけで、すべて新しい file（`git diff --name-status BASE...HEAD` が 21 行とも `A`）: この取り組みの記録 19 個（`aidlc/spaces/default/intents/261113-store-resolution-fix/` の下の、construction/build-and-test の 8 個〔build-and-test-summary.md・build-instructions.md・cross-unit-traceability.md・integration-test-instructions.md・memory.md・performance-test-instructions.md・security-test-instructions.md・test-results.md〕、construction/code-generation/reviews の 1 個〔review-03.md〕、operation/deployment-pipeline の 5 個〔cd-config.md・deployment-pipeline-questions.md・deployment-strategy.md・memory.md・rollback-runbook.md〕、operation/deployment-execution の 5 個〔deployment-execution-questions.md・deployment-log.md・health-check-report.md・memory.md・smoke-test-results.md〕）と、この PR の覚え書き 1 個（`aidlc/spaces/default/intents/261113-store-resolution-fix/records-pr-notes.md`）と、この file（`docs/audit/kusabi-records-store-resolution-261113.json`）。(b) src/・scripts/・tests/・package.json・package-lock.json・.github/・.shirube/・.claude/・.codex/・migrations・設定の file・aidlc/active-memory・aidlc-state.md・runtime-graph.json・project-description.json・audit/・.aidlc-engine/ に差分が無い。base にある inception/・construction/code-generation の既存の file にも差分が無い（`git diff --name-only BASE...HEAD` に出ない）。(c) 新しい外部の依存・DB の構造の変更・workflow の変更・資格情報・契約の .v2・料金の変更が 0 件。BASE = `fa9f3a2f16255d723b0cb96f0e77958035f7b11e`。",
+      "basis": "[R] 記録だけの変更で、保護面を含まない（作者の見立ては R1。区分は監査席と arc が決める）。[N] code も試験も変えないので、行の網羅率・設計・実装の標準 S1〜S9・DB の基準の対象になる変更が無い。"
+    },
+    {
+      "id": "REC-2",
+      "criterion": "公開の repo への漏れ: head の 21 file の足した行（`git diff -U0 BASE...HEAD` の + 行）に、次が 0 件か。(a) 手元の home の path（macOS の利用者の directory 名か Linux の home の directory 名で始まり、利用者の名前が入る絶対 path。`~` で始まる path は許す）。(b) DB の接続文字列・資格情報・秘密の値・token。PostgreSQL の接続文字列の綴り（`postgres` または `postgresql` に、コロンと斜線 2 つを続けた形）は security-test-instructions.md の 2 行（出力に URL の形が無いことを調べた手順の説明。20・21 行目）にだけ出てよく、その行に接続先の値が無いこと。同じ file の 23 行目には、その綴りを正規表現の形で書いた調べの命令があるが、綴りそのものは入っていない。この item の文自身は、走査に掛かる綴りを書かないようにした。`DATABASE_URL` などの語は変数名として出てよく、値が無いこと。(c) メールアドレス。(d) Claude・Codex の hook の command の中身（`--binding-source-ref` の値・`--runtime-event-manifest` の値・fleet の manifest の path。引数の名前だけは出てよく、値が無いこと）、設定 file（`.claude/settings.json`・hooks.json・config.json）の中身、TLS の鍵・証明書の path。(e) arc の script の中身（記録には名前・SHA-256 だけがある）。127.0.0.1 は使い捨ての試験の server の説明で、秘密ではない。",
+      "basis": "[V] 作者が 2026-11-19 に記録 19 file を走査した。home の path は 3 か所（deployment-log.md・deployment-execution-questions.md・test-results.md）にあり、`~/` の形に直した。直した後の足した行で (a)〜(e) とも 0 件（(b) の綴りは上記 2 行の説明だけ）。head の 21 file の走査は、PR の本文に結果を書く。監査席が同じ走査を自分で流す。[N] 公開の repo では漏れを戻せない。"
+    },
+    {
+      "id": "REC-3",
+      "criterion": "時間の言葉: 足した行に、社内の決まり（時間の言葉を書かない）の禁止の語が 0 件か。禁止の語の一覧は社内の決まりの file no-time-constraints-keywords.md（直接の単語 約 10 個と、数字 + 時間の単位の形）。この item には語そのものを書かない（走査に掛かるため）。単語の境界を使わない綴りの一致（underscore でつながった綴りを含む）でも 0 件。走査は大文字小文字を区別した綴りで行う（区別しないと、別の単語の一部〔例: Interpretations・detach〕に当たる）。",
+      "basis": "[V] 作者が 2026-11-19 に 19 file を走査し、1 件（performance-test-instructions.md の、時間に関わる語を並べた説明の中の 1 語）を「期限を表す識別子」に直して 0 件にした。[N] 記録・PR 本文・監査の依頼に書く時間の言葉は機械で弾かれる決まり。"
+    },
+    {
+      "id": "REC-4",
+      "criterion": "外の事実の照らし: 記録に書いた外の事実が実物と一致するか。(a) base の commit `fa9f3a2f16255d723b0cb96f0e77958035f7b11e` が PR #347（watchout/agent-memory。状態 MERGED、base main、mergedAt 2026-11-16T05:42:45Z）の merge commit で、依頼の base と同じ。CI の run 43806507709（event pull_request、head `83bd84057f…`、build-and-test の Node 18・20・22 の 3 job が success）と run 43812014201（event push、head `fa9f3a2f16…`、同じ 3 job が success）。(b) Owner の exact-head https://github.com/watchout/agent-memory/pull/347#issuecomment-6908400201（本文 SHA-256 `7239fddb2e1dc7f0c2988ba434f9d0541bdefa97c702d1b1e18517471317c305`。本文は API の JSON の `body` をそのまま数えた値で、ほかの comment と同じ方式。投稿者 watchout、2026-11-16T05:41:36Z）。(c) Owner の決定 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6910764201（本文 SHA-256 `a378655b6cd927b24a9c6da1cc5025f268b29f9dd581caf2a75bd71eef1ca881`、投稿者 watchout、2026-11-16T07:59:37Z）（決定 77。版の作成・本番の表と列の名前・Kusabi 自身の 2 席だけへの当て）。(d) 差し替えの記録 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6911141083（本文 SHA-256 `aa2486f6e93f92d7dbfda81a099d8eb1f4ae5934db8f342848e3a4729abb48c2`、投稿者 watchout、2026-11-16T08:19:12Z）。(e) 決定 95 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6934340758（本文 SHA-256 `28c9b5122c92a2a290d3c131ffca5b3e0ae96e498821f062564902054fb5a391`、投稿者 watchout、2026-11-17T00:57:36Z）（arc が AI-DLC の問いと段の承認を進めてよい。守る物を除く）。(f) 版の公開と表と列の確認の出力の写し https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6943446661（本文 SHA-256 `979fd9fd0ddd1509b40e88d5bfa3a14a642d2192b6ffdc9eac26459c67c5320b`、投稿者 watchout、2026-11-17T08:58:30Z）、2 席の期待の保存先 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6943475955（本文 SHA-256 `5a42d79d70de5846aa71eaba82a760af85256b20009e39cd6302197b53abc6bd`、投稿者 watchout、2026-11-17T08:59:57Z）、決定 114（読み戻しは arc の script を arc-sec が通してから Owner が打つ）https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6943524026（本文 SHA-256 `34fee41ac9dfcdc719eb15c6568adaa853357ceafa230cb2f3fd91e41861bef6`、投稿者 watchout、2026-11-17T09:02:14Z）、無効にした記録 6935369527 を指す https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6940564525（本文 SHA-256 `30559ee313605486bcbe00dfb1f7385eabfbeab44176e3828a842ad6358cb7ee`、投稿者 watchout、2026-11-17T06:25:01Z）、戻しの試し（Q5）の結果 https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6991634288（本文 SHA-256 `7e7c9cf1ebf125224539848495fea78f5c911f772d3c197739bf389f85201d5f`、投稿者 watchout、2026-11-18T21:06:13Z）。(g) 記録が書く hash の接頭辞（版 `eb9bf298…`・旧い版 `5fd29e06…`・席の設定 A `38006e55…`・B `692950e6…`・backup `801ccfa5…`・`aefe0584…`）は、記録どうしで同じ。席の設定 file と版の置き場は、監査席が読めなければ「見られなかった」と書き、記録どうしの一致だけを判定する。",
+      "basis": "[V] 作者が 2026-11-19 に API で本文・投稿者・投稿時刻・SHA-256・merge の状態・CI の run を取り直して一致を確かめた。[R] 決定を引く時は control_source_ref（url と SHA-256）を伴う決まり。"
+    },
+    {
+      "id": "REC-5",
+      "criterion": "権限と出典の書き方: (a) 足した行の中で、10 桁の comment の番号を持つ文が「公開した」「publish」「投稿した」「書いた」と言う時は、その comment の本文から写した「…」の句を同じ文に持ち、その句が引いた comment の本文（GitHub の API）に実在する。作者の照らしの script（check-records-pr.py。記録 19 file と覚え書き 1 file の 20 file。項目の file は JSON で対象外）の結果: 句が実在 1 件、実在しない句 1 件（deployment-log.md の 75 行目。その句は comment の文でなく、記録の別の file〔deployment-strategy.md〕の文の引用で、script の取り違え）、句の無い文 8 件（いずれも arc の記録を「写した」「引いた」「書いた」と言う文で、記録の file の hash を引くだけか、公開の主張ではない文。覚え書きの 2 つ（2.2 の 40 行目〔arc が 2026-11-17T08:58:30Z に写した〕と 2.3 の j の 57 行目）は、API の作成時刻や記録の読みの事実で、本文の句は引いていない。下の digest か本文の句で別に照らした）。comment の番号と同じ行にある 64 桁の digest は 9 件で、8 件が引いた comment の本文の SHA-256 と同じ、1 件（deployment-log.md の 37 行目の版の識別子 `eb9bf298…`）は本文の SHA-256 ではなく、引いた comment（6943446661）の本文に同じ 64 桁が実在する。(b) arc の席間の連絡から来た答え（質問の [Answer] の「arc の答え」）は、arc の答え（Owner の委任 6762288830 と決定 95 の下）と書かれ、Owner の言葉として引かれていない。(c) 守る物の判断（DB の構造・資格情報・本番の読み・席の設定の書き込み・workflow・契約 .v2・料金・新しい外部の依存）を、記録が自分で下していない。判断が要る点は「Owner が打つ」「arc の script」「席は決めない」と書かれている。",
+      "basis": "[V] 作者が 20 file に script を流した（上記の件数）。[R] 権限は GitHub に記録された決定だけ（社内の決まり）、文が出典を言い当て過ぎない（チームの訂正の記録）。"
+    },
+    {
+      "id": "REC-6",
+      "criterion": "記録が書く code の事実が origin/main（BASE）の src と一致し、読んでいない物が「読んでいない」と書かれているか。(a) 保存先の決め方の順（環境の AGENT_MEMORY_DB_TYPE → AGENT_MEMORY_DATABASE_URL・DATABASE_URL → ユーザー設定の database_url → 既定の SQLite）は src/store-resolution.ts の `decideStore`（108〜170 行）と一致する。(b) Stop の記録の取り込みが記録の末尾の 4 MiB だけ（TRANSCRIPT_CAPTURE_TAIL_BYTES = 4 * 1024 * 1024、src/transcript-stop-capture.ts の 48 行）で、health-check-report.md の件はこの定数に基づく。(c) 拒否の理由は `store_refused:<理由>`（src/store-resolution.ts の 95〜96 行）。(d) arc の 3 つの script（publish.sh・prodcheck.sh・install4.sh）と読み戻しの script の中身は席が読んでおらず、記録はその名前と出力の写しを「宣言」「読んでいない」「写し」と書き、読んだ物（この repo の code）と分けている。(e) 配備の設計（cd-config.md・deployment-strategy.md・rollback-runbook.md）と実行の記録（deployment-log.md）が、止める条件（差し替えの前に、版の公開・読み戻し・本番の表と列の確認が済んでいる）で食い違わない。設計の表（cd-config.md の 3）の順は公開 → 読み戻し → 表と列の確認 → 差し替えだが、実行の log の名前の時刻（20261116171049 と 20261116171538 を JST と読んだ推定）は、表と列の確認が公開より先で、覚え書きの 2.3 の b が書いている。どちらも差し替えより前。",
+      "basis": "[V] 作者が BASE の src を `git grep` で読んで (a)〜(c) を確かめ、(d)(e) を記録を読み比べて確かめた。[N] 設計と実装を黙って食い違わせない（権限と待機の決まりの R3）。"
+    },
+    {
+      "id": "REC-7",
+      "criterion": "3 値の誠実さ（S5・S8）: 観測できなかった物を成功に数えず、写しを観測と書かず、宣言を証拠にしていないか。(a) smoke-test-results.md は 17 行で、一致 11（席が観測した 8・arc の記録の写し 3）、観測できず 6、不一致 0。表の「出どころ」の列（一致の行は観測 8・写し 3。観測できずの 6 行は、出どころが写し 2〔S-15・S-16〕・出どころ無し 4）と、結論の文の数が同じ。(b) health-check-report.md の R1 の判定は 2 席とも「観測できず」で、成功と書かれていない。理由は、(i) Claude の席の最初の Stop の証拠が stderr だけで見えない、(ii) 読み戻しと接続の確かめ（決定 114）の出力がまだ無い、(iii) Codex の席が差し替えの後に一度も動いていない、(iv) 2026-11-17 の 10:49〜15:23（JST）の間の保存の欠けは、席が DB を読まないので確かめられない、の 4 点（health-check-report.md の 4 と 1）。(c) deployment-log.md の 74 行目が、deployment-pipeline の記録の「install4.sh が書き込みの前に投稿した記録」を、差し替えの記録（6911141083）の 13 行目に合わせて「arc が先に投稿した宣言」と訂正し、差し替えの成功の証拠にしていない（deployment-pipeline の file は承認済みなので書き換えていない）。(d) 戻しの試し（Q5）は「写しで PASS」で、live の file の戻しは試していない、と書かれている。",
+      "basis": "[V] 作者が表を機械で数え直した（一致 11・観測できず 6・不一致 0・計 17）。[R] 設計・実装の標準 S5（宣言は証拠でない・観測できずを成功に読み替えない）と S8。"
+    },
+    {
+      "id": "REC-8",
+      "criterion": "Build and Test の記録の内部の一貫: (a) build-and-test-summary.md の `Target Verification Matrix` が 19 行で、`Met` 17・`持ち越し` 1（BT-06。この段で流し直していないので `Met` に数えない）・`N/A` 1（BT-19）。結論の文の数と同じ。(b) 流した命令 39 回（1 回目の一式 25・`npm test` の流し直し 1・網羅率の一式 13）、新しい試験の件数 57・40・9・5、core `1832 passed, 0 failed`、行の網羅率は 12 file・追加行 487・未実行 0 が、出る file の間で同じ。39 回は build-and-test-summary.md の 1 に、1832 と 487 は build-and-test-summary.md と test-results.md に、57・40・9・5 は build-and-test-summary.md と test-results.md に出る。cross-unit-traceability.md には 39 回・1832・487 は出ず、試験の件数の合計 111（57+40+9+5）が出る。(c) 同じ文書の §5 の表の「版の作成と配置 まだ作っていない」と「本番の表と列の名前の突き合わせ 本番は読んでいない」、§8 の「まだ行っていない配りの作業」は、この段（席と試験）が行っていない、の意味で読む。版は、publish の log の名前の時刻（20261116171538 を JST と読むと UTC の 2026-11-16 08:15:38。名前の読みで、log そのものは席が見ていない）に Owner が arc の script で公開した。差し替えの記録（6911141083）の投稿は 2026-11-16T08:19:12Z で、この段の試験（2026-11-16T21:25:39Z 以後）より前。この食い違いは approved の file を書き換えず、覚え書き（aidlc/spaces/default/intents/261113-store-resolution-fix/records-pr-notes.md）の 2.2 の訂正に書いた。(e) 日付の基準: 記録の「この段（2026-11-17）」は JST の日付で、test-results.md の UTC の 2026-11-16T21:25:39Z（JST の 2026-11-17 06:25:39）と同じ時刻の別の書き方（覚え書きの 2.3 の f）。(d) 同じ段の §5 の表の「Codex の席は差し替え済みで起こし直していない」は、deployment-execution の記録（Codex の席は未起動）と同じ。",
+      "basis": "[V] 作者が表と命令の件数を機械で数え直し、版の公開の時刻と差し替えの記録の投稿時刻を API で取り直した。[R] 数は書く前に定義・実物を読んで写す（チームの訂正の記録）。"
+    },
+    {
+      "id": "REC-9",
+      "criterion": "席への効果と守る物: (a) この PR は記録だけで、席・hook・設定・版の置き場・DB・tmux・workflow に効果が無い。(b) 記録のどの文も、R2 以後の当て（Kusabi の 2 席の外）が行われた、または開かれたと言わない。R2 は開いていない。(c) Codex の席は差し替えの後に一度も動いていない、と記録が言い、動いたと言う文が無い。(d) 回転の確かめ（b）と、保存先の読み戻しと接続の確かめ（決定 114 の script。Owner が打つ）は、まだ出力が無く、観測できず、と書かれ、済んだと言う文が無い。(e) 2026-11-17 の 10:49〜15:23（JST）の間の保存の欠けは、席が確かめられず（DB を読まない範囲）観測できず、と health-check-report.md の 4 が書く。その後に arc から席間の連絡で受けた答え（決定 114 の出力は接続の道・繋がったか・読み戻せたかだけで、その窓の行は数えない。確かめは次の取り組み、という趣旨。席の読みを含む言い換え）は、Owner の言葉でも GitHub の記録でもない arc の答えとして、覚え書きに書かれ、承認済みの file は書き換えていない。",
+      "basis": "[V] 作者が 19 file の状態の文を読んで確かめた。[N] 席の起動・展開は保護面で、Owner の認可を得てから行う（チームの決まり）。"
+    },
+    {
+      "id": "REC-10",
+      "criterion": "承認の後の file の直しと訂正の置き場: (a) Deployment Execution の承認（2026-11-18）の後、承認済みの 4 file に 2026-11-19 に直しが入った。内容は、手元の home の path の先頭を `~` に直した 3 か所（deployment-log.md・deployment-execution-questions.md・test-results.md）と、時間に関わる語の説明の 1 語（performance-test-instructions.md）。意味を変える直しは無く、覚え書きの訂正の節に書いてある。(b) それ以外の承認済みの file に、承認の後の書き換えが無い、は作者の申告で、この PR の差分（新しい file だけ）では監査席が確かめられない。訂正は覚え書きに書き、file は書き換えない決まり（チームの学び）。(c) 覚え書きの 2.2・2.3 が、REC-8 (c) の Build and Test の食い違いと、後から出た事実で古くなった文を、直す前の文の引用と、確かめた時刻・根拠つきで書いている。",
+      "basis": "[V] 作者が直した行を覚え書きと突き合わせた。[N] 承認の後の書き換えは、engine の段の有効性の確かめを動かす（警告として出る）。公開の repo への漏れを防ぐ直しだけを例外にした。"
+    },
+    {
+      "id": "REC-11",
+      "criterion": "前検査の記録: 覚え書きの前検査の節が、(a) 対象（file ごとの blob の一覧と、前検査の後に直した file）、(b) 前検査の役（aidlc-devsecops-agent。読むだけ。1 回）、(c) 止める指摘の数（KY の表で差し戻す組み合わせに当たる物）、(d) 直した物、(e) 持ち越した物と理由、を書いている。持ち越した物は、KY の表で差し戻す組み合わせに当たらない（または対象外）と、理由つきで書かれている。",
+      "basis": "[V] 作者が覚え書きを読んで確かめた。[R] 社内の決まり（AI-DLC の決まり 版 8）と arc の指示（次の監査の依頼から、KY の先回りの点検を 1 回、読むだけで行い、head・止める数・直した物・持ち越した物を単位の見直しの記録に書く）。"
+    },
+    {
+      "id": "REC-12",
+      "criterion": "PR 本文と依頼の本文の件数・範囲の文: 変更 file の数・commit の数・足した行の数・公開の状態の文が、head から機械で作り直した値と同じで、「いつの時点か」（head の 8 桁）が添えてある。PR 本文の deviation_ledger が「採った判断」と「採らなかった代替」を 1 行ずつ書いている。PR 本文に、REC-2・REC-3 の禁止の語・手元の path・接続文字列が無い。",
+      "basis": "[V] 作者が head から作り直した。[R] 手で直した数が古くなって返却の指摘になる事例が続いた（チームの訂正の記録）。"
+    }
+  ]
+}
