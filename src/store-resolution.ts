@@ -16,6 +16,8 @@ import { inspect } from "node:util";
 
 export const CODEX_USER_CONFIG_RELATIVE_PATH = ".agent-memory/config.json" as const;
 export const KUSABI_STORE_BINDING_HASH_VERSION = "kusabi-store-binding/v1" as const;
+/** The names of the two environment variables `decideStore` reads first (the backend, the PostgreSQL URL), for a caller that builds its own small environment. */
+export const STORE_ENV_VARS = Object.freeze({ backend: "AGENT_MEMORY_DB_TYPE", url: "AGENT_MEMORY_DATABASE_URL" } as const);
 
 export type StoreBackendName = "postgres" | "sqlite" | "json";
 export type StoreSource = "environment" | "user_config" | "local_default";
@@ -106,8 +108,8 @@ const refuse = (reason: StoreRefusalReason): StoreDecision => ({ ok: false, reas
  * config cannot add a failure to a seat that names its store in the environment.
  */
 export function decideStore(env: NodeJS.ProcessEnv, readConfig: () => StoreConfigRead): StoreDecision {
-  const dbType = (env.AGENT_MEMORY_DB_TYPE ?? "").toLowerCase();
-  const environmentUrl = env.AGENT_MEMORY_DATABASE_URL || env.DATABASE_URL || undefined;
+  const dbType = (env[STORE_ENV_VARS.backend] ?? "").toLowerCase();
+  const environmentUrl = env[STORE_ENV_VARS.url] || env.DATABASE_URL || undefined;
   if (dbType === "sqlite" || dbType === "json") {
     return {
       ok: true,
