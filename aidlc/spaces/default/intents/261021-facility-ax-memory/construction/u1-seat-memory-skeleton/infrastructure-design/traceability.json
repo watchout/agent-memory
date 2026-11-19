@@ -1,0 +1,37 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-seat-memory-skeleton",
+  "upstream_ids": [
+    "NFR1.1", "NFR1.2", "NFR2.1", "NFR3.1",
+    "NFR4.1", "NFR4.2", "NFR4.3", "NFR4.4", "NFR4.5", "NFR4.6",
+    "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR5.7",
+    "NFR6.1", "NFR7.1", "NFR8.1", "NFR8.2", "NFR8.3", "NFR9.1", "NFR10.1", "NFR10.2"
+  ],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "local JSON-lines call log at ~/.agent-memory/calls.log (infrastructure-specification)" },
+    { "id": "NFR1.2", "status": "OK", "target": "no external service; external-call count checked in tests (monitoring-design)" },
+    { "id": "NFR2.1", "status": "OK", "target": "kusabi schema public functions only for seat roles (infrastructure-specification)" },
+    { "id": "NFR3.1", "status": "OK", "target": "per-seat login roles mapped through common principal_login (infrastructure-specification)" },
+    { "id": "NFR4.1", "status": "OK", "target": "host adapter timing test, 7-second threshold (monitoring-design)" },
+    { "id": "NFR4.2", "status": "N/A", "target": "application timeout setting, no infrastructure resource (nfr-design performance-design)" },
+    { "id": "NFR4.3", "status": "N/A", "target": "application timeout setting, no infrastructure resource (nfr-design performance-design)" },
+    { "id": "NFR4.4", "status": "OK", "target": "speed test with 10k synthetic decisions on the disposable PostgreSQL 17 (monitoring-design)" },
+    { "id": "NFR4.5", "status": "OK", "target": "resource sizing row: tens of seats, 10k decisions per seat (infrastructure-specification)" },
+    { "id": "NFR4.6", "status": "OK", "target": "one connection per seat process, no pool (infrastructure-specification)" },
+    { "id": "NFR5.1", "status": "N/A", "target": "application failure handling, no infrastructure resource (nfr-design reliability-design)" },
+    { "id": "NFR5.2", "status": "N/A", "target": "per-transaction statement and lock timeouts set by the application (nfr-design performance-design)" },
+    { "id": "NFR5.3", "status": "OK", "target": "single placement DB with no fallback store (infrastructure-specification)" },
+    { "id": "NFR5.4", "status": "N/A", "target": "transaction boundary in the kusabi function, no infrastructure resource (nfr-design reliability-design)" },
+    { "id": "NFR5.5", "status": "N/A", "target": "host adapter behaviour, no infrastructure resource (nfr-design reliability-design)" },
+    { "id": "NFR5.6", "status": "N/A", "target": "failure-name mapping in code (nfr-design observability-design)" },
+    { "id": "NFR5.7", "status": "N/A", "target": "memory_status in host adapter output (nfr-design observability-design)" },
+    { "id": "NFR6.1", "status": "OK", "target": "paired up and down SQL for the kusabi schema, rollback test in the pipeline (cicd-pipeline)" },
+    { "id": "NFR7.1", "status": "N/A", "target": "no delete function in the kusabi schema, checked by test (nfr-design reliability-design)" },
+    { "id": "NFR8.1", "status": "OK", "target": "SCRAM login roles, local-only disposable DB, verified TLS outside this Mac (infrastructure-specification)" },
+    { "id": "NFR8.2", "status": "OK", "target": "kusabi_owner with common_verify_caller and EXECUTE-only seat roles (infrastructure-specification)" },
+    { "id": "NFR8.3", "status": "OK", "target": "credentials from environment, created and dropped inside tests, no new CI secrets (cicd-pipeline)" },
+    { "id": "NFR9.1", "status": "N/A", "target": "UTC timestamps and ordering in the data model (nfr-design observability-design)" },
+    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL 17 per test run via initdb and pg_ctl on a free port (infrastructure-specification)" },
+    { "id": "NFR10.2", "status": "OK", "target": "coverage check added to CI through a separate workflow-only PR with owner exact-head (cicd-pipeline)" }
+  ]
+}
