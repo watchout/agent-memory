@@ -1,0 +1,48 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた実装監査の項目（agent-memory の `ci.yml` の 1 行の変更。守る物 = workflow の変更なので区分は R3、作者の見立てで、決めるのは監査席と arc）。小さい変更の軽い道（社内の決まり版 8。100 行以下）で、設計の覚え書きは PR 本文の短い形。監査の合格は、作者の受領・必須の検査・Owner の exact-head・作者と別の席の統合のどれも代替しない。止める指摘は「起きやすさ × 困る大きさ」の表（決定 #49 6806956918）で決め、致命・重大の行を名指しで照らす。",
+  "scope": "watchout/agent-memory の `.github/workflows/ci.yml` の 1 行の変更（Owner の決定 163）の実装監査。対象 = 依頼の targets の head（base = main の c3897c6dcac72c13567bc3a5571106b52d20d53b。#349・#350 の統合の後の main）。この項目の file はその head に足す物で、足す前の commit は 85cb6e51620e0bee6d4d19d4d7c28c99f5fd9583（変更の commit 8663708f に、その main を取り込んだ merge commit）。kodama の同じ変更・#351・#352 の監査は範囲外。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-7023655846",
+    "sha256": "f42968200ef5cb11b950365366cc5836481a69b8dd7938114683d0b3a83588c4"
+  },
+  "items": [
+    {
+      "id": "CW-1",
+      "criterion": "範囲: base と head の差分は、この項目の file を除いて、`.github/workflows/ci.yml` の 1 行の削除（`pull_request:` の下の `branches: [main]`）だけか。追加 0 行か。`push` の絞り・job・matrix・steps・env は同じままか。ほかの workflow・`package.json`・`src/`・lockfile は 0 file か。",
+      "basis": "[V] 作者が `git diff --numstat` で数えた: `0 1 .github/workflows/ci.yml`（1 file、追加 0・削除 1）。削除された行の全文は `    branches: [main]`。作者が YAML の parser（Ruby）で新旧の file を読み、`on` の `pull_request` が `{\"branches\"=>[\"main\"]}` から空（nil）に変わっただけで、`on` 以外は新旧の parse 結果が同じだった。`push` は `{\"branches\"=>[\"main\"]}` のまま。"
+    },
+    {
+      "id": "CW-2",
+      "criterion": "必須の検査の名前: job 名 `build-and-test` と matrix の値（`18`・`20`・`22`）は変わらず、branch の保護が要求する 3 つの検査の名前（`build-and-test (18)`・`(20)`・`(22)`）は変わらないか。base が main の PR（この PR を含む）で、変更の後も同じ 3 つが走って success になるか（依頼が書く CI の run で確かめる）。",
+      "basis": "[V] 作者が main の必須の検査を API で読んだ（`required_status_checks`）: `build-and-test (18)`・`(20)`・`(22)` の 3 つだけ。job と matrix は CW-1 のとおり差分に入っていない。この PR の head の CI の結果は、この file が head に入った後に出るので、この file には書けない（依頼の本文の CI の run を見る）。"
+    },
+    {
+      "id": "CW-3",
+      "criterion": "新しい権限・費用が増えないか: `ci.yml` は secrets・`permissions:`・`pull_request_target` を持たず、event は `pull_request` のままか。絞りを外して増えるのは「base が main でない PR でも同じ job が走る」ことだけか。ほかの workflow（`shirube-rapid-lite-gates-report.yml`。`pull_request_target`）は変わらないか。攻める側に要る最小の権限（足し 0）を、この変更の場面について 1 行で書き、KY の表で止めるか決めてください。",
+      "basis": "[V] 作者が `.github/workflows` を grep した（main の head）: `secrets.` は 0 件、`permissions:` と `pull_request_target`・`GITHUB_TOKEN` は `shirube-rapid-lite-gates-report.yml` だけ（この PR は触れない）。[文献確認] GitHub の文書（workflow syntax）は、fork からの `pull_request` では書き込み権限が読み取りに調整されると書く（`the permissions are adjusted to change any write permissions to read only`）。公開の repo の標準の runner の利用は無料と、課金の文書が書く（`The use of standard GitHub-hosted runners is free:` の次の `In public repositories.`）。作者の見立ては、攻める側に要る権限は「この repo に PR を開ける権限」で、走るのは既にある試験の job だけ。判断は監査席に任せる。"
+    },
+    {
+      "id": "CW-4",
+      "criterion": "効果の観測: 変更の目的（base が別の PR の枝の PR にも必須の検査が走る）は、同じ形の trigger（`pull_request:` に絞りが無い）を持つ他の repo で、実際に起きているか。この PR 自身は base が main なので、この効果はこの PR の CI では観測できない、と依頼が書いているか。この repo での直接の観測が統合の後に残ることを、限界として読めるか。",
+      "basis": "[V] 作者が API で読んだ: 絞りの無い `pull_request:` を持つ `ci.yml`（aun・shirube）が、base が main でない PR に `pull_request` event で走り success になっている実例 = watchout/aun#131（base `aun/seat-wrapper-u2-pr3b-20261119`）・watchout/aun#132（base `feature/bootstrap`）・watchout/shirube#116（base `adf-lead/u2-split-2-source-20261119`）・watchout/shirube#117（base `adf-lead/u2-split-3-observation-20261119`）。[文献確認できず] GitHub の文書に「絞りが無い時は全部の base で動く」と明記した文は、作者が読んだ 2 ページには見つからなかった（絞りは対象の branch を限る、という文だけ）。この repo の観測は、統合の後に #351・#352 の CI が走ることで行う（今は未観測）。"
+    },
+    {
+      "id": "CW-5",
+      "criterion": "戻し方と同居（S6）: 戻しは、削除した 1 行（`    branches: [main]`）を `pull_request:` の下に戻すだけか。新旧が同居する間の挙動（base が main の PR は変わらず、変更の後に base が main でない PR に新しい run が出る。既に終わった run は変わらない）が差分から読めるか。",
+      "basis": "[V] CW-1 の差分（1 行の削除）から読んだ。戻しは、同じ位置に同じ行を足す 1 行の変更。この repo の open な PR のうち、積んだ PR は #351・#352（base が別の PR の枝）で、統合の後の次の push から run が出る。"
+    },
+    {
+      "id": "CW-6",
+      "criterion": "権限の経路: この変更は、Owner の決定 163（control_source_ref）の範囲か。決定は、agent-memory の `ci.yml` の `pull_request` の向き先の絞りを外すこと・変えるのはその行だけ・repo ごとに小さな PR 1 本・独立の監査と統合の前の Owner の exact-head・統合は作者と別の席、と書いているか。この PR は agent-memory だけで、kodama の同じ変更は別の PR か。統合の前に Owner の exact-head が要る（workflow は守る物）こと、作者が統合しないことを、依頼の本文が書いているか。",
+      "basis": "[V] 作者が決定の本文を API で読み、SHA-256 が control_source_ref の値と一致することを確かめた。決定の本文は `agent-memory と kodama の ci.yml の pull_request の向き先の絞りを外し` と `変えるのはその行だけ` を含む。この PR の差分は CW-1 のとおり agent-memory の 1 file 1 行。"
+    },
+    {
+      "id": "CW-7",
+      "criterion": "公開の repo の確認: 足した行（この PR の差分の + 行。この項目の file を含む）・commit の文・PR 本文に、この Mac の software の版・DB の内側の名前・home の絶対 path・実在の資格や接続先が無いか。",
+      "basis": "[V] 作者が、足した行・commit の文・PR 本文を、版と名前を表す語の一覧（PR 本文のコマンドのパターン）で grep して 0 件。この PR のコードの差分は削除 1 行で、足した行は項目の file だけ。"
+    }
+  ]
+}
