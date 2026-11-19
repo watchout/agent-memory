@@ -97,6 +97,7 @@
     "publish:kusabi-content-addressed-runtime-release": "node scripts/build-kusabi-content-addressed-runtime-release.mjs --mode publish",
     "test:kusabi-content-addressed-runtime-release": "node scripts/test-kusabi-content-addressed-runtime-release.mjs --fixture publisher-unit",
     "test:common-seat": "tsx src/test-common-seat-scenario.ts && tsx src/test-common-placement.ts && tsx src/test-common-seat-errors.ts && tsx src/test-common-seat-store.ts",
+    "test:common-seat-pg": "tsx src/test-common-seat-pg.ts",
     "readback:kusabi-content-addressed-runtime-release": "node scripts/build-kusabi-content-addressed-runtime-release.mjs --mode readback",
     "measure:kusabi-functional": "tsx src/measure-kusabi-functional.ts"
   },
