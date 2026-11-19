@@ -1,0 +1,1 @@
+npm ci && npx tsc --noEmit && npm run build && npm test

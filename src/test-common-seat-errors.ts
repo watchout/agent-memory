@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  PLACEMENT_UNSET_NOTE,
   RESPONSE_LOST_NOTE,
   SEAT_ERROR_NAMES,
   failure,
@@ -18,7 +19,7 @@ import {
   sqlState,
   type SeatErrorName,
 } from "./common-seat-errors.js";
-import type { StoreRefusalReason } from "./store-resolution.js";
+import { STORE_ENV_VARS, type StoreRefusalReason } from "./store-resolution.js";
 import { dbError } from "./test-common-seat-support.js";
 
 const COMMON: Array<[string, string, SeatErrorName]> = [
@@ -116,7 +117,17 @@ cases.push(["store refusals: all six reasons have a row", () => {
     config_read: "placement_unreachable",
   };
   for (const [reason, name] of Object.entries(expected)) {
-    assert.deepEqual(mapStoreRefusal(reason as StoreRefusalReason), { ok: false, name, cause: "placement", code: reason });
+    const note = name === "placement_unset" ? { note: PLACEMENT_UNSET_NOTE } : {};
+    assert.deepEqual(mapStoreRefusal(reason as StoreRefusalReason), { ok: false, name, cause: "placement", code: reason, ...note });
+  }
+}]);
+
+cases.push(["BR1.3: a common form with no place names the setting in a fixed text; no other refusal carries a note", () => {
+  assert.ok(PLACEMENT_UNSET_NOTE.includes(STORE_ENV_VARS.url));
+  assert.ok(!/:\/\/|@/.test(PLACEMENT_UNSET_NOTE), "the note holds no URL");
+  assert.equal(mapStoreRefusal("target_missing").note, PLACEMENT_UNSET_NOTE);
+  for (const reason of ["unknown_db_type", "env_url_shape", "config_content", "config_kind", "config_read"] as const) {
+    assert.equal(mapStoreRefusal(reason).note, undefined);
   }
 }]);
 

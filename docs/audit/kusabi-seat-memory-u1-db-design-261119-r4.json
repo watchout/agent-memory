@@ -1,0 +1,18 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた 4 回目の依頼の項目（差分だけの出し直し。決定 155）。監査席は作者と別の席。監査の合格は、作者の受領・必須の検査・作者と別の席（suite-lead）の統合・保護面への Owner の exact-head の決定・席への据え付けのどれも代替しない。区分（R3）は作者の見立てで、決めるのは監査席と arc。",
+  "scope": "watchout/agent-memory の PR #349（取り組み 261021-facility-ax-memory の単位 U1 の設計の記録）の設計監査の 4 回目。前に監査を受けた head は d9227ca428337ed4af0def8ea4cc73af15d9f8da。この項目の file はその head への追加で、ほかの 107 file は同じ bytes。影響を受ける項目は DS-2 だけ（PR 本文の読み替えの一覧に 3 行を足した。記録の本体は変えていない）。DS-1・DS-3 から DS-13 は、3 回目の返却（https://github.com/watchout/agent-memory/pull/349#issuecomment-7004845797）の PASS を、head の版の一致で使い回す。監査席が他の項目に響くと判断すれば、全部を読み直してよい。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830",
+    "sha256": "59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609"
+  },
+  "items": [
+    {
+      "id": "DS-2",
+      "criterion": "公開の repo への漏れ: head の 108 file（追加される行の全部）に、次が 0 件か。(a) home の絶対 path（macOS と Linux の 2 種の接頭辞で始まる物）。席の標準の置き場を `~/` で書いた名前（設定の folder・資格情報の file の名前など）は、既に公開の repo にある名前なので可。値・中身は不可。(b) DB の接続文字列・資格情報・秘密の値・token・hook の command の中身・TLS の鍵や証明書の path。(c) メールアドレス。(d) 非公開の repo（iyasaka-arc・iyasaka-org・onza・AUN・shirube など）の中身の原文の引用。共通基盤（onza）について、記録（db-design-record.md）が書くのは、関数の名前・引数の数・失敗の名前（OC001〜OC011）・Kusabi の側の role の名前・`common_verify_caller` の名前と、固定 commit・5 file の参照までか（記録の冒頭の段落（18 行）。arc の判断、決定 95 による委任、Owner の言葉ではない）。入力の意味・内部の作り・契約の要約・表の名前が書かれた行があれば、その行を名指しで差し戻す（公開の repo では戻せないので、統合の前に直す）。この PR の AI-DLC の記録のうち、承認済みの先の段の記録は、共通基盤の表・role・SQL の file の名前と、固定 commit・文書の節への参照を書いている。承認済みの段の file は書き換えない（arc の判断、決定 95 による委任、Owner の言葉ではない）。名前と参照を超えて共通基盤の中身を説明する行（共通基盤の表・列・状態・役割の中身、確かめの入力・返す物・検査、DB の利用者・主体・席の対応づけの方法、契約・文書の節の引用や要約、配布物・PostgreSQL の版の縛りと取り込み方、置き場・隔離の作り、ID の形）は、PR 本文の覚え書きに行番号で挙げ、名前と参照の範囲に読み替えると書いた。その一覧は、共通基盤を指す語（共通基盤・common・onza・主体・割り当て・binding・確かめの関数と失敗の名前・文書の名前など。内部の表・列・状態の名前は、この記録にも書かない）を含む行を、記録の本体を除く PR の全 file（105 file）で、同じ基準（名前・引数の数・失敗の名前・指定した role の名前・固定参照までか）で読み直して作った。表や role の名前だけを書いた行（先の段の記録が許す範囲）は、一覧に入れていない。3 回目の返却（BF-02。先の段の記録 `nfr-requirements/nfr-requirements-questions.md` の 47 行が未掲載）を受けて、同じ種類（共通基盤の名前・版・試された版・確かめた版・対応の版を言う行）を、言い換えを含めて PR の全 file で洗い、全行の表（https://github.com/watchout/agent-memory/pull/349#issuecomment-7004984624）と一覧を突き合わせ、3 行を足した（99 行 → 102 行。file は 32 のまま）。許す範囲は、別の意味へ広げていない。監査席は、読み替えの足りない行を見つけたら、指摘に行を名指しで書く。(e) arc の script の中身。(a) の `~/` で書いた標準の置き場の名前は可で、0 件に数えない。PASS の条件: (a) の絶対 path・(b)・(c)・(e) が 0 件で、(d) の記録の行が上の形に収まり、先の段の記録で上の形を超える行が PR 本文の一覧に載っている。",
+      "basis": "[V] 作者が追加される行を走査した結果は、(a) の絶対 path・(b) の接続文字列と資格情報の形・(c) のメールアドレスの形のどれも 0 件。見直し役（読むだけ）の走査でも、絶対 path は 0 件で、命中した `~/` の名前は標準の置き場の名前だった。`~/.agent-com-api-keys` の名前は、base の `.gitignore` と `src/stores/voyage.ts` に既にある。監査席が同じ走査を自分で流す。(d) の一覧は、2 回目の差し戻し（BF-02）の後に、記録の本体を除く PR の全 file の、共通基盤を指す語を含む行を、席が全文で読み直して作った（行・file の数は PR 本文に書いた）。見直し役（読むだけ）3 体の読みと照らし、行番号がずれた報告は席が実物で確かめた。記録の本体は、172 行を Kusabi 自身の制約と固定参照に分け、確かめの引数や返す物の説明に読める句（32・88・213・294・341・378・406 行）を Kusabi 自身の決めの言い方に直し、434 行の範囲の言い方を 18 行・431 行にそろえた。[V] 3 回目の返却を受けた洗い直し: 共通基盤を指す語と版・試された・確かめた・対応などの語を同じ行に含む 159 行（51 file）を機械で拾い、36 行は既に一覧にあり、3 行を足し、残りの 120 行は名前・固定参照・Kusabi 自身の決め・語の一致だけ、と読んだ（表に 1 行ずつ書いた）。共通基盤の語を要求しない 50 行の読みでは、共通基盤の版や試された版を言う行は無かった。[R] 公開の repo では漏れを戻せない（`watchout/agent-memory` は公開）。この記録が引く共通基盤は、固定した commit と 5 file の SHA-256 と、呼ぶ口の名前・引数の数・失敗の名前・role の名前だけ（計画 D6、arc の判断）。"
+    }
+  ]
+}
