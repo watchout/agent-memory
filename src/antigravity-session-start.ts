@@ -13,6 +13,7 @@ import {
   type CodexStoreBindingEvidence,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
+import { commonNotYetAvailable } from "./common-recovery.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import { receiveCurrentSessionTranscript, type SessionStartAutoReceiveResult } from "./session-start-auto-receive.js";
@@ -210,6 +211,13 @@ export async function loadAntigravityHookDataFromStore(
   input: AntigravityHookInput,
   event: AntigravityHookEvent,
 ): Promise<LoadedAntigravityHookData> {
+  const common = commonNotYetAvailable(binding);
+  if (common) {
+    const first = event === "pre-invocation" && input.invocationNum === 0;
+    return first
+      ? { auto_receive: common.auto_receive, recovery: common.recovery, recovery_pack: common.recovery_pack, recovery_quality_log_ref: null }
+      : { auto_receive: common.auto_receive, recovery_quality_log_ref: null };
+  }
   const { binding: storeBinding, resolution } = resolveSessionStartStore();
   const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {

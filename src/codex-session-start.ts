@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   estimateTokens,
 } from "./constants.js";
+import { loadCommonRecovery } from "./common-recovery.js";
 import { emitKusabiSessionStartRuntimeEvent } from "./kusabi-runtime-event-emitter.js";
 import { redactText } from "./redact.js";
 import { answerHookAndCommit, writeLine, type CommitSeams } from "./rotation-commit.js";
@@ -757,6 +758,8 @@ export async function loadCodexRecoveryFromStore(
   input: CodexSessionStartInput,
   rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
+  const common = await loadCommonRecovery(binding);
+  if (common) return common;
   const { binding: storeBinding, resolution } = resolveSessionStartStore();
   const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {

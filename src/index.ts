@@ -5,6 +5,8 @@ import { z } from "zod";
 import { appendFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { appendCallRecord, decideEntry } from "./common-entry.js";
+import { createCommonSurface, withCommonForm } from "./common-seat-surface.js";
 import { loadRecoveryContext, normalRecoveryLimits } from "./recovery-context.js";
 import { createStore } from "./stores/index.js";
 import { createStoreReadiness } from "./mcp-store-readiness.js";
@@ -49,6 +51,8 @@ async function logCall(tool: string, params: string): Promise<void> {
 }
 
 async function main() {
+  // The form is decided once, before any local store is built (u1 DL-7). In the common form no local store is opened.
+  const entry = decideEntry(process.env);
   // The Store opens after the transport connects (FR7.2); tool calls wait for it.
   const readiness = createStoreReadiness(() => createStore({ skipPostgresMigrations: true }));
   const store = readiness.store;
@@ -66,10 +70,20 @@ async function main() {
     }
   };
 
-  const server = new McpServer({
+  const standaloneServer = new McpServer({
     name: "wasurezu",
     version: "0.3.0",
   });
+  // The tools below keep one definition; in the common form only their handlers are answered by the seat's surface.
+  const server = entry.form === "common"
+    ? withCommonForm(standaloneServer, createCommonSurface({
+        store: entry.store,
+        now: entry.now,
+        newId: entry.newId,
+        record: (line) => appendCallRecord(LOG_FILE, line),
+        defaultProject: PROJECT,
+      }))
+    : standaloneServer;
 
   // ─── log_decision ───────────────────────────────────────────────
   server.tool(
@@ -995,7 +1009,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("[agent-memory] MCP server running on stdio");
-  readiness.begin();
+  if (entry.form === "standalone") readiness.begin();
 
   // Graceful shutdown
   const shutdown = async () => {

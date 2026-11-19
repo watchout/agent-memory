@@ -10,6 +10,7 @@
 import { spawn } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
+import { refuseCommonForm } from "./common-entry.js";
 import { createStore } from "./stores/index.js";
 import type { SelectedRestartPack, Store } from "./stores/types.js";
 import { estimateTokens } from "./constants.js";
@@ -376,6 +377,8 @@ export function parseClaudeStartArgs(
 
 async function run(): Promise<void> {
   const options = parseClaudeStartArgs(process.argv.slice(2));
+  // The restart pack is a local-store feature: in the common form nothing is opened or launched (u1 DL-7, BR3.5).
+  if (refuseCommonForm("claude-start")) return;
   const store = await createStore();
   try {
     const result = await prepareClaudeResession(store, options);

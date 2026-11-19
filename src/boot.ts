@@ -4,6 +4,7 @@
  * Outputs integrated recovery context to stdout.
  * Runs standalone (not as MCP server) — exits after output.
  */
+import { loadCommonRecovery } from "./common-recovery.js";
 import { loadRecoveryContext, normalRecoveryLimits } from "./recovery-context.js";
 import { createStore } from "./stores/index.js";
 import { DEFAULT_RECOVERY_CONFIG, buildRecoveryOutput, estimateTokens } from "./constants.js";
@@ -35,6 +36,13 @@ function emitRecoveryOutput(output: string): void {
 }
 
 async function boot() {
+  // The common form reads the seat's decisions from the common database and builds no local store (u1 DL-7).
+  const common = await loadCommonRecovery({ max_tokens: DEFAULT_RECOVERY_CONFIG.max_tokens });
+  if (common) {
+    emitRecoveryOutput(common.recovery.text);
+    return;
+  }
+
   // FEAT-029: Ensure memory-tags.md is installed in ~/.claude/rules/
   await ensureMemoryTags();
 

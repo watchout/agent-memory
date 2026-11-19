@@ -11,6 +11,7 @@ import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
+import { refuseCommonForm } from "./common-entry.js";
 import { createStore } from "./stores/index.js";
 import type { Store } from "./stores/types.js";
 import { DEFAULT_RECOVERY_CONFIG, RECOVERY_CONTROL_LINES, estimateTokens } from "./constants.js";
@@ -251,6 +252,9 @@ async function run() {
   if (identityReadback) {
     process.stderr.write(`[kusabi-runtime-identity] ${identityReadback.canonical_json}\n`);
   }
+
+  // The restart pack is a local-store feature: in the common form nothing is opened or launched (u1 DL-7, BR3.5).
+  if (refuseCommonForm("codex-start")) return;
 
   const preparedLaunch = options.launch && !options.dryRun
     ? options.freshSession
