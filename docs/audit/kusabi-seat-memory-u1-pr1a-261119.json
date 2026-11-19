@@ -1,0 +1,63 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた実装監査の項目（U1 の code の 1 つ目 = PR-1a）。設計は別の PR（watchout/agent-memory#349、設計の記録だけの PR）で設計監査 6 回目に PASS し、作者の受領を書いた。この PR はその設計のとおりに code を作ったかを見る。監査の合格は、作者の受領・必須の検査・作者と別の席の統合のどれも代替しない。区分（R2）は作者の見立てで、決めるのは監査席と arc。止める指摘は「起きやすさ × 困る大きさ」の表（社内の決まり、決定 #49 6806956918）で決める。",
+  "scope": "watchout/agent-memory の取り組み 261021-facility-ax-memory の単位 U1（席の記憶の骨組み）の code の 1 つ目（PR-1a）の実装監査。対象 = 依頼の targets の head（base = origin/main の bd98a100e9f1d5c1b815999a005846db64115e52）。この項目の file はその head に足す物で、足す前の code の commit は 36ebfeb9127ae9a9a0704615f77a63c615cc4b8e。PR-1b（SQL と使い捨てのサーバーの試験）・PR-2（道具の面・回復・入口の配線）は別の PR で、この PR の範囲外。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830",
+    "sha256": "59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609"
+  },
+  "items": [
+    {
+      "id": "IM-1",
+      "criterion": "範囲と行数: base と head の差分は、この項目の file を除いて、次の 10 file だけか。新しい製品の code 3 つ（`src/common-placement.ts`・`src/common-seat-errors.ts`・`src/common-seat-store.ts`）、変更 1 つ（`src/store-resolution.ts`。足したのは `STORE_ENV_VARS` の定義と、`decideStore` がそれを読む 2 行だけ）、新しい試験の file 5 つ（`src/test-common-seat-*.ts` と `src/test-common-placement.ts`。うち `src/test-common-seat-support.ts` は表明を持たない補助の file で、`test:common-seat` が流す 4 file には入らない）、`package.json`（試験の命令の 2 行）。SQL・workflow・lockfile・依存の変更・設計の文書は 0 file か。コードの行数（足した行と消した行の和）は上限 2,000 の内か。",
+      "basis": "[V] 作者が `git diff --numstat` で数えた: 製品の code 548 行（新 3 file の 542 行 + `src/store-resolution.ts` の +4 −2）・試験 1168 行（5 file）・`package.json` 3 行、合計 1719 行。設計の文書は 0 行。前検査 `python3 -I ~/Developer/arc/tools/pr-precheck/check.py` は PASS（この項目の file を足す前の code の commit で数えた。前検査の「うち試験 0」は `src/test-*.ts` を試験と数えない分け方による）。PR-1b・PR-2 は別の PR で、この PR の head は含まない。設計は https://github.com/watchout/agent-memory/pull/349（設計監査 6 回目 PASS: https://github.com/watchout/agent-memory/pull/349#issuecomment-7008164168）。"
+    },
+    {
+      "id": "IM-2",
+      "criterion": "公開の repo への漏れ: head の足した行に、次が 0 件か。(a) 手元の home の絶対 path。(b) DB の接続文字列の実物・資格情報・秘密の値・token。(c) メールアドレス。(d) 非公開の repo（iyasaka-arc・iyasaka-org・onza・AUN・shirube など）の中身の原文の引用。(e) この Mac のソフトの版（データベース・コンテナ・パッケージ管理・OS）と、データベースの内側の名前（arc-sec の決まり。公開の repo の記録・PR 本文・試験の名前・log の要約に書かない）。出てよい物（arc の判断で足した範囲。「呼ぶための名前と形」だけ）: (1) 共通基盤の確かめを呼ぶための、引数の JSON の項目名と、契約の版の文字列。(2) 共通基盤の失敗の名前の対応（`onza-common:<reason>` と OC001〜OC011）。(3) Kusabi 自身の関数の名前と、その引数の型の並び。(4) Kusabi の失敗の接頭辞（`kusabi:<name>`）と SQLSTATE。(5) 試験の合成の URL（偽の資格・つながらない port 127.0.0.1:1・:2）と、試験が使い捨てのサーバーを 127.0.0.1 だけで起こす設定。この範囲を超えて、項目名・関数・失敗の符号の意味・共通基盤の内部の作り・表の名前・SQL の写し・非公開の原文を書いた行、または (1)〜(4) が「契約の要約」に当たると判断する行があれば、その行を名指しで差し戻す（その時は作者が直す。作者が先に範囲を決めて押し通さない）。",
+      "basis": "[V] 作者が足した行（`git diff -U0 base head` の + 行。製品・試験・package.json）を、PR 本文の「公開の repo の確認」のコマンドで走査し 0 件。commit の文・PR 本文にも同じ走査をかけて 0 件。本物の接続先・資格・id は 1 つも入れていない（試験の値は作り物で、`src/test-common-seat-support.ts` の印の接頭辞が付く）。[V] (1)〜(4) の場所は作者が確かめた: (1) `src/common-placement.ts` の `COMMON_CONTRACT` と `buildVerifyArguments`（確かめの 2 つの JSON の項目名）、(2)(4) `src/common-seat-errors.ts` の `COMMON_REASONS`・`KUSABI_REASONS`・`STATE_RULES`、(3) `src/common-seat-store.ts` の 3 つの SQL の文字列（`kusabi.` の 3 関数の呼び出し）。設計の記録（#349 の U1 の記録の範囲）に書かれている物は、Kusabi の関数の名前・先頭 3 引数の型・失敗の符号の表・`kusabi:` の接頭辞・`binding_generation`（2 file）。契約の版は、code の文字列が `onza-common/0.2.0-draft.1` で、設計の記録（計画の 1 file）にあるのは `onza-common/0.2` の綴りまで。確かめの引数の JSON の項目のうち `expected_installation_id`・`expected_db_epoch`・`remaining_queries`・`observed_at_ms` と、期限を渡す項目 1 つは、設計の記録に 0 file（作者が `git grep` で確かめた）。arc の判断（決定 95 の委任で、Owner の言葉ではない。セッション間の連絡で、公開した comment ではない）: (1)〜(4) は「呼ぶための名前と形」で、秘密・識別子・内部の作りではないので、公開してよい範囲とする。arc-sec の読み（https://github.com/watchout/iyasaka-arc/issues/57#issuecomment-7008113158）は、#349 の設計の行 584 行について「設計の説明で害なし」と述べ、契約の表・関数・役割の名前は Owner の決定 157 の範囲と書く。この読みの対象は #349 の設計の行で、この PR の code の行を照らした物ではない（作者の読み）。"
+    },
+    {
+      "id": "IM-3",
+      "criterion": "時間の言葉: 足した行と PR 本文に、社内の決まり（`no-time-constraints-keywords.md`）の禁止の語が 0 件か。この項目には語そのものを書かない（走査に掛かるため）。例外として許すのは、共通基盤の確かめの文脈が持つ項目の名前（識別子）が、その決まりの語の 1 つと同じ綴りであること 4 か所だけ（製品の code 1 行と、それを確かめる試験 3 行。時間の制限を人に求める文ではない）。code が持つ時間の上限（接続・読み出し・道具・起動の口・閉じる）は `COMMON_LIMITS` の 1 つの表にあり、この PR で働く上限（接続・読み出し・道具・閉じる）は、超えたら失敗として返し、成功と言わないか（NFR4.1〜4.3・NFR5.2）。起動の口の上限（`startupMs`）は、定数としてあるだけで、この PR では使わない（PR-2 で働く）。範囲外として扱ってよいか。",
+      "basis": "[V] 作者が決まりの hook の正規表現で足した行を走査した。大文字小文字を区別しない走査では、`StoreTarget` と `import.meta` の綴りも当たるので除いた。本物の語の当たりは、製品の code の `buildVerifyArguments` の 1 行と、試験の 3 行（`src/test-common-placement.ts` の題と期待値の 2 行、`src/test-common-seat-store.ts` の 1 行）。PR 本文は 0 件。[V] NFR4.1〜4.3・NFR5.2 の番号と秒数は設計の記録と一致する（見直し役の確かめと作者の読み）。製品の code に `startupMs` を使う所はこの PR に無い（試験が、`startupMs` が `toolMs` より大きいことだけを表明する）。"
+    },
+    {
+      "id": "IM-4",
+      "criterion": "置き場所の決め方（`src/common-placement.ts`・`src/store-resolution.ts`。BR1.1〜1.3・BR2.1・BR2.7・DL-1〜DL-3a・D1・D2）。(a) 共通基盤の形に入るのは `AGENT_MEMORY_MODE=common` の時だけ（BR1.1 は DL-3a で読み替え済み）。無い・空・`standalone` は今の `decideStore` のまま（BR6.1）で、知らない値は `invalid_input`。(b) 置き場所は環境の `AGENT_MEMORY_DATABASE_URL`、次に user config の `database_url`。汎用の `DATABASE_URL` と `AGENT_MEMORY_DB_TYPE` は、共通基盤の形では読まない（`decideStore` に渡す環境は 2 つの名前だけ）。置き場所が無ければ `placement_unset` で、SQLite・JSON に逃げない。(c) 席の設定は user config の `common_seat` 欄だけから読み、環境にも道具の引数にも席の証拠を求めない（BR2.1）。欄が無ければ `seat_not_registered`、形が違えば `invalid_input`。(d) BR1.3: 置き場所が無い時の失敗は、設定の名前 `AGENT_MEMORY_DATABASE_URL` を示す固定の文（`PLACEMENT_UNSET_NOTE`）を持ち、値を持たない。ほかの拒否は文を持たない。(e) BR2.7: 共通基盤の形は `AGENT_MEMORY_AGENT_ID` を持ち主の決め手にしない（code に読む箇所が無い）。(f) 設計との差: 計画の D1・DL-2 は「`decideStore` は変えない」と書いていたが、この PR は `src/store-resolution.ts` に +4 −2 を入れた（環境の名前を 1 か所に定義して `decideStore` が読む形。意味は変えない。deviation_ledger 3）。今ある `store-resolution` の 57 checks と scenario の 40 checks は書き換えずに通るか。環境の名前が 2 か所に書かれていないか（S3）。",
+      "basis": "[V] 作者が読んだ: `src/common-placement.ts` の `commonForm`・`resolveCommonPlacement`・`readSeatSetting`、`src/store-resolution.ts` の `STORE_ENV_VARS`（19〜20 行）と `decideStore` の読み（111〜112 行）、`src/common-seat-errors.ts` の `PLACEMENT_UNSET_NOTE` と `mapStoreRefusal`。[V] 試験（`test:common-seat` の placement 13 checks と errors 12 checks）が、(a)(b)(c)(d) の分岐と、`DATABASE_URL` だけの環境が `placement_unset` になることを確かめる。(e) は scenario の試験が子 process に `AGENT_MEMORY_AGENT_ID` を渡して流し、結果が変わらないことで確かめる。[V] 既存の 57 checks・40 checks は、base の試験の file を書き換えずに head で通った（clean な worktree で流した）。[V] 環境の名前の S3: `AGENT_MEMORY_MODE` の literal は `commonForm` の 1 か所。`decideStore` に今ある `env.DATABASE_URL` の literal は既存の code で、共通基盤の形には渡されない。作者の読み: BR1.3 は最初の head（`fa708af4`）で満たしていなかった（失敗に設定の名前を出していなかった）。見直し役の確かめで見つけ、この head で直した。"
+    },
+    {
+      "id": "IM-5",
+      "criterion": "失敗の名前の表（`src/common-seat-errors.ts`。BR2.5・DL-4・NFR8.3・NFR5.1・標準 S5・S8）。(a) Kusabi の失敗の名前（8 つ）と、共通基盤の理由（OC001〜OC011）・Kusabi の関数の理由・データベースの SQLSTATE・store-resolution の拒否の理由（6 つ）の対応は、この file の 1 か所だけにあるか（ほかの module が別の対応を書いていないか）。(b) 対応は SQLSTATE と message の組で決まり、組が合わない・表に無いものは、名前を持たない失敗（`name: null`）になり、成功にも既存の名前にも読み替えない。(c) 失敗が持つのは種類と短い code（SQLSTATE か driver の code。文字種と長さを制限）と、固定の文（2 つ）だけで、driver の文・値・URL を持たない。5 字の system の誤り（例: EPIPE）は SQLSTATE と読まない。(d) 計画の Step 4 が「確定して記録に書く」とした `store_refused` 側の対応（6 行）は、設計の記録（BR2.5）と矛盾しないか。(e) `not_yet_available` は名前の一覧にあるだけで、返す code はこの PR に無い（PR-2）。それでよいか。",
+      "basis": "[V] 作者が `SEAT_ERROR_NAMES`・`COMMON_REASONS`・`KUSABI_REASONS`・`STATE_RULES`・`STORE_REFUSALS`・`failureCode`・`sqlState` を読んだ。[V] `test:common-seat` の errors 12 checks が、対応の全行と、組が合わない場合・表に無い場合・system の誤りの場合に加え、「ほかの製品の file が SQLSTATE や message の接頭辞を書かない」こと（single owner）を確かめる。作者の読み: 計画の Step 4 の「`store_refused` 側の写しは Step 4 で確定」は、この file の `STORE_REFUSALS`（6 行）で確定した。設計の記録に同じ表は書き足していない（設計の PR は #349 で、承認済みの記録は書き換えない）。固定の文 2 つは `RESPONSE_LOST_NOTE`（BR3.1・S7）と `PLACEMENT_UNSET_NOTE`（BR1.3）。"
+    },
+    {
+      "id": "IM-6",
+      "criterion": "席の store（`src/common-seat-store.ts`。BR1.4〜1.6・BR2.1〜2.7・BR3.1・NFR4・NFR5・標準 S4・S5・S7）。(a) 1 回の呼び出しは、接続 → BEGIN → `SET LOCAL statement_timeout` → Kusabi の関数を 1 つ → COMMIT で、失敗したら ROLLBACK し、表を直に読み書きする文を持たない。（席の確かめと読み書きが同じ取引の中で行われること = BR3.3 は SQL の関数の側の性質で、この PR には SQL が無い。この PR が見るのは、窓口が 1 つの取引で関数を 1 つだけ呼ぶこと）。(b) 自動の再送をしない。送った後に応答を失った書き込みは「書けたか不明。`get_decisions` で確かめてから再送」の注を持ち、読みは持たない（S7）。(c) 置き場所に届かない時は `placement_unreachable` を返し、手元の SQLite・別の DB・file に何も書かない（BR1.4）。呼び出しごとに新しい接続を開く（BR1.5）。(d) 接続・取引の上限は `COMMON_LIMITS` から取り、超えたら失敗を返す。上限を超えた接続が後で開いても閉じる。(e) 時計と id は呼び出し側が渡す（`now`・`decisionId`）。`src/common-placement.ts`・`src/common-seat-errors.ts`・`src/common-seat-store.ts` に現在時刻・乱数・UUID の取得が無い（S4）。(f) 入力は形だけを確かめ（境界の値はデータベースの検査）、形が違えば接続せずに `invalid_input`。応答が期待の形でない・書いた決定の id が返らない時は `bad_response` で、成功にしない。",
+      "basis": "[V] 作者が全 241 行を読み、`Date.now`・`new Date(`・`Math.random`・`randomUUID`・`process.env` を 3 つの module で grep して 0 件。[V] `test:common-seat` の store 16 checks（偽の窓口）が、(a)〜(f) の各場面を確かめ、placement の試験の「S4」が、核の module が時計・乱数・id の生成を持たないことを確かめる。この PR の store は、本物のデータベース・本物の共通基盤に向けた観測ではない（PR-1b の使い捨てのサーバーの試験と、本物の共通基盤への手の確かめは、別の PR・別の記録。PR 本文の限界）。"
+    },
+    {
+      "id": "IM-7",
+      "criterion": "席の設定と接続先の取り扱い（NFR8.3・標準 S9）。(a) 席の設定（`SeatSetting`）は、文字列化・JSON 化・`util.inspect` のどれでも固定の語になり、値を返すのは `reveal()` だけか。(b) この PR が足した module では、`SeatSetting.reveal()` を呼ぶのは確かめの引数を作る 1 か所（`buildVerifyArguments`）、接続先（`StoreTarget.reveal()`）を呼ぶのはドライバに渡す 1 か所（`createPgSqlClient`）だけか。（既にある 4 つの file が `StoreTarget.reveal()` を呼ぶのは、この PR の変更ではない）。(c) 失敗の文・失敗の注・試験の出力に、席の値・URL・資格情報が出ないか。",
+      "basis": "[V] 作者が `reveal()` を grep した: この PR が足した製品の code で、呼ぶのは `common-placement.ts` の `buildVerifyArguments`（`SeatSetting`）と `common-seat-store.ts` の `createPgSqlClient`（`StoreTarget`）の 2 か所だけで、ほかに `SeatSetting.reveal()` の定義が 1 か所（ほかの新しい module は PR-1a の head では importer が無い）。[V] placement の試験（「no raw value」）が、置き場所と失敗が固定の語・名前と短い code だけで出ることを確かめ、store の試験（「statement text holds no value」）が、値が文に入らず引数で渡ることと、どの失敗にも値が出ないことを確かめる。"
+    },
+    {
+      "id": "IM-8",
+      "criterion": "試験の中身と CI への到達（team.md の Testing Posture）。(a) 成功の条件の場面の試験（`src/test-common-seat-scenario.ts`。Step 3）が、実装の無い tree では失敗するか。(b) 新しい試験 `test:common-seat`（46 checks）は、`test:claude-hook` の連なりから CI の `ci.yml` が流す命令に届くか。(c) 今ある試験を書き換えず通るか（核の試験など）。(d) 試験の資格・URL・id は作り物か。試験が本物の接続先に向いていないか。(e) 表明のある試験で、常に通る試験（表明の無い試験）が無いか。",
+      "basis": "[V] (a) 作者が、base の tree にこの 2 つの試験の file だけを置いて流し直した結果は、終了コード 1（`ERR_MODULE_NOT_FOUND`: `src/common-placement.js` が無い）。実装より先に書いた証拠ではなく、実装の無い tree に同じ試験を当てた結果で、後から流し直した（Step 3 の「失敗を確かめた出力」を計画の記録に残していなかったため。作者の読み）。[V] (b)(c) 切り離した git worktree（code の commit `36ebfeb9`）で、`ci.yml` が流す命令に当たる 18 本（型検査・build・核の試験・各 hook の試験・gate0 ほか・`test:common-seat`）を流し、終了コードは全部 0（核の試験 1832 passed・0 failed）。CI の実際の結果は、依頼に書く head の run で確かめる。内訳: scenario 5・placement 13・errors 12・store 16 = 46 checks。[V] (d) 試験の URL は、つながらない port（127.0.0.1:1・:2）と偽の資格。"
+    },
+    {
+      "id": "IM-9",
+      "criterion": "行の網羅率 100%（team.md。標準の床）。(a) この PR が足した製品の code の行（base の blob に無い行）が全部実行され、数えから外した行が無いか。(b) 測り方（`NODE_V8_COVERAGE` を付けて子 process も数える集計 script と、足した行の判定 script）は、監査の席が同じ数字を出せる形か（script の SHA-256 が記録と一致するか）。(c) CI が届く命令（`test:claude-hook`）だけでも足した行が全部実行されるか。",
+      "basis": "[V] `test:claude-hook` だけに `NODE_V8_COVERAGE` を付けて測り、足した製品の code 546 行の未実行は 0 行（`RESULT PASS changed_files=4 changed_lines=546 uncovered_lines=0`。code の commit `36ebfeb9`）。script は 261113 の測定の物（`merge-zero.mjs` の SHA-256 `ab76f8fc…`・`changed-uncovered.py` の `4c73c560…`）。数えから外した行は無い。測定の対象は、`src/store-resolution.ts` の +4 行を含む製品の code 4 file。"
+    },
+    {
+      "id": "IM-10",
+      "criterion": "守る物・計画との対応・判断の記録。(a) この PR は workflow・branch の保護・必須の検査・DB の schema・資格情報・契約の .v2・公開の道具の仕様に触れないか（新しい module は、PR-1a の head では本番の入口から import されず、どの hook・MCP の道具の挙動も変えない）。(b) 新しい外部の依存を足していないか（`pg`・`zod` は base の dependencies にある）。(c) 計画の Step（1・3・4・5・7 の CI から届く層・13 の命令の行）と、この PR の file の対応が、PR 本文の表のとおりか。計画の Step 6（SQL）は PR-1b に回してあるか。(d) deviation_ledger の各行（CI の命令の配線を Step 13 から前倒し・Step 6 と Step 7 の使い捨てのサーバーの層を PR-1b に分けた・監査済みの核に環境の名前の定義を足した）が、「採った判断」と「採らなかった代替」を 1 行ずつ持つか。計画・設計に書かれていない食い違いが、ほかに無いか。",
+      "basis": "[V] 作者が、非試験の `src/*.ts` のうち新しい 3 module を import している file を調べた: `common-placement.ts` と `common-seat-store.ts` の間だけで、入口（`index.ts`・各 hook）には無い。[V] `package.json` の変更は試験の命令の 2 行（+2 −1）で、`dependencies` に差が無い。lockfile の変更は 0 行。作者の読み: ほかに知っている食い違いは無い。見つけたら指摘してほしい。"
+    }
+  ]
+}
