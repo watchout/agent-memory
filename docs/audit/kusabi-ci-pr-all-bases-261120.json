@@ -1,7 +1,7 @@
 {
   "schema": "sds-audit-items/1",
   "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた実装監査の項目（agent-memory の `ci.yml` の 1 行の変更。守る物 = workflow の変更なので区分は R3、作者の見立てで、決めるのは監査席と arc）。小さい変更の軽い道（社内の決まり版 8。100 行以下）で、設計の覚え書きは PR 本文の短い形。監査の合格は、作者の受領・必須の検査・Owner の exact-head・作者と別の席の統合のどれも代替しない。止める指摘は「起きやすさ × 困る大きさ」の表（決定 #49 6806956918）で決め、致命・重大の行を名指しで照らす。",
-  "scope": "watchout/agent-memory の `.github/workflows/ci.yml` の 1 行の変更（Owner の決定 163）の実装監査。対象 = 依頼の targets の head（base = origin/main の bd98a100e9f1d5c1b815999a005846db64115e52）。この項目の file はその head に足す物で、足す前の commit は 8663708f64c720c9e1239e992f192959dd4e4505。kodama の同じ変更・#351・#352 の監査は範囲外。",
+  "scope": "watchout/agent-memory の `.github/workflows/ci.yml` の 1 行の変更（Owner の決定 163）の実装監査。対象 = 依頼の targets の head（base = main の c3897c6dcac72c13567bc3a5571106b52d20d53b。#349・#350 の統合の後の main）。この項目の file はその head に足す物で、足す前の commit は 85cb6e51620e0bee6d4d19d4d7c28c99f5fd9583（変更の commit 8663708f に、その main を取り込んだ merge commit）。kodama の同じ変更・#351・#352 の監査は範囲外。",
   "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
   "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
   "control_source_ref": {
