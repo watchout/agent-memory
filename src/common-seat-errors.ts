@@ -5,7 +5,7 @@
  * success (S5, S8). A failure carries the kind of the error and a short code only, never the driver's text, a value or
  * a URL (NFR1.1, NFR8.3).
  */
-import type { StoreRefusalReason } from "./store-resolution.js";
+import { STORE_ENV_VARS, type StoreRefusalReason } from "./store-resolution.js";
 
 export const SEAT_ERROR_NAMES = [
   "seat_not_registered",
@@ -43,6 +43,9 @@ export interface SeatFailure {
 
 export const RESPONSE_LOST_NOTE =
   "sent, but it is unknown whether it was written; confirm with get_decisions before resending";
+
+/** BR1.3: a common form with no place stops and names the setting (the name comes from the one resolver, S3); a fixed text, never a value. */
+export const PLACEMENT_UNSET_NOTE = `no place is set; set ${STORE_ENV_VARS.url}`;
 
 export function failure(name: SeatErrorName | null, cause: FailureCause, code?: string, note?: string): SeatFailure {
   return { ok: false, name, cause, ...(code ? { code } : {}), ...(note ? { note } : {}) };
@@ -92,7 +95,10 @@ const STORE_REFUSALS: Readonly<Record<StoreRefusalReason, SeatErrorName>> = {
   config_read: "placement_unreachable",
 };
 
-export const mapStoreRefusal = (reason: StoreRefusalReason): SeatFailure => failure(STORE_REFUSALS[reason], "placement", reason);
+export const mapStoreRefusal = (reason: StoreRefusalReason): SeatFailure => {
+  const name = STORE_REFUSALS[reason];
+  return failure(name, "placement", reason, name === "placement_unset" ? PLACEMENT_UNSET_NOTE : undefined);
+};
 
 const read = (error: unknown, key: "code" | "message"): string | undefined => {
   const value = typeof error === "object" && error !== null ? (error as Record<string, unknown>)[key] : undefined;

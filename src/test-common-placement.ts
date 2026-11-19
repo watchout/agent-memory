@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { inspect } from "node:util";
 import { fileURLToPath } from "node:url";
 import { COMMON_CONTRACT, COMMON_LIMITS, buildVerifyArguments, commonForm, resolveCommonPlacement, SeatSetting } from "./common-placement.js";
-import type { SeatFailure } from "./common-seat-errors.js";
+import { PLACEMENT_UNSET_NOTE, type SeatFailure } from "./common-seat-errors.js";
 import { decideStore, STORE_ENV_VARS, type StoreConfigRead } from "./store-resolution.js";
 import { SECRET_PASSWORD, SEAT_A, SYNTHETIC_URL, settingFor } from "./test-common-seat-support.js";
 
@@ -59,7 +59,9 @@ cases.push(["placement: with no environment URL the user config's database_url i
 }]);
 
 cases.push(["placement: no place, or only the generic DATABASE_URL, is placement_unset and never a local store", () => {
-  assert.equal(failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common" }, present(settingFor(SEAT_A)))).name, "placement_unset");
+  const unset = failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common" }, present(settingFor(SEAT_A))));
+  assert.equal(unset.name, "placement_unset");
+  assert.equal(unset.note, PLACEMENT_UNSET_NOTE);
   assert.equal(failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common" }, () => ({ status: "absent" }))).name, "placement_unset");
   const generic = failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common", DATABASE_URL: SYNTHETIC_URL }, present(settingFor(SEAT_A))));
   assert.equal(generic.name, "placement_unset");
