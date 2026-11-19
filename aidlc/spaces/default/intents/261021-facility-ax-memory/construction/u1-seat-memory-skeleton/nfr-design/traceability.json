@@ -1,0 +1,37 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-seat-memory-skeleton",
+  "upstream_ids": [
+    "NFR1.1", "NFR1.2", "NFR2.1", "NFR3.1",
+    "NFR4.1", "NFR4.2", "NFR4.3", "NFR4.4", "NFR4.5", "NFR4.6",
+    "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR5.7",
+    "NFR6.1", "NFR7.1", "NFR8.1", "NFR8.2", "NFR8.3", "NFR9.1", "NFR10.1", "NFR10.2"
+  ],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "content-free JSON-lines call log with four fields (observability-design, security-design)" },
+    { "id": "NFR1.2", "status": "OK", "target": "no external-service code path in common mode (security-design)" },
+    { "id": "NFR2.1", "status": "OK", "target": "read function returns only the verified seat and scope (security-design)" },
+    { "id": "NFR3.1", "status": "OK", "target": "identity from session_user via common.verify_current_tx inside SECURITY DEFINER functions (security-design)" },
+    { "id": "NFR4.1", "status": "OK", "target": "single 7-second deadline in the host adapter (performance-design)" },
+    { "id": "NFR4.2", "status": "OK", "target": "2-second connect timeout bounded by the deadline (performance-design)" },
+    { "id": "NFR4.3", "status": "OK", "target": "3-second statement timeout for verify and read (performance-design)" },
+    { "id": "NFR4.4", "status": "OK", "target": "one function call per write and an index on seat, scope, status, time (performance-design)" },
+    { "id": "NFR4.5", "status": "OK", "target": "tens of seats within connection limit, 10k decisions per seat with bounded reads (scalability-design)" },
+    { "id": "NFR4.6", "status": "OK", "target": "one connection per MCP process, no pool (scalability-design)" },
+    { "id": "NFR5.1", "status": "OK", "target": "named failures returned, never success (reliability-design)" },
+    { "id": "NFR5.2", "status": "OK", "target": "5-second statement timeout and 1-second lock timeout per transaction (performance-design)" },
+    { "id": "NFR5.3", "status": "OK", "target": "no fallback store, reconnect on next call (reliability-design)" },
+    { "id": "NFR5.4", "status": "OK", "target": "verify and insert in one function call and one transaction (reliability-design)" },
+    { "id": "NFR5.5", "status": "OK", "target": "host adapter returns startup with memory_status on every failure (reliability-design)" },
+    { "id": "NFR5.6", "status": "OK", "target": "single OC-code to Kusabi failure-name mapping table (observability-design)" },
+    { "id": "NFR5.7", "status": "OK", "target": "memory_status in host adapter output (observability-design)" },
+    { "id": "NFR6.1", "status": "OK", "target": "paired up and down schema changes with a rollback test (reliability-design)" },
+    { "id": "NFR7.1", "status": "OK", "target": "no delete function exists, checked by test (reliability-design)" },
+    { "id": "NFR8.1", "status": "OK", "target": "per-seat SCRAM login roles and verified TLS outside this Mac (security-design)" },
+    { "id": "NFR8.2", "status": "OK", "target": "EXECUTE-only grants for seat roles, kusabi_owner with common_verify_caller (security-design)" },
+    { "id": "NFR8.3", "status": "OK", "target": "credentials from environment and redaction before any output (security-design)" },
+    { "id": "NFR9.1", "status": "OK", "target": "UTC timestamps and ordering by time then decision id (observability-design)" },
+    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL 17 per test run on a free port (logical-components)" },
+    { "id": "NFR10.2", "status": "OK", "target": "node built-in coverage tried first, c8 fallback with owner decision (logical-components)" }
+  ]
+}
