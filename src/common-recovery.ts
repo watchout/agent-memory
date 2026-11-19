@@ -102,13 +102,40 @@ export function renderRecoveryFrame(frame: RecoveryFrame): string {
   return out.join("\n");
 }
 
+const RECORD_KEYS = "decision_id,seat_ref,created_at,decision,context";
+
+function readsAsRecord(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && Object.keys(parsed).join(",") === RECORD_KEYS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A secret-looking word in a decision takes the rest of its JSON line with the redaction (the redaction itself is not
+ * changed here), so a line can end up cut or without its context. The count of such lines is stated before the data,
+ * so a cut line is never taken for a whole record (S5).
+ */
+function statedAfterRedaction(text: string): string {
+  const lines = text.split("\n");
+  const begin = lines.indexOf("DATA BEGIN");
+  if (begin < 0) return text;
+  const unreadable = lines.slice(begin + 1, lines.lastIndexOf("DATA END")).filter((data) => !readsAsRecord(data)).length;
+  if (unreadable === 0) return text;
+  lines.splice(begin, 0, `unreadable decision lines: ${unreadable} (the redaction of a secret-looking word cut them; each is only part of its record)`);
+  return lines.join("\n");
+}
+
 function withMetrics(text: string, binding: StartBinding): RecoveryOutputWithMetrics {
   const redacted = redactText(text);
+  const stated = statedAfterRedaction(redacted.text);
   return {
-    text: redacted.text,
+    text: stated,
     token_cap: binding.max_tokens,
-    token_estimate: estimateTokens(redacted.text),
-    byte_count: Buffer.byteLength(redacted.text, "utf8"),
+    token_estimate: estimateTokens(stated),
+    byte_count: Buffer.byteLength(stated, "utf8"),
     redaction_count: redacted.redaction_count,
     redaction_version: REDACTION_VERSION,
     truncation_count: 0,
