@@ -64,27 +64,43 @@ const textOf = (lines: string[], isError: boolean): ToolReply => ({ content: [sa
 
 const WITHHELD = "[REDACTED]";
 
+/** Where the text fields of one decision are joined to look for a secret that runs from one field into the next. */
+const FIELD_BREAK = "\n";
+
 export interface RedactedDecisionFields {
   readonly decision: string;
   readonly context: string | null;
+  readonly tags: readonly string[];
   readonly count: number;
+  /** True when a secret ran from one field of this decision into another: every text field was replaced. */
+  readonly withheld: boolean;
 }
 
+/** The line that tells how many decisions were withheld, so a replaced decision is never read as a recorded one. */
+export const withheldStatement = (count: number): string =>
+  `withheld decisions: ${count}; a secret ran across the fields of one decision, so its text fields are replaced by ${WITHHELD} (its id and its place are kept)`;
+
 /**
- * The redaction (itself not changed) for the two text fields of ONE decision. A pattern of the redaction can run across
- * line breaks (a private key, a quoted value, `Bearer` and its token), so it is applied to the raw text of each field,
- * never to text that joins several decisions: a pair of markers in two different decisions must not take the decisions
- * between them. A secret that spans the two fields of this decision is found by reading the fields together: when that
- * gives another text than the two fields alone, both fields are withheld. Every place that writes decisions out
- * (the recovery text and the reply of `get_decisions`) uses this one rule (S3).
+ * The redaction (itself not changed) for ONE decision, the unit it is applied to. A pattern of the redaction can run
+ * across line breaks (a private key, a quoted value, `Bearer` and its token), so each field is redacted on its raw
+ * text, and never on text that joins several decisions: a pair of markers in two different decisions must not take
+ * the decisions between them. A secret that runs from one field of this decision into another (the text, the context
+ * and every tag) is found by reading all its fields together: when that gives another text than the fields alone, every
+ * text field of the decision is withheld, its id and its place stay, and the caller states how many were withheld.
+ * Every place that writes decisions out (the recovery text and the reply of `get_decisions`) uses this one rule (S3).
  */
-export function redactDecisionFields(decisionText: string, contextText: string | null): RedactedDecisionFields {
-  const own = redactText(decisionText);
-  if (contextText === null) return { decision: own.text, context: null, count: own.redaction_count };
-  const context = redactText(contextText);
-  const together = redactText(`${decisionText}\n${contextText}`);
-  if (together.text !== `${own.text}\n${context.text}`) return { decision: WITHHELD, context: WITHHELD, count: together.redaction_count };
-  return { decision: own.text, context: context.text, count: own.redaction_count + context.redaction_count };
+export function redactDecisionFields(decisionText: string, contextText: string | null, tags: readonly string[] = []): RedactedDecisionFields {
+  const fields = [decisionText, ...(contextText === null ? [] : [contextText]), ...tags];
+  const alone = fields.map((field) => redactText(field));
+  const aloneCount = alone.reduce((sum, one) => sum + one.redaction_count, 0);
+  const together = redactText(fields.join(FIELD_BREAK));
+  if (together.text !== alone.map((one) => one.text).join(FIELD_BREAK)) {
+    // Withholding is itself a redaction, so it counts at least once (a reading that finds less together than alone must not report none).
+    return { decision: WITHHELD, context: contextText === null ? null : WITHHELD, tags: tags.map(() => WITHHELD), count: Math.max(1, together.redaction_count, aloneCount), withheld: true };
+  }
+  const [decision, ...rest] = alone.map((one) => one.text);
+  const context = contextText === null ? null : rest[0];
+  return { decision, context, tags: contextText === null ? rest : rest.slice(1), count: aloneCount, withheld: false };
 }
 
 export function createCommonSurface(ports: SurfacePorts): CommonSurface {
@@ -125,18 +141,21 @@ export function createCommonSurface(ports: SurfacePorts): CommonSurface {
     });
     if (!result.ok) return { reply: textOf([`Failed to get decisions: ${describeFailure(result)}`], true), refs: [], outcome: result };
     if (result.decisions.length === 0) return { reply: textOf(["No decisions found."], false), refs: [], outcome: "ok" };
-    // Each decision is redacted by itself before the reply is put together; the joined reply is not redacted again.
+    // Each decision is redacted by itself, over all its fields, before the reply is put together; the joined reply is not redacted again.
+    let withheld = 0;
     const lines = result.decisions.map((d, i) => {
-      const fields = redactDecisionFields(d.decision_text, d.context_text ? d.context_text : null);
+      const fields = redactDecisionFields(d.decision_text, d.context_text ? d.context_text : null, d.tags);
+      if (fields.withheld) withheld += 1;
       return (
         `${i + 1}. [${d.status}] ${fields.decision}` +
         (fields.context ? `\n   Context: ${fields.context}` : "") +
-        (d.tags.length ? `\n   Tags: ${d.tags.map((tag) => redactText(tag).text).join(", ")}` : "") +
+        (fields.tags.length ? `\n   Tags: ${fields.tags.join(", ")}` : "") +
         `\n   ID: ${d.id} | ${new Date(d.created_at_ms).toISOString()}`
       );
     });
+    const head = [`${result.decisions.length} decision(s):`, ...(withheld > 0 ? [withheldStatement(withheld)] : []), ""];
     return {
-      reply: { content: [{ type: "text", text: stripOrphanSurrogates([`${result.decisions.length} decision(s):`, "", lines.join("\n\n")].join("\n")) }] },
+      reply: { content: [{ type: "text", text: stripOrphanSurrogates([...head, lines.join("\n\n")].join("\n")) }] },
       refs: result.decisions.map((d) => d.id),
       outcome: "ok",
     };

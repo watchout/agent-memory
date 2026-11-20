@@ -137,6 +137,7 @@ cases.push(["an end marker of a private key in one decision and a begin marker i
     ["keep the pool settings", "CONTEXT-MIDDLE"],
   ]);
   assert.equal(loaded.recovery.redaction_count, 0, "a lone marker is no key, so nothing is removed");
+  assert.ok(!text.includes("withheld decisions"), "a lone marker withholds no decision");
 }]);
 
 cases.push(["a key over several lines, a Bearer token split by a line break and a quoted value over two lines are removed from their own field, and each record stays whole", async () => {
@@ -164,6 +165,9 @@ cases.push(["a secret over the two fields of one decision is withheld from both 
   assert.ok(!text.includes("SYNTH-SPAN-BODY-4") && !text.includes("before") && !text.includes("after"));
   assert.ok(text.includes("active decisions of this seat: 2 shown of 2"));
   assert.ok(!text.includes("unreadable decision lines"), "the withheld record is whole");
+  assert.ok(text.includes("withheld decisions: 1;"), "the number of withheld decisions is stated before the data");
+  const textLines = text.split("\n");
+  assert.ok(textLines.findIndex((line) => line.startsWith("withheld decisions: 1;")) < textLines.indexOf("DATA BEGIN"), "the statement is before the data, not inside it");
   const records = wholeRecords(dataLines(text));
   assert.equal(records.length, 2);
   assert.deepEqual(records.map((record) => [record.decision, record.context]).sort(), [["[REDACTED]", "[REDACTED]"], ["a whole one", "its own context"]]);

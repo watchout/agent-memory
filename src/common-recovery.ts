@@ -18,7 +18,7 @@ import type {
 import { COMMON_LIMITS, commonForm } from "./common-placement.js";
 import { decideEntry, type EntryDeps } from "./common-entry.js";
 import { failure, type SeatErrorName, type SeatFailure } from "./common-seat-errors.js";
-import { describeFailure, redactDecisionFields } from "./common-seat-surface.js";
+import { describeFailure, redactDecisionFields, withheldStatement } from "./common-seat-surface.js";
 import type { DecisionRecord, RecoverDecisionsResult } from "./common-seat-store.js";
 import { REDACTION_VERSION, redactText } from "./redact.js";
 import type { SessionStartAutoReceiveResult } from "./session-start-auto-receive.js";
@@ -114,17 +114,23 @@ export function renderRecoveryFrame(frame: RecoveryFrame): string {
 /**
  * The frame with the redaction applied to one decision at a time, by the one rule for the fields of a decision
  * (`redactDecisionFields` in the tool surface; the redaction itself is not changed). It is never applied to the lines
- * joined together, and the decision is written as one JSON line after its fields were redacted.
+ * joined together, and the decision is written as one JSON line after its fields were redacted. A line holds only the
+ * text and the context (no tag), so those are the fields the rule reads here; the number of decisions it withheld is
+ * stated before the data.
  */
 function redactedFrame(frame: RecoveryFrame): { readonly text: string; readonly redaction_count: number } {
   let count = 0;
+  let withheld = 0;
   const decisionRedacted = (author: string, decision: DecisionRecord): string => {
     const fields = redactDecisionFields(decision.decision_text, decision.context_text);
     count += fields.count;
+    if (fields.withheld) withheld += 1;
     return decisionLine(author, { ...decision, decision_text: fields.decision, context_text: fields.context });
   };
   const parts = frameParts(frame, decisionRedacted);
-  const head = redactText(parts.head.join("\n"));
+  const dataAt = parts.head.lastIndexOf("DATA BEGIN");
+  const headLines = withheld > 0 ? [...parts.head.slice(0, dataAt), withheldStatement(withheld), ...parts.head.slice(dataAt)] : parts.head;
+  const head = redactText(headLines.join("\n"));
   return { text: [head.text, ...parts.data, ...parts.tail].join("\n"), redaction_count: count + head.redaction_count };
 }
 

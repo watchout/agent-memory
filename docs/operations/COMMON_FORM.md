@@ -35,6 +35,17 @@
   `unreachable`.
 - No recovery quality log is written in this form, so the host's own "evidence logging is unavailable" notice follows.
 
+## Secrets inside a decision
+
+The redaction (`src/redact.ts`, unchanged) is applied to one decision at a time, over all of its text fields: the text, the
+context and, in the `get_decisions` reply, every tag. It is never applied to text that joins several decisions, so a
+marker in one decision cannot take the decisions between. A secret that runs from one field of a decision into another is
+found by reading the fields together; every text field of that decision is then replaced by `[REDACTED]`, its id and its
+place stay, and a line `withheld decisions: <count>; ...` comes before the list (or before `DATA BEGIN` at start-up). A
+withheld decision is not a decision that has no text. The check errs on the safe side: a decision whose fields only read
+like a secret together (for example a field that ends in the word `Bearer`, or digit groups that read as a telephone number
+only across two fields) is withheld too. The standalone `get_decisions` is another path and is not changed here.
+
 ## The local call record
 
 Each call appends one line to `~/.agent-memory/calls.log`: the time, the tool name, the ids of the records, and `ok` or

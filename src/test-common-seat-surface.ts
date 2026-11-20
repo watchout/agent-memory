@@ -17,7 +17,7 @@ import { failingStore } from "./common-entry.js";
 import { RESPONSE_LOST_NOTE, failure } from "./common-seat-errors.js";
 import { SeatSetting } from "./common-placement.js";
 import { createCommonSeatStore } from "./common-seat-store.js";
-import { COMMON_TOOLS, callRecordLine, createCommonSurface, describeFailure, withCommonForm } from "./common-seat-surface.js";
+import { COMMON_TOOLS, callRecordLine, createCommonSurface, describeFailure, redactDecisionFields, withCommonForm } from "./common-seat-surface.js";
 import { idSequence } from "./test-common-seat-entry-support.js";
 import { DECISION_TEXT, FAKE_OBSERVED_AT_MS, FakeDb, SECRET_PASSWORD, SEAT_A, dbError, networkError } from "./test-common-seat-support.js";
 
@@ -77,20 +77,66 @@ cases.push(["a pair of key markers in two decisions does not take the decisions 
   assert.equal([...reply.matchAll(/^ {3}ID: /gm)].length, 3, "every decision keeps its own id line");
   for (const kept of ["CONTEXT-OLDEST", "CONTEXT-MIDDLE", "CONTEXT-NEWEST", "a plain decision in the middle"]) assert.ok(reply.includes(kept), kept);
   assert.equal([...reply.matchAll(/^ {3}Context: /gm)].length, 3);
+  assert.ok(!reply.includes("withheld decisions"), "a lone marker takes nothing, so no decision is withheld");
 }]);
 
-cases.push(["a secret over several lines is removed from its own field, and one over the two fields of a decision is withheld in both", async () => {
+cases.push(["a secret over several lines, or one in a tag, is removed from its own field only, and one over the text and the context of a decision is withheld in both", async () => {
   const db = new FakeDb();
   const { surface } = surfaceOver(db);
-  await surface.call("log_decision", { decision: `rotate\n${KEY_BEGIN}\nSYNTH-KEY-BODY-1\n${KEY_END}\nthen restart`, context: "Bearer\nSYNTH-BEARER-VALUE-2", tags: ["Bearer", "SYNTH-TAG-VALUE-3"] });
+  await surface.call("log_decision", { decision: `rotate\n${KEY_BEGIN}\nSYNTH-KEY-BODY-1\n${KEY_END}\nthen restart`, context: "Bearer\nSYNTH-BEARER-VALUE-2", tags: ["plain-one", "API_TOKEN=SYNTH-TAG-OWN-5"] });
   await surface.call("log_decision", { decision: "Bearer", context: "SYNTH-SPAN-VALUE-4" });
   await surface.call("log_decision", { decision: "untouched decision", context: "untouched context", tags: ["plain"] });
   const reply = textOf(await surface.call("get_decisions", {}));
-  for (const value of ["SYNTH-KEY-BODY-1", "SYNTH-BEARER-VALUE-2", "SYNTH-SPAN-VALUE-4"]) assert.ok(!reply.includes(value), value);
-  assert.ok(reply.includes("untouched decision") && reply.includes("untouched context") && reply.includes("Tags: plain"));
+  for (const value of ["SYNTH-KEY-BODY-1", "SYNTH-BEARER-VALUE-2", "SYNTH-SPAN-VALUE-4", "SYNTH-TAG-OWN-5"]) assert.ok(!reply.includes(value), value);
+  assert.ok(reply.includes("untouched decision") && reply.includes("untouched context") && reply.includes("Tags: plain\n"));
   assert.ok(reply.includes("rotate") && reply.includes("then restart"), "the key is removed from its own field only");
-  assert.match(reply, /\[active\] \[REDACTED\]\n {3}Context: \[REDACTED\]\n {3}ID: /, "a secret over the two fields withholds both");
+  assert.ok(reply.includes("Tags: API_TOKEN=[REDACTED], plain-one\n"), "a secret that is inside one tag is removed from that tag only");
+  assert.match(reply, /\[active\] \[REDACTED\]\n {3}Context: \[REDACTED\]\n {3}ID: /, "a secret over the text and the context withholds both");
   assert.equal([...reply.matchAll(/^ {3}ID: /gm)].length, 3);
+  assert.match(reply, /^3 decision\(s\):\nwithheld decisions: 1;/, "the number of withheld decisions is stated before the list");
+}]);
+
+const SPAN_NEIGHBORS = ["neighbor before", "CONTEXT-BEFORE", "neighbor after", "CONTEXT-AFTER"];
+
+/** One decision whose secret runs across its fields, between two plain decisions: the reply of get_decisions. */
+async function replyWithSpanned(entry: { decision: string; context?: string; tags: string[] }): Promise<string> {
+  const db = new FakeDb();
+  const { surface } = surfaceOver(db);
+  await surface.call("log_decision", { decision: "neighbor before", context: "CONTEXT-BEFORE", tags: ["near"] });
+  assert.equal((await surface.call("log_decision", entry)).isError, undefined);
+  await surface.call("log_decision", { decision: "neighbor after", context: "CONTEXT-AFTER", tags: ["near"] });
+  const reply = textOf(await surface.call("get_decisions", {}));
+  assert.match(reply, /^3 decision\(s\):\nwithheld decisions: 1;/);
+  assert.equal([...reply.matchAll(/^ {3}ID: /gm)].length, 3, "every decision keeps its own id line");
+  for (const kept of SPAN_NEIGHBORS) assert.ok(reply.includes(kept), kept);
+  return reply;
+}
+
+cases.push(["a secret that starts in the text and ends in a tag of one decision is withheld from every field of that decision (BF-2)", async () => {
+  const reply = await replyWithSpanned({ decision: `${KEY_BEGIN}\nSYNTH-SPAN-BODY-A`, tags: [KEY_END] });
+  assert.ok(!reply.includes("SYNTH-SPAN-BODY-A"));
+  assert.ok(reply.includes("[active] [REDACTED]\n   Tags: [REDACTED]\n   ID: "), "the text and the tag are replaced and the id stays");
+}]);
+
+// The store keeps the tags of a decision in sorted order, so the A, B and C in front make them read begin, body, end.
+cases.push(["a secret that starts in one tag and ends in another tag of one decision is withheld from every field of that decision (BF-2)", async () => {
+  const reply = await replyWithSpanned({ decision: "SYNTH-TEXT-B plain words", tags: [`A ${KEY_BEGIN}`, "B SYNTH-SPAN-BODY-B", `C ${KEY_END}`] });
+  for (const value of ["SYNTH-SPAN-BODY-B", "SYNTH-TEXT-B"]) assert.ok(!reply.includes(value), value);
+  assert.ok(reply.includes("[active] [REDACTED]\n   Tags: [REDACTED], [REDACTED], [REDACTED]\n   ID: "), "the text and each tag are replaced, in their places");
+}]);
+
+cases.push(["a secret that starts in the context and ends in a tag of one decision is withheld from every field of that decision (BF-2)", async () => {
+  const reply = await replyWithSpanned({ decision: "SYNTH-TEXT-C plain words", context: `${KEY_BEGIN}\nSYNTH-SPAN-BODY-C`, tags: [KEY_END] });
+  for (const value of ["SYNTH-SPAN-BODY-C", "SYNTH-TEXT-C"]) assert.ok(!reply.includes(value), value);
+  assert.ok(reply.includes("[active] [REDACTED]\n   Context: [REDACTED]\n   Tags: [REDACTED]\n   ID: "), "the text, the context and the tag are replaced");
+}]);
+
+cases.push(["a decision whose fields read differently together than alone is withheld and counted at least once, an ordinary one is not", () => {
+  const plain = redactDecisionFields("plain words", "more words", ["a", "b"]);
+  assert.deepEqual([plain.withheld, plain.count, plain.decision, plain.context, plain.tags], [false, 0, "plain words", "more words", ["a", "b"]]);
+  // "1111 1111 1111" alone reads as a telephone number; after another digit group on the line before it does not, so the two readings differ.
+  const differs = redactDecisionFields("ticket 4111", null, ["1111 1111 1111"]);
+  assert.deepEqual([differs.withheld, differs.count, differs.decision, differs.context, differs.tags], [true, 1, "[REDACTED]", null, ["[REDACTED]"]]);
 }]);
 
 cases.push(["a tool U1 does not have, and a status other than active, answer not_yet_available and never reach the database", async () => {
