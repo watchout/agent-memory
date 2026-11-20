@@ -1,7 +1,7 @@
 {
   "schema": "sds-audit-items/1",
-  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた実装監査の項目（agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除と、それに合わせた統治の文書の直し。守る物 = workflow の変更なので区分は R3、重い門。作者の見立てで、決めるのは監査席と arc）。設計の覚え書きは PR 本文の短い形（arc の指示）。消す行数は 232 で、小さい変更の軽い道の 100 行を超えるため、この扱いは PR 本文の deviation_ledger に書く。監査の合格は、作者の受領・必須の検査・Owner の exact-head・作者と別の席の統合のどれも代替しない。止める指摘は「起きやすさ × 困る大きさ」の表（決定 #49 6806956918）で決める。WR-6 は記録だけの項目で、落ちても止める指摘にしない。",
-  "scope": "watchout/agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（Owner の決定 7026768954 の後片付けの 4）と、`docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` の同じ commit での直しの実装監査。対象 = 依頼の targets の head（base = main の dc5e9002cd2ea3ceff46e04a755fca888c389b12。#353 の統合の後の main）。この項目の file はその head に足す物で、足す前の commit は 1b14ce240c0e42b0dcd0261ca31b79f8a3df232e（削除と文書の commit）。",
+  "status": "【2 回目・差分だけ】前の返却 https://github.com/watchout/agent-memory/pull/354#issuecomment-7027872786 の F01（WR-3）の直しの確かめ。変わった項目は WR-1・WR-3・WR-5・WR-6、変わらない項目は WR-2・WR-4（前の返却の PASS を版の一致で使い回す）。作者の席（Kusabi の AI-DLC の作業場）が書いた実装監査の項目（agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除と、それに合わせた統治の文書の直し。守る物 = workflow の変更なので区分は R3、重い門。作者の見立てで、決めるのは監査席と arc）。設計の覚え書きは PR 本文の短い形（arc の指示）。消す行数は 232 で、小さい変更の軽い道の 100 行を超えるため、この扱いは PR 本文の deviation_ledger に書く。監査の合格は、作者の受領・必須の検査・Owner の exact-head・作者と別の席の統合のどれも代替しない。止める指摘は「起きやすさ × 困る大きさ」の表（決定 #49 6806956918）で決める。WR-6 は記録だけの項目で、落ちても止める指摘にしない。",
+  "scope": "watchout/agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（Owner の決定 7026768954 の後片付けの 4）と、文書 3 つ（`docs/shirube/README.md`・`docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`・`docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md`）の、削除の後の状態に合わせた直しの実装監査（2 回目）。対象 = 依頼の targets の head（base = main の dc5e9002cd2ea3ceff46e04a755fca888c389b12）。この項目の file はその head に入る物で、足す前の commit は 819473897de2e7b7ace63f484d6cf3be4e91621f（README などの直し）、その前は a322d091330317021cfe776268f1fa4132c987eb（前の返却の head）。",
   "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
   "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
   "control_source_ref": {
@@ -11,8 +11,8 @@
   "items": [
     {
       "id": "WR-1",
-      "criterion": "範囲: base と head の差分は、この項目の file を除いて、(1) `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（足した行 0・消した行 232）と、(2) `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` の直し（足した行 7・消した行 2）の 2 file だけか。`ci.yml`・ほかの workflow・`package.json`・`src/`・`.shirube/`・lockfile は 0 file か。消えるのは、`pull_request_target` で動き、`issues: write` を持つ報告用の workflow 1 つだけか。",
-      "basis": "[V] 作者が `git diff --name-status` と `--numstat` で数えた（base `dc5e9002` と code の commit `1b14ce24`）: `D .github/workflows/shirube-rapid-lite-gates-report.yml`（0・232）と `M docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`（7・2）。`ci.yml` の blob は base と同じ（`git rev-parse`）。code の commit の `.github/workflows/` に残るのは `ci.yml` だけ。消す file の blob は `184fadec`、232 行。[V] 消す file を読んだ: `on` は `pull_request_target`（opened・synchronize・reopened・ready_for_review・edited・labeled・unlabeled）、`permissions` は `contents: read` と `issues: write`、job は 1 つ（`Shirube Rapid/Lite Gates Report`）で、base の commit の `.shirube/runtime/rapid-lite` を読んで動かし、PR に報告の comment を足し（`Upsert PR comment`）、最後に結果が PASS でなければ失敗にする。"
+      "criterion": "範囲: base と head の差分は、この項目の file を除いて、(1) `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（足した行 0・消した行 232）と、(2) 文書 3 つの直し（`docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` +11 −6、`docs/shirube/README.md` +10 −4、`docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md` +2 −1）の 4 file だけか。`ci.yml`・ほかの workflow・`package.json`・`src/`・`.shirube/`・lockfile は 0 file か。消えるのは、`pull_request_target` で動き、`issues: write` を持つ報告用の workflow 1 つだけか。2 回目では、前の head `a322d091` からの差分が、README と 2 つの文書の直し（commit `81947389`）と、この項目の file の更新だけか。",
+      "basis": "[V] 作者が `git diff --name-status` と `--numstat` で数えた（base `dc5e9002` と commit `81947389`）: `D .github/workflows/shirube-rapid-lite-gates-report.yml`（0・232）、`M docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`（11・6）、`M docs/shirube/README.md`（10・4）、`M docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md`（2・1）。`ci.yml` の blob は base と同じ（`git rev-parse`）。`.github/workflows/` に残るのは `ci.yml` だけ。消す file の blob は `184fadec`、232 行。[V] 消す file を読んだ: `on` は `pull_request_target`、`permissions` は `contents: read` と `issues: write`、job は 1 つ（`Shirube Rapid/Lite Gates Report`）。前の返却の WR-1 は PASS で、消す file の中身は変わらない。"
     },
     {
       "id": "WR-2",
@@ -21,8 +21,8 @@
     },
     {
       "id": "WR-3",
-      "criterion": "参照元と文書: この workflow を前提にして壊れる物・黙って食い違う物が無いか。base の commit で、この workflow の名前・path を含む file（消す file を除く）は、(a) `.shirube/runtime/rapid-lite/` の 5 file（この workflow が動かす束 23 file の一部。ほかから呼ばれない）、(b) `.shirube/repo-spec.yaml` 89 行目と `.shirube/control-handoffs/CH-001.yaml` 57 行目（`allowed_paths`、つまり「触ってよい path」の一覧）、(c) 文書 2 つ（`docs/shirube/README.md` 37 行目と `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` 21 行目）、(d) 過去の記録（`docs/audit/` の項目 3 file と `aidlc/` の記録 16 file）だけか。(c) の 2 つ目は、この PR が同じ commit で直した文書か（`## Keeping it true` が『統治の変更は同じ commit で記す』と書く）。(a)(b) を残し、(c) の 1 つ目（条件つきの説明）と (d) を直さないのは、決定が消す物を workflow だけに限っているためで、正しいか。",
-      "basis": "[V] 作者が `git grep -l -E 'shirube-rapid-lite|Rapid/Lite Gates Report'` を base の commit に流し、5 + 2 + 2 + 3 + 16 = 28 file に分けた（消す file を除く）。(b) の 2 行は `allowed_paths:` の下の 1 行で、読む所はこの repo の中に無い。(a) の束は、報告の comment の印を読む `run-rapid-lite-report.mjs` を含み、読む workflow が無くなるので、動かす物が無い file になる（消さない。決定が名指ししない）。[V] `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` は『他の V2 文書が指す 1 つの正本』で、表がこの workflow を今ある統制として書いていた。この PR の差分（7・2）は、更新日、表の 1 行（`.shirube/**` だけにし『報告されなくなった』と書く）、末尾の 1 段落（削除の記録）だけで、元の段落と `What this file does not do` は変えない。直した後の文書にこの workflow の名前が残る行は、末尾の削除の記録の 1 行だけ（`git grep -c` で 1）。[文献確認] Shirube の SDS の kit（watchout/shirube の `scripts/sds/kit.mjs` 20 行目。作者の手元の写し、commit `c0c99481`）は、この workflow の path を『取り除く古い部品』の一覧（`LEGACY`）に置く。この repo の pin の版との一致は作者は確かめていない。(a)(b) の扱いは作者の持ち越しで、PR 本文に書く（決定は触れていない）。"
+      "criterion": "参照元と文書（2 回目。前の返却 https://github.com/watchout/agent-memory/pull/354#issuecomment-7027872786 の F01 の直しの確かめ）: (1) F01 が引いた `docs/shirube/README.md` の 5・21・53 行目の文（CI hard-block が今も効く・workflow が runtime を実行する）は、head で消えたか。README に `## Current State`（削除の記録と、必須の検査が 3 つだけという読み）があり、workflow の挙動の文は過去形か。(2) 同じ種類の文（削除後の状態に対して、workflow が今も動く・報告すると書く文）を、repo 全体で洗った表 SW-1〜SW-9（PR 本文）が、実際の grep と合うか。直した所 = README、`docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`（evaluator の段落と表の行）、`docs/v2/KUSABI_V2_IMPLEMENTATION_READINESS_PLAN.md`（1 文）。残した所（SW の『残す』）は、削除の後の状態に対して誤りを言っていないか。残した理由が足りない所は止める指摘にしてください。(3) 持ち越す物（`.shirube/runtime/rapid-lite/` の束、`.shirube/repo-spec.yaml` 89 行目と `.shirube/control-handoffs/CH-001.yaml` 57 行目の一覧、`.shirube/` の記録、過去の記録）は、決定が消す物を workflow だけに限っているため残して正しいか（前の返却の読みと同じ。(3) は記録だけ）。",
+      "basis": "[V] 作者が head の README を読み、F01 の引用 4 文が無いことを文字列で確かめた。README の先頭に `## Current State` を足し、削除の日・決定の番号・文書の参照・残る file・必須の検査（`branches/main/protection` を 2026-11-20 に読んだ値、3 つだけ）を書いた。過去形にした文: Merge Discipline・Enforcement State・末尾の runtime の文と、冒頭の 1 文（`Until the removal, ...`）。[V] `git grep -l -I -i -E 'rapid.?lite|gates report|hard.?block|ci_hard_block'` を head に流し、67 file を分けた: 直した 3 file（README・governance・readiness plan）、残した `CHANGELOG.md` と `docs/v2/KUSABI_V2_CANONICAL_SPEC.md`、`.shirube/` の記録 22 file、束 14 file、`.shirube/cells/` の項目 5 file、`aidlc/` の記録 17 file、`docs/audit/` の項目 4 file（件数は head での値）。[R] 残した理由は表 SW に 1 行ずつ書いた。CANONICAL_SPEC の 2 か所は『overlay は main にあり、report-only で、必須の検査ではない』と言い、削除の後も正しい（束と記録は残る）。[V] `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` は、評価の段落（`The workflow checks out ... reports ...`）を過去形にし、表の行と末尾の削除の記録が既にある。[文献確認] 変える前の WR-3 は前の返却で (c) の 2 つ目が PASS（F01 は README だけ）。"
     },
     {
       "id": "WR-4",
@@ -31,13 +31,13 @@
     },
     {
       "id": "WR-5",
-      "criterion": "戻し方と同居（S6）: 戻しは、この 1 commit を戻して（`git revert`）、同じ path に同じ内容（blob の `184fadec`）を戻し、文書の 3 か所も元に戻るだけか。統合の前後で、新旧が同居する間の挙動が読めるか（`pull_request_target` は base の定義で動くので、統合の前は PR の head の削除は効かず、この PR にも報告の check が付く。統合の後に開く PR・push する PR には付かない。既に終わった run は変わらない）。",
+      "criterion": "戻し方と同居（S6）: 戻しは、この PR の merge commit を戻して（`git revert -m 1`）、同じ path に同じ内容（blob の `184fadec`）を戻し、文書 3 つの直しも元に戻るだけか。統合の前後で、新旧が同居する間の挙動が読めるか（`pull_request_target` は base の定義で動くので、統合の前は PR の head の削除は効かず、この PR にも報告の check が付く。統合の後に開く PR・push する PR には付かない。既に終わった run は変わらない）。前の返却の WR-5 は PASS で、この直しで変わるのは戻す文書の数だけ。",
       "basis": "[V] WR-1 の差分から読んだ。blob は `184fadec14095f2ca4420b9fafad2fac2fc2e415`（base の `git rev-parse`）で、戻した file は byte で一致する。[文献確認] GitHub の文書は、`pull_request_target` が base の branch の workflow の版で動くと書く（作者が読んだ範囲）。作者の読みでは、この workflow が付ける comment と artifact（保持 14 日）は、消した後も既に付いた物は残り、新しくは付かない。"
     },
     {
       "id": "WR-6",
-      "criterion": "記録だけ: 公開の repo の確認。足した行（この PR の差分の + 行。文書の 7 行とこの項目の file）・commit の文・PR 本文に、この Mac の software の版・DB の内側の名前・home の絶対 path・実在の資格や接続先が無いか。",
-      "basis": "[V] 作者が、足した行・commit の文・PR 本文を、版と名前を表す語の一覧（#350 の本文のコマンドのパターン）で grep して 0 件。消す file の中身（232 行の削除）は公開の repo にすでにあった物。"
+      "criterion": "記録だけ: 公開の repo の確認。足した行（この PR の差分の + 行。文書 3 つの 23 行とこの項目の file）・commit の文・PR 本文に、この Mac の software の版・DB の内側の名前・home の絶対 path・実在の資格や接続先が無いか。",
+      "basis": "[V] 作者が、足した行（文書 3 つ）・commit の文 2 つ・PR 本文を、版と名前を表す語の一覧（#350 の本文のコマンドのパターン）で grep して 0 件。消す file の中身（232 行の削除）は公開の repo にすでにあった物。"
     }
   ]
 }
