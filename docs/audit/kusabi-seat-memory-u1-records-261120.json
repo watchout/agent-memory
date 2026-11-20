@@ -1,0 +1,48 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた実装監査の項目（U1 の最後の記録だけの PR）。軽い門: PC-1〜PC-5 は落ちると重大になる確かめ（必須）、PC-6・PC-7 は記録だけで、差し戻しにしない。設計の PR は #349、code の PR は #350・#351・#352（#352 は独立の監査 3 回目 PASS・受領済みで、Owner の exact-head と統合を待つ）。この PR は #352 の head の上に積んだ記録だけの PR。",
+  "scope": "watchout/agent-memory の取り組み 261021-facility-ax-memory の単位 U1 の最後の記録だけの PR の監査。対象 = 依頼の targets の head。足す前の記録の commit は 4b47b5efc150d70754b7eb0e31a50f3b84796a44（この commit の上に項目の file だけを足す）。code・SQL・workflow・依存・本物の DB・席の設定は範囲外（この PR は変えない）。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-6762288830",
+    "sha256": "59c1d8c1594f87f7c0623d09066e6463ff1fc3c2ce2df6826bee973db1461609"
+  },
+  "items": [
+    {
+      "id": "PC-1",
+      "criterion": "【必須】範囲: この PR の差分は、#352 の head `9d512e59` の上の次の 5 path だけか。(1) `.shirube/enforcement-policy.yaml` の 1 行の追加、(2) `code-generation-plan.md` の Step の印 14 個（`[ ]` を `[x]` にしただけで、ほかの文字が同じ）、(3) `code-summary.md`（新）、(4) `traceability.json`（新）、(5) この項目の file（新）。`src`・`sql`・`scripts`・`.github`・`package.json`・lockfile の変更が 0 file か。`.shirube/enforcement-policy.yaml` は、足した 1 行がコメントで、`mode: ci_hard_block` を含む既存の行が 1 byte も変わっていないか。",
+      "basis": "[V] `git diff --name-status 9d512e59 4b47b5ef`: 4 file（M 2・A 2）で、上の (1)〜(4)。項目の file は、この commit の上の 1 commit で足す。`--numstat`: policy +1 −0、plan +14 −14、`code-summary.md` +70、`traceability.json` +516。[V] policy の `git diff -U0` の hunk は `@@ -3,0 +4 @@` の 1 つで、足した行は `# 決定 #49 7026768954 で、この値を読む workflow は無い。今の必須の検査は build-and-test の 3 つだけ`、直後の 5 行目は `mode: ci_hard_block`。[V] plan は、新しい版の `- [x] **Step` を `- [ ] **Step` に置き換えると前の版と完全に一致し、印は 14 個。[V] 前検査 `check.py`（SHA-256 `1c7a2276…`）は PASS: コード 1 行（policy のコメント 1 行）、設計の文書 98 行（`code-summary.md` 70 行と plan の印 28 行）、機械の表 516 行、写し最大 4%。項目の file の行数は依頼の本文に書く。この PR は code を変えない。"
+    },
+    {
+      "id": "PC-2",
+      "criterion": "【必須】追跡表: `traceability.json` の 74 行（AC 25・NFR 25・BR 24）は、functional-design・nfr-design の upstream の ID と過不足がないか。OK の 64 行の target は、head に実在する file で、その file が行の言うことを実際に持つか（名指しで `NFR4.2`・`NFR4.3`・`NFR5.4`・`NFR8.2`・`BR1.6`・`BR2.4` を確かめてほしい）。Deferred の 3 行（NFR1.1・NFR5.2・NFR8.1）と N/A の 7 行を、OK や成功に読み替えていないか。行が言う「試験がある」は、実際にその試験の file にあるか。",
+      "basis": "[V] engine の `sensor-traceability` を作業場で流して `pass: true`（gaps・orphans・missing_from_table・missing_from_upstream_ids・invalid_targets が全部空）。[V] OK の 64 行の target が全部 `9d512e59` に実在する file（作者が `git cat-file -e` で確かめた）。[V] Deferred の根拠: `lock_timeout` は `9d512e59` の `src`・`sql`・`scripts`・`package.json`・`.github` に 0 件（`git grep -n -i`）。TLS を要求する code は `src` に無く、`sslmode` などの語は `src/test-store-resolution.ts`・`src/test-store-resolution-scenario.ts` の 2 file（URL の伏せ字の確かめ）にだけある。呼出しの記録の 1 行は `src/common-seat-surface.ts:55-57` の `callRecordLine`（空白区切り）。BR1.6 の行は、共通基盤の役割が無い DB で 0001 が止まる所が SQL の読みだけで試験未実行（持ち越し C-9）と、行の note に書いてある。N/A の 7 行は、functional-design の同じ行と同じ理由（他の単位の範囲）と NFR10.2（計画の D4）。"
+    },
+    {
+      "id": "PC-3",
+      "criterion": "【必須】穴の記録: `code-summary.md` の DV-3（外の DB への確かめつき TLS を、code も試験も強制していない）は、事実のとおりか。NFR8.1 の行の Deferred とゲートの文（`AGENT_MEMORY_MODE=common` を外の DB（127.0.0.1・::1・localhost・unix socket 以外）に向ける前に、外の host に `sslmode=verify-full`（と CA の指定）が無ければ接続の前に拒む code と、sslmode 無し・require・verify-ca は拒み verify-full だけ通る負例の試験が main に入っている事。入れる PR は U2 の最初の code の PR で重い門）は、`code-summary.md` の 3 と `traceability.json` の NFR8.1 の行で同じ意味か。この記録の PR が、穴が塞がったと読める文を 1 つも含まないか。",
+      "basis": "[V] TLS を要求・確認する code が `9d512e59` の `src` に無い（PC-2 の grep）。接続先は `src/common-seat-store.ts:39` で `target.reveal()` をそのまま driver に渡す。[V] 設計の根拠は `nfr-design/security-design.md` 34 行目と `infrastructure-design/infrastructure-specification.md` 11 行目（外の DB には確かめつきの TLS を必ず使う）。[V] 今は手元の使い捨ての DB だけで動く: `AGENT_MEMORY_MODE=common` を席の起動の設定に書く操作は Owner の手で、この PR も #352 も書かない（#352 の本文）。arc の判断（Owner の委任 #49 6762288830 の下の連絡。Owner の決定ではない）: 入れる PR は U2 の最初の code の PR、記録の PR は軽い門、DV-3 を塞ぐ PR は重い門。作者は、この PR が穴を塞ぐとは書いていない（`code-summary.md` の 3 の DV-3 の行の「code を足す」）。"
+    },
+    {
+      "id": "PC-4",
+      "criterion": "【必須】設計の追補と測り: `code-summary.md` の 4 の追補 NFR4.6-A1（道具の呼出しごとに接続して閉じる。承認済みの設計 file は書き換えず、この 1 か所に書く）の根拠の表の数は、測りの出力と一致するか。「いちばん遅い 1 回（70 ms）でも線の 1/40 以下」は、`COMMON_LIMITS` の値（接続 2,000・確かめと読み出し 3,000・書き 5,000・起動全体 7,000 ms）に対して正しいか。限り（手元の loopback・TLS なし・使い捨ての DB、外の DB と TLS の握手は未測、席の数 × 同時の呼出し数は未確認）を、追補の文が隠さずに書いているか。追補が NFR4.6 の行を OK にしているのは、この根拠に見合うか。",
+      "basis": "[V] 測りの出力 `measure-out.txt`（SHA-256 `a2e1a9dd…`）は、使い捨ての DB に `common-seat-store` を通して各 300 回。小: log 7.3/10.0/16、recover 7.9/11/34、get 7.9/11/22、接続だけ 3.7/7.1/37。1 万件: log 8.3/24/31、recover 18/32/70、get 16/25/42、接続だけ 3.3/6.5/23（p50/p95/最大 ms）。表の数はこの出力と一致する（作者が assert した）。[V] 最大は recover の 70 ms（69.75）で、読み出しの線 3,000 の約 1/43（1/40 以下）。[V] `COMMON_LIMITS` は `src/common-placement.ts:33-44`（接続 `connectMs` 2000・`readMs` 3000・`toolMs` 5000・`startupMs` 7000）。接続は `limits.connectMs`、読みは `readMs`、書きは `toolMs`（`src/common-seat-store.ts:149・200・220・233`）。[V] 測りの script（SHA-256 `37a0fe4e…`）は、`src/test-common-seat-pg.ts` の起動部分と測りの部分で、PR に入れていない（作者の測定で CI の結果ではない）。"
+    },
+    {
+      "id": "PC-5",
+      "criterion": "【必須】この PR の追加行の衛生と承認の書き方: この PR が足した行（`git diff -U0` の `+` の行）に、公開の repo に出してはいけない物（home の path・メール・資格情報・本物の鍵の形・DB の URL・手元の環境の版の名前）が 0 件か。arc の判断（Owner の委任の下の連絡）と Owner の決定を、記録が取り違えて書いていないか（Owner の承認を、arc の連絡から作っていないか）。守る物（workflow・必須の検査・DB の構造・資格情報・契約の .v2・価格）に触れていないか（policy のコメントは値を変えない）。",
+      "basis": "[V] 作者が追加行（項目の file を足す前の 601 行）を、公開 repo 用の走査（home の path・手元の環境の版の名前・コンテナの道具の名前・内部の席の番号つきの名前）で走査し、0 件。鍵の形（`-----BEGIN` の見出し・`AKIA`・`ghp_`・`sk-`）は 0 件。時間の制約の語（`no-time-constraints` の pattern）も 0 件。[V] `code-summary.md` の 3 は、食い違いの決めを「arc の答え（Owner の委任 #49 6762288830。11-20 の連絡）で、Owner の決定ではない」と書き、C-7・C-8 を「arc の判断待ち」と書いている。[V] この PR は workflow・必須の検査・DB の構造・資格情報・契約・価格の file を変えない（PC-1）。policy の値 `mode: ci_hard_block` は不変で、コメントが「この値を読む workflow は無い」と言う事実は、#354（Gates Report の workflow を外す PR）の統合の後に真になる（今の head では、その workflow が enforcement-policy の gate を読む。`.github/workflows/shirube-rapid-lite-gates-report.yml:217`）。PR 本文に、この順序を書いている。"
+    },
+    {
+      "id": "PC-6",
+      "criterion": "【記録だけ・差し戻しにしない】要約の表: `code-summary.md` の 1 の Step と PR の対応・行数・状態、2 の試験の件数・網羅率・CI の run は、各 PR の本文と前検査の出力に一致するか。",
+      "basis": "[V] 行数は、各 PR の範囲で `check.py` を流し直した値（#349 コード 328・設計 6400、#350 1782、#351 979、#352 1626・設計 58）。[V] 試験の件数・網羅率・CI の run は、#350・#351・#352 の本文と、#352 の head の CI（run 44664125362）から写した（網羅率の script の SHA-256 は #350 の本文のとおり）。写しの食い違いは、記録だけ。"
+    },
+    {
+      "id": "PC-7",
+      "criterion": "【記録だけ・差し戻しにしない】持ち越し: `code-summary.md` の 3 の DV-1〜DV-4 と C-1〜C-9 が、元の指摘の返却・設計の場所を ID と path:行で参照しているか（中身を写していないか）。C-7（版 21 の写しの整理）と C-8（公開の衛生）を、この PR で直さない理由（承認済みの記録を書き換えると段の承認の印が外れる）を書いているか。",
+      "basis": "[V] `code-summary.md` の 3 は表と箇条書きで、設計の文は ID と path:行で指す。C-2・C-3・C-6 は #352 の 3 回目の返却 7029272139 の観察 O-2・O-3・O-1 を指す。#354 の SW-6〜SW-9 は #354 の本文のままで、ここに写していない。C-7 は #349 の前検査の出力（写し 36%・見直しの記録 371 行）、C-8 は取り組みの記録の機械の数（42 行・17 file）を指す。"
+    }
+  ]
+}
