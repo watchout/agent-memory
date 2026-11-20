@@ -62,20 +62,20 @@
 
 PR の切れ目: PR-1 = Step 1〜7（置き場所・失敗の名前・窓口・SQL とその試験）、PR-2 = Step 8〜11（道具の面・回復・入口の配線・場面の試験）、Step 12〜14 は両方の PR に分けて載せる。見込みは PR-1 が約 1,650 行、PR-2 が約 1,250 行（どちらも 2,000 行未満）。PR-1 が先で、PR-2 は PR-1 の branch の上に積み、統合は計画の順（決定 129・135）。
 
-- [ ] **Step 1 構成と設定の骨組み（約 60 行）** — `sql/kusabi/` の置き場、空の module の export、`package.json` の命令の名前（`test:common-seat`・`test:common-seat-pg`）。挙動は足さない。
-- [ ] **Step 2 試験の道具の確認（コード 0 行）** — 今の試験の命令（`npm run test:store-resolution`）を、使い捨ての HOME・`KUSABI_TEST_TMPDIR` で 1 回流して通ることを確かめ、`unit-test-instructions.md` の命令を確定する。
-- [ ] **Step 3 成功の条件の場面の試験を先に書いて失敗を確かめる（約 240 行）** — `src/test-common-seat-scenario.ts`: Codex の形で決定を 1 件書く → 新しい process で再起動 → Claude Code の形の起動の口で同じ決定が出る。負の確かめ: 登録の無い席・DB を止めた時（手元に何も書かれない）・`DATABASE_URL` だけの時（表を作らない）・呼出しの記録に決定の文が無い。module が無い状態で流し、失敗の出力を記録に残す。PR-1 には store の層の部分、PR-2 に host の層の部分を載せる。
-- [ ] **Step 4 失敗の名前の表と置き場所の決め方（約 200 行）** — `common-seat-errors.ts`・`common-placement.ts`（1.1・1.2）。BR1.1〜1.3・BR2.5。
-- [ ] **Step 5 窓口と席の store（約 230 行）** — `common-seat-store.ts`（1.3）。BR1.4〜1.6・BR2.1〜2.7・BR3.1・BR3.3。
-- [ ] **Step 6 Kusabi の置き場の SQL の up/down（約 200 行）** — `sql/kusabi/0001_up.sql`・`0001_down.sql`。DB の設計の記録（G2）のとおりに書く。共通基盤は 0.3.1 の `install` の順（5 file）で当てた DB に、up を当てる。当てる → 戻す → 前の試験が通る（S6・NFR6.1）。
-- [ ] **Step 7 層ごとの試験（置き場所・失敗の名前・store・SQL。約 700 行）** — 実装の後に、偽の窓口の試験（CI から届く）と使い捨ての PostgreSQL の試験（手元。席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・消す物が無いこと。共通基盤 0.3.1 の 5 file は、固定 commit の onza の作業場から読み、読んだ bytes の sha256 を試験の期待値と比べる。作業場が無ければ「観測できず」= 終了コード 3。D6）を書いて動かす。
-- [ ] **Step 8 道具の面と呼出しの記録（約 170 行）** — `common-seat-surface.ts`（1.4）。BR3.2・BR3.5・BR5.1・BR5.2。
-- [ ] **Step 9 起動の口の回復（約 150 行）** — `common-recovery.ts`（1.5）。BR3.4・BR4.1〜4.3。
-- [ ] **Step 10 入口の配線（約 200 行）** — 1.6 の入口。`src/index.ts` の `createStore` の前に形を決める 1 か所を足す。
-- [ ] **Step 11 層ごとの試験（道具の面・回復・配線。約 650 行）** — 実装の後に書いて動かす。Step 3 の場面の試験を緑にする。
-- [ ] **Step 12 行の網羅率の測り（コード 0 行）** — 261113 の 3 つの script（`merge-zero.mjs`・`changed-uncovered.py`・`coverage-selftest.mjs`。SHA-256 は `ab76f8fc…`・`4c73c560…`・`8db67d66…`）を記録から取り出し、自己試験を流してから、全部の命令と CI が届く命令だけの 2 通りで追加行 100% を確かめる。数えから外す行は PR に理由を書く。
-- [ ] **Step 13 環境・build の設定（約 40 行）** — `package.json` の試験の命令（`test:claude-hook` の連なりに `test:common-seat` を足し、CI が今呼ぶ命令から届かせる。workflow は変えない）。社内の席の起動の設定に `AGENT_MEMORY_MODE=common` を書く手順は、文書（`docs/operations/`）に書くだけで、席には適用しない（席の起動・展開は保護面）。
-- [ ] **Step 14 文書と追跡（約 80 行）** — `docs/operations/` の記述、`code-summary.md`・`traceability.json`、deviation ledger（3）、PR の本文。
+- [x] **Step 1 構成と設定の骨組み（約 60 行）** — `sql/kusabi/` の置き場、空の module の export、`package.json` の命令の名前（`test:common-seat`・`test:common-seat-pg`）。挙動は足さない。
+- [x] **Step 2 試験の道具の確認（コード 0 行）** — 今の試験の命令（`npm run test:store-resolution`）を、使い捨ての HOME・`KUSABI_TEST_TMPDIR` で 1 回流して通ることを確かめ、`unit-test-instructions.md` の命令を確定する。
+- [x] **Step 3 成功の条件の場面の試験を先に書いて失敗を確かめる（約 240 行）** — `src/test-common-seat-scenario.ts`: Codex の形で決定を 1 件書く → 新しい process で再起動 → Claude Code の形の起動の口で同じ決定が出る。負の確かめ: 登録の無い席・DB を止めた時（手元に何も書かれない）・`DATABASE_URL` だけの時（表を作らない）・呼出しの記録に決定の文が無い。module が無い状態で流し、失敗の出力を記録に残す。PR-1 には store の層の部分、PR-2 に host の層の部分を載せる。
+- [x] **Step 4 失敗の名前の表と置き場所の決め方（約 200 行）** — `common-seat-errors.ts`・`common-placement.ts`（1.1・1.2）。BR1.1〜1.3・BR2.5。
+- [x] **Step 5 窓口と席の store（約 230 行）** — `common-seat-store.ts`（1.3）。BR1.4〜1.6・BR2.1〜2.7・BR3.1・BR3.3。
+- [x] **Step 6 Kusabi の置き場の SQL の up/down（約 200 行）** — `sql/kusabi/0001_up.sql`・`0001_down.sql`。DB の設計の記録（G2）のとおりに書く。共通基盤は 0.3.1 の `install` の順（5 file）で当てた DB に、up を当てる。当てる → 戻す → 前の試験が通る（S6・NFR6.1）。
+- [x] **Step 7 層ごとの試験（置き場所・失敗の名前・store・SQL。約 700 行）** — 実装の後に、偽の窓口の試験（CI から届く）と使い捨ての PostgreSQL の試験（手元。席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・消す物が無いこと。共通基盤 0.3.1 の 5 file は、固定 commit の onza の作業場から読み、読んだ bytes の sha256 を試験の期待値と比べる。作業場が無ければ「観測できず」= 終了コード 3。D6）を書いて動かす。
+- [x] **Step 8 道具の面と呼出しの記録（約 170 行）** — `common-seat-surface.ts`（1.4）。BR3.2・BR3.5・BR5.1・BR5.2。
+- [x] **Step 9 起動の口の回復（約 150 行）** — `common-recovery.ts`（1.5）。BR3.4・BR4.1〜4.3。
+- [x] **Step 10 入口の配線（約 200 行）** — 1.6 の入口。`src/index.ts` の `createStore` の前に形を決める 1 か所を足す。
+- [x] **Step 11 層ごとの試験（道具の面・回復・配線。約 650 行）** — 実装の後に書いて動かす。Step 3 の場面の試験を緑にする。
+- [x] **Step 12 行の網羅率の測り（コード 0 行）** — 261113 の 3 つの script（`merge-zero.mjs`・`changed-uncovered.py`・`coverage-selftest.mjs`。SHA-256 は `ab76f8fc…`・`4c73c560…`・`8db67d66…`）を記録から取り出し、自己試験を流してから、全部の命令と CI が届く命令だけの 2 通りで追加行 100% を確かめる。数えから外す行は PR に理由を書く。
+- [x] **Step 13 環境・build の設定（約 40 行）** — `package.json` の試験の命令（`test:claude-hook` の連なりに `test:common-seat` を足し、CI が今呼ぶ命令から届かせる。workflow は変えない）。社内の席の起動の設定に `AGENT_MEMORY_MODE=common` を書く手順は、文書（`docs/operations/`）に書くだけで、席には適用しない（席の起動・展開は保護面）。
+- [x] **Step 14 文書と追跡（約 80 行）** — `docs/operations/` の記述、`code-summary.md`・`traceability.json`、deviation ledger（3）、PR の本文。
 
 ## 3. 設計の判断と採らなかった代替（deviation ledger）と、読み替えと持ち越し
 

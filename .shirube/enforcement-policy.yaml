@@ -1,6 +1,7 @@
 schema_version: shirube-enforcement-policy/v1
 policy_id: ENFORCEMENT-POLICY-KUSABI-001
 repo: watchout/agent-memory
+# 決定 #49 7026768954 で、この値を読む workflow は無い。今の必須の検査は build-and-test の 3 つだけ
 mode: ci_hard_block
 profile: hotel-lite
 framework_ref: watchout/ai-dev-framework@d3c3be1394f509839db83c6ed57482178ebbaecd
