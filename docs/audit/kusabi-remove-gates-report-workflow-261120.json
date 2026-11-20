@@ -1,0 +1,43 @@
+{
+  "schema": "sds-audit-items/1",
+  "status": "作者の席（Kusabi の AI-DLC の作業場）が書いた実装監査の項目（agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除と、それに合わせた統治の文書の直し。守る物 = workflow の変更なので区分は R3、重い門。作者の見立てで、決めるのは監査席と arc）。設計の覚え書きは PR 本文の短い形（arc の指示）。消す行数は 232 で、小さい変更の軽い道の 100 行を超えるため、この扱いは PR 本文の deviation_ledger に書く。監査の合格は、作者の受領・必須の検査・Owner の exact-head・作者と別の席の統合のどれも代替しない。止める指摘は「起きやすさ × 困る大きさ」の表（決定 #49 6806956918）で決める。WR-6 は記録だけの項目で、落ちても止める指摘にしない。",
+  "scope": "watchout/agent-memory の `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（Owner の決定 7026768954 の後片付けの 4）と、`docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` の同じ commit での直しの実装監査。対象 = 依頼の targets の head（base = main の dc5e9002cd2ea3ceff46e04a755fca888c389b12。#353 の統合の後の main）。この項目の file はその head に足す物で、足す前の commit は 1b14ce240c0e42b0dcd0261ca31b79f8a3df232e（削除と文書の commit）。",
+  "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
+  "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
+  "control_source_ref": {
+    "url": "https://github.com/watchout/iyasaka-arc/issues/49#issuecomment-7026768954",
+    "sha256": "d5ed27575aecb9549f0f0e7d9474ace8c5cac52776b95765dca43495a808b8b9"
+  },
+  "items": [
+    {
+      "id": "WR-1",
+      "criterion": "範囲: base と head の差分は、この項目の file を除いて、(1) `.github/workflows/shirube-rapid-lite-gates-report.yml` の削除（足した行 0・消した行 232）と、(2) `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` の直し（足した行 7・消した行 2）の 2 file だけか。`ci.yml`・ほかの workflow・`package.json`・`src/`・`.shirube/`・lockfile は 0 file か。消えるのは、`pull_request_target` で動き、`issues: write` を持つ報告用の workflow 1 つだけか。",
+      "basis": "[V] 作者が `git diff --name-status` と `--numstat` で数えた（base `dc5e9002` と code の commit `1b14ce24`）: `D .github/workflows/shirube-rapid-lite-gates-report.yml`（0・232）と `M docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`（7・2）。`ci.yml` の blob は base と同じ（`git rev-parse`）。code の commit の `.github/workflows/` に残るのは `ci.yml` だけ。消す file の blob は `184fadec`、232 行。[V] 消す file を読んだ: `on` は `pull_request_target`（opened・synchronize・reopened・ready_for_review・edited・labeled・unlabeled）、`permissions` は `contents: read` と `issues: write`、job は 1 つ（`Shirube Rapid/Lite Gates Report`）で、base の commit の `.shirube/runtime/rapid-lite` を読んで動かし、PR に報告の comment を足し（`Upsert PR comment`）、最後に結果が PASS でなければ失敗にする。"
+    },
+    {
+      "id": "WR-2",
+      "criterion": "必須の検査: main の branch protection が要求する検査は `build-and-test (18)`・`(20)`・`(22)` の 3 つだけで、消す workflow の job（`Shirube Rapid/Lite Gates Report`）は含まれないか。repo の ruleset は 0 件か。消した後も同じ 3 つが走って success になるか（`ci.yml` が変わらないので。依頼が書く CI の run で確かめる）。この workflow の結果が、統合の可否を決める所（必須の検査・ruleset・受付の検査）に 1 つも無いか。",
+      "basis": "[V] 作者が API で読んだ（`branches/main/protection`）: `required_status_checks.contexts` は上の 3 つだけ（`strict` は false、`enforce_admins` は true、承認は 1 件）。`rulesets` は 0 件。組織の ruleset の API は 404 で読めなかった（未観測。作者は、組織の ruleset がこの repo に掛かっているという証拠を見ていない）。[V] `ci.yml` に `workflow_run`・`needs:` と、この workflow の名前は無い（base の commit）。[V] 独立の監査の受付の検査（`scripts/hygiene/audit-admission.mjs`。作者の手元の写し、SHA-256 は依頼の `verifier_sha256` と一致）を全文で grep して、`rapid` の語は 0 件。受付は依頼の `checks` に書かれた job だけを照らす。この check の run は、直近 40 回（取り消しを除く、2026-11-13 以降）がすべて failure（API）。必須でないので、failure でも統合は止まらなかった。"
+    },
+    {
+      "id": "WR-3",
+      "criterion": "参照元と文書: この workflow を前提にして壊れる物・黙って食い違う物が無いか。base の commit で、この workflow の名前・path を含む file（消す file を除く）は、(a) `.shirube/runtime/rapid-lite/` の 5 file（この workflow が動かす束 23 file の一部。ほかから呼ばれない）、(b) `.shirube/repo-spec.yaml` 89 行目と `.shirube/control-handoffs/CH-001.yaml` 57 行目（`allowed_paths`、つまり「触ってよい path」の一覧）、(c) 文書 2 つ（`docs/shirube/README.md` 37 行目と `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` 21 行目）、(d) 過去の記録（`docs/audit/` の項目 3 file と `aidlc/` の記録 16 file）だけか。(c) の 2 つ目は、この PR が同じ commit で直した文書か（`## Keeping it true` が『統治の変更は同じ commit で記す』と書く）。(a)(b) を残し、(c) の 1 つ目（条件つきの説明）と (d) を直さないのは、決定が消す物を workflow だけに限っているためで、正しいか。",
+      "basis": "[V] 作者が `git grep -l -E 'shirube-rapid-lite|Rapid/Lite Gates Report'` を base の commit に流し、5 + 2 + 2 + 3 + 16 = 28 file に分けた（消す file を除く）。(b) の 2 行は `allowed_paths:` の下の 1 行で、読む所はこの repo の中に無い。(a) の束は、報告の comment の印を読む `run-rapid-lite-report.mjs` を含み、読む workflow が無くなるので、動かす物が無い file になる（消さない。決定が名指ししない）。[V] `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md` は『他の V2 文書が指す 1 つの正本』で、表がこの workflow を今ある統制として書いていた。この PR の差分（7・2）は、更新日、表の 1 行（`.shirube/**` だけにし『報告されなくなった』と書く）、末尾の 1 段落（削除の記録）だけで、元の段落と `What this file does not do` は変えない。直した後の文書にこの workflow の名前が残る行は、末尾の削除の記録の 1 行だけ（`git grep -c` で 1）。[文献確認] Shirube の SDS の kit（watchout/shirube の `scripts/sds/kit.mjs` 20 行目。作者の手元の写し、commit `c0c99481`）は、この workflow の path を『取り除く古い部品』の一覧（`LEGACY`）に置く。この repo の pin の版との一致は作者は確かめていない。(a)(b) の扱いは作者の持ち越しで、PR 本文に書く（決定は触れていない）。"
+    },
+    {
+      "id": "WR-4",
+      "criterion": "権限の経路と守り: この削除は Owner の決定 OD-SHIRUBE-USE-WHAT-EXISTS-PAUSE-NEW-DEVELOPMENT-20261120-001 の後片付けの 4（control_source_ref）の範囲か。決定の本文の SHA-256 は control_source_ref の値と一致するか。統合の前に Owner の exact-head が要る物（workflow は守る物）で、作者は統合しない、と依頼が書いているか。構造の守り 6 つのどれも弱めないか（作者の読みでは、(5) 認証なしの面を最小に、が 1 つ強まる）。弱める物があれば致命として止めてください。",
+      "basis": "[V] 作者が決定の本文を API で読み、SHA-256 が control_source_ref の値と一致することを確かめた。後片付けの 4 は『agent-memory の報告だけの検査「Shirube Rapid/Lite Gates Report」（pull_request_target、全部 failure）を消す Kusabi の小さい PR（構造の守りの 5 = 認証なしの面を最小に。workflow = 重い門・Owner の exact-head）。3 と 4 の Owner の exact-head は 1 回にまとめる』と書く。[R] 守りの読み: この workflow は、どの PR の作者にも動き、`issues: write` の token で PR に comment を書く面（`pull_request_target`）。消すと、この面が 1 つ減る（(5) の方向）。必須の検査でも ruleset でもないので、(1)〜(4)・(6) に関わる物は無い。攻める側に要る最小の権限（足し 0）: この変更を悪用する場面は無い（権限を足す変更ではない。消した物は、PR を開ける権限を持つ人が動かせた面）。"
+    },
+    {
+      "id": "WR-5",
+      "criterion": "戻し方と同居（S6）: 戻しは、この 1 commit を戻して（`git revert`）、同じ path に同じ内容（blob の `184fadec`）を戻し、文書の 3 か所も元に戻るだけか。統合の前後で、新旧が同居する間の挙動が読めるか（`pull_request_target` は base の定義で動くので、統合の前は PR の head の削除は効かず、この PR にも報告の check が付く。統合の後に開く PR・push する PR には付かない。既に終わった run は変わらない）。",
+      "basis": "[V] WR-1 の差分から読んだ。blob は `184fadec14095f2ca4420b9fafad2fac2fc2e415`（base の `git rev-parse`）で、戻した file は byte で一致する。[文献確認] GitHub の文書は、`pull_request_target` が base の branch の workflow の版で動くと書く（作者が読んだ範囲）。作者の読みでは、この workflow が付ける comment と artifact（保持 14 日）は、消した後も既に付いた物は残り、新しくは付かない。"
+    },
+    {
+      "id": "WR-6",
+      "criterion": "記録だけ: 公開の repo の確認。足した行（この PR の差分の + 行。文書の 7 行とこの項目の file）・commit の文・PR 本文に、この Mac の software の版・DB の内側の名前・home の絶対 path・実在の資格や接続先が無いか。",
+      "basis": "[V] 作者が、足した行・commit の文・PR 本文を、版と名前を表す語の一覧（#350 の本文のコマンドのパターン）で grep して 0 件。消す file の中身（232 行の削除）は公開の repo にすでにあった物。"
+    }
+  ]
+}
