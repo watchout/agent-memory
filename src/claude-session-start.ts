@@ -31,6 +31,7 @@ import {
   type LoadedCodexRecovery,
   type RecoveryOutputWithMetrics,
 } from "./codex-session-start.js";
+import { loadCommonRecovery } from "./common-recovery.js";
 import { parseHookInputShape, type HookInputShape } from "./hook-input.js";
 import {
   finishAfterAnswer,
@@ -316,6 +317,8 @@ export async function loadClaudeRecoveryFromStore(
   input: ClaudeSessionStartInput,
   rotationDependencies: RotationStartDependencies = {},
 ): Promise<LoadedCodexRecovery> {
+  const common = await loadCommonRecovery(binding);
+  if (common) return common;
   const { binding: storeBinding, resolution } = resolveSessionStartStore();
   const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {

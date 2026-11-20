@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { commonNotYetAvailable } from "./common-recovery.js";
 import { estimateTokens } from "./constants.js";
 import {
   enforceCodexRecoveryCaps,
@@ -499,6 +500,8 @@ export async function loadGeminiRecoveryFromStore(
   binding: GeminiSessionStartBinding,
   input: GeminiSessionStartInput,
 ): Promise<LoadedGeminiRecovery> {
+  const common = commonNotYetAvailable(binding);
+  if (common) return { recovery: common.recovery, recovery_pack: common.recovery_pack, recovery_quality_log_ref: null };
   const { binding: storeBinding, resolution } = resolveSessionStartStore();
   const store = await openResolvedStore(resolution, { skipPostgresMigrations: true });
   try {
