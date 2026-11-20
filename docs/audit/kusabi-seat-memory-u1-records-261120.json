@@ -1,7 +1,7 @@
 {
   "schema": "sds-audit-items/1",
-  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた実装監査の項目（U1 の最後の記録だけの PR）。軽い門: PC-1〜PC-5 は落ちると重大になる確かめ（必須）、PC-6・PC-7 は記録だけで、差し戻しにしない。設計の PR は #349、code の PR は #350・#351・#352（#352 は独立の監査 3 回目 PASS・受領済みで、Owner の exact-head と統合を待つ）。この PR は #352 の head の上に積んだ記録だけの PR。",
-  "scope": "watchout/agent-memory の取り組み 261021-facility-ax-memory の単位 U1 の最後の記録だけの PR の監査。対象 = 依頼の targets の head。足す前の記録の commit は 4b47b5efc150d70754b7eb0e31a50f3b84796a44（この commit の上に項目の file だけを足す）。code・SQL・workflow・依存・本物の DB・席の設定は範囲外（この PR は変えない）。",
+  "status": "作者の席（Kusabi の AI-DLC の作業場、Code Generation の段）が書いた実装監査の項目（U1 の最後の記録だけの PR）。軽い門: PC-1〜PC-5 と PC-8 は落ちると重大になる確かめ（必須）、PC-6・PC-7 は記録だけで、差し戻しにしない。設計の PR は #349、code の PR は #350・#351・#352（#352 は独立の監査 3 回目 PASS・受領済みで、Owner の exact-head と統合を待つ）。この PR は #352 の head の上に積んだ記録だけの PR（公開の衛生の置き換え C-8 を含む。PC-8）。",
+  "scope": "watchout/agent-memory の取り組み 261021-facility-ax-memory の単位 U1 の最後の記録だけの PR の監査。対象 = 依頼の targets の head。この PR は #352 の head の上の 4 commit（記録 4b47b5efc150d70754b7eb0e31a50f3b84796a44、項目の file、公開の衛生の置き換え C-8、項目の更新）。code・SQL・workflow・依存・本物の DB・席の設定は範囲外（この PR は変えない）。",
   "method_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/sds/audit-method.md",
   "procedure_ref": "https://github.com/watchout/shirube/blob/7e775afd5b755e51e55e269d8dc35b09d180c33e/docs/process/ai-dlc.md",
   "control_source_ref": {
@@ -11,8 +11,8 @@
   "items": [
     {
       "id": "PC-1",
-      "criterion": "【必須】範囲: この PR の差分は、#352 の head `9d512e59` の上の次の 5 path だけか。(1) `.shirube/enforcement-policy.yaml` の 1 行の追加、(2) `code-generation-plan.md` の Step の印 14 個（`[ ]` を `[x]` にしただけで、ほかの文字が同じ）、(3) `code-summary.md`（新）、(4) `traceability.json`（新）、(5) この項目の file（新）。`src`・`sql`・`scripts`・`.github`・`package.json`・lockfile の変更が 0 file か。`.shirube/enforcement-policy.yaml` は、足した 1 行がコメントで、`mode: ci_hard_block` を含む既存の行が 1 byte も変わっていないか。",
-      "basis": "[V] `git diff --name-status 9d512e59 4b47b5ef`: 4 file（M 2・A 2）で、上の (1)〜(4)。項目の file は、この commit の上の 1 commit で足す。`--numstat`: policy +1 −0、plan +14 −14、`code-summary.md` +70、`traceability.json` +516。[V] policy の `git diff -U0` の hunk は `@@ -3,0 +4 @@` の 1 つで、足した行は `# 決定 #49 7026768954 で、この値を読む workflow は無い。今の必須の検査は build-and-test の 3 つだけ`、直後の 5 行目は `mode: ci_hard_block`。[V] plan は、新しい版の `- [x] **Step` を `- [ ] **Step` に置き換えると前の版と完全に一致し、印は 14 個。[V] 前検査 `check.py`（SHA-256 `1c7a2276…`）は PASS: コード 1 行（policy のコメント 1 行）、設計の文書 98 行（`code-summary.md` 70 行と plan の印 28 行）、機械の表 516 行、写し最大 4%。項目の file の行数は依頼の本文に書く。この PR は code を変えない。"
+      "criterion": "【必須】範囲: この PR の差分は、#352 の head `9d512e59` の上の次だけか。(1) `.shirube/enforcement-policy.yaml` の 1 行の追加、(2) `code-generation-plan.md` の Step の印 14 個（`[ ]` を `[x]` にしただけ）と、C-8 の置き換えの 6 行（PC-8）、(3) `code-summary.md`（新）、(4) `traceability.json`（新）、(5) 取り組みの記録のうち C-8 の置き換えの 26 file（PC-8。plan を除く）、(6) この項目の file（新）。`src`・`sql`・`scripts`・`.github`・`package.json`・lockfile の変更が 0 file か。`.shirube/enforcement-policy.yaml` は、足した 1 行がコメントで、`mode: ci_hard_block` を含む既存の行が 1 byte も変わっていないか。",
+      "basis": "[V] `git diff --name-status 9d512e59 <この PR の head>`: M 28・A 3。M は policy 1 と取り組みの記録 27 file（plan を含む）、A は `code-summary.md`・`traceability.json`・項目の file。`--numstat`: policy +1 −0、plan +20 −20（印 14 と C-8 の 6 行）、`code-summary.md` +70、`traceability.json` +516、取り組みの記録 27 file の合計 +84 −84（plan の印 14 を含む）。[V] policy の `git diff -U0` の hunk は `@@ -3,0 +4 @@` の 1 つで、足した行は `# 決定 #49 7026768954 で、この値を読む workflow は無い。今の必須の検査は build-and-test の 3 つだけ`、直後の 5 行目は `mode: ci_hard_block`。[V] plan は、新しい版の `- [x] **Step` を `- [ ] **Step` に置き換えると前の版と違う行が 6（11・21・90・112・116・121 行目。C-8）だけで、印は 14 個。[V] 前検査 `check.py`（SHA-256 `1c7a2276…`）は PASS: コード 49 行（policy のコメント 1 行と、前の項目の file 48 行。項目の file はこの更新で行数が変わる。依頼の本文に書く）、設計の文書 228 行（追加と削除の行の和。`code-summary.md` 70・plan の印 28・置き換えた記録 130）、機械の表 526 行、写し最大 21%。この PR は code を変えない。"
     },
     {
       "id": "PC-2",
@@ -32,7 +32,12 @@
     {
       "id": "PC-5",
       "criterion": "【必須】この PR の追加行の衛生と承認の書き方: この PR が足した行（`git diff -U0` の `+` の行）に、公開の repo に出してはいけない物（home の path・メール・資格情報・本物の鍵の形・DB の URL・手元の環境の版の名前）が 0 件か。arc の判断（Owner の委任の下の連絡）と Owner の決定を、記録が取り違えて書いていないか（Owner の承認を、arc の連絡から作っていないか）。守る物（workflow・必須の検査・DB の構造・資格情報・契約の .v2・価格）に触れていないか（policy のコメントは値を変えない）。",
-      "basis": "[V] 作者が追加行（項目の file を足す前の 601 行）を、公開 repo 用の走査（home の path・手元の環境の版の名前・コンテナの道具の名前・内部の席の番号つきの名前）で走査し、0 件。鍵の形（`-----BEGIN` の見出し・`AKIA`・`ghp_`・`sk-`）は 0 件。時間の制約の語（`no-time-constraints` の pattern）も 0 件。[V] `code-summary.md` の 3 は、食い違いの決めを「arc の答え（Owner の委任 #49 6762288830。11-20 の連絡）で、Owner の決定ではない」と書き、C-7・C-8 を「arc の判断待ち」と書いている。[V] この PR は workflow・必須の検査・DB の構造・資格情報・契約・価格の file を変えない（PC-1）。policy の値 `mode: ci_hard_block` は不変で、コメントが「この値を読む workflow は無い」と言う事実は、#354（Gates Report の workflow を外す PR）の統合の後に真になる（今の head では、その workflow が enforcement-policy の gate を読む。`.github/workflows/shirube-rapid-lite-gates-report.yml:217`）。PR 本文に、この順序を書いている。"
+      "basis": "[V] 作者が追加行（項目の file を除く 671 行。この PR の全部の追加行は 719）を、公開 repo 用の走査（home の path・手元の環境の版の名前・コンテナの道具の名前・DB の内部の名前・端末の名前・席の連絡の経路の名前・内部の席の番号つきの名前）で走査した。語に当たったのは、製品群の名前を含む 1 行（`units-generation-questions.md`）だけで、環境・DB の内部の名前ではない。それ以外は 0 件。鍵の形（`-----BEGIN` の見出し・`AKIA`・`ghp_`・`sk-`）・メールは 0 件。時間の制約の語（`no-time-constraints` の pattern）も 0 件。[V] `code-summary.md` の 3 は、食い違いの決めを「arc の答え（Owner の委任 #49 6762288830。11-20 の連絡）で、Owner の決定ではない」と書き、C-7 は arc の判断で持ち越し、C-8 はこの PR で直したと書いている。[V] この PR は workflow・必須の検査・DB の構造・資格情報・契約・価格の file を変えない（PC-1）。policy の値 `mode: ci_hard_block` は不変で、コメントが「この値を読む workflow は無い」と言う事実は、#354（Gates Report の workflow を外す PR）の統合の後に真になる（今の head では、その workflow が enforcement-policy の gate を読む。`.github/workflows/shirube-rapid-lite-gates-report.yml:217`）。PR 本文に、この順序を書いている。"
+    },
+    {
+      "id": "PC-8",
+      "criterion": "【必須】C-8（公開の衛生）の置き換え: 取り組みの記録 27 file の 70 行は、規則の表（PR 本文）の置き換えだけで、決定・数値・件数・ID・参照・`path:行` の意味を変えていないか。置き換え後の取り組みの記録の全部に、版の番号・手元の機械の名前・DB の内部の名前・端末の名前・席の連絡の経路の名前・手元の絶対 path が、残した物（日誌 `memory.md` 2 file の各 1 行・計画の `\"text\"` の行・役割の席名・製品群の名前）を除いて残っていないか。承認済みの記録を書き換えたことを、承認の印への影響が未観測であることと一緒に、記録と PR 本文が書いているか。",
+      "basis": "[V] base（`9d512e59`）の blob に規則の表を当てた結果が、この PR の head の blob と 27 file ともバイト単位で一致する（作者が script で確かめた。plan は印の 14 行を除く）。[V] 変えた行の組（置き換え前・後。印の 14 行を含む 84 組）で、URL・`#` つきの番号・7 桁以上の数・hex・ID・`path:行` が全部同じ。違いは `evidence.md` 13 行目のコードの span（手元の絶対 path を言葉に替えた行）だけ。[V] 置き換え後の取り組みの記録（108 file）の走査で、残る行は、日誌 `memory.md` 2 file の各 1 行（`construction/infrastructure-design/memory.md` 9 行目・`construction/nfr-requirements/memory.md` 7 行目。engine が書く物で、手で書き換えない。前検査も止める）、計画の `\"text\"` の行（`code-generation-plan.md` 154 行目。規則の写しで、元の規則の file が同じ文を持つ）、役割の席名を書いた行（公開の team.md が同じ名で書く）、依存の版の宣言 1 行（`^11.1.0`。公開の package.json にある）。[?] 承認済みの記録を書き換えたことが engine の段の承認の印（hash の確かめ）に与える影響は、この作業場にその記録の dir が無く、観測していない（未観測）。arc の指示（Owner の委任の下の判断。Owner の決定ではない）で書き換えた。"
     },
     {
       "id": "PC-6",
@@ -41,8 +46,8 @@
     },
     {
       "id": "PC-7",
-      "criterion": "【記録だけ・差し戻しにしない】持ち越し: `code-summary.md` の 3 の DV-1〜DV-4 と C-1〜C-9 が、元の指摘の返却・設計の場所を ID と path:行で参照しているか（中身を写していないか）。C-7（版 21 の写しの整理）と C-8（公開の衛生）を、この PR で直さない理由（承認済みの記録を書き換えると段の承認の印が外れる）を書いているか。",
-      "basis": "[V] `code-summary.md` の 3 は表と箇条書きで、設計の文は ID と path:行で指す。C-2・C-3・C-6 は #352 の 3 回目の返却 7029272139 の観察 O-2・O-3・O-1 を指す。#354 の SW-6〜SW-9 は #354 の本文のままで、ここに写していない。C-7 は #349 の前検査の出力（写し 36%・見直しの記録 371 行）、C-8 は取り組みの記録の機械の数（42 行・17 file）を指す。"
+      "criterion": "【記録だけ・差し戻しにしない】持ち越し: `code-summary.md` の 3 の DV-1〜DV-4 と C-1〜C-9 が、元の指摘の返却・設計の場所を ID と path:行で参照しているか（中身を写していないか）。C-7（版 21 の写しの整理）を持ち越す理由（arc の判断: U1 を閉じ、次の Unit の記録から決定 152 の形で書く）と、C-8 を直した事・残した物の理由を書いているか。",
+      "basis": "[V] `code-summary.md` の 3 は表と箇条書きで、設計の文は ID と path:行で指す。C-2・C-3・C-6 は #352 の 3 回目の返却 7029272139 の観察 O-2・O-3・O-1 を指す。#354 の SW-6〜SW-9 は #354 の本文のままで、ここに写していない。C-7 は #349 の前検査の出力（写し 36%・見直しの記録 371 行）を指し、arc の判断で持ち越し。C-8 はこの PR で直し、残した物（日誌 2 file の各 1 行・計画の規則の写しの行・役割の席名・製品群の名前）を理由つきで書いている。"
     }
   ]
 }
