@@ -36,7 +36,7 @@ C. 自社の VPS などの別の所
 D. Not yet defined（まだ決まっていない）
 X. Other (please specify)
 
-[Answer]: B（arc の下書き。共通基盤 0.2 は 1 つの PostgreSQL の DB に common・shirube・aun・kusabi・kodama・onza の schema を置く設計 = onza docs/common/0.2。この Mac の DB suite は作ってある = iyasaka-arc#49 6289421859。そこへ Kusabi の schema を入れる時は保護面として Owner の決定が要る）
+[Answer]: B（arc の下書き。共通基盤 0.2 は 1 つの PostgreSQL の DB に common・shirube・aun・kusabi・kodama・onza の schema を置く設計 = onza docs/common/0.2。手元の機械に共通基盤の DB は作ってある = iyasaka-arc#49 6289421859。そこへ Kusabi の schema を入れる時は保護面として Owner の決定が要る）
 
 ## Q4. [運用担当] 顧客の DB に置く形を試す環境
 

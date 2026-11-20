@@ -15,7 +15,7 @@
     { "id": "NFR4.1", "status": "OK", "target": "host adapter timing test, 7-second threshold (monitoring-design)" },
     { "id": "NFR4.2", "status": "N/A", "target": "application timeout setting, no infrastructure resource (nfr-design performance-design)" },
     { "id": "NFR4.3", "status": "N/A", "target": "application timeout setting, no infrastructure resource (nfr-design performance-design)" },
-    { "id": "NFR4.4", "status": "OK", "target": "speed test with 10k synthetic decisions on the disposable PostgreSQL 17 (monitoring-design)" },
+    { "id": "NFR4.4", "status": "OK", "target": "speed test with 10k synthetic decisions on the disposable PostgreSQL (monitoring-design)" },
     { "id": "NFR4.5", "status": "OK", "target": "resource sizing row: tens of seats, 10k decisions per seat (infrastructure-specification)" },
     { "id": "NFR4.6", "status": "OK", "target": "one connection per seat process, no pool (infrastructure-specification)" },
     { "id": "NFR5.1", "status": "N/A", "target": "application failure handling, no infrastructure resource (nfr-design reliability-design)" },
@@ -27,11 +27,11 @@
     { "id": "NFR5.7", "status": "N/A", "target": "memory_status in host adapter output (nfr-design observability-design)" },
     { "id": "NFR6.1", "status": "OK", "target": "paired up and down SQL for the kusabi schema, rollback test in the pipeline (cicd-pipeline)" },
     { "id": "NFR7.1", "status": "N/A", "target": "no delete function in the kusabi schema, checked by test (nfr-design reliability-design)" },
-    { "id": "NFR8.1", "status": "OK", "target": "SCRAM login roles, local-only disposable DB, verified TLS outside this Mac (infrastructure-specification)" },
+    { "id": "NFR8.1", "status": "OK", "target": "SCRAM login roles, local-only disposable DB, verified TLS outside the local machine (infrastructure-specification)" },
     { "id": "NFR8.2", "status": "OK", "target": "kusabi_owner with common_verify_caller and EXECUTE-only seat roles (infrastructure-specification)" },
     { "id": "NFR8.3", "status": "OK", "target": "credentials from environment, created and dropped inside tests, no new CI secrets (cicd-pipeline)" },
     { "id": "NFR9.1", "status": "N/A", "target": "UTC timestamps and ordering in the data model (nfr-design observability-design)" },
-    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL 17 per test run via initdb and pg_ctl on a free port (infrastructure-specification)" },
+    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL per test run via initdb and pg_ctl on a free port (infrastructure-specification)" },
     { "id": "NFR10.2", "status": "OK", "target": "coverage check added to CI through a separate workflow-only PR with owner exact-head (cicd-pipeline)" }
   ]
 }

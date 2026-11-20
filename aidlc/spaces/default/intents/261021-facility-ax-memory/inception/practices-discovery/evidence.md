@@ -10,7 +10,7 @@
 | .github/workflows/ci.yml | main への push と PR で、Node 18・20・22 の型検査・ビルド・試験。PostgreSQL の試験は無い |
 | .github/workflows/shirube-rapid-lite-gates-report.yml | Shirube の門の報告 |
 | package.json の命令 | 試験は tsx で直接動かす自前のスクリプト。網羅率の道具は無い。runtime release の作成と公開の命令がある |
-| scripts/build-kusabi-content-addressed-runtime-release.mjs | 統合済みの main から、中身の決まった版を `~/Developer/.kusabi-releases` に作る |
+| scripts/build-kusabi-content-addressed-runtime-release.mjs | 統合済みの main から、中身の決まった版を home の下の配布用の folder に作る |
 | docs/operations/KUSABI_ALPHA_OBS05_FLEET_ROLLOUT.md | 席の束ごとの展開（R1 → R2 → R3）、各束の健全さの確かめ、失敗時の設定の戻し |
 | docs/operations/DEPLOYMENT.md・ENVIRONMENTS.md | 中身は「要記入」のまま |
 | CLAUDE.md | 書き方の決まり、main への直接の commit の禁止、PR のレビュー必須 |

@@ -1,7 +1,7 @@
 # U1 の速さの要件
 
 - 入力: 要件（`inception/requirements-analysis/requirements.md` の NFR4）、U1 の振る舞いの仕様（`construction/u1-seat-memory-skeleton/functional-design/functional-spec.md` の W2〜W4）、この段階の質問の答え
-- 測る場所: この Mac の DB（試験は試験のたびに立ち上げる専用の PostgreSQL 17）
+- 測る場所: 手元の機械の DB（試験は試験のたびに立ち上げる専用の PostgreSQL）
 
 ## 時間の上限
 

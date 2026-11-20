@@ -8,7 +8,7 @@
 
 - Builds: 共通基盤の形（`AGENT_MEMORY_MODE=common`）の置き場所の決め方・席の確かめ・決定の保存と読み出し・起動の口の回復（Claude Code と Codex）。Kusabi の置き場（DB の `kusabi`）の up/down の SQL 1 対、MCP の入口 2 つ（`log_decision`・`get_decisions`）、U1 に無い道具の `not_yet_available`。
 - Touches: 新しい file 約 8 つ（`src/common-*.ts`・`sql/kusabi/`）、入口の配線（`src/index.ts`・`claude-session-start.ts`・`codex-session-start.ts`・`boot.ts`・`claude-start.ts`・`codex-start.ts`、Gemini・Antigravity の hook は common の時に拒否）、`package.json` の試験の命令。今の `decideStore`・単独の形は変えない（BR6.1）。workflow は変えない。
-- Tests: 標準の試験量（部品ごとに 5〜8 件）。成功の条件の場面（Codex の形で決定を 1 件書く → 再起動 → Claude Code の形で読み戻す）を先に書いて失敗を確かめる。偽の SQL の窓口で CI から届く試験と、使い捨ての PostgreSQL 17 の試験（手元だけ）の 2 層。行の網羅率は 100%（追加行）。
+- Tests: 標準の試験量（部品ごとに 5〜8 件）。成功の条件の場面（Codex の形で決定を 1 件書く → 再起動 → Claude Code の形で読み戻す）を先に書いて失敗を確かめる。偽の SQL の窓口で CI から届く試験と、使い捨ての PostgreSQL の試験（手元だけ）の 2 層。行の網羅率は 100%（追加行）。
 
 道の区分: 今の道（軽い道ではない）。DB の構造・権限・資格情報に触れ、変えた行は 100 行を超える。設計の記録だけの PR と独立の設計監査 1 回の PASS の後に code を書く（team.md）。
 
@@ -18,7 +18,7 @@
 - G1 DB の基準（版 0.10）の SHA-256 の確かめ: 正本は iyasaka-org の `docs/shirube/db-standard.md`（commit `a48602d3fcf70a5b04a07cf70bcf6824ff259818`、file の SHA-256 `048c0062d0930756400b96c5539f1a7850924f454e17fe002c58a6791e655036`）。読んだ版の SHA-256 が違えば、書かずに arc に知らせる。手元の iyasaka-org の作業場に file が無いので、固定した commit の blob から取って確かめる。
 - G2 DB の設計の記録（新しい記録。承認済みの file は書き換えない）: B1（入力の表 1〜3）と B3（出力の型）の形で、`kusabi` の置き場（決定の表・公開関数）を書き、`deviation_ledger` を 1 行ずつ付ける。承認済みの記録には、この形が無い（5 の「見つけた不足」）。
 - G3 設計の記録だけの PR（Int1 の記録。公開の repo に出すので、漏れの確かめを流す）と、空いている監査席への設計監査の依頼 1 回。返却を待つ間は、この計画と試験の手順の承認までは進めてよいが、**試験を含む code は書かない**。
-- G4 使い捨ての PostgreSQL 17 は、Owner の決定を取らずに使う（arc の判断。決定 95 による委任で、Owner の言葉ではない。AUN の ID-5 と 261113 と同じ形）。条件: (1) 席の scratch に `initdb` で作る。(2) 127.0.0.1 だけで待ち、既定でない port を使い、共有の場所に socket を作らない（`unix_socket_directories` を空にする）。(3) 終わったら止めて消し、消した物の一覧を記録に残す。本物の会話での確かめは、そのつど Owner の判断を取る。workflow の変更は入れない（守る物）。
+- G4 使い捨ての PostgreSQL は、Owner の決定を取らずに使う（arc の判断。決定 95 による委任で、Owner の言葉ではない。AUN の ID-5 と 261113 と同じ形）。条件: (1) 席の scratch に `initdb` で作る。(2) 127.0.0.1 だけで待ち、既定でない port を使い、共有の場所に socket を作らない（`unix_socket_directories` を空にする）。(3) 終わったら止めて消し、消した物の一覧を記録に残す。本物の会話での確かめは、そのつど Owner の判断を取る。workflow の変更は入れない（守る物）。
 - 作る役の呼び出し: Owner の決定 134（`aidlc-*-agent` を最大 3 体同時、書く役は 1 単位 1 体、GitHub への書き込み・統合・孫への委任はしない）の範囲で、Code Generation の作る役を使う。
 
 ## 1. 設計
@@ -62,20 +62,20 @@
 
 PR の切れ目: PR-1 = Step 1〜7（置き場所・失敗の名前・窓口・SQL とその試験）、PR-2 = Step 8〜11（道具の面・回復・入口の配線・場面の試験）、Step 12〜14 は両方の PR に分けて載せる。見込みは PR-1 が約 1,650 行、PR-2 が約 1,250 行（どちらも 2,000 行未満）。PR-1 が先で、PR-2 は PR-1 の branch の上に積み、統合は計画の順（決定 129・135）。
 
-- [ ] **Step 1 構成と設定の骨組み（約 60 行）** — `sql/kusabi/` の置き場、空の module の export、`package.json` の命令の名前（`test:common-seat`・`test:common-seat-pg`）。挙動は足さない。
-- [ ] **Step 2 試験の道具の確認（コード 0 行）** — 今の試験の命令（`npm run test:store-resolution`）を、使い捨ての HOME・`KUSABI_TEST_TMPDIR` で 1 回流して通ることを確かめ、`unit-test-instructions.md` の命令を確定する。
-- [ ] **Step 3 成功の条件の場面の試験を先に書いて失敗を確かめる（約 240 行）** — `src/test-common-seat-scenario.ts`: Codex の形で決定を 1 件書く → 新しい process で再起動 → Claude Code の形の起動の口で同じ決定が出る。負の確かめ: 登録の無い席・DB を止めた時（手元に何も書かれない）・`DATABASE_URL` だけの時（表を作らない）・呼出しの記録に決定の文が無い。module が無い状態で流し、失敗の出力を記録に残す。PR-1 には store の層の部分、PR-2 に host の層の部分を載せる。
-- [ ] **Step 4 失敗の名前の表と置き場所の決め方（約 200 行）** — `common-seat-errors.ts`・`common-placement.ts`（1.1・1.2）。BR1.1〜1.3・BR2.5。
-- [ ] **Step 5 窓口と席の store（約 230 行）** — `common-seat-store.ts`（1.3）。BR1.4〜1.6・BR2.1〜2.7・BR3.1・BR3.3。
-- [ ] **Step 6 Kusabi の置き場の SQL の up/down（約 200 行）** — `sql/kusabi/0001_up.sql`・`0001_down.sql`。DB の設計の記録（G2）のとおりに書く。共通基盤は 0.3.1 の `install` の順（5 file）で当てた DB に、up を当てる。当てる → 戻す → 前の試験が通る（S6・NFR6.1）。
-- [ ] **Step 7 層ごとの試験（置き場所・失敗の名前・store・SQL。約 700 行）** — 実装の後に、偽の窓口の試験（CI から届く）と使い捨ての PostgreSQL の試験（手元。席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・消す物が無いこと。共通基盤 0.3.1 の 5 file は、固定 commit の onza の作業場から読み、読んだ bytes の sha256 を試験の期待値と比べる。作業場が無ければ「観測できず」= 終了コード 3。D6）を書いて動かす。
-- [ ] **Step 8 道具の面と呼出しの記録（約 170 行）** — `common-seat-surface.ts`（1.4）。BR3.2・BR3.5・BR5.1・BR5.2。
-- [ ] **Step 9 起動の口の回復（約 150 行）** — `common-recovery.ts`（1.5）。BR3.4・BR4.1〜4.3。
-- [ ] **Step 10 入口の配線（約 200 行）** — 1.6 の入口。`src/index.ts` の `createStore` の前に形を決める 1 か所を足す。
-- [ ] **Step 11 層ごとの試験（道具の面・回復・配線。約 650 行）** — 実装の後に書いて動かす。Step 3 の場面の試験を緑にする。
-- [ ] **Step 12 行の網羅率の測り（コード 0 行）** — 261113 の 3 つの script（`merge-zero.mjs`・`changed-uncovered.py`・`coverage-selftest.mjs`。SHA-256 は `ab76f8fc…`・`4c73c560…`・`8db67d66…`）を記録から取り出し、自己試験を流してから、全部の命令と CI が届く命令だけの 2 通りで追加行 100% を確かめる。数えから外す行は PR に理由を書く。
-- [ ] **Step 13 環境・build の設定（約 40 行）** — `package.json` の試験の命令（`test:claude-hook` の連なりに `test:common-seat` を足し、CI が今呼ぶ命令から届かせる。workflow は変えない）。社内の席の起動の設定に `AGENT_MEMORY_MODE=common` を書く手順は、文書（`docs/operations/`）に書くだけで、席には適用しない（席の起動・展開は保護面）。
-- [ ] **Step 14 文書と追跡（約 80 行）** — `docs/operations/` の記述、`code-summary.md`・`traceability.json`、deviation ledger（3）、PR の本文。
+- [x] **Step 1 構成と設定の骨組み（約 60 行）** — `sql/kusabi/` の置き場、空の module の export、`package.json` の命令の名前（`test:common-seat`・`test:common-seat-pg`）。挙動は足さない。
+- [x] **Step 2 試験の道具の確認（コード 0 行）** — 今の試験の命令（`npm run test:store-resolution`）を、使い捨ての HOME・`KUSABI_TEST_TMPDIR` で 1 回流して通ることを確かめ、`unit-test-instructions.md` の命令を確定する。
+- [x] **Step 3 成功の条件の場面の試験を先に書いて失敗を確かめる（約 240 行）** — `src/test-common-seat-scenario.ts`: Codex の形で決定を 1 件書く → 新しい process で再起動 → Claude Code の形の起動の口で同じ決定が出る。負の確かめ: 登録の無い席・DB を止めた時（手元に何も書かれない）・`DATABASE_URL` だけの時（表を作らない）・呼出しの記録に決定の文が無い。module が無い状態で流し、失敗の出力を記録に残す。PR-1 には store の層の部分、PR-2 に host の層の部分を載せる。
+- [x] **Step 4 失敗の名前の表と置き場所の決め方（約 200 行）** — `common-seat-errors.ts`・`common-placement.ts`（1.1・1.2）。BR1.1〜1.3・BR2.5。
+- [x] **Step 5 窓口と席の store（約 230 行）** — `common-seat-store.ts`（1.3）。BR1.4〜1.6・BR2.1〜2.7・BR3.1・BR3.3。
+- [x] **Step 6 Kusabi の置き場の SQL の up/down（約 200 行）** — `sql/kusabi/0001_up.sql`・`0001_down.sql`。DB の設計の記録（G2）のとおりに書く。共通基盤は 0.3.1 の `install` の順（5 file）で当てた DB に、up を当てる。当てる → 戻す → 前の試験が通る（S6・NFR6.1）。
+- [x] **Step 7 層ごとの試験（置き場所・失敗の名前・store・SQL。約 700 行）** — 実装の後に、偽の窓口の試験（CI から届く）と使い捨ての PostgreSQL の試験（手元。席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・消す物が無いこと。共通基盤 0.3.1 の 5 file は、固定 commit の onza の作業場から読み、読んだ bytes の sha256 を試験の期待値と比べる。作業場が無ければ「観測できず」= 終了コード 3。D6）を書いて動かす。
+- [x] **Step 8 道具の面と呼出しの記録（約 170 行）** — `common-seat-surface.ts`（1.4）。BR3.2・BR3.5・BR5.1・BR5.2。
+- [x] **Step 9 起動の口の回復（約 150 行）** — `common-recovery.ts`（1.5）。BR3.4・BR4.1〜4.3。
+- [x] **Step 10 入口の配線（約 200 行）** — 1.6 の入口。`src/index.ts` の `createStore` の前に形を決める 1 か所を足す。
+- [x] **Step 11 層ごとの試験（道具の面・回復・配線。約 650 行）** — 実装の後に書いて動かす。Step 3 の場面の試験を緑にする。
+- [x] **Step 12 行の網羅率の測り（コード 0 行）** — 261113 の 3 つの script（`merge-zero.mjs`・`changed-uncovered.py`・`coverage-selftest.mjs`。SHA-256 は `ab76f8fc…`・`4c73c560…`・`8db67d66…`）を記録から取り出し、自己試験を流してから、全部の命令と CI が届く命令だけの 2 通りで追加行 100% を確かめる。数えから外す行は PR に理由を書く。
+- [x] **Step 13 環境・build の設定（約 40 行）** — `package.json` の試験の命令（`test:claude-hook` の連なりに `test:common-seat` を足し、CI が今呼ぶ命令から届かせる。workflow は変えない）。社内の席の起動の設定に `AGENT_MEMORY_MODE=common` を書く手順は、文書（`docs/operations/`）に書くだけで、席には適用しない（席の起動・展開は保護面）。
+- [x] **Step 14 文書と追跡（約 80 行）** — `docs/operations/` の記述、`code-summary.md`・`traceability.json`、deviation ledger（3）、PR の本文。
 
 ## 3. 設計の判断と採らなかった代替（deviation ledger）と、読み替えと持ち越し
 
@@ -87,7 +87,7 @@ PR の切れ目: PR-1 = Step 1〜7（置き場所・失敗の名前・窓口・S
 | D4 | 網羅率は、`NODE_V8_COVERAGE` を全試験に付けて足す script（261113 と同じ。新しい依存なし）で、追加行 100%（team.md の床）を測る | 承認済みの tech-stack-decisions の「Node の組込みの網羅率を先に試す」・床 80%（hook を子 process で起動する試験が数えられず、team.md の学びと床 100% に届かない） |
 | D5 | Gemini・Antigravity の hook は、共通基盤の形の時は回復を空にして `not_yet_available` を出す。`not_yet_available` は成功に数えない（試験でも、記録でも） | 共通基盤の形の時も、今の `resolveSessionStartStore` を通す（`MODE=common` なのに sqlite・json へ逃げる） |
 | D6 | 共通基盤の SQL（onza の非公開 repo の物）は、公開の agent-memory に写さない。試験は、固定した commit の onza の作業場を環境変数 `KUSABI_TEST_ONZA_COMMON_ROOT` で指して読み、読んだ bytes から sha256 を計算して、試験に書いた期待値と比べる。作業場が無い・版が違う時は「観測できず」を返し、成功に数えない（arc の判断。決定 95） | 承認済みの「変えない写しを repo に置き、CI で sha256 を試験する」（非公開 repo の中身を公開 repo に写す） |
-| D7 | 共通基盤の版は 0.3.1 に固定する（承認済みの 0.2 = onza の 5beb404 から 0.3.1 へ。理由 = suite に入る版に合わせる。arc の判断。決定 95）。U1 が使う `common.verify_current_tx` の契約は 0.2 と同じと読んだ（5 の 2） | 0.2 のまま（suite の据付と版がずれる）／0.4（suite に入る版は 0.3・0.3.1。固定しない） |
+| D7 | 共通基盤の版は 0.3.1 に固定する（承認済みの 0.2 = onza の 5beb404 から 0.3.1 へ。理由 = 共通基盤の据付に入る版に合わせる。arc の判断。決定 95）。U1 が使う `common.verify_current_tx` の契約は 0.2 と同じと読んだ（5 の 2） | 0.2 のまま（共通基盤の据付と版がずれる）／0.4（共通基盤の据付に入る版は 0.3・0.3.1。固定しない） |
 
 読み替え（差分の記録のとおり。承認済みの file は書き換えない）: BR1.1 の「専用の設定」= 環境の `AGENT_MEMORY_DATABASE_URL` と user config の `database_url`（DL-3a）。NFR8.3 の「環境から読む」= 同じ 2 つ（NFR-1）。user config の file の mode は U1 では要求しない（NFR-2。次の候補として持ち越し）。基盤の版の固定は 0.2 から 0.3.1 に変える（D7）。承認済みの差分の記録（`store-resolution-delta.md`）は、書き換えると段の有効性の確かめが動くので、書き換えず、この計画に書く。
 
@@ -109,16 +109,16 @@ PR の切れ目: PR-1 = Step 1〜7（置き場所・失敗の名前・窓口・S
 ## 5. arc の答え（arc の判断。決定 95 による委任で、Owner の言葉ではない。計画に入れた所を添える）
 
 1. **共通基盤の SQL の置き場** → repo に写さない。onza は非公開の repo で、公開の agent-memory に中身を写さないため。固定した commit の onza の作業場を環境変数で指し、sha256 を確かめ、無ければ「観測できず」にして成功に数えない。入れた所: D6、Step 7、`unit-test-instructions.md` の 2。CI の写しの試験が無くなることは「6. 限界と持ち越し」に書いた。
-2. **共通基盤の版** → suite に入る版（0.3・0.3.1）に合わせ、U1 が使う関数の契約が 0.2 と同じなら 0.3.1 に固定する。読んだ結果（onza main `7da9af914d0eb484ea8f7ae56e3d086798ee9995`、2026-11-19）:
+2. **共通基盤の版** → 共通基盤の据付に入る版（0.3・0.3.1）に合わせ、U1 が使う関数の契約が 0.2 と同じなら 0.3.1 に固定する。読んだ結果（onza main `7da9af914d0eb484ea8f7ae56e3d086798ee9995`、2026-11-19）:
    - `common/0.2/sql/001_schema.sql`・`010_verify_current_tx.sql`・`020_acl.sql` の git の blob id は、5beb404 と上の commit で同じ（`8b5145e2…`・`510d2c9c…`・`d7214846…`）。bytes は変わっていない。
    - 0.3.1 の manifest は `required_contract` を `onza-common/0.2.0-draft.1` のままにし、公開する関数を `register_session`・`touch_presence`・`read_presence` の 3 つとする。`verify_current_tx` の名前・引数・返り値・失敗の名前（OC001〜OC011）は 0.2 の file のまま。
    - 0.3 の `030_presence.sql` と 0.3.1 の `031_presence_touch_state_only.sql` は、`common.seat_presence` と presence の関数を足し、`common.verify_current_tx` は呼ぶ側にある。足す権限は関数の持ち主（`common_verify_owner`）への GRANT で、Kusabi の関数はそれに頼らない。
-   - 読んだ範囲の限り: 030・031 は、DDL と GRANT の行を grep で読み、全文を 1 行ずつは読んでいない。0.4（`read_principal`）は suite に入る版でないので固定しない。
+   - 読んだ範囲の限り: 030・031 は、DDL と GRANT の行を grep で読み、全文を 1 行ずつは読んでいない。0.4（`read_principal`）は 共通基盤の据付に入る版でないので固定しない。
    - 結論: 同じと読んだので 0.3.1 に固定する（D7）。
 3. **DB の基準の B1・B3 の記録** → 足してよい。DB の基準の B1（入力の表 1〜3）と B3（出力の型）の形と `deviation_ledger` を、設計の PR に新しい記録として入れる。基準の SHA-256 は、固定の commit（`a48602d3…`）の blob で確かめてから書く（G1・G2）。
 4. **網羅率の CI 化** → 入れない。workflow は守る物なので、手元の測りを記録に載せる（261113 と同じ。Step 12・13）。
 5. **log_decision の再送（D3）と Gemini・Antigravity（D5）** → D3 は足さない（自動で再送しないので効果が二重に出ない）。冪等キーの引数は公開の仕様の変更なので持ち越し。D5 は今の形でよい。`not_yet_available` は成功に数えない。
-6. **使い捨ての PostgreSQL 17** → Owner の決定は要らない（G4 の条件で使う）。
+6. **使い捨ての PostgreSQL** → Owner の決定は要らない（G4 の条件で使う）。
 
 別件: `stage_validity` の警告（読み解きの file が RE の後に変わった）は、RE をやり直さない（functional-design を開き直して差分の記録で扱う形のまま。arc の判断。決定 95）。
 

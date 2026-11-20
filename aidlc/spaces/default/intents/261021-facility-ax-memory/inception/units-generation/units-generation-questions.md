@@ -44,20 +44,20 @@ X. Other (please specify)
 最初の単位の確かめは、実際に端から端まで動くことを owner が見る形にします（team.md の Walking Skeleton）。
 
 A. 自社の機械の試験の DB で確かめる。試験の中で、共通基盤 0.2・0.3 の置き場と Kusabi の置き場を作り、試験の席を登録して、終われば消す（共通基盤 0.2 の配布物も「隔離した合成の試験の DB 用」としている）
-B. この Mac の suite の DB（自社の本番の DB）で確かめる。Kusabi の置き場を入れるのは DB の作りの変更なので、owner の決定が先に要る
+B. 手元の機械の共通基盤の DB（自社の本番の DB）で確かめる。Kusabi の置き場を入れるのは DB の作りの変更なので、owner の決定が先に要る
 C. Not yet defined（まだ決まっていない）
 X. Other (please specify)
 
 （勧め: A。薄い一本は「部品がつながって動くか」を確かめる物で、本番の DB に触れずに確かめられる。本番の DB に Kusabi の置き場を入れるのは、展開の段で owner の決定を受けて行う（制約 C-07）。B だと、確かめる前に保護面の決定が要り、最初の一本が決定待ちで止まる）
 
-[Answer]: A（arc の下書き。薄い一本は部品がつながるかを確かめる物で、本番の DB に触れずに確かめられる。本番の suite の DB に Kusabi の置き場を入れるのは展開の段で Owner の決定 = 制約 C-07。ただし、この Mac の PostgreSQL に使い捨ての試験の DB を作ること自体も DB の操作なので、作る時に Owner に伺う。AUN の結合の試験も同じ使い捨ての DB を要るので、Suite の試験の DB として 1 回にまとめて伺う）
+[Answer]: A（arc の下書き。薄い一本は部品がつながるかを確かめる物で、本番の DB に触れずに確かめられる。本番の共通基盤の DB に Kusabi の置き場を入れるのは展開の段で Owner の決定 = 制約 C-07。ただし、手元の機械の PostgreSQL に使い捨ての試験の DB を作ること自体も DB の操作なので、作る時に Owner に伺う。AUN の結合の試験も同じ使い捨ての DB を要るので、Suite の試験の DB として 1 回にまとめて伺う）
 
 ## Consolidated Summary Confirmation
 
 - 単位は 8 つ: U1 薄い一本（service）、U2 記録（service）、U3 回復と起動の口（service）、U4 顧客の DB の形（service）、U5 一覧（service）、U6 会話の取り込み（service）、U7 今の記録の移し（service）、U8 場面の試験（library）（Q1 = A）
 - 依存: U2 → U1、U3 → U2、U4 → U1、U5 → U4、U6 → U2、U7 → U2・U6、U8 → U1。輪は無い。U8 は試験を先に書くため U1 にだけ依存する
 - 置き方: 1 つのパッケージ（wasurezu）の中に作り、席ごとに 1 つの MCP サーバーの process。移しと試験は同じパッケージのコマンド。DB の作りは単位ごとに要る表を足し、戻し方を付ける
-- 薄い一本（U1）は、自社の機械の使い捨ての試験の DB で確かめる。試験の中で共通基盤 0.2・0.3 と Kusabi の置き場を作り、終われば消す。使い捨ての試験の DB をこの Mac の PostgreSQL に作る時は、AUN の結合の試験の分とまとめて owner に伺う。本番の suite の DB に Kusabi の置き場を入れるのは展開の段で owner の決定の後（Q2 = A）
+- 薄い一本（U1）は、自社の機械の使い捨ての試験の DB で確かめる。試験の中で共通基盤 0.2・0.3 と Kusabi の置き場を作り、終われば消す。使い捨ての試験の DB を手元の機械の PostgreSQL に作る時は、AUN の結合の試験の分とまとめて owner に伺う。本番の共通基盤の DB に Kusabi の置き場を入れるのは展開の段で owner の決定の後（Q2 = A）
 
 Does this all look correct before I generate the artifact?
 

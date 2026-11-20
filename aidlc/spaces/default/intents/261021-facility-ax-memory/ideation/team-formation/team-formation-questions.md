@@ -33,7 +33,7 @@ B. owner の決定を受けて CTO が起こす（AI-DLC の評価で使い捨�
 C. Not yet defined（まだ決まっていない）
 X. Other (please specify)
 
-（arc の勧め: A。MC1 の試作で、Owner が使い捨ての Codex の会話を開いた形と同じ = iyasaka-arc#49 6285657272。今 Owner が AI-DLC の会話を tmux で開いているのと同じ手順で済み、間に入る席が要らない。B は AI-DLC の評価の時の形 = 6286735206 で、CTO を通す分だけ手順が増える）
+（arc の勧め: A。MC1 の試作で、Owner が使い捨ての Codex の会話を開いた形と同じ = iyasaka-arc#49 6285657272。今 Owner が AI-DLC の会話を端末で開いているのと同じ手順で済み、間に入る席が要らない。B は AI-DLC の評価の時の形 = 6286735206 で、CTO を通す分だけ手順が増える）
 
 [Answer]: B（owner がこの会話で答えた）
 
