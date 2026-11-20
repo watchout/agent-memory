@@ -27,11 +27,11 @@
     { "id": "NFR5.7", "status": "OK", "target": "memory_status in host adapter output (observability-design)" },
     { "id": "NFR6.1", "status": "OK", "target": "paired up and down schema changes with a rollback test (reliability-design)" },
     { "id": "NFR7.1", "status": "OK", "target": "no delete function exists, checked by test (reliability-design)" },
-    { "id": "NFR8.1", "status": "OK", "target": "per-seat SCRAM login roles and verified TLS outside this Mac (security-design)" },
+    { "id": "NFR8.1", "status": "OK", "target": "per-seat SCRAM login roles and verified TLS outside the local machine (security-design)" },
     { "id": "NFR8.2", "status": "OK", "target": "EXECUTE-only grants for seat roles, kusabi_owner with common_verify_caller (security-design)" },
     { "id": "NFR8.3", "status": "OK", "target": "credentials from environment and redaction before any output (security-design)" },
     { "id": "NFR9.1", "status": "OK", "target": "UTC timestamps and ordering by time then decision id (observability-design)" },
-    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL 17 per test run on a free port (logical-components)" },
+    { "id": "NFR10.1", "status": "OK", "target": "disposable PostgreSQL per test run on a free port (logical-components)" },
     { "id": "NFR10.2", "status": "OK", "target": "node built-in coverage tried first, c8 fallback with owner decision (logical-components)" }
   ]
 }

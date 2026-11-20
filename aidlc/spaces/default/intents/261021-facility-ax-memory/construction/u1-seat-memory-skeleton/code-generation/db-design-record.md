@@ -4,7 +4,7 @@
 - 守る物: DB の構造・権限（`escalation-policy.md`、`protected-surface-owner-gate.md`）。この記録は、作る段の前に出す設計の記録だけの PR で、独立の設計監査を 1 回受ける（team.md）。本番への適用は Owner の決定（A8.5）。
 - 正本: 社内の DB の基準 版 0.10（iyasaka-org `docs/shirube/db-standard.md`、commit `a48602d3fcf70a5b04a07cf70bcf6824ff259818`、file の SHA-256 `048c0062d0930756400b96c5539f1a7850924f454e17fe002c58a6791e655036`）。書く前に読み、読んだ版の SHA-256 がこの値と一致することを確かめた（2026-11-19）。
 - 形: B1（入力の表 1〜3）と B3（出力の型 0〜8）。承認済みの記録（entities・rules・functional-spec・計画）は書き換えない。この記録が足す所と読み替える所は、§0 と §8 に書く。
-- 前提の版（A1.1）: PostgreSQL 17（この Mac の使い捨ての DB）。A8.4 の「17 の手順」を使う。
+- 前提の版（A1.1）: PostgreSQL（手元の使い捨ての DB。版の番号は公開の記録に書かない）。A8.4 の「その版の手順」を使う。
 - 共通基盤の固定: onza の commit `7da9af914d0eb484ea8f7ae56e3d086798ee9995` の 0.3.1。席の確かめは `common.verify_current_tx`（7 引数）を黒箱として呼ぶ。5 file の SHA-256 は、その commit の bytes から計算した値（manifest の宣言値を写していない。S5）:
 
 | file | SHA-256 |
@@ -31,7 +31,7 @@
 |---|---|---|
 | Q-V1 | 承認済みの記録（rules・functional-spec・差分の記録）は置き場所の設定を DB の接続の設定だけで書いている。共通基盤の確かめに渡す入力（先頭の 3 引数。意味と形は共通基盤の契約（onza の固定 commit `7da9af9`、非公開）に従う）の出どころが、記録に無い。席の設定 file に持ち、道具の引数にしない（引数で本人を名乗らせると他の席を名乗れるため）。Kusabi の code は時刻を自分で取らず、呼ぶ側が時計から渡す（S4） | DB の関数は確かめの先頭の 3 引数を受けるので、出どころが決まるまでは関数の形が変わらない（§2.5）。出どころの案: DL-3a で決めた user config（`database_url` と同じ場所）に `common_seat` の欄を持たせ、環境変数には出さない。値は配備（U9）が書き、値が古くて確かめが断った時は、BR2.5 で `binding_closed` になる（席の設定の更新が要る）。arc の答え（§0.6）: 案のとおり。計画の Step 4（`common-placement.ts`。1.1 の user config の読み）に `common_seat` の欄の読みを足し、失敗の文・記録に生の値を出さない試験を 1 つ足す。Step 4 の見込み（約 200 行）は増える（足す行数は実装で数える。計画の Step 1 は「挙動は足さない」ので、ここには足さない）（§10） |
 | Q-R1 | 計画 1.3 は「関数は持ち主の権限（`kusabi_owner`）で動く」と書く。表の持ち主に関数を持たせるのは A9.4 の外れの例に当たる | 関数の持ち主を専用の role に分ける（§6）。arc の答え（§0.6）: 案のとおり。さらに、読むだけの関数（`get_decisions`・`recover_decisions`）の持ち主は `SELECT` だけにする（保存用 `kusabi_save_function_owner` と取り出し用 `kusabi_query_function_owner` の 2 つ）。計画の文は承認済みなので書き換えず、この記録で読み替える（実装の段の記録に 1 行残す） |
-| Q-R2 | 計画は「up/down の SQL 1 対」と書く。A8.6 は、role の移行と表の移行を分ける | 2 対にする（`0001` role、`0002` 表）。拡張の移行は無い（PostgreSQL 17 の組み込みの関数だけを使う） |
+| Q-R2 | 計画は「up/down の SQL 1 対」と書く。A8.6 は、role の移行と表の移行を分ける | 2 対にする（`0001` role、`0002` 表）。拡張の移行は無い（PostgreSQL の組み込みの関数だけを使う） |
 | Q-C1 | id の版の CHECK。B2.6 の 3 は、分割する表の id に版の CHECK を要求する。分けない表には要求が無い | `decision`・`decision_tag` の id にも `CHECK ((uuid_extract_version(id) = 7) IS TRUE)` を付ける案（A3.2 の UUIDv7 の既定を DB でも見張る。`IS TRUE` までが規格の形）。採らなかった代替 = 付けない（呼ぶ側の作り方だけを信じる）。arc の答え（§0.6）: 付ける |
 | Q-R3 | 承認済みの entities.md の `status`（active・superseded）と、書き換え不可の属性の決まり。置き換え（U2）の表し方が U1 の時点で決まっていない | U1 の表に `status_id`（参照の表）を持たせ、`active` の行だけを入れる。`superseded` の行と更新の道は U2 が足す（足す → 移す → 消す）。U1 の関数は決定を更新しない |
 
@@ -81,7 +81,7 @@ I-1・I-2・I-5〜I-9 は、承認済みの記録（計画 6・BR3.2・BR2.7）�
 
 #### 0.6 arc の答え（arc の判断、決定 95 による委任。Owner の言葉ではない）
 
-arc から席への cross-session の message で受けた。その後、arc がこの答えを GitHub（iyasaka-arc#49 のコメント 6998022804。本文の SHA-256 `0b8012e5156a1a771c101a08ea3f3229b71590e22d455ef44b81002165a44e21`）に公開した（`authority-and-waiting.md` の R1）。席は、公開された本文の SHA-256 がこの値と一致すること、下の表が書き写す答えの ID（Q-V1・Q-R1・B2.6・Q-C1・I-1〜I-9）の語が本文にあることを確かめた。本文にはこのほかに DL-1・DL-2・DL-3a・NFR-1・NFR-2・計画の 1〜6 の答えがあり、この表には写していない。下の表の写しは、公開された本文を席が自分の言葉で書いた物で、本文そのものではない。DB の構造は守る物なので、この PR は設計監査の後、R3 以上の扱いで arc が Owner の exact-head を取る。下の表の答えは、その exact-head が出るまでの間の arc の判断として使う。
+arc から席への連絡で受けた。その後、arc がこの答えを GitHub（iyasaka-arc#49 のコメント 6998022804。本文の SHA-256 `0b8012e5156a1a771c101a08ea3f3229b71590e22d455ef44b81002165a44e21`）に公開した（`authority-and-waiting.md` の R1）。席は、公開された本文の SHA-256 がこの値と一致すること、下の表が書き写す答えの ID（Q-V1・Q-R1・B2.6・Q-C1・I-1〜I-9）の語が本文にあることを確かめた。本文にはこのほかに DL-1・DL-2・DL-3a・NFR-1・NFR-2・計画の 1〜6 の答えがあり、この表には写していない。下の表の写しは、公開された本文を席が自分の言葉で書いた物で、本文そのものではない。DB の構造は守る物なので、この PR は設計監査の後、R3 以上の扱いで arc が Owner の exact-head を取る。下の表の答えは、その exact-head が出るまでの間の arc の判断として使う。
 
 | ID | arc の答え | この記録での反映 |
 |---|---|---|
@@ -271,13 +271,13 @@ erDiagram
 
 | 番号 | 段（A8.6） | 進める | 戻す |
 |---|---|---|---|
-| なし | 1 拡張 | 新しく要る拡張は無い（`uuid_extract_version` は PostgreSQL 17 の組み込み） | — |
+| なし | 1 拡張 | 新しく要る拡張は無い（`uuid_extract_version` は PostgreSQL の組み込み） | — |
 | `0001_roles` | 2 role | 1 つの transaction で、`CREATE ROLE kusabi_owner NOLOGIN`・`kusabi_save_function_owner NOLOGIN`・`kusabi_query_function_owner NOLOGIN`・`kusabi_seat NOLOGIN`。関数の持ち主 2 つに `GRANT common_verify_caller`。3 つの持ち主の role を `GRANT … TO <移行の role>`（`SET ROLE` のため）。`GRANT CREATE ON DATABASE <DB> TO kusabi_owner`。付いたことを `has_database_privilege` で確かめ、付かなければ誤りで止める（transaction ごと戻り、role は残らない） | 逆の順: `REVOKE CREATE ON DATABASE`、関数の持ち主 2 つから `REVOKE common_verify_caller`、3 つの持ち主の role を `REVOKE … FROM <移行の role>`、`DROP ROLE`（4 つ）。`common_verify_caller` 自体は共通基盤の物で消さない |
 | `0002_schema` | 3 表 | 1 つの transaction で（途中で止まれば、一時の `CREATE` も含めて全部戻る）、`SET ROLE kusabi_owner` の下で、schema `kusabi`・表 3 つ・index・trigger・policy を作り、`decision_status` に `active` の行を入れ、schema の `USAGE` と表の権限を §6 のとおりに付ける。関数を作るために、schema の `CREATE` を関数の持ち主 2 つに**一時的に**付ける。`SET ROLE kusabi_query_function_owner` の下で、補助の関数 `require_verified_seat`（`SECURITY INVOKER`）を 3 つの関数より先に作り、`REVOKE ALL … FROM PUBLIC` と `GRANT EXECUTE … TO kusabi_save_function_owner`（`kusabi_seat` には付けない）。`SET ROLE kusabi_save_function_owner` の下で `log_decision`、`SET ROLE kusabi_query_function_owner` の下で `get_decisions`・`recover_decisions` を作り、それぞれ同じ transaction で `REVOKE ALL … FROM PUBLIC` と `GRANT EXECUTE … TO kusabi_seat`。最後に `kusabi_owner` の下で、一時の `CREATE` を外す | 1 つの transaction で、作った物を依存の逆の順に名指しで消す（3 つの関数 → 補助の関数 → policy → trigger → 表 → schema）。`CASCADE` を使わない。`kusabi_owner` は schema の持ち主なので、他の role が持つ関数も消せる（§9 で確かめた） |
 
 - 移行の role の名前（`<移行の role>`）と `<DB>` は、移行の SQL の引数（psql の変数）で受け、SQL に値を書かない（A9.3）。名前は配備の決定で決まる（I-2）。
 - 同居の期間: 要らない（新しい置き場を足すだけ）。
-- 試験（A8.1・A8.6）: 使い捨ての PostgreSQL 17 で (a) role が無い所から 1 → 2 → 3 で進め、3 → 2 → 1 で戻し、もう一度進める。(b) role を先に作っておき 3 だけを 進める → 戻す → 進める（戻した後も role が残る）。(c) 負例: DB の持ち主でない `CREATEROLE` だけの role で 2 を当てると 3 が止まる（`0001` が 1 つの transaction なので role は残らない）。各段の後に `pg_roles`・`has_database_privilege`・表と policy の有無を読んで確かめる。(d)（作る前の移行が作った物を移す試験）は、移す物が無いので当てはまらない。(e) `0002` の途中の失敗（例: 2 つ目の関数の作成を壊す）で、一時の `CREATE`・schema・表・関数（補助の関数を含む）が残らないこと（設計の段では 0002 の進める・戻すの往復だけを確かめた。この負例は実装の段の試験。§10）。
+- 試験（A8.1・A8.6）: 使い捨ての PostgreSQL で (a) role が無い所から 1 → 2 → 3 で進め、3 → 2 → 1 で戻し、もう一度進める。(b) role を先に作っておき 3 だけを 進める → 戻す → 進める（戻した後も role が残る）。(c) 負例: DB の持ち主でない `CREATEROLE` だけの role で 2 を当てると 3 が止まる（`0001` が 1 つの transaction なので role は残らない）。各段の後に `pg_roles`・`has_database_privilege`・表と policy の有無を読んで確かめる。(d)（作る前の移行が作った物を移す試験）は、移す物が無いので当てはまらない。(e) `0002` の途中の失敗（例: 2 つ目の関数の作成を壊す）で、一時の `CREATE`・schema・表・関数（補助の関数を含む）が残らないこと（設計の段では 0002 の進める・戻すの往復だけを確かめた。この負例は実装の段の試験。§10）。
 - 持ち越し（運用の段）: 量が見込みの 10 倍（約 440 万行）を超えたら分割を見直す（§7。D-7）。不変条件の継続的な検査（B4-5。例: 決定の `seat_ref` と `scope_id` が共通基盤に有ること。共通基盤の表を読める role が実行し、読めなければ「観測できず」を返して成功に数えない。S5）、restore の試験、使い捨てでない DB への適用（Owner の決定）。
 
 ### 6. 権限（role と GRANT）
@@ -338,11 +338,11 @@ A9.4 の外れは無い（関数の持ち主を分けたため）。上の外れ
 
 ### 9. 設計の段の予備の確かめ（実装の確かめの代わりではない）
 
-設計の定義が PostgreSQL 17 で作れて意図どおり断ることを、コードを書く前に確かめた（2026-11-19）。使い捨ての PostgreSQL 17.11（loopback だけで待ち、socket を作らず、既定でない port）に、§2 の表・制約・index・RLS・trigger・表の権限をそのまま作り、合成の行だけを入れた。§2.5 の関数（3 つと補助の関数 1 つ）は作っていない。共通基盤の SQL は当てていない（確かめの関数は呼んでいない。席の DB の利用者での確かめが通ること・`common_verify_caller` の継承・確かめと書き込みを同じ取引に置いた時の振る舞い（BR3.3）は未確認で、実装の段の試験の対象）。試験の script は記録に入れない（実装の段で `src/test-common-seat-pg.ts` に作る）。終わった後、DB と作業の folder は止めて消した。
+設計の定義が PostgreSQL で作れて意図どおり断ることを、コードを書く前に確かめた（2026-11-19）。使い捨ての PostgreSQL（loopback だけで待ち、socket を作らず、既定でない port）に、§2 の表・制約・index・RLS・trigger・表の権限をそのまま作り、合成の行だけを入れた。§2.5 の関数（3 つと補助の関数 1 つ）は作っていない。共通基盤の SQL は当てていない（確かめの関数は呼んでいない。席の DB の利用者での確かめが通ること・`common_verify_caller` の継承・確かめと書き込みを同じ取引に置いた時の振る舞い（BR3.3）は未確認で、実装の段の試験の対象）。試験の script は記録に入れない（実装の段で `src/test-common-seat-pg.ts` に作る）。終わった後、DB と作業の folder は止めて消した。
 
 | 確かめ | 結果 |
 |---|---|
-| §2 の DDL が通る。`uuid_extract_version` は PostgreSQL 17 にある | 通った（版 7 の id で 7 を返す） |
+| §2 の DDL が通る。`uuid_extract_version` は PostgreSQL にある | 通った（版 7 の id で 7 を返す） |
 | 施設の値が設定されていない取引で表を引く（A6.2） | 「設定が無い」誤りで止まる（0 行で返さない） |
 | 施設の値と違う `scope_id` の行を入れる | RLS の誤りで断る |
 | 別の施設の設定で引く | 0 行 |
@@ -358,7 +358,7 @@ A9.4 の外れは無い（関数の持ち主を分けたため）。上の外れ
 
 #### 9.1 role の分割の予備の確かめ（2026-11-19）
 
-arc の答え（§0.6）の role の分割を、別の使い捨ての PostgreSQL 17（loopback だけ・socket なし・既定でない port・`lc_messages=C`）で確かめた。**関数は §2.5 の本体ではなく、持ち主・権限・`search_path`・`SECURITY DEFINER` の形だけを持つ代わりの関数 2 つ**（保存側 1 つ・取り出し側 1 つ）。共通基盤の SQL は当てていない（`common_verify_caller` は同名の空の role を置いた）。表は §2 の DDL。移行の SQL は、この確かめの scratch に作った 2 対で、記録にも repo にも入れない（実装の段で `sql/kusabi/` に作る）。補助の関数 `require_verified_seat`（BF-01 の直し）は、この 9.1 の確かめには含めず、9.2 で別に確かめた。
+arc の答え（§0.6）の role の分割を、別の使い捨ての PostgreSQL（loopback だけ・socket なし・既定でない port・`lc_messages=C`）で確かめた。**関数は §2.5 の本体ではなく、持ち主・権限・`search_path`・`SECURITY DEFINER` の形だけを持つ代わりの関数 2 つ**（保存側 1 つ・取り出し側 1 つ）。共通基盤の SQL は当てていない（`common_verify_caller` は同名の空の role を置いた）。表は §2 の DDL。移行の SQL は、この確かめの scratch に作った 2 対で、記録にも repo にも入れない（実装の段で `sql/kusabi/` に作る）。補助の関数 `require_verified_seat`（BF-01 の直し）は、この 9.1 の確かめには含めず、9.2 で別に確かめた。
 
 | 確かめ | 結果 |
 |---|---|
@@ -381,7 +381,7 @@ arc の答え（§0.6）の role の分割を、別の使い捨ての PostgreSQL
 
 #### 9.2 席の確認の補助の関数の予備の確かめ（BF-01。2026-11-19）
 
-§2.5 の補助の関数 `require_verified_seat` を、別の使い捨ての PostgreSQL 17（loopback だけ・socket なし・既定でない port・`lc_messages=C`）に作り、確かめた。**3 つの関数の本体ではなく、補助の関数を呼ぶ代わりの関数 2 つ**（`log_decision` 相当・`get_decisions` 相当）を使った。代わりの関数は、確かめの結果を引数で受け、補助の関数を ② の `set_config` の前に呼ぶ。共通基盤の SQL は当てていない（`common_verify_caller` は同名の空の role）。`recover_decisions` 相当は作っていない。表は §2 の DDL、role は `0001` と同じ。移行の SQL は、この確かめの scratch に作った物で、記録にも repo にも入れない。
+§2.5 の補助の関数 `require_verified_seat` を、別の使い捨ての PostgreSQL（loopback だけ・socket なし・既定でない port・`lc_messages=C`）に作り、確かめた。**3 つの関数の本体ではなく、補助の関数を呼ぶ代わりの関数 2 つ**（`log_decision` 相当・`get_decisions` 相当）を使った。代わりの関数は、確かめの結果を引数で受け、補助の関数を ② の `set_config` の前に呼ぶ。共通基盤の SQL は当てていない（`common_verify_caller` は同名の空の role）。`recover_decisions` 相当は作っていない。表は §2 の DDL、role は `0001` と同じ。移行の SQL は、この確かめの scratch に作った物で、記録にも repo にも入れない。
 
 | 確かめ（試験の ID） | 結果 |
 |---|---|

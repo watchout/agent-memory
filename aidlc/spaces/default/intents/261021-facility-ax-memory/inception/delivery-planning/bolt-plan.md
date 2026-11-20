@@ -48,7 +48,7 @@
   - 今ある試験（`npm test`）が通ったまま
 - **確かめたいこと**: 共通基盤 0.2・0.3 の確かめの関数を、Kusabi の保存と同じ transaction で呼べる。種類の違う席の起動の口から、同じ DB の同じ席の記憶が読める
 - **見せ方**: owner の前で、試験の DB を作る → Codex の席の形で決定を書く → 再起動 → Claude Code の席の起動の口の出力に決定が出る、を 1 本の試験の命令で流す
-- **owner の決定が要る所**: 使い捨ての試験の DB をこの Mac の PostgreSQL に作ること（AUN の結合の試験の分とまとめて伺う）
+- **owner の決定が要る所**: 使い捨ての試験の DB を手元の機械の PostgreSQL に作ること（AUN の結合の試験の分とまとめて伺う）
 
 ## B2 — U8 u8-scenario-harness
 
@@ -124,6 +124,6 @@
 
 ## 計画の段から作る段への申し送り
 
-- 本番の suite の DB に Kusabi の置き場を入れること、席の展開（R1 → R2 → R3）は、すべての Bolt の後の展開の段で、owner の決定を受けて行う（制約 C-07、team.md の Deployment）
+- 本番の共通基盤の DB に Kusabi の置き場を入れること、席の展開（R1 → R2 → R3）は、すべての Bolt の後の展開の段で、owner の決定を受けて行う（制約 C-07、team.md の Deployment）
 - PostgreSQL の試験は、最初は手元で回して結果を PR に載せ、置き場所の設計が固まったら CI に入れる（その時に owner の exact-head、team.md の Testing Posture）
 - 各区切りで使う確かめの命令は、まだ決めていない。owner の指示で、作る段の最初の区切りで決める（網羅率の確かめ方と、PostgreSQL の試験に使う使い捨ての DB の扱いが、その時までに決まるため）

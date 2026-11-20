@@ -39,7 +39,7 @@ B. Claude・Codex・Gemini の席
 C. Not yet defined（まだ決まっていない）
 X. Other (please specify)
 
-（arc の勧め: A。今この Mac で動いている席は Claude と Codex（AUN の宛先 6 席も Claude 5・Codex 1）。Gemini の席は今の運用に見当たらない。Gemini を足すなら、その席が動き始めた時に試験に加える）
+（arc の勧め: A。今手元の機械で動いている席は Claude と Codex（AUN の宛先 6 席も Claude 5・Codex 1）。Gemini の席は今の運用に見当たらない。Gemini を足すなら、その席が動き始めた時に試験に加える）
 
 [Answer]: B
 

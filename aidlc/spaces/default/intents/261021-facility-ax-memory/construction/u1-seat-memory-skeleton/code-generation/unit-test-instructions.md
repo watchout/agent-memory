@@ -5,7 +5,7 @@
 ## 1. 試験の道具と置き方
 
 - 試験は今の版と同じ、`tsx` で動かす自前の script（新しい依存を足さない）。file 名は `src/test-common-seat-*.ts`。
-- 偽の SQL の窓口（`SqlClient`）で動く試験は、PostgreSQL なしで動き、CI から届く。使い捨ての PostgreSQL 17 の試験（`src/test-common-seat-pg.ts`）は、手元でだけ流し、結果を PR に証拠として載せる（team.md。CI には入れない）。
+- 偽の SQL の窓口（`SqlClient`）で動く試験は、PostgreSQL なしで動き、CI から届く。使い捨ての PostgreSQL の試験（`src/test-common-seat-pg.ts`）は、手元でだけ流し、結果を PR に証拠として載せる（team.md。CI には入れない）。
 - 試験の file（約 9 つ）:
 
 | file | 試すもの | 件数の目安 |
@@ -18,11 +18,11 @@
 | `src/test-common-recovery.ts` | 回復（active だけ・データの枠・`memory_status`・席の起動を止めない） | 6〜8 |
 | `src/test-common-seat-entries.ts` | 入口の配線（`MODE` の有無で今の振る舞いが変わらない・Gemini・Antigravity・3 つの入口） | 5〜8 |
 | `src/test-common-seat-support.ts` | 試験の補助（偽の窓口・使い捨ての HOME の準備）。試験ではない | — |
-| `src/test-common-seat-pg.ts` | 使い捨ての PostgreSQL 17 の試験: 席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・up → down → up・消す物が無いこと・性能（NFR4.4） | 6〜8 |
+| `src/test-common-seat-pg.ts` | 使い捨ての PostgreSQL の試験: 席ごとの DB の利用者・表の直読の拒否・取引の巻き戻し・up → down → up・消す物が無いこと・性能（NFR4.4） | 6〜8 |
 
 ## 2. 流し方（作業場の根から。命令は 1 本ずつ）
 
-共通の準備（毎回）: 使い捨ての folder を作り（名前は英数字・`/`・`-` だけ。`_` と `.` を含めない）、その中に `home/.agent-memory` を作る。`HOME` をその `home` に、`KUSABI_TEST_TMPDIR` をその folder に向け、`AGENT_MEMORY_DB_TYPE`・`AGENT_MEMORY_DATABASE_URL`・`DATABASE_URL`・`AGENT_MEMORY_MODE` を外す。既定の `createStore()` を呼ぶ試験は、この `HOME` が無いと、この Mac の実際の保存先に試験の行が入る。
+共通の準備（毎回）: 使い捨ての folder を作り（名前は英数字・`/`・`-` だけ。`_` と `.` を含めない）、その中に `home/.agent-memory` を作る。`HOME` をその `home` に、`KUSABI_TEST_TMPDIR` をその folder に向け、`AGENT_MEMORY_DB_TYPE`・`AGENT_MEMORY_DATABASE_URL`・`DATABASE_URL`・`AGENT_MEMORY_MODE` を外す。既定の `createStore()` を呼ぶ試験は、この `HOME` が無いと、手元の機械の実際の保存先に試験の行が入る。
 
 1 つの試験（CI から届く）:
 
@@ -36,7 +36,7 @@ U1 の CI から届く試験をまとめて（`test:claude-hook` の連なりの
 npm run test:common-seat
 ```
 
-使い捨ての PostgreSQL 17 の試験（手元だけ。Owner の決定は要らない = arc の判断、決定 95 による委任で、Owner の言葉ではない）: 試験の file が、`initdb`・`pg_ctl`・`postgres` で席の scratch に立ち上げ、終わりに止めて消し、消した物の一覧を出す。条件は 3 つ: (1) 127.0.0.1 だけで待つ。(2) 既定でない port を使う。(3) 共有の場所に socket を作らない（`unix_socket_directories` を空にする）。`lc_messages=C` を付ける。`CREATE EXTENSION vector` は、今の `test:pg` と同じ DB を使う時だけ入れる。
+使い捨ての PostgreSQL の試験（手元だけ。Owner の決定は要らない = arc の判断、決定 95 による委任で、Owner の言葉ではない）: 試験の file が、`initdb`・`pg_ctl`・`postgres` で席の scratch に立ち上げ、終わりに止めて消し、消した物の一覧を出す。条件は 3 つ: (1) 127.0.0.1 だけで待つ。(2) 既定でない port を使う。(3) 共有の場所に socket を作らない（`unix_socket_directories` を空にする）。`lc_messages=C` を付ける。`CREATE EXTENSION vector` は、今の `test:pg` と同じ DB を使う時だけ入れる。
 
 共通基盤の SQL は、repo に写さない。環境変数 `KUSABI_TEST_ONZA_COMMON_ROOT` が、固定した commit（0.3.1 を含む onza の commit。読んだ時は `7da9af914d0eb484ea8f7ae56e3d086798ee9995`）の onza の作業場の `common/` を指す。試験は、0.3.1 の manifest の `install` の順（001・010・020・030・031 の 5 file）でその bytes を読み、**読んだ bytes から sha256 を計算して**、試験に書いた期待値と比べ（manifest の宣言値を写して比べない。S5）、一致した時だけ使い捨ての DB に当てる。環境変数が無い・作業場が無い・sha256 が違う時は、`OBSERVATION_UNAVAILABLE` と理由を出し、終了コード 3 で終わる（成功の 0 にしない。S5・S8）。
 

@@ -18,7 +18,7 @@ U1 の非機能の要件（`construction/u1-seat-memory-skeleton/nfr-requirement
 - **呼出しの記録**: 1 行 1 件の JSON（道具の名前・記録の ID・時刻・結果）。今の場所（`~/.agent-memory/calls.log`）のまま
 - **失敗の名前**: 共通基盤の失敗の番号（OC001〜OC011）から Kusabi の失敗の名前への写しの表を 1 か所に置く（決まり BR2.5）
 - **作りの変更**: Kusabi の置き場に足す変更は、当てる版と戻す版を対で持ち、戻した後に前の試験が通ることを試験で確かめる。消す関数は作らない
-- **試験の DB**: 試験のたびに一時的な場所で initdb・pg_ctl で PostgreSQL 17 を空いている port に立ち上げ、共通基盤 0.2 の SQL 3 つ（sha256 を確かめた写し）と Kusabi の置き場を当てて、終われば止めて消す
+- **試験の DB**: 試験のたびに一時的な場所で initdb・pg_ctl で PostgreSQL を空いている port に立ち上げ、共通基盤 0.2 の SQL 3 つ（sha256 を確かめた写し）と Kusabi の置き場を当てて、終われば止めて消す
 - **網羅率**: `node --test --import tsx --experimental-test-coverage` で行の網羅率が出るかを、コードを書く段の初めに試す。出なければ c8（その時に owner の決定）
 
 ## Consolidated Summary Confirmation
