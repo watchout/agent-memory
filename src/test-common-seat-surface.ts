@@ -63,6 +63,36 @@ cases.push(["get_decisions answers 'No decisions found.' for a seat with none, a
   assert.ok(read.includes("[active] a bare decision") && !read.includes("Context:") && !read.includes("Tags:"));
 }]);
 
+const KEY_BEGIN = ["-----BEGIN", "PRIVATE KEY-----"].join(" ");
+const KEY_END = ["-----END", "PRIVATE KEY-----"].join(" ");
+
+cases.push(["a pair of key markers in two decisions does not take the decisions between them from the get_decisions reply", async () => {
+  const db = new FakeDb();
+  const { surface } = surfaceOver(db);
+  for (const [decision, context] of [[KEY_END, "CONTEXT-OLDEST"], ["a plain decision in the middle", "CONTEXT-MIDDLE"], [KEY_BEGIN, "CONTEXT-NEWEST"]]) {
+    await surface.call("log_decision", { decision, context });
+  }
+  const reply = textOf(await surface.call("get_decisions", {}));
+  assert.match(reply, /^3 decision\(s\):/);
+  assert.equal([...reply.matchAll(/^ {3}ID: /gm)].length, 3, "every decision keeps its own id line");
+  for (const kept of ["CONTEXT-OLDEST", "CONTEXT-MIDDLE", "CONTEXT-NEWEST", "a plain decision in the middle"]) assert.ok(reply.includes(kept), kept);
+  assert.equal([...reply.matchAll(/^ {3}Context: /gm)].length, 3);
+}]);
+
+cases.push(["a secret over several lines is removed from its own field, and one over the two fields of a decision is withheld in both", async () => {
+  const db = new FakeDb();
+  const { surface } = surfaceOver(db);
+  await surface.call("log_decision", { decision: `rotate\n${KEY_BEGIN}\nSYNTH-KEY-BODY-1\n${KEY_END}\nthen restart`, context: "Bearer\nSYNTH-BEARER-VALUE-2", tags: ["Bearer", "SYNTH-TAG-VALUE-3"] });
+  await surface.call("log_decision", { decision: "Bearer", context: "SYNTH-SPAN-VALUE-4" });
+  await surface.call("log_decision", { decision: "untouched decision", context: "untouched context", tags: ["plain"] });
+  const reply = textOf(await surface.call("get_decisions", {}));
+  for (const value of ["SYNTH-KEY-BODY-1", "SYNTH-BEARER-VALUE-2", "SYNTH-SPAN-VALUE-4"]) assert.ok(!reply.includes(value), value);
+  assert.ok(reply.includes("untouched decision") && reply.includes("untouched context") && reply.includes("Tags: plain"));
+  assert.ok(reply.includes("rotate") && reply.includes("then restart"), "the key is removed from its own field only");
+  assert.match(reply, /\[active\] \[REDACTED\]\n {3}Context: \[REDACTED\]\n {3}ID: /, "a secret over the two fields withholds both");
+  assert.equal([...reply.matchAll(/^ {3}ID: /gm)].length, 3);
+}]);
+
 cases.push(["a tool U1 does not have, and a status other than active, answer not_yet_available and never reach the database", async () => {
   const db = new FakeDb();
   const { surface, lines } = surfaceOver(db);

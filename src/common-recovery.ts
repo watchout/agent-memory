@@ -18,7 +18,7 @@ import type {
 import { COMMON_LIMITS, commonForm } from "./common-placement.js";
 import { decideEntry, type EntryDeps } from "./common-entry.js";
 import { failure, type SeatErrorName, type SeatFailure } from "./common-seat-errors.js";
-import { describeFailure } from "./common-seat-surface.js";
+import { describeFailure, redactDecisionFields } from "./common-seat-surface.js";
 import type { DecisionRecord, RecoverDecisionsResult } from "./common-seat-store.js";
 import { REDACTION_VERSION, redactText } from "./redact.js";
 import type { SessionStartAutoReceiveResult } from "./session-start-auto-receive.js";
@@ -112,28 +112,16 @@ export function renderRecoveryFrame(frame: RecoveryFrame): string {
 }
 
 /**
- * The frame with the redaction applied to one decision at a time (the redaction itself is not changed). A pattern of
- * the redaction can run across line breaks (a private key, a quoted value, `Bearer` and its token), so it is applied to
- * the raw text of each field of one decision, and the decision is written as one JSON line afterwards. It is never
- * applied to the lines joined together: a pair of markers in two different decisions must not take the decisions
- * between them. A secret that spans the two fields of one decision is found by reading the fields together: when that
- * gives another text than the two fields alone, both fields of that decision are withheld and the record stays whole.
+ * The frame with the redaction applied to one decision at a time, by the one rule for the fields of a decision
+ * (`redactDecisionFields` in the tool surface; the redaction itself is not changed). It is never applied to the lines
+ * joined together, and the decision is written as one JSON line after its fields were redacted.
  */
-const WITHHELD = "[REDACTED]";
-
 function redactedFrame(frame: RecoveryFrame): { readonly text: string; readonly redaction_count: number } {
   let count = 0;
   const decisionRedacted = (author: string, decision: DecisionRecord): string => {
-    const own = redactText(decision.decision_text);
-    const context = decision.context_text === null ? null : redactText(decision.context_text);
-    const together = redactText(`${decision.decision_text}\n${decision.context_text ?? ""}`);
-    const spans = together.text !== `${own.text}\n${context?.text ?? ""}`;
-    count += spans ? together.redaction_count : own.redaction_count + (context?.redaction_count ?? 0);
-    return decisionLine(author, {
-      ...decision,
-      decision_text: spans ? WITHHELD : own.text,
-      context_text: spans && context !== null ? WITHHELD : (context?.text ?? null),
-    });
+    const fields = redactDecisionFields(decision.decision_text, decision.context_text);
+    count += fields.count;
+    return decisionLine(author, { ...decision, decision_text: fields.decision, context_text: fields.context });
   };
   const parts = frameParts(frame, decisionRedacted);
   const head = redactText(parts.head.join("\n"));

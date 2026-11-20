@@ -8,7 +8,8 @@
  */
 import { failure, type SeatFailure } from "./common-seat-errors.js";
 import type { CommonSeatStore } from "./common-seat-store.js";
-import { safeText } from "./sanitize.js";
+import { redactText } from "./redact.js";
+import { safeText, stripOrphanSurrogates } from "./sanitize.js";
 
 /** The tools that reach the database in this form; every other registered tool is `not_yet_available`. */
 export const COMMON_TOOLS = ["log_decision", "get_decisions"] as const;
@@ -61,6 +62,31 @@ const record = (value: unknown): Record<string, unknown> =>
 
 const textOf = (lines: string[], isError: boolean): ToolReply => ({ content: [safeText(lines.join("\n"))], ...(isError ? { isError: true as const } : {}) });
 
+const WITHHELD = "[REDACTED]";
+
+export interface RedactedDecisionFields {
+  readonly decision: string;
+  readonly context: string | null;
+  readonly count: number;
+}
+
+/**
+ * The redaction (itself not changed) for the two text fields of ONE decision. A pattern of the redaction can run across
+ * line breaks (a private key, a quoted value, `Bearer` and its token), so it is applied to the raw text of each field,
+ * never to text that joins several decisions: a pair of markers in two different decisions must not take the decisions
+ * between them. A secret that spans the two fields of this decision is found by reading the fields together: when that
+ * gives another text than the two fields alone, both fields are withheld. Every place that writes decisions out
+ * (the recovery text and the reply of `get_decisions`) uses this one rule (S3).
+ */
+export function redactDecisionFields(decisionText: string, contextText: string | null): RedactedDecisionFields {
+  const own = redactText(decisionText);
+  if (contextText === null) return { decision: own.text, context: null, count: own.redaction_count };
+  const context = redactText(contextText);
+  const together = redactText(`${decisionText}\n${contextText}`);
+  if (together.text !== `${own.text}\n${context.text}`) return { decision: WITHHELD, context: WITHHELD, count: together.redaction_count };
+  return { decision: own.text, context: context.text, count: own.redaction_count + context.redaction_count };
+}
+
 export function createCommonSurface(ports: SurfacePorts): CommonSurface {
   const { store } = ports;
 
@@ -99,15 +125,18 @@ export function createCommonSurface(ports: SurfacePorts): CommonSurface {
     });
     if (!result.ok) return { reply: textOf([`Failed to get decisions: ${describeFailure(result)}`], true), refs: [], outcome: result };
     if (result.decisions.length === 0) return { reply: textOf(["No decisions found."], false), refs: [], outcome: "ok" };
-    const lines = result.decisions.map(
-      (d, i) =>
-        `${i + 1}. [${d.status}] ${d.decision_text}` +
-        (d.context_text ? `\n   Context: ${d.context_text}` : "") +
-        (d.tags.length ? `\n   Tags: ${d.tags.join(", ")}` : "") +
-        `\n   ID: ${d.id} | ${new Date(d.created_at_ms).toISOString()}`,
-    );
+    // Each decision is redacted by itself before the reply is put together; the joined reply is not redacted again.
+    const lines = result.decisions.map((d, i) => {
+      const fields = redactDecisionFields(d.decision_text, d.context_text ? d.context_text : null);
+      return (
+        `${i + 1}. [${d.status}] ${fields.decision}` +
+        (fields.context ? `\n   Context: ${fields.context}` : "") +
+        (d.tags.length ? `\n   Tags: ${d.tags.map((tag) => redactText(tag).text).join(", ")}` : "") +
+        `\n   ID: ${d.id} | ${new Date(d.created_at_ms).toISOString()}`
+      );
+    });
     return {
-      reply: textOf([`${result.decisions.length} decision(s):`, "", lines.join("\n\n")], false),
+      reply: { content: [{ type: "text", text: stripOrphanSurrogates([`${result.decisions.length} decision(s):`, "", lines.join("\n\n")].join("\n")) }] },
       refs: result.decisions.map((d) => d.id),
       outcome: "ok",
     };
