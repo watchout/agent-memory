@@ -2,7 +2,8 @@
 
 > Governance status, re-declared 2026-08-17. Implementation readiness is evaluated
 > alongside the Shirube Rapid/Lite report-only overlay adopted on 2026-08-16
-> (PR #303). The overlay reports; it does not hold merge authority. See
+> (PR #303). The overlay held no merge authority, and its report workflow was removed on
+> 2026-11-20. See
 > `docs/v2/KUSABI_V2_GOVERNANCE_POSITION.md`.
 
 Status: draft

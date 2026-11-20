@@ -28,11 +28,11 @@ one that is kept current; other V2 documents point here rather than restating it
 Adopted 2026-08-16 by PR #303, merge `809c6896`, from the framework pinned at
 `watchout/ai-dev-framework@810981f049311cb2fede4f72fff651b1d4e8e04e`.
 
-The workflow checks out the pull request head as the target and the exact
-`pull_request.base.sha` as trusted, then executes only
+The workflow checked out the pull request head as the target and the exact
+`pull_request.base.sha` as trusted, then executed only
 `trusted/.shirube/runtime/rapid-lite/**` after hashing every manifest entry. A pull
-request therefore cannot alter the evaluator that judges it. A missing or corrupt
-trusted runtime reports `EVALUATOR_UNAVAILABLE`, which is neither an authority
+request therefore could not alter the evaluator that judged it. A missing or corrupt
+trusted runtime reported `EVALUATOR_UNAVAILABLE`, which was neither an authority
 denial nor a pass.
 
 Adoption status is `RAPID_LITE_REPORT_ONLY`. Promotion to `owner_block`,
