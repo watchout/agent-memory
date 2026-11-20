@@ -13,10 +13,10 @@
 | #349 | 統合済み | 計画の 0（code の前の門）。DB の設計の記録と設計監査の項目 | 328 | 6400 |
 | #350（PR-1a） | 統合済み | 3・4・5・7（CI から届く層）・13 を前倒し | 1782 | 0 |
 | #351（PR-1b） | 統合済み | 1 の命令の名前・6・7（使い捨ての DB の層） | 979 | 0 |
-| #352（PR-2） | 開いている。独立の監査 3 回目 PASS、受領済み。待ち = Owner の exact-head と作者以外の統合 | 8・9・10・11・13・14 のうち `docs/operations/` | 1626 | 58 |
+| #352（PR-2） | 統合済み（merge の commit `0e27ccc9`）。独立の監査 3 回目 PASS、受領済み | 8・9・10・11・13・14 のうち `docs/operations/` | 1626 | 58 |
 | この PR | 記録だけ | 12 の記録・14 の `code-summary.md`・`traceability.json` | 0 | 本文書と計画の印 |
 
-関連の PR（Step ではない）: #353（CI を base の枝に関わらず流す。統合済み）、#354（Shirube の Gates Report workflow を外す。開いている。PASS、受領済み。その carry-over SW-6〜SW-9 は #354 の本文のまま、ここに写さない）。見込みと実際の行数は各 PR の本文に書いた（決定 127）。
+関連の PR（Step ではない）: #353（CI を base の枝に関わらず流す。統合済み）、#354（Shirube の Gates Report workflow を外す。統合済み（merge の commit `8874bafd`）。PASS、受領済み。その carry-over SW-6〜SW-9 は #354 の本文のまま、ここに写さない）。見込みと実際の行数は各 PR の本文に書いた（決定 127）。
 
 ## 2. 試験・網羅率・CI（作者の測定と CI の別を分ける）
 
@@ -61,7 +61,7 @@
 | recover_decisions | 7.9 / 11 / 34 | 18 / 32 / 70 |
 | get_decisions | 7.9 / 11 / 22 | 16 / 25 / 42 |
 
-線は、接続 2,000・確かめと読み出し 3,000・道具の書き 5,000・起動全体 7,000（`COMMON_LIMITS`、`src/common-placement.ts`）。いちばん遅い 1 回（70）でも、読み出しの線 3,000 の約 1/43 で、1/40 以下。限り: 手元の loopback の値で、外の DB と TLS は測っていない（C-5）。script は `src/test-common-seat-pg.ts` の起動部分 224 行と測りの 36 行を使った手元の物で PR に入れない（SHA-256 `37a0fe4e…`、出力の SHA-256 `a2e1a9dd…`、`npx tsx` で #352 の code の commit `2bede5a7` の写しに対して使い捨ての HOME・TMPDIR で流した。作者の測定で CI の結果ではない）。NFR4.4 の別の測りは #351 の本文。
+線は、接続 2,000・確かめと読み出し 3,000・道具の書き 5,000・起動全体 7,000（`COMMON_LIMITS`、`src/common-placement.ts`）。いちばん遅い 1 回（70）でも、読み出しの線 3,000 の約 1/43 で、1/40 以下。限り: 手元の loopback の値で、外の DB と TLS は測っていない（C-5）。script は `src/test-common-seat-pg.ts` の起動部分 224 行と測りの 46 行を使った物で、PR の差分には入れない。script・出力・表を出力から確かめる `check-table.py`・README は、別の branch `evidence/kusabi-u1-dv1-latency-20261120` の commit `b4d2ef077c7c388717a225d56ae9af41b0760741` にある（script の SHA-256 `37a0fe4e16c3b98182b7d2cda3b837741be37de8aa231492a79f7fe6475086a8`、出力の SHA-256 `a2e1a9dd7a95901586864dc5c8bb753616fff8ad8ba6a91269220b88bccee017`。対象の code は #352 の code の commit `2bede5a7376ad3515a5ec50c147cb2dfac6b3e26`。条件は 127.0.0.1・TLS なし・各 300 回・決定 30 件と 1 万件の席。作者の測定で CI の結果ではない。その branch は PR の統合の後に消す）。NFR4.4 の別の測りは #351 の本文。
 
 **NFR8.3-A2（DV-4）**: 伏せ字の処理（`redactText`）は変えていない。かける範囲を、失敗の文・起動の時の文脈・道具の応答・呼出しの記録に加えて、決定を取り出す 2 つの出力（回復の文・`get_decisions` の返答）の決定ごとの全部の欄（`redactDecisionFields`。#352 の本文の deviation 4）にした。つないで読むので、秘密でない決定を伏せることがある（安全側。運用の文書 `docs/operations/COMMON_FORM.md` に書いた）。
 
