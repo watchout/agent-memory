@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
+  DESIGN_RULE_REVIEW_TYPE,
   isMain,
   isObject,
   parseArgs,
@@ -72,6 +73,7 @@ export function buildReviewPlan(input = {}) {
     protectedSurfaces,
     changedSurfaceSummary,
     reasonCodes,
+    designRuleReport: input.designRuleReport,
   });
 
   const ownerAllowedAfter = [];
@@ -135,9 +137,18 @@ function checklistProfileFor({ riskClass, cellType, protectedSurfaces, changedSu
   return DEFAULT_CHECKLIST_PROFILE;
 }
 
-function additionalReviewsFor({ riskClass, cellType, protectedSurfaces, changedSurfaceSummary, reasonCodes }) {
+function additionalReviewsFor({ riskClass, cellType, protectedSurfaces, changedSurfaceSummary, reasonCodes, designRuleReport }) {
   const surfaces = new Set([...protectedSurfaces, ...changedSurfaceSummary].map(normalizeSurface));
   const reviews = [];
+
+  // One NEEDS_REVIEW design-rule item is enough to require an independent decision.
+  if (designRuleNeedsReview(designRuleReport)) {
+    addReview(reviews, {
+      review_type: DESIGN_RULE_REVIEW_TYPE,
+      responsible_role: "audit_seat",
+      reason_codes: ["DESIGN_RULE_NEEDS_REVIEW"],
+    });
+  }
 
   if (runtimePolicyCell(cellType) || hasAny(surfaces, TECHNICAL_SURFACES)) {
     addReview(reviews, {
@@ -172,6 +183,11 @@ function additionalReviewsFor({ riskClass, cellType, protectedSurfaces, changedS
     for (const code of review.reason_codes) reasonCodes.push(code);
   }
   return reviews;
+}
+
+export function designRuleNeedsReview(report) {
+  return isObject(report) && (report.verdict === "NEEDS_REVIEW" ||
+    asArray(report.rule_results).some((result) => isObject(result) && result.verdict === "NEEDS_REVIEW"));
 }
 
 function addReview(reviews, review) {

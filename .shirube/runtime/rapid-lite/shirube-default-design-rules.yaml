@@ -33,23 +33,27 @@ rules:
     code: hard_delete_without_soft_delete_policy
     severity: BLOCK
     category: data_safety
-    description: Hard delete operations require an adjacent soft-delete policy or explicit approved exception.
+    description: Hard delete operations require an adjacent soft-delete policy or explicit approved exception. Text-certain destructive operations are BLOCK; calls on an unknown receiver need an independent safe/unsafe decision.
     applies_to:
       changed_paths:
         - "**/*"
     check:
       type: hard_delete_requires_soft_delete_policy
-      hard_delete_patterns:
+      # Operations that are destructive by their text alone stay BLOCK.
+      block_patterns:
         - "DELETE FROM"
         - "TRUNCATE TABLE"
         - "drop table"
         - "drop column"
+        - "rm -rf"
+      # Calls whose receiver is unknown are NEEDS_REVIEW: a seat other than the
+      # author records safe / unsafe per item (design_rule_review).
+      review_patterns:
         - ".destroy("
         - ".delete("
         - ".deleteMany("
         - ".remove("
         - "unlinkSync("
-        - "rm -rf"
       soft_delete_markers:
         - "soft-delete"
         - "soft delete"

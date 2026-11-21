@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import https from "node:https";
 import path from "node:path";
@@ -7,6 +8,7 @@ import {
   isMain,
   isObject,
   parseArgs,
+  parseStructuredText,
 } from "./lib.mjs";
 
 const SCHEMA = "shirube-additional-review-ref-resolution/v1";
@@ -32,6 +34,7 @@ const FINDINGS = {
   "ADDREV-REF-016": ["local_path_missing", "Local additional review file does not exist."],
   "ADDREV-REF-017": ["missing_review_type", "Additional review must include review_type."],
   "ADDREV-REF-018": ["unsupported_review_verdict", "Additional review verdict must be PASS, PASS_WITH_WARN, APPROVED, or CONDITIONAL_GO."],
+  "ADDREV-REF-019": ["design_rule_review_decision_incomplete", "design_rule_review must list decisions, each with rule_id, path, matched, decision (safe or unsafe) and rationale."],
 };
 
 export async function buildAdditionalReviewRefReport(options = {}) {
@@ -43,6 +46,12 @@ export async function buildAdditionalReviewRefReport(options = {}) {
   const resultDir = stringOption(options["result-dir"]) ?? ".shirube-rapid-lite";
   const githubTokenEnv = stringOption(options["github-token-env"]) ?? "GITHUB_TOKEN";
   const commentFixture = stringOption(options["comment-fixture"]);
+  const publicationFixture = stringOption(options["publication-fixture"]);
+  // The policy is read from the base commit only (see loadBasePolicy). No option or file in the
+  // checked-out PR head can name another policy; the fixture is a test-only stand-in for the API.
+  const policyFixture = stringOption(options["policy-fixture"]) ?? stringOption(process.env.SHIRUBE_POLICY_FIXTURE);
+  const prAuthor = stringOption(options["actual-author"]) ?? prAuthorFromEvent();
+  const posterContext = { actualRepo, prAuthor, tokenEnv: githubTokenEnv, publicationFixture, cache: new Map() };
 
   mkdirSync(resultDir, { recursive: true });
 
@@ -77,6 +86,12 @@ export async function buildAdditionalReviewRefReport(options = {}) {
   const allReviews = [];
   const sourceEntries = [];
   const warnings = [];
+  const basePolicy = await loadBasePolicy({ tokenEnv: githubTokenEnv, policyFixture });
+  posterContext.basePolicy = basePolicy;
+  if (basePolicy.unavailable) {
+    warnings.push(finding("ADDREV-REF-W002", "policy_source_unavailable",
+      `The base policy could not be read (${basePolicy.unavailable}); no audit seat can be registered for this run.`));
+  }
   for (const rawRef of commentRefs) {
     const parsedRef = parseCommentRef(rawRef);
     if (!parsedRef) {
@@ -113,6 +128,7 @@ export async function buildAdditionalReviewRefReport(options = {}) {
       return report({ verdict: "BLOCKED", resultDir, ref: parsedRef, comment, blockers: [finding(extraction.itemId, undefined, extraction.message)] });
     }
     warnings.push(...extraction.warnings);
+    const poster = await resolvePoster({ comment, ...posterContext });
 
     for (const entry of extraction.entries) {
       const blockers = validateReview({ review: entry.review, actualRepo, actualPr, actualHead });
@@ -120,7 +136,7 @@ export async function buildAdditionalReviewRefReport(options = {}) {
         return report({ verdict: "BLOCKED", resultDir, ref: parsedRef, comment, reviews: [entry.review], blockers });
       }
       allReviews.push({ ...entry, parsedRef, comment });
-      sourceEntries.push(sourceEntry({ parsedRef, comment, review: entry.review, actualRepo, actualPr, actualHead }));
+      sourceEntries.push(sourceEntry({ parsedRef, comment, review: entry.review, actualRepo, actualPr, actualHead, poster, policySource: basePolicy.source }));
     }
   }
 
@@ -256,7 +272,18 @@ function validateReview({ review, actualRepo, actualPr, actualHead }) {
   if (containsOwnerApproval(review)) {
     blockers.push(finding("ADDREV-REF-015"));
   }
+  if (normalizeText(reviewType) === "design_rule_review" && !designRuleDecisionsComplete(review.decisions)) {
+    blockers.push(finding("ADDREV-REF-019"));
+  }
   return blockers;
+}
+
+function designRuleDecisionsComplete(decisions) {
+  const present = (value) => typeof value === "string" && value.trim().length > 0;
+  return Array.isArray(decisions) && decisions.length > 0 && decisions.every((entry) => isObject(entry) &&
+    present(entry.rule_id) && present(entry.path) && present(entry.matched ?? entry.pattern) &&
+    ["safe", "unsafe"].includes(String(entry.decision ?? "").trim().toLowerCase()) &&
+    present(entry.rationale ?? entry.reason));
 }
 
 async function loadComment({ parsedRef, tokenEnv, fixturePath }) {
@@ -273,6 +300,184 @@ async function loadComment({ parsedRef, tokenEnv, fixturePath }) {
   const [owner, repo] = parsedRef.repo.split("/");
   const apiPath = `/repos/${owner}/${repo}/issues/comments/${parsedRef.commentId}`;
   return fetchJson({ apiPath, token });
+}
+
+// ---- poster => seat binding (Rapid/Lite 1.3.0, F03) -------------------------------------------
+// Facts only; the judgment is made in lib.mjs. The rules below copy the read side of
+// check-cell-admission.mjs (publication / registered / jsonBlocks), which is not distributed:
+// a registration row counts only when the Owner (cell_admission.owner_logins) published the same
+// row in the comment its control_source_ref{url, sha256} names.
+const AUDIT_SEAT_FUNCTION = "evidence_audit_gate";
+
+function prAuthorFromEvent() {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) return null;
+  try {
+    const login = JSON.parse(readFileSync(eventPath, "utf8"))?.pull_request?.user?.login;
+    return typeof login === "string" && login.trim() ? login.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+const POLICY_PATH = ".shirube/enforcement-policy.yaml";
+
+function pullRequestBaseFromEvent() {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) return null;
+  try {
+    const base = JSON.parse(readFileSync(eventPath, "utf8"))?.pull_request?.base;
+    const sha = typeof base?.sha === "string" ? base.sha.trim() : "";
+    const repo = typeof base?.repo?.full_name === "string" ? base.repo.full_name.trim() : "";
+    return /^[0-9a-f]{40}$/i.test(sha) && /^[\w.-]+\/[\w.-]+$/.test(repo) ? { sha, repo } : null;
+  } catch {
+    return null;
+  }
+}
+
+// The trust root for seat registration: the policy bytes at the PR's base commit, read through the
+// contents API (repo = pull_request.base.repo, ref = pull_request.base.sha). A failure is never
+// answered with another policy: { policy: null, unavailable } makes every seat unregistered.
+async function loadBasePolicy({ tokenEnv, policyFixture }) {
+  const base = pullRequestBaseFromEvent();
+  if (!base) return { policy: null, unavailable: "event_missing", source: null };
+  const source = { repo: base.repo, ref: base.sha, path: POLICY_PATH };
+  let text;
+  let blobSha = null;
+  let readFrom = "api";
+  if (policyFixture) {
+    readFrom = "fixture";
+    let entry;
+    try {
+      entry = JSON.parse(readFileSync(policyFixture, "utf8"))?.[base.sha];
+    } catch {
+      return { policy: null, unavailable: "fixture_unreadable", source };
+    }
+    if (isObject(entry) && Number.isInteger(entry.status)) {
+      return entry.status === 404 ? { policy: null, missing: true, source } : { policy: null, unavailable: `http_${entry.status}`, source };
+    }
+    if (typeof entry !== "string") return { policy: null, unavailable: "fixture_missing", source };
+    text = entry;
+  } else {
+    const token = process.env[tokenEnv];
+    if (!token) return { policy: null, unavailable: "token_missing", source };
+    const [owner, repo] = base.repo.split("/");
+    const result = await fetchJson({ apiPath: `/repos/${owner}/${repo}/contents/${POLICY_PATH}?ref=${base.sha}`, token });
+    if (result.error) {
+      return result.statusCode === 404
+        ? { policy: null, missing: true, source }
+        : { policy: null, unavailable: `http_${result.statusCode ?? "network"}`, source };
+    }
+    const file = result.comment;
+    if (!isObject(file) || file.type !== "file" || file.encoding !== "base64" || typeof file.content !== "string") {
+      return { policy: null, unavailable: "not_a_file", source };
+    }
+    text = Buffer.from(file.content, "base64").toString("utf8");
+    blobSha = typeof file.sha === "string" ? file.sha : null;
+  }
+  let policy;
+  try {
+    policy = parseStructuredText(text);
+  } catch {
+    return { policy: null, unavailable: "unparsable", source };
+  }
+  if (!isObject(policy)) return { policy: null, unavailable: "unparsable", source };
+  return {
+    policy,
+    source: { ...source, blob_sha: blobSha, sha256: createHash("sha256").update(text).digest("hex"), read_from: readFrom },
+  };
+}
+
+function sameLogin(left, right) {
+  return typeof left === "string" && typeof right === "string" && left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function jsonBlocks(body) {
+  if (typeof body !== "string") return [];
+  const blocks = [...body.matchAll(/```json\s*\n([\s\S]*?)\n```/g)].map((match) => match[1]);
+  if (body.trim().startsWith("{")) blocks.push(body);
+  return blocks.flatMap((text) => {
+    try {
+      const value = JSON.parse(text);
+      return isObject(value) ? [value] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+async function loadPublication({ url, tokenEnv, publicationFixture, cache }) {
+  if (cache.has(url)) return cache.get(url);
+  let publication = null;
+  if (publicationFixture) {
+    try {
+      publication = JSON.parse(readFileSync(publicationFixture, "utf8"))?.[url] ?? null;
+    } catch {
+      publication = null;
+    }
+  } else {
+    const ref = parseCommentRef(url);
+    const token = process.env[tokenEnv];
+    if (ref && token) {
+      const [owner, repo] = ref.repo.split("/");
+      const result = await fetchJson({ apiPath: `/repos/${owner}/${repo}/issues/comments/${ref.commentId}`, token });
+      publication = result.error ? null : result.comment;
+    }
+  }
+  cache.set(url, publication);
+  return publication;
+}
+
+async function rowIsPublished({ row, kind, policy, ...context }) {
+  const ref = row?.control_source_ref;
+  if (!isObject(ref) || !ref.url || !ref.sha256) return false;
+  const publication = await loadPublication({ url: ref.url, ...context });
+  const ownerLogins = Array.isArray(policy?.cell_admission?.owner_logins) ? policy.cell_admission.owner_logins : [];
+  if (!isObject(publication) || publication.html_url !== ref.url || typeof publication.body !== "string" ||
+    createHash("sha256").update(publication.body).digest("hex") !== ref.sha256 ||
+    !ownerLogins.some((login) => sameLogin(login, publication.user?.login))) return false;
+  const fields = kind === "agents" ? ["agent_id", "github_login"] : ["agent_id", "repository", "active_function"];
+  const present = (value) => typeof value === "string" && value.trim().length > 0;
+  return jsonBlocks(publication.body).some((block) => (Array.isArray(block[kind]) ? block[kind] : []).some((actual) =>
+    isObject(actual) && fields.every((field) => present(row[field]) && actual[field] === row[field])));
+}
+
+async function resolvePoster({ comment, actualRepo, prAuthor, basePolicy, ...context }) {
+  const policy = basePolicy?.policy ?? null;
+  const login = comment?.user?.login ?? null;
+  const poster = {
+    login,
+    author_association: comment?.author_association ?? null,
+    pr_author: prAuthor ?? null,
+    seat: null,
+    seat_reason: null,
+  };
+  const admission = isObject(policy?.cell_admission) ? policy.cell_admission : null;
+  if (!login) return { ...poster, seat_reason: "poster_login_missing" };
+  if (basePolicy?.unavailable) return { ...poster, seat_reason: "policy_unavailable", policy_unavailable_detail: basePolicy.unavailable };
+  if (!admission) return { ...poster, seat_reason: "policy_missing" };
+  const list = (value) => (Array.isArray(value) ? value.filter(isObject) : []);
+  const agent = list(admission.agents).find((row) => sameLogin(row.github_login, login));
+  if (!agent) return { ...poster, seat_reason: "agent_not_registered" };
+  const checked = { policy, ...context };
+  if (!await rowIsPublished({ row: agent, kind: "agents", ...checked })) return { ...poster, seat_reason: "agent_publication_unverified" };
+  const bindings = list(admission.seat_bindings).filter((row) => row.agent_id === agent.agent_id &&
+    normalizeRepo(row.repository) === normalizeRepo(actualRepo));
+  const verified = [];
+  for (const binding of bindings) {
+    if (await rowIsPublished({ row: binding, kind: "seat_bindings", ...checked })) verified.push(binding);
+  }
+  const binding = verified.find((row) => row.active_function === AUDIT_SEAT_FUNCTION) ?? verified[0];
+  if (!binding) return { ...poster, seat_reason: "seat_binding_unverified" };
+  return {
+    ...poster,
+    seat: {
+      agent_id: agent.agent_id,
+      active_function: binding.active_function,
+      github_login: agent.github_login,
+      control_source_refs: [agent.control_source_ref.url, binding.control_source_ref.url],
+    },
+  };
 }
 
 function fetchJson({ apiPath, token }) {
@@ -337,8 +542,10 @@ function report({ verdict, resultDir, ref = null, comment = null, reviews = [], 
   };
 }
 
-function sourceEntry({ parsedRef, comment, review, actualRepo, actualPr, actualHead }) {
+function sourceEntry({ parsedRef, comment, review, actualRepo, actualPr, actualHead, poster = null, policySource = null }) {
   return {
+    poster,
+    policy_source: policySource,
     source_comment_url: comment?.html_url ?? parsedRef.sourceCommentUrl,
     comment_id: comment?.id ? String(comment.id) : parsedRef.commentId,
     comment_author: comment?.user?.login ?? null,

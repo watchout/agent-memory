@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import {
+  DESIGN_RULE_REVIEW_TYPE,
+  authorActorsOfHandoff,
   isMain,
   isObject,
   parseArgs,
@@ -9,6 +11,7 @@ import {
 import {
   REVIEW_PLAN_SCHEMA,
   buildReviewPlan,
+  designRuleNeedsReview,
   readChangedFiles,
 } from "./build-review-plan.mjs";
 import {
@@ -29,13 +32,14 @@ const FINDINGS = {
 export function buildReviewPlanCheck(input = {}) {
   const blockers = [];
   const warnings = [];
-  const reviewPlan = isObject(input.reviewPlan)
+  const reviewPlan = withDesignRuleReview(isObject(input.reviewPlan)
     ? input.reviewPlan
     : buildReviewPlan({
         handoff: input.handoff,
         repoPolicy: input.repoPolicy,
         changedFiles: input.changedFiles,
-      });
+        designRuleReport: input.designRuleReport,
+      }), input.designRuleReport);
 
   if (!validReviewPlan(reviewPlan)) {
     blockers.push(finding("REVIEW-001"));
@@ -49,9 +53,14 @@ export function buildReviewPlanCheck(input = {}) {
     actualHead: input.actualHead,
     actualRepo: input.actualRepo,
     actualPr: input.actualPr,
+    designRuleReport: input.designRuleReport,
+    authorActors: authorActorsFrom(input.handoff),
   });
 
   for (const missing of additionalCompletion.missing_reviews) {
+    // A pending design_rule_review is reported as the design-rules gate's NEEDS_REVIEW, not as a blocker:
+    // it clears with an independent record and must stay distinguishable from BLOCKED.
+    if (missing === DESIGN_RULE_REVIEW_TYPE) continue;
     blockers.push(finding("REVIEW-002", {
       path: `additional_reviews.${missing}`,
       message: `Required additional review ${missing} is missing or incomplete.`,
@@ -80,6 +89,8 @@ export function buildReviewPlanCheck(input = {}) {
     actualHead: input.actualHead,
     actualRepo: input.actualRepo,
     actualPr: input.actualPr,
+    designRuleReport: input.designRuleReport,
+    authorActors: authorActorsFrom(input.handoff),
     blockingFindings: blockers,
   });
 
@@ -114,6 +125,34 @@ export function buildReviewPlanCheck(input = {}) {
     warnings: uniqueWarnings,
     required_next_actions: requiredNextActions(uniqueBlockers, uniqueWarnings, sequencing),
   };
+}
+
+// A supplied review plan cannot drop or soften a design_rule_review that the current
+// design-rule report requires: it is replaced by exactly one required entry.
+function withDesignRuleReview(plan, designRuleReport) {
+  if (!isObject(plan) || !Array.isArray(plan.additional_reviews) || !designRuleNeedsReview(designRuleReport)) return plan;
+  const others = plan.additional_reviews.filter((review) => review?.review_type !== DESIGN_RULE_REVIEW_TYPE);
+  const supplied = plan.additional_reviews.filter((review) => review?.review_type === DESIGN_RULE_REVIEW_TYPE);
+  const reasonCodes = [...new Set(["DESIGN_RULE_NEEDS_REVIEW", ...supplied.flatMap((review) =>
+    Array.isArray(review?.reason_codes) ? review.reason_codes : [])])];
+  return {
+    ...plan,
+    additional_reviews: [...others, {
+      ...(supplied.find(isObject) ?? {}),
+      review_type: DESIGN_RULE_REVIEW_TYPE,
+      responsible_role: "audit_seat",
+      required: true,
+      reason_codes: reasonCodes,
+    }],
+    owner_decision: isObject(plan.owner_decision) && Array.isArray(plan.owner_decision.allowed_after) &&
+      !plan.owner_decision.allowed_after.includes("all_additional_reviews_complete")
+      ? { ...plan.owner_decision, allowed_after: [...plan.owner_decision.allowed_after, "all_additional_reviews_complete"] }
+      : plan.owner_decision,
+  };
+}
+
+function authorActorsFrom(handoff) {
+  return authorActorsOfHandoff(handoff).filter((value) => !isPlaceholder(value));
 }
 
 function validReviewPlan(plan) {
@@ -183,6 +222,7 @@ function readInput(options) {
     actualRepo: stringOption(options["actual-repo"]),
     actualPr: stringOption(options["actual-pr"]),
     actualHead: stringOption(options["actual-head"]),
+    designRuleReportPath: stringOption(options["design-rule-report"]),
   };
   const input = {
     ...refs,
@@ -198,6 +238,7 @@ function readInput(options) {
     additionalReviewSource: readOptional(refs.additionalReviewSourcePath),
     additionalReviewSourceTrusted: refs.additionalReviewSourceTrusted,
     changedFiles: readChangedFiles(refs.changedFilesPath),
+    designRuleReport: readOptional(refs.designRuleReportPath),
   };
   return input;
 }
