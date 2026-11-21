@@ -13,7 +13,7 @@
  */
 import { inspect } from "node:util";
 import { z } from "zod";
-import { failure, mapStoreRefusal, type SeatFailure } from "./common-seat-errors.js";
+import { failure, mapStoreRefusal, mapTransportRefusal, type SeatFailure } from "./common-seat-errors.js";
 import { decideStore, STORE_ENV_VARS, type StoreConfigRead, type StoreResolution, type StoreTarget } from "./store-resolution.js";
 
 export const COMMON_CONTRACT = "onza-common/0.2.0-draft.1" as const;
@@ -25,6 +25,8 @@ export interface CommonLimits {
   readonly toolMs: number;
   readonly startupMs: number;
   readonly closeMs: number;
+  /** The longest a statement waits for a lock inside the transaction (u2 NFR5.8, DV-2). */
+  readonly lockMs: number;
   readonly verifyQueryBudget: number;
 }
 
@@ -39,6 +41,8 @@ export const COMMON_LIMITS: CommonLimits = Object.freeze({
   startupMs: 7000,
   /** The wait for a rollback and for closing a connection after a failure. */
   closeMs: 1000,
+  /** The wait for a lock; it ends before the read limit so a blocked call is a failure the caller can act on. */
+  lockMs: 1000,
   /** The query budget declared to the verification; it is only required to be above zero. */
   verifyQueryBudget: 4,
 });
@@ -116,12 +120,50 @@ function readSeatSetting(read: StoreConfigRead): SeatSetting | SeatFailure {
   return parsed.success ? new SeatSetting(parsed.data) : failure("invalid_input", "setting");
 }
 
+const SAME_MACHINE = new Set(["127.0.0.1", "::1", "[::1]", "localhost"]);
+
+/** The URL as the driver reads it: a setting repeated takes its last value, and an empty host in front of the path is an unnamed host. */
+function readPlaceUrl(address: string): { settings: ReadonlyMap<string, string>; host: string } | null {
+  let url: URL;
+  let unnamed = false;
+  try {
+    url = new URL(address);
+  } catch {
+    try {
+      url = new URL(address.replace("@/", "@___DUMMY___/"));
+      unnamed = true;
+    } catch {
+      return null;
+    }
+  }
+  const settings = new Map<string, string>();
+  for (const [key, value] of url.searchParams) settings.set(key, value);
+  try {
+    return { settings, host: settings.get("host") || (unnamed ? "" : decodeURIComponent(url.hostname)) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * NFR8.1, DV-3: a place on this machine (127.0.0.1, ::1, localhost, a Unix socket) needs no TLS. Any other place must
+ * verify the server (`sslmode=verify-full`) against a named CA. A place that names no host, or whose URL does not
+ * parse, is not known to be this machine, so it has to verify too (fail closed). This runs before any connection.
+ */
+function serverVerified(address: string): boolean {
+  const place = readPlaceUrl(address);
+  if (place === null) return false;
+  if (SAME_MACHINE.has(place.host) || place.host.startsWith("/")) return true;
+  return place.settings.get("sslmode") === "verify-full" && (place.settings.get("sslrootcert") ?? "") !== "";
+}
+
 /** For the common form only: the place, then the seat. Nothing here connects. */
 export function resolveCommonPlacement(env: NodeJS.ProcessEnv, readConfig: () => StoreConfigRead): CommonPlacement | SeatFailure {
   const read = once(readConfig);
   const decided = decideStore({ [STORE_ENV_VARS.backend]: "postgres", [STORE_ENV_VARS.url]: env[STORE_ENV_VARS.url] }, read);
   if (!decided.ok) return mapStoreRefusal(decided.reason);
   const place = decided.resolution as Extract<StoreResolution, { backend: "postgres" }>;
+  if (!serverVerified(place.target.reveal())) return mapTransportRefusal();
   const seat = readSeatSetting(read());
   if (!(seat instanceof SeatSetting)) return seat;
   return { ok: true, target: place.target, source: place.source === "environment" ? "environment" : "user_config", seat };

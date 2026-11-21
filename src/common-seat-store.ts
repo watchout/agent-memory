@@ -1,7 +1,7 @@
 /**
  * The seat's store in the common-infrastructure form (u1-seat-memory-skeleton, BR1.4-BR1.6, BR2.1-BR2.7, BR3.1,
  * BR3.3): the one window to the database and the three calls a seat makes (write a decision, read decisions, recover
- * decisions). Each call is one short transaction (connect, BEGIN, SET LOCAL statement_timeout, one Kusabi function
+ * decisions). Each call is one short transaction (connect, BEGIN, SET LOCAL statement_timeout and lock_timeout, one Kusabi function
  * that verifies the seat and reads or writes, COMMIT), so the check and the write stand or fall together. The window
  * is a narrow interface so tests put a fake behind it; only `createPgSqlClient` knows the driver.
  *
@@ -161,6 +161,7 @@ async function call<T>(options: CommonSeatStoreOptions, spec: CallSpec<T>): Prom
     const verify = buildVerifyArguments(options.seat, options.now(), limitMs);
     await connection.query("BEGIN", []);
     await connection.query(`SET LOCAL statement_timeout = ${limitMs}`, []);
+    await connection.query(`SET LOCAL lock_timeout = ${limits.lockMs}`, []);
     sent = true;
     const { rows } = await connection.query(spec.sql, spec.values(verify));
     const row = rows.length === 1 ? answer.safeParse(rows[0]) : null;

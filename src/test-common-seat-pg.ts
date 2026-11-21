@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import pg from "pg";
 import { v7 as uuidv7 } from "uuid";
-import { COMMON_CONTRACT, COMMON_PRODUCT, SeatSetting } from "./common-placement.js";
+import { COMMON_CONTRACT, COMMON_LIMITS, COMMON_PRODUCT, SeatSetting } from "./common-placement.js";
 import { createCommonSeatStore, createPgSqlClient } from "./common-seat-store.js";
 import { StoreTarget } from "./store-resolution.js";
 import { SEAT_A, SEAT_B, SEAT_UNREGISTERED, scratchFolder, syntheticId, type SeatFixture } from "./test-common-seat-support.js";
@@ -565,6 +565,34 @@ check("failures show no secret: an unreachable place and a missing database give
   }
   const back = storeFor("kx_login");
   assert.ok((await back.getDecisions({ limit: 1 })).ok, "the next call reaches the place again with no restart");
+});
+
+check("DV-2: a call that waits for a lock stops at the lock limit as timed_out and writes nothing; the same call goes through once the lock is let go", async () => {
+  const holder = new pg.Client({ host: "127.0.0.1", port, user: "postgres", database: FULL });
+  holder.on("error", () => undefined);
+  await holder.connect();
+  const before = await count(FULL, "SELECT count(*) AS n FROM kusabi.decision");
+  const impatient = createCommonSeatStore({ client: createPgSqlClient(new StoreTarget(url("kx_login", FULL))), seat: new SeatSetting(SEAT_A), now: Date.now, limits: { ...COMMON_LIMITS, lockMs: 200 } });
+  try {
+    await holder.query("BEGIN");
+    await holder.query("LOCK TABLE kusabi.decision IN ACCESS EXCLUSIVE MODE");
+    const started = performance.now();
+    const blockedWrite = failureOf(await impatient.logDecision({ decisionId: uuidv7(), decision: "blocked write", tags: [] }));
+    const waited = performance.now() - started;
+    assert.equal(blockedWrite.name, "placement_unreachable");
+    assert.equal(blockedWrite.cause, "timed_out");
+    assert.equal(blockedWrite.code, "55P03");
+    assert.ok(waited >= 150 && waited < COMMON_LIMITS.readMs, `the wait ended at the lock limit, not the statement limit (${waited.toFixed(0)} ms)`);
+    const blockedRead = failureOf(await impatient.getDecisions({ limit: 5 }));
+    assert.equal(blockedRead.cause, "timed_out");
+    assert.equal(blockedRead.code, "55P03");
+  } finally {
+    await holder.query("ROLLBACK").catch(() => undefined);
+    await holder.end();
+  }
+  assert.equal(await count(FULL, "SELECT count(*) AS n FROM kusabi.decision"), before, "the blocked write left nothing");
+  assert.ok((await impatient.logDecision({ decisionId: uuidv7(), decision: "after the lock", tags: [] })).ok);
+  assert.equal(await count(FULL, "SELECT count(*) AS n FROM kusabi.decision"), before + 1);
 });
 
 check("speed (NFR4.4): with 10,000 decisions of one seat, 100 writes and 100 reads each answer in 500 ms or less at the 95th value", async () => {

@@ -76,12 +76,13 @@ const KUSABI_REASONS: ReadonlyArray<readonly [state: string, name: SeatErrorName
 /**
  * Rules by SQLSTATE alone. A check constraint's own message is not pinned (the limits belong to the database's CHECK
  * constraints, so a breach is an invalid input; db-design-record section 10, option a). A missing schema or function
- * means the places are not installed; the connection classes and a cancelled statement mean the place did not answer.
+ * means the places are not installed; the connection classes, a cancelled statement and a wait for a lock that the
+ * database cut (55P03, u2 DV-2; the transaction was rolled back, so nothing was written) mean the place did not answer.
  */
 const STATE_RULES: ReadonlyArray<{ readonly test: (state: string) => boolean; readonly name: SeatErrorName; readonly cause: FailureCause }> = [
   { test: (s) => s === "23514", name: "invalid_input", cause: "refused" },
   { test: (s) => s === "3F000" || s === "42883", name: "not_initialized", cause: "refused" },
-  { test: (s) => s === "57014", name: "placement_unreachable", cause: "timed_out" },
+  { test: (s) => s === "57014" || s === "55P03", name: "placement_unreachable", cause: "timed_out" },
   { test: (s) => s.startsWith("08") || s === "57P01" || s === "57P02" || s === "57P03" || s === "53300", name: "placement_unreachable", cause: "connect_failed" },
 ];
 
@@ -99,6 +100,10 @@ export const mapStoreRefusal = (reason: StoreRefusalReason): SeatFailure => {
   const name = STORE_REFUSALS[reason];
   return failure(name, "placement", reason, name === "placement_unset" ? PLACEMENT_UNSET_NOTE : undefined);
 };
+
+/** A place that is not on this machine and does not verify the server is a wrong setting, named by a fixed reason and never the URL (u2 NFR8.1, DV-3). */
+export const TLS_NOT_VERIFIED = "tls_not_verified";
+export const mapTransportRefusal = (): SeatFailure => failure("invalid_input", "placement", TLS_NOT_VERIFIED);
 
 const read = (error: unknown, key: "code" | "message"): string | undefined => {
   const value = typeof error === "object" && error !== null ? (error as Record<string, unknown>)[key] : undefined;
