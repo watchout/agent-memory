@@ -10,6 +10,15 @@ Status: draft; not authoritative until repository owner/domain-designer confirma
 
 This directory starts the Kusabi V2 reset without changing runtime behavior. It is intentionally additive and docs-only.
 
+## 2026-09-20 personal-data redesign
+
+The user directed replacement of destructive personal-data masking with typed
+references, encrypted eligible values and authorized reveal. See
+[the implementation design amendment](../design/typed-protected-memory-v1.md).
+AUN's own persistence is protected first; Kusabi then applies the same contract.
+This amendment updates the affected draft boundaries and current SSOT pointers
+without claiming that all V2 drafts are adopted or that runtime behavior changed.
+
 ## Draft source set
 
 - `KUSABI_V2_CANONICAL_SPEC.md` — proposed V2 product/design authority.

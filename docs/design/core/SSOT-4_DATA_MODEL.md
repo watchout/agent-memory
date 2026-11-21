@@ -1,5 +1,10 @@
 # SSOT-4: Data Model - agent-memory (wasurezu)
 
+> 2026-09-20 / #322: 個人情報の変更後設計は
+> [種類付き保護情報の適用設計](../typed-protected-memory-v1.md)を参照。
+> AUNの保存前保護を先行し、Kusabiも型付き記号・暗号化保存・権限付き復号へ対応する。
+> 以下の現行仕様は実装済みの互換動作を示す。本改訂はruntime適用済みの主張ではない。
+
 > 起源: framework retrofit (2026-04-03), quality audit Phase A (2026-04-06)
 > 拡充: AM-010 SSOT 充足 by Arc (2026-04-08)
 > ステータス: v0.3.0 現行実装に基づく single source of truth (mvp-spec から Path B 移行後)
