@@ -129,6 +129,75 @@ cases.push(["no raw value: placements and failures print a fixed word, never the
   assert.ok(!JSON.stringify(unset).includes(SECRET_PASSWORD));
 }]);
 
+const REMOTE = "postgres://seat_user:PW-REMOTE-91c2@db.example.invalid:5432/memory";
+const CA = "sslrootcert=/etc/synthetic/ca.pem";
+const withUrl = (url: string) => resolveCommonPlacement({ AGENT_MEMORY_MODE: "common", AGENT_MEMORY_DATABASE_URL: url }, present(settingFor(SEAT_A)));
+const refusedForTls = (url: string, note: string): void => {
+  const result = failureOf(withUrl(url));
+  assert.equal(result.name, "invalid_input", note);
+  assert.equal(result.cause, "placement", note);
+  assert.equal(result.code, "tls_not_verified", note);
+  const shown = JSON.stringify(result);
+  for (const secret of ["PW-REMOTE-91c2", "db.example.invalid", "seat_user", "/etc/synthetic"]) assert.ok(!shown.includes(secret), `${note}: the failure shows ${secret}`);
+};
+
+const accepted = (url: string, note: string): void => {
+  assert.equal(placementOf(withUrl(url)).target.reveal(), url, note);
+};
+
+cases.push(["DV-3: a place that is not on this machine is refused unless the server is verified (no mode, require, verify-ca)", () => {
+  refusedForTls(REMOTE, "no sslmode");
+  refusedForTls(`${REMOTE}?sslmode=require`, "require");
+  refusedForTls(`${REMOTE}?sslmode=require&${CA}`, "require with a CA");
+  refusedForTls(`${REMOTE}?sslmode=verify-ca&${CA}`, "verify-ca");
+  refusedForTls(`${REMOTE}?sslmode=prefer`, "prefer");
+  refusedForTls(`${REMOTE}?sslmode=disable`, "disable");
+}]);
+
+cases.push(["DV-3: verify-full needs the CA named too; verify-full with a CA is the only way a remote place passes", () => {
+  refusedForTls(`${REMOTE}?sslmode=verify-full`, "verify-full without a CA");
+  refusedForTls(`${REMOTE}?sslmode=verify-full&sslrootcert=`, "verify-full with an empty CA");
+  const placed = placementOf(withUrl(`${REMOTE}?sslmode=verify-full&${CA}`));
+  assert.equal(placed.target.reveal(), `${REMOTE}?sslmode=verify-full&${CA}`);
+  assert.equal(placed.source, "environment");
+}]);
+
+cases.push(["DV-3: the check reads the URL the way the driver does (the last repeated setting wins, a host setting moves the place)", () => {
+  refusedForTls(`${REMOTE}?sslmode=verify-full&${CA}&sslmode=disable`, "a later sslmode");
+  refusedForTls(`${REMOTE}?sslmode=verify-full&${CA}&sslrootcert=`, "a later empty CA");
+  refusedForTls("postgres://seat_user:PW-REMOTE-91c2@localhost:5432/memory?host=db.example.invalid", "a host setting over localhost");
+  refusedForTls("postgres://seat_user:PW-REMOTE-91c2@127.0.0.1:5432/memory?host=db.example.invalid&sslmode=require", "a host setting over 127.0.0.1");
+  accepted("postgres://seat_user@db.example.invalid:5432/memory?host=localhost", "a host setting that points home");
+}]);
+
+cases.push(["DV-3: the place on this machine needs no TLS (127.0.0.1, ::1, localhost, a Unix socket in either spelling)", () => {
+  for (const url of [
+    "postgres://seat_user:PW@127.0.0.1:5432/memory",
+    "postgres://seat_user:PW@[::1]:5432/memory",
+    "postgres://seat_user:PW@localhost:5432/memory",
+    "postgresql://seat_user:PW@localhost/memory",
+    "postgres://seat_user:PW@localhost:5432/memory?sslmode=disable",
+    "postgres://seat_user:PW@localhost/memory?host=%2Fvar%2Frun%2Fsynthetic",
+    "postgres://seat_user:PW@/memory?host=/var/run/synthetic",
+    "postgres://%2Fvar%2Frun%2Fsynthetic/memory",
+  ]) accepted(url, url.replace(/:PW@/, ":***@"));
+}]);
+
+cases.push(["DV-3: a place that names no host, or that does not parse, is refused (it is not known to be this machine)", () => {
+  refusedForTls("postgres:///memory", "no host");
+  refusedForTls("postgres://seat_user:PW-REMOTE-91c2@localhost.invalid:5432/memory", "a host that only starts like localhost");
+  refusedForTls("postgres://seat_user:PW-REMOTE-91c2@127.0.0.2:5432/memory", "another loopback address");
+  refusedForTls("postgres://seat_user:PW-REMOTE-91c2@[db.example.invalid:5432/memory", "a URL that does not parse");
+}]);
+
+cases.push(["DV-3: the refusal is the same from the user config, and a refused place never reaches a seat check", () => {
+  const content = { ...settingFor(SEAT_A), database_url: REMOTE };
+  const fromConfig = failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common" }, present(content)));
+  assert.equal(fromConfig.code, "tls_not_verified");
+  const noSeat = failureOf(resolveCommonPlacement({ AGENT_MEMORY_MODE: "common", AGENT_MEMORY_DATABASE_URL: REMOTE }, () => ({ status: "absent" })));
+  assert.equal(noSeat.code, "tls_not_verified");
+}]);
+
 cases.push(["verification arguments: the call's product, contract, expected place, deadline, budget and expected actor", () => {
   const placement = placementOf(resolveCommonPlacement(COMMON, present(settingFor(SEAT_A))));
   const now = 1_800_000_000_123.9;
@@ -151,6 +220,7 @@ cases.push(["limits: one table, frozen, every time limit above zero and the star
   assert.ok(Object.isFrozen(COMMON_LIMITS));
   for (const value of Object.values(COMMON_LIMITS)) assert.ok(Number.isInteger(value) && value > 0);
   assert.ok(COMMON_LIMITS.startupMs > COMMON_LIMITS.toolMs && COMMON_LIMITS.toolMs > COMMON_LIMITS.readMs);
+  assert.ok(COMMON_LIMITS.lockMs < COMMON_LIMITS.readMs, "DV-2: the wait for a lock ends before the read limit does");
 }]);
 
 cases.push(["S4: the core modules never read the clock, the random source or an id generator themselves", () => {

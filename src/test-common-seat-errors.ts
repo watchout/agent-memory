@@ -85,6 +85,11 @@ cases.push(["the place did not answer: the connection classes, a shutdown and a 
   const cancelled = mapDatabaseError(dbError("57014", "canceling statement due to statement timeout"));
   assert.equal(cancelled?.name, "placement_unreachable");
   assert.equal(cancelled?.cause, "timed_out");
+  const lockWait = mapDatabaseError(dbError("55P03", "canceling statement due to lock timeout"));
+  assert.equal(lockWait?.name, "placement_unreachable", "DV-2: a wait for a lock that the database cut is the same kind of failure as a cancelled statement");
+  assert.equal(lockWait?.cause, "timed_out");
+  assert.equal(lockWait?.code, "55P03");
+  assert.equal(JSON.stringify(lockWait).includes("lock timeout"), false);
 }]);
 
 cases.push(["a SQLSTATE with no row is a failure without a name, never a success", () => {

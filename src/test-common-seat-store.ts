@@ -47,9 +47,15 @@ cases.push(["one write is BEGIN, a time limit, one function call, COMMIT, in tha
   const result = await storeOver(db).logDecision({ decisionId: uuidv7(), decision: DECISION_TEXT, context: "why", project: "p", tags: [{ id: uuidv7(), text: "b" }, { id: uuidv7(), text: "a" }] });
   assert.ok(result.ok);
   assert.equal(result.createdAtMs > NOW, true);
-  assert.deepEqual(texts(db).map((t) => t.split("(")[0]), ["BEGIN", `SET LOCAL statement_timeout = ${COMMON_LIMITS.toolMs}`, "SELECT kusabi.log_decision", "COMMIT"]);
+  assert.deepEqual(texts(db).map((t) => t.split("(")[0]), [
+    "BEGIN",
+    `SET LOCAL statement_timeout = ${COMMON_LIMITS.toolMs}`,
+    `SET LOCAL lock_timeout = ${COMMON_LIMITS.lockMs}`,
+    "SELECT kusabi.log_decision",
+    "COMMIT",
+  ]);
   assert.equal(db.ended, 1);
-  const call = db.statements[2];
+  const call = db.statements[3];
   assert.equal(call.values.length, 9);
   const context = JSON.parse(String(call.values[0]));
   assert.equal(context.deadline_ms, NOW + COMMON_LIMITS.toolMs);
@@ -67,7 +73,13 @@ cases.push(["reads use the read limit and the same order of statements; get filt
   const all = await store.getDecisions({ limit: 10 });
   assert.ok(all.ok);
   assert.deepEqual(all.decisions.map((d) => d.decision_text), ["two", "one"]);
-  assert.deepEqual(texts(db).map((t) => t.split("(")[0]), ["BEGIN", `SET LOCAL statement_timeout = ${COMMON_LIMITS.readMs}`, "SELECT kusabi.get_decisions", "COMMIT"]);
+  assert.deepEqual(texts(db).map((t) => t.split("(")[0]), [
+    "BEGIN",
+    `SET LOCAL statement_timeout = ${COMMON_LIMITS.readMs}`,
+    `SET LOCAL lock_timeout = ${COMMON_LIMITS.lockMs}`,
+    "SELECT kusabi.get_decisions",
+    "COMMIT",
+  ]);
   const byProject = await store.getDecisions({ project: "alpha", limit: 10 });
   assert.ok(byProject.ok && byProject.decisions.length === 1 && byProject.decisions[0].decision_text === "one");
   const byTag = await store.getDecisions({ tags: ["t2"], limit: 10 });
@@ -166,6 +178,31 @@ cases.push(["a call that never answers stops at its limit: a write is 'unknown',
   assert.equal(timed.name, "placement_unreachable");
   assert.equal(timed.cause, "timed_out");
   assert.equal(timed.note, undefined);
+}]);
+
+cases.push(["DV-2: a wait for a lock that the database cuts (55P03) is timed_out for a write too: nothing was written, so it is not 'unknown'", async () => {
+  const wrote = new FakeDb();
+  wrote.faults.select = dbError("55P03", "canceling statement due to lock timeout");
+  const refused = await save(storeOver(wrote));
+  assert.ok(!refused.ok);
+  assert.equal(refused.name, "placement_unreachable");
+  assert.equal(refused.cause, "timed_out");
+  assert.equal(refused.code, "55P03");
+  assert.equal(refused.note, undefined);
+  assert.ok(texts(wrote).includes("ROLLBACK") && !texts(wrote).includes("COMMIT"));
+  const read = new FakeDb();
+  read.faults.select = dbError("55P03", "canceling statement due to lock timeout");
+  const timed = await storeOver(read).getDecisions({ limit: 5 });
+  assert.ok(!timed.ok);
+  assert.equal(timed.cause, "timed_out");
+  assert.equal(JSON.stringify(timed).includes("lock timeout"), false, "no driver text");
+}]);
+
+cases.push(["DV-2: the lock limit is set inside the transaction, after the statement limit and before the function call, from the one table", async () => {
+  const db = new FakeDb();
+  await save(storeOver(db, { ...COMMON_LIMITS, lockMs: 321 }));
+  const order = texts(db).map((t) => t.split("(")[0]);
+  assert.deepEqual(order.slice(0, 4), ["BEGIN", `SET LOCAL statement_timeout = ${COMMON_LIMITS.toolMs}`, "SET LOCAL lock_timeout = 321", "SELECT kusabi.log_decision"]);
 }]);
 
 cases.push(["a connection that does not come up stops at the connect limit and is closed if it arrives late", async () => {
@@ -308,7 +345,7 @@ cases.push(["statement text holds no value: every value travels as a parameter, 
   const failed = await save(store);
   await store.getDecisions({ project: DECISION_TEXT, tags: [DECISION_TEXT], limit: 5 });
   for (const text of texts(db)) {
-    assert.ok(/^(BEGIN|COMMIT|ROLLBACK|SET LOCAL statement_timeout = \d+|SELECT kusabi\.\w+\((\$\d+(::[a-z0-9\[\]]+)?(, )?)+\) AS result)$/.test(text), text);
+    assert.ok(/^(BEGIN|COMMIT|ROLLBACK|SET LOCAL (statement|lock)_timeout = \d+|SELECT kusabi\.\w+\((\$\d+(::[a-z0-9\[\]]+)?(, )?)+\) AS result)$/.test(text), text);
   }
   assert.ok(!JSON.stringify(failed).includes(SECRET_PASSWORD) && !JSON.stringify(failed).includes(DECISION_TEXT));
 }]);
